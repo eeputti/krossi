@@ -105,11 +105,6 @@
   .scroll-story { position: relative; }
   @media (min-width: 940px) {
     .hero-sticky { position: sticky; top: 0; height: 100dvh; display: flex; align-items: center; }
-    .hero-sticky::after {
-      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
-      height: 300px; pointer-events: none; z-index: 5;
-      background: linear-gradient(to bottom, transparent, var(--paper));
-    }
   }
 
   /* ── hero ── */
@@ -237,7 +232,7 @@
   .footer-base { margin-top: clamp(28px,4vw,44px); padding-top: 0; border-top: none; color: #8a857a; font-size: 13px; }
 </style>
 </head>
-<body style="background-color: rgb(255, 255, 255)">
+<body>
   <div id="root"></div>
   <script type="text/babel" src="lib/tweaks-panel.jsx"></script>
   <script type="text/babel" src="lib/krossi-phone.jsx"></script>
