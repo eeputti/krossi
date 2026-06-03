@@ -161,7 +161,7 @@ function Hero({ t }) {
             Uutta{' '}
             {t.highlight ? <span className="hl">peliseuraa?</span> : <span>peliseuraa?</span>}
           </h1>
-          <p className="hero-sub">Löydä tenniskavereita Lahdessa.<br />Luo profiili, selaa pelaajia ja sovi pelit helposti.<br />Ilman ryhmächatin säätöä.</p>
+          <p className="hero-sub">Löydä tenniskavereita Lahdessa.<br />Selaa pelaajia, sovi pelit ja pysy mukana paikallisissa tapahtumissa.</p>
           <div className="hero-cta">
             <a href="https://apps.apple.com/fi/app/krossi/id6771824274" className="btn-lime btn-lg" target="_blank" rel="noopener noreferrer">Lataa Krossi</a>
             <div className="store-row">
