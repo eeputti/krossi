@@ -371,7 +371,7 @@ function KPTabIcon({ id, on }) {
   return <img src={KP_TAB_ICON[id]} alt="" style={{ width: 24, height: 24, objectFit: 'contain', opacity: on ? 1 : 0.42, filter: on ? 'none' : 'grayscale(0.45)', transition: 'opacity .15s' }} />;
 }
 
-function KrossiPhone({ startTab = 'players', width = 300 }) {
+function KrossiPhone({ startTab = 'players', width = 300, onScrollEl }) {
   const [tab, setTab] = React.useState(startTab);
   const [liveOn, setLiveOn] = React.useState(true);
   const [detailId, setDetailId] = React.useState(null);
@@ -381,6 +381,7 @@ function KrossiPhone({ startTab = 'players', width = 300 }) {
   const [toast, setToast] = React.useState(false);
   const scrollRef = React.useRef(null);
   React.useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
+  React.useEffect(() => { if (onScrollEl && scrollRef.current) onScrollEl(scrollRef.current); }, []);
 
   const showToast = () => { setToast(true); setTimeout(() => setToast(false), 1900); };
   const sendRequest = () => { setRequestId(null); setDetailId(null); showToast(); };

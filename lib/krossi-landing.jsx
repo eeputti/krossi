@@ -106,31 +106,84 @@ function Nav() {
 }
 
 function Hero({ t }) {
+  const storyRef = React.useRef(null);
+  const phoneElRef = React.useRef(null);
+
+  const handleScrollEl = React.useCallback((el) => {
+    phoneElRef.current = el;
+    // Set story height once phone content is known (desktop only)
+    if (el && window.innerWidth >= 940) {
+      // Wait one frame for layout to settle
+      requestAnimationFrame(() => {
+        const maxScroll = el.scrollHeight - el.clientHeight;
+        if (storyRef.current && maxScroll > 0) {
+          storyRef.current.style.height = `calc(100vh + ${maxScroll}px)`;
+        }
+      });
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const onScroll = () => {
+      if (window.innerWidth < 940) return;
+      const story = storyRef.current;
+      const phoneEl = phoneElRef.current;
+      if (!story || !phoneEl) return;
+      const scrolledPast = Math.max(0, -story.getBoundingClientRect().top);
+      phoneEl.scrollTop = scrolledPast;
+    };
+
+    const onResize = () => {
+      const phoneEl = phoneElRef.current;
+      const story = storyRef.current;
+      if (!phoneEl || !story) return;
+      if (window.innerWidth >= 940) {
+        const maxScroll = phoneEl.scrollHeight - phoneEl.clientHeight;
+        story.style.height = maxScroll > 0 ? `calc(100vh + ${maxScroll}px)` : '';
+      } else {
+        story.style.height = '';
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
   return (
-    <section className="hero hero-single" id="lataa">
-      <div className="hero-copy">
-        <span className="eyebrow"><span className="ball-dot" /> Nyt testissä Lahdessa</span>
-        <h1 className="hero-title">
-          Uutta{' '}
-          {t.highlight ? <span className="hl">peliseuraa?</span> : <span>peliseuraa?</span>}
-        </h1>
-        <p className="hero-sub">Löydä tenniskavereita Lahdessa.<br />Luo profiili, selaa pelaajia ja sovi pelit helposti.<br />Ilman ryhmächatin säätöä.</p>
-        <div className="hero-cta">
-          <a href="https://apps.apple.com/fi/app/krossi/id6771824274" className="btn-lime btn-lg" target="_blank" rel="noopener noreferrer">Lataa Krossi</a>
-          <div className="store-row">
-            <StoreBadge store="apple" />
-            <StoreBadge store="google" />
+    <div ref={storyRef} className="scroll-story">
+      <section className="hero hero-single hero-sticky" id="lataa">
+        <div className="hero-copy">
+          <span className="eyebrow"><span className="ball-dot" /> Nyt testissä Lahdessa</span>
+          <h1 className="hero-title">
+            Uutta{' '}
+            {t.highlight ? <span className="hl">peliseuraa?</span> : <span>peliseuraa?</span>}
+          </h1>
+          <p className="hero-sub">Löydä tenniskavereita Lahdessa.<br />Luo profiili, selaa pelaajia ja sovi pelit helposti.<br />Ilman ryhmächatin säätöä.</p>
+          <div className="hero-cta">
+            <a href="https://apps.apple.com/fi/app/krossi/id6771824274" className="btn-lime btn-lg" target="_blank" rel="noopener noreferrer">Lataa Krossi</a>
+            <div className="store-row">
+              <StoreBadge store="apple" />
+              <StoreBadge store="google" />
+            </div>
           </div>
+          <p className="hero-fine">Ilmainen beta · Pelaa jo tällä viikolla</p>
         </div>
-        <p className="hero-fine">Ilmainen beta · Pelaa jo tällä viikolla</p>
-      </div>
-      <div className="hero-visual">
-        <div className="phone-glow" />
-        <div className="hero-stage">
-          <div className="phone-front"><KrossiPhone startTab="players" width={290} /></div>
+        <div className="hero-visual">
+          <div className="phone-glow" />
+          <div className="hero-stage">
+            <div className="phone-front"><KrossiPhone startTab="players" width={290} onScrollEl={handleScrollEl} /></div>
+          </div>
+          <p className="phone-caption">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 10V2M6 2L2.5 5.5M6 2L9.5 5.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Testaa ensin, lataa sitten
+          </p>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
@@ -166,7 +219,7 @@ function Trust() {
         <span className="eyebrow eyebrow-light"><span className="ball-dot" /> Lahti — ensimmäinen Krossi-kaupunki</span>
         <h2>Rakennetaan Lahden<br />tennisverkosto yhdessä.</h2>
         <p>Krossi aloittaa Lahdesta. Kun pelaajat löytyvät samasta paikasta, pelien sopiminen, tapahtumien jakaminen ja uusien tenniskavereiden löytäminen helpottuu kaikille.</p>
-        <a href="#" onClick={(e) => e.preventDefault()} className="btn-lime btn-lg">Liity mukaan</a>
+        <a href="#kentalle" className="btn-lime btn-lg">Liity mukaan</a>
       </div>
     </section>
   );
@@ -189,7 +242,7 @@ function Clubs() {
 
 function ClosingCTA() {
   return (
-    <section className="closing closing-photo">
+    <section className="closing closing-photo" id="kentalle">
       <div className="closing-inner">
         <h2>Valmiina kentälle?</h2>
         <p>Löydä. Valitse. Sovi. Pelaa.</p>
