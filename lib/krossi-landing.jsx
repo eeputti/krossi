@@ -59,9 +59,9 @@ function CourtLines({ light = false }) {
 function BallsMedia() {
   return (
     <div className="fm fm-balls">
-      <img src={BALL} alt="" style={{ position: 'absolute', width: '50%', left: '10%', top: '16%', transform: 'rotate(-8deg)' }} />
-      <img src={BALL} alt="" style={{ position: 'absolute', width: '42%', right: '8%', top: '8%', transform: 'rotate(12deg)' }} />
-      <img src={BALL} alt="" style={{ position: 'absolute', width: '38%', left: '32%', bottom: '8%', transform: 'rotate(4deg)' }} />
+      <img src={BALL} alt="" style={{ position: 'absolute', width: '34%', left: '22%', top: '30%', transform: 'rotate(-8deg)' }} />
+      <img src={BALL} alt="" style={{ position: 'absolute', width: '28%', right: '20%', top: '22%', transform: 'rotate(12deg)' }} />
+      <img src={BALL} alt="" style={{ position: 'absolute', width: '26%', left: '38%', bottom: '14%', transform: 'rotate(4deg)' }} />
     </div>
   );
 }
@@ -108,12 +108,11 @@ function Nav() {
 function Hero({ t }) {
   const storyRef = React.useRef(null);
   const phoneElRef = React.useRef(null);
+  const phoneVisualRef = React.useRef(null);
 
   const handleScrollEl = React.useCallback((el) => {
     phoneElRef.current = el;
-    // Set story height once phone content is known (desktop only)
     if (el && window.innerWidth >= 940) {
-      // Wait one frame for layout to settle
       requestAnimationFrame(() => {
         const maxScroll = el.scrollHeight - el.clientHeight;
         if (storyRef.current && maxScroll > 0) {
@@ -123,6 +122,7 @@ function Hero({ t }) {
     }
   }, []);
 
+  // Desktop: drive phone scroll from page scroll via sticky story
   React.useEffect(() => {
     const onScroll = () => {
       if (window.innerWidth < 940) return;
@@ -153,6 +153,43 @@ function Hero({ t }) {
     };
   }, []);
 
+  // Mobile: intercept touch swipes on the phone visual to scroll phone content
+  React.useEffect(() => {
+    const wrapper = phoneVisualRef.current;
+    if (!wrapper) return;
+
+    let startY = 0;
+    let startScrollTop = 0;
+
+    const onTouchStart = (e) => {
+      const phoneEl = phoneElRef.current;
+      if (!phoneEl) return;
+      startY = e.touches[0].clientY;
+      startScrollTop = phoneEl.scrollTop;
+    };
+
+    const onTouchMove = (e) => {
+      if (window.innerWidth >= 940) return;
+      const phoneEl = phoneElRef.current;
+      if (!phoneEl) return;
+      const deltaY = startY - e.touches[0].clientY;
+      const maxScroll = phoneEl.scrollHeight - phoneEl.clientHeight;
+      const atTop = phoneEl.scrollTop <= 0 && deltaY < 0;
+      const atBottom = phoneEl.scrollTop >= maxScroll - 1 && deltaY > 0;
+      if (!atTop && !atBottom) {
+        e.preventDefault();
+        phoneEl.scrollTop = Math.max(0, Math.min(startScrollTop + deltaY, maxScroll));
+      }
+    };
+
+    wrapper.addEventListener('touchstart', onTouchStart, { passive: true });
+    wrapper.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => {
+      wrapper.removeEventListener('touchstart', onTouchStart);
+      wrapper.removeEventListener('touchmove', onTouchMove);
+    };
+  }, []);
+
   return (
     <div ref={storyRef} className="scroll-story">
       <section className="hero hero-single hero-sticky" id="lataa">
@@ -171,7 +208,7 @@ function Hero({ t }) {
           </div>
           <p className="hero-fine">Ilmainen beta · Pelaa jo tällä viikolla</p>
         </div>
-        <div className="hero-visual">
+        <div className="hero-visual" ref={phoneVisualRef}>
           <div className="hero-stage">
             <div className="phone-front"><KrossiPhone startTab="players" width={290} onScrollEl={handleScrollEl} /></div>
           </div>
