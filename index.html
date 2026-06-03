@@ -205,6 +205,9 @@
   .closing p { margin: 0 0 6px; font-size: clamp(1.02rem,2.3vw,1.2rem); color: rgba(255,255,255,0.86); }
 
   /* ── mobile tweaks ── */
+  .demo-label { display: none; }
+  .demo-hint { display: none; font-size: 13px; font-weight: 600; color: #8a857a; margin: 0; }
+  @media (min-width: 940px) { .demo-hint { display: block; } }
   @media (max-width: 779px) {
     .feat-media:has(.fm-balls) { aspect-ratio: 1; max-width: 52%; margin: 0 auto; }
     .feat-media:has(.fm-chat) { aspect-ratio: 5/2; }
@@ -212,7 +215,9 @@
     .closing-photo { background-size: cover; background-position: center; aspect-ratio: 16/9; padding: 20px 22px; }
     .hero-cta { align-items: center; }
     .store-row { justify-content: center; }
-    .hero-fine { text-align: center; }
+    .hero-fine { display: none; }
+    .hero { gap: 8px; }
+    .demo-label { display: block; font-size: 13px; font-weight: 600; color: #8a857a; text-align: center; margin-bottom: 4px; }
   }
 
   /* ── footer (light + tennis balls) ── */

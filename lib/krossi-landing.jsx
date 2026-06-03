@@ -113,10 +113,9 @@ function Hero({ t }) {
     phoneElRef.current = el;
   }, []);
 
-  // Desktop: drive phone scroll based on how far hero section has scrolled past
+  // All screens: drive phone scroll based on how far hero section has scrolled past
   React.useEffect(() => {
     const onScroll = () => {
-      if (window.innerWidth < 940) return;
       const section = heroRef.current;
       const phoneEl = phoneElRef.current;
       if (!section || !phoneEl) return;
@@ -181,8 +180,10 @@ function Hero({ t }) {
             </div>
           </div>
           <p className="hero-fine">Ilmainen beta · Pelaa jo tällä viikolla</p>
+          <p className="demo-hint">→ Testaa vieressä olevaa interaktiivista demoa</p>
         </div>
         <div className="hero-visual" ref={phoneVisualRef}>
+          <p className="demo-label">↓ Alla interaktiivinen demo</p>
           <div className="hero-stage">
             <div className="phone-front"><KrossiPhone startTab="players" width={290} onScrollEl={handleScrollEl} /></div>
           </div>
