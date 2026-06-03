@@ -2,7 +2,7 @@
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "accent": "#CFE414",
-  "bgTone": "warm",
+  "bgTone": "white",
   "heroLayout": "duo",
   "courtLines": true,
   "highlight": true,
