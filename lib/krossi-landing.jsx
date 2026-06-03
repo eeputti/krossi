@@ -106,51 +106,11 @@ function Nav() {
 }
 
 function Hero({ t }) {
-  const storyRef = React.useRef(null);
   const phoneElRef = React.useRef(null);
   const phoneVisualRef = React.useRef(null);
 
   const handleScrollEl = React.useCallback((el) => {
     phoneElRef.current = el;
-    if (el && window.innerWidth >= 940) {
-      requestAnimationFrame(() => {
-        const maxScroll = el.scrollHeight - el.clientHeight;
-        if (storyRef.current && maxScroll > 0) {
-          storyRef.current.style.height = `calc(100vh + ${maxScroll}px)`;
-        }
-      });
-    }
-  }, []);
-
-  // Desktop: drive phone scroll from page scroll via sticky story
-  React.useEffect(() => {
-    const onScroll = () => {
-      if (window.innerWidth < 940) return;
-      const story = storyRef.current;
-      const phoneEl = phoneElRef.current;
-      if (!story || !phoneEl) return;
-      const scrolledPast = Math.max(0, -story.getBoundingClientRect().top);
-      phoneEl.scrollTop = scrolledPast;
-    };
-
-    const onResize = () => {
-      const phoneEl = phoneElRef.current;
-      const story = storyRef.current;
-      if (!phoneEl || !story) return;
-      if (window.innerWidth >= 940) {
-        const maxScroll = phoneEl.scrollHeight - phoneEl.clientHeight;
-        story.style.height = maxScroll > 0 ? `calc(100vh + ${maxScroll}px)` : '';
-      } else {
-        story.style.height = '';
-      }
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onResize, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onResize);
-    };
   }, []);
 
   // Mobile: intercept touch swipes on the phone visual to scroll phone content
@@ -191,8 +151,7 @@ function Hero({ t }) {
   }, []);
 
   return (
-    <div ref={storyRef} className="scroll-story">
-      <section className="hero hero-single hero-sticky" id="lataa">
+    <section className="hero hero-single" id="lataa">
         <div className="hero-copy">
           <h1 className="hero-title">
             Uutta{' '}
@@ -213,8 +172,7 @@ function Hero({ t }) {
             <div className="phone-front"><KrossiPhone startTab="players" width={290} onScrollEl={handleScrollEl} /></div>
           </div>
         </div>
-      </section>
-    </div>
+    </section>
   );
 }
 

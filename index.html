@@ -101,11 +101,8 @@
   .btn-black { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; font-weight: 700; cursor: pointer; text-decoration: none; border: none; background: #141414; color: #fff; transition: transform .15s ease, background .2s; font-family: inherit; line-height: 1; }
   .btn-black:hover { transform: translateY(-2px); background: #000; }
 
-  /* ── scroll story (desktop phone scroll hijack) ── */
+  /* ── scroll story ── */
   .scroll-story { position: relative; }
-  @media (min-width: 940px) {
-    .hero-sticky { position: sticky; top: 0; height: 100dvh; display: flex; align-items: center; }
-  }
 
   /* ── hero ── */
   .hero { max-width: 1120px; margin: 0 auto; padding: clamp(26px,5vw,60px) 22px clamp(44px,7vw,96px); display: grid; grid-template-columns: 1fr; gap: clamp(40px,5vw,56px); align-items: center; width: 100%; }
@@ -119,7 +116,7 @@
   .hero-sub { margin: 0; font-size: clamp(1.05rem, 2.3vw, 1.28rem); line-height: 1.45; color: #514c42; max-width: 34ch; }
   .hero-cta { display: flex; flex-direction: column; gap: 18px; align-items: flex-start; }
   .hero-fine { margin: 2px 0 0; font-size: 14px; color: #8a857a; font-weight: 500; }
-  .hero-visual { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; isolation: isolate; overflow: hidden; }
+  .hero-visual { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; isolation: isolate; }
   .phone-caption { margin-top: 14px; font-size: 13px; font-weight: 600; color: #8a857a; letter-spacing: 0.01em; display: flex; align-items: center; gap: 5px; }
   .phone-caption svg { opacity: 0.6; }
   .phone-glow { position: absolute; inset: -6% -12%; z-index: 0; background: radial-gradient(circle at 50% 44%, rgba(180,68,32,0.28), transparent 64%); filter: blur(30px); }
@@ -170,7 +167,7 @@
   /* ── full-bleed clay sections ── */
   .trust, .closing { position: relative; overflow: hidden; color: #fff; }
   .trust { padding: clamp(56px,9vw,120px) 22px; margin-top: clamp(18px,3vw,36px); }
-  .trust-light { background: #fff; }
+  .trust-light { background: var(--paper); }
   .trust-light, .trust-light h2 { color: var(--ink); }
   .trust-light .eyebrow-light { color: var(--green-deep); }
   .trust-light .ball-dot { background: var(--lime); box-shadow: 0 0 0 3px rgba(207,228,20,0.3); }
@@ -218,7 +215,7 @@
   }
 
   /* ── footer (light + tennis balls) ── */
-  .footer { position: relative; overflow: hidden; background: #fff; color: var(--ink); padding: clamp(48px,8vw,88px) 22px clamp(30px,4vw,44px); }
+  .footer { position: relative; overflow: hidden; background: var(--paper); color: var(--ink); padding: clamp(48px,8vw,88px) 22px clamp(30px,4vw,44px); }
   .footer::after {
     content: ''; position: absolute; right: -1%; bottom: -4%;
     width: min(44%, 380px); aspect-ratio: 620 / 430;
