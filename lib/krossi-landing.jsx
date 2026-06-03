@@ -290,7 +290,6 @@ function App() {
       <Nav />
       <Hero t={t} />
       <Features />
-      <Trust />
       <Clubs />
       <ClosingCTA />
       <Footer />
