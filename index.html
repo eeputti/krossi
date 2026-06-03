@@ -102,9 +102,14 @@
   .btn-black:hover { transform: translateY(-2px); background: #000; }
 
   /* ── scroll story (desktop phone scroll hijack) ── */
-  .scroll-story { position: relative; overflow: hidden; }
+  .scroll-story { position: relative; }
   @media (min-width: 940px) {
-    .hero-sticky { position: sticky; top: 0; height: 100dvh; display: flex; align-items: center; overflow: hidden; }
+    .hero-sticky { position: sticky; top: 0; height: 100dvh; display: flex; align-items: center; }
+    .hero-sticky::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 300px; pointer-events: none; z-index: 5;
+      background: linear-gradient(to bottom, transparent, var(--paper));
+    }
   }
 
   /* ── hero ── */
@@ -115,7 +120,7 @@
     margin: 6px 0 0; font-weight: 800; letter-spacing: -0.035em; line-height: 1.0;
     font-size: calc(clamp(2.7rem, 9vw, 4.7rem) * var(--hscale));
   }
-  .hl { background: var(--lime); padding: 0.02em 0.1em; line-height: 0.86; border-radius: 0; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .hl { background: var(--lime); padding: 0 0.08em; line-height: 0.72; border-radius: 0; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   .hero-sub { margin: 0; font-size: clamp(1.05rem, 2.3vw, 1.28rem); line-height: 1.45; color: #514c42; max-width: 34ch; }
   .hero-cta { display: flex; flex-direction: column; gap: 18px; align-items: flex-start; }
   .hero-fine { margin: 2px 0 0; font-size: 14px; color: #8a857a; font-weight: 500; }

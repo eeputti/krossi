@@ -393,7 +393,7 @@ function KrossiPhone({ startTab = 'players', width = 300, onScrollEl }) {
   const convoPlayer = convoId != null ? KP_PLAYERS[convoId] : null;
 
   return (
-    <div style={{ width, height: h, position: 'relative', borderRadius: width * 0.16, background: '#0a0a0a', padding: width * 0.028, boxShadow: '0 50px 90px -30px rgba(60,18,8,0.55), 0 0 0 1.5px rgba(0,0,0,0.4)' }}>
+    <div style={{ width, height: h, position: 'relative', borderRadius: width * 0.16, background: '#0a0a0a', padding: width * 0.028, boxShadow: '0 0 0 1.5px rgba(0,0,0,0.4)' }}>
       <div className="kp-clay" style={{ width: '100%', height: '100%', borderRadius: width * 0.135, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <div style={{ position: 'absolute', top: 9, left: '50%', transform: 'translateX(-50%)', width: width * 0.3, height: width * 0.085, borderRadius: 99, background: '#000', zIndex: 90 }} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 22px 6px', color: '#fff', flexShrink: 0, zIndex: 85, position: 'relative' }}>
@@ -438,7 +438,7 @@ function KrossiPhone({ startTab = 'players', width = 300, onScrollEl }) {
 function KrossiOnboardPhone({ width = 240 }) {
   const h = Math.round(width * 2.06);
   return (
-    <div style={{ width, height: h, position: 'relative', borderRadius: width * 0.16, background: '#0a0a0a', padding: width * 0.028, boxShadow: '0 50px 90px -30px rgba(60,18,8,0.55), 0 0 0 1.5px rgba(0,0,0,0.4)' }}>
+    <div style={{ width, height: h, position: 'relative', borderRadius: width * 0.16, background: '#0a0a0a', padding: width * 0.028, boxShadow: '0 0 0 1.5px rgba(0,0,0,0.4)' }}>
       <div style={{ width: '100%', height: '100%', borderRadius: width * 0.135, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column', background: "linear-gradient(180deg, rgba(40,14,6,0.15), rgba(40,12,5,0.55)), url('assets/clay-court.jpg') center/cover" }}>
         <div style={{ position: 'absolute', top: 9, left: '50%', transform: 'translateX(-50%)', width: width * 0.3, height: width * 0.085, borderRadius: 99, background: '#000', zIndex: 10 }} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 22px 6px', color: '#fff', flexShrink: 0 }}>
