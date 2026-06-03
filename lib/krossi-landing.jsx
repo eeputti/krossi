@@ -179,11 +179,11 @@ function Hero({ t }) {
               <StoreBadge store="google" />
             </div>
           </div>
-          <p className="hero-fine">Ilmainen beta · Pelaa jo tällä viikolla</p>
-          <p className="demo-hint">→ Testaa vieressä olevaa interaktiivista demoa</p>
+
+          <p className="demo-hint">Testaa vieressä olevaa interaktiivista demoa</p>
         </div>
         <div className="hero-visual" ref={phoneVisualRef}>
-          <p className="demo-label">↓ Alla interaktiivinen demo</p>
+          <p className="demo-label">Alla interaktiivinen demo</p>
           <div className="hero-stage">
             <div className="phone-front"><KrossiPhone startTab="players" width={290} onScrollEl={handleScrollEl} /></div>
           </div>
