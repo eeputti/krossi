@@ -11,7 +11,7 @@
 <style>
   :root {
     --lime: #CFE414;
-    --paper: #F7F5EF;
+    --paper: #FFFFFF;
     --ink: #111111;
     --green-deep: #0E3B2C;
     --line: #D8D4CA;
@@ -125,7 +125,8 @@
   .phone-back { position: relative; z-index: 1; margin-left: -72px; margin-top: 18px; transform: rotate(7deg); pointer-events: none; }
   @media (max-width: 1080px) { .hero-stage { transform: scale(0.94); } }
   @media (max-width: 720px) { .hero-stage { transform: scale(0.82); } }
-  @media (max-width: 460px) { .hero-stage { transform: scale(0.66); transform-origin: center top; margin-bottom: -40px; } }
+  @media (max-width: 720px) { .hero-stage { margin-bottom: -60px; } }
+  @media (max-width: 460px) { .hero-stage { transform: scale(0.66); transform-origin: center top; margin-bottom: -160px; } }
 
   /* ── features (zigzag, light cards) ── */
   .features { max-width: 1120px; margin: 0 auto; padding: clamp(34px,6vw,76px) 22px; }
@@ -208,7 +209,7 @@
     .feat-media:has(.fm-balls) { aspect-ratio: 1; max-width: 52%; margin: 0 auto; }
     .feat-media:has(.fm-chat) { aspect-ratio: 5/2; }
     .feat-media:has(.fm-news) { aspect-ratio: 5/2; }
-    .closing-photo { background-size: 100% auto; background-position: center top; }
+    .closing-photo { background-size: cover; background-position: center; aspect-ratio: 16/9; padding: 20px 22px; }
     .hero-cta { align-items: center; }
     .store-row { justify-content: center; }
     .hero-fine { text-align: center; }

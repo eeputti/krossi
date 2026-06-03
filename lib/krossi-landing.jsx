@@ -106,11 +106,27 @@ function Nav() {
 }
 
 function Hero({ t }) {
+  const heroRef = React.useRef(null);
   const phoneElRef = React.useRef(null);
   const phoneVisualRef = React.useRef(null);
 
   const handleScrollEl = React.useCallback((el) => {
     phoneElRef.current = el;
+  }, []);
+
+  // Desktop: drive phone scroll based on how far hero section has scrolled past
+  React.useEffect(() => {
+    const onScroll = () => {
+      if (window.innerWidth < 940) return;
+      const section = heroRef.current;
+      const phoneEl = phoneElRef.current;
+      if (!section || !phoneEl) return;
+      const rect = section.getBoundingClientRect();
+      const progress = Math.max(0, Math.min(1, -rect.top / section.offsetHeight));
+      phoneEl.scrollTop = progress * (phoneEl.scrollHeight - phoneEl.clientHeight);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   // Mobile: intercept touch swipes on the phone visual to scroll phone content
@@ -151,7 +167,7 @@ function Hero({ t }) {
   }, []);
 
   return (
-    <section className="hero hero-single" id="lataa">
+    <section className="hero hero-single" id="lataa" ref={heroRef}>
         <div className="hero-copy">
           <h1 className="hero-title">
             Uutta{' '}
