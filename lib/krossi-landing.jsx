@@ -157,7 +157,6 @@ function Hero({ t }) {
     <div ref={storyRef} className="scroll-story">
       <section className="hero hero-single hero-sticky" id="lataa">
         <div className="hero-copy">
-          <span className="eyebrow"><span className="ball-dot" /> Nyt testissä Lahdessa</span>
           <h1 className="hero-title">
             Uutta{' '}
             {t.highlight ? <span className="hl">peliseuraa?</span> : <span>peliseuraa?</span>}
