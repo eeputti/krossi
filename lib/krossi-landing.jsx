@@ -96,7 +96,6 @@ function Nav() {
         <a href="#top" className="nav-logo"><Wordmark size={21} /></a>
         <nav className="nav-links">
           <a href="#ominaisuudet">Ominaisuudet</a>
-          <a href="#lahti">Lahti</a>
           <a href="#halleille">Halleille</a>
         </nav>
         <a href="#lataa" className="btn-dark btn-sm">Lataa Krossi</a>
