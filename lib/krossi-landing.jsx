@@ -171,7 +171,7 @@ function Hero({ t }) {
             Uutta{' '}
             {t.highlight ? <span className="hl">peliseuraa?</span> : <span>peliseuraa?</span>}
           </h1>
-          <p className="hero-sub">Löydä tenniskavereita Lahdessa.<br />Selaa pelaajia, sovi pelit ja pysy mukana paikallisissa tapahtumissa.</p>
+          <p className="hero-sub">Uusien pelaajien kanssa on aina erilaista pelata.<br />Selaa pelaajia, luo ja sovi pelejä ja pysy mukana Lahden tennistapahtumissa.</p>
           <div className="hero-cta">
             <a href="https://apps.apple.com/fi/app/krossi/id6771824274" className="btn-lime btn-lg" target="_blank" rel="noopener noreferrer">Lataa Krossi</a>
             <div className="store-row">
@@ -194,14 +194,13 @@ function Hero({ t }) {
 
 const FEATURES = [
   { n: '01', side: 'left', title: 'Löydä pelikavereita', body: 'Selaa paikallisia pelaajia ja löydä omaan tasoon sopivaa peliseuraa.', media: <BallsMedia /> },
-  { n: '02', side: 'right', title: 'Sovi pelit helposti', body: 'Viestittele, ehdota aikaa ja siirrä sopiminen pois hajanaisista ryhmistä.', media: <ChatMedia /> },
+  { n: '02', side: 'right', title: 'Sovi pelit helposti', body: 'Luo avoimia haasteita, joihin muut voivat liittyä. Pelaa, kun sulle sopii tai ehdota aikoja ja siirrä sopiminen pois hajanaisista viestikeskusteluista.', media: <ChatMedia /> },
   { n: '03', side: 'left', title: 'Pysy mukana', body: 'Näe paikalliset tennisjutut, tapahtumat ja pelaajat yhdessä paikassa.', media: <NewsMedia /> },
 ];
 
 function Features() {
   return (
     <section className="features" id="ominaisuudet">
-      <h2 className="sec-title">Tennispelejä<br />ilman säätöä.</h2>
       <div className="feat-zig">
         {FEATURES.map((f) => (
           <article key={f.n} className={`feat-card feat-${f.side}`}>
