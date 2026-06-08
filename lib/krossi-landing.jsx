@@ -56,20 +56,10 @@ function CourtLines({ light = false }) {
 }
 
 // ── feature mini-visuals ────────────────────────────────
-function BallsMedia() {
+function FeatureShot({ src }) {
   return (
-    <div className="fm fm-balls">
-      <img src={BALL} alt="" style={{ position: 'absolute', width: '34%', left: '22%', top: '30%', transform: 'rotate(-8deg)' }} />
-      <img src={BALL} alt="" style={{ position: 'absolute', width: '28%', right: '20%', top: '22%', transform: 'rotate(12deg)' }} />
-      <img src={BALL} alt="" style={{ position: 'absolute', width: '26%', left: '38%', bottom: '14%', transform: 'rotate(4deg)' }} />
-    </div>
-  );
-}
-function ChatMedia() {
-  return (
-    <div className="fm fm-chat">
-      <span className="bubble bubble-them">Klo 18 kentälle?</span>
-      <span className="bubble bubble-me">Sopii! 🎾</span>
+    <div className="fm fm-shot">
+      <img src={src} alt="" />
     </div>
   );
 }
@@ -193,9 +183,10 @@ function Hero({ t }) {
 }
 
 const FEATURES = [
-  { n: '01', side: 'left', title: 'Löydä pelikavereita', body: 'Selaa paikallisia pelaajia ja löydä omaan tasoon sopivaa peliseuraa.', media: <BallsMedia /> },
-  { n: '02', side: 'right', title: 'Sovi pelit helposti', body: 'Luo avoimia haasteita, joihin muut voivat liittyä. Pelaa, kun sulle sopii tai ehdota aikoja ja siirrä sopiminen pois hajanaisista viestikeskusteluista.', media: <ChatMedia /> },
-  { n: '03', side: 'left', title: 'Pysy mukana', body: 'Näe paikalliset tennisjutut, tapahtumat ja pelaajat yhdessä paikassa.', media: <NewsMedia /> },
+  { n: '01', side: 'left', title: 'Löydä pelikavereita', body: 'Selaa paikallisia pelaajia ja löydä omaan tasoon sopivaa peliseuraa.', media: <FeatureShot src="assets/loyda-pelikavereita.png" /> },
+  { n: '02', side: 'right', title: 'Sovi pelit helposti', body: 'Luo avoimia haasteita, joihin muut voivat liittyä. Pelaa, kun sulle sopii tai ehdota aikoja ja siirrä sopiminen pois hajanaisista viestikeskusteluista.', media: <FeatureShot src="assets/sovi-pelit-helposti.png" /> },
+  { n: '03', side: 'left', title: 'Luo omia haasteita', body: 'Hae pelikaveria juuri sellaiseen peliin kuin sulle sopii.', media: <FeatureShot src="assets/luo-haasteita.png" /> },
+  { n: '04', side: 'right', title: 'Pysy mukana', body: 'Näe paikalliset tennisjutut, tapahtumat ja pelaajat yhdessä paikassa.', media: <NewsMedia /> },
 ];
 
 function Features() {

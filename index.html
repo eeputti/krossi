@@ -189,12 +189,9 @@
   }
   /* feature media inner */
   .fm { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-  .fm-balls { background: transparent; position: relative; }
-  .fm-balls img { filter: drop-shadow(0 8px 16px rgba(0,0,0,0.18)); }
-  .fm-chat { background: transparent; flex-direction: column; gap: 5px; padding: 8% 8% 3% 8%; align-items: stretch; justify-content: flex-end; }
-  .bubble { padding: 12px 18px; border-radius: 18px; font-size: clamp(15px,2.4vw,19px); font-weight: 600; max-width: 88%; line-height: 1.3; }
-  .bubble-them { align-self: flex-start; background: #E2DDD2; color: #2a2620; border-bottom-left-radius: 5px; }
-  .bubble-me { align-self: flex-end; background: var(--lime); color: #101a08; border-bottom-right-radius: 5px; }
+  .fm-shot { background: #fff; border-radius: 18px; overflow: hidden; }
+  .fm-shot img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .feat-media:has(.fm-shot) { aspect-ratio: 7 / 8; }
   .fm-news { background: transparent; padding: 6%; justify-content: center; }
   .news-card { width: 100%; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 22px -10px rgba(0,0,0,0.3); }
   .news-thumb { height: clamp(60px,9vw,86px); background: url('assets/clay-court.jpg') center/cover; position: relative; }
@@ -247,8 +244,7 @@
   .demo-hint { display: none; font-size: 13px; font-weight: 600; color: #8a857a; margin: 0; }
   @media (min-width: 940px) { .demo-hint { display: block; } }
   @media (max-width: 779px) {
-    .feat-media:has(.fm-balls) { aspect-ratio: 1; max-width: 52%; margin: 0 auto; }
-    .feat-media:has(.fm-chat) { aspect-ratio: 5/2; }
+    .feat-media:has(.fm-shot) { max-width: 60%; margin: 0 auto; }
     .feat-media:has(.fm-news) { aspect-ratio: 5/2; }
     .closing-photo { background-size: cover; background-position: center; aspect-ratio: 16/9; padding: 20px 22px; }
     .hero-cta { align-items: center; }
