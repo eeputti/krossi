@@ -23,7 +23,7 @@ function StoreBadge({ store }) {
   const apple = store === 'apple';
   const href = apple ? 'https://apps.apple.com/fi/app/krossi/id6771824274' : '#';
   const handleClick = apple ? undefined : (e) => e.preventDefault();
-  return (
+  const badge = (
     <a href={href} onClick={handleClick} className="store-badge" target={apple ? '_blank' : undefined} rel={apple ? 'noopener noreferrer' : undefined}>
       {apple ? (
         <svg width="20" height="24" viewBox="0 0 20 24" fill="#fff"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.2-1.2 3.1-2.5.7-1 1-2 1-2-.1 0-2-.8-2-3.3zM13.9 3.5c.7-.9 1.2-2.1 1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3.1-1.4z" /></svg>
@@ -31,10 +31,17 @@ function StoreBadge({ store }) {
         <svg width="20" height="22" viewBox="0 0 20 22"><path d="M1 1.5v19l10-9.5L1 1.5z" fill="#fff" /><path d="M1 1.5l13.5 7L11 11 1 1.5z" fill="#fff" opacity="0.85" /><path d="M1 20.5L11 11l3.5 2.5L1 20.5z" fill="#fff" opacity="0.7" /><path d="M14.5 8.5L19 11l-4.5 2.5L11 11l3.5-2.5z" fill="#fff" opacity="0.55" /></svg>
       )}
       <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, textAlign: 'left' }}>
-        <span style={{ fontSize: 10.5, opacity: 0.8, fontWeight: 500 }}>{apple ? 'Lataa täältä' : 'Tulossa pian'}</span>
+        <span style={{ fontSize: 10.5, opacity: 0.8, fontWeight: 500 }}>{apple ? 'Lataa täältä' : 'Saatavilla'}</span>
         <span style={{ fontSize: 16, fontWeight: 700 }}>{apple ? 'App Store' : 'Google Play'}</span>
       </span>
     </a>
+  );
+  if (apple) return badge;
+  return (
+    <div className="store-badge-wrap">
+      {badge}
+      <span className="store-badge-note">Testiversio</span>
+    </div>
   );
 }
 
