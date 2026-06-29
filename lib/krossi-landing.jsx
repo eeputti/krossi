@@ -169,11 +169,7 @@ function Hero({ t }) {
           </h1>
           <p className="hero-sub">Löydä pelaajia, luo ja sovi pelejä ja pysy mukana Lahden tennistapahtumissa. Täysin ilmaiseksi.</p>
           <div className="hero-cta">
-            <a href="https://apps.apple.com/fi/app/krossi/id6771824274" className="btn-lime btn-lg" target="_blank" rel="noopener noreferrer">Lataa Krossi</a>
-            <div className="store-row">
-              <StoreBadge store="apple" />
-              <StoreBadge store="google" />
-            </div>
+            <a href="/app" className="btn-lime btn-lg">Kokeile Krossia</a>
           </div>
 
           <p className="demo-hint">Testaa vieressä olevaa interaktiivista demoa</p>
