@@ -3,6 +3,7 @@
 
 const SUPABASE_URL = 'https://hhybjpgrvlbazbqiaaao.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_IKLRGbstMLfxKeXwBTavSA_UVYyMgTL';
+const GOOGLE_WEB_CLIENT_ID = '167101285509-16e43m52r8odjb2k78egq7apg2mk0g5u.apps.googleusercontent.com';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
 });
@@ -159,7 +160,7 @@ function AuthScreen() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: window.location.origin + '/app' },
+        options: { redirectTo: window.location.origin + '/pelaa' },
       });
       if (error) throw error;
     } catch (err) { setError(err.message || 'Kirjautuminen epäonnistui'); setBusy(false); }
@@ -170,11 +171,11 @@ function AuthScreen() {
     try {
       if (mode === 'login') { const { error } = await supabase.auth.signInWithPassword({ email, password: pw }); if (error) throw error; }
       else if (mode === 'register') {
-        const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: window.location.origin + '/app' } });
+        const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: window.location.origin + '/pelaa' } });
         if (error) throw error;
         if (data.user && !data.session) setInfo('Vahvistusviesti lähetetty sähköpostiisi.');
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/app' });
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/pelaa' });
         if (error) throw error; setInfo('Palautuslinkki lähetetty.');
       }
     } catch (err) { setError(err.message || 'Virhe'); } finally { setBusy(false); }
@@ -509,7 +510,7 @@ function ChallengesScreen({ onOpenChallenge, onCreateChallenge }) {
     })();
   }, []);
   return <div className="page">
-    <div className="page-header"><h2 className="page-title">Avoimet haasteet</h2><button className="btn btn-lime btn-sm" onClick={onCreateChallenge}>+ Luo haaste</button></div>
+    <div className="page-header"><h2 className="page-title">Avoimet</h2><button className="btn btn-lime btn-sm" onClick={onCreateChallenge}>+ Luo haaste</button></div>
     {loading?<Spinner/>:list.length===0?<Empty title="Ei avoimia haasteita." action="Luo ensimmäinen" onAction={onCreateChallenge}/>:list.map(c=><ChallengeCard key={c.id} challenge={c} onClick={()=>onOpenChallenge(c)}/>)}
   </div>;
 }
@@ -726,10 +727,10 @@ function ProfileFullScreen() {
   const tog=(k,v)=>setForm(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
 
   const SectionTitle = ({children})=><h3 style={{fontSize:13,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,margin:'20px 0 8px'}}>{children}</h3>;
-  const SettingsRow = ({label,value,onClick,danger})=>(
+  const SettingsRow = ({label,value,onClick,danger,valueColor})=>(
     <button onClick={onClick} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',padding:'12px 16px',background:'#fff',border:'1px solid var(--border)',borderRadius:12,cursor:'pointer',fontFamily:'inherit',fontSize:14,color:danger?'var(--danger)':'var(--ink)',fontWeight:500,marginBottom:6,textAlign:'left'}}>
       <span>{label}</span>
-      <span style={{color:'var(--text-muted)',fontSize:13}}>{value||'→'}</span>
+      <span style={{color:valueColor||'var(--text-muted)',fontSize:13,fontWeight:valueColor?700:400}}>{value||'→'}</span>
     </button>
   );
 
@@ -767,7 +768,7 @@ function ProfileFullScreen() {
     {(profile.katisyys||profile.rysty)&&<div className="card" style={{marginBottom:14}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Tyyli</div>{profile.katisyys&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.katisyys)}</div>}{profile.rysty&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.rysty)} rysty</div>}</div>}
 
     <SectionTitle>Asetukset</SectionTitle>
-    <SettingsRow label="Piilota profiili feedistä" value={profile.hiddenFromFeed?'Päällä':'Pois'} onClick={toggleHidden}/>
+    <SettingsRow label="Piilota profiili feedistä" value={profile.hiddenFromFeed?'Päällä':'Pois'} valueColor={profile.hiddenFromFeed?'#2d7a4d':'#c0392b'} onClick={toggleHidden}/>
 
     <SectionTitle>Kirjautumistavat</SectionTitle>
     <div className="card" style={{marginBottom:6}}>
@@ -794,7 +795,7 @@ function TopNav({ tab, setTab }) {
   const { profile } = useAuth();
   const links = [
     { id: 'players', label: 'Pelaajat', icon: 'assets/ball-tight.png' },
-    { id: 'challenges', label: 'Avoimet haasteet', icon: 'assets/avoimet-tight.png' },
+    { id: 'challenges', label: 'Avoimet', icon: 'assets/avoimet-tight.png' },
     { id: 'messages', label: 'Viestit', icon: 'assets/viestit-tight.png' },
   ];
   return (

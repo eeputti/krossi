@@ -2,7 +2,7 @@
 <html lang="fi">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Krossi — Selainversio</title>
 <meta name="description" content="Krossi selainversio — löydä pelikavereita, sovi pelit ja pysy mukana." />
 <link rel="icon" type="image/png" href="assets/ball-tight.png" />
@@ -11,6 +11,7 @@
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
 
 <style>
   :root {
@@ -26,10 +27,13 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body, #root { height: 100%; }
+  html { overflow-x: hidden; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
     background: var(--paper); color: var(--ink);
+    overflow-x: hidden; width: 100vw; max-width: 100vw;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* ── light background ── */
@@ -39,43 +43,44 @@
   .top-nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;
     height: var(--nav-h); display: flex; align-items: center;
-    background: rgba(255,255,255,0.92); backdrop-filter: blur(18px);
-    border-bottom: 1px solid var(--border);
+    background: var(--green-deep); backdrop-filter: blur(18px);
+    border-bottom: none;
     padding: 0 24px; gap: 8px;
   }
   .top-nav-logo {
-    font-weight: 800; font-size: 22px; color: var(--green-deep); letter-spacing: -0.8px;
+    font-weight: 800; font-size: 22px; color: var(--lime); letter-spacing: -0.8px;
     text-decoration: none; margin-right: 32px; flex-shrink: 0;
   }
   .top-nav-links { display: flex; gap: 4px; flex: 1; }
   .top-nav-link {
     display: flex; align-items: center; gap: 7px;
     padding: 8px 16px; border-radius: 999px; border: none; background: transparent;
-    color: var(--text-muted); font-size: 14px; font-weight: 600;
+    color: rgba(255,255,255,0.7); font-size: 14px; font-weight: 600;
     cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap;
     text-decoration: none; position: relative;
   }
-  .top-nav-link:hover { color: var(--ink); background: rgba(0,0,0,0.04); }
-  .top-nav-link.active { color: var(--green-deep); background: rgba(14,59,44,0.08); }
-  .top-nav-link img { width: 18px; height: 18px; object-fit: contain; opacity: 0.5; }
+  .top-nav-link:hover { color: #fff; background: rgba(255,255,255,0.08); }
+  .top-nav-link.active { color: #fff; background: rgba(255,255,255,0.12); }
+  .top-nav-link img { width: 18px; height: 18px; object-fit: contain; opacity: 0.7; filter: brightness(0) invert(1); }
   .top-nav-link.active img { opacity: 1; }
+  .top-nav-link:hover img { opacity: 0.9; }
   .nav-badge {
     position: absolute; top: 4px; right: 8px;
-    width: 8px; height: 8px; border-radius: 50%; background: var(--green-deep);
+    width: 8px; height: 8px; border-radius: 50%; background: var(--lime);
   }
   .top-nav-profile {
     display: flex; align-items: center; gap: 10px;
-    padding: 6px 14px 6px 6px; border-radius: 999px; border: 1px solid var(--border);
-    background: #fff; cursor: pointer;
+    padding: 6px 14px 6px 6px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08); cursor: pointer;
     font-family: inherit; transition: all .15s; margin-left: auto; flex-shrink: 0;
   }
-  .top-nav-profile:hover { background: #f5f3ed; }
-  .top-nav-profile.active { background: rgba(14,59,44,0.06); border-color: var(--green-deep); }
-  .top-nav-profile span { color: var(--ink); font-weight: 600; font-size: 14px; }
+  .top-nav-profile:hover { background: rgba(255,255,255,0.14); }
+  .top-nav-profile.active { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.35); }
+  .top-nav-profile span { color: #fff; font-weight: 600; font-size: 14px; }
 
   /* ── desktop layout ── */
-  .app-shell { display: flex; flex-direction: column; height: 100%; padding-top: var(--nav-h); }
-  .app-body { display: flex; flex: 1; overflow: hidden; }
+  .app-shell { display: flex; flex-direction: column; height: 100%; padding-top: var(--nav-h); max-width: 100vw; overflow-x: hidden; }
+  .app-body { display: flex; flex: 1; overflow: hidden; max-width: 100vw; }
   .app-sidebar {
     width: var(--sidebar-w); flex-shrink: 0; overflow-y: auto;
     border-right: 1px solid var(--border);
@@ -212,7 +217,7 @@
   .msg-row:last-child { border-bottom: none; }
 
   /* ── chat ── */
-  .chat-bubble { max-width: 65%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; }
+  .chat-bubble { max-width: 75%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-break: break-word; }
   .chat-mine { align-self: flex-end; background: var(--green-deep); color: #fff; border-bottom-right-radius: 4px; font-weight: 600; }
   .chat-theirs { align-self: flex-start; background: #f0ede6; color: var(--ink); border-bottom-left-radius: 4px; }
 
@@ -271,17 +276,24 @@
 
   /* ── responsive: mobile ── */
   @media (max-width: 860px) {
-    .top-nav { padding: 0 14px; }
-    .top-nav-logo { margin-right: 16px; font-size: 19px; }
-    .top-nav-link { padding: 7px 10px; font-size: 13px; }
-    .top-nav-link img { display: none; }
+    .top-nav { padding: 0 10px; gap: 4px; }
+    .top-nav-logo { margin-right: 8px; font-size: 18px; }
+    .top-nav-links { gap: 2px; }
+    .top-nav-link { padding: 6px 10px; font-size: 12px; gap: 5px; }
+    .top-nav-link img { width: 16px; height: 16px; }
+    .top-nav-profile { padding: 4px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.25); }
+    .top-nav-profile span { display: none; }
+    .top-nav-profile.active { border-color: rgba(255,255,255,0.4); }
     .app-sidebar { display: none; }
     .page { padding: 0 14px; }
+    .page-title { font-size: 22px; }
+    .app-shell, .app-body, .app-main, .app-full { max-width: 100vw; overflow-x: hidden; }
   }
-  @media (max-width: 520px) {
-    .top-nav-links { gap: 0; }
-    .top-nav-link { padding: 6px 8px; font-size: 12px; }
-    .top-nav-profile span { display: none; }
+  @media (max-width: 400px) {
+    .top-nav { padding: 0 8px; }
+    .top-nav-logo { margin-right: 4px; font-size: 16px; }
+    .top-nav-link { padding: 5px 7px; font-size: 11px; gap: 4px; }
+    .top-nav-link img { width: 14px; height: 14px; }
   }
 </style>
 </head>

@@ -1,6 +1,6 @@
 {
   "framework": null,
   "rewrites": [
-    { "source": "/app", "destination": "/app.html" }
+    { "source": "/pelaa", "destination": "/app.html" }
   ]
 }
