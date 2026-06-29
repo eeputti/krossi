@@ -307,12 +307,8 @@ function ClosingCTA() {
         <div className="closing-inner">
           <h2>Valmiina kentälle!</h2>
           <p>Löydä. Valitse. Sovi. Pelaa.</p>
-          <a href="https://apps.apple.com/fi/app/krossi/id6771824274" className="btn-lime btn-lg" target="_blank" rel="noopener noreferrer">Lataa Krossi</a>
+          <a href="/app" className="btn-lime btn-lg">Kokeile Krossia</a>
         </div>
-      </div>
-      <div className="store-row store-row-center closing-stores">
-        <StoreBadge store="apple" />
-        <StoreBadge store="google" />
       </div>
     </section>
   );
