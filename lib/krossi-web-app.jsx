@@ -188,10 +188,10 @@ function AuthScreen() {
   };
 
   return (
-    <div className="auth-shell clay-bg">
+    <div className="auth-shell" style={{ background: 'var(--paper)' }}>
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <span style={{ fontSize: 40, fontWeight: 800, color: 'var(--lime)', letterSpacing: -1.5 }}>Krossi</span>
-        <p style={{ color: 'rgba(255,255,255,0.65)', marginTop: 6, fontSize: 14 }}>Löydä pelikavereita tennikseen</p>
+        <span style={{ fontSize: 40, fontWeight: 800, color: 'var(--green-deep)', letterSpacing: -1.5 }}>Krossi</span>
+        <p style={{ color: 'var(--text-muted)', marginTop: 6, fontSize: 14 }}>Löydä pelikavereita tennikseen</p>
       </div>
       <div className="auth-card">
         <h2 style={{ margin: '0 0 18px', fontSize: 20, fontWeight: 800 }}>
@@ -236,7 +236,7 @@ function AuthScreen() {
           </> : <button onClick={() => { setMode('login'); setError(''); setInfo(''); }} style={{ background:'none',border:'none',color:'var(--green-deep)',fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>Takaisin kirjautumiseen</button>}
         </div>
       </div>
-      <a href="/" style={{ color:'rgba(255,255,255,0.5)',marginTop:20,fontSize:13,textDecoration:'none' }}>← Takaisin etusivulle</a>
+      <a href="/" style={{ color:'var(--text-muted)',marginTop:20,fontSize:13,textDecoration:'none' }}>← Takaisin etusivulle</a>
     </div>
   );
 }
