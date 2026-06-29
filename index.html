@@ -281,6 +281,43 @@
   .footer-links a { color: var(--green-deep); text-decoration: none; font-weight: 700; font-size: 15px; }
   .footer-links span { color: #8a857a; font-size: 15px; }
   .footer-base { margin-top: clamp(28px,4vw,44px); padding-top: 0; border-top: none; color: #8a857a; font-size: 13px; }
+
+  /* ── upcoming matches ── */
+  .upcoming { max-width: 1120px; margin: 0 auto; padding: clamp(20px,4vw,48px) 22px clamp(34px,5vw,60px); }
+  .upcoming-inner { }
+  .upcoming-header { text-align: center; margin-bottom: clamp(24px,4vw,40px); }
+  .upcoming-title { font-size: clamp(2rem,5.5vw,3.2rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; margin: 10px 0 12px; }
+  .upcoming-sub { font-size: clamp(0.95rem,2vw,1.12rem); color: #6b665c; max-width: 50ch; margin: 0 auto; line-height: 1.5; }
+  .upcoming-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .upcoming-card {
+    display: flex; flex-direction: column; gap: 10px;
+    background: #fff; border: 1.5px solid #e6e2d8; border-radius: 20px;
+    padding: 18px 20px; text-decoration: none; color: var(--ink);
+    transition: transform .15s, box-shadow .2s, border-color .2s;
+    cursor: pointer;
+  }
+  .upcoming-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px -12px rgba(40,20,6,0.18); border-color: var(--lime); }
+  .uc-top { display: flex; align-items: center; justify-content: space-between; }
+  .uc-day { font-size: 13px; font-weight: 700; color: var(--green-deep); }
+  .uc-type {
+    font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+    background: rgba(14,59,44,0.08); color: var(--green-deep);
+  }
+  .uc-body { display: flex; align-items: center; gap: 12px; }
+  .uc-info { flex: 1; min-width: 0; }
+  .uc-name { font-weight: 700; font-size: 15.5px; color: var(--ink); }
+  .uc-loc { font-size: 13px; color: #8a857a; margin-top: 1px; }
+  .uc-slots { display: flex; gap: 4px; flex-shrink: 0; }
+  .uc-slot { width: 22px; height: 22px; border-radius: 50%; border: 1.8px dashed #c5c0b5; }
+  .uc-desc { font-size: 13.5px; color: #6b665c; line-height: 1.45; margin: 0; }
+  .uc-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .uc-tag {
+    font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+    background: #f4f2ec; color: #6b665c; border: 1px solid #e6e2d8;
+  }
+  @media (max-width: 620px) {
+    .upcoming-grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>

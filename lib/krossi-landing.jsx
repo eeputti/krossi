@@ -94,7 +94,7 @@ function Nav() {
           <a href="#ominaisuudet">Ominaisuudet</a>
           <a href="#halleille">Halleille</a>
         </nav>
-        <a href="#lataa" className="btn-dark btn-sm">Lataa Krossi</a>
+        <a href="/app" className="btn-lime btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Kokeile Krossia</a>
       </header>
     </div>
   );
@@ -195,6 +195,69 @@ const FEATURES = [
   { n: '04', side: 'right', title: 'Pysy mukana', body: 'Näe paikalliset tennisjutut, tapahtumat ja pelaajat yhdessä paikassa.', media: <NewsMedia /> },
 ];
 
+// ── upcoming matches ───────────────────────────────────
+const DEMO_MATCHES = [
+  { id: 1, creator: 'Roger Federer', initials: 'RF', hue: 210, age: 44, level: 'Kilpapelaaja', type: 'Kaksinpeli', loc: 'Janus Areena', locType: 'Sisätennis', day: 'Tänään', time: 'klo 18:00', desc: 'Rentoa pallottelua illan päätteeksi. Kaikki tasot tervetulleita!', slots: 1 },
+  { id: 2, creator: 'Serena Williams', initials: 'SW', hue: 340, age: 44, level: 'Edistynyt', type: 'Pallottelu', loc: 'Kispi Areena', locType: 'Sisätennis', day: 'Huomenna', time: 'klo 10:00', desc: 'Aamutreeni ennen töitä — sparrauskaveria haetaan!', slots: 1 },
+  { id: 3, creator: 'Rafael Nadal', initials: 'RN', hue: 25, age: 39, level: 'Kilpapelaaja', type: 'Nelinpeli', loc: 'Mukkulan kentät', locType: 'Ulkotennis', day: 'Lauantai', time: 'klo 12:00', desc: 'Nelinpelisessio ulkona — tarvitaan 3 muuta. Massa-alustalla.', slots: 3 },
+  { id: 4, creator: 'Naomi Osaka', initials: 'NO', hue: 280, age: 28, level: 'Keskitaso', type: 'Kaksinpeli', loc: 'Janus Areena', locType: 'Sisätennis', day: 'Sunnuntai', time: 'klo 16:00', desc: null, slots: 1 },
+];
+
+function DemoAvatar({ initials, hue, size = 38 }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: `linear-gradient(135deg, hsl(${hue} 55% 55%), hsl(${hue+30} 50% 38%))`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#fff', fontWeight: 700, fontSize: size * 0.35, letterSpacing: 0.3,
+    }}>{initials}</div>
+  );
+}
+
+function UpcomingMatches() {
+  return (
+    <section className="upcoming" id="tulevat">
+      <div className="upcoming-inner">
+        <div className="upcoming-header">
+          <span className="eyebrow"><span className="ball-dot" /> Tulevat pelit</span>
+          <h2 className="upcoming-title">Avoimet haasteet Lahdessa</h2>
+          <p className="upcoming-sub">Tällaisia pelejä Krossissa sovitaan. Liity mukaan ja löydä oma pelikaverisi.</p>
+        </div>
+        <div className="upcoming-grid">
+          {DEMO_MATCHES.map((m) => (
+            <a key={m.id} href="/app" className="upcoming-card">
+              <div className="uc-top">
+                <span className="uc-day">{m.day} · {m.time}</span>
+                <span className="uc-type">{m.type}</span>
+              </div>
+              <div className="uc-body">
+                <DemoAvatar initials={m.initials} hue={m.hue} size={42} />
+                <div className="uc-info">
+                  <div className="uc-name">{m.creator}, {m.age}</div>
+                  <div className="uc-loc">{m.loc} · {m.locType}</div>
+                </div>
+                <div className="uc-slots">
+                  {Array.from({ length: m.slots }).map((_, i) => (
+                    <span key={i} className="uc-slot" />
+                  ))}
+                </div>
+              </div>
+              {m.desc && <p className="uc-desc">{m.desc}</p>}
+              <div className="uc-tags">
+                <span className="uc-tag">{m.level}</span>
+                <span className="uc-tag">{m.locType}</span>
+              </div>
+            </a>
+          ))}
+        </div>
+        <div style={{ textAlign: 'center', marginTop: 'clamp(20px,3vw,32px)' }}>
+          <a href="/app" className="btn-lime btn-lg">Kokeile Krossia selaimessa →</a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Features() {
   return (
     <section className="features" id="ominaisuudet">
@@ -287,6 +350,7 @@ function App() {
     <div className="krossi-root" id="top" data-court={t.courtLines ? 'on' : 'off'} style={rootStyle}>
       <Nav />
       <Hero t={t} />
+      <UpcomingMatches />
       <Features />
       <Clubs />
       <ClosingCTA />
