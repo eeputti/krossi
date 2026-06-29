@@ -3,7 +3,6 @@
 
 const SUPABASE_URL = 'https://hhybjpgrvlbazbqiaaao.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_IKLRGbstMLfxKeXwBTavSA_UVYyMgTL';
-const GOOGLE_WEB_CLIENT_ID = '167101285509-16e43m52r8odjb2k78egq7apg2mk0g5u.apps.googleusercontent.com';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
 });
@@ -154,41 +153,16 @@ function AuthScreen() {
   const [error, setError] = React.useState('');
   const [info, setInfo] = React.useState('');
   const [busy, setBusy] = React.useState(false);
-  const googleBtnRef = React.useRef(null);
-  const gsiInitRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (mode === 'reset') return;
-    const renderBtn = () => {
-      if (!window.google?.accounts?.id || !googleBtnRef.current) return false;
-      if (!gsiInitRef.current) {
-        google.accounts.id.initialize({
-          client_id: GOOGLE_WEB_CLIENT_ID,
-          callback: async (response) => {
-            setBusy(true); setError('');
-            try {
-              const { error: e } = await supabase.auth.signInWithIdToken({
-                provider: 'google', token: response.credential,
-              });
-              if (e) throw e;
-            } catch (err) { setError(err.message || 'Google-kirjautuminen epäonnistui'); setBusy(false); }
-          },
-        });
-        gsiInitRef.current = true;
-      }
-      googleBtnRef.current.innerHTML = '';
-      google.accounts.id.renderButton(googleBtnRef.current, {
-        type: 'standard', theme: 'outline', size: 'large',
-        shape: 'rectangular', text: 'continue_with', locale: 'fi',
-        width: Math.min(googleBtnRef.current.parentElement?.offsetWidth || 324, 400),
+  const signInWithGoogle = async () => {
+    setError(''); setBusy(true);
+    try {
+      const { error: e } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/pelaa' },
       });
-      return true;
-    };
-    if (!renderBtn()) {
-      const id = setInterval(() => { if (renderBtn()) clearInterval(id); }, 200);
-      return () => clearInterval(id);
-    }
-  }, [mode]);
+      if (e) throw e;
+    } catch (err) { setError(err.message || 'Google-kirjautuminen epäonnistui'); setBusy(false); }
+  };
 
   const signInWithApple = async () => {
     setError(''); setBusy(true);
@@ -226,7 +200,7 @@ function AuthScreen() {
   return (
     <div className="auth-shell" style={{ background: 'var(--paper)' }}>
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <span style={{ fontSize: 40, fontWeight: 800, color: 'var(--green-deep)', letterSpacing: -1.5 }}>Krossi</span>
+        <span style={{ fontSize: 72, fontWeight: 800, color: 'var(--lime)', letterSpacing: -2.5 }}>Krossi</span>
         <p style={{ color: 'var(--text-muted)', marginTop: 6, fontSize: 14 }}>Löydä pelikavereita tennikseen</p>
       </div>
       <div className="auth-card">
@@ -238,7 +212,10 @@ function AuthScreen() {
 
         {mode !== 'reset' && (
           <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
-            <div ref={googleBtnRef} style={{ width:'100%', minHeight:44, display:'flex', justifyContent:'center' }} />
+            <button style={oauthBtnStyle} onClick={signInWithGoogle} disabled={busy}>
+              <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.0 24.0 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+              Jatka Googlella
+            </button>
             <button style={oauthBtnStyle} onClick={signInWithApple} disabled={busy}>
               <svg width="16" height="20" viewBox="0 0 20 24" fill="#111"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.2-1.2 3.1-2.5.7-1 1-2 1-2-.1 0-2-.8-2-3.3zM13.9 3.5c.7-.9 1.2-2.1 1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3.1-1.4z"/></svg>
               Jatka Applella
@@ -581,10 +558,10 @@ function CreateChallengeScreen({ onBack, onCreated }) {
       <div className="field"><div className="detail-label">Kenttäpinta</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{COURT_SURFACES.map(s=><button key={s} className={`filter-chip ${form.courtSurface===s?'active':''}`} onClick={()=>set('courtSurface',form.courtSurface===s?'':s)}>{titleCase(s)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Ajankohta</div><input className="input input-dark" type="datetime-local" value={form.scheduledAt} onChange={e=>set('scheduledAt',e.target.value)}/></div>
       <div className="field"><div className="detail-label">Vastustajan minimitaso</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${form.minSkillLevel===l?'active':''}`} onClick={()=>set('minSkillLevel',form.minSkillLevel===l?'':l)}>{titleCase(l)}</button>)}</div></div>
-      <div className="field"><div className="detail-label">Kenttävuoron hinta (€)</div><input className="input input-dark" type="number" placeholder="Esim. 28" value={form.courtPrice} onChange={e=>set('courtPrice',e.target.value)}/></div>
-      <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.creatorCoversFull} onChange={e=>set('creatorCoversFull',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Tarjoan koko kenttävuoron</label></div>
       <div className="field"><div className="detail-label">Otsikko</div><input className="input input-dark" placeholder="Vapaaehtoinen" value={form.title} onChange={e=>set('title',e.target.value)}/></div>
       <div className="field"><div className="detail-label">Lisätietoja</div><textarea className="input input-dark" rows={3} placeholder="Vapaaehtoinen kuvaus" value={form.description} onChange={e=>set('description',e.target.value)}/></div>
+      <div className="field"><div className="detail-label">Kenttävuoron hinta (€)</div><input className="input input-dark" type="number" placeholder="Esim. 28" value={form.courtPrice} onChange={e=>set('courtPrice',e.target.value)}/></div>
+      <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.creatorCoversFull} onChange={e=>set('creatorCoversFull',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Tarjoan koko kenttävuoron</label></div>
       <button className="btn btn-dark btn-lg btn-full" onClick={create} disabled={busy}>{busy?'Luodaan...':'Julkaise haaste'}</button>
     </div>
   </div>;
