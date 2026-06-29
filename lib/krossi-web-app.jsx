@@ -102,7 +102,7 @@ function Avatar({ uri, name, color = 'blue', size = 44 }) {
 function Toast({ show, text }) { return show ? <div className="toast">{text}</div> : null; }
 function Spinner() { return <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><div className="spinner" /></div>; }
 function Empty({ title, action, onAction }) {
-  return <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.5)' }}>
+  return <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
     <p style={{ fontSize: 15, marginBottom: 16 }}>{title}</p>
     {action && <button className="btn btn-lime btn-md" onClick={onAction}>{action}</button>}
   </div>;
@@ -306,7 +306,7 @@ function SidebarProfile({ onEdit }) {
         {profile.alue.map(a => <span key={a} className="sidebar-area">{a}</span>)}
       </div>
       <button className={`sidebar-live ${profile.playingThisWeek ? 'on' : 'off'}`} onClick={toggleLive}>
-        <span className="sidebar-dot" style={{ background: profile.playingThisWeek ? '#7ee06a' : 'rgba(255,255,255,0.3)' }} />
+        <span className="sidebar-dot" style={{ background: profile.playingThisWeek ? '#7ee06a' : '#ccc' }} />
         Pelaan tällä viikolla
         <span style={{ marginLeft:'auto', fontSize:12 }}>{profile.playingThisWeek ? 'Päällä' : 'Pois'}</span>
       </button>
@@ -335,7 +335,7 @@ function PlayerCard({ player, onClick }) {
         <Avatar uri={player.avatarUrl} name={player.nimi} color={player.avatarColor} size={42} />
         <div style={{ flex:1,minWidth:0 }}>
           <div style={{ display:'flex',alignItems:'center',gap:8,flexWrap:'wrap' }}>
-            <span style={{ color:'#fff',fontWeight:700,fontSize:15 }}>{player.nimi}, {player.ika}</span>
+            <span style={{ color:'var(--ink)',fontWeight:700,fontSize:15 }}>{player.nimi}, {player.ika}</span>
             {player.playingThisWeek && <span className="chip chip-active" style={{padding:'2px 7px',fontSize:11}}><span style={{width:5,height:5,borderRadius:'50%',background:'#7ee06a'}}/>Tällä viikolla</span>}
           </div>
           <div style={{ display:'flex',flexWrap:'wrap',gap:4,marginTop:3 }}>
@@ -367,8 +367,8 @@ function PlayerDetail({ player, onBack, currentUserId }) {
       <button className="back-btn" onClick={onBack}>← Takaisin</button>
       <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:8,margin:'24px auto',maxWidth:500 }}>
         <Avatar uri={player.avatarUrl} name={player.nimi} color={player.avatarColor} size={84} />
-        <h2 style={{ color:'#fff',fontWeight:800,fontSize:22,margin:0 }}>{player.nimi}, {player.ika}</h2>
-        <p style={{ color:'rgba(255,255,255,0.55)',fontSize:14 }}>{player.alue.join(', ')}</p>
+        <h2 style={{ color:'var(--ink)',fontWeight:800,fontSize:22,margin:0 }}>{player.nimi}, {player.ika}</h2>
+        <p style={{ color:'var(--text-muted)',fontSize:14 }}>{player.alue.join(', ')}</p>
         {player.playingThisWeek && <span className="chip chip-active">Tällä viikolla</span>}
       </div>
       <div style={{ maxWidth:500,margin:'0 auto' }}>
@@ -432,22 +432,22 @@ function ChallengeCard({ challenge, onClick }) {
   return (
     <button onClick={onClick} className="card" style={{ display:'block',width:'100%',textAlign:'left',cursor:'pointer',marginBottom:10 }}>
       <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
-        <span style={{ color:'#fff',fontWeight:700,fontSize:13 }}>{challenge.scheduledAt?formatDate(challenge.scheduledAt):'Aika avoin'}</span>
+        <span style={{ color:'var(--ink)',fontWeight:700,fontSize:13 }}>{challenge.scheduledAt?formatDate(challenge.scheduledAt):'Aika avoin'}</span>
         <span className="chip chip-outline">{titleCase(challenge.matchType)}</span>
       </div>
       <div style={{ display:'flex',alignItems:'center',gap:10 }}>
         <Avatar uri={challenge.creatorAvatarUrl} name={challenge.creatorName} color={challenge.creatorAvatarColor} size={40}/>
         <div style={{ flex:1,minWidth:0 }}>
-          <div style={{ color:'#fff',fontWeight:700,fontSize:15 }}>{challenge.creatorName}</div>
-          <div style={{ color:'rgba(255,255,255,0.55)',fontSize:12 }}>{challenge.location} · {titleCase(challenge.locationType)}</div>
+          <div style={{ color:'var(--ink)',fontWeight:700,fontSize:15 }}>{challenge.creatorName}</div>
+          <div style={{ color:'var(--text-muted)',fontSize:12 }}>{challenge.location} · {titleCase(challenge.locationType)}</div>
         </div>
         <div style={{ display:'flex',gap:3 }}>
           {Array.from({length:Math.max(0,slotsNeeded(challenge.matchType)-challenge.participants.length)}).map((_,i)=>
-            <span key={i} style={{width:20,height:20,borderRadius:'50%',border:'1.5px dashed rgba(255,255,255,0.4)'}}/>
+            <span key={i} style={{width:20,height:20,borderRadius:'50%',border:'1.5px dashed #c5c0b5'}}/>
           )}
         </div>
       </div>
-      {challenge.title && <p style={{ color:'rgba(255,255,255,0.65)',fontSize:12,marginTop:6 }}>{challenge.title}</p>}
+      {challenge.title && <p style={{ color:'var(--text-muted)',fontSize:12,marginTop:6 }}>{challenge.title}</p>}
     </button>
   );
 }
@@ -471,14 +471,14 @@ function ChallengeDetail({ challenge, onBack, currentUserId }) {
       <div style={{ maxWidth:500,margin:'24px auto 0' }}>
         <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:18 }}>
           <Avatar uri={challenge.creatorAvatarUrl} name={challenge.creatorName} color={challenge.creatorAvatarColor} size={48}/>
-          <div><h2 style={{color:'#fff',fontWeight:800,fontSize:20,margin:0}}>{challenge.creatorName}</h2><p style={{color:'rgba(255,255,255,0.5)',fontSize:13,margin:0}}>{challenge.creatorArea?.join(', ')}</p></div>
+          <div><h2 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{challenge.creatorName}</h2><p style={{color:'var(--text-muted)',fontSize:13,margin:0}}>{challenge.creatorArea?.join(', ')}</p></div>
         </div>
-        {challenge.title && <p style={{color:'#fff',fontSize:15,fontWeight:600,marginBottom:14}}>{challenge.title}</p>}
-        {challenge.description && <p style={{color:'rgba(255,255,255,0.75)',fontSize:13,marginBottom:18,lineHeight:1.5}}>{challenge.description}</p>}
+        {challenge.title && <p style={{color:'var(--ink)',fontSize:15,fontWeight:600,marginBottom:14}}>{challenge.title}</p>}
+        {challenge.description && <p style={{color:'#6b665c',fontSize:13,marginBottom:18,lineHeight:1.5}}>{challenge.description}</p>}
         <div className="detail-field"><div className="detail-label">Aika</div><div className="detail-value">{challenge.scheduledAt?formatDate(challenge.scheduledAt):'Aika avoin'}</div></div>
         <div className="detail-field"><div className="detail-label">Paikka</div><div className="detail-value">{challenge.location}</div></div>
         <div className="detail-field"><div className="detail-label">Tyyppi</div><div className="detail-value">{titleCase(challenge.matchType)} · {titleCase(challenge.locationType)}</div></div>
-        {challenge.participants.length>0 && <div className="detail-field"><div className="detail-label">Osallistujat</div><div style={{display:'flex',gap:6,marginTop:4}}>{challenge.participants.map(p=><div key={p.userId} style={{display:'flex',alignItems:'center',gap:5}}><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={26}/><span style={{color:'rgba(255,255,255,0.75)',fontSize:12}}>{p.name}</span></div>)}</div></div>}
+        {challenge.participants.length>0 && <div className="detail-field"><div className="detail-label">Osallistujat</div><div style={{display:'flex',gap:6,marginTop:4}}>{challenge.participants.map(p=><div key={p.userId} style={{display:'flex',alignItems:'center',gap:5}}><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={26}/><span style={{color:'#6b665c',fontSize:12}}>{p.name}</span></div>)}</div></div>}
         {currentUserId && !isMine && !joined && !full && <button className="btn btn-lime btn-lg btn-full" style={{marginTop:20}} onClick={join} disabled={joining}>{joining?'Liitytään...':'Liity haasteeseen'}</button>}
       </div>
       <Toast show={!!toast} text={toast}/>
@@ -517,7 +517,8 @@ function ChallengesScreen({ onOpenChallenge, onCreateChallenge }) {
 // ── Create Challenge ───────────────────────────────────
 function CreateChallengeScreen({ onBack, onCreated }) {
   const { session, profile } = useAuth();
-  const [form, setForm] = React.useState({matchType:'kaksinpeli',locationType:'sisätennis',location:'',scheduledAt:'',title:'',description:''});
+  const COURT_SURFACES = ['kova','massa','nurmi','asfaltti'];
+  const [form, setForm] = React.useState({matchType:'kaksinpeli',locationType:'sisätennis',location:'',scheduledAt:'',title:'',description:'',courtSurface:'',minSkillLevel:'',courtPrice:'',creatorCoversFull:false});
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const set = (k,v)=>setForm(p=>({...p,[k]:v}));
@@ -526,23 +527,32 @@ function CreateChallengeScreen({ onBack, onCreated }) {
   const create = async () => {
     setError(''); setBusy(true);
     try {
-      const {error}=await supabase.from('challenges').insert({creator_id:session.user.id,location:form.location||'Avoin',location_type:form.locationType,city:homeCity,scheduled_at:form.scheduledAt?new Date(form.scheduledAt).toISOString():null,match_type:form.matchType,challenge_type:'open',title:form.title.trim()||null,description:form.description.trim()||null});
+      const payload = {creator_id:session.user.id,location:form.location||'Avoin',location_type:form.locationType,city:homeCity,scheduled_at:form.scheduledAt?new Date(form.scheduledAt).toISOString():null,match_type:form.matchType,challenge_type:'open',title:form.title.trim()||null,description:form.description.trim()||null};
+      if (form.courtSurface) payload.court_surface = form.courtSurface;
+      if (form.minSkillLevel) payload.min_skill_level = form.minSkillLevel;
+      if (form.courtPrice) payload.court_price = Number(form.courtPrice);
+      if (form.creatorCoversFull) payload.creator_covers_full = true;
+      const {error}=await supabase.from('challenges').insert(payload);
       if(error) throw error; onCreated();
     } catch(err) { setError(err.message||'Virhe'); } finally { setBusy(false); }
   };
   return <div className="clay-bg" style={{minHeight:'100%',padding:'20px 24px'}}>
     <button className="back-btn" onClick={onBack}>← Takaisin</button>
     <div style={{maxWidth:480,margin:'24px auto 0'}}>
-      <h2 style={{color:'#fff',fontWeight:800,fontSize:22,marginBottom:18}}>Luo haaste</h2>
+      <h2 style={{color:'var(--ink)',fontWeight:800,fontSize:22,marginBottom:18}}>Luo haaste</h2>
       {error && <div className="alert alert-error" style={{marginBottom:12}}>{error}</div>}
-      <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${form.matchType===t?'active':''}`} onClick={()=>set('matchType',t)}>{titleCase(t)}</button>)}</div></div>
-      <div className="field"><div className="detail-label">Paikka</div><div style={{display:'flex',gap:6}}>{LOCATION_TYPES.map(t=><button key={t} className={`filter-chip ${form.locationType===t?'active':''}`} onClick={()=>set('locationType',t)}>{titleCase(t)}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${form.matchType===t?'active':''}`} onClick={()=>set('matchType',t)}>{titleCase(t)}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Sijainti</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{LOCATION_TYPES.map(t=><button key={t} className={`filter-chip ${form.locationType===t?'active':''}`} onClick={()=>set('locationType',t)}>{titleCase(t)}</button>)}</div></div>
       {form.locationType==='sisätennis'&&venues.length>0 ? <div className="field"><div className="detail-label">Halli</div><select className="input input-dark" value={form.location} onChange={e=>set('location',e.target.value)}><option value="">Valitse</option>{venues.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></div>
       : <div className="field"><div className="detail-label">Paikka</div><input className="input input-dark" placeholder="Esim. Mukkulan kentät" value={form.location} onChange={e=>set('location',e.target.value)}/></div>}
+      <div className="field"><div className="detail-label">Kenttäpinta</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{COURT_SURFACES.map(s=><button key={s} className={`filter-chip ${form.courtSurface===s?'active':''}`} onClick={()=>set('courtSurface',form.courtSurface===s?'':s)}>{titleCase(s)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Ajankohta</div><input className="input input-dark" type="datetime-local" value={form.scheduledAt} onChange={e=>set('scheduledAt',e.target.value)}/></div>
+      <div className="field"><div className="detail-label">Vastustajan minimitaso</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${form.minSkillLevel===l?'active':''}`} onClick={()=>set('minSkillLevel',form.minSkillLevel===l?'':l)}>{titleCase(l)}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Kenttävuoron hinta (€)</div><input className="input input-dark" type="number" placeholder="Esim. 28" value={form.courtPrice} onChange={e=>set('courtPrice',e.target.value)}/></div>
+      <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.creatorCoversFull} onChange={e=>set('creatorCoversFull',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Tarjoan koko kenttävuoron</label></div>
       <div className="field"><div className="detail-label">Otsikko</div><input className="input input-dark" placeholder="Vapaaehtoinen" value={form.title} onChange={e=>set('title',e.target.value)}/></div>
-      <div className="field"><div className="detail-label">Kuvaus</div><textarea className="input input-dark" rows={3} placeholder="Vapaaehtoinen" value={form.description} onChange={e=>set('description',e.target.value)}/></div>
-      <button className="btn btn-lime btn-lg btn-full" onClick={create} disabled={busy}>{busy?'Luodaan...':'Julkaise haaste'}</button>
+      <div className="field"><div className="detail-label">Lisätietoja</div><textarea className="input input-dark" rows={3} placeholder="Vapaaehtoinen kuvaus" value={form.description} onChange={e=>set('description',e.target.value)}/></div>
+      <button className="btn btn-dark btn-lg btn-full" onClick={create} disabled={busy}>{busy?'Luodaan...':'Julkaise haaste'}</button>
     </div>
   </div>;
 }
@@ -592,8 +602,8 @@ function MessagesScreen({ onOpenChat }) {
     {reqs.length>0 && <>
       <h3 style={{color:'var(--lime)',fontSize:14,fontWeight:800,marginBottom:8}}>Uudet pelipyynnöt</h3>
       {reqs.map(r=><div key={r.id} className="card" style={{marginBottom:10}}>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}><Avatar uri={r.senderAvatarUrl} name={r.senderName} color={r.senderAvatarColor} size={32}/><span style={{color:'#fff',fontWeight:700,fontSize:14}}>{r.senderName}</span></div>
-        <p style={{color:'rgba(255,255,255,0.78)',fontSize:13,marginBottom:10,lineHeight:1.4}}>{r.message}</p>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}><Avatar uri={r.senderAvatarUrl} name={r.senderName} color={r.senderAvatarColor} size={32}/><span style={{color:'var(--ink)',fontWeight:700,fontSize:14}}>{r.senderName}</span></div>
+        <p style={{color:'var(--text-muted)',fontSize:13,marginBottom:10,lineHeight:1.4}}>{r.message}</p>
         <div style={{display:'flex',gap:6}}><button className="btn btn-lime btn-sm" style={{flex:1}} onClick={()=>accept(r.id)}>Hyväksy</button><button className="btn btn-outline-w btn-sm" style={{flex:1}} onClick={()=>ignore(r.id)}>Ohita</button></div>
       </div>)}
     </>}
@@ -601,8 +611,8 @@ function MessagesScreen({ onOpenChat }) {
       <h3 style={{color:'var(--lime)',fontSize:14,fontWeight:800,margin:'14px 0 6px'}}>Keskustelut</h3>
       {convos.map(c=><div key={c.id} className="msg-row" onClick={()=>onOpenChat(c)}>
         <Avatar uri={c.otherUserAvatarUrl} name={c.otherUserName} color={c.otherUserAvatarColor} size={42}/>
-        <div style={{flex:1,minWidth:0}}><div style={{color:'#fff',fontWeight:700,fontSize:14}}>{c.displayName}</div><div style={{color:'rgba(255,255,255,0.5)',fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.lastMessage||'Aloita keskustelu'}</div></div>
-        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}><span style={{color:'rgba(255,255,255,0.4)',fontSize:11}}>{timeAgo(c.updatedAt)}</span>{c.hasUnread&&<span style={{width:8,height:8,borderRadius:'50%',background:'var(--lime)'}}/>}</div>
+        <div style={{flex:1,minWidth:0}}><div style={{color:'var(--ink)',fontWeight:700,fontSize:14}}>{c.displayName}</div><div style={{color:'var(--text-muted)',fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.lastMessage||'Aloita keskustelu'}</div></div>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}><span style={{color:'#aaa',fontSize:11}}>{timeAgo(c.updatedAt)}</span>{c.hasUnread&&<span style={{width:8,height:8,borderRadius:'50%',background:'var(--lime)'}}/>}</div>
       </div>)}
     </>}
     {convos.length===0&&reqs.length===0&&<Empty title="Ei vielä viestejä."/>}
@@ -639,82 +649,142 @@ function ChatScreen({ conversation, onBack }) {
     setSending(true);try{await supabase.from('messages').insert({conversation_id:conversation.id,content:JSON.stringify({__type:'thumbs_up'})});}catch(e){alert(e.message);}finally{setSending(false);}
   };
   return <div className="clay-bg" style={{display:'flex',flexDirection:'column',height:'100%'}}>
-    <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',borderBottom:'1px solid rgba(255,255,255,0.08)',flexShrink:0}}>
-      <button onClick={onBack} style={{background:'none',border:'none',color:'#fff',cursor:'pointer',fontSize:18,padding:0}}>←</button>
+    <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',borderBottom:'1px solid var(--border)',flexShrink:0}}>
+      <button onClick={onBack} style={{background:'none',border:'none',color:'var(--ink)',cursor:'pointer',fontSize:18,padding:0}}>←</button>
       <Avatar uri={conversation.otherUserAvatarUrl} name={conversation.otherUserName} color={conversation.otherUserAvatarColor} size={36}/>
-      <span style={{color:'#fff',fontWeight:700,fontSize:15}}>{conversation.displayName}</span>
+      <span style={{color:'var(--ink)',fontWeight:700,fontSize:15}}>{conversation.displayName}</span>
     </div>
     <div style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:6}}>
       {loading?<Spinner/>:msgs.map(m=>{
         const mine=m.senderId===uid;
         let dc=m.content;try{const p=JSON.parse(m.content);if(p.__type==='thumbs_up')dc='👍';if(p.__type==='challenge_join')dc=`${p.joinerName} liittyi peliin!`;}catch{}
         return <div key={m.id} style={{alignSelf:mine?'flex-end':'flex-start'}}>
-          {!mine&&conversation.isGroup&&<span style={{fontSize:10,color:'rgba(255,255,255,0.4)',marginLeft:4}}>{m.senderName}</span>}
+          {!mine&&conversation.isGroup&&<span style={{fontSize:10,color:'#aaa',marginLeft:4}}>{m.senderName}</span>}
           {m.imageUrl&&<img src={chatImgUrl(m.imageUrl)} alt="" style={{maxWidth:200,borderRadius:10}}/>}
           {dc&&<div className={`chat-bubble ${mine?'chat-mine':'chat-theirs'}`}>{dc}</div>}
         </div>;
       })}
       <div ref={btm}/>
     </div>
-    <div style={{display:'flex',gap:8,padding:'10px 16px',borderTop:'1px solid rgba(255,255,255,0.08)',flexShrink:0,alignItems:'center'}}>
+    <div style={{display:'flex',gap:8,padding:'10px 16px',borderTop:'1px solid var(--border)',flexShrink:0,alignItems:'center'}}>
       <input className="input input-dark" style={{flex:1,borderRadius:999,padding:'10px 16px'}} placeholder="Kirjoita viesti..." value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}}/>
       {text.trim()?<button className="btn btn-lime" onClick={send} disabled={sending} style={{width:38,height:38,borderRadius:'50%',padding:0}}><svg width="18" height="18" viewBox="0 0 22 22"><path d="M20 2L2 9.5l7 2.5 2.5 7L20 2z" fill="none" stroke="#101a08" strokeWidth="1.8" strokeLinejoin="round"/></svg></button>
-      :<button className="btn" onClick={thumbs} disabled={sending} style={{width:38,height:38,borderRadius:'50%',padding:0,fontSize:20,background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.15)'}}>👍</button>}
+      :<button className="btn" onClick={thumbs} disabled={sending} style={{width:38,height:38,borderRadius:'50%',padding:0,fontSize:20,background:'#f4f2ec',border:'1px solid var(--border)'}}>👍</button>}
     </div>
   </div>;
 }
 
-// ── Profile (full page, for editing) ───────────────────
+// ── Profile (full page) ────────────────────────────────
+const HANDEDNESS = ['oikeakätinen','vasenkätinen'];
+const BACKHAND_TYPES = ['yhden käden','kahden käden'];
+
 function ProfileFullScreen() {
   const { session, profile, refreshProfile } = useAuth();
   const [editing, setEditing] = React.useState(false);
   const [form, setForm] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [toast, setToast] = React.useState('');
-  React.useEffect(() => { if(profile&&!form) setForm({nimi:profile.nimi,ika:String(profile.ika),sukupuoli:profile.sukupuoli||'',alue:profile.alue,pelitaso:profile.pelitaso,pelimuoto:profile.pelimuoto,saatavuus:profile.saatavuus,bio:profile.bio||''}); }, [profile,form]);
+  const [identities, setIdentities] = React.useState([]);
+
+  React.useEffect(() => {
+    if(profile&&!form) setForm({
+      nimi:profile.nimi,ika:String(profile.ika),sukupuoli:profile.sukupuoli||'',
+      alue:profile.alue,pelitaso:profile.pelitaso,pelimuoto:profile.pelimuoto,
+      saatavuus:profile.saatavuus,bio:profile.bio||'',
+      katisyys:profile.katisyys||'',rysty:profile.rysty||'',
+      hiddenFromFeed:profile.hiddenFromFeed,
+    });
+  }, [profile,form]);
+
+  React.useEffect(() => {
+    supabase.auth.getUser().then(({data})=>{
+      setIdentities((data?.user?.identities||[]).map(i=>i.provider));
+    });
+  }, []);
+
   const save = async () => {
     setBusy(true);
     try {
       const uid=session.user.id;
-      await supabase.from('profiles').upsert({id:uid,name:form.nimi.trim(),age:Number(form.ika),gender:form.sukupuoli||null,area:form.alue.join(', '),bio:form.bio.trim()||null});
-      await supabase.from('tennis_preferences').upsert({user_id:uid,skill_level:form.pelitaso.join(','),play_style:form.pelimuoto.join(', ')});
+      await supabase.from('profiles').upsert({id:uid,name:form.nimi.trim(),age:Number(form.ika),gender:form.sukupuoli||null,area:form.alue.join(', '),bio:form.bio.trim()||null,hidden_from_feed:form.hiddenFromFeed});
+      await supabase.from('tennis_preferences').upsert({user_id:uid,skill_level:form.pelitaso.join(','),play_style:form.pelimuoto.join(', '),handedness:form.katisyys||null,backhand_type:form.rysty||null});
       await supabase.from('availability').delete().eq('user_id',uid);
       if(form.saatavuus.length>0) await supabase.from('availability').insert(form.saatavuus.map(s=>({user_id:uid,slot:s})));
       await refreshProfile(); setEditing(false); setForm(null);
       setToast('Profiili päivitetty!'); setTimeout(()=>setToast(''),2500);
     } catch(e){alert(e.message);}finally{setBusy(false);}
   };
+
+  const toggleHidden = async () => {
+    await supabase.from('profiles').update({hidden_from_feed:!profile.hiddenFromFeed}).eq('id',session.user.id);
+    refreshProfile();
+  };
+
   const signOut = ()=>supabase.auth.signOut();
   if(!profile) return <div className="page"><Spinner/></div>;
   const set=(k,v)=>setForm(p=>({...p,[k]:v}));
   const tog=(k,v)=>setForm(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
+
+  const SectionTitle = ({children})=><h3 style={{fontSize:13,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,margin:'20px 0 8px'}}>{children}</h3>;
+  const SettingsRow = ({label,value,onClick,danger})=>(
+    <button onClick={onClick} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',padding:'12px 16px',background:'#fff',border:'1px solid var(--border)',borderRadius:12,cursor:'pointer',fontFamily:'inherit',fontSize:14,color:danger?'var(--danger)':'var(--ink)',fontWeight:500,marginBottom:6,textAlign:'left'}}>
+      <span>{label}</span>
+      <span style={{color:'var(--text-muted)',fontSize:13}}>{value||'→'}</span>
+    </button>
+  );
+
   if(editing&&form) return <div className="page" style={{paddingBottom:40}}>
-    <div className="page-header"><h2 className="page-title">Muokkaa profiilia</h2><button className="btn btn-outline-w btn-sm" onClick={()=>{setEditing(false);setForm(null);}}>Peruuta</button></div>
+    <div className="page-header"><h2 className="page-title">Muokkaa profiilia</h2><button className="btn btn-outline-d btn-sm" onClick={()=>{setEditing(false);setForm(null);}}>Peruuta</button></div>
     <div style={{display:'flex',flexDirection:'column',gap:12}}>
       <div className="field"><div className="detail-label">Nimi</div><input className="input input-dark" value={form.nimi} onChange={e=>set('nimi',e.target.value)}/></div>
       <div className="field"><div className="detail-label">Ikä</div><input className="input input-dark" type="number" value={form.ika} onChange={e=>set('ika',e.target.value)}/></div>
-      <div className="field"><div className="detail-label">Kaupunki</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{VISIBLE_AREAS.map(a=><button key={a} className={`filter-chip ${form.alue.includes(a)?'active':''}`} onClick={()=>tog('alue',a)}>{a}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Sukupuoli</div><div style={{display:'flex',gap:6}}>{['mies','nainen'].map(g=><button key={g} className={`filter-chip ${form.sukupuoli===g?'active':''}`} onClick={()=>set('sukupuoli',form.sukupuoli===g?'':g)}>{titleCase(g)}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Kotikaupunki</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{VISIBLE_AREAS.map(a=><button key={a} className={`filter-chip ${form.alue.includes(a)?'active':''}`} onClick={()=>tog('alue',a)}>{a}</button>)}</div></div>
       <div className="field"><div className="detail-label">Pelitaso</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${form.pelitaso.includes(l)?'active':''}`} onClick={()=>tog('pelitaso',l)}>{titleCase(l)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Pelimuoto</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAY_STYLES.map(s=><button key={s} className={`filter-chip ${form.pelimuoto.includes(s)?'active':''}`} onClick={()=>tog('pelimuoto',s)}>{titleCase(s)}</button>)}</div></div>
-      <div className="field"><div className="detail-label">Saatavuus</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{AVAILABILITY_SLOTS.map(s=><button key={s.value} className={`filter-chip ${form.saatavuus.includes(s.value)?'active':''}`} onClick={()=>tog('saatavuus',s.value)}>{s.label}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Kätisyys</div><div style={{display:'flex',gap:6}}>{HANDEDNESS.map(h=><button key={h} className={`filter-chip ${form.katisyys===h?'active':''}`} onClick={()=>set('katisyys',form.katisyys===h?'':h)}>{titleCase(h)}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Rysty</div><div style={{display:'flex',gap:6}}>{BACKHAND_TYPES.map(b=><button key={b} className={`filter-chip ${form.rysty===b?'active':''}`} onClick={()=>set('rysty',form.rysty===b?'':b)}>{titleCase(b)}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Sopivat ajankohdat</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{AVAILABILITY_SLOTS.map(s=><button key={s.value} className={`filter-chip ${form.saatavuus.includes(s.value)?'active':''}`} onClick={()=>tog('saatavuus',s.value)}>{s.label}</button>)}</div></div>
       <div className="field"><div className="detail-label">Bio</div><textarea className="input input-dark" rows={3} value={form.bio} onChange={e=>set('bio',e.target.value)}/></div>
-      <button className="btn btn-lime btn-lg btn-full" onClick={save} disabled={busy}>{busy?'Tallennetaan...':'Tallenna'}</button>
+      <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.hiddenFromFeed} onChange={e=>set('hiddenFromFeed',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Piilota profiilini pelaajasyötteestä</label></div>
+      <button className="btn btn-dark btn-lg btn-full" onClick={save} disabled={busy}>{busy?'Tallennetaan...':'Tallenna muutokset'}</button>
     </div>
   </div>;
+
   return <div className="page" style={{paddingBottom:40}}>
-    <div className="page-header"><h2 className="page-title">Profiili</h2><button className="btn btn-outline-w btn-sm" onClick={()=>setEditing(true)}>Muokkaa</button></div>
+    <div className="page-header"><h2 className="page-title">Profiili</h2><button className="btn btn-outline-d btn-sm" onClick={()=>setEditing(true)}>Muokkaa profiilia</button></div>
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginBottom:24}}>
       <Avatar uri={profile.avatarUrl} name={profile.nimi} color={profile.avatarColor} size={76}/>
-      <h3 style={{color:'#fff',fontWeight:800,fontSize:20,margin:0}}>{profile.nimi}, {profile.ika}</h3>
-      {profile.bio&&<p style={{color:'rgba(255,255,255,0.6)',fontSize:13,textAlign:'center'}}>{profile.bio}</p>}
+      <h3 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{profile.nimi}, {profile.ika}</h3>
+      {profile.bio&&<p style={{color:'var(--text-muted)',fontSize:13,textAlign:'center'}}>{profile.bio}</p>}
     </div>
     <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:16}}>{profile.alue.map(a=><span key={a} className="sidebar-area">{a}</span>)}</div>
     <div style={{display:'flex',gap:10,marginBottom:14}}>
-      <div className="card" style={{flex:1,textAlign:'center'}}><div style={{color:'rgba(255,255,255,0.45)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Pelitaso</div><div style={{color:'#fff',fontWeight:700,fontSize:15}}>{formatSkillLevels(profile.pelitaso)}</div></div>
-      <div className="card" style={{flex:1,textAlign:'center'}}><div style={{color:'rgba(255,255,255,0.45)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Pelimuoto</div><div style={{color:'#fff',fontWeight:700,fontSize:15}}>{profile.pelimuoto.map(titleCase).join(', ')}</div></div>
+      <div className="card" style={{flex:1,textAlign:'center'}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Pelitaso</div><div style={{color:'var(--ink)',fontWeight:700,fontSize:15}}>{formatSkillLevels(profile.pelitaso)}</div></div>
+      <div className="card" style={{flex:1,textAlign:'center'}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Pelimuoto</div><div style={{color:'var(--ink)',fontWeight:700,fontSize:15}}>{profile.pelimuoto.map(titleCase).join(', ')}</div></div>
     </div>
-    {profile.saatavuus.length>0&&<div className="card" style={{marginBottom:14}}><div style={{color:'rgba(255,255,255,0.45)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Ajankohdat</div>{profile.saatavuus.map(s=><div key={s} style={{color:'#fff',fontSize:13,padding:'2px 0'}}>{slotLabel(s)}</div>)}</div>}
-    <button className="btn btn-outline-w btn-md btn-full" onClick={signOut} style={{marginTop:16}}>Kirjaudu ulos</button>
+    {profile.saatavuus.length>0&&<div className="card" style={{marginBottom:14}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Ajankohdat</div>{profile.saatavuus.map(s=><div key={s} style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{slotLabel(s)}</div>)}</div>}
+    {(profile.katisyys||profile.rysty)&&<div className="card" style={{marginBottom:14}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Tyyli</div>{profile.katisyys&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.katisyys)}</div>}{profile.rysty&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.rysty)} rysty</div>}</div>}
+
+    <SectionTitle>Asetukset</SectionTitle>
+    <SettingsRow label="Piilota profiili feedistä" value={profile.hiddenFromFeed?'Päällä':'Pois'} onClick={toggleHidden}/>
+
+    <SectionTitle>Kirjautumistavat</SectionTitle>
+    <div className="card" style={{marginBottom:6}}>
+      <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:8}}>Linkitetyt tilit</div>
+      {['google','apple','email'].map(p=>{
+        const linked = p==='email' || identities.includes(p);
+        return <div key={p} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid #f0ede6'}}>
+          <span style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>{p==='google'?'Google':p==='apple'?'Apple':'Sähköposti'}</span>
+          <span style={{fontSize:12,fontWeight:600,color:linked?'#2d7a4d':'var(--text-muted)'}}>{linked?'Linkitetty':'Ei linkitetty'}</span>
+        </div>;
+      })}
+    </div>
+
+    <SectionTitle>Muut</SectionTitle>
+    <SettingsRow label="Estetyt profiilit" onClick={()=>alert('Estetyt profiilit -näkymä tulossa.')}/>
+    <SettingsRow label="Ota yhteyttä tukeen" onClick={()=>window.open('mailto:eelispuro@gmail.com')}/>
+    <button className="btn btn-outline-d btn-md btn-full" onClick={signOut} style={{marginTop:16}}>Kirjaudu ulos</button>
     <Toast show={!!toast} text={toast}/>
   </div>;
 }
@@ -752,7 +822,7 @@ function AppShell() {
   const [tab, setTab] = React.useState('players');
   const [screen, setScreen] = React.useState({ type: 'tab' });
   const back = () => setScreen({ type: 'tab' });
-  const showSidebar = tab === 'players' || tab === 'challenges';
+  const showSidebar = tab === 'players' || tab === 'challenges' || tab === 'messages';
   const showFullPage = screen.type !== 'tab';
 
   if (screen.type === 'playerDetail') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><PlayerDetail player={screen.player} onBack={back} currentUserId={session?.user?.id}/></div></div></div>;
