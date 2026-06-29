@@ -154,16 +154,51 @@ function AuthScreen() {
   const [error, setError] = React.useState('');
   const [info, setInfo] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  const googleBtnRef = React.useRef(null);
+  const gsiInitRef = React.useRef(false);
 
-  const signInWithOAuth = async (provider) => {
+  React.useEffect(() => {
+    if (mode === 'reset') return;
+    const renderBtn = () => {
+      if (!window.google?.accounts?.id || !googleBtnRef.current) return false;
+      if (!gsiInitRef.current) {
+        google.accounts.id.initialize({
+          client_id: GOOGLE_WEB_CLIENT_ID,
+          callback: async (response) => {
+            setBusy(true); setError('');
+            try {
+              const { error: e } = await supabase.auth.signInWithIdToken({
+                provider: 'google', token: response.credential,
+              });
+              if (e) throw e;
+            } catch (err) { setError(err.message || 'Google-kirjautuminen epäonnistui'); setBusy(false); }
+          },
+        });
+        gsiInitRef.current = true;
+      }
+      googleBtnRef.current.innerHTML = '';
+      google.accounts.id.renderButton(googleBtnRef.current, {
+        type: 'standard', theme: 'outline', size: 'large',
+        shape: 'rectangular', text: 'continue_with', locale: 'fi',
+        width: Math.min(googleBtnRef.current.parentElement?.offsetWidth || 324, 400),
+      });
+      return true;
+    };
+    if (!renderBtn()) {
+      const id = setInterval(() => { if (renderBtn()) clearInterval(id); }, 200);
+      return () => clearInterval(id);
+    }
+  }, [mode]);
+
+  const signInWithApple = async () => {
     setError(''); setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
+      const { error: e } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
         options: { redirectTo: window.location.origin + '/pelaa' },
       });
-      if (error) throw error;
-    } catch (err) { setError(err.message || 'Kirjautuminen epäonnistui'); setBusy(false); }
+      if (e) throw e;
+    } catch (err) { setError(err.message || 'Apple-kirjautuminen epäonnistui'); setBusy(false); }
   };
 
   const submit = async (e) => {
@@ -203,11 +238,8 @@ function AuthScreen() {
 
         {mode !== 'reset' && (
           <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
-            <button style={oauthBtnStyle} onClick={() => signInWithOAuth('google')} disabled={busy}>
-              <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
-              Jatka Googlella
-            </button>
-            <button style={oauthBtnStyle} onClick={() => signInWithOAuth('apple')} disabled={busy}>
+            <div ref={googleBtnRef} style={{ width:'100%', minHeight:44, display:'flex', justifyContent:'center' }} />
+            <button style={oauthBtnStyle} onClick={signInWithApple} disabled={busy}>
               <svg width="16" height="20" viewBox="0 0 20 24" fill="#111"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.2-1.2 3.1-2.5.7-1 1-2 1-2-.1 0-2-.8-2-3.3zM13.9 3.5c.7-.9 1.2-2.1 1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3.1-1.4z"/></svg>
               Jatka Applella
             </button>
@@ -739,6 +771,7 @@ function ProfileFullScreen() {
     <div style={{display:'flex',flexDirection:'column',gap:12}}>
       <div className="field"><div className="detail-label">Nimi</div><input className="input input-dark" value={form.nimi} onChange={e=>set('nimi',e.target.value)}/></div>
       <div className="field"><div className="detail-label">Ikä</div><input className="input input-dark" type="number" value={form.ika} onChange={e=>set('ika',e.target.value)}/></div>
+      <div className="field"><div className="detail-label">Bio</div><textarea className="input input-dark" rows={3} value={form.bio} onChange={e=>set('bio',e.target.value)}/></div>
       <div className="field"><div className="detail-label">Sukupuoli</div><div style={{display:'flex',gap:6}}>{['mies','nainen'].map(g=><button key={g} className={`filter-chip ${form.sukupuoli===g?'active':''}`} onClick={()=>set('sukupuoli',form.sukupuoli===g?'':g)}>{titleCase(g)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Kotikaupunki</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{VISIBLE_AREAS.map(a=><button key={a} className={`filter-chip ${form.alue.includes(a)?'active':''}`} onClick={()=>tog('alue',a)}>{a}</button>)}</div></div>
       <div className="field"><div className="detail-label">Pelitaso</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${form.pelitaso.includes(l)?'active':''}`} onClick={()=>tog('pelitaso',l)}>{titleCase(l)}</button>)}</div></div>
@@ -746,8 +779,7 @@ function ProfileFullScreen() {
       <div className="field"><div className="detail-label">Kätisyys</div><div style={{display:'flex',gap:6}}>{HANDEDNESS.map(h=><button key={h} className={`filter-chip ${form.katisyys===h?'active':''}`} onClick={()=>set('katisyys',form.katisyys===h?'':h)}>{titleCase(h)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Rysty</div><div style={{display:'flex',gap:6}}>{BACKHAND_TYPES.map(b=><button key={b} className={`filter-chip ${form.rysty===b?'active':''}`} onClick={()=>set('rysty',form.rysty===b?'':b)}>{titleCase(b)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Sopivat ajankohdat</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{AVAILABILITY_SLOTS.map(s=><button key={s.value} className={`filter-chip ${form.saatavuus.includes(s.value)?'active':''}`} onClick={()=>tog('saatavuus',s.value)}>{s.label}</button>)}</div></div>
-      <div className="field"><div className="detail-label">Bio</div><textarea className="input input-dark" rows={3} value={form.bio} onChange={e=>set('bio',e.target.value)}/></div>
-      <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.hiddenFromFeed} onChange={e=>set('hiddenFromFeed',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Piilota profiilini pelaajasyötteestä</label></div>
+      <div className="field"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><span style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>Piilota profiilini pelaajasyötteestä</span><button onClick={()=>set('hiddenFromFeed',!form.hiddenFromFeed)} style={{width:48,height:28,borderRadius:14,border:'none',padding:2,cursor:'pointer',background:form.hiddenFromFeed?'var(--green-deep)':'#ccc',transition:'background .2s',position:'relative',flexShrink:0}}><span style={{display:'block',width:24,height:24,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,.2)',transition:'transform .2s',transform:form.hiddenFromFeed?'translateX(20px)':'translateX(0)'}}/></button></div></div>
       <button className="btn btn-dark btn-lg btn-full" onClick={save} disabled={busy}>{busy?'Tallennetaan...':'Tallenna muutokset'}</button>
     </div>
   </div>;

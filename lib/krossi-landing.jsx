@@ -15,7 +15,7 @@ const BALL = 'assets/ball-tight.png';
 // ── small pieces ────────────────────────────────────────
 function Wordmark({ light = false, size = 23 }) {
   return (
-    <span style={{ fontWeight: 800, fontSize: size, letterSpacing: -0.6, color: light ? '#fff' : 'var(--ink)' }}>Krossi</span>
+    <span style={{ fontWeight: 800, fontSize: size, letterSpacing: -0.6, color: light ? '#fff' : 'var(--lime)' }}>Krossi</span>
   );
 }
 
@@ -169,7 +169,7 @@ function Hero({ t }) {
           </h1>
           <p className="hero-sub">Löydä pelaajia, luo ja sovi pelejä ja pysy mukana Lahden tennistapahtumissa. Täysin ilmaiseksi.</p>
           <div className="hero-cta">
-            <a href="/pelaa" className="btn-lime btn-lg">Kokeile Krossia</a>
+            <a href="/pelaa" className="btn-dark btn-lg">Kokeile Krossia</a>
           </div>
 
           <p className="demo-hint">Testaa vieressä olevaa interaktiivista demoa</p>
