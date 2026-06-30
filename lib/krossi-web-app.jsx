@@ -33,6 +33,15 @@ const INDOOR_VENUES = [
   { name: 'Talin Tenniskeskus', city: 'Helsinki' }, { name: 'Tennis Tower Helsinki', city: 'Helsinki' },
   { name: 'Tapiolan Tennispuisto', city: 'Espoo' }, { name: 'Tampereen Tenniskeskus', city: 'Tampere' },
 ];
+const SKILL_LEVEL_INFO = [
+  { value: 'aloittelija', label: 'Aloittelija', desc: 'Olet juuri aloittamassa tai pelannut vasta muutaman kerran.' },
+  { value: 'keskitaso', label: 'Keskitaso', desc: 'Hallitset perusliikkeet ja pystyt pitämään pisteen yllä.' },
+  { value: 'edistynyt', label: 'Edistynyt', desc: 'Pelaat säännöllisesti ja hallitset taktiikkaa sekä eri lyöntejä.' },
+  { value: 'kilpapelaaja', label: 'Kilpapelaaja', desc: 'Pelaat tai olet pelannut kilpaa, ja sinulla on kilpailuluokka.' },
+];
+const COMPETITION_CLASSES = ['A1','A2','A3','B1','B2','B3','C1','C2','C3','D1','D2','D3','E1','E2','E3'];
+const GAME_TYPES = ['pallottelu', 'treenit', 'matsit'];
+const MATCH_FORMATS = ['kaksinpeli', 'nelinpeli', 'kaikki käy'];
 
 // ── Helpers ────────────────────────────────────────────
 function parseSkillLevels(raw) {
@@ -69,7 +78,7 @@ function formatDate(dateStr) {
   return `${'SuMaTiKeToToLa'.match(/../g)[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}. klo ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function slotsNeeded(mt) { return mt === 'nelinpeli' ? 3 : 1; }
-function storageUrl(path) { return path ? (path.startsWith('http') ? path : `${SUPABASE_URL}/storage/v1/object/public/avatars/${path}`) : null; }
+function storageUrl(path) { return path ? (path.startsWith('http') ? path : `${SUPABASE_URL}/storage/v1/object/public/profile-avatars/${path}`) : null; }
 function chatImgUrl(path) { return path ? (path.startsWith('http') ? path : `${SUPABASE_URL}/storage/v1/object/public/chat-images/${path}`) : null; }
 function fmtLastMsg(raw) {
   if (!raw) return { text: null }; try { const p = JSON.parse(raw);
@@ -78,6 +87,58 @@ function fmtLastMsg(raw) {
   } catch {} return { text: raw };
 }
 function slotLabel(v) { const s = AVAILABILITY_SLOTS.find(a => a.value === v); return s ? (s.time ? `${s.label} ${s.time}` : s.label) : v; }
+function archivedStorageKey(uid) { return `krossi_archived_conversations_${uid}`; }
+function getArchivedIds(uid) {
+  if (!uid) return [];
+  try { return JSON.parse(localStorage.getItem(archivedStorageKey(uid)) || '[]'); } catch { return []; }
+}
+function saveArchivedIds(uid, ids) {
+  if (!uid) return;
+  try { localStorage.setItem(archivedStorageKey(uid), JSON.stringify(ids)); } catch {}
+}
+async function fetchWebConversations(uid) {
+  const { data: cpD } = await supabase.from('conversation_participants').select('conversation_id,last_read_at,conversation:conversations(id,updated_at,last_message,challenge_id)').eq('user_id',uid);
+  const rows = cpD || []; const cids = rows.map(r=>r.conversation_id);
+  if (cids.length === 0) return [];
+  const [{data:ap},{data:lm}] = await Promise.all([
+    supabase.from('conversation_participants').select('conversation_id,user_id,profile:profiles!conversation_participants_user_id_fkey(id,name,avatar_url,avatar_color)').in('conversation_id',cids),
+    supabase.from('messages').select('conversation_id,sender_id,created_at').in('conversation_id',cids).order('created_at',{ascending:false}),
+  ]);
+  const pm=new Map(); (ap||[]).forEach(i=>{const a=pm.get(i.conversation_id)||[];if(i.profile)a.push({userId:i.profile.id,name:i.profile.name,avatarUrl:i.profile.avatar_url,avatarColor:i.profile.avatar_color||'blue'});pm.set(i.conversation_id,a);});
+  const lmm=new Map(); (lm||[]).forEach(i=>{if(!lmm.has(i.conversation_id))lmm.set(i.conversation_id,{senderId:i.sender_id,createdAt:i.created_at});});
+  return rows.map(r=>{
+    const others=(pm.get(r.conversation_id)||[]).filter(p=>p.userId!==uid);const o=others[0];
+    if(!r.conversation||!o)return null;
+    const lt=lmm.get(r.conversation_id);const lr=r.last_read_at;
+    const unread=lt?.senderId&&lt.senderId!==uid&&(!lr||new Date(lt.createdAt)>new Date(lr));
+    return {id:r.conversation_id,otherUserId:o.userId,otherUserName:o.name,otherUserAvatarUrl:o.avatarUrl,otherUserAvatarColor:o.avatarColor,displayName:others.length>1?'Ryhmäkeskustelu':o.name,isGroup:others.length>1,participantProfiles:others,lastMessage:fmtLastMsg(r.conversation.last_message).text,updatedAt:r.conversation.updated_at,hasUnread:unread};
+  }).filter(Boolean).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
+}
+function mapMatchResult(row) {
+  return { id:row.id, createdAt:row.created_at, gameType:row.game_type, format:row.format, partnerName:row.partner_name, opponentName:row.opponent_name, oppPartnerName:row.opp_partner_name, sets:row.sets||[], won:row.won };
+}
+async function fetchMatchResultsWeb() {
+  const { data, error } = await supabase.from('match_results').select('*').order('created_at',{ascending:false}).limit(50);
+  if (error) throw error;
+  return (data||[]).map(mapMatchResult);
+}
+async function saveMatchResultWeb(id, payload) {
+  const row = { game_type:payload.gameType, format:payload.format, partner_name:payload.partnerName||null, opponent_name:payload.opponentName||null, opp_partner_name:payload.oppPartnerName||null, sets:payload.sets, won:payload.won };
+  if (id) { const {error}=await supabase.from('match_results').update(row).eq('id',id); if(error) throw error; }
+  else {
+    const { data: { user } } = await supabase.auth.getUser();
+    const {error}=await supabase.from('match_results').insert({...row, created_by:user.id}); if(error) throw error;
+  }
+}
+async function deleteMatchResultWeb(id) {
+  const { error } = await supabase.from('match_results').delete().eq('id', id);
+  if (error) throw error;
+}
+function calculateMatchWon(sets) {
+  const won = sets.filter(s=>s.my>s.opp).length;
+  const lost = sets.filter(s=>s.opp>s.my).length;
+  return won>lost;
+}
 
 function mapProfile(d) {
   return {
@@ -106,6 +167,33 @@ function Empty({ title, action, onAction }) {
     <p style={{ fontSize: 15, marginBottom: 16 }}>{title}</p>
     {action && <button className="btn btn-lime btn-md" onClick={onAction}>{action}</button>}
   </div>;
+}
+function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v6M14 11v6" /></svg>; }
+function ArchiveIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" /></svg>; }
+function UndoIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h11a5 5 0 0 1 0 10h-2M3 9l5-5M3 9l5 5" /></svg>; }
+function Toggle({ on, onChange }) {
+  return (
+    <button type="button" onClick={() => onChange(!on)} style={{ width: 48, height: 28, borderRadius: 14, border: 'none', padding: 2, cursor: 'pointer', background: on ? 'var(--green-deep)' : '#ccc', position: 'relative', flexShrink: 0, transition: 'background .2s' }}>
+      <span style={{ display: 'block', width: 24, height: 24, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.2)', transition: 'transform .2s', transform: on ? 'translateX(20px)' : 'translateX(0)' }} />
+    </button>
+  );
+}
+function AvatarPicker({ preview, onPick }) {
+  const inputRef = React.useRef(null);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <div onClick={() => inputRef.current?.click()} style={{ position: 'relative', cursor: 'pointer', width: 88, height: 88 }}>
+        {preview
+          ? <img src={preview} alt="" style={{ width: 88, height: 88, borderRadius: '50%', objectFit: 'cover' }} />
+          : <div className="avatar avatar-blue" style={{ width: 88, height: 88, fontSize: 30 }}>+</div>}
+        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: '50%', background: 'var(--green-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M3 7h3l2-3h8l2 3h3v13H3z" /><circle cx="12" cy="13" r="4" /></svg>
+        </div>
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={onPick} />
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', maxWidth: 260, margin: 0 }}>Auta muita pelaajia tietämään kuka on vastassa</p>
+    </div>
+  );
 }
 
 // ── Auth Context ───────────────────────────────────────
@@ -255,17 +343,45 @@ function AuthScreen() {
 function OnboardingScreen() {
   const { session, refreshProfile } = useAuth();
   const [step, setStep] = React.useState(1);
-  const [form, setForm] = React.useState({ nimi:'',ika:'',sukupuoli:'',alue:[],pelitaso:[],pelimuoto:[],saatavuus:[],bio:'' });
+  const [form, setForm] = React.useState({
+    nimi:'', ika:'', pelitaso:'', kilpaluokat:[], pelimuoto:[], otteluTyyppi:[], bio:'',
+    saatavuus:[], playingThisWeek:true, hiddenFromFeed:false,
+  });
+  const [avatarFile, setAvatarFile] = React.useState(null);
+  const [avatarPreview, setAvatarPreview] = React.useState(null);
   const [error, setError] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const set = (k,v) => setForm(p => ({...p,[k]:v}));
   const tog = (k,v) => setForm(p => ({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
+  const onAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
   const save = async () => {
     setError(''); setBusy(true);
     try {
       const uid = session.user.id;
-      await supabase.from('profiles').upsert({ id:uid, name:form.nimi.trim(), age:Number(form.ika), gender:form.sukupuoli||null, area:form.alue.join(', '), bio:form.bio.trim()||null });
-      await supabase.from('tennis_preferences').upsert({ user_id:uid, skill_level:form.pelitaso.join(','), play_style:form.pelimuoto.join(', ') });
+      let avatarPath = null;
+      if (avatarFile) {
+        const ext = (avatarFile.name.split('.').pop() || 'jpg').toLowerCase();
+        const path = `${uid}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('profile-avatars').upload(path, avatarFile, { upsert: true });
+        if (upErr) throw upErr;
+        avatarPath = path;
+      }
+      const skillLevels = form.pelitaso === 'kilpapelaaja' && form.kilpaluokat.length > 0
+        ? [form.pelitaso, ...form.kilpaluokat] : [form.pelitaso];
+      await supabase.from('profiles').upsert({
+        id:uid, name:form.nimi.trim(), age:Number(form.ika), area:'Lahti', bio:form.bio.trim()||null,
+        playing_this_week:form.playingThisWeek, hidden_from_feed:form.hiddenFromFeed,
+        ...(avatarPath ? { avatar_url: avatarPath } : {}),
+      });
+      await supabase.from('tennis_preferences').upsert({
+        user_id:uid, skill_level:skillLevels.join(','),
+        play_style:[...form.pelimuoto, ...form.otteluTyyppi].join(', '),
+      });
       await supabase.from('availability').delete().eq('user_id',uid);
       if (form.saatavuus.length>0) await supabase.from('availability').insert(form.saatavuus.map(s=>({user_id:uid,slot:s})));
       await refreshProfile();
@@ -277,21 +393,53 @@ function OnboardingScreen() {
         <h2 style={{ margin:'0 0 4px', fontSize:20, fontWeight:800 }}>Luo profiilisi</h2>
         <p style={{ color:'var(--text-muted)', fontSize:13, marginBottom:16 }}>Vaihe {step}/3</p>
         {error && <div className="alert alert-error" style={{ marginBottom:12 }}>{error}</div>}
-        {step===1 && <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
+        {step===1 && <div style={{ display:'flex',flexDirection:'column',gap:14 }}>
+          <AvatarPicker preview={avatarPreview} onPick={onAvatarChange} />
           <div className="field"><div className="field-label">Nimi</div><input className="input" placeholder="Etunimi" value={form.nimi} onChange={e=>set('nimi',e.target.value)}/></div>
           <div className="field"><div className="field-label">Ikä</div><input className="input" type="number" placeholder="25" min="16" max="100" value={form.ika} onChange={e=>set('ika',e.target.value)}/></div>
-          <div className="field"><div className="field-label">Sukupuoli</div><div style={{ display:'flex',gap:7 }}>{['mies','nainen'].map(g=><button key={g} className={`select-chip ${form.sukupuoli===g?'selected':''}`} onClick={()=>set('sukupuoli',form.sukupuoli===g?'':g)}>{titleCase(g)}</button>)}</div></div>
-          <div className="field"><div className="field-label">Kaupunki</div><div className="select-chips">{VISIBLE_AREAS.map(a=><button key={a} className={`select-chip ${form.alue.includes(a)?'selected':''}`} onClick={()=>tog('alue',a)}>{a}</button>)}</div></div>
-          <button className="btn btn-dark btn-lg btn-full" disabled={!form.nimi||!form.ika||form.alue.length===0} onClick={()=>setStep(2)}>Seuraava</button>
+          <div className="field"><div className="field-label">Kotikaupunki</div><div className="select-chips"><span className="select-chip selected" style={{ cursor:'default' }}>Lahti</span></div></div>
+          <button className="btn btn-dark btn-lg btn-full" disabled={!form.nimi||!form.ika} onClick={()=>setStep(2)}>Seuraava</button>
         </div>}
-        {step===2 && <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
-          <div className="field"><div className="field-label">Pelitaso</div><div className="select-chips">{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`select-chip ${form.pelitaso.includes(l)?'selected':''}`} onClick={()=>tog('pelitaso',l)}>{titleCase(l)}</button>)}</div></div>
-          <div className="field"><div className="field-label">Pelimuoto</div><div className="select-chips">{PLAY_STYLES.map(s=><button key={s} className={`select-chip ${form.pelimuoto.includes(s)?'selected':''}`} onClick={()=>tog('pelimuoto',s)}>{titleCase(s)}</button>)}</div></div>
-          <div style={{ display:'flex',gap:8 }}><button className="btn btn-outline-d btn-md" onClick={()=>setStep(1)}>Takaisin</button><button className="btn btn-dark btn-lg" style={{flex:1}} disabled={form.pelitaso.length===0} onClick={()=>setStep(3)}>Seuraava</button></div>
+        {step===2 && <div style={{ display:'flex',flexDirection:'column',gap:14 }}>
+          <div className="field">
+            <div className="field-label">Pelitaso</div>
+            <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
+              {SKILL_LEVEL_INFO.map(s => (
+                <button key={s.value} type="button" onClick={()=>set('pelitaso',s.value)} style={{
+                  textAlign:'left', padding:'10px 14px', borderRadius:12, cursor:'pointer', fontFamily:'inherit',
+                  border: form.pelitaso===s.value ? '1.5px solid var(--green-deep)' : '1.5px solid var(--border)',
+                  background: form.pelitaso===s.value ? 'rgba(14,59,44,0.06)' : '#fff',
+                }}>
+                  <div style={{ fontWeight:700, fontSize:14, color:'var(--ink)' }}>{s.label}</div>
+                  <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:2 }}>{s.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          {form.pelitaso==='kilpapelaaja' && (
+            <div className="field">
+              <div className="field-label">Kilpailuluokka</div>
+              <div className="select-chips">{COMPETITION_CLASSES.map(c=><button key={c} className={`select-chip ${form.kilpaluokat.includes(c)?'selected':''}`} onClick={()=>tog('kilpaluokat',c)}>{c}</button>)}</div>
+            </div>
+          )}
+          <div className="field"><div className="field-label">Millaista peliä haet?</div><div className="select-chips">{GAME_TYPES.map(g=><button key={g} className={`select-chip ${form.pelimuoto.includes(g)?'selected':''}`} onClick={()=>tog('pelimuoto',g)}>{titleCase(g)}</button>)}</div></div>
+          <div className="field"><div className="field-label">Ottelumuoto</div><div className="select-chips">{MATCH_FORMATS.map(m=><button key={m} className={`select-chip ${form.otteluTyyppi.includes(m)?'selected':''}`} onClick={()=>tog('otteluTyyppi',m)}>{titleCase(m)}</button>)}</div></div>
+          <div className="field"><div className="field-label">Bio</div><textarea className="input" placeholder="Esim. Etsin pallottelua tai kevyitä matseja arki-iltoihin." value={form.bio} onChange={e=>set('bio',e.target.value)} rows={3}/></div>
+          <div style={{ display:'flex',gap:8 }}><button className="btn btn-outline-d btn-md" onClick={()=>setStep(1)}>Takaisin</button><button className="btn btn-dark btn-lg" style={{flex:1}} disabled={!form.pelitaso} onClick={()=>setStep(3)}>Seuraava</button></div>
         </div>}
-        {step===3 && <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
-          <div className="field"><div className="field-label">Saatavuus</div><div className="select-chips">{AVAILABILITY_SLOTS.map(s=><button key={s.value} className={`select-chip ${form.saatavuus.includes(s.value)?'selected':''}`} onClick={()=>tog('saatavuus',s.value)}>{s.label}{s.time?` ${s.time}`:''}</button>)}</div></div>
-          <div className="field"><div className="field-label">Bio</div><textarea className="input" placeholder="Kerro itsestäsi..." value={form.bio} onChange={e=>set('bio',e.target.value)} rows={3}/></div>
+        {step===3 && <div style={{ display:'flex',flexDirection:'column',gap:14 }}>
+          <div className="field"><div className="field-label">Milloin ehdit pelaamaan?</div><div className="select-chips">{AVAILABILITY_SLOTS.map(s=><button key={s.value} className={`select-chip ${form.saatavuus.includes(s.value)?'selected':''}`} onClick={()=>tog('saatavuus',s.value)}>{s.label}{s.time?` ${s.time}`:''}</button>)}</div></div>
+          <div className="field" style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'var(--ink)' }}>Pelaan tällä viikolla</div>
+            <Toggle on={form.playingThisWeek} onChange={v=>set('playingThisWeek',v)} />
+          </div>
+          <div className="field" style={{ display:'flex',alignItems:'center',justifyContent:'space-between' }}>
+            <div style={{ flex:1, paddingRight:12 }}>
+              <div style={{ fontWeight:700, fontSize:14, color:'var(--ink)' }}>Piilota profiilini pelaajafeedistä</div>
+              <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:2 }}>Et näy muille pelaajille, mutta voit silti luoda haasteita.</div>
+            </div>
+            <Toggle on={form.hiddenFromFeed} onChange={v=>set('hiddenFromFeed',v)} />
+          </div>
           <div style={{ display:'flex',gap:8 }}><button className="btn btn-outline-d btn-md" onClick={()=>setStep(2)}>Takaisin</button><button className="btn btn-lime btn-lg" style={{flex:1}} onClick={save} disabled={busy}>{busy?'Tallennetaan...':'Aloita Krossin käyttö'}</button></div>
         </div>}
       </div>
@@ -568,45 +716,54 @@ function CreateChallengeScreen({ onBack, onCreated }) {
 }
 
 // ── Messages Screen ────────────────────────────────────
-function MessagesScreen({ onOpenChat }) {
+function MessagesScreen({ onOpenChat, onCreateChallenge, onOpenArchive }) {
   const { session } = useAuth();
+  const uid = session?.user?.id;
   const [convos, setConvos] = React.useState([]);
   const [reqs, setReqs] = React.useState([]);
+  const [archivedIds, setArchivedIdsState] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const load = React.useCallback(async () => {
-    if (!session?.user?.id) return;
-    const uid = session.user.id;
+    if (!uid) return;
     try {
-      const { data: cpD } = await supabase.from('conversation_participants').select('conversation_id,last_read_at,conversation:conversations(id,updated_at,last_message,challenge_id)').eq('user_id',uid);
-      const rows = cpD || []; const cids = rows.map(r=>r.conversation_id);
-      if (cids.length > 0) {
-        const [{data:ap},{data:lm}] = await Promise.all([
-          supabase.from('conversation_participants').select('conversation_id,user_id,profile:profiles!conversation_participants_user_id_fkey(id,name,avatar_url,avatar_color)').in('conversation_id',cids),
-          supabase.from('messages').select('conversation_id,sender_id,created_at').in('conversation_id',cids).order('created_at',{ascending:false}),
-        ]);
-        const pm=new Map(); (ap||[]).forEach(i=>{const a=pm.get(i.conversation_id)||[];if(i.profile)a.push({userId:i.profile.id,name:i.profile.name,avatarUrl:i.profile.avatar_url,avatarColor:i.profile.avatar_color||'blue'});pm.set(i.conversation_id,a);});
-        const lmm=new Map(); (lm||[]).forEach(i=>{if(!lmm.has(i.conversation_id))lmm.set(i.conversation_id,{senderId:i.sender_id,createdAt:i.created_at});});
-        setConvos(rows.map(r=>{
-          const others=(pm.get(r.conversation_id)||[]).filter(p=>p.userId!==uid);const o=others[0];
-          if(!r.conversation||!o)return null;
-          const lt=lmm.get(r.conversation_id);const lr=r.last_read_at;
-          const unread=lt?.senderId&&lt.senderId!==uid&&(!lr||new Date(lt.createdAt)>new Date(lr));
-          return {id:r.conversation_id,otherUserId:o.userId,otherUserName:o.name,otherUserAvatarUrl:o.avatarUrl,otherUserAvatarColor:o.avatarColor,displayName:others.length>1?'Ryhmäkeskustelu':o.name,isGroup:others.length>1,participantProfiles:others,lastMessage:fmtLastMsg(r.conversation.last_message).text,updatedAt:r.conversation.updated_at,hasUnread:unread};
-        }).filter(Boolean).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt)));
-      }
-      const { data: rD } = await supabase.from('connection_requests').select('id,sender_id,message,created_at,sender:profiles!connection_requests_sender_id_fkey(name,avatar_url,avatar_color)').eq('receiver_id',uid).eq('status','pending').order('created_at',{ascending:false});
+      const [nextConvos, { data: rD }] = await Promise.all([
+        fetchWebConversations(uid),
+        supabase.from('connection_requests').select('id,sender_id,message,created_at,sender:profiles!connection_requests_sender_id_fkey(name,avatar_url,avatar_color)').eq('receiver_id',uid).eq('status','pending').order('created_at',{ascending:false}),
+      ]);
+      setConvos(nextConvos);
       setReqs((rD||[]).map(r=>({id:r.id,senderId:r.sender_id,message:r.message,senderName:r.sender?.name||'Pelaaja',senderAvatarUrl:r.sender?.avatar_url,senderAvatarColor:r.sender?.avatar_color||'blue'})));
-    } catch {} finally { setLoading(false); }
-  }, [session]);
+      setArchivedIdsState(getArchivedIds(uid));
+    } catch (e) { console.error('Viestien lataus epäonnistui', e); } finally { setLoading(false); }
+  }, [uid]);
   React.useEffect(() => { load(); }, [load]);
   React.useEffect(() => {
-    if(!session?.user?.id)return;
+    if(!uid)return;
     const ch=supabase.channel('msg-web').on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},()=>load()).on('postgres_changes',{event:'*',schema:'public',table:'conversations'},()=>load()).subscribe();
     return ()=>{supabase.removeChannel(ch);};
-  }, [load,session]);
+  }, [load,uid]);
   const accept = async id => { try{await supabase.rpc('accept_connection_request',{request_id_input:id});load();}catch(e){alert(e.message);} };
   const ignore = async id => { try{await supabase.rpc('ignore_connection_request',{request_id_input:id});load();}catch(e){alert(e.message);} };
+  const remove = async c => {
+    if(!window.confirm(`${c.displayName}-keskustelu poistuu kaikilta osapuolilta. Poistetaanko?`)) return;
+    try{ await supabase.rpc('delete_conversation_for_all',{conversation_id_input:c.id}); load(); }
+    catch(e){ alert(e.message||'Keskustelua ei voitu poistaa.'); }
+  };
+  const archive = c => {
+    const next=[...new Set([...archivedIds,c.id])];
+    setArchivedIdsState(next); saveArchivedIds(uid,next);
+  };
+  const activeConvos = convos.filter(c=>!archivedIds.includes(c.id));
   if (loading) return <div className="page"><Spinner/></div>;
+  if (reqs.length===0 && activeConvos.length===0 && archivedIds.length===0) {
+    return <div className="page">
+      <div className="empty-hero">
+        <img src="assets/no-messages-yet.png" alt="" className="empty-hero-img" />
+        <h2 className="empty-hero-title">Ei vielä viestejä.<br/>Muttei hätää!</h2>
+        <p className="empty-hero-subtitle">Voit luoda oman haasteen, jonka muut pelaajat näkevät.</p>
+        <button className="btn btn-lime btn-lg btn-full" onClick={onCreateChallenge}>Luo oma haaste</button>
+      </div>
+    </div>;
+  }
   return <div className="page">
     <div className="page-header"><h2 className="page-title">Viestit</h2></div>
     {reqs.length>0 && <>
@@ -617,15 +774,69 @@ function MessagesScreen({ onOpenChat }) {
         <div style={{display:'flex',gap:6}}><button className="btn btn-lime btn-sm" style={{flex:1}} onClick={()=>accept(r.id)}>Hyväksy</button><button className="btn btn-outline-w btn-sm" style={{flex:1}} onClick={()=>ignore(r.id)}>Ohita</button></div>
       </div>)}
     </>}
-    {convos.length>0 && <>
-      <h3 style={{color:'var(--lime)',fontSize:14,fontWeight:800,margin:'14px 0 6px'}}>Keskustelut</h3>
-      {convos.map(c=><div key={c.id} className="msg-row" onClick={()=>onOpenChat(c)}>
-        <Avatar uri={c.otherUserAvatarUrl} name={c.otherUserName} color={c.otherUserAvatarColor} size={42}/>
-        <div style={{flex:1,minWidth:0}}><div style={{color:'var(--ink)',fontWeight:700,fontSize:14}}>{c.displayName}</div><div style={{color:'var(--text-muted)',fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.lastMessage||'Aloita keskustelu'}</div></div>
-        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}><span style={{color:'#aaa',fontSize:11}}>{timeAgo(c.updatedAt)}</span>{c.hasUnread&&<span style={{width:8,height:8,borderRadius:'50%',background:'var(--lime)'}}/>}</div>
-      </div>)}
-    </>}
-    {convos.length===0&&reqs.length===0&&<Empty title="Ei vielä viestejä."/>}
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'14px 0 6px'}}>
+      <h3 style={{color:'var(--lime)',fontSize:14,fontWeight:800}}>Keskustelut</h3>
+      <button className="archive-link-btn" onClick={onOpenArchive}><ArchiveIcon/>Arkisto{archivedIds.length>0?` (${archivedIds.length})`:''}</button>
+    </div>
+    {activeConvos.length===0
+      ? <Empty title="Ei keskusteluja vielä. Hyväksytyt pelipyynnöt näkyvät täällä."/>
+      : activeConvos.map(c=><div key={c.id} className="msg-row">
+          <div className="msg-row-main" onClick={()=>onOpenChat(c)}>
+            <Avatar uri={c.otherUserAvatarUrl} name={c.otherUserName} color={c.otherUserAvatarColor} size={42}/>
+            <div style={{flex:1,minWidth:0}}><div style={{color:'var(--ink)',fontWeight:700,fontSize:14}}>{c.displayName}</div><div style={{color:'var(--text-muted)',fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.lastMessage||'Aloita keskustelu'}</div></div>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}><span style={{color:'#aaa',fontSize:11}}>{timeAgo(c.updatedAt)}</span>{c.hasUnread&&<span style={{width:8,height:8,borderRadius:'50%',background:'var(--lime)'}}/>}</div>
+          </div>
+          <div className="msg-row-actions">
+            <button className="icon-btn" title="Arkistoi" onClick={()=>archive(c)}><ArchiveIcon/></button>
+            <button className="icon-btn" title="Poista" onClick={()=>remove(c)}><TrashIcon/></button>
+          </div>
+        </div>)}
+  </div>;
+}
+
+// ── Archived Conversations Screen ───────────────────────
+function ArchivedConversationsScreen({ onBack, onOpenChat }) {
+  const { session } = useAuth();
+  const uid = session?.user?.id;
+  const [convos, setConvos] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const load = React.useCallback(async () => {
+    if (!uid) return;
+    try {
+      const all = await fetchWebConversations(uid);
+      const ids = new Set(getArchivedIds(uid));
+      setConvos(all.filter(c=>ids.has(c.id)));
+    } catch (e) { console.error('Arkiston lataus epäonnistui', e); } finally { setLoading(false); }
+  }, [uid]);
+  React.useEffect(() => { load(); }, [load]);
+  const unarchive = c => {
+    const next = getArchivedIds(uid).filter(id=>id!==c.id);
+    saveArchivedIds(uid,next); setConvos(prev=>prev.filter(x=>x.id!==c.id));
+  };
+  const remove = async c => {
+    if(!window.confirm(`${c.displayName}-keskustelu poistetaan pysyvästi. Jatketaanko?`)) return;
+    try {
+      await supabase.rpc('delete_conversation_for_all',{conversation_id_input:c.id});
+      const next = getArchivedIds(uid).filter(id=>id!==c.id);
+      saveArchivedIds(uid,next); setConvos(prev=>prev.filter(x=>x.id!==c.id));
+    } catch(e) { alert(e.message||'Keskustelua ei voitu poistaa.'); }
+  };
+  if (loading) return <div className="page"><Spinner/></div>;
+  return <div className="page">
+    <div style={{padding:'16px 0 4px'}}><button className="back-btn" onClick={onBack}>← Takaisin</button></div>
+    <div className="page-header"><h2 className="page-title">Arkisto</h2></div>
+    {convos.length===0
+      ? <Empty title="Arkisto on tyhjä."/>
+      : convos.map(c=><div key={c.id} className="msg-row">
+          <div className="msg-row-main" onClick={()=>onOpenChat(c)}>
+            <Avatar uri={c.otherUserAvatarUrl} name={c.otherUserName} color={c.otherUserAvatarColor} size={42}/>
+            <div style={{flex:1,minWidth:0}}><div style={{color:'var(--ink)',fontWeight:700,fontSize:14}}>{c.displayName}</div><div style={{color:'var(--text-muted)',fontSize:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.lastMessage||'Aloita keskustelu'}</div></div>
+          </div>
+          <div className="msg-row-actions">
+            <button className="icon-btn" title="Palauta" onClick={()=>unarchive(c)}><UndoIcon/></button>
+            <button className="icon-btn" title="Poista" onClick={()=>remove(c)}><TrashIcon/></button>
+          </div>
+        </div>)}
   </div>;
 }
 
@@ -650,7 +861,7 @@ function ChatScreen({ conversation, onBack }) {
     return ()=>{supabase.removeChannel(ch);};
   },[conversation.id,load]);
   React.useEffect(()=>{btm.current?.scrollIntoView({behavior:'smooth'});},[msgs]);
-  React.useEffect(()=>{if(uid)supabase.rpc('mark_conversation_read',{p_conversation_id:conversation.id,p_user_id:uid}).catch(()=>{});},[conversation.id,uid,msgs.length]);
+  React.useEffect(()=>{if(uid)(async()=>{try{await supabase.rpc('mark_conversation_read',{p_conversation_id:conversation.id,p_user_id:uid});}catch{}})();},[conversation.id,uid,msgs.length]);
   const send = async () => {
     if(!text.trim()||sending)return; setSending(true);
     try{await supabase.from('messages').insert({conversation_id:conversation.id,content:text.trim()});setText('');}catch(e){alert(e.message);}finally{setSending(false);}
@@ -682,6 +893,141 @@ function ChatScreen({ conversation, onBack }) {
       :<button className="btn" onClick={thumbs} disabled={sending} style={{width:38,height:38,borderRadius:'50%',padding:0,fontSize:20,background:'#f4f2ec',border:'1px solid var(--border)'}}>👍</button>}
     </div>
   </div>;
+}
+
+// ── Match History ──────────────────────────────────────
+const MATCH_GAME_TYPES = [['sets','Erät'],['tiebreak','Tie-break'],['full_match','Kunnon matsi']];
+
+function MatchResultModal({ editingResult, onClose, onSaved }) {
+  const [format, setFormat] = React.useState(editingResult?.format || 'singles');
+  const [gameType, setGameType] = React.useState(editingResult?.gameType || 'sets');
+  const [opponentName, setOpponentName] = React.useState(editingResult?.opponentName || '');
+  const [partnerName, setPartnerName] = React.useState(editingResult?.partnerName || '');
+  const [oppPartnerName, setOppPartnerName] = React.useState(editingResult?.oppPartnerName || '');
+  const [sets, setSets] = React.useState(editingResult?.sets?.length ? editingResult.sets : [{my:0,opp:0}]);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const isTiebreak = gameType === 'tiebreak';
+
+  const changeGameType = v => { setGameType(v); setSets([{my:0,opp:0}]); };
+  const updateSet = (i,field,v) => {
+    const n = Math.max(0, Math.min(99, parseInt(v,10)||0));
+    setSets(s=>s.map((row,idx)=>idx===i?{...row,[field]:n}:row));
+  };
+  const addSet = () => { if (sets.length<5) setSets(s=>[...s,{my:0,opp:0}]); };
+  const removeSet = i => { if (sets.length>1) setSets(s=>s.filter((_,idx)=>idx!==i)); };
+
+  const save = async () => {
+    setError('');
+    const validSets = sets.filter(s=>s.my>0||s.opp>0);
+    if (gameType!=='tiebreak' && validSets.length===0) { setError('Syötä vähintään yhden erän tulos.'); return; }
+    if (gameType==='tiebreak' && sets[0].my===0 && sets[0].opp===0) { setError('Syötä tie-break tulos.'); return; }
+    const finalSets = gameType==='tiebreak' ? sets.slice(0,1) : validSets;
+    const won = calculateMatchWon(finalSets);
+    setSaving(true);
+    try {
+      await saveMatchResultWeb(editingResult?.id, { gameType, format, partnerName: format==='doubles'?partnerName||null:null, opponentName: opponentName||null, oppPartnerName: format==='doubles'?oppPartnerName||null:null, sets: finalSets, won });
+      onSaved();
+    } catch(e) { setError(e.message||'Tuloksen tallennus epäonnistui.'); } finally { setSaving(false); }
+  };
+
+  return <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+      <h3 style={{margin:'0 0 16px',fontSize:18,fontWeight:800,color:'var(--ink)'}}>{editingResult?'Muokkaa tulosta':'Lisää tulos'}</h3>
+      {error && <div className="alert alert-error" style={{marginBottom:12}}>{error}</div>}
+      <div className="field"><div className="detail-label">Pelimuoto</div><div style={{display:'flex',gap:6}}>
+        <button className={`filter-chip ${format==='singles'?'active':''}`} onClick={()=>setFormat('singles')}>Kaksinpeli</button>
+        <button className={`filter-chip ${format==='doubles'?'active':''}`} onClick={()=>setFormat('doubles')}>Nelinpeli</button>
+      </div></div>
+      <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {MATCH_GAME_TYPES.map(([v,l])=><button key={v} className={`filter-chip ${gameType===v?'active':''}`} onClick={()=>changeGameType(v)}>{l}</button>)}
+      </div></div>
+      <div className="field"><div className="detail-label">Vastustaja</div><input className="input" placeholder="Vastustajan nimi" value={opponentName} onChange={e=>setOpponentName(e.target.value)}/></div>
+      {format==='doubles' && <>
+        <div className="field"><div className="detail-label">Parisi</div><input className="input" placeholder="Parisi nimi" value={partnerName} onChange={e=>setPartnerName(e.target.value)}/></div>
+        <div className="field"><div className="detail-label">Vastustajan pari</div><input className="input" placeholder="Vastustajan parin nimi" value={oppPartnerName} onChange={e=>setOppPartnerName(e.target.value)}/></div>
+      </>}
+      <div className="field">
+        <div className="detail-label">{isTiebreak?'Tie-break tulos':'Erien tulokset'}</div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {sets.map((s,i)=>
+            <div key={i} style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{width:54,fontSize:12,color:'var(--text-muted)',fontWeight:700}}>{isTiebreak?'TB':`Erä ${i+1}`}</span>
+              <input className="input" type="number" min="0" max="99" style={{width:60,textAlign:'center'}} value={s.my||''} placeholder="0" onChange={e=>updateSet(i,'my',e.target.value)}/>
+              <span style={{color:'var(--text-muted)'}}>–</span>
+              <input className="input" type="number" min="0" max="99" style={{width:60,textAlign:'center'}} value={s.opp||''} placeholder="0" onChange={e=>updateSet(i,'opp',e.target.value)}/>
+              {!isTiebreak && sets.length>1 && <button onClick={()=>removeSet(i)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:16}}>✕</button>}
+            </div>)}
+        </div>
+        {!isTiebreak && sets.length<5 && <button className="btn btn-outline-d btn-sm" style={{marginTop:8}} onClick={addSet}>+ Lisää erä</button>}
+      </div>
+      <div style={{display:'flex',gap:8,marginTop:16}}>
+        <button className="btn btn-outline-d btn-md" onClick={onClose}>Peruuta</button>
+        <button className="btn btn-dark btn-lg" style={{flex:1}} onClick={save} disabled={saving}>{saving?'Tallennetaan...':editingResult?'Tallenna muutokset':'Tallenna tulos'}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+function MatchResultCard({ result, onEdit, onDelete }) {
+  const gameTypeLabel = result.gameType==='sets'?'Erät':result.gameType==='tiebreak'?'Tie-break':'Kunnon matsi';
+  const formatLabel = result.format==='singles'?'Kaksinpeli':'Nelinpeli';
+  const date = new Date(result.createdAt);
+  const dateText = `${date.getDate()}.${date.getMonth()+1}.${date.getFullYear()}`;
+  const totalMy = result.sets.reduce((sum,s)=>sum+s.my,0);
+  const totalOpp = result.sets.reduce((sum,s)=>sum+s.opp,0);
+  const isDraw = totalMy===totalOpp;
+  const outcomeLabel = isDraw?'Tasapeli':result.won?'Voitto':'Tappio';
+  const outcomeColor = isDraw?'#8a7f5c':result.won?'#2d7a4d':'var(--danger)';
+  const outcomeBg = isDraw?'#f4f0e2':result.won?'rgba(70,166,109,0.1)':'rgba(161,59,47,0.1)';
+  const myLabel = result.format==='doubles' && result.partnerName ? `Sinä & ${result.partnerName}` : 'Sinä';
+  const oppLabel = result.format==='doubles' && result.oppPartnerName ? `${result.opponentName||'Vastustaja'} & ${result.oppPartnerName}` : (result.opponentName||'Vastustaja');
+  return <div className="card">
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8,flexWrap:'wrap',gap:6}}>
+      <span className="chip" style={{background:outcomeBg,color:outcomeColor,fontWeight:700}}>{outcomeLabel}</span>
+      <span style={{fontSize:12,color:'var(--text-muted)'}}>{formatLabel} · {gameTypeLabel}</span>
+      <span style={{fontSize:11,color:'#aaa'}}>{dateText}</span>
+    </div>
+    <div style={{display:'flex',flexDirection:'column',gap:4,marginBottom:10}}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:10,fontWeight:!isDraw&&result.won?700:500,color:!isDraw&&result.won?'#2d7a4d':'var(--ink)'}}>
+        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{myLabel}</span><span style={{display:'flex',gap:10,flexShrink:0}}>{result.sets.map((s,i)=><span key={i}>{s.my}</span>)}</span>
+      </div>
+      <div style={{display:'flex',justifyContent:'space-between',gap:10,fontWeight:!isDraw&&!result.won?700:500,color:!isDraw&&!result.won?'var(--danger)':'var(--ink)'}}>
+        <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{oppLabel}</span><span style={{display:'flex',gap:10,flexShrink:0}}>{result.sets.map((s,i)=><span key={i}>{s.opp}</span>)}</span>
+      </div>
+    </div>
+    <div style={{display:'flex',gap:6}}>
+      <button className="btn btn-outline-d btn-sm" style={{flex:1}} onClick={onEdit}>Muokkaa</button>
+      <button className="btn btn-outline-d btn-sm" style={{flex:1,color:'var(--danger)'}} onClick={onDelete}>Poista</button>
+    </div>
+  </div>;
+}
+
+function MatchHistorySection() {
+  const [results, setResults] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [modalOpen, setModalOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState(null);
+  const load = React.useCallback(async () => {
+    try { setResults(await fetchMatchResultsWeb()); } catch(e){ console.error('Pelihistorian lataus epäonnistui', e); } finally { setLoading(false); }
+  }, []);
+  React.useEffect(()=>{ load(); }, [load]);
+  const remove = async (id) => {
+    if(!window.confirm('Haluatko poistaa tämän tuloksen?')) return;
+    try { await deleteMatchResultWeb(id); load(); } catch(e){ alert(e.message||'Tulosta ei voitu poistaa.'); }
+  };
+  return <>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'20px 0 8px'}}>
+      <h3 style={{fontSize:13,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5}}>Pelihistoria</h3>
+      <button className="btn btn-outline-d btn-sm" onClick={()=>{setEditing(null);setModalOpen(true);}}>+ Lisää tulos</button>
+    </div>
+    {loading ? <Spinner/> : results.length===0
+      ? <div className="card" style={{marginBottom:14,color:'var(--text-muted)',fontSize:13}}>Pelihistoria tulee tähän, kun matseja pelataan.</div>
+      : <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:14}}>
+          {results.map(r => <MatchResultCard key={r.id} result={r} onEdit={()=>{setEditing(r);setModalOpen(true);}} onDelete={()=>remove(r.id)}/>)}
+        </div>}
+    {modalOpen && <MatchResultModal editingResult={editing} onClose={()=>setModalOpen(false)} onSaved={()=>{setModalOpen(false);load();}}/>}
+  </>;
 }
 
 // ── Profile (full page) ────────────────────────────────
@@ -776,6 +1122,8 @@ function ProfileFullScreen() {
     {profile.saatavuus.length>0&&<div className="card" style={{marginBottom:14}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Ajankohdat</div>{profile.saatavuus.map(s=><div key={s} style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{slotLabel(s)}</div>)}</div>}
     {(profile.katisyys||profile.rysty)&&<div className="card" style={{marginBottom:14}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Tyyli</div>{profile.katisyys&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.katisyys)}</div>}{profile.rysty&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.rysty)} rysty</div>}</div>}
 
+    <MatchHistorySection/>
+
     <SectionTitle>Asetukset</SectionTitle>
     <SettingsRow label="Piilota profiili feedistä" value={profile.hiddenFromFeed?'Päällä':'Pois'} valueColor={profile.hiddenFromFeed?'#2d7a4d':'#c0392b'} onClick={toggleHidden}/>
 
@@ -839,6 +1187,7 @@ function AppShell() {
   if (screen.type === 'challengeDetail') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><ChallengeDetail challenge={screen.challenge} onBack={back} currentUserId={session?.user?.id}/></div></div></div>;
   if (screen.type === 'createChallenge') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full"><CreateChallengeScreen onBack={back} onCreated={()=>{back();setTab('challenges');}}/></div></div></div>;
   if (screen.type === 'chat') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full" style={{display:'flex',flexDirection:'column'}}><ChatScreen conversation={screen.conversation} onBack={back}/></div></div></div>;
+  if (screen.type === 'archive') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full"><ArchivedConversationsScreen onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })}/></div></div></div>;
 
   return (
     <div className="app-shell">
@@ -852,7 +1201,7 @@ function AppShell() {
         <div className="app-main">
           {tab === 'players' && <PlayersScreen onOpenPlayer={p => setScreen({ type: 'playerDetail', player: p })} />}
           {tab === 'challenges' && <ChallengesScreen onOpenChallenge={c => setScreen({ type: 'challengeDetail', challenge: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} />}
-          {tab === 'messages' && <MessagesScreen onOpenChat={c => setScreen({ type: 'chat', conversation: c })} />}
+          {tab === 'messages' && <MessagesScreen onOpenChat={c => setScreen({ type: 'chat', conversation: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} onOpenArchive={() => setScreen({ type: 'archive' })} />}
           {tab === 'profile' && <ProfileFullScreen />}
         </div>
       </div>

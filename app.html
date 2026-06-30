@@ -209,11 +209,35 @@
 
   /* ── messages ── */
   .msg-row {
-    display: flex; align-items: center; gap: 12px; padding: 11px 0;
-    border-bottom: 1px solid var(--border); cursor: pointer; transition: opacity .12s;
+    display: flex; align-items: center; gap: 6px; padding: 11px 0;
+    border-bottom: 1px solid var(--border);
   }
-  .msg-row:hover { opacity: 0.8; }
   .msg-row:last-child { border-bottom: none; }
+  .msg-row-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; transition: opacity .12s; }
+  .msg-row-main:hover { opacity: 0.8; }
+  .msg-row-actions { display: flex; gap: 2px; flex-shrink: 0; }
+  .icon-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    color: var(--text-muted); transition: background .15s, color .15s;
+  }
+  .icon-btn:hover { background: #f0ede6; color: var(--ink); }
+  .archive-link-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; border: none; color: var(--text-muted);
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; padding: 4px 0;
+  }
+  .archive-link-btn:hover { color: var(--ink); }
+
+  /* ── empty state hero ── */
+  .empty-hero {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 32px 12px 8px; gap: 6px;
+  }
+  .empty-hero-img { width: 100%; max-width: 340px; height: auto; margin-bottom: 6px; }
+  .empty-hero-title { font-size: 24px; font-weight: 800; color: var(--green-deep); line-height: 1.3; }
+  .empty-hero-subtitle { font-size: 14px; color: var(--text-muted); line-height: 1.5; max-width: 360px; margin: 4px 0 18px; }
+  .empty-hero .btn { max-width: 320px; }
 
   /* ── chat ── */
   .chat-bubble { max-width: 75%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-break: break-word; }
