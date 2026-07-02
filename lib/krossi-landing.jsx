@@ -23,7 +23,8 @@ function StoreBadge({ store }) {
   const apple = store === 'apple';
   const href = apple ? 'https://apps.apple.com/fi/app/krossi/id6771824274' : 'https://tally.so/r/BzerXK';
   const badge = (
-    <a href={href} className="store-badge" target="_blank" rel="noopener noreferrer">
+    <a href={href} className="store-badge" target="_blank" rel="noopener noreferrer"
+      onClick={apple ? () => { if (typeof fbq !== 'undefined') fbq('trackCustom', 'ClickDownload'); } : undefined}>
       {apple ? (
         <svg width="20" height="24" viewBox="0 0 20 24" fill="#fff"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.2-1.2 3.1-2.5.7-1 1-2 1-2-.1 0-2-.8-2-3.3zM13.9 3.5c.7-.9 1.2-2.1 1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3.1-1.4z" /></svg>
       ) : (
