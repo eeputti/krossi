@@ -168,7 +168,7 @@ function Hero({ t }) {
             Uutta{' '}
             {t.highlight ? <span className="hl">peliseuraa?</span> : <span>peliseuraa?</span>}
           </h1>
-          <p className="hero-sub">Löydä pelaajia, luo ja sovi pelejä ja pysy mukana Lahden tennistapahtumissa. Täysin ilmaiseksi.</p>
+          <p className="hero-sub">Löydä pelaajia, luo ja sovi pelejä ja pysy mukana Lahden tennistapahtumissa.</p>
           <div className="hero-cta">
             <a href="/pelaa" className="btn-lime btn-lg">Kokeile Krossia</a>
           </div>
