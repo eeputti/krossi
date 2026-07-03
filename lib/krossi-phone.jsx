@@ -25,11 +25,13 @@ const KP = {
   },
 };
 
+const KP_AGE_RANGES = ['Alle 20', '20–30', '30–40', '40–50', '50–60', '60+'];
+
 const KP_PLAYERS = [
-  { id: 0, initial: 'E', hue: 150, name: 'Eero', age: 34, loc: 'Lahti · Hennala', active: true, level: 'Keskitaso', forms: 'Treenit · Matsit', avail: ['Arkiaamut 9–12', 'Arki-illat 18–21'], style: 'Oikeakätinen · Yhden käden rysty', bio: 'Pelaillaan rennosti, taso ei niin väliä — pääasia että pallo pysyy kentällä.' },
-  { id: 1, initial: 'S', hue: 18, name: 'Saana', age: 29, loc: 'Lahti · Keskusta', active: true, level: 'Edistynyt', forms: 'Pallottelu · Matsit', avail: ['Arki-illat 17–20', 'Viikonloput 10–14'], style: 'Vasenkätinen', bio: 'Etsin tasaista vastusta arki-iltoihin. Tykkään kovasta temposta.' },
-  { id: 2, initial: 'M', hue: 265, name: 'Mikko', age: 41, loc: 'Lahti · Laune', active: false, level: 'Kilpapelaaja', forms: 'Matsit', avail: ['Arkiaamut 7–9', 'Lauantai 9–12'], style: 'Oikeakätinen · Kahden käden rysty', bio: 'Sarjapelaaja, mutta lähden mielelläni myös rentoon pallotteluun.' },
-  { id: 3, initial: 'L', hue: 330, name: 'Lotta', age: 26, loc: 'Lahti · Mukkula', active: true, level: 'Aloittelija', forms: 'Treenit', avail: ['Arki-illat 18–21'], style: 'Oikeakätinen', bio: 'Aloittelin viime vuonna ja haluan oppia lisää. Kärsivällinen pelikaveri plussaa!' },
+  { id: 0, initial: 'E', hue: 150, name: 'Eero', age: '30–40', loc: 'Lahti · Hennala', active: true, level: 'Keskitaso', forms: 'Treenit · Matsit', avail: ['Arkiaamut 9–12', 'Arki-illat 18–21'], style: 'Oikeakätinen · Yhden käden rysty', bio: 'Pelaillaan rennosti, taso ei niin väliä — pääasia että pallo pysyy kentällä.' },
+  { id: 1, initial: 'S', hue: 18, name: 'Saana', age: '20–30', loc: 'Lahti · Keskusta', active: true, level: 'Edistynyt', forms: 'Pallottelu · Matsit', avail: ['Arki-illat 17–20', 'Viikonloput 10–14'], style: 'Vasenkätinen', bio: 'Etsin tasaista vastusta arki-iltoihin. Tykkään kovasta temposta.' },
+  { id: 2, initial: 'M', hue: 265, name: 'Mikko', age: '40–50', loc: 'Lahti · Laune', active: false, level: 'Kilpapelaaja', forms: 'Matsit', avail: ['Arkiaamut 7–9', 'Lauantai 9–12'], style: 'Oikeakätinen · Kahden käden rysty', bio: 'Sarjapelaaja, mutta lähden mielelläni myös rentoon pallotteluun.' },
+  { id: 3, initial: 'L', hue: 330, name: 'Lotta', age: '20–30', loc: 'Lahti · Mukkula', active: true, level: 'Aloittelija', forms: 'Treenit', avail: ['Arki-illat 18–21'], style: 'Oikeakätinen', bio: 'Aloittelin viime vuonna ja haluan oppia lisää. Kärsivällinen pelikaveri plussaa!' },
 ];
 
 const KP_GAMES = [
@@ -188,7 +190,7 @@ function KPMessages({ onConvo, onReply }) {
 }
 
 function KPProfile({ liveOn, setLiveOn }) {
-  const cities = ['Lahti', 'Turku'];
+  const cities = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio'];
   return (
     <div>
       <KPHeader title="Profiili" action={<span style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="2.6" stroke="#fff" strokeWidth="1.5" /><path d="M8.5 1.2v2M8.5 13.8v2M1.2 8.5h2M13.8 8.5h2M3.3 3.3l1.4 1.4M12.3 12.3l1.4 1.4M3.3 13.7l1.4-1.4M12.3 4.7l1.4-1.4" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" /></svg></span>} />
@@ -202,8 +204,8 @@ function KPProfile({ liveOn, setLiveOn }) {
           <span style={{ display: 'flex', alignItems: 'center', gap: 9, color: liveOn ? '#9be88a' : 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: 15 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: liveOn ? '#7ee06a' : 'rgba(255,255,255,0.4)' }} />Pelaan tällä viikolla</span>
           <span style={{ color: liveOn ? '#9be88a' : 'rgba(255,255,255,0.5)', fontWeight: 700, fontSize: 14 }}>{liveOn ? 'Päällä' : 'Pois'}</span>
         </button>
-        <div style={{ display: 'flex', gap: 9 }}>
-          {cities.map((c, i) => <span key={c} style={{ flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 14, fontWeight: 700, fontSize: 14, border: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.2)', background: i === 0 ? 'var(--lime)' : 'transparent', color: i === 0 ? '#101a08' : 'rgba(255,255,255,0.8)' }}>{c}</span>)}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {cities.map((c, i) => <span key={c} style={{ textAlign: 'center', padding: '9px 14px', borderRadius: 14, fontWeight: 700, fontSize: 13.5, border: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.2)', background: i === 0 ? 'var(--lime)' : 'transparent', color: i === 0 ? '#101a08' : 'rgba(255,255,255,0.8)' }}>{c}</span>)}
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           {[['Pelitaso', 'Keskitaso'], ['Pelimuodot', 'Kaikki käy']].map(([k, v]) => (
@@ -277,6 +279,7 @@ function KPFilterSheet({ onClose }) {
   const [city, setCity] = React.useState('Lahti');
   const [levels, setLevels] = React.useState(['Keskitaso', 'Edistynyt']);
   const [form, setForm] = React.useState('Pallottelu');
+  const [ageRanges, setAgeRanges] = React.useState(['20–30', '30–40']);
   const toggle = (arr, set, v) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   const Pill = ({ on, children, onClick }) => (
     <button onClick={onClick} style={{ padding: '11px 18px', borderRadius: 999, border: on ? 'none' : '1px solid rgba(255,255,255,0.22)', background: on ? 'var(--lime)' : 'rgba(255,255,255,0.05)', color: on ? '#101a08' : 'rgba(255,255,255,0.85)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>{children}</button>
@@ -301,7 +304,7 @@ function KPFilterSheet({ onClose }) {
               {['Kaupunki', 'Säde'].map((s) => <button key={s} onClick={() => setTab(s)} style={{ flex: 1, padding: '9px 0', borderRadius: 999, border: 'none', background: tab === s ? 'var(--lime)' : 'transparent', color: tab === s ? '#101a08' : 'rgba(255,255,255,0.6)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{s}</button>)}
             </div>
             <div className="kp-scroll-x" style={{ display: 'flex', gap: 9, overflowX: 'auto' }}>
-              {['Kaikki', 'Lahti', 'Turku'].map((c) => <Pill key={c} on={city === c} onClick={() => setCity(c)}>{c}</Pill>)}
+              {['Kaikki', 'Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio'].map((c) => <Pill key={c} on={city === c} onClick={() => setCity(c)}>{c}</Pill>)}
             </div>
           </Group>
           <Group label="PELITASO">
@@ -315,12 +318,8 @@ function KPFilterSheet({ onClose }) {
             </div>
           </Group>
           <Group label="IKÄ">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, color: '#fff', fontWeight: 700, fontSize: 14 }}><span /><span>25–45 v</span></div>
-            <div style={{ position: 'relative', height: 22 }}>
-              <div style={{ position: 'absolute', top: 9, left: 0, right: 0, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.18)' }} />
-              <div style={{ position: 'absolute', top: 9, left: '18%', right: '32%', height: 4, borderRadius: 99, background: 'var(--lime)' }} />
-              <span style={{ position: 'absolute', top: 0, left: '18%', width: 22, height: 22, borderRadius: '50%', background: '#fff', boxShadow: '0 0 0 2px #101a08', marginLeft: -11 }} />
-              <span style={{ position: 'absolute', top: 0, left: '68%', width: 22, height: 22, borderRadius: '50%', background: '#fff', boxShadow: '0 0 0 2px #101a08', marginLeft: -11 }} />
+            <div className="kp-scroll-x" style={{ display: 'flex', gap: 9, overflowX: 'auto', flexWrap: 'wrap' }}>
+              {KP_AGE_RANGES.map((r) => <Pill key={r} on={ageRanges.includes(r)} onClick={() => toggle(ageRanges, setAgeRanges, r)}>{r}</Pill>)}
             </div>
           </Group>
         </div>

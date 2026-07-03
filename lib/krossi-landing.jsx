@@ -168,7 +168,7 @@ function Hero({ t }) {
             Uutta{' '}
             {t.highlight ? <span className="hl">peliseuraa?</span> : <span>peliseuraa?</span>}
           </h1>
-          <p className="hero-sub">Löydä pelaajia, luo ja sovi pelejä ja pysy mukana Lahden tennistapahtumissa.</p>
+          <p className="hero-sub">Löydä pelaajia, luo ja sovi pelejä ja pysy mukana paikallisissa tennistapahtumissa.</p>
           <div className="hero-cta">
             <a href="/pelaa" className="btn-lime btn-lg">Kokeile Krossia</a>
           </div>
@@ -194,10 +194,10 @@ const FEATURES = [
 
 // ── upcoming matches ───────────────────────────────────
 const DEMO_MATCHES = [
-  { id: 1, creator: 'Roger Federer', initials: 'RF', hue: 210, age: 44, level: 'Kilpapelaaja', type: 'Kaksinpeli', loc: 'Janus Areena', locType: 'Sisätennis', day: 'Tänään', time: 'klo 18:00', desc: 'Rentoa pallottelua illan päätteeksi. Kaikki tasot tervetulleita!', slots: 1 },
-  { id: 2, creator: 'Serena Williams', initials: 'SW', hue: 340, age: 44, level: 'Edistynyt', type: 'Pallottelu', loc: 'Kispi Areena', locType: 'Sisätennis', day: 'Huomenna', time: 'klo 10:00', desc: 'Aamutreeni ennen töitä — sparrauskaveria haetaan!', slots: 1 },
-  { id: 3, creator: 'Rafael Nadal', initials: 'RN', hue: 25, age: 39, level: 'Kilpapelaaja', type: 'Nelinpeli', loc: 'Mukkulan kentät', locType: 'Ulkotennis', day: 'Lauantai', time: 'klo 12:00', desc: 'Nelinpelisessio ulkona — tarvitaan 3 muuta. Massa-alustalla.', slots: 3 },
-  { id: 4, creator: 'Naomi Osaka', initials: 'NO', hue: 280, age: 28, level: 'Keskitaso', type: 'Kaksinpeli', loc: 'Janus Areena', locType: 'Sisätennis', day: 'Sunnuntai', time: 'klo 16:00', desc: null, slots: 1 },
+  { id: 1, creator: 'Roger Federer', initials: 'RF', hue: 210, age: '40–50', level: 'Kilpapelaaja', type: 'Kaksinpeli', loc: 'Janus Areena', locType: 'Sisätennis', day: 'Tänään', time: 'klo 18:00', desc: 'Rentoa pallottelua illan päätteeksi. Kaikki tasot tervetulleita!', slots: 1 },
+  { id: 2, creator: 'Serena Williams', initials: 'SW', hue: 340, age: '40–50', level: 'Edistynyt', type: 'Pallottelu', loc: 'Kispi Areena', locType: 'Sisätennis', day: 'Huomenna', time: 'klo 10:00', desc: 'Aamutreeni ennen töitä — sparrauskaveria haetaan!', slots: 1 },
+  { id: 3, creator: 'Rafael Nadal', initials: 'RN', hue: 25, age: '30–40', level: 'Kilpapelaaja', type: 'Nelinpeli', loc: 'Mukkulan kentät', locType: 'Ulkotennis', day: 'Lauantai', time: 'klo 12:00', desc: 'Nelinpelisessio ulkona — tarvitaan 3 muuta. Massa-alustalla.', slots: 3 },
+  { id: 4, creator: 'Naomi Osaka', initials: 'NO', hue: 280, age: '20–30', level: 'Keskitaso', type: 'Kaksinpeli', loc: 'Janus Areena', locType: 'Sisätennis', day: 'Sunnuntai', time: 'klo 16:00', desc: null, slots: 1 },
 ];
 
 function DemoAvatar({ initials, hue, size = 38 }) {
@@ -273,13 +273,18 @@ function Features() {
   );
 }
 
+const KROSSI_CITIES = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio'];
+
 function Trust() {
   return (
     <section className="trust trust-light" id="lahti">
       <div className="trust-inner">
-        <span className="eyebrow eyebrow-light"><span className="ball-dot" /> Lahti — ensimmäinen Krossi-kaupunki</span>
-        <h2>Rakennetaan Lahden<br />tennisverkosto yhdessä.</h2>
-        <p>Krossi aloittaa Lahdesta. Kun pelaajat löytyvät samasta paikasta, pelien sopiminen, tapahtumien jakaminen ja uusien tenniskavereiden löytäminen helpottuu kaikille.</p>
+        <span className="eyebrow eyebrow-light"><span className="ball-dot" /> Krossi laajenee kaupunkeihin ympäri Suomen</span>
+        <h2>Rakennetaan Suomen<br />tennisverkostoa yhdessä.</h2>
+        <p>Krossi on jo käytössä kahdeksassa kaupungissa. Kun pelaajat löytyvät samasta paikasta, pelien sopiminen, tapahtumien jakaminen ja uusien tenniskavereiden löytäminen helpottuu kaikille.</p>
+        <div className="city-pills">
+          {KROSSI_CITIES.map((c) => <span key={c} className="city-pill">{c}</span>)}
+        </div>
         <a href="#kentalle" className="btn-lime btn-lg">Liity mukaan</a>
       </div>
     </section>
@@ -323,7 +328,7 @@ function Footer() {
         <p className="footer-tag">Löydä uusia tenniskavereita.</p>
         <div className="footer-links">
           <a href="mailto:eelispuro@gmail.com">eelispuro@gmail.com</a>
-          <span>Lahti, Suomi</span>
+          <span>Suomi</span>
         </div>
         <div className="footer-base">© 2026 Krossi · Tennistä lähellä sinua</div>
       </div>
@@ -345,6 +350,7 @@ function App() {
       <Hero t={t} />
       <UpcomingMatches />
       <Features />
+      <Trust />
       <Clubs />
       <ClosingCTA />
       <Footer />

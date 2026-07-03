@@ -8,8 +8,8 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 // ── Constants ──────────────────────────────────────────
-const AREA_OPTIONS = ['Helsinki', 'Espoo', 'Vantaa', 'Lahti', 'Turku', 'Tampere'];
-const VISIBLE_AREAS = ['Lahti', 'Turku'];
+const AREA_OPTIONS = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio'];
+const VISIBLE_AREAS = AREA_OPTIONS;
 const PLAIN_SKILL_LEVELS = ['aloittelija', 'keskitaso', 'edistynyt', 'kilpapelaaja'];
 const PLAY_STYLES = ['pallottelu', 'treenit', 'matsit', 'kaksinpeli', 'nelinpeli', 'kaikki käy'];
 const MATCH_TYPES = ['kaksinpeli', 'nelinpeli', 'pallottelu'];
@@ -31,7 +31,9 @@ const INDOOR_VENUES = [
   { name: 'Jarkko Nieminen Areena', city: 'Turku' }, { name: 'Bo Arena', city: 'Turku' },
   { name: 'Kerttulantenniskeskus', city: 'Turku' }, { name: 'Smash Center', city: 'Helsinki' },
   { name: 'Talin Tenniskeskus', city: 'Helsinki' }, { name: 'Tennis Tower Helsinki', city: 'Helsinki' },
-  { name: 'Tapiolan Tennispuisto', city: 'Espoo' }, { name: 'Tampereen Tenniskeskus', city: 'Tampere' },
+  { name: 'Tampereen Tenniskeskus', city: 'Tampere' }, { name: 'Oulun Tenniskeskus', city: 'Oulu' },
+  { name: 'Jyväskylän Tenniskeskus', city: 'Jyväskylä' }, { name: 'Porin Tenniskeskus', city: 'Pori' },
+  { name: 'Kuopion Tenniskeskus', city: 'Kuopio' },
 ];
 const SKILL_LEVEL_INFO = [
   { value: 'aloittelija', label: 'Aloittelija', desc: 'Olet juuri aloittamassa tai pelannut vasta muutaman kerran.' },
@@ -42,6 +44,14 @@ const SKILL_LEVEL_INFO = [
 const COMPETITION_CLASSES = ['A1','A2','A3','B1','B2','B3','C1','C2','C3','D1','D2','D3','E1','E2','E3'];
 const GAME_TYPES = ['pallottelu', 'treenit', 'matsit'];
 const MATCH_FORMATS = ['kaksinpeli', 'nelinpeli', 'kaikki käy'];
+const AGE_RANGES = [
+  { value: 'alle20', label: 'Alle 20' },
+  { value: '20-30', label: '20–30' },
+  { value: '30-40', label: '30–40' },
+  { value: '40-50', label: '40–50' },
+  { value: '50-60', label: '50–60' },
+  { value: '60+', label: '60+' },
+];
 
 // ── Helpers ────────────────────────────────────────────
 function parseSkillLevels(raw) {
@@ -87,6 +97,7 @@ function fmtLastMsg(raw) {
   } catch {} return { text: raw };
 }
 function slotLabel(v) { const s = AVAILABILITY_SLOTS.find(a => a.value === v); return s ? (s.time ? `${s.label} ${s.time}` : s.label) : v; }
+function ageRangeLabel(v) { const r = AGE_RANGES.find(a => a.value === v); return r ? r.label : v; }
 function archivedStorageKey(uid) { return `krossi_archived_conversations_${uid}`; }
 function getArchivedIds(uid) {
   if (!uid) return [];
@@ -344,7 +355,7 @@ function OnboardingScreen() {
   const { session, refreshProfile } = useAuth();
   const [step, setStep] = React.useState(1);
   const [form, setForm] = React.useState({
-    nimi:'', ika:'', pelitaso:'', kilpaluokat:[], pelimuoto:[], otteluTyyppi:[], bio:'',
+    nimi:'', ika:'', alue:'', pelitaso:'', kilpaluokat:[], pelimuoto:[], otteluTyyppi:[], bio:'',
     saatavuus:[], playingThisWeek:true, hiddenFromFeed:false,
   });
   const [avatarFile, setAvatarFile] = React.useState(null);
@@ -374,7 +385,7 @@ function OnboardingScreen() {
       const skillLevels = form.pelitaso === 'kilpapelaaja' && form.kilpaluokat.length > 0
         ? [form.pelitaso, ...form.kilpaluokat] : [form.pelitaso];
       await supabase.from('profiles').upsert({
-        id:uid, name:form.nimi.trim(), age:Number(form.ika), area:'Lahti', bio:form.bio.trim()||null,
+        id:uid, name:form.nimi.trim(), age:form.ika, area:form.alue, bio:form.bio.trim()||null,
         playing_this_week:form.playingThisWeek, hidden_from_feed:form.hiddenFromFeed,
         ...(avatarPath ? { avatar_url: avatarPath } : {}),
       });
@@ -396,9 +407,9 @@ function OnboardingScreen() {
         {step===1 && <div style={{ display:'flex',flexDirection:'column',gap:14 }}>
           <AvatarPicker preview={avatarPreview} onPick={onAvatarChange} />
           <div className="field"><div className="field-label">Nimi</div><input className="input" placeholder="Etunimi" value={form.nimi} onChange={e=>set('nimi',e.target.value)}/></div>
-          <div className="field"><div className="field-label">Ikä</div><input className="input" type="number" placeholder="25" min="16" max="100" value={form.ika} onChange={e=>set('ika',e.target.value)}/></div>
-          <div className="field"><div className="field-label">Kotikaupunki</div><div className="select-chips"><span className="select-chip selected" style={{ cursor:'default' }}>Lahti</span></div></div>
-          <button className="btn btn-dark btn-lg btn-full" disabled={!form.nimi||!form.ika} onClick={()=>setStep(2)}>Seuraava</button>
+          <div className="field"><div className="field-label">Ikä</div><div className="select-chips">{AGE_RANGES.map(r=><button key={r.value} type="button" className={`select-chip ${form.ika===r.value?'selected':''}`} onClick={()=>set('ika',r.value)}>{r.label}</button>)}</div></div>
+          <div className="field"><div className="field-label">Kotikaupunki</div><div className="select-chips">{AREA_OPTIONS.map(a=><button key={a} type="button" className={`select-chip ${form.alue===a?'selected':''}`} onClick={()=>set('alue',a)}>{a}</button>)}</div></div>
+          <button className="btn btn-dark btn-lg btn-full" disabled={!form.nimi||!form.ika||!form.alue} onClick={()=>setStep(2)}>Seuraava</button>
         </div>}
         {step===2 && <div style={{ display:'flex',flexDirection:'column',gap:14 }}>
           <div className="field">
@@ -458,7 +469,7 @@ function SidebarProfile({ onEdit }) {
   return (
     <div className="sidebar-profile">
       <Avatar uri={profile.avatarUrl} name={profile.nimi} color={profile.avatarColor} size={64} />
-      <div className="sidebar-name">{profile.nimi}, {profile.ika}</div>
+      <div className="sidebar-name">{profile.nimi}, {ageRangeLabel(profile.ika)}</div>
       {profile.bio && <div className="sidebar-bio">{profile.bio}</div>}
       <div className="sidebar-areas">
         {profile.alue.map(a => <span key={a} className="sidebar-area">{a}</span>)}
@@ -493,7 +504,7 @@ function PlayerCard({ player, onClick }) {
         <Avatar uri={player.avatarUrl} name={player.nimi} color={player.avatarColor} size={42} />
         <div style={{ flex:1,minWidth:0 }}>
           <div style={{ display:'flex',alignItems:'center',gap:8,flexWrap:'wrap' }}>
-            <span style={{ color:'var(--ink)',fontWeight:700,fontSize:15 }}>{player.nimi}, {player.ika}</span>
+            <span style={{ color:'var(--ink)',fontWeight:700,fontSize:15 }}>{player.nimi}, {ageRangeLabel(player.ika)}</span>
             {player.playingThisWeek && <span className="chip chip-active" style={{padding:'2px 7px',fontSize:11}}><span style={{width:5,height:5,borderRadius:'50%',background:'#7ee06a'}}/>Tällä viikolla</span>}
           </div>
           <div style={{ display:'flex',flexWrap:'wrap',gap:4,marginTop:3 }}>
@@ -525,7 +536,7 @@ function PlayerDetail({ player, onBack, currentUserId }) {
       <button className="back-btn" onClick={onBack}>← Takaisin</button>
       <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:8,margin:'24px auto',maxWidth:500 }}>
         <Avatar uri={player.avatarUrl} name={player.nimi} color={player.avatarColor} size={84} />
-        <h2 style={{ color:'var(--ink)',fontWeight:800,fontSize:22,margin:0 }}>{player.nimi}, {player.ika}</h2>
+        <h2 style={{ color:'var(--ink)',fontWeight:800,fontSize:22,margin:0 }}>{player.nimi}, {ageRangeLabel(player.ika)}</h2>
         <p style={{ color:'var(--text-muted)',fontSize:14 }}>{player.alue.join(', ')}</p>
         {player.playingThisWeek && <span className="chip chip-active">Tällä viikolla</span>}
       </div>
@@ -1044,7 +1055,7 @@ function ProfileFullScreen() {
 
   React.useEffect(() => {
     if(profile&&!form) setForm({
-      nimi:profile.nimi,ika:String(profile.ika),sukupuoli:profile.sukupuoli||'',
+      nimi:profile.nimi,ika:profile.ika,sukupuoli:profile.sukupuoli||'',
       alue:profile.alue,pelitaso:profile.pelitaso,pelimuoto:profile.pelimuoto,
       saatavuus:profile.saatavuus,bio:profile.bio||'',
       katisyys:profile.katisyys||'',rysty:profile.rysty||'',
@@ -1062,7 +1073,7 @@ function ProfileFullScreen() {
     setBusy(true);
     try {
       const uid=session.user.id;
-      await supabase.from('profiles').upsert({id:uid,name:form.nimi.trim(),age:Number(form.ika),gender:form.sukupuoli||null,area:form.alue.join(', '),bio:form.bio.trim()||null,hidden_from_feed:form.hiddenFromFeed});
+      await supabase.from('profiles').upsert({id:uid,name:form.nimi.trim(),age:form.ika,gender:form.sukupuoli||null,area:form.alue.join(', '),bio:form.bio.trim()||null,hidden_from_feed:form.hiddenFromFeed});
       await supabase.from('tennis_preferences').upsert({user_id:uid,skill_level:form.pelitaso.join(','),play_style:form.pelimuoto.join(', '),handedness:form.katisyys||null,backhand_type:form.rysty||null});
       await supabase.from('availability').delete().eq('user_id',uid);
       if(form.saatavuus.length>0) await supabase.from('availability').insert(form.saatavuus.map(s=>({user_id:uid,slot:s})));
@@ -1093,7 +1104,7 @@ function ProfileFullScreen() {
     <div className="page-header"><h2 className="page-title">Muokkaa profiilia</h2><button className="btn btn-outline-d btn-sm" onClick={()=>{setEditing(false);setForm(null);}}>Peruuta</button></div>
     <div style={{display:'flex',flexDirection:'column',gap:12}}>
       <div className="field"><div className="detail-label">Nimi</div><input className="input input-dark" value={form.nimi} onChange={e=>set('nimi',e.target.value)}/></div>
-      <div className="field"><div className="detail-label">Ikä</div><input className="input input-dark" type="number" value={form.ika} onChange={e=>set('ika',e.target.value)}/></div>
+      <div className="field"><div className="detail-label">Ikä</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{AGE_RANGES.map(r=><button key={r.value} className={`filter-chip ${form.ika===r.value?'active':''}`} onClick={()=>set('ika',r.value)}>{r.label}</button>)}</div></div>
       <div className="field"><div className="detail-label">Bio</div><textarea className="input input-dark" rows={3} value={form.bio} onChange={e=>set('bio',e.target.value)}/></div>
       <div className="field"><div className="detail-label">Sukupuoli</div><div style={{display:'flex',gap:6}}>{['mies','nainen'].map(g=><button key={g} className={`filter-chip ${form.sukupuoli===g?'active':''}`} onClick={()=>set('sukupuoli',form.sukupuoli===g?'':g)}>{titleCase(g)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Kotikaupunki</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{VISIBLE_AREAS.map(a=><button key={a} className={`filter-chip ${form.alue.includes(a)?'active':''}`} onClick={()=>tog('alue',a)}>{a}</button>)}</div></div>
@@ -1111,7 +1122,7 @@ function ProfileFullScreen() {
     <div className="page-header"><h2 className="page-title">Profiili</h2><button className="btn btn-outline-d btn-sm" onClick={()=>setEditing(true)}>Muokkaa profiilia</button></div>
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginBottom:24}}>
       <Avatar uri={profile.avatarUrl} name={profile.nimi} color={profile.avatarColor} size={76}/>
-      <h3 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{profile.nimi}, {profile.ika}</h3>
+      <h3 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{profile.nimi}, {ageRangeLabel(profile.ika)}</h3>
       {profile.bio&&<p style={{color:'var(--text-muted)',fontSize:13,textAlign:'center'}}>{profile.bio}</p>}
     </div>
     <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:16}}>{profile.alue.map(a=><span key={a} className="sidebar-area">{a}</span>)}</div>
