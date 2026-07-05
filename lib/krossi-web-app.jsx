@@ -281,6 +281,7 @@ function AuthScreen() {
       else if (mode === 'register') {
         const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: window.location.origin + '/pelaa' } });
         if (error) throw error;
+        if (typeof fbq !== 'undefined') fbq('track', 'Lead');
         if (data.user && !data.session) setInfo('Vahvistusviesti lähetetty sähköpostiisi.');
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/pelaa' });
@@ -395,6 +396,7 @@ function OnboardingScreen() {
       });
       await supabase.from('availability').delete().eq('user_id',uid);
       if (form.saatavuus.length>0) await supabase.from('availability').insert(form.saatavuus.map(s=>({user_id:uid,slot:s})));
+      if (typeof fbq !== 'undefined') fbq('track', 'CompleteRegistration');
       await refreshProfile();
     } catch (err) { setError(err.message||'Tallennus epäonnistui'); } finally { setBusy(false); }
   };
