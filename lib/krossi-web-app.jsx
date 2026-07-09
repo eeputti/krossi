@@ -13,6 +13,8 @@ const VISIBLE_AREAS = AREA_OPTIONS;
 const PLAIN_SKILL_LEVELS = ['aloittelija', 'keskitaso', 'edistynyt', 'kilpapelaaja'];
 const PLAY_STYLES = ['pallottelu', 'treenit', 'matsit', 'kaksinpeli', 'nelinpeli', 'kaikki käy'];
 const MATCH_TYPES = ['kaksinpeli', 'nelinpeli', 'pallottelu'];
+const CHALLENGE_DURATION_HOURS = 3; // haaste vanhenee feedistä tämän jälkeen sovitusta ajankohdasta
+const OPEN_CHALLENGE_TTL_HOURS = 48; // "aika avoin" -haasteille, joilla ei ole kellonaikaa
 const LOCATION_TYPES = ['sisätennis', 'ulkotennis', 'missä vain'];
 const AVAILABILITY_SLOTS = [
   { value: 'aamuvirkku', label: 'Aamuvirkku', time: '6-9' },
@@ -479,6 +481,7 @@ function OnboardingScreen() {
         playing_this_week:form.playingThisWeek, hidden_from_feed:form.hiddenFromFeed,
         ...(avatarPath ? { avatar_url: avatarPath } : {}),
       });
+      await supabase.auth.updateUser({ data: { display_name: form.nimi.trim(), full_name: form.nimi.trim() } });
       await supabase.from('tennis_preferences').upsert({
         user_id:uid, skill_level:skillLevels.join(','),
         play_style:[...form.pelimuoto, ...form.otteluTyyppi].join(', '),
@@ -689,6 +692,9 @@ function PlayersScreen({ onOpenPlayer }) {
 
 // ── Challenge Card ─────────────────────────────────────
 function ChallengeCard({ challenge, onClick }) {
+  const need = slotsNeeded(challenge.matchType);
+  const joined = challenge.participants.slice(0, need);
+  const openSlots = Math.max(0, need - joined.length);
   return (
     <button onClick={onClick} className="card" style={{ display:'block',width:'100%',textAlign:'left',cursor:'pointer',marginBottom:10 }}>
       <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
@@ -702,7 +708,8 @@ function ChallengeCard({ challenge, onClick }) {
           <div style={{ color:'var(--text-muted)',fontSize:12 }}>{challenge.location} · {titleCase(challenge.locationType)}</div>
         </div>
         <div style={{ display:'flex',gap:3 }}>
-          {Array.from({length:Math.max(0,slotsNeeded(challenge.matchType)-challenge.participants.length)}).map((_,i)=>
+          {joined.map(p => <Avatar key={p.userId} uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={20}/>)}
+          {Array.from({length:openSlots}).map((_,i)=>
             <span key={i} style={{width:20,height:20,borderRadius:'50%',border:'1.5px dashed #c5c0b5'}}/>
           )}
         </div>
@@ -787,7 +794,11 @@ function CreateChallengeScreen({ onBack, onCreated }) {
   const create = async () => {
     setError(''); setBusy(true);
     try {
-      const payload = {creator_id:session.user.id,location:form.location||'Avoin',location_type:form.locationType,city:homeCity,scheduled_at:form.scheduledAt?new Date(form.scheduledAt).toISOString():null,match_type:form.matchType,challenge_type:'open',title:form.title.trim()||null,description:form.description.trim()||null};
+      const scheduledAtDate = form.scheduledAt ? new Date(form.scheduledAt) : null;
+      const expiresAt = scheduledAtDate
+        ? new Date(scheduledAtDate.getTime() + CHALLENGE_DURATION_HOURS*60*60*1000)
+        : new Date(Date.now() + OPEN_CHALLENGE_TTL_HOURS*60*60*1000);
+      const payload = {creator_id:session.user.id,location:form.location||'Avoin',location_type:form.locationType,city:homeCity,scheduled_at:scheduledAtDate?scheduledAtDate.toISOString():null,expires_at:expiresAt.toISOString(),match_type:form.matchType,challenge_type:'open',title:form.title.trim()||null,description:form.description.trim()||null};
       if (form.courtSurface) payload.court_surface = form.courtSurface;
       if (form.minSkillLevel) payload.min_skill_level = form.minSkillLevel;
       if (form.courtPrice) payload.court_price = Number(form.courtPrice);
@@ -1165,6 +1176,7 @@ function ProfileFullScreen() {
     try {
       const uid=session.user.id;
       await supabase.from('profiles').upsert({id:uid,name:form.nimi.trim(),age:form.ika,gender:form.sukupuoli||null,area:form.alue.join(', '),bio:form.bio.trim()||null,hidden_from_feed:form.hiddenFromFeed});
+      await supabase.auth.updateUser({ data: { display_name: form.nimi.trim(), full_name: form.nimi.trim() } });
       await supabase.from('tennis_preferences').upsert({user_id:uid,skill_level:form.pelitaso.join(','),play_style:form.pelimuoto.join(', '),handedness:form.katisyys||null,backhand_type:form.rysty||null});
       await supabase.from('availability').delete().eq('user_id',uid);
       if(form.saatavuus.length>0) await supabase.from('availability').insert(form.saatavuus.map(s=>({user_id:uid,slot:s})));
