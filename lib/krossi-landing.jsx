@@ -329,6 +329,7 @@ function Footer() {
         <div className="footer-links">
           <a href="mailto:eelispuro@gmail.com">eelispuro@gmail.com</a>
           <span>Suomi</span>
+          <a href="#" onClick={e => { e.preventDefault(); window.krossiOpenCookieSettings && window.krossiOpenCookieSettings(); }}>Evästeasetukset</a>
         </div>
         <div className="footer-base">© 2026 Krossi · Tennistä lähellä sinua</div>
       </div>

@@ -1,22 +1,23 @@
 <!DOCTYPE html>
 <html lang="fi">
 <head>
-<!-- Meta Pixel Code -->
+<!-- Meta Pixel Code (ladataan vasta evästesuostumuksella, ks. lib/cookie-consent.js) -->
 <script>
 !function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
 n.callMethod.apply(n,arguments):n.queue.push(arguments)};
 if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;
-t.src=v;s=b.getElementsByTagName(e)[0];
-s.parentNode.insertBefore(t,s)}(window, document,'script',
-'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '1775096637011051');
-fbq('track', 'PageView');
+n.queue=[];}(window);
+window.krossiLoadPixel = function () {
+  if (window._krossiPixelLoaded) return;
+  window._krossiPixelLoaded = true;
+  !function(b,e,v){var t=b.createElement(e);t.async=!0;t.src=v;
+  var s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s);}
+  (document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '1775096637011051');
+  fbq('track', 'PageView');
+};
 </script>
-<noscript><img height="1" width="1" style="display:none"
-src="https://www.facebook.com/tr?id=1775096637011051&ev=PageView&noscript=1"
-/></noscript>
 <!-- End Meta Pixel Code -->
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -340,5 +341,6 @@ src="https://www.facebook.com/tr?id=1775096637011051&ev=PageView&noscript=1"
 <body>
   <div id="root"></div>
   <script type="text/babel" src="lib/krossi-web-app.jsx"></script>
+  <script src="lib/cookie-consent.js"></script>
 </body>
 </html>

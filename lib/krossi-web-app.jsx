@@ -246,12 +246,16 @@ function useAuth() { return React.useContext(AuthContext); }
 
 // ── Auth Screen ────────────────────────────────────────
 function AuthScreen() {
-  const [mode, setMode] = React.useState('login');
+  const [mode, setMode] = React.useState('register');
   const [email, setEmail] = React.useState('');
   const [pw, setPw] = React.useState('');
   const [error, setError] = React.useState('');
   const [info, setInfo] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  const [agreed, setAgreed] = React.useState(false);
+  const [showTerms, setShowTerms] = React.useState(false);
+  const [showPrivacy, setShowPrivacy] = React.useState(false);
+  const needsConsent = mode === 'register' && !agreed;
   const signInWithGoogle = async () => {
     setError(''); setBusy(true);
     try {
@@ -275,7 +279,9 @@ function AuthScreen() {
   };
 
   const submit = async (e) => {
-    e.preventDefault(); setError(''); setInfo(''); setBusy(true);
+    e.preventDefault(); setError(''); setInfo('');
+    if (needsConsent) { setError('Hyväksy käyttöehdot ja tietosuojaseloste jatkaaksesi.'); return; }
+    setBusy(true);
     try {
       if (mode === 'login') { const { error } = await supabase.auth.signInWithPassword({ email, password: pw }); if (error) throw error; }
       else if (mode === 'register') {
@@ -312,11 +318,11 @@ function AuthScreen() {
 
         {mode !== 'reset' && (
           <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
-            <button style={oauthBtnStyle} onClick={signInWithGoogle} disabled={busy}>
+            <button style={oauthBtnStyle} onClick={signInWithGoogle} disabled={busy || needsConsent}>
               <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.0 24.0 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
               Jatka Googlella
             </button>
-            <button style={oauthBtnStyle} onClick={signInWithApple} disabled={busy}>
+            <button style={oauthBtnStyle} onClick={signInWithApple} disabled={busy || needsConsent}>
               <svg width="16" height="20" viewBox="0 0 20 24" fill="#111"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.2-1.2 3.1-2.5.7-1 1-2 1-2-.1 0-2-.8-2-3.3zM13.9 3.5c.7-.9 1.2-2.1 1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3.1-1.4z"/></svg>
               Jatka Applella
             </button>
@@ -334,7 +340,18 @@ function AuthScreen() {
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input className="input" type="email" placeholder="Sähköposti" value={email} onChange={e => setEmail(e.target.value)} required />
           {mode !== 'reset' && <input className="input" type="password" placeholder="Salasana" value={pw} onChange={e => setPw(e.target.value)} required minLength={6} />}
-          <button className="btn btn-dark btn-lg btn-full" type="submit" disabled={busy}>
+          {mode === 'register' && (
+            <label style={{ display:'flex', alignItems:'flex-start', gap:8, fontSize:13, color:'var(--text-muted)', cursor:'pointer', lineHeight:1.45 }}>
+              <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ width:18, height:18, marginTop:1, flexShrink:0, accentColor:'var(--green-deep)' }} />
+              <span>
+                Hyväksyn Krossin{' '}
+                <button type="button" onClick={() => setShowTerms(true)} style={{ background:'none', border:'none', padding:0, color:'var(--green-deep)', fontWeight:700, cursor:'pointer', fontFamily:'inherit', fontSize:'inherit', textDecoration:'underline' }}>käyttöehdot</button>
+                {' '}ja{' '}
+                <button type="button" onClick={() => setShowPrivacy(true)} style={{ background:'none', border:'none', padding:0, color:'var(--green-deep)', fontWeight:700, cursor:'pointer', fontFamily:'inherit', fontSize:'inherit', textDecoration:'underline' }}>tietosuojaselosteen</button>
+              </span>
+            </label>
+          )}
+          <button className="btn btn-dark btn-lg btn-full" type="submit" disabled={busy || needsConsent}>
             {busy ? 'Odota...' : mode === 'login' ? 'Kirjaudu' : mode === 'register' ? 'Luo tili' : 'Lähetä linkki'}
           </button>
         </form>
@@ -347,6 +364,85 @@ function AuthScreen() {
         </div>
       </div>
       <a href="/" style={{ color:'var(--text-muted)',marginTop:20,fontSize:13,textDecoration:'none' }}>← Takaisin etusivulle</a>
+      {(showTerms || showPrivacy) && (
+        <div className="modal-overlay" onClick={() => { setShowTerms(false); setShowPrivacy(false); }}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            {showTerms ? <TermsContent /> : <PrivacyContent />}
+            <button className="btn btn-outline-d btn-md btn-full" style={{ marginTop:16 }} onClick={() => { setShowTerms(false); setShowPrivacy(false); }}>Sulje</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Käyttöehdot & tietosuojaseloste (in-app popupit) ────
+function LegalSection({ title, children }) {
+  return (
+    <div style={{ marginBottom:14 }}>
+      <div style={{ fontWeight:800, fontSize:14, color:'var(--ink)', marginBottom:4 }}>{title}</div>
+      <div style={{ fontSize:13, color:'var(--text-muted)', lineHeight:1.55 }}>{children}</div>
+    </div>
+  );
+}
+function TermsContent() {
+  return (
+    <div>
+      <h3 style={{ margin:'0 0 4px', fontSize:18, fontWeight:800 }}>Krossin käyttöehdot</h3>
+      <p style={{ fontSize:12, color:'var(--text-muted)', marginBottom:16 }}>Voimassa 9.7.2026 alkaen</p>
+      <LegalSection title="1. Palvelun kuvaus">
+        Krossi on palvelu, jonka avulla käyttäjät löytävät pelikavereita tennikseen: selaavat pelaajaprofiileja, sopivat pelejä ja liittyvät toisten luomiin haasteisiin. Krossi ei omista kenttiä eikä ole osapuolena käyttäjien välisissä peleissä tai tapaamisissa.
+      </LegalSection>
+      <LegalSection title="2. Käyttäjätili">
+        Tilin luominen edellyttää, että annat itsestäsi oikeat tiedot etkä esiinny toisena henkilönä. Palvelu on tarkoitettu vähintään 16-vuotiaille. Vastaat itse tilisi ja salasanasi säilyttämisestä.
+      </LegalSection>
+      <LegalSection title="3. Käyttäytyminen">
+        Käytä palvelua asiallisesti. Häirintä, uhkailu, syrjivä käytös tai väärän tiedon antaminen muista käyttäjistä ei ole sallittua. Voit ilmoittaa sopimattomasta käytöksestä palvelun sisäisellä ilmoitustoiminnolla, ja Krossi voi tämän perusteella rajoittaa tai poistaa käyttöoikeuden.
+      </LegalSection>
+      <LegalSection title="4. Tapaamiset ja vastuu">
+        Krossi ei tarkista käyttäjien taustoja. Tapaamisia toisten käyttäjien kanssa varten kannattaa käyttää tervettä järkeä, esimerkiksi sopia ensimmäinen tapaaminen julkiselle kentälle. Krossi ei vastaa käyttäjien välisistä sopimuksista, peleistä tai niiden aikana sattuneista vahingoista.
+      </LegalSection>
+      <LegalSection title="5. Sisältö">
+        Vastaat itse jakamastasi sisällöstä (profiilikuva, bio, viestit). Et saa jakaa laitonta, loukkaavaa tai muiden oikeuksia loukkaavaa sisältöä.
+      </LegalSection>
+      <LegalSection title="6. Tilin poistaminen">
+        Voit poistaa tilisi milloin tahansa ottamalla yhteyttä alla olevaan osoitteeseen. Krossi voi sulkea tilin, jos näitä ehtoja rikotaan.
+      </LegalSection>
+      <LegalSection title="7. Muutokset">
+        Näitä ehtoja voidaan päivittää palvelun kehittyessä. Olennaisista muutoksista pyritään ilmoittamaan palvelussa.
+      </LegalSection>
+      <LegalSection title="8. Yhteystiedot">
+        Kysymykset: <a href="mailto:eelispuro@gmail.com" style={{ color:'var(--green-deep)', fontWeight:700 }}>eelispuro@gmail.com</a>
+      </LegalSection>
+    </div>
+  );
+}
+function PrivacyContent() {
+  return (
+    <div>
+      <h3 style={{ margin:'0 0 4px', fontSize:18, fontWeight:800 }}>Tietosuojaseloste</h3>
+      <p style={{ fontSize:12, color:'var(--text-muted)', marginBottom:16 }}>Voimassa 9.7.2026 alkaen</p>
+      <LegalSection title="Rekisterinpitäjä">
+        Krossi. Yhteydenotot tietosuoja-asioissa: <a href="mailto:eelispuro@gmail.com" style={{ color:'var(--green-deep)', fontWeight:700 }}>eelispuro@gmail.com</a>
+      </LegalSection>
+      <LegalSection title="Mitä tietoja käsittelemme">
+        Tiliin liittyvät tiedot (sähköposti), profiilitiedot (nimi, ikäryhmä, kotikaupunki, profiilikuva, pelitaso, kilpailuluokka, pelitoiveet, saatavuus, bio), sekä palvelun käytöstä syntyvä data: viestit muiden käyttäjien kanssa, pelipyynnöt, haasteet ja niihin osallistuminen, ottelutulokset sekä mahdolliset ilmoitukset sopimattomasta käytöksestä.
+      </LegalSection>
+      <LegalSection title="Käsittelyn tarkoitus ja peruste">
+        Käsittelemme tietoja tarjotaksemme palvelun ydintoiminnon: sopivien pelikavereiden löytämisen ja pelien sopimisen. Käsittelyn peruste on käyttäjän kanssa tehtävän sopimuksen täytäntöönpano sekä rekisteröitymisen yhteydessä annettu suostumus.
+      </LegalSection>
+      <LegalSection title="Tietojen säilytys">
+        Säilytämme tietoja niin kauan kuin tilisi on aktiivinen. Kun poistat tilisi, tiedot poistetaan kohtuullisessa ajassa, ellei laki edellytä pidempää säilytystä.
+      </LegalSection>
+      <LegalSection title="Kenelle tietoja luovutetaan">
+        Tietoja käsitellään Supabase-alustalla (tietokanta ja tiedostojen tallennus, EU-alueella sijaitsevat palvelimet). Jos kirjaudut Google- tai Apple-tunnuksilla, kyseinen palveluntarjoaja käsittelee kirjautumiseen tarvittavat tiedot omien ehtojensa mukaisesti. Profiilitietojasi ei myydä eikä luovuteta markkinointitarkoituksiin kolmansille osapuolille.
+      </LegalSection>
+      <LegalSection title="Oikeutesi">
+        Sinulla on oikeus tarkastaa, oikaista ja pyytää poistettavaksi omat tietosi, rajoittaa niiden käsittelyä, siirtää tiedot toiseen palveluun sekä vastustaa käsittelyä. Voit käyttää oikeuksiasi yllä olevasta sähköpostiosoitteesta. Sinulla on myös oikeus tehdä valitus tietosuojavaltuutetun toimistolle.
+      </LegalSection>
+      <LegalSection title="Evästeet">
+        Krossin markkinointisivustolla käytetään erikseen evästesuostumuksella hallittavia analytiikka- ja markkinointievästeitä. Tämä ei koske sovelluksen sisäisiä profiilitietoja.
+      </LegalSection>
     </div>
   );
 }
