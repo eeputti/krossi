@@ -252,10 +252,8 @@ function AuthScreen() {
   const [error, setError] = React.useState('');
   const [info, setInfo] = React.useState('');
   const [busy, setBusy] = React.useState(false);
-  const [agreed, setAgreed] = React.useState(false);
   const [showTerms, setShowTerms] = React.useState(false);
   const [showPrivacy, setShowPrivacy] = React.useState(false);
-  const needsConsent = mode === 'register' && !agreed;
   const signInWithGoogle = async () => {
     setError(''); setBusy(true);
     try {
@@ -279,9 +277,7 @@ function AuthScreen() {
   };
 
   const submit = async (e) => {
-    e.preventDefault(); setError(''); setInfo('');
-    if (needsConsent) { setError('Hyväksy käyttöehdot ja tietosuojaseloste jatkaaksesi.'); return; }
-    setBusy(true);
+    e.preventDefault(); setError(''); setInfo(''); setBusy(true);
     try {
       if (mode === 'login') { const { error } = await supabase.auth.signInWithPassword({ email, password: pw }); if (error) throw error; }
       else if (mode === 'register') {
@@ -310,19 +306,27 @@ function AuthScreen() {
         <p style={{ color: 'var(--text-muted)', marginTop: 6, fontSize: 14 }}>Löydä pelikavereita tennikseen</p>
       </div>
       <div className="auth-card">
-        <h2 style={{ margin: '0 0 18px', fontSize: 20, fontWeight: 800 }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 800 }}>
           {mode === 'login' ? 'Kirjaudu sisään' : mode === 'register' ? 'Luo tili' : 'Palauta salasana'}
         </h2>
+        {mode === 'register' && (
+          <p style={{ margin:'0 0 16px', fontSize:12.5, color:'var(--text-muted)', lineHeight:1.5 }}>
+            Luomalla tilin hyväksyt Krossin{' '}
+            <button type="button" onClick={() => setShowTerms(true)} style={{ background:'none', border:'none', padding:0, color:'var(--green-deep)', fontWeight:700, cursor:'pointer', fontFamily:'inherit', fontSize:'inherit', textDecoration:'underline' }}>käyttöehdot</button>
+            {' '}ja{' '}
+            <button type="button" onClick={() => setShowPrivacy(true)} style={{ background:'none', border:'none', padding:0, color:'var(--green-deep)', fontWeight:700, cursor:'pointer', fontFamily:'inherit', fontSize:'inherit', textDecoration:'underline' }}>tietosuojaselosteen</button>.
+          </p>
+        )}
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
         {info && <div className="alert alert-success" style={{ marginBottom: 12 }}>{info}</div>}
 
         {mode !== 'reset' && (
           <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
-            <button style={oauthBtnStyle} onClick={signInWithGoogle} disabled={busy || needsConsent}>
+            <button style={oauthBtnStyle} onClick={signInWithGoogle} disabled={busy}>
               <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.0 24.0 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
               Jatka Googlella
             </button>
-            <button style={oauthBtnStyle} onClick={signInWithApple} disabled={busy || needsConsent}>
+            <button style={oauthBtnStyle} onClick={signInWithApple} disabled={busy}>
               <svg width="16" height="20" viewBox="0 0 20 24" fill="#111"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.2-1.2 3.1-2.5.7-1 1-2 1-2-.1 0-2-.8-2-3.3zM13.9 3.5c.7-.9 1.2-2.1 1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3.1-1.4z"/></svg>
               Jatka Applella
             </button>
@@ -340,18 +344,7 @@ function AuthScreen() {
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input className="input" type="email" placeholder="Sähköposti" value={email} onChange={e => setEmail(e.target.value)} required />
           {mode !== 'reset' && <input className="input" type="password" placeholder="Salasana" value={pw} onChange={e => setPw(e.target.value)} required minLength={6} />}
-          {mode === 'register' && (
-            <label style={{ display:'flex', alignItems:'flex-start', gap:8, fontSize:13, color:'var(--text-muted)', cursor:'pointer', lineHeight:1.45 }}>
-              <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ width:18, height:18, marginTop:1, flexShrink:0, accentColor:'var(--green-deep)' }} />
-              <span>
-                Hyväksyn Krossin{' '}
-                <button type="button" onClick={() => setShowTerms(true)} style={{ background:'none', border:'none', padding:0, color:'var(--green-deep)', fontWeight:700, cursor:'pointer', fontFamily:'inherit', fontSize:'inherit', textDecoration:'underline' }}>käyttöehdot</button>
-                {' '}ja{' '}
-                <button type="button" onClick={() => setShowPrivacy(true)} style={{ background:'none', border:'none', padding:0, color:'var(--green-deep)', fontWeight:700, cursor:'pointer', fontFamily:'inherit', fontSize:'inherit', textDecoration:'underline' }}>tietosuojaselosteen</button>
-              </span>
-            </label>
-          )}
-          <button className="btn btn-dark btn-lg btn-full" type="submit" disabled={busy || needsConsent}>
+          <button className="btn btn-dark btn-lg btn-full" type="submit" disabled={busy}>
             {busy ? 'Odota...' : mode === 'login' ? 'Kirjaudu' : mode === 'register' ? 'Luo tili' : 'Lähetä linkki'}
           </button>
         </form>
