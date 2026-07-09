@@ -360,7 +360,7 @@ function AuthScreen() {
             <button onClick={() => { setMode('register'); setError(''); setInfo(''); }} style={{ background:'none',border:'none',color:'var(--green-deep)',fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>Luo uusi tili</button>
             <span style={{ color: '#999', margin: '0 8px' }}>·</span>
             <button onClick={() => { setMode('reset'); setError(''); setInfo(''); }} style={{ background:'none',border:'none',color:'#888',cursor:'pointer',fontFamily:'inherit' }}>Unohditko salasanan?</button>
-          </> : <button onClick={() => { setMode('login'); setError(''); setInfo(''); }} style={{ background:'none',border:'none',color:'var(--green-deep)',fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>Takaisin kirjautumiseen</button>}
+          </> : <button onClick={() => { setMode('login'); setError(''); setInfo(''); }} style={{ background:'none',border:'none',color:'var(--green-deep)',fontWeight:600,cursor:'pointer',fontFamily:'inherit' }}>Kirjaudu sisään</button>}
         </div>
       </div>
       <a href="/" style={{ color:'var(--text-muted)',marginTop:20,fontSize:13,textDecoration:'none' }}>← Takaisin etusivulle</a>
