@@ -147,6 +147,39 @@ async function deleteMatchResultWeb(id) {
   const { error } = await supabase.from('match_results').delete().eq('id', id);
   if (error) throw error;
 }
+async function recordChallengeOutcome(challengeId, outcome) {
+  const { error } = await supabase.from('challenges').update({ outcome, outcome_recorded_at: new Date().toISOString() }).eq('id', challengeId);
+  if (error) throw error;
+}
+async function fetchPendingOutcomeChallenges(uid) {
+  const nowIso = new Date().toISOString();
+  const cols = 'id,creator_id,location,location_type,scheduled_at,match_type,title';
+  const [{ data: created }, { data: joinedRows }] = await Promise.all([
+    supabase.from('challenges').select(cols).eq('creator_id', uid).in('status', ['open', 'filled']).is('outcome', null).lt('expires_at', nowIso),
+    supabase.from('challenge_participants').select(`challenge:challenges!challenge_participants_challenge_id_fkey(${cols},status,outcome,expires_at)`).eq('user_id', uid),
+  ]);
+  const joined = (joinedRows || []).map(r => r.challenge).filter(c => c && ['open', 'filled'].includes(c.status) && c.outcome == null && c.expires_at && c.expires_at < nowIso);
+  const merged = new Map();
+  [...(created || []), ...joined].forEach(c => merged.set(c.id, c));
+  const list = [...merged.values()];
+  if (list.length === 0) return [];
+  const ids = list.map(c => c.id);
+  const creatorIds = [...new Set(list.map(c => c.creator_id))];
+  const [{ data: pR }, { data: cR }] = await Promise.all([
+    supabase.from('challenge_participants').select('challenge_id,user_id,profile:profiles!challenge_participants_user_id_fkey(name,avatar_url,avatar_color)').in('challenge_id', ids),
+    supabase.from('profiles').select('id,name,avatar_url,avatar_color').in('id', creatorIds),
+  ]);
+  const cm = new Map(); (cR || []).forEach(c => cm.set(c.id, c));
+  const pm = new Map(); (pR || []).forEach(p => { const a = pm.get(p.challenge_id) || []; if (p.profile) a.push({ userId: p.user_id, name: p.profile.name, avatarUrl: p.profile.avatar_url, avatarColor: p.profile.avatar_color || 'blue' }); pm.set(p.challenge_id, a); });
+  return list.map(c => {
+    const creator = cm.get(c.creator_id);
+    return {
+      id: c.id, location: c.location, locationType: c.location_type, scheduledAt: c.scheduled_at, matchType: c.match_type, title: c.title,
+      creatorId: c.creator_id, creatorName: creator?.name || 'Pelaaja', creatorAvatarUrl: creator?.avatar_url, creatorAvatarColor: creator?.avatar_color || 'blue',
+      participants: pm.get(c.id) || [],
+    };
+  });
+}
 function calculateMatchWon(sets) {
   const won = sets.filter(s=>s.my>s.opp).length;
   const lost = sets.filter(s=>s.opp>s.my).length;
@@ -1011,13 +1044,14 @@ function ChatScreen({ conversation, onBack }) {
 // ── Match History ──────────────────────────────────────
 const MATCH_GAME_TYPES = [['sets','Erät'],['tiebreak','Tie-break'],['full_match','Kunnon matsi']];
 
-function MatchResultModal({ editingResult, onClose, onSaved }) {
-  const [format, setFormat] = React.useState(editingResult?.format || 'singles');
-  const [gameType, setGameType] = React.useState(editingResult?.gameType || 'sets');
-  const [opponentName, setOpponentName] = React.useState(editingResult?.opponentName || '');
-  const [partnerName, setPartnerName] = React.useState(editingResult?.partnerName || '');
-  const [oppPartnerName, setOppPartnerName] = React.useState(editingResult?.oppPartnerName || '');
-  const [sets, setSets] = React.useState(editingResult?.sets?.length ? editingResult.sets : [{my:0,opp:0}]);
+function MatchResultModal({ editingResult, prefill, title, onClose, onSaved }) {
+  const initial = editingResult || prefill || {};
+  const [format, setFormat] = React.useState(initial.format || 'singles');
+  const [gameType, setGameType] = React.useState(initial.gameType || 'sets');
+  const [opponentName, setOpponentName] = React.useState(initial.opponentName || '');
+  const [partnerName, setPartnerName] = React.useState(initial.partnerName || '');
+  const [oppPartnerName, setOppPartnerName] = React.useState(initial.oppPartnerName || '');
+  const [sets, setSets] = React.useState(initial.sets?.length ? initial.sets : [{my:0,opp:0}]);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
   const isTiebreak = gameType === 'tiebreak';
@@ -1045,8 +1079,9 @@ function MatchResultModal({ editingResult, onClose, onSaved }) {
   };
 
   return <div className="modal-overlay" onClick={onClose}>
-    <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
-      <h3 style={{margin:'0 0 16px',fontSize:18,fontWeight:800,color:'var(--ink)'}}>{editingResult?'Muokkaa tulosta':'Lisää tulos'}</h3>
+    <div className="modal-sheet" style={{position:'relative'}} onClick={e=>e.stopPropagation()}>
+      <button onClick={onClose} aria-label="Sulje" style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:18,color:'var(--text-muted)',cursor:'pointer',lineHeight:1}}>✕</button>
+      <h3 style={{margin:'0 16px 16px 0',fontSize:18,fontWeight:800,color:'var(--ink)'}}>{title || (editingResult?'Muokkaa tulosta':'Lisää tulos')}</h3>
       {error && <div className="alert alert-error" style={{marginBottom:12}}>{error}</div>}
       <div className="field"><div className="detail-label">Pelimuoto</div><div style={{display:'flex',gap:6}}>
         <button className={`filter-chip ${format==='singles'?'active':''}`} onClick={()=>setFormat('singles')}>Kaksinpeli</button>
@@ -1141,6 +1176,62 @@ function MatchHistorySection() {
         </div>}
     {modalOpen && <MatchResultModal editingResult={editing} onClose={()=>setModalOpen(false)} onSaved={()=>{setModalOpen(false);load();}}/>}
   </>;
+}
+
+// ── Haasteen lopputulos-kysely ─────────────────────────
+function ChallengeOutcomeModal({ challenge, onAnswer, onDismiss }) {
+  const [busy, setBusy] = React.useState(false);
+  const people = [
+    { userId: challenge.creatorId, name: challenge.creatorName, avatarUrl: challenge.creatorAvatarUrl, avatarColor: challenge.creatorAvatarColor },
+    ...challenge.participants,
+  ];
+  const answer = async (outcome) => {
+    setBusy(true);
+    try { await recordChallengeOutcome(challenge.id, outcome); onAnswer(outcome); }
+    catch (e) { alert(e.message || 'Virhe'); setBusy(false); }
+  };
+  return <div className="modal-overlay">
+    <div className="modal-sheet" style={{ position:'relative', textAlign:'center' }}>
+      <button onClick={onDismiss} aria-label="Sulje" style={{ position:'absolute', top:16, right:16, background:'none', border:'none', fontSize:18, color:'var(--text-muted)', cursor:'pointer', lineHeight:1 }}>✕</button>
+      <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}>
+        {people.map((p,i) => <div key={p.userId||i} style={{ marginLeft: i>0?-12:0, border:'2px solid var(--paper)', borderRadius:'50%' }}><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={44}/></div>)}
+      </div>
+      <h3 style={{ margin:'0 0 6px', fontSize:18, fontWeight:800, color:'var(--ink)' }}>Pelasitteko?</h3>
+      <p style={{ margin:'0 0 20px', fontSize:13, color:'var(--text-muted)' }}>
+        {challenge.scheduledAt ? formatDate(challenge.scheduledAt) : 'Aika avoin'}
+        {challenge.location ? ` · ${challenge.location}` : ''}
+        {challenge.locationType ? ` · ${titleCase(challenge.locationType)}` : ''}
+      </p>
+      <div style={{ display:'flex', gap:8 }}>
+        <button className="btn btn-outline-d btn-md" style={{ flex:1 }} disabled={busy} onClick={()=>answer('not_played')}>Ei</button>
+        <button className="btn btn-lime btn-lg" style={{ flex:1 }} disabled={busy} onClick={()=>answer('played')}>Kyllä</button>
+      </div>
+    </div>
+  </div>;
+}
+function PendingOutcomeCheck() {
+  const { session } = useAuth();
+  const uid = session?.user?.id;
+  const [queue, setQueue] = React.useState(null);
+  const [stage, setStage] = React.useState('ask');
+  React.useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    fetchPendingOutcomeChallenges(uid).then(list => { if (!cancelled) setQueue(list); }).catch(() => { if (!cancelled) setQueue([]); });
+    return () => { cancelled = true; };
+  }, [uid]);
+  const advance = () => { setQueue(q => q.slice(1)); setStage('ask'); };
+  const current = queue && queue.length > 0 ? queue[0] : null;
+  if (!current) return null;
+  if (stage === 'ask') {
+    return <ChallengeOutcomeModal challenge={current} onDismiss={advance} onAnswer={outcome => outcome === 'played' ? setStage('addResult') : advance()} />;
+  }
+  return <MatchResultModal
+    title="Haluatko lisätä tuloksen?"
+    prefill={{ format: current.matchType === 'nelinpeli' ? 'doubles' : 'singles', opponentName: current.creatorId === uid ? (current.participants[0]?.name || '') : current.creatorName }}
+    onClose={advance}
+    onSaved={advance}
+  />;
 }
 
 // ── Profile (full page) ────────────────────────────────
@@ -1329,7 +1420,7 @@ function KrossiWebApp() {
   if (loading) return <div className="auth-shell clay-bg"><span style={{fontSize:40,fontWeight:800,color:'var(--lime)',letterSpacing:-1.5}}>Krossi</span><div style={{marginTop:20}}><div className="spinner"/></div></div>;
   if (!session) return <AuthScreen />;
   if (needsOnboarding) return <OnboardingScreen />;
-  return <AppShell />;
+  return <><AppShell /><PendingOutcomeCheck /></>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
