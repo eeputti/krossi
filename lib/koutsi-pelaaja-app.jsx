@@ -88,6 +88,9 @@ function App() {
   const student = state.students.find((s) => s.id === activeId) || state.students[0];
   React.useEffect(() => { setNote(student ? student.playerNote || '' : ''); setNoteSaved(false); }, [activeId]);
 
+  const group = student ? window.koutsiGroupForStudent(state, student.id) : null;
+  const upcoming = student ? window.koutsiUpcomingTrainingsForStudent(state, student.id) : [];
+
   const update = (fn) => setState((prev) => { const next = fn(prev); window.koutsiSaveState(next); return next; });
 
   const toggleHomework = (i) => {
@@ -111,6 +114,7 @@ function App() {
           <Avatar initial={student.initial} hue={student.hue} size={76} ring />
           <div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>{student.name}</div>
           <span className="k-chip">{student.level}</span>
+          {group && <span className="k-chip">Ryhmä: {group.name} · {group.day} {group.time}</span>}
           <p style={{ fontSize: 15, color: '#514c42', lineHeight: 1.55, maxWidth: 480, marginTop: 4 }}>
             <b style={{ color: 'var(--green-deep)' }}>Tavoitteeni:</b> {student.goal}
           </p>
@@ -132,15 +136,15 @@ function App() {
           </div>
         )}
 
-        {student.upcoming.length > 0 && (
+        {upcoming.length > 0 && (
           <div style={{ marginBottom: 26 }}>
             <SectionTitle>Tulevat valmennukset</SectionTitle>
             <div className="k-card" style={{ padding: 0, overflow: 'hidden' }}>
-              {student.upcoming.map((u, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderBottom: i === student.upcoming.length - 1 ? 'none' : '1px solid var(--line)' }}>
-                  <div style={{ width: 90, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)' }}>{u.day}</div>
-                  <div style={{ flex: 1, fontSize: 14.5, color: '#111' }}>{u.type}</div>
-                  <div style={{ fontSize: 13.5, color: '#8a857a', fontWeight: 600 }}>{u.time}</div>
+              {upcoming.map((t, i) => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderBottom: i === upcoming.length - 1 ? 'none' : '1px solid var(--line)' }}>
+                  <div style={{ width: 90, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)' }}>{window.koutsiFmtShortDate(t.date)}</div>
+                  <div style={{ flex: 1, fontSize: 14.5, color: '#111' }}>{t.type}{t.groupId != null && group ? ` — ${group.name}` : ''}</div>
+                  <div style={{ fontSize: 13.5, color: '#8a857a', fontWeight: 600 }}>{t.time}</div>
                 </div>
               ))}
             </div>
