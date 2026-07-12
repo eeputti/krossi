@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kokeile demoa — Krossi Koutsi</title>
+<meta name="description" content="Kokeile Krossi Koutsin interaktiivista demoa valmentajan tai pelaajan näkökulmasta." />
+<link rel="canonical" href="https://koutsi.krossi.app/demo" />
+<link rel="icon" type="image/png" href="assets/ball-tight.png" />
+<link rel="stylesheet" href="lib/koutsi-shared.css" />
+<style>
+  .demo-wrap { min-height: 100vh; display: flex; flex-direction: column; }
+  .demo-nav { padding: 22px 24px; }
+  .demo-nav a { text-decoration: none; display: inline-flex; align-items: baseline; gap: 7px; }
+  .demo-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px 22px 60px; }
+  .demo-inner { max-width: 880px; width: 100%; text-align: center; }
+  .demo-eyebrow { display: inline-flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a6a4a; margin-bottom: 16px; }
+  .demo-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 3px rgba(207,228,20,0.25); }
+  .demo-title { font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 800; letter-spacing: -0.03em; color: var(--green-deep); margin-bottom: 12px; }
+  .demo-sub { font-size: clamp(1rem, 2vw, 1.15rem); color: #514c42; max-width: 560px; margin: 0 auto 44px; line-height: 1.55; }
+  .demo-grid { display: grid; grid-template-columns: 1fr; gap: 20px; text-align: left; }
+  @media (min-width: 720px) { .demo-grid { grid-template-columns: 1fr 1fr; } }
+  .demo-card {
+    background: #fff; border: 1.5px solid var(--line); border-radius: 24px; padding: 32px 28px;
+    display: flex; flex-direction: column; gap: 14px; text-decoration: none; color: inherit;
+    transition: transform .18s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .demo-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -22px rgba(20,20,10,0.25); border-color: var(--green-deep); }
+  .demo-card-icon {
+    width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
+    background: var(--green-deep);
+  }
+  .demo-card h2 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+  .demo-card p { font-size: 14.5px; line-height: 1.55; color: #555049; }
+  .demo-card .go { margin-top: auto; font-weight: 700; font-size: 14.5px; color: var(--green-deep); display: inline-flex; align-items: center; gap: 6px; }
+  .demo-fine { margin-top: 36px; font-size: 13px; color: #8a857a; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="demo-wrap">
+    <div class="demo-nav">
+      <a href="/">
+        <span style="font-weight:800; font-size:21px; color:var(--green-deep); letter-spacing:-0.5px;">Krossi</span>
+        <span style="font-size:12px; font-weight:700; color:#8a857a;">Koutsi</span>
+      </a>
+    </div>
+    <div class="demo-main">
+      <div class="demo-inner">
+        <span class="demo-eyebrow"><span class="demo-dot"></span> Interaktiivinen demo</span>
+        <h1 class="demo-title">Kumman näkymän<br />haluat kokeilla?</h1>
+        <p class="demo-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Molemmilla on oma näkymänsä samaan dataan — kokeile kumpaa tahansa, tai molempia.</p>
+        <div class="demo-grid">
+          <a href="/valmentaja" class="demo-card">
+            <div class="demo-card-icon">
+              <svg width="24" height="24" viewBox="0 0 22 22" fill="none"><circle cx="8" cy="6.5" r="3" stroke="var(--lime)" stroke-width="1.7" /><path d="M2 19c0-3.2 2.7-5.3 6-5.3s6 2.1 6 5.3" stroke="var(--lime)" stroke-width="1.7" stroke-linecap="round" /><circle cx="16" cy="7.5" r="2.4" stroke="var(--lime)" stroke-width="1.7" /><path d="M13.8 19c.3-2.6 2.1-4.3 4.2-4.3S21.7 16.4 22 19" stroke="var(--lime)" stroke-width="1.7" stroke-linecap="round" /></svg>
+            </div>
+            <h2>Valmentaja</h2>
+            <p>Oppilaat, tavoitteet, treenimuistiinpanot sanelemalla, viikon teema, harjoitepankki ja ennen treeniä -yhteenveto.</p>
+            <span class="go">Avaa valmentajan näkymä →</span>
+          </a>
+          <a href="/pelaaja" class="demo-card">
+            <div class="demo-card-icon">
+              <svg width="24" height="24" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="7.5" r="4" stroke="var(--lime)" stroke-width="1.7" /><path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="var(--lime)" stroke-width="1.7" stroke-linecap="round" /></svg>
+            </div>
+            <h2>Pelaaja</h2>
+            <p>Omat tavoitteet, tuorein palaute valmentajalta, kotitehtävät, kehityshistoria ja omat videot.</p>
+            <span class="go">Avaa pelaajan näkymä →</span>
+          </a>
+        </div>
+        <p class="demo-fine">Demo käyttää esimerkkidataa. Valmentajan näkymässä tehdyt muutokset (esim. uusi treenimuistiinpano) näkyvät myös pelaajan näkymässä samassa selaimessa.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

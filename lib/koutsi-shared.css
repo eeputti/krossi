@@ -1,0 +1,58 @@
+/* koutsi-shared.css — design tokens + resets shared by the Koutsi demo pages
+   (koutsi-demo.html, koutsi-valmentaja.html, koutsi-pelaaja.html). */
+:root {
+  --lime: #CFE414;
+  --paper: #FFFFFF;
+  --sand: #F7F5EF;
+  --ink: #111111;
+  --green-deep: #0E3B2C;
+  --line: #D8D4CA;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--sand); color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4 { text-wrap: balance; margin: 0; }
+p { text-wrap: pretty; margin: 0; }
+a { color: inherit; }
+button { font-family: inherit; }
+
+.btn-lime, .btn-outline, .btn-dark, .btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; font-weight: 700; cursor: pointer; text-decoration: none;
+  transition: transform .15s ease, box-shadow .2s ease, background .2s; border: none;
+  font-family: inherit; line-height: 1;
+}
+.btn-lime { background: var(--lime); color: #101a08; box-shadow: 0 10px 24px -10px rgba(40,40,0,0.4); }
+.btn-lime:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -10px rgba(40,40,0,0.5); }
+.btn-outline { background: transparent; border: 1.6px solid currentColor; color: var(--ink); }
+.btn-outline:hover { transform: translateY(-2px); }
+.btn-dark { background: var(--green-deep); color: #fff; }
+.btn-dark:hover { transform: translateY(-1px); background: #0a2c20; }
+.btn-ghost { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.18); }
+.btn-ghost:hover { background: rgba(255,255,255,0.14); }
+.btn-lg { padding: 17px 30px; font-size: 16.5px; }
+.btn-sm { padding: 10px 18px; font-size: 14px; }
+
+.k-card {
+  background: #fff; border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(20,15,5,0.05);
+}
+.k-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600; white-space: nowrap; line-height: 1;
+  background: #f4f2ec; color: #6b665c; border: 1px solid var(--line);
+}
+.k-chip-lime { background: var(--lime); color: #101a08; border: none; }
+
+@keyframes kcPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.75); } }
+.kc-pulse { animation: kcPulse 1s ease-in-out infinite; }
+
+@keyframes kSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes kFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }

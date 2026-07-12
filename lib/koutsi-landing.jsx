@@ -17,8 +17,8 @@ function Nav() {
       <header className="nav-pill">
         <a href="#top" className="nav-logo"><Wordmark size={21} /></a>
         <nav className="nav-links">
-          <a href="#ominaisuudet">Ominaisuudet</a>
           <a href="#miten-toimii">Miten toimii</a>
+          <a href="/demo">Kokeile demoa</a>
         </nav>
         <a href={CONTACT_MAILTO} className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Pyydä pääsy</a>
       </header>
@@ -34,8 +34,8 @@ function Hero() {
         <h1 className="hero-title">Valmennus ja<br /><span className="hl">kehitys,</span> samassa paikassa.</h1>
         <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Kirjaa tavoitteet, sanele treenimuistiinpanot, jaa viikon teema ja seuraa pelaajiesi kehitystä — kaikki yhdessä näkymässä.</p>
         <div className="hero-cta">
-          <a href={CONTACT_MAILTO} className="btn-lime btn-lg">Pyydä pääsy testiin</a>
-          <p className="hero-fine">Ei julkista latausta vielä.</p>
+          <a href="/demo" className="btn-lime btn-lg">Avaa demo →</a>
+          <p className="hero-fine">Ei julkista latausta vielä — kokeile interaktiivista demoa.</p>
         </div>
         <p className="demo-hint">Kokeile vieressä olevaa demoa — avaa tiedot ja lisää palaute.</p>
       </div>
@@ -65,37 +65,8 @@ function Promise_() {
   );
 }
 
-const FEATURES = [
-  { n: '01', title: 'Pelaajat ja ryhmät yhdessä näkymässä', body: 'Näet jokaisen valmennettavan tason, tavoitteet ja rajoitteet — sekä sen, mitä käsiteltiin viime kerralla ja mikä on seuraava kehityskohde.' },
-  { n: '02', title: 'Nopea treenimuistiinpano — jopa sanelemalla', body: 'Sanele 15–30 sekunnin ääniviesti tunnin jälkeen. Tekoäly muotoilee siitä valmiin yhteenvedon — et joudu kirjoittamaan raportteja.' },
-  { n: '03', title: 'Pelaajakohtainen kehityspolku', body: 'Tavoitteet, huomiot, videot ja tehtävät kertyvät aikajanalle. Kehitys näkyy sekä sinulle että pelaajalle.' },
-  { n: '04', title: 'Viikon teema koko ryhmälle', body: 'Julkaise ryhmälle viikon painopiste, tavoite ja omatoiminen tehtävä kerralla — et selitä samaa asiaa erikseen jokaiselle.' },
-  { n: '05', title: 'Harjoitepankki', body: 'Tallenna omat harjoitteesi tavoitteen, pelaajamäärän, keston ja tason mukaan, ja rakenna tunti vetämällä harjoitteita suunnitelmaan.' },
-  { n: '06', title: 'Palaute ja kotitehtävä suoraan pelaajalle', body: 'Pelaaja näkee palautteen, tehtävän ja tulevat treenit omasta näkymästään — ei enää hajanaisia WhatsApp-viestejä.' },
-  { n: '07', title: 'Videot pelaajan aikajanalla', body: 'Liitä video muistiinpanoon, niin se tallentuu suoraan pelaajan kehityshistoriaan.' },
-  { n: '08', title: 'Ennen treeniä -yhteenveto', body: 'Juuri ennen tuntia näet automaattisesti koosteen: mitä kukin pelaaja tarvitsee, ryhmän teeman ja ehdotetut harjoitteet.' },
-];
-
-function Features() {
-  return (
-    <section className="features" id="ominaisuudet">
-      <span className="eyebrow"><span className="ball-dot" /> Ominaisuudet</span>
-      <h2 className="sec-title">Mitä saat käyttöön.</h2>
-      <div className="cf-grid">
-        {FEATURES.map((f) => (
-          <article key={f.n} className="cf-card">
-            <span className="cf-num">{f.n}</span>
-            <h3>{f.title}</h3>
-            <p>{f.body}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 const STEPS = [
-  { n: 1, title: 'Kutsu oppilaasi mukaan', body: 'Lähetä kutsulinkki — oppilas liittyy omalla tililleen sinun valmennettavaksesi.' },
+  { n: 1, title: 'Kutsu oppilaasi mukaan', body: 'Lähetä kutsulinkki — oppilas liittyy omalle tililleen sinun valmennettavaksesi.' },
   { n: 2, title: 'Kirjaa treenit ja palautteet', body: 'Lisää tulevat treenit, kotiläksyt ja lyhyt palaute jokaisen kerran jälkeen.' },
   { n: 3, title: 'Oppilas seuraa kehitystään', body: 'Oppilas näkee omat tietonsa, palautteet ja tulevat treenit omasta näkymästään.' },
 ];
@@ -155,7 +126,6 @@ function App() {
       <Nav />
       <Hero />
       <Promise_ />
-      <Features />
       <HowItWorks />
       <ClosingCTA />
       <Footer />
