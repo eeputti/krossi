@@ -1,6 +1,7 @@
 {
   "framework": null,
   "rewrites": [
+    { "source": "/", "has": [{ "type": "host", "value": "koutsi.krossi.app" }], "destination": "/koutsi.html" },
     { "source": "/pelaa", "destination": "/app.html" }
   ]
 }
