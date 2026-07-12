@@ -1,7 +1,8 @@
 {
   "framework": null,
-  "rewrites": [
-    { "source": "/", "has": [{ "type": "host", "value": "koutsi.krossi.app" }], "destination": "/koutsi.html" },
-    { "source": "/pelaa", "destination": "/app.html" }
+  "routes": [
+    { "src": "/", "has": [{ "type": "host", "value": "koutsi.krossi.app" }], "dest": "/koutsi.html" },
+    { "handle": "filesystem" },
+    { "src": "/pelaa", "dest": "/app.html" }
   ]
 }
