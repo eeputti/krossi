@@ -44,16 +44,6 @@ function Bar({ label, value }) {
   );
 }
 
-function ThemeBanner({ theme }) {
-  return (
-    <div className="k-card" style={{ padding: '20px 24px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', marginBottom: 24 }}>
-      <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>Viikon teema</div>
-      <div style={{ fontSize: 19, fontWeight: 800, color: '#111', marginBottom: 5 }}>{theme.title}</div>
-      <div style={{ fontSize: 14, color: '#514c42', lineHeight: 1.55, maxWidth: 640 }}>{theme.lead}</div>
-    </div>
-  );
-}
-
 function PageHeader({ title, sub, action }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, gap: 16, flexWrap: 'wrap' }}>
@@ -108,11 +98,10 @@ function ChevronRight() {
 }
 
 // ── Oppilaat ─────────────────────────────────────────────
-function StudentsView({ students, onOpen, theme }) {
+function StudentsView({ students, onOpen }) {
   return (
     <div>
       <PageHeader title="Oppilaani" sub={`${students.length} valmennettavaa`} />
-      <ThemeBanner theme={theme} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
         {students.map((s) => (
           <button key={s.id} onClick={() => onOpen(s.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -417,7 +406,6 @@ function CalendarView({ state, onAdd, onPreSession }) {
   return (
     <div>
       <PageHeader title="Treenit" sub="Kalenteri ja tulevat valmennukset" action={<button onClick={() => onAdd(selectedDate)} className="btn-dark btn-sm">+ Lisää valmennus</button>} />
-      <ThemeBanner theme={state.weeklyTheme} />
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: 24, alignItems: 'flex-start' }}>
         <CalendarGrid state={state} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
           onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
@@ -472,12 +460,6 @@ function PreSessionPanel({ training, state, onClose }) {
                 </div>
               </div>
             ))}
-          </div>
-        </Field>
-        <Field label="Ryhmän teema">
-          <div className="k-card" style={{ padding: '13px 15px' }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#111', marginBottom: 5 }}>{state.weeklyTheme.title}</div>
-            <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5 }}>{state.weeklyTheme.lead}</div>
           </div>
         </Field>
         <Field label="Ehdotetut harjoitteet">
@@ -764,7 +746,7 @@ function App() {
     <div style={{ minHeight: '100vh' }}>
       <Sidebar tab={tab} setTab={setTab} coach={state.coach} onReset={resetDemo} />
       <div style={{ marginLeft: 248, padding: '36px 44px 80px', maxWidth: 1180 }}>
-        {tab === 'students' && <StudentsView students={state.students} onOpen={setDetailId} theme={state.weeklyTheme} />}
+        {tab === 'students' && <StudentsView students={state.students} onOpen={setDetailId} />}
         {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} onOpen={setGroupDetailId} />}
         {tab === 'trainings' && <CalendarView state={state} onAdd={(d) => { setTrainingDefaultDate(d); setTrainingOpen(true); }} onPreSession={setPresessionTrainingId} />}
         {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} />}

@@ -1,6 +1,6 @@
 // koutsi-pelaaja-app.jsx — full-page player web app for koutsi.krossi.app/pelaaja.
 // Reads/writes the same shared demo store as the coach view (koutsi-data.js), so
-// whatever the coach adds — a diary entry, a new training, a weekly theme — shows up here.
+// whatever the coach adds — a diary entry, a new training — shows up here.
 
 function Avatar({ initial, hue = 150, size = 44, ring = false }) {
   return (
@@ -118,12 +118,6 @@ function App() {
           <p style={{ fontSize: 15, color: '#514c42', lineHeight: 1.55, maxWidth: 480, marginTop: 4 }}>
             <b style={{ color: 'var(--green-deep)' }}>Tavoitteeni:</b> {student.goal}
           </p>
-        </div>
-
-        <div className="k-card" style={{ padding: '20px 24px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', marginBottom: 22 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>Viikon teema</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 5 }}>{state.weeklyTheme.title}</div>
-          <div style={{ fontSize: 14, color: '#514c42', lineHeight: 1.55 }}>{state.weeklyTheme.lead}</div>
         </div>
 
         {latestEntry && (

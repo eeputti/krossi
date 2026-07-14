@@ -86,11 +86,6 @@ const KC_COACH = {
   videos: [{ title: 'Esittelyvideo', dur: '1:24', hue: 150 }, { title: 'Harjoitteluohjelma', dur: '2:05', hue: 40 }],
 };
 
-const WEEKLY_THEME = {
-  title: 'Kämmenen pelitila',
-  lead: 'Tällä viikolla keskitymme siihen, että valmistautuminen alkaa heti vastustajan osumasta.',
-};
-
 const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka' };
 const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka'];
 
@@ -157,24 +152,11 @@ function KCVideoRow({ videos }) {
     </div>
   );
 }
-function KCThemeBanner({ theme }) {
-  return (
-    <div className="kp-card" style={{ padding: '14px 16px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', border: '1px solid rgba(14,59,44,0.14)' }}>
-      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 5 }}>Viikon teema</div>
-      <div style={{ fontSize: 14.5, fontWeight: 700, color: '#111', marginBottom: 4 }}>{theme.title}</div>
-      <div style={{ fontSize: 12.5, color: '#514c42', lineHeight: 1.5 }}>{theme.lead}</div>
-    </div>
-  );
-}
-
 // ── screens ───────────────────────────────────────────────
-function KCStudentsTab({ students, onOpen, theme }) {
+function KCStudentsTab({ students, onOpen }) {
   return (
     <div>
       <KCHeader title="Oppilaani" />
-      <div style={{ padding: '0 18px 14px' }}>
-        <KCThemeBanner theme={theme} />
-      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
         {students.map((s) => (
           <button key={s.id} onClick={() => onOpen(s.id)} className="kp-card kp-press" style={{ textAlign: 'left', cursor: 'pointer', width: '100%' }}>
@@ -204,7 +186,7 @@ function KCAddButton({ onClick, label }) {
   );
 }
 
-function KCTrainingsTab({ students, onAdd, theme, onPreSession }) {
+function KCTrainingsTab({ students, onAdd, onPreSession }) {
   const rows = students.flatMap((s) => s.upcoming.map((u) => ({ ...u, student: s })));
   const days = [];
   rows.forEach((r) => { if (!days.some((d) => d.day === r.day)) days.push({ day: r.day, sessions: rows.filter((x) => x.day === r.day) }); });
@@ -212,7 +194,6 @@ function KCTrainingsTab({ students, onAdd, theme, onPreSession }) {
     <div>
       <KCHeader title="Treenit" action={<KCAddButton onClick={onAdd} label="Lisää valmennus" />} />
       <div style={{ padding: '0 18px' }}>
-        <div style={{ marginBottom: 18 }}><KCThemeBanner theme={theme} /></div>
         {days.length === 0 && <div style={{ color: '#8a857a', fontSize: 14, padding: '4px 2px' }}>Ei tulevia valmennuksia.</div>}
         {days.map((d) => (
           <div key={d.day} style={{ marginBottom: 18 }}>
@@ -450,7 +431,7 @@ function KCTrainingModal({ students, onClose, onSave }) {
   );
 }
 
-function KCPreSessionSummary({ day, exercises, theme, onBack }) {
+function KCPreSessionSummary({ day, exercises, onBack }) {
   const suggestions = exercises.slice(0, 3);
   return (
     <div className="kp-light kp-overlay" style={{ position: 'absolute', inset: 0, zIndex: 55, display: 'flex', flexDirection: 'column', borderRadius: 'inherit', overflow: 'hidden' }}>
@@ -474,12 +455,6 @@ function KCPreSessionSummary({ day, exercises, theme, onBack }) {
                 </div>
               </div>
             ))}
-          </div>
-        </KCField>
-        <KCField label="Ryhmän teema">
-          <div className="kp-card" style={{ padding: '12px 14px' }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 4 }}>{theme.title}</div>
-            <div style={{ fontSize: 12.5, color: '#514c42', lineHeight: 1.5 }}>{theme.lead}</div>
           </div>
         </KCField>
         <KCField label="Ehdotetut harjoitteet">
@@ -588,8 +563,8 @@ function KoutsiPhone({ width = 300, onScrollEl }) {
           </div>
         </div>
         <div ref={scrollRef} className="kp-screen" style={{ flex: 1, overflowY: 'auto', paddingTop: 6, paddingBottom: 86 }}>
-          {tab === 'students' && <KCStudentsTab students={students} onOpen={setDetailId} theme={WEEKLY_THEME} />}
-          {tab === 'trainings' && <KCTrainingsTab students={students} onAdd={() => setTrainingOpen(true)} theme={WEEKLY_THEME} onPreSession={setPresessionDay} />}
+          {tab === 'students' && <KCStudentsTab students={students} onOpen={setDetailId} />}
+          {tab === 'trainings' && <KCTrainingsTab students={students} onAdd={() => setTrainingOpen(true)} onPreSession={setPresessionDay} />}
           {tab === 'exercises' && <KCExercisesTab exercises={KC_EXERCISES} onOpen={setExerciseId} />}
           {tab === 'profile' && <KCProfileTab coach={KC_COACH} studentCount={students.length} />}
         </div>
@@ -611,7 +586,7 @@ function KoutsiPhone({ width = 300, onScrollEl }) {
         {detail && entryOpen && <KCEntryModal student={detail} onClose={() => setEntryOpen(false)} onSend={saveEntry} />}
         {trainingOpen && <KCTrainingModal students={students} onClose={() => setTrainingOpen(false)} onSave={addTraining} />}
         {exercise && <KCExerciseDetail exercise={exercise} onBack={() => setExerciseId(null)} />}
-        {presessionDay && <KCPreSessionSummary day={presessionDay} exercises={KC_EXERCISES} theme={WEEKLY_THEME} onBack={() => setPresessionDay(null)} />}
+        {presessionDay && <KCPreSessionSummary day={presessionDay} exercises={KC_EXERCISES} onBack={() => setPresessionDay(null)} />}
         <KCToast show={toast} text={toastText} />
 
         <div style={{ position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)', width: width * 0.3, height: 4, borderRadius: 99, background: 'rgba(0,0,0,0.25)', zIndex: 95 }} />

@@ -32,12 +32,11 @@ function Hero() {
       <div className="hero-copy">
         <span className="eyebrow"><span className="ball-dot" /> Krossi valmentajille</span>
         <h1 className="hero-title">Valmennus ja<br /><span className="hl">kehitys,</span> samassa paikassa.</h1>
-        <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Kirjaa tavoitteet, sanele treenimuistiinpanot, jaa viikon teema ja seuraa pelaajiesi kehitystä — kaikki yhdessä näkymässä.</p>
+        <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Kirjaa tavoitteet, sanele treenimuistiinpanot ja seuraa pelaajiesi kehitystä — kaikki yhdessä näkymässä.</p>
         <div className="hero-cta">
           <a href="/demo" className="btn-lime btn-lg">Avaa demo →</a>
           <p className="hero-fine">Ei julkista latausta vielä — kokeile interaktiivista demoa.</p>
         </div>
-        <p className="demo-hint">Kokeile vieressä olevaa demoa — avaa tiedot ja lisää palaute.</p>
       </div>
       <div className="hero-visual">
         <p className="demo-label">Kokeile alla olevaa demoa</p>
