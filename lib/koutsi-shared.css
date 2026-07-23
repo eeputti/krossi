@@ -41,6 +41,9 @@ button { font-family: inherit; }
   background: #fff; border: 1px solid var(--line); border-radius: 18px;
   box-shadow: 0 1px 3px rgba(20,15,5,0.05);
 }
+button.k-card { transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease; }
+button.k-card:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -16px rgba(20,15,5,0.18); border-color: rgba(14,59,44,0.22); }
+button.k-card:active { transform: translateY(0); box-shadow: 0 4px 10px -6px rgba(20,15,5,0.15); }
 .k-chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
   font-size: 12.5px; font-weight: 600; white-space: nowrap; line-height: 1;
@@ -53,6 +56,23 @@ button { font-family: inherit; }
 
 @keyframes kSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes kFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kRiseIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.k-rise-in { animation: kRiseIn .35s ease both; }
 
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
+
+/* ── koutsi-valmentaja.html responsive shell ── */
+.kv-main { margin-left: 248px; padding: 36px 44px 80px; max-width: 1180px; }
+.kv-mobile-topbar, .kv-mobile-bottomnav { display: none; }
+.kv-calendar-layout { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 24px; align-items: flex-start; }
+.kv-navbtn { transition: background .15s ease, color .15s ease; }
+@media (max-width: 880px) {
+  .kv-sidebar-wrap { display: none; }
+  .kv-mobile-topbar { display: flex; }
+  .kv-mobile-bottomnav { display: flex; }
+  .kv-main { margin-left: 0; padding: 78px 16px 100px; max-width: 100%; }
+}
+@media (max-width: 680px) {
+  .kv-calendar-layout { grid-template-columns: 1fr; }
+}

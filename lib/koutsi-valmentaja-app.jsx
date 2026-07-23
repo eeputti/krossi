@@ -406,7 +406,7 @@ function CalendarView({ state, onAdd, onPreSession }) {
   return (
     <div>
       <PageHeader title="Treenit" sub="Kalenteri ja tulevat valmennukset" action={<button onClick={() => onAdd(selectedDate)} className="btn-dark btn-sm">+ Lisää valmennus</button>} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: 24, alignItems: 'flex-start' }}>
+      <div className="kv-calendar-layout">
         <CalendarGrid state={state} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
           onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
         <div>
@@ -603,7 +603,7 @@ function ExerciseDetail({ exercise, onClose }) {
 }
 
 // ── Profiili ─────────────────────────────────────────────
-function ProfileView({ coach, studentCount, groupCount }) {
+function ProfileView({ coach, studentCount, groupCount, onReset }) {
   return (
     <div>
       <PageHeader title="Profiili" />
@@ -633,6 +633,13 @@ function ProfileView({ coach, studentCount, groupCount }) {
           <Field label="Oma videokirjasto">
             <VideoRow videos={coach.videos} />
           </Field>
+          <Field label="Toiminnot">
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <a href="/pelaaja" className="btn-outline btn-sm">Pelaajan näkymä →</a>
+              <a href="/" className="btn-outline btn-sm">← Etusivulle</a>
+              <button onClick={onReset} className="btn-outline btn-sm" style={{ color: '#a13b2f', borderColor: '#e3c9c4' }}>Nollaa demodata</button>
+            </div>
+          </Field>
         </div>
       </div>
     </div>
@@ -647,8 +654,8 @@ const NAV = [
   { id: 'exercises', label: 'Harjoitteet' },
   { id: 'profile', label: 'Profiili' },
 ];
-function NavIcon({ id, on }) {
-  const c = on ? '#101a08' : 'rgba(255,255,255,0.72)';
+function NavIcon({ id, on, offColor = 'rgba(255,255,255,0.72)' }) {
+  const c = on ? '#101a08' : offColor;
   if (id === 'students') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="8" cy="6.5" r="3" stroke={c} strokeWidth="1.7" /><path d="M2 19c0-3.2 2.7-5.3 6-5.3s6 2.1 6 5.3" stroke={c} strokeWidth="1.7" strokeLinecap="round" /><circle cx="16" cy="7.5" r="2.4" stroke={c} strokeWidth="1.7" /><path d="M13.8 19c.3-2.6 2.1-4.3 4.2-4.3S21.7 16.4 22 19" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   if (id === 'groups') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="7" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><circle cx="15" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><path d="M1.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5M9.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   if (id === 'trainings') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><rect x="2.5" y="4.5" width="17" height="15" rx="3" stroke={c} strokeWidth="1.7" /><path d="M2.5 9h17M7 2.5v4M15 2.5v4" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
@@ -689,6 +696,35 @@ function Sidebar({ tab, setTab, coach, onReset }) {
         <a href="/" className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>← Etusivulle</a>
         <button onClick={onReset} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: '4px 6px', fontFamily: 'inherit' }}>Nollaa demodata</button>
       </div>
+    </div>
+  );
+}
+
+function MobileTopBar({ coach }) {
+  return (
+    <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'rgba(247,245,239,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid var(--line)' }}>
+      <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, textDecoration: 'none' }}>
+        <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--green-deep)', letterSpacing: -0.4 }}>Krossi</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
+      </a>
+      <Avatar initial={coach.initial} hue={coach.hue} size={30} />
+    </div>
+  );
+}
+
+function MobileBottomNav({ tab, setTab }) {
+  return (
+    <div className="kv-mobile-bottomnav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 68, zIndex: 45, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid var(--line)', boxShadow: '0 -8px 24px -18px rgba(0,0,0,0.2)' }}>
+      {NAV.map((n) => {
+        const on = tab === n.id;
+        const fs = n.label.length > 8 ? 9.5 : 10.5;
+        return (
+          <button key={n.id} onClick={() => setTab(n.id)} style={{ flex: 1, border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit' }}>
+            <NavIcon id={n.id} on={on} offColor="#9a958a" />
+            <span style={{ fontSize: fs, fontWeight: on ? 700 : 500, color: on ? 'var(--green-deep)' : '#9a958a' }}>{n.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -744,14 +780,20 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
-      <Sidebar tab={tab} setTab={setTab} coach={state.coach} onReset={resetDemo} />
-      <div style={{ marginLeft: 248, padding: '36px 44px 80px', maxWidth: 1180 }}>
-        {tab === 'students' && <StudentsView students={state.students} onOpen={setDetailId} />}
-        {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} onOpen={setGroupDetailId} />}
-        {tab === 'trainings' && <CalendarView state={state} onAdd={(d) => { setTrainingDefaultDate(d); setTrainingOpen(true); }} onPreSession={setPresessionTrainingId} />}
-        {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} />}
-        {tab === 'profile' && <ProfileView coach={state.coach} studentCount={state.students.length} groupCount={state.groups.length} />}
+      <div className="kv-sidebar-wrap">
+        <Sidebar tab={tab} setTab={setTab} coach={state.coach} onReset={resetDemo} />
       </div>
+      <MobileTopBar coach={state.coach} />
+      <div className="kv-main">
+        <div key={tab} className="k-rise-in">
+          {tab === 'students' && <StudentsView students={state.students} onOpen={setDetailId} />}
+          {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} onOpen={setGroupDetailId} />}
+          {tab === 'trainings' && <CalendarView state={state} onAdd={(d) => { setTrainingDefaultDate(d); setTrainingOpen(true); }} onPreSession={setPresessionTrainingId} />}
+          {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} />}
+          {tab === 'profile' && <ProfileView coach={state.coach} studentCount={state.students.length} groupCount={state.groups.length} onReset={resetDemo} />}
+        </div>
+      </div>
+      <MobileBottomNav tab={tab} setTab={setTab} />
 
       {detail && <StudentDetail student={detail} group={detailGroup} upcoming={detailUpcoming} onClose={() => setDetailId(null)} onAddEntry={() => setEntryOpen(true)} onToggleHomework={toggleHomework} onOpenGroup={openGroupFromStudent} />}
       {detail && entryOpen && <EntryModal student={detail} onClose={() => setEntryOpen(false)} onSend={saveEntry} />}

@@ -108,7 +108,7 @@ function App() {
   return (
     <div style={{ minHeight: '100vh' }}>
       <TopBar students={state.students} activeId={activeId} onSwitch={setActiveId} />
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '34px 22px 100px' }}>
+      <div key={activeId} className="k-rise-in" style={{ maxWidth: 760, margin: '0 auto', padding: '34px 22px 100px' }}>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 30, textAlign: 'center' }}>
           <Avatar initial={student.initial} hue={student.hue} size={76} ring />
