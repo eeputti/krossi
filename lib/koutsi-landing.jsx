@@ -94,8 +94,7 @@ function ClosingCTA() {
   return (
     <section className="closing" id="liity">
       <div className="closing-inner">
-        <h2>Rakennetaan tätä<br />yhdessä.</h2>
-        <p>Krossi Koutsi on vielä varhaisessa vaiheessa. Jos valmennat pelaajia ja tunnistat tämän ongelman, otetaan yhteyttä — vastaan henkilökohtaisesti jokaiseen viestiin.</p>
+        <h2>Rakennetaan tätä yhdessä.</h2>
         <a href={CONTACT_MAILTO} className="btn-lime btn-lg">Pyydä pääsy testiin</a>
       </div>
     </section>
