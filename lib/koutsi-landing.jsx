@@ -32,17 +32,17 @@ function Hero() {
       <div className="hero-copy">
         <span className="eyebrow"><span className="ball-dot" /> Krossi valmentajille</span>
         <h1 className="hero-title">Valmennus ja<br /><span className="hl">kehitys,</span> samassa paikassa.</h1>
-        <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Kirjaa tavoitteet, sanele treenimuistiinpanot ja seuraa pelaajiesi kehitystä — kaikki yhdessä näkymässä.</p>
+        <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Pelaajat, ryhmät, videot, harjoitteet ja tavoitteet — kaikki yhdessä näkymässä.</p>
         <div className="hero-cta">
           <a href="/demo" className="btn-lime btn-lg">Avaa demo →</a>
-          <p className="hero-fine">Ei julkista latausta vielä — kokeile interaktiivista demoa.</p>
         </div>
       </div>
       <div className="hero-visual">
         <div className="hero-stage">
           <div className="phone-glow" />
-          <div className="phone-front">
-            <KoutsiPhone width={280} />
+          <div className="phone-pair">
+            <div className="phone-pair-item phone-pair-back"><PlayerPhone width={210} /></div>
+            <div className="phone-pair-item phone-pair-front"><CoachPhone width={210} /></div>
           </div>
         </div>
       </div>
