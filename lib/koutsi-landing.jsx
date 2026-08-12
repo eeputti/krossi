@@ -94,7 +94,7 @@ function ClosingCTA() {
     <section className="closing" id="liity">
       <div className="closing-inner">
         <h2>Rakennetaan tätä yhdessä.</h2>
-        <a href={CONTACT_MAILTO} className="btn-lime btn-lg">Pyydä pääsy testiin</a>
+        <a href="/demo" className="btn-lime btn-lg">Avaa demo →</a>
       </div>
     </section>
   );
