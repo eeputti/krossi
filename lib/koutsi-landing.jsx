@@ -39,7 +39,6 @@ function Hero() {
         </div>
       </div>
       <div className="hero-visual">
-        <p className="demo-label">Kokeile alla olevaa demoa</p>
         <div className="hero-stage">
           <div className="phone-glow" />
           <div className="phone-front">
