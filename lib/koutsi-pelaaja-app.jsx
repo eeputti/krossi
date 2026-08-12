@@ -52,6 +52,10 @@ function VideoRow({ videos }) {
 function SectionTitle({ children }) {
   return <div style={{ fontWeight: 800, fontSize: 12.5, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 }}>{children}</div>;
 }
+function LevelChip({ level }) {
+  const c = window.koutsiLevelColor(level);
+  return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, lineHeight: 1, background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>{level}</span>;
+}
 
 function TopBar({ students, activeId, onSwitch }) {
   return (
@@ -78,6 +82,8 @@ function App() {
   const [activeId, setActiveId] = React.useState(0);
   const [note, setNote] = React.useState('');
   const [noteSaved, setNoteSaved] = React.useState(false);
+  const [wish, setWish] = React.useState('');
+  const [wishSaved, setWishSaved] = React.useState(false);
 
   React.useEffect(() => {
     const onStorage = (e) => { if (e.key === window.KOUTSI_STORE_KEY) setState(window.koutsiLoadState()); };
@@ -86,7 +92,12 @@ function App() {
   }, []);
 
   const student = state.students.find((s) => s.id === activeId) || state.students[0];
-  React.useEffect(() => { setNote(student ? student.playerNote || '' : ''); setNoteSaved(false); }, [activeId]);
+  React.useEffect(() => {
+    setNote(student ? student.playerNote || '' : '');
+    setWish(student ? student.playerWish || '' : '');
+    setNoteSaved(false);
+    setWishSaved(false);
+  }, [activeId]);
 
   const group = student ? window.koutsiGroupForStudent(state, student.id) : null;
   const upcoming = student ? window.koutsiUpcomingTrainingsForStudent(state, student.id) : [];
@@ -101,6 +112,11 @@ function App() {
     setNoteSaved(true);
     setTimeout(() => setNoteSaved(false), 1800);
   };
+  const saveWish = () => {
+    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId ? { ...s, playerWish: wish.trim() } : s) }));
+    setWishSaved(true);
+    setTimeout(() => setWishSaved(false), 1800);
+  };
 
   if (!student) return null;
   const latestEntry = student.diary[0];
@@ -113,12 +129,22 @@ function App() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 30, textAlign: 'center' }}>
           <Avatar initial={student.initial} hue={student.hue} size={76} ring />
           <div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>{student.name}</div>
-          <span className="k-chip">{student.level}</span>
-          {group && <span className="k-chip">Ryhmä: {group.name} · {group.day} {group.time}</span>}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <LevelChip level={student.level} />
+            {group && <span className="k-chip">Ryhmä: {group.name} · {group.day} {group.time}</span>}
+          </div>
           <p style={{ fontSize: 15, color: '#514c42', lineHeight: 1.55, maxWidth: 480, marginTop: 4 }}>
             <b style={{ color: 'var(--green-deep)' }}>Tavoitteeni:</b> {student.goal}
           </p>
         </div>
+
+        {group && group.theme && (
+          <div className="k-card" style={{ padding: '20px 24px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', marginBottom: 22 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>Viikon teema — {group.name}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 5 }}>{group.theme.title}</div>
+            <div style={{ fontSize: 14, color: '#514c42', lineHeight: 1.55 }}>{group.theme.lead}</div>
+          </div>
+        )}
 
         {latestEntry && (
           <div style={{ marginBottom: 26 }}>
@@ -129,6 +155,13 @@ function App() {
             </div>
           </div>
         )}
+
+        <div style={{ marginBottom: 26 }}>
+          <SectionTitle>Toiveeni seuraavalle kerralle</SectionTitle>
+          <textarea value={wish} onChange={(e) => setWish(e.target.value)} placeholder="Mitä haluaisit harjoitella seuraavassa treenissä?" rows={2}
+            style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--line)', borderRadius: 14, padding: '13px 14px', fontSize: 14, fontFamily: 'inherit', color: '#111', resize: 'none', background: '#fff', marginBottom: 10 }} />
+          <button onClick={saveWish} className="btn-dark btn-sm">{wishSaved ? 'Tallennettu ✓' : 'Lähetä toive valmentajalle'}</button>
+        </div>
 
         {upcoming.length > 0 && (
           <div style={{ marginBottom: 26 }}>

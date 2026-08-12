@@ -26,6 +26,19 @@ const KC = {
   },
 };
 
+const KC_LEVEL_COLORS = {
+  aloitt: { bg: 'rgba(214,140,44,0.14)', fg: '#8a5a12', border: 'rgba(214,140,44,0.35)' },
+  keski: { bg: 'rgba(58,130,212,0.12)', fg: '#2a5d94', border: 'rgba(58,130,212,0.32)' },
+  edist: { bg: 'rgba(148,88,214,0.12)', fg: '#6a389c', border: 'rgba(148,88,214,0.32)' },
+  kilpa: { bg: 'rgba(180,205,20,0.22)', fg: '#5c6b06', border: 'rgba(180,205,20,0.55)' },
+};
+function KCLevelChip({ level }) {
+  const l = (level || '').toLowerCase();
+  const key = Object.keys(KC_LEVEL_COLORS).find((k) => l.includes(k));
+  const c = key ? KC_LEVEL_COLORS[key] : { bg: '#f4f2ec', fg: '#6b665c', border: '#d8d4ca' };
+  return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, lineHeight: 1, background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>{level}</span>;
+}
+
 const KC_STUDENTS = [
   {
     id: 0, initial: 'M', hue: 205, name: 'Maria K.', age: 16, level: 'Kilpapelaaja',
@@ -293,7 +306,7 @@ function KCDetail({ student, onBack, onAddEntry }) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 20 }}>
           <KC.Avatar initial={student.initial} hue={student.hue} size={80} ring />
           <div style={{ color: '#111', fontWeight: 800, fontSize: 21 }}>{student.name}, {student.age}</div>
-          <KC.Chip>{student.level}</KC.Chip>
+          <KCLevelChip level={student.level} />
         </div>
         <KCField label="Tavoite ja seuraava askel">
           <div className="kp-card" style={{ padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -480,7 +493,7 @@ function KCExerciseDetail({ exercise, onBack }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>
           <KC.Chip>{exercise.players} pelaajaa</KC.Chip>
           <KC.Chip>{exercise.duration}</KC.Chip>
-          <KC.Chip>{exercise.level}</KC.Chip>
+          <KCLevelChip level={exercise.level} />
         </div>
         <KCField label="Tavoite">
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: '#3c382f' }}>{exercise.goal}</p>

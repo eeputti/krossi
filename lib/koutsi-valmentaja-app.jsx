@@ -96,6 +96,20 @@ function CloseButton({ onClick }) {
 function ChevronRight() {
   return <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }}><path d="M1 1l6 6-6 6" stroke="#c5c0b5" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
+function LevelChip({ level }) {
+  const c = window.koutsiLevelColor(level);
+  return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, lineHeight: 1, background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>{level}</span>;
+}
+function GroupThemeBanner({ theme }) {
+  if (!theme) return null;
+  return (
+    <div className="k-card" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)' }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>Viikon teema</div>
+      <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{theme.title}</div>
+      <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5 }}>{theme.lead}</div>
+    </div>
+  );
+}
 
 // ── Oppilaat ─────────────────────────────────────────────
 function StudentsView({ students, onOpen }) {
@@ -112,7 +126,7 @@ function StudentsView({ students, onOpen }) {
                   <span style={{ color: '#111', fontWeight: 700, fontSize: 16.5 }}>{s.name}, {s.age}</span>
                   {s.diary.length > 0 && <span title="Uusi merkintä" style={{ width: 7, height: 7, borderRadius: '50%', background: '#46a66d', flexShrink: 0 }} />}
                 </div>
-                <span className="k-chip" style={{ marginTop: 6 }}>{s.level}</span>
+                <div style={{ marginTop: 6 }}><LevelChip level={s.level} /></div>
               </div>
             </div>
             <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {s.goal}</div>
@@ -146,7 +160,7 @@ function StudentDetail({ student, group, upcoming, onClose, onAddEntry, onToggle
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, marginBottom: 24 }}>
             <Avatar initial={student.initial} hue={student.hue} size={84} ring />
             <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{student.name}, {student.age}</div>
-            <span className="k-chip">{student.level}</span>
+            <LevelChip level={student.level} />
           </div>
 
           <Field label="Tavoite ja seuraava askel">
@@ -159,13 +173,14 @@ function StudentDetail({ student, group, upcoming, onClose, onAddEntry, onToggle
 
           {group && (
             <Field label="Valmennusryhmä">
-              <button onClick={onOpenGroup} className="k-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 15px', width: '100%', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+              <button onClick={onOpenGroup} className="k-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 15px', width: '100%', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', marginBottom: group.theme ? 10 : 0 }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{group.name}</div>
                   <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{group.day} klo {group.time} viikoittain</div>
                 </div>
                 <ChevronRight />
               </button>
+              <GroupThemeBanner theme={group.theme} />
             </Field>
           )}
 
@@ -189,10 +204,21 @@ function StudentDetail({ student, group, upcoming, onClose, onAddEntry, onToggle
             </div>
           </Field>
 
-          {student.playerNote && (
-            <Field label="Pelaajan oma kommentti">
-              <div className="k-card" style={{ padding: '12px 15px', background: 'rgba(207,228,20,0.08)', borderColor: 'rgba(207,228,20,0.4)' }}>
-                <div style={{ color: '#111', fontSize: 14, lineHeight: 1.5, fontStyle: 'italic' }}>&ldquo;{student.playerNote}&rdquo;</div>
+          {(student.playerNote || student.playerWish) && (
+            <Field label="Pelaajalta">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {student.playerWish && (
+                  <div className="k-card" style={{ padding: '12px 15px', background: 'rgba(207,228,20,0.08)', borderColor: 'rgba(207,228,20,0.4)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Toivoo seuraavalle kerralle</div>
+                    <div style={{ color: '#111', fontSize: 14, lineHeight: 1.5 }}>&ldquo;{student.playerWish}&rdquo;</div>
+                  </div>
+                )}
+                {student.playerNote && (
+                  <div className="k-card" style={{ padding: '12px 15px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Oma kommentti</div>
+                    <div style={{ color: '#111', fontSize: 14, lineHeight: 1.5, fontStyle: 'italic' }}>&ldquo;{student.playerNote}&rdquo;</div>
+                  </div>
+                )}
               </div>
             </Field>
           )}
@@ -275,9 +301,10 @@ function GroupsView({ groups, students, onOpen }) {
             <button key={g.id} onClick={() => onOpen(g.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <div style={{ color: '#111', fontWeight: 700, fontSize: 17 }}>{g.name}</div>
-                <span className="k-chip" style={{ marginTop: 6 }}>{g.level}</span>
+                <div style={{ marginTop: 6 }}><LevelChip level={g.level} /></div>
               </div>
               <div style={{ fontSize: 13, color: '#8a857a' }}>{g.day} klo {g.time} viikoittain</div>
+              {g.theme && <div style={{ fontSize: 12.5, color: '#3c382f' }}><b style={{ color: 'var(--green-deep)' }}>Viikon teema:</b> {g.theme.title}</div>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <AvatarStack members={members} size={32} />
                 <span style={{ fontSize: 12.5, color: '#8a857a', fontWeight: 600 }}>{members.length} pelaajaa</span>
@@ -301,9 +328,10 @@ function GroupDetail({ group, members, upcoming, onClose, onOpenStudent }) {
         <div style={{ padding: '10px 28px 60px' }}>
           <div style={{ marginBottom: 24 }}>
             <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{group.name}</div>
-            <span className="k-chip" style={{ marginTop: 8 }}>{group.level}</span>
+            <div style={{ marginTop: 8 }}><LevelChip level={group.level} /></div>
             <div style={{ fontSize: 14, color: '#514c42', marginTop: 12 }}>Viikoittain: {group.day} klo {group.time}</div>
           </div>
+          {group.theme && <div style={{ marginBottom: 22 }}><GroupThemeBanner theme={group.theme} /></div>}
           <Field label={`Jäsenet (${members.length})`}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {members.map((m) => (
@@ -457,11 +485,17 @@ function PreSessionPanel({ training, state, onClose }) {
                   <div style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{m.name}</div>
                   <div style={{ fontSize: 13, color: '#514c42', marginTop: 3, lineHeight: 1.4 }}>Jatka: {m.focus}</div>
                   <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 1, lineHeight: 1.4 }}>Huomioi: {m.lastSession}</div>
+                  {m.playerWish && <div style={{ fontSize: 12.5, color: '#5c6b06', marginTop: 1, lineHeight: 1.4, fontWeight: 600 }}>Toivoo: {m.playerWish}</div>}
                 </div>
               </div>
             ))}
           </div>
         </Field>
+        {party.kind === 'group' && party.group && party.group.theme && (
+          <Field label="Ryhmän teema">
+            <GroupThemeBanner theme={party.group.theme} />
+          </Field>
+        )}
         <Field label="Ehdotetut harjoitteet">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {suggestions.map((ex) => <div key={ex.id} style={{ fontSize: 14, color: '#3c382f' }}>• {ex.name} — {ex.duration}</div>)}
@@ -586,7 +620,7 @@ function ExerciseDetail({ exercise, onClose }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 18 }}>
           <span className="k-chip">{exercise.players} pelaajaa</span>
           <span className="k-chip">{exercise.duration}</span>
-          <span className="k-chip">{exercise.level}</span>
+          <LevelChip level={exercise.level} />
         </div>
         <Field label="Tavoite">
           <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f' }}>{exercise.goal}</p>
