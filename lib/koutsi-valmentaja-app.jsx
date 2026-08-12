@@ -2,7 +2,6 @@
 // Reads/writes the shared demo store from koutsi-data.js, so changes made here
 // (diary entries, homework, new trainings) show up in the player view too.
 
-const DICTATION_SAMPLE = 'Harjoittelimme kakkossyöttöä ja ensimmäistä lyöntiä syötön jälkeen. Heiton suunta parani, mutta vauhti hidastuu paineessa. Ensi kerralla jatketaan samoista lähtöasennoista ja lisätään pisteen aloituksia.';
 const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka' };
 const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka'];
 const CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
@@ -26,20 +25,6 @@ function AvatarStack({ members, size = 34, max = 4 }) {
           <Avatar initial={m.initial} hue={m.hue} size={size} ring />
         </div>
       ))}
-    </div>
-  );
-}
-
-function Bar({ label, value }) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: '#111' }}>{label}</span>
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: '#8a857a' }}>{value}%</span>
-      </div>
-      <div style={{ height: 8, borderRadius: 99, background: '#efece4', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${value}%`, borderRadius: 99, background: 'var(--lime)' }} />
-      </div>
     </div>
   );
 }
@@ -69,17 +54,23 @@ function VideoRow({ videos }) {
   if (!videos.length) return <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä jaettuja videoita.</div>;
   return (
     <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 2 }}>
-      {videos.map((v, i) => (
-        <div key={i} style={{ width: 150, flexShrink: 0 }}>
+      {videos.map((v) => (
+        <div key={v.id} style={{ width: 150, flexShrink: 0 }}>
           <div style={{ width: '100%', aspectRatio: '4/3', borderRadius: 14, position: 'relative', overflow: 'hidden', background: `radial-gradient(120% 120% at 30% 20%, hsl(${v.hue} 55% 45%), hsl(${v.hue + 24} 60% 22%))` }}>
             <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="13" height="15" viewBox="0 0 12 14"><path d="M1 1v12l10-6L1 1z" fill="#101a08" /></svg>
               </span>
             </span>
-            <span style={{ position: 'absolute', right: 7, bottom: 7, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6 }}>{v.dur}</span>
+            {v.addedBy === 'player' && <span style={{ position: 'absolute', left: 7, top: 7, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6 }}>Pelaaja</span>}
           </div>
           <div style={{ color: '#111', fontSize: 12.5, fontWeight: 600, marginTop: 7, lineHeight: 1.35 }}>{v.title}</div>
+          <div style={{ color: '#8a857a', fontSize: 11, marginTop: 2 }}>{window.koutsiFmtShortDate(v.date)}</div>
+          {v.tags && v.tags.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+              {v.tags.map((t) => <span key={t} className="k-chip" style={{ padding: '2px 8px', fontSize: 10.5 }}>{window.KOUTSI_TAG_LABELS[t] || t}</span>)}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -131,16 +122,6 @@ function StudentsView({ students, onOpen }) {
             </div>
             <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {s.goal}</div>
             <div style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.5 }}>Seuraavaksi: {s.focus}</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {Object.entries(s.progress).map(([k, v]) => (
-                <div key={k} style={{ flex: 1 }}>
-                  <div style={{ height: 5, borderRadius: 99, background: '#efece4', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${v}%`, borderRadius: 99, background: 'var(--lime)' }} />
-                  </div>
-                  <div style={{ fontSize: 10, color: '#a8a297', marginTop: 3, fontWeight: 600 }}>{k}</div>
-                </div>
-              ))}
-            </div>
           </button>
         ))}
       </div>
@@ -148,7 +129,8 @@ function StudentsView({ students, onOpen }) {
   );
 }
 
-function StudentDetail({ student, group, upcoming, onClose, onAddEntry, onToggleHomework, onOpenGroup }) {
+function StudentDetail({ student, group, groupCoach, upcoming, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo }) {
+  const [homeworkText, setHomeworkText] = React.useState('');
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'flex-end' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(10,15,10,0.35)', animation: 'kFadeIn .2s ease' }} />
@@ -165,7 +147,7 @@ function StudentDetail({ student, group, upcoming, onClose, onAddEntry, onToggle
 
           <Field label="Tavoite ja seuraava askel">
             <div className="k-card" style={{ padding: '15px 17px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {student.goal}</div>
+              <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {student.goal} <span style={{ color: '#8a857a', fontSize: 12 }}>(pelaajan asettama)</span></div>
               <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Viime treenissä:</b> {student.lastSession}</div>
               <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Seuraavaksi:</b> {student.focus}</div>
             </div>
@@ -176,7 +158,7 @@ function StudentDetail({ student, group, upcoming, onClose, onAddEntry, onToggle
               <button onClick={onOpenGroup} className="k-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 15px', width: '100%', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', marginBottom: group.theme ? 10 : 0 }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{group.name}</div>
-                  <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{group.day} klo {group.time} viikoittain</div>
+                  <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{group.day} klo {group.time} viikoittain{groupCoach ? ` · ${groupCoach.name}` : ''}</div>
                 </div>
                 <ChevronRight />
               </button>
@@ -184,12 +166,9 @@ function StudentDetail({ student, group, upcoming, onClose, onAddEntry, onToggle
             </Field>
           )}
 
-          <Field label="Kehitys">
-            {Object.entries(student.progress).map(([k, v]) => <Bar key={k} label={k} value={v} />)}
-          </Field>
-
           <Field label="Videot">
             <VideoRow videos={student.videos} />
+            <button onClick={onAddVideo} className="btn-outline btn-sm" style={{ marginTop: 12 }}>+ Lisää video</button>
           </Field>
 
           <Field label="Päiväkirja">
@@ -231,18 +210,22 @@ function StudentDetail({ student, group, upcoming, onClose, onAddEntry, onToggle
             </Field>
           )}
 
-          {student.homework.length > 0 && (
-            <Field label="Kotiläksyt">
-              {student.homework.map((h, i) => (
-                <button key={i} onClick={() => onToggleHomework(i)} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '7px 0', fontFamily: 'inherit' }}>
-                  <span style={{ width: 19, height: 19, borderRadius: 6, border: '1.5px solid ' + (h.done ? 'var(--green-deep)' : '#c5c0b5'), background: h.done ? 'var(--green-deep)' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {h.done && <svg width="11" height="9" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                  </span>
-                  <span style={{ fontSize: 14.5, color: '#111', textDecoration: h.done ? 'line-through' : 'none', opacity: h.done ? 0.55 : 1 }}>{h.text}</span>
-                </button>
-              ))}
-            </Field>
-          )}
+          <Field label="Kotiläksyt">
+            {student.homework.length === 0 && <div style={{ color: '#8a857a', fontSize: 14, marginBottom: 10 }}>Ei vielä kotiläksyjä.</div>}
+            {student.homework.map((h, i) => (
+              <button key={i} onClick={() => onToggleHomework(i)} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '7px 0', fontFamily: 'inherit' }}>
+                <span style={{ width: 19, height: 19, borderRadius: 6, border: '1.5px solid ' + (h.done ? 'var(--green-deep)' : '#c5c0b5'), background: h.done ? 'var(--green-deep)' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {h.done && <svg width="11" height="9" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                </span>
+                <span style={{ fontSize: 14.5, color: '#111', textDecoration: h.done ? 'line-through' : 'none', opacity: h.done ? 0.55 : 1 }}>{h.text}</span>
+              </button>
+            ))}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <input value={homeworkText} onChange={(e) => setHomeworkText(e.target.value)} placeholder="Uusi kotiläksy…"
+                style={{ flex: 1, boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '9px 12px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' }} />
+              <button onClick={() => { if (homeworkText.trim()) { onAddHomework(homeworkText.trim()); setHomeworkText(''); } }} className="btn-outline btn-sm">+ Lisää</button>
+            </div>
+          </Field>
         </div>
         <div style={{ position: 'sticky', bottom: 0, left: 0, right: 0, padding: '18px 28px', background: 'linear-gradient(to top, #fff 60%, transparent)' }}>
           <button onClick={onAddEntry} className="btn-lime btn-lg" style={{ width: '100%' }}>+ Uusi päiväkirjamerkintä</button>
@@ -252,37 +235,48 @@ function StudentDetail({ student, group, upcoming, onClose, onAddEntry, onToggle
   );
 }
 
-function MicButton({ recState, onClick }) {
-  const label = recState === 'idle' ? 'Sanele muistiinpano' : recState === 'recording' ? 'Sanellaan…' : 'Tekoäly kirjoittaa yhteenvedon…';
-  const dotColor = recState === 'recording' ? '#e5484d' : recState === 'thinking' ? 'var(--lime)' : 'var(--green-deep)';
-  return (
-    <button onClick={onClick} disabled={recState !== 'idle'} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: recState === 'idle' ? '#fff' : 'rgba(207,228,20,0.14)', border: '1px solid ' + (recState === 'idle' ? '#d8d4ca' : 'var(--lime)'), borderRadius: 999, padding: '11px 18px', cursor: recState === 'idle' ? 'pointer' : 'default', fontFamily: 'inherit', fontWeight: 700, fontSize: 13.5, color: '#111', marginBottom: 14 }}>
-      <span className={recState !== 'idle' ? 'kc-pulse' : ''} style={{ width: 9, height: 9, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-      {label}
-    </button>
-  );
-}
-
 function EntryModal({ student, onClose, onSend }) {
   const [val, setVal] = React.useState('');
-  const [recState, setRecState] = React.useState('idle');
-  const startDictation = () => {
-    setRecState('recording');
-    setTimeout(() => {
-      setRecState('thinking');
-      setTimeout(() => { setVal(DICTATION_SAMPLE); setRecState('idle'); }, 900);
-    }, 1300);
-  };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Päiväkirja — {student.name}</h3>
-        <MicButton recState={recState} onClick={startDictation} />
-        <textarea autoFocus value={val} onChange={(e) => setVal(e.target.value)} placeholder="Esim. Hyvä nousu syötössä tällä viikolla… tai sanele yllä olevasta napista." rows={4}
+        <textarea autoFocus value={val} onChange={(e) => setVal(e.target.value)} placeholder="Esim. Hyvä nousu syötössä tällä viikolla…" rows={4}
           style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 16, background: '#fff' }} />
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
           <button onClick={() => val.trim() && onSend(val.trim())} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: val.trim() ? 1 : 0.45, cursor: val.trim() ? 'pointer' : 'default' }}>Tallenna</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoModal({ onClose, onSave }) {
+  const [title, setTitle] = React.useState('');
+  const [date, setDate] = React.useState(window.koutsiTodayStr());
+  const [tags, setTags] = React.useState([]);
+  const toggleTag = (t) => setTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+  const ready = title.trim() && date;
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Lisää video</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Demossa ei voi ladata oikeaa tiedostoa — anna videolle otsikko, päivämäärä ja aihe.</p>
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Otsikko</div>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Syöttöanalyysi" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Päivämäärä</div>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Aihe</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {window.KOUTSI_TAGS.map((t) => (
+            <button key={t} onClick={() => toggleTag(t)} style={{ padding: '8px 14px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => ready && onSave({ title: title.trim(), date, tags })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Lisää</button>
         </div>
       </div>
     </div>
@@ -443,6 +437,7 @@ function CalendarView({ state, onAdd, onPreSession }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {trainingsOnSelected.map((t) => {
               const party = window.koutsiTrainingParty(state, t);
+              const trainingCoach = window.koutsiCoachById(state, t.coachId);
               return (
                 <div key={t.id} className="k-card" style={{ padding: '16px 18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
@@ -451,7 +446,7 @@ function CalendarView({ state, onAdd, onPreSession }) {
                     {party.kind === 'group' && <AvatarStack members={party.members} size={38} />}
                     <div style={{ flex: 1, minWidth: 140 }}>
                       <div style={{ color: '#111', fontWeight: 700, fontSize: 15 }}>{party.kind === 'group' ? (party.group ? party.group.name : 'Ryhmä') : (party.student ? party.student.name : '—')}</div>
-                      <div style={{ color: '#8a857a', fontSize: 12.5 }}>{t.type}{party.kind === 'group' ? ` · ${party.members.length} pelaajaa` : ''}</div>
+                      <div style={{ color: '#8a857a', fontSize: 12.5 }}>{t.type}{party.kind === 'group' ? ` · ${party.members.length} pelaajaa` : ''}{trainingCoach ? ` · ${trainingCoach.name}` : ''}</div>
                     </div>
                     <button onClick={() => onPreSession(t.id)} className="btn-outline btn-sm" style={{ padding: '7px 14px', fontSize: 12.5 }}>Ennen treeniä →</button>
                   </div>
@@ -469,13 +464,15 @@ function PreSessionPanel({ training, state, onClose }) {
   const party = window.koutsiTrainingParty(state, training);
   const members = party.kind === 'group' ? party.members : (party.student ? [party.student] : []);
   const suggestions = state.exercises.slice(0, 3);
+  const trainingCoach = window.koutsiCoachById(state, training.coachId);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(560px, 100%)', maxHeight: '86vh', overflowY: 'auto', padding: '28px 28px 26px', animation: 'kFadeIn .2s ease' }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Seuraavaksi</div>
         <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{window.koutsiFmtShortDate(training.date)} · {training.time}</h3>
-        {party.kind === 'group' && party.group && <div style={{ fontSize: 14, color: '#8a857a', fontWeight: 600, marginBottom: 20 }}>{party.group.name}</div>}
-        {party.kind !== 'group' && <div style={{ marginBottom: 20 }} />}
+        <div style={{ fontSize: 14, color: '#8a857a', fontWeight: 600, marginBottom: 20 }}>
+          {party.kind === 'group' && party.group ? party.group.name : ''}{party.kind === 'group' && party.group && trainingCoach ? ' · ' : ''}{trainingCoach ? trainingCoach.name : ''}
+        </div>
         <Field label="Pelaajat">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {members.map((m) => (
@@ -585,12 +582,12 @@ function TrainingModal({ students, groups, defaultDate, onClose, onSave }) {
 }
 
 // ── Harjoitteet ──────────────────────────────────────────
-function ExercisesView({ exercises, onOpen }) {
+function ExercisesView({ exercises, onOpen, onAdd }) {
   const [activeTag, setActiveTag] = React.useState('kaikki');
   const filtered = activeTag === 'kaikki' ? exercises : exercises.filter((e) => e.tags.includes(activeTag));
   return (
     <div>
-      <PageHeader title="Harjoitteet" sub="Oma harjoitepankki" />
+      <PageHeader title="Harjoitteet" sub="Oma harjoitepankki" action={<button onClick={onAdd} className="btn-dark btn-sm">+ Lisää harjoite</button>} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {EXERCISE_TAGS.map((t) => (
           <button key={t} onClick={() => setActiveTag(t)} style={{ padding: '9px 16px', borderRadius: 999, border: activeTag === t ? 'none' : '1px solid var(--line)', background: activeTag === t ? 'var(--lime)' : '#fff', color: activeTag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
@@ -631,6 +628,52 @@ function ExerciseDetail({ exercise, onClose }) {
           </div>
         </Field>
         <button onClick={onClose} className="btn-outline" style={{ width: '100%', padding: '13px 0' }}>Sulje</button>
+      </div>
+    </div>
+  );
+}
+
+function ExerciseFormModal({ onClose, onSave }) {
+  const [name, setName] = React.useState('');
+  const [goal, setGoal] = React.useState('');
+  const [players, setPlayers] = React.useState('');
+  const [duration, setDuration] = React.useState('');
+  const [level, setLevel] = React.useState('');
+  const [tags, setTags] = React.useState([]);
+  const toggleTag = (t) => setTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+  const ready = name.trim() && goal.trim() && players.trim() && duration.trim() && level.trim();
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Uusi harjoite</h3>
+        <div style={label}>Nimi</div>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. Kakkossyöttö + suunta" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Tavoite</div>
+        <textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={3} placeholder="Mitä tällä harjoitteella treenataan?" style={{ ...inputStyle, resize: 'none', marginBottom: 16 }} />
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Pelaajia</div>
+            <input value={players} onChange={(e) => setPlayers(e.target.value)} placeholder="2" style={inputStyle} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Kesto</div>
+            <input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="15 min" style={inputStyle} />
+          </div>
+        </div>
+        <div style={label}>Taso</div>
+        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Esim. Kaikki tasot" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Aihe</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {window.KOUTSI_TAGS.map((t) => (
+            <button key={t} onClick={() => toggleTag(t)} style={{ padding: '8px 14px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => ready && onSave({ name: name.trim(), goal: goal.trim(), players: players.trim(), duration: duration.trim(), level: level.trim(), tags })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Lisää</button>
+        </div>
       </div>
     </div>
   );
@@ -700,10 +743,11 @@ function NavIcon({ id, on, offColor = 'rgba(255,255,255,0.72)' }) {
 function Sidebar({ tab, setTab, coach, onReset }) {
   return (
     <div style={{ width: 248, flexShrink: 0, background: 'var(--green-deep)', color: '#fff', display: 'flex', flexDirection: 'column', padding: '26px 18px', position: 'fixed', top: 0, left: 0, bottom: 0, overflowY: 'auto' }}>
-      <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', marginBottom: 30, paddingLeft: 6 }}>
+      <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', paddingLeft: 6 }}>
         <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--lime)', letterSpacing: -0.5 }}>Krossi</span>
         <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
       </a>
+      <span style={{ display: 'inline-flex', alignSelf: 'flex-start', marginLeft: 6, marginTop: 8, marginBottom: 22, padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.16)', border: '1px solid rgba(207,228,20,0.4)', color: 'var(--lime)', fontSize: 11, fontWeight: 800, letterSpacing: 0.5 }}>VALMENTAJA</span>
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 'auto' }}>
         {NAV.map((n) => {
           const on = tab === n.id;
@@ -737,10 +781,13 @@ function Sidebar({ tab, setTab, coach, onReset }) {
 function MobileTopBar({ coach }) {
   return (
     <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'rgba(247,245,239,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid var(--line)' }}>
-      <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, textDecoration: 'none' }}>
-        <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--green-deep)', letterSpacing: -0.4 }}>Krossi</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
-      </a>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, textDecoration: 'none' }}>
+          <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--green-deep)', letterSpacing: -0.4 }}>Krossi</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
+        </a>
+        <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(14,59,44,0.1)', border: '1px solid rgba(14,59,44,0.22)', color: 'var(--green-deep)', fontSize: 10, fontWeight: 800, letterSpacing: 0.4 }}>VALMENTAJA</span>
+      </div>
       <Avatar initial={coach.initial} hue={coach.hue} size={30} />
     </div>
   );
@@ -772,6 +819,8 @@ function App() {
   const [trainingOpen, setTrainingOpen] = React.useState(false);
   const [trainingDefaultDate, setTrainingDefaultDate] = React.useState(null);
   const [exerciseId, setExerciseId] = React.useState(null);
+  const [exerciseFormOpen, setExerciseFormOpen] = React.useState(false);
+  const [videoOpen, setVideoOpen] = React.useState(false);
   const [presessionTrainingId, setPresessionTrainingId] = React.useState(null);
 
   React.useEffect(() => {
@@ -784,6 +833,7 @@ function App() {
 
   const detail = detailId != null ? state.students.find((s) => s.id === detailId) : null;
   const detailGroup = detail ? window.koutsiGroupForStudent(state, detail.id) : null;
+  const detailGroupCoach = detailGroup ? window.koutsiCoachById(state, detailGroup.coachId) : null;
   const detailUpcoming = detail ? window.koutsiUpcomingTrainingsForStudent(state, detail.id) : [];
 
   const groupDetail = groupDetailId != null ? state.groups.find((g) => g.id === groupDetailId) : null;
@@ -801,15 +851,27 @@ function App() {
     update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === detailId ? { ...s, homework: s.homework.map((h, k) => k === i ? { ...h, done: !h.done } : h) } : s) }));
   };
   const addTraining = ({ studentId, groupId, date, time, type }) => {
-    update((prev) => ({ ...prev, trainings: [...prev.trainings, { id: window.koutsiNextTrainingId(prev), studentId, groupId, date, time, type }] }));
+    const coachId = groupId != null ? (window.koutsiGroupById(state, groupId) || {}).coachId ?? state.coach.id : state.coach.id;
+    update((prev) => ({ ...prev, trainings: [...prev.trainings, { id: window.koutsiNextTrainingId(prev), studentId, groupId, date, time, type, coachId }] }));
     setTrainingOpen(false);
+  };
+  const addHomework = (text) => {
+    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === detailId ? { ...s, homework: [...s.homework, { text, done: false }] } : s) }));
+  };
+  const addVideo = ({ title, date, tags }) => {
+    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === detailId ? { ...s, videos: [...s.videos, { id: window.koutsiNextVideoId(s), title, date, tags, hue: s.hue, addedBy: 'coach' }] } : s) }));
+    setVideoOpen(false);
+  };
+  const addExercise = ({ name, goal, players, duration, level, tags }) => {
+    update((prev) => ({ ...prev, exercises: [...prev.exercises, { id: window.koutsiNextExerciseId(prev), name, goal, players, duration, level, tags }] }));
+    setExerciseFormOpen(false);
   };
   const openStudentFromGroup = (id) => { setGroupDetailId(null); setDetailId(id); };
   const openGroupFromStudent = () => { if (detailGroup) { setDetailId(null); setGroupDetailId(detailGroup.id); } };
   const resetDemo = () => {
     window.koutsiResetState();
     setState(window.koutsiLoadState());
-    setDetailId(null); setGroupDetailId(null); setEntryOpen(false); setTrainingOpen(false); setExerciseId(null); setPresessionTrainingId(null);
+    setDetailId(null); setGroupDetailId(null); setEntryOpen(false); setTrainingOpen(false); setExerciseId(null); setExerciseFormOpen(false); setVideoOpen(false); setPresessionTrainingId(null);
   };
 
   return (
@@ -823,17 +885,19 @@ function App() {
           {tab === 'students' && <StudentsView students={state.students} onOpen={setDetailId} />}
           {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} onOpen={setGroupDetailId} />}
           {tab === 'trainings' && <CalendarView state={state} onAdd={(d) => { setTrainingDefaultDate(d); setTrainingOpen(true); }} onPreSession={setPresessionTrainingId} />}
-          {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} />}
+          {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} onAdd={() => setExerciseFormOpen(true)} />}
           {tab === 'profile' && <ProfileView coach={state.coach} studentCount={state.students.length} groupCount={state.groups.length} onReset={resetDemo} />}
         </div>
       </div>
       <MobileBottomNav tab={tab} setTab={setTab} />
 
-      {detail && <StudentDetail student={detail} group={detailGroup} upcoming={detailUpcoming} onClose={() => setDetailId(null)} onAddEntry={() => setEntryOpen(true)} onToggleHomework={toggleHomework} onOpenGroup={openGroupFromStudent} />}
+      {detail && <StudentDetail student={detail} group={detailGroup} groupCoach={detailGroupCoach} upcoming={detailUpcoming} onClose={() => setDetailId(null)} onAddEntry={() => setEntryOpen(true)} onToggleHomework={toggleHomework} onOpenGroup={openGroupFromStudent} onAddHomework={addHomework} onAddVideo={() => setVideoOpen(true)} />}
       {detail && entryOpen && <EntryModal student={detail} onClose={() => setEntryOpen(false)} onSend={saveEntry} />}
+      {detail && videoOpen && <VideoModal onClose={() => setVideoOpen(false)} onSave={addVideo} />}
       {groupDetail && <GroupDetail group={groupDetail} members={groupMembers} upcoming={groupUpcoming} onClose={() => setGroupDetailId(null)} onOpenStudent={openStudentFromGroup} />}
       {trainingOpen && <TrainingModal students={state.students} groups={state.groups} defaultDate={trainingDefaultDate} onClose={() => setTrainingOpen(false)} onSave={addTraining} />}
       {exercise && <ExerciseDetail exercise={exercise} onClose={() => setExerciseId(null)} />}
+      {exerciseFormOpen && <ExerciseFormModal onClose={() => setExerciseFormOpen(false)} onSave={addExercise} />}
       {presessionTraining && <PreSessionPanel training={presessionTraining} state={state} onClose={() => setPresessionTrainingId(null)} />}
     </div>
   );
