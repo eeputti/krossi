@@ -707,9 +707,6 @@ function ProfileView({ coach, studentCount, groupCount, onReset }) {
               {coach.specialties.map((s) => <span key={s} className="k-chip">{s}</span>)}
             </div>
           </Field>
-          <Field label="Oma videokirjasto">
-            <VideoRow videos={coach.videos} />
-          </Field>
           <Field label="Toiminnot">
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <a href="/pelaaja" className="btn-outline btn-sm">Pelaajan näkymä →</a>
