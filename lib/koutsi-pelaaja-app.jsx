@@ -5,6 +5,7 @@
 
 const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka' };
 const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka'];
+const CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 
 function Avatar({ initial, hue = 150, size = 44, ring = false }) {
   return (
@@ -237,11 +238,94 @@ function GroupView({ student, state }) {
   );
 }
 
+// ── kalenteri (pelaajan omat treenit) ────────────────────
+function PlayerCalendarGrid({ state, studentId, viewYear, viewMonth, selectedDate, todayStr, onSelect, onPrev, onNext }) {
+  const firstOfMonth = new Date(viewYear, viewMonth, 1);
+  const startWeekday = (firstOfMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const dateStrFor = (d) => `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+  return (
+    <div className="k-card" style={{ padding: 18, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <button onClick={onPrev} aria-label="Edellinen kuukausi" style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="7" height="12" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+        <div style={{ fontWeight: 800, fontSize: 14.5, color: '#111', textTransform: 'capitalize' }}>{window.KOUTSI_MONTHS[viewMonth]} {viewYear}</div>
+        <button onClick={onNext} aria-label="Seuraava kuukausi" style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="7" height="12" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 6 }}>
+        {CAL_WEEKDAY_LABELS.map((d) => <div key={d} style={{ fontSize: 10, fontWeight: 700, color: '#a8a297', textAlign: 'center' }}>{d}</div>)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+        {cells.map((d, i) => {
+          if (d == null) return <div key={i} />;
+          const ds = dateStrFor(d);
+          const dayTrainings = window.koutsiTrainingsOnDateForStudent(state, ds, studentId);
+          const isToday = ds === todayStr;
+          const isSelected = ds === selectedDate;
+          return (
+            <button key={i} onClick={() => onSelect(ds)} style={{
+              aspectRatio: '1', borderRadius: 10, border: isSelected ? '2px solid var(--green-deep)' : '2px solid transparent',
+              background: isSelected ? 'rgba(14,59,44,0.06)' : isToday ? 'rgba(207,228,20,0.2)' : 'transparent',
+              cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit',
+            }}>
+              <span style={{ fontSize: 12.5, fontWeight: isToday ? 800 : 600, color: '#111' }}>{d}</span>
+              {dayTrainings.length > 0 && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--lime)' }} />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Treenit ──────────────────────────────────────────────
 function TrainingsView({ student, state, upcoming, note, setNote, noteSaved, onSaveNote, onToggleHomework }) {
+  const todayStr = window.koutsiTodayStr();
+  const todayDate = window.koutsiDateFromStr(todayStr);
+  const [viewYear, setViewYear] = React.useState(todayDate.getFullYear());
+  const [viewMonth, setViewMonth] = React.useState(todayDate.getMonth());
+  const [selectedDate, setSelectedDate] = React.useState(todayStr);
+  const prevMonth = () => { if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); } else setViewMonth((m) => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); } else setViewMonth((m) => m + 1); };
+  const trainingsOnSelected = window.koutsiTrainingsOnDateForStudent(state, selectedDate, student.id);
+
   return (
     <div>
-      <PageHeader title="Treenit" sub="Tulevat valmennukset ja omatoimiset tehtävät" />
+      <PageHeader title="Treenit" sub="Kalenteri, tulevat valmennukset ja omatoimiset tehtävät" />
+
+      <PlayerCalendarGrid state={state} studentId={student.id} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
+        onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
+
+      <div style={{ marginBottom: 26 }}>
+        <SectionTitle>{window.koutsiFmtLongDate(selectedDate)}</SectionTitle>
+        {trainingsOnSelected.length === 0 ? (
+          <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Ei valmennuksia tänä päivänä.</div>
+        ) : (
+          <div className="k-card" style={{ padding: 0, overflow: 'hidden' }}>
+            {trainingsOnSelected.map((t, i) => {
+              const party = window.koutsiTrainingParty(state, t);
+              const coach = window.koutsiCoachById(state, t.coachId);
+              const label = party.kind === 'group' && party.group ? party.group.name : t.type;
+              return (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderBottom: i === trainingsOnSelected.length - 1 ? 'none' : '1px solid var(--line)' }}>
+                  <div style={{ width: 52, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}</div>
+                    {coach && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {upcoming.length > 0 ? (
         <div style={{ marginBottom: 26 }}>
@@ -336,32 +420,39 @@ function ExerciseDetail({ exercise, onClose }) {
   );
 }
 
+// ── Kehitys ──────────────────────────────────────────────
+function ProgressView({ student }) {
+  return (
+    <div>
+      <PageHeader title="Kehitys" sub="Kehityshistoriasi ja valmentajan huomiot jokaisesta kerrasta" />
+      {student.diary.length === 0 ? (
+        <div className="k-card" style={{ padding: 22, color: '#8a857a', fontSize: 14.5 }}>Ei vielä merkintöjä — kehityshistoriasi kertyy tänne sitä mukaa kun valmentaja kirjaa huomioita treeneistä.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {student.diary.map((d, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12 }}>
+              <div style={{ width: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, paddingTop: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: i === 0 ? 'var(--lime)' : '#d8d4ca' }} />
+                {i < student.diary.length - 1 && <span style={{ width: 1.5, flex: 1, background: '#e3dfd4', marginTop: 4 }} />}
+              </div>
+              <div className="k-card" style={{ padding: '14px 16px', marginBottom: 4, flex: 1 }}>
+                <div style={{ fontSize: 14.5, color: '#111', lineHeight: 1.55 }}>{d.text}</div>
+                <div style={{ fontSize: 12, color: '#8a857a', fontWeight: 600, marginTop: 6 }}>{d.date}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Profiili ─────────────────────────────────────────────
 function ProfileView({ student, group, onAddVideo }) {
   return (
     <div>
       <PageHeader title="Profiili" />
       <IdentityBlock student={student} group={group} />
-
-      {student.diary.length > 0 && (
-        <div style={{ marginBottom: 26 }}>
-          <SectionTitle>Kehityshistoria</SectionTitle>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {student.diary.map((d, i) => (
-              <div key={i} style={{ display: 'flex', gap: 12 }}>
-                <div style={{ width: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, paddingTop: 5 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: i === 0 ? 'var(--lime)' : '#d8d4ca' }} />
-                  {i < student.diary.length - 1 && <span style={{ width: 1.5, flex: 1, background: '#e3dfd4', marginTop: 4 }} />}
-                </div>
-                <div style={{ paddingBottom: 14 }}>
-                  <div style={{ fontSize: 14, color: '#3c382f', lineHeight: 1.55 }}>{d.text}</div>
-                  <div style={{ fontSize: 12, color: '#8a857a', fontWeight: 600, marginTop: 3 }}>{d.date}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div style={{ marginBottom: 26 }}>
         <SectionTitle>Omat videot</SectionTitle>
@@ -383,6 +474,7 @@ const NAV = [
   { id: 'group', label: 'Ryhmä' },
   { id: 'trainings', label: 'Treenit' },
   { id: 'exercises', label: 'Harjoitteet' },
+  { id: 'progress', label: 'Kehitys' },
   { id: 'profile', label: 'Profiili' },
 ];
 function NavIcon({ id, on, offColor = '#9a958a' }) {
@@ -391,6 +483,7 @@ function NavIcon({ id, on, offColor = '#9a958a' }) {
   if (id === 'group') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="7" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><circle cx="15" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><path d="M1.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5M9.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   if (id === 'trainings') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><rect x="2.5" y="4.5" width="17" height="15" rx="3" stroke={c} strokeWidth="1.7" /><path d="M2.5 9h17M7 2.5v4M15 2.5v4" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   if (id === 'exercises') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><rect x="4" y="3" width="14" height="17" rx="2.5" stroke={c} strokeWidth="1.7" /><path d="M8 1.5h6a1 1 0 011 1V4H7V2.5a1 1 0 011-1z" stroke={c} strokeWidth="1.7" /><path d="M7.5 9.5h7M7.5 13h7M7.5 16.5h4" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
+  if (id === 'progress') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><path d="M2.5 19.5h17" stroke={c} strokeWidth="1.7" strokeLinecap="round" /><path d="M3.5 15.5l5-5.5 4 3.5 6-7.5" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /><path d="M14.5 6h4v4" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
   return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="7.5" r="4" stroke={c} strokeWidth="1.7" /><path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
 }
 
@@ -537,6 +630,7 @@ function App() {
           {tab === 'group' && <GroupView student={student} state={state} />}
           {tab === 'trainings' && <TrainingsView student={student} state={state} upcoming={upcoming} note={note} setNote={setNote} noteSaved={noteSaved} onSaveNote={saveNote} onToggleHomework={toggleHomework} />}
           {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} />}
+          {tab === 'progress' && <ProgressView student={student} />}
           {tab === 'profile' && <ProfileView student={student} group={group} onAddVideo={() => setVideoOpen(true)} />}
         </div>
       </div>
