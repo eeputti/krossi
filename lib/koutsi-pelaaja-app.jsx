@@ -308,57 +308,61 @@ function TrainingsView({ student, state, upcoming, note, setNote, noteSaved, onS
     <div>
       <PageHeader title="Treenit" sub="Kalenteri, tulevat valmennukset ja omatoimiset tehtävät" />
 
-      <PlayerCalendarGrid state={state} studentId={student.id} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
-        onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
+      <div className="kv-calendar-layout" style={{ marginBottom: 26 }}>
+        <PlayerCalendarGrid state={state} studentId={student.id} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
+          onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
 
-      <div style={{ marginBottom: 26 }}>
-        <SectionTitle>{window.koutsiFmtLongDate(selectedDate)}</SectionTitle>
-        {trainingsOnSelected.length === 0 ? (
-          <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Ei valmennuksia tänä päivänä.</div>
-        ) : (
-          <div className="k-card" style={{ padding: 0, overflow: 'hidden' }}>
-            {trainingsOnSelected.map((t, i) => {
-              const party = window.koutsiTrainingParty(state, t);
-              const coach = window.koutsiCoachById(state, t.coachId);
-              const label = party.kind === 'group' && party.group ? party.group.name : t.type;
-              return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderBottom: i === trainingsOnSelected.length - 1 ? 'none' : '1px solid var(--line)' }}>
-                  <div style={{ width: 52, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}</div>
-                    {coach && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
-                  </div>
-                </div>
-              );
-            })}
+        <div>
+          <div style={{ marginBottom: 26 }}>
+            <SectionTitle>{window.koutsiFmtLongDate(selectedDate)}</SectionTitle>
+            {trainingsOnSelected.length === 0 ? (
+              <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Ei valmennuksia tänä päivänä.</div>
+            ) : (
+              <div className="k-card" style={{ padding: 0, overflow: 'hidden' }}>
+                {trainingsOnSelected.map((t, i) => {
+                  const party = window.koutsiTrainingParty(state, t);
+                  const coach = window.koutsiCoachById(state, t.coachId);
+                  const label = party.kind === 'group' && party.group ? party.group.name : t.type;
+                  return (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderBottom: i === trainingsOnSelected.length - 1 ? 'none' : '1px solid var(--line)' }}>
+                      <div style={{ width: 52, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}</div>
+                        {coach && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {upcoming.length > 0 ? (
-        <div style={{ marginBottom: 26 }}>
-          <SectionTitle>Tulevat valmennukset</SectionTitle>
-          <div className="k-card" style={{ padding: 0, overflow: 'hidden' }}>
-            {upcoming.map((t, i) => {
-              const party = window.koutsiTrainingParty(state, t);
-              const coach = window.koutsiCoachById(state, t.coachId);
-              const label = party.kind === 'group' && party.group ? party.group.name : t.type;
-              return (
-                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderBottom: i === upcoming.length - 1 ? 'none' : '1px solid var(--line)' }}>
-                  <div style={{ width: 90, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{window.koutsiFmtShortDate(t.date)}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}</div>
-                    {coach && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
-                  </div>
-                  <div style={{ fontSize: 13.5, color: '#8a857a', fontWeight: 600, flexShrink: 0 }}>{t.time}</div>
-                </div>
-              );
-            })}
-          </div>
+          {upcoming.length > 0 ? (
+            <div>
+              <SectionTitle>Tulevat valmennukset</SectionTitle>
+              <div className="k-card" style={{ padding: 0, overflow: 'hidden' }}>
+                {upcoming.map((t, i) => {
+                  const party = window.koutsiTrainingParty(state, t);
+                  const coach = window.koutsiCoachById(state, t.coachId);
+                  const label = party.kind === 'group' && party.group ? party.group.name : t.type;
+                  return (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderBottom: i === upcoming.length - 1 ? 'none' : '1px solid var(--line)' }}>
+                      <div style={{ width: 90, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{window.koutsiFmtShortDate(t.date)}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}</div>
+                        {coach && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
+                      </div>
+                      <div style={{ fontSize: 13.5, color: '#8a857a', fontWeight: 600, flexShrink: 0 }}>{t.time}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="k-card" style={{ padding: 22, color: '#8a857a', fontSize: 14.5 }}>Ei tulevia valmennuksia.</div>
+          )}
         </div>
-      ) : (
-        <div className="k-card" style={{ padding: 22, color: '#8a857a', fontSize: 14.5, marginBottom: 26 }}>Ei tulevia valmennuksia.</div>
-      )}
+      </div>
 
       <div>
         <SectionTitle>Omatoimiset tehtävät</SectionTitle>
