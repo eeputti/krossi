@@ -360,7 +360,7 @@ function GroupFormModal({ students, onClose, onSave }) {
   const [time, setTime] = React.useState('');
   const [memberIds, setMemberIds] = React.useState([]);
   const toggleMember = (id) => setMemberIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  const ready = name.trim() && time.trim() && memberIds.length >= 3;
+  const ready = name.trim() && time.trim() && memberIds.length > 0;
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
@@ -380,7 +380,7 @@ function GroupFormModal({ students, onClose, onSave }) {
         </div>
         <div style={label}>Kellonaika</div>
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, marginBottom: 20 }} />
-        <div style={label}>Pelaajat ({memberIds.length} valittu — vähintään 3)</div>
+        <div style={label}>Pelaajat ({memberIds.length} valittu)</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 220, overflowY: 'auto' }}>
           {students.map((s) => (
             <button key={s.id} onClick={() => toggleMember(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: memberIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: memberIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
