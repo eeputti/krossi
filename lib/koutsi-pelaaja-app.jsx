@@ -3,8 +3,15 @@
 // whatever the coach adds — a diary entry, a new training, a video — shows up here,
 // and whatever the player sets — their goal, a wish, a video — shows up for the coach.
 
-const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka' };
-const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka'];
+const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely' };
+const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely'];
+const PLAYER_COUNT_FILTERS = [
+  { key: 'kaikki', label: 'Kaikki' },
+  { key: 1, label: '1 pelaaja' },
+  { key: 2, label: '2 pelaajaa' },
+  { key: 3, label: '3 pelaajaa' },
+  { key: 4, label: '4+ pelaajaa' },
+];
 const CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 
 function Avatar({ initial, hue = 150, size = 44, ring = false }) {
@@ -267,6 +274,7 @@ function PlayerCalendarGrid({ state, studentId, viewYear, viewMonth, selectedDat
           if (d == null) return <div key={i} />;
           const ds = dateStrFor(d);
           const dayTrainings = window.koutsiTrainingsOnDateForStudent(state, ds, studentId);
+          const dayClubEvents = window.koutsiClubEventsOnDate(state, ds);
           const isToday = ds === todayStr;
           const isSelected = ds === selectedDate;
           return (
@@ -276,18 +284,20 @@ function PlayerCalendarGrid({ state, studentId, viewYear, viewMonth, selectedDat
               cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit',
             }}>
               <span style={{ fontSize: 13, fontWeight: isToday ? 800 : 600, color: '#111' }}>{d}</span>
-              {dayTrainings.length > 0 && (
+              {(dayTrainings.length > 0 || dayClubEvents.length > 0) && (
                 <span style={{ display: 'flex', gap: 2 }}>
                   {dayTrainings.slice(0, 3).map((t, ti) => <span key={ti} style={{ width: 5, height: 5, borderRadius: '50%', background: t.groupId != null ? 'var(--green-deep)' : 'var(--lime)' }} />)}
+                  {dayClubEvents.length > 0 && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#c77b2e' }} />}
                 </span>
               )}
             </button>
           );
         })}
       </div>
-      <div style={{ display: 'flex', gap: 16, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', gap: 16, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)', flexWrap: 'wrap' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--lime)' }} />Yksilö</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green-deep)' }} />Ryhmä</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c77b2e' }} />Seuran tapahtuma</span>
       </div>
     </div>
   );
@@ -303,6 +313,7 @@ function TrainingsView({ student, state, upcoming, note, setNote, noteSaved, onS
   const prevMonth = () => { if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); } else setViewMonth((m) => m - 1); };
   const nextMonth = () => { if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); } else setViewMonth((m) => m + 1); };
   const trainingsOnSelected = window.koutsiTrainingsOnDateForStudent(state, selectedDate, student.id);
+  const clubEventsOnSelected = window.koutsiClubEventsOnDate(state, selectedDate);
 
   return (
     <div>
@@ -315,8 +326,18 @@ function TrainingsView({ student, state, upcoming, note, setNote, noteSaved, onS
         <div>
           <div style={{ marginBottom: 26 }}>
             <SectionTitle>{window.koutsiFmtLongDate(selectedDate)}</SectionTitle>
+            {clubEventsOnSelected.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                {clubEventsOnSelected.map((e) => (
+                  <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 14, background: 'rgba(199,123,46,0.1)', border: '1px solid rgba(199,123,46,0.3)' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c77b2e', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13.5, color: '#7a4c1e', fontWeight: 700 }}>{e.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {trainingsOnSelected.length === 0 ? (
-              <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Ei valmennuksia tänä päivänä.</div>
+              clubEventsOnSelected.length === 0 && <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Ei valmennuksia tänä päivänä.</div>
             ) : (
               <div className="k-card" style={{ padding: 0, overflow: 'hidden' }}>
                 {trainingsOnSelected.map((t, i) => {
@@ -393,10 +414,18 @@ function TrainingsView({ student, state, upcoming, note, setNote, noteSaved, onS
 // ── Harjoitteet ──────────────────────────────────────────
 function ExercisesView({ exercises, onOpen }) {
   const [activeTag, setActiveTag] = React.useState('kaikki');
-  const filtered = activeTag === 'kaikki' ? exercises : exercises.filter((e) => e.tags.includes(activeTag));
+  const [activeCount, setActiveCount] = React.useState('kaikki');
+  const filtered = exercises
+    .filter((e) => activeTag === 'kaikki' || e.tags.includes(activeTag))
+    .filter((e) => activeCount === 'kaikki' || (activeCount === 4 ? e.playerCount >= 4 : e.playerCount === activeCount));
   return (
     <div>
       <PageHeader title="Harjoitteet" sub="Valmentajan harjoitepankki" />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        {PLAYER_COUNT_FILTERS.map((f) => (
+          <button key={f.key} onClick={() => setActiveCount(f.key)} style={{ padding: '9px 16px', borderRadius: 999, border: activeCount === f.key ? 'none' : '1px solid var(--line)', background: activeCount === f.key ? 'var(--green-deep)' : '#fff', color: activeCount === f.key ? '#fff' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
+        ))}
+      </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {EXERCISE_TAGS.map((t) => (
           <button key={t} onClick={() => setActiveTag(t)} style={{ padding: '9px 16px', borderRadius: 999, border: activeTag === t ? 'none' : '1px solid var(--line)', background: activeTag === t ? 'var(--lime)' : '#fff', color: activeTag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
@@ -433,10 +462,70 @@ function ExerciseDetail({ exercise, onClose }) {
 }
 
 // ── Kehitys ──────────────────────────────────────────────
-function ProgressView({ student }) {
+const MOOD_LABELS = { 1: 'Raskas', 2: 'Vaisu', 3: 'Ihan ok', 4: 'Hyvä', 5: 'Loistava' };
+function MoodModal({ onClose, onSave }) {
+  const [score, setScore] = React.useState(null);
+  const [note, setNote] = React.useState('');
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Miltä treeni tuntui?</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Merkitse fiiliksesi treenin jälkeen — tämä näkyy myös valmentajallesi.</p>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button key={n} onClick={() => setScore(n)} style={{
+              flex: 1, padding: '14px 0', borderRadius: 14, border: score === n ? 'none' : '1px solid #d8d4ca',
+              background: score === n ? 'var(--lime)' : '#fff', color: score === n ? '#101a08' : '#3c382f',
+              fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+            }}>
+              {n}
+              <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.2 }}>{MOOD_LABELS[n]}</span>
+            </button>
+          ))}
+        </div>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Miksi? (valinnainen)" rows={3}
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 16, background: '#fff' }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => score && onSave({ score, note: note.trim() })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: score ? 1 : 0.45, cursor: score ? 'pointer' : 'default' }}>Tallenna</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressView({ student, onAddVideo, onAddMood }) {
+  const moods = student.moods || [];
   return (
     <div>
       <PageHeader title="Kehitys" sub="Kehityshistoriasi ja valmentajan huomiot jokaisesta kerrasta" />
+
+      <div style={{ marginBottom: 26 }}>
+        <SectionTitle>Videot</SectionTitle>
+        <VideoRow videos={student.videos} onAdd={onAddVideo} />
+      </div>
+
+      <div style={{ marginBottom: 26 }}>
+        <SectionTitle>Fiilikset</SectionTitle>
+        {moods.length === 0 ? (
+          <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Ei vielä merkittyjä fiiliksiä.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
+            {moods.map((m, i) => (
+              <div key={i} className="k-card" style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 15px' }}>
+                <span style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--lime)', color: '#101a08', fontWeight: 800, fontSize: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{m.score}</span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#111' }}>{MOOD_LABELS[m.score]}{m.note ? ` — ${m.note}` : ''}</div>
+                  <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 2 }}>{m.date}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <button onClick={onAddMood} className="btn-outline btn-sm" style={{ marginTop: 10 }}>+ Lisää fiilis treenin jälkeen</button>
+      </div>
+
+      <SectionTitle>Aikajana</SectionTitle>
       {student.diary.length === 0 ? (
         <div className="k-card" style={{ padding: 22, color: '#8a857a', fontSize: 14.5 }}>Ei vielä merkintöjä — kehityshistoriasi kertyy tänne sitä mukaa kun valmentaja kirjaa huomioita treeneistä.</div>
       ) : (
@@ -460,16 +549,11 @@ function ProgressView({ student }) {
 }
 
 // ── Profiili ─────────────────────────────────────────────
-function ProfileView({ student, group, onAddVideo }) {
+function ProfileView({ student, group }) {
   return (
     <div>
       <PageHeader title="Profiili" />
       <IdentityBlock student={student} group={group} />
-
-      <div style={{ marginBottom: 26 }}>
-        <SectionTitle>Omat videot</SectionTitle>
-        <VideoRow videos={student.videos} onAdd={onAddVideo} />
-      </div>
 
       <SectionTitle>Toiminnot</SectionTitle>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -581,6 +665,7 @@ function App() {
   const [tab, setTab] = React.useState('home');
   const [exerciseId, setExerciseId] = React.useState(null);
   const [videoOpen, setVideoOpen] = React.useState(false);
+  const [moodOpen, setMoodOpen] = React.useState(false);
   const [note, setNote] = React.useState('');
   const [noteSaved, setNoteSaved] = React.useState(false);
   const [wish, setWish] = React.useState('');
@@ -626,6 +711,10 @@ function App() {
     update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId ? { ...s, videos: [...s.videos, { id: window.koutsiNextVideoId(s), title, date, tags, hue: s.hue, addedBy: 'player' }] } : s) }));
     setVideoOpen(false);
   };
+  const addMood = ({ score, note }) => {
+    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId ? { ...s, moods: [{ date: window.koutsiFmtShortDate(window.koutsiTodayStr()), score, note }, ...(s.moods || [])] } : s) }));
+    setMoodOpen(false);
+  };
   const switchPlayer = (id) => { setActiveId(id); setTab('home'); };
 
   if (!student) return null;
@@ -642,13 +731,14 @@ function App() {
           {tab === 'group' && <GroupView student={student} state={state} />}
           {tab === 'trainings' && <TrainingsView student={student} state={state} upcoming={upcoming} note={note} setNote={setNote} noteSaved={noteSaved} onSaveNote={saveNote} onToggleHomework={toggleHomework} />}
           {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} />}
-          {tab === 'progress' && <ProgressView student={student} />}
-          {tab === 'profile' && <ProfileView student={student} group={group} onAddVideo={() => setVideoOpen(true)} />}
+          {tab === 'progress' && <ProgressView student={student} onAddVideo={() => setVideoOpen(true)} onAddMood={() => setMoodOpen(true)} />}
+          {tab === 'profile' && <ProfileView student={student} group={group} />}
         </div>
       </div>
       <MobileBottomNav tab={tab} setTab={setTab} />
       {exercise && <ExerciseDetail exercise={exercise} onClose={() => setExerciseId(null)} />}
       {videoOpen && <VideoModal onClose={() => setVideoOpen(false)} onSave={addVideo} />}
+      {moodOpen && <MoodModal onClose={() => setMoodOpen(false)} onSave={addMood} />}
     </div>
   );
 }
