@@ -1,0 +1,1271 @@
+// koutsi-valmentaja-app.jsx — full-page coach web app for koutsi.krossi.app/valmentaja.
+// Reads/writes the real Supabase-backed store from koutsi-data.js (see koutsi-auth.jsx
+// for the login/onboarding gate this file is mounted behind), so changes made here show
+// up on the player's device too, live. The localStorage-only sales demo is
+// lib/koutsi-demo-valmentaja-app.jsx.
+
+const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely' };
+const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely'];
+const CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+const PLAYER_COUNT_FILTERS = [
+  { key: 'kaikki', label: 'Kaikki' },
+  { key: 1, label: '1 pelaaja' },
+  { key: 2, label: '2 pelaajaa' },
+  { key: 3, label: '3 pelaajaa' },
+  { key: 4, label: '4+ pelaajaa' },
+];
+
+function Avatar({ initial, hue = 150, size = 44, ring = false }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: `radial-gradient(120% 120% at 30% 20%, hsl(${hue} 55% 62%), hsl(${hue + 24} 60% 38%))`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#fff', fontWeight: 700, fontSize: size * 0.38,
+      boxShadow: ring ? '0 0 0 3px var(--lime)' : 'none', letterSpacing: 0.3,
+    }}>{initial}</div>
+  );
+}
+function AvatarStack({ members, size = 34, max = 4 }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      {members.slice(0, max).map((m, i) => (
+        <div key={m.id} style={{ marginLeft: i > 0 ? -Math.round(size * 0.28) : 0, position: 'relative', zIndex: max - i }}>
+          <Avatar initial={m.initial} hue={m.hue} size={size} ring />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PageHeader({ title, sub, action }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, gap: 16, flexWrap: 'wrap' }}>
+      <div>
+        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: -0.5, color: 'var(--green-deep)' }}>{title}</h1>
+        {sub && <p style={{ fontSize: 14.5, color: '#8a857a', marginTop: 4 }}>{sub}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ fontWeight: 800, fontSize: 12.5, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function VideoRow({ videos }) {
+  if (!videos.length) return <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä jaettuja videoita.</div>;
+  return (
+    <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 2 }}>
+      {videos.map((v) => (
+        <div key={v.id} style={{ width: 150, flexShrink: 0 }}>
+          <div style={{ width: '100%', aspectRatio: '4/3', borderRadius: 14, position: 'relative', overflow: 'hidden', background: `radial-gradient(120% 120% at 30% 20%, hsl(${v.hue} 55% 45%), hsl(${v.hue + 24} 60% 22%))` }}>
+            <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="13" height="15" viewBox="0 0 12 14"><path d="M1 1v12l10-6L1 1z" fill="#101a08" /></svg>
+              </span>
+            </span>
+            {v.addedBy === 'player' && <span style={{ position: 'absolute', left: 7, top: 7, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6 }}>Pelaaja</span>}
+          </div>
+          <div style={{ color: '#111', fontSize: 12.5, fontWeight: 600, marginTop: 7, lineHeight: 1.35 }}>{v.title}</div>
+          <div style={{ color: '#8a857a', fontSize: 11, marginTop: 2 }}>{window.koutsiFmtShortDate(v.date)}</div>
+          {v.tags && v.tags.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+              {v.tags.map((t) => <span key={t} className="k-chip" style={{ padding: '2px 8px', fontSize: 10.5 }}>{window.KOUTSI_TAG_LABELS[t] || t}</span>)}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CloseButton({ onClick }) {
+  return (
+    <button onClick={onClick} aria-label="Sulje" style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#111" strokeWidth="1.6" strokeLinecap="round" /></svg>
+    </button>
+  );
+}
+function ChevronRight() {
+  return <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }}><path d="M1 1l6 6-6 6" stroke="#c5c0b5" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+function LevelChip({ level }) {
+  const c = window.koutsiLevelColor(level);
+  return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, lineHeight: 1, background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>{level}</span>;
+}
+function GroupThemeBanner({ theme }) {
+  if (!theme) return null;
+  return (
+    <div className="k-card" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)' }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>Viikon teema</div>
+      <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{theme.title}</div>
+      <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5 }}>{theme.lead}</div>
+    </div>
+  );
+}
+
+// ── Oppilaat ─────────────────────────────────────────────
+function InviteStudentModal({ coachId, onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Kutsu uusi oppilas</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Tämä koodi liittää pelaajan sinun valmennettavaksesi ilman ryhmää — sopii esim. yksityistunneille. Voit lisätä pelaajan johonkin ryhmään myöhemmin erikseen.</p>
+        <InviteCodeBox coachId={coachId} groupId={null} groupName={null} />
+        <button onClick={onClose} className="btn-outline" style={{ width: '100%', padding: '13px 0', marginTop: 16 }}>Sulje</button>
+      </div>
+    </div>
+  );
+}
+
+function StudentsView({ students, coachId, onOpen }) {
+  const [inviteOpen, setInviteOpen] = React.useState(false);
+  return (
+    <div>
+      <PageHeader title="Oppilaani" sub={`${students.length} valmennettavaa`} action={<button onClick={() => setInviteOpen(true)} className="btn-dark btn-sm">+ Kutsu oppilas</button>} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
+        {students.map((s) => (
+          <button key={s.id} onClick={() => onOpen(s.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Avatar initial={s.initial} hue={s.hue} size={48} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ color: '#111', fontWeight: 700, fontSize: 16.5 }}>{s.name}{s.age ? `, ${s.age}` : ''}</span>
+                  {s.diary.length > 0 && <span title="Uusi merkintä" style={{ width: 7, height: 7, borderRadius: '50%', background: '#46a66d', flexShrink: 0 }} />}
+                </div>
+                <div style={{ marginTop: 6 }}><LevelChip level={s.level || 'Ei asetettu'} /></div>
+              </div>
+            </div>
+            <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {s.goal || 'Ei vielä tavoitetta'}</div>
+            <div style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.5 }}>Seuraavaksi: {s.focus || '—'}</div>
+          </button>
+        ))}
+        {students.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei vielä oppilaita — kutsu ensimmäinen liittymiskoodilla.</div>}
+      </div>
+      {inviteOpen && <InviteStudentModal coachId={coachId} onClose={() => setInviteOpen(false)} />}
+    </div>
+  );
+}
+
+function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditBackground, onSetLevel }) {
+  const [homeworkText, setHomeworkText] = React.useState('');
+  const [levelPickerOpen, setLevelPickerOpen] = React.useState(false);
+  const levelOptions = ['Aloittelija', 'Keskitaso', 'Edistynyt', 'Kilpapelaaja'];
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'flex-end' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(10,15,10,0.35)', animation: 'kFadeIn .2s ease' }} />
+      <div style={{ position: 'relative', width: 'min(480px, 100%)', height: '100%', background: '#fff', boxShadow: '-16px 0 40px -20px rgba(0,0,0,0.35)', overflowY: 'auto', animation: 'kSlideIn .25s ease' }}>
+        <div style={{ padding: '26px 28px 0', display: 'flex', justifyContent: 'flex-end' }}>
+          <CloseButton onClick={onClose} />
+        </div>
+        <div style={{ padding: '10px 28px 120px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, marginBottom: 24 }}>
+            <Avatar initial={student.initial} hue={student.hue} size={84} ring />
+            <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{student.name}{student.age ? `, ${student.age}` : ''}</div>
+            <button onClick={() => setLevelPickerOpen((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+              <LevelChip level={student.level || 'Aseta taso'} />
+            </button>
+            {levelPickerOpen && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 2 }}>
+                {levelOptions.map((lv) => (
+                  <button key={lv} onClick={() => { onSetLevel(lv); setLevelPickerOpen(false); }} style={{ padding: '6px 12px', borderRadius: 999, border: '1px solid #d8d4ca', background: student.level === lv ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>{lv}</button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Field label="Tavoite ja seuraava askel">
+            <div className="k-card" style={{ padding: '15px 17px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {student.goal} <span style={{ color: '#8a857a', fontSize: 12 }}>(pelaajan asettama)</span></div>
+              <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Viime treenissä:</b> {student.lastSession}</div>
+              <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Seuraavaksi:</b> {student.focus}</div>
+            </div>
+          </Field>
+
+          <Field label="Taustatiedot">
+            <div className="k-card" style={{ padding: '13px 15px' }}>
+              {student.background ? (
+                <div style={{ fontSize: 14, color: '#3c382f', lineHeight: 1.5 }}>{student.background}</div>
+              ) : (
+                <div style={{ fontSize: 14, color: '#8a857a' }}>Ei taustatietoja — esim. loukkaantumishistoria, tavoitteet tai muuta huomioitavaa.</div>
+              )}
+            </div>
+            <button onClick={onEditBackground} className="btn-outline btn-sm" style={{ marginTop: 10 }}>Muokkaa taustatietoja</button>
+          </Field>
+
+          {absences && absences.length > 0 && (
+            <Field label="Poissaolot ja vammat">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {absences.map(({ training, entry }) => (
+                  <div key={training.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 12, background: entry.reason === 'vamma' ? 'rgba(214,60,44,0.08)' : 'rgba(138,133,122,0.1)' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: entry.reason === 'vamma' ? '#c23b28' : '#8a857a', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13.5, color: '#3c382f', flex: 1 }}>{window.koutsiFmtShortDate(training.date)} — {training.type}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: entry.reason === 'vamma' ? '#c23b28' : '#6b665c' }}>{window.KOUTSI_ABSENCE_REASON_LABELS[entry.reason]}</span>
+                  </div>
+                ))}
+              </div>
+            </Field>
+          )}
+
+          {group && (
+            <Field label="Valmennusryhmä">
+              <button onClick={onOpenGroup} className="k-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 15px', width: '100%', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', marginBottom: group.theme ? 10 : 0 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{group.name}</div>
+                  <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{group.day} klo {group.time} viikoittain{groupCoach ? ` · ${groupCoach.name}` : ''}</div>
+                </div>
+                <ChevronRight />
+              </button>
+              <GroupThemeBanner theme={group.theme} />
+            </Field>
+          )}
+
+          <Field label="Videot">
+            <VideoRow videos={student.videos} />
+            <button onClick={onAddVideo} className="btn-outline btn-sm" style={{ marginTop: 12 }}>+ Lisää video</button>
+          </Field>
+
+          <Field label="Päiväkirja">
+            {student.diary.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä merkintöjä.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {student.diary.map((d, i) => (
+                <div key={i} className="k-card" style={{ padding: '12px 15px' }}>
+                  <div style={{ color: '#111', fontSize: 14, lineHeight: 1.5 }}>{d.text}</div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: '#8a857a', fontWeight: 600 }}>{d.date}</div>
+                </div>
+              ))}
+            </div>
+          </Field>
+
+          {(student.playerNote || student.playerWish) && (
+            <Field label="Pelaajalta">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {student.playerWish && (
+                  <div className="k-card" style={{ padding: '12px 15px', background: 'rgba(207,228,20,0.08)', borderColor: 'rgba(207,228,20,0.4)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Toivoo seuraavalle kerralle</div>
+                    <div style={{ color: '#111', fontSize: 14, lineHeight: 1.5 }}>&ldquo;{student.playerWish}&rdquo;</div>
+                  </div>
+                )}
+                {student.playerNote && (
+                  <div className="k-card" style={{ padding: '12px 15px' }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Oma kommentti</div>
+                    <div style={{ color: '#111', fontSize: 14, lineHeight: 1.5, fontStyle: 'italic' }}>&ldquo;{student.playerNote}&rdquo;</div>
+                  </div>
+                )}
+              </div>
+            </Field>
+          )}
+
+          {upcoming.length > 0 && (
+            <Field label="Tulevat treenit">
+              {upcoming.map((t) => (
+                <div key={t.id} style={{ fontSize: 14.5, color: '#3c382f', padding: '4px 0' }}>{window.koutsiFmtShortDate(t.date)} · {t.time} — {t.type}</div>
+              ))}
+            </Field>
+          )}
+
+          <Field label="Kotiläksyt">
+            {student.homework.length === 0 && <div style={{ color: '#8a857a', fontSize: 14, marginBottom: 10 }}>Ei vielä kotiläksyjä.</div>}
+            {student.homework.map((h, i) => (
+              <button key={i} onClick={() => onToggleHomework(i)} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '7px 0', fontFamily: 'inherit' }}>
+                <span style={{ width: 19, height: 19, borderRadius: 6, border: '1.5px solid ' + (h.done ? 'var(--green-deep)' : '#c5c0b5'), background: h.done ? 'var(--green-deep)' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {h.done && <svg width="11" height="9" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                </span>
+                <span style={{ fontSize: 14.5, color: '#111', textDecoration: h.done ? 'line-through' : 'none', opacity: h.done ? 0.55 : 1 }}>{h.text}</span>
+              </button>
+            ))}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <input value={homeworkText} onChange={(e) => setHomeworkText(e.target.value)} placeholder="Uusi kotiläksy…"
+                style={{ flex: 1, boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '9px 12px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' }} />
+              <button onClick={() => { if (homeworkText.trim()) { onAddHomework(homeworkText.trim()); setHomeworkText(''); } }} className="btn-outline btn-sm">+ Lisää</button>
+            </div>
+          </Field>
+        </div>
+        <div style={{ position: 'sticky', bottom: 0, left: 0, right: 0, padding: '18px 28px', background: 'linear-gradient(to top, #fff 60%, transparent)' }}>
+          <button onClick={onAddEntry} className="btn-lime btn-lg" style={{ width: '100%' }}>+ Uusi päiväkirjamerkintä</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BackgroundModal({ student, onClose, onSave }) {
+  const [val, setVal] = React.useState(student.background || '');
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Taustatiedot — {student.name}</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Esim. loukkaantumishistoria, terveystiedot, tavoitteet tai muuta huomioitavaa pelaajasta.</p>
+        <textarea autoFocus value={val} onChange={(e) => setVal(e.target.value)} placeholder="Esim. Vanha nilkkavamma — vältä äkkinäisiä suunnanmuutoksia…" rows={5}
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 16, background: '#fff' }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => onSave(val.trim())} className="btn-dark" style={{ flex: 1, padding: '13px 0' }}>Tallenna</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EntryModal({ student, onClose, onSend }) {
+  const [val, setVal] = React.useState('');
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Päiväkirja — {student.name}</h3>
+        <textarea autoFocus value={val} onChange={(e) => setVal(e.target.value)} placeholder="Esim. Hyvä nousu syötössä tällä viikolla…" rows={4}
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 16, background: '#fff' }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => val.trim() && onSend(val.trim())} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: val.trim() ? 1 : 0.45, cursor: val.trim() ? 'pointer' : 'default' }}>Tallenna</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoModal({ students, initialStudentId, onClose, onSave }) {
+  const [title, setTitle] = React.useState('');
+  const [date, setDate] = React.useState(window.koutsiTodayStr());
+  const [tags, setTags] = React.useState([]);
+  const [studentIds, setStudentIds] = React.useState(initialStudentId != null ? [initialStudentId] : []);
+  const toggleTag = (t) => setTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+  const toggleStudent = (id) => setStudentIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const ready = title.trim() && date && studentIds.length > 0;
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Lisää video</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Videon tiedostoa ei voi vielä ladata täältä — anna videolle otsikko, päivämäärä ja aihe. Lähetä itse tiedosto esim. viestillä.</p>
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Otsikko</div>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Syöttöanalyysi" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Päivämäärä</div>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Aihe</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {window.KOUTSI_TAGS.map((t) => (
+            <button key={t} onClick={() => toggleTag(t)} style={{ padding: '8px 14px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Jaa pelaajille ({studentIds.length} valittu)</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, maxHeight: 220, overflowY: 'auto' }}>
+          {students.map((s) => (
+            <button key={s.id} onClick={() => toggleStudent(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: studentIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: studentIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+              <Avatar initial={s.initial} hue={s.hue} size={30} />
+              <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => ready && onSave({ title: title.trim(), date, tags, studentIds })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Jaa ({studentIds.length})</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Ryhmät ───────────────────────────────────────────────
+function GroupsView({ groups, students, onOpen, onCreate }) {
+  return (
+    <div>
+      <PageHeader title="Ryhmät" sub={`${groups.length} valmennusryhmää`} action={<button onClick={onCreate} className="btn-dark btn-sm">+ Uusi ryhmä</button>} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
+        {groups.map((g) => {
+          const members = g.memberIds.map((id) => students.find((s) => s.id === id)).filter(Boolean);
+          return (
+            <button key={g.id} onClick={() => onOpen(g.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <div style={{ color: '#111', fontWeight: 700, fontSize: 17 }}>{g.name}</div>
+                <div style={{ marginTop: 6 }}><LevelChip level={g.level} /></div>
+              </div>
+              <div style={{ fontSize: 13, color: '#8a857a' }}>{g.day} klo {g.time} viikoittain</div>
+              {g.theme && <div style={{ fontSize: 12.5, color: '#3c382f' }}><b style={{ color: 'var(--green-deep)' }}>Viikon teema:</b> {g.theme.title}</div>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <AvatarStack members={members} size={32} />
+                <span style={{ fontSize: 12.5, color: '#8a857a', fontWeight: 600 }}>{members.length} pelaajaa</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ThemeModal({ theme, onClose, onSave }) {
+  const [title, setTitle] = React.useState(theme ? theme.title : '');
+  const [lead, setLead] = React.useState(theme ? theme.lead : '');
+  const ready = title.trim() && lead.trim();
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Viikon teema</h3>
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Otsikko</div>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Kämmenen pelitila" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Kuvaus</div>
+        <textarea value={lead} onChange={(e) => setLead(e.target.value)} rows={3} placeholder="Mihin tällä viikolla keskitytään?" style={{ ...inputStyle, resize: 'none', marginBottom: 20 }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => ready && onSave({ title: title.trim(), lead: lead.trim() })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Tallenna</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InviteCodeBox({ coachId, groupId, groupName }) {
+  const [code, setCode] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const generate = async () => {
+    setBusy(true);
+    try {
+      const c = await window.koutsiCreateInviteCode(coachId, groupId);
+      setCode(c);
+    } catch (err) { alert(err.message || 'Koodin luonti epäonnistui'); } finally { setBusy(false); }
+  };
+  if (!code) {
+    return <button onClick={generate} disabled={busy} className="btn-outline btn-sm" style={{ marginTop: 4, opacity: busy ? 0.6 : 1 }}>{busy ? 'Luodaan...' : 'Kutsu uusi pelaaja koodilla'}</button>;
+  }
+  return (
+    <div className="k-card" style={{ padding: '13px 15px', marginTop: 4, background: 'rgba(207,228,20,0.08)', borderColor: 'rgba(207,228,20,0.4)' }}>
+      <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Liittymiskoodi{groupName ? ` — ${groupName}` : ''}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: '#111', marginBottom: 6 }}>{code}</div>
+      <div style={{ fontSize: 12.5, color: '#514c42', lineHeight: 1.5 }}>Lähetä tämä koodi pelaajalle. Hän kirjautuu tai luo Krossi-tilin osoitteessa koutsi.krossi.app/pelaaja ja syöttää koodin liittyäkseen{groupName ? ' suoraan tähän ryhmään' : ''}.</div>
+    </div>
+  );
+}
+
+function GroupFormModal({ students, onClose, onSave }) {
+  const [name, setName] = React.useState('');
+  const [level, setLevel] = React.useState('');
+  const [day, setDay] = React.useState('Ma');
+  const [time, setTime] = React.useState('');
+  const [memberIds, setMemberIds] = React.useState([]);
+  const toggleMember = (id) => setMemberIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const ready = name.trim() && time.trim();
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Uusi ryhmä</h3>
+        <div style={label}>Nimi</div>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. Iltaryhmä" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Taso</div>
+        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Esim. Keskitaso" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Viikonpäivä</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+          {days.map((d) => (
+            <button key={d} onClick={() => setDay(d)} style={{ padding: '8px 13px', borderRadius: 999, border: day === d ? 'none' : '1px solid #d8d4ca', background: day === d ? 'var(--lime)' : '#fff', color: day === d ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{d}</button>
+          ))}
+        </div>
+        <div style={label}>Kellonaika</div>
+        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, marginBottom: 20 }} />
+        <div style={label}>Pelaajat ({memberIds.length} valittu)</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 220, overflowY: 'auto' }}>
+          {students.map((s) => (
+            <button key={s.id} onClick={() => toggleMember(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: memberIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: memberIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+              <Avatar initial={s.initial} hue={s.hue} size={30} />
+              <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => ready && onSave({ name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time: time.trim(), memberIds })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Luo ryhmä</button>
+        </div>
+        <p style={{ fontSize: 12, color: '#8a857a', marginTop: 12, lineHeight: 1.5 }}>Voit kutsua uusia pelaajia liittymiskoodilla ryhmän luomisen jälkeen.</p>
+      </div>
+    </div>
+  );
+}
+
+function AddMembersModal({ coachId, group, allStudents, onClose, onSave }) {
+  const available = allStudents.filter((s) => !group.memberIds.includes(s.id));
+  const [selected, setSelected] = React.useState([]);
+  const toggle = (id) => setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 4 }}>Lisää pelaajia</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16 }}>{group.name}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 260, overflowY: 'auto' }}>
+          {available.map((s) => (
+            <button key={s.id} onClick={() => toggle(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: selected.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: selected.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+              <Avatar initial={s.initial} hue={s.hue} size={30} />
+              <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
+            </button>
+          ))}
+          {available.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Kaikki oppilaasi ovat jo tässä ryhmässä.</div>}
+        </div>
+        <InviteCodeBox coachId={coachId} groupId={group.id} groupName={group.name} />
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => selected.length > 0 && onSave(selected)} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: selected.length ? 1 : 0.45, cursor: selected.length ? 'pointer' : 'default' }}>Lisää ({selected.length})</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GroupDetail({ group, members, upcoming, onClose, onOpenStudent, onEditTheme, onAddMembers, onUploadPlan, onRemovePlan }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'flex-end' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(10,15,10,0.35)', animation: 'kFadeIn .2s ease' }} />
+      <div style={{ position: 'relative', width: 'min(480px, 100%)', height: '100%', background: '#fff', boxShadow: '-16px 0 40px -20px rgba(0,0,0,0.35)', overflowY: 'auto', animation: 'kSlideIn .25s ease' }}>
+        <div style={{ padding: '26px 28px 0', display: 'flex', justifyContent: 'flex-end' }}>
+          <CloseButton onClick={onClose} />
+        </div>
+        <div style={{ padding: '10px 28px 60px' }}>
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{group.name}</div>
+            <div style={{ marginTop: 8 }}><LevelChip level={group.level} /></div>
+            <div style={{ fontSize: 14, color: '#514c42', marginTop: 12 }}>Viikoittain: {group.day} klo {group.time}</div>
+          </div>
+          <div style={{ marginBottom: 22 }}>
+            {group.theme && <GroupThemeBanner theme={group.theme} />}
+            <button onClick={onEditTheme} className="btn-outline btn-sm" style={{ marginTop: group.theme ? 10 : 0 }}>{group.theme ? 'Muokkaa viikon teemaa' : '+ Lisää viikon teema'}</button>
+          </div>
+          <Field label="Vuosisuunnitelma">
+            {group.annualPlan ? (
+              <div className="k-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px' }}>
+                <span style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(14,59,44,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 1.5h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1v-12a1 1 0 011-1z" stroke="var(--green-deep)" strokeWidth="1.4" /><path d="M5 8.5h6M5 11h6" stroke="var(--green-deep)" strokeWidth="1.4" strokeLinecap="round" /></svg>
+                </span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.annualPlan.filename}</div>
+                  <div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>Ladattu {window.koutsiFmtShortDate(group.annualPlan.date)}</div>
+                </div>
+                <button onClick={onRemovePlan} className="btn-outline btn-sm" style={{ flexShrink: 0, padding: '6px 12px', fontSize: 12 }}>Poista</button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ color: '#8a857a', fontSize: 14, marginBottom: 10 }}>Ei vielä ladattua vuosisuunnitelmaa tälle ryhmälle.</div>
+                <label className="btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-block' }}>
+                  + Lataa vuosisuunnitelma
+                  <input type="file" accept=".xlsx,.xls,.csv,.pdf" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files[0]; if (f) onUploadPlan(f.name); e.target.value = ''; }} />
+                </label>
+              </div>
+            )}
+          </Field>
+          <Field label={`Jäsenet (${members.length})`}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {members.map((m) => (
+                <button key={m.id} onClick={() => onOpenStudent(m.id)} className="k-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', textAlign: 'left', cursor: 'pointer', width: '100%', fontFamily: 'inherit' }}>
+                  <Avatar initial={m.initial} hue={m.hue} size={40} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{m.name}</div>
+                    <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{m.focus}</div>
+                  </div>
+                  <ChevronRight />
+                </button>
+              ))}
+              {members.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä jäseniä.</div>}
+            </div>
+            <button onClick={onAddMembers} className="btn-outline btn-sm" style={{ marginTop: 12 }}>+ Lisää pelaajia</button>
+          </Field>
+          <Field label="Tulevat treenit">
+            {upcoming.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei tulevia treenejä.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {upcoming.map((t) => (
+                <div key={t.id} style={{ fontSize: 14.5, color: '#3c382f', padding: '4px 0' }}>{window.koutsiFmtShortDate(t.date)} · {t.time}</div>
+              ))}
+            </div>
+          </Field>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Treenit / kalenteri ──────────────────────────────────
+function CalendarGrid({ state, viewYear, viewMonth, selectedDate, todayStr, onSelect, onPrev, onNext }) {
+  const firstOfMonth = new Date(viewYear, viewMonth, 1);
+  const startWeekday = (firstOfMonth.getDay() + 6) % 7; // Mon=0..Sun=6
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const dateStrFor = (d) => `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+  return (
+    <div className="k-card" style={{ padding: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <button onClick={onPrev} aria-label="Edellinen kuukausi" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="7" height="12" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+        <div style={{ fontWeight: 800, fontSize: 15, color: '#111', textTransform: 'capitalize' }}>{window.KOUTSI_MONTHS[viewMonth]} {viewYear}</div>
+        <button onClick={onNext} aria-label="Seuraava kuukausi" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="7" height="12" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 6 }}>
+        {CAL_WEEKDAY_LABELS.map((d) => <div key={d} style={{ fontSize: 10.5, fontWeight: 700, color: '#a8a297', textAlign: 'center' }}>{d}</div>)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+        {cells.map((d, i) => {
+          if (d == null) return <div key={i} />;
+          const ds = dateStrFor(d);
+          const dayTrainings = window.koutsiTrainingsOnDate(state, ds);
+          const dayClubEvents = window.koutsiClubEventsOnDate(state, ds);
+          const isToday = ds === todayStr;
+          const isSelected = ds === selectedDate;
+          return (
+            <button key={i} onClick={() => onSelect(ds)} style={{
+              aspectRatio: '1', borderRadius: 10, border: isSelected ? '2px solid var(--green-deep)' : '2px solid transparent',
+              background: isSelected ? 'rgba(14,59,44,0.06)' : isToday ? 'rgba(207,228,20,0.2)' : 'transparent',
+              cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit',
+            }}>
+              <span style={{ fontSize: 13, fontWeight: isToday ? 800 : 600, color: '#111' }}>{d}</span>
+              {(dayTrainings.length > 0 || dayClubEvents.length > 0) && (
+                <span style={{ display: 'flex', gap: 2 }}>
+                  {dayTrainings.slice(0, 3).map((t, ti) => <span key={ti} style={{ width: 5, height: 5, borderRadius: '50%', background: t.groupId != null ? 'var(--green-deep)' : 'var(--lime)' }} />)}
+                  {dayClubEvents.length > 0 && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#c77b2e' }} />}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 16, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)', flexWrap: 'wrap' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--lime)' }} />Yksilö</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green-deep)' }} />Ryhmä</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c77b2e' }} />Seuran tapahtuma</span>
+      </div>
+    </div>
+  );
+}
+
+function CalendarView({ state, onAdd, onPreSession }) {
+  const todayStr = window.koutsiTodayStr();
+  const todayDate = window.koutsiDateFromStr(todayStr);
+  const [viewYear, setViewYear] = React.useState(todayDate.getFullYear());
+  const [viewMonth, setViewMonth] = React.useState(todayDate.getMonth());
+  const [selectedDate, setSelectedDate] = React.useState(() => {
+    const upcoming = state.trainings.filter((t) => t.date >= todayStr).slice().sort((a, b) => a.date.localeCompare(b.date));
+    return upcoming[0] ? upcoming[0].date : todayStr;
+  });
+
+  const prevMonth = () => { if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); } else setViewMonth((m) => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); } else setViewMonth((m) => m + 1); };
+
+  const trainingsOnSelected = window.koutsiTrainingsOnDate(state, selectedDate);
+  const clubEventsOnSelected = window.koutsiClubEventsOnDate(state, selectedDate);
+
+  return (
+    <div>
+      <PageHeader title="Treenit" sub="Kalenteri ja tulevat valmennukset" action={<button onClick={() => onAdd(selectedDate)} className="btn-dark btn-sm">+ Lisää valmennus</button>} />
+      <div className="kv-calendar-layout">
+        <CalendarGrid state={state} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
+          onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>{window.koutsiFmtLongDate(selectedDate)}</div>
+          {clubEventsOnSelected.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              {clubEventsOnSelected.map((e) => (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 14, background: 'rgba(199,123,46,0.1)', border: '1px solid rgba(199,123,46,0.3)' }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c77b2e', flexShrink: 0 }} />
+                  <span style={{ fontSize: 13.5, color: '#7a4c1e', fontWeight: 700 }}>{e.title}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {trainingsOnSelected.length === 0 && clubEventsOnSelected.length === 0 && <div className="k-card" style={{ padding: 22, color: '#8a857a', fontSize: 14.5 }}>Ei valmennuksia tänä päivänä.</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {trainingsOnSelected.map((t) => {
+              const party = window.koutsiTrainingParty(state, t);
+              const trainingCoach = window.koutsiCoachById(state, t.coachId);
+              return (
+                <div key={t.id} className="k-card" style={{ padding: '16px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                    <div style={{ width: 50, fontSize: 14.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
+                    {party.kind === 'student' && party.student && <Avatar initial={party.student.initial} hue={party.student.hue} size={38} />}
+                    {party.kind === 'group' && <AvatarStack members={party.members} size={38} />}
+                    <div style={{ flex: 1, minWidth: 140 }}>
+                      <div style={{ color: '#111', fontWeight: 700, fontSize: 15 }}>{party.kind === 'group' ? (party.group ? party.group.name : 'Ryhmä') : (party.student ? party.student.name : '—')}</div>
+                      <div style={{ color: '#8a857a', fontSize: 12.5 }}>{t.type}{party.kind === 'group' ? ` · ${party.members.length} pelaajaa` : ''}{trainingCoach ? ` · ${trainingCoach.name}` : ''}</div>
+                    </div>
+                    <button onClick={() => onPreSession(t.id)} className="btn-outline btn-sm" style={{ padding: '7px 14px', fontSize: 12.5 }}>Ennen treeniä →</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreSessionPanel({ training, state, onClose, onToggleAbsence }) {
+  const party = window.koutsiTrainingParty(state, training);
+  const members = party.kind === 'group' ? party.members : (party.student ? [party.student] : []);
+  const suggestions = state.exercises.slice(0, 3);
+  const trainingCoach = window.koutsiCoachById(state, training.coachId);
+  const absences = training.absences || [];
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(560px, 100%)', maxHeight: '86vh', overflowY: 'auto', padding: '28px 28px 26px', animation: 'kFadeIn .2s ease' }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Seuraavaksi</div>
+        <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{window.koutsiFmtShortDate(training.date)} · {training.time}</h3>
+        <div style={{ fontSize: 14, color: '#8a857a', fontWeight: 600, marginBottom: 20 }}>
+          {party.kind === 'group' && party.group ? party.group.name : ''}{party.kind === 'group' && party.group && trainingCoach ? ' · ' : ''}{trainingCoach ? trainingCoach.name : ''}
+        </div>
+        <Field label="Pelaajat">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {members.map((m) => {
+              const entry = absences.find((a) => a.studentId === m.id);
+              const statusLabel = entry ? window.KOUTSI_ABSENCE_REASON_LABELS[entry.reason] : 'Paikalla';
+              const statusColor = entry ? (entry.reason === 'vamma' ? '#c23b28' : '#8a857a') : 'var(--green-deep)';
+              return (
+                <div key={m.id} className="k-card" style={{ display: 'flex', gap: 13, alignItems: 'flex-start', padding: '13px 15px', opacity: entry ? 0.7 : 1 }}>
+                  <Avatar initial={m.initial} hue={m.hue} size={40} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{m.name}</div>
+                    <div style={{ fontSize: 13, color: '#514c42', marginTop: 3, lineHeight: 1.4 }}>Jatka: {m.focus}</div>
+                    <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 1, lineHeight: 1.4 }}>Huomioi: {m.lastSession}</div>
+                    {m.playerWish && <div style={{ fontSize: 12.5, color: '#5c6b06', marginTop: 1, lineHeight: 1.4, fontWeight: 600 }}>Toivoo: {m.playerWish}</div>}
+                  </div>
+                  <button onClick={() => onToggleAbsence(m.id)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 999, border: `1px solid ${entry ? statusColor : 'var(--line)'}`, background: entry ? `${statusColor}18` : '#fff', color: statusColor, fontWeight: 700, fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{statusLabel}</button>
+                </div>
+              );
+            })}
+          </div>
+        </Field>
+        {party.kind === 'group' && party.group && party.group.theme && (
+          <Field label="Ryhmän teema">
+            <GroupThemeBanner theme={party.group.theme} />
+          </Field>
+        )}
+        <Field label="Ehdotetut harjoitteet">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {suggestions.map((ex) => <div key={ex.id} style={{ fontSize: 14, color: '#3c382f' }}>• {ex.name} — {ex.duration}</div>)}
+          </div>
+        </Field>
+        <button onClick={onClose} className="btn-outline" style={{ width: '100%', padding: '13px 0', marginTop: 4 }}>Sulje</button>
+      </div>
+    </div>
+  );
+}
+
+function TrainingModal({ students, groups, defaultDate, onClose, onSave }) {
+  const [targetType, setTargetType] = React.useState('student');
+  const [studentId, setStudentId] = React.useState(students[0] ? students[0].id : null);
+  const [groupId, setGroupId] = React.useState(groups[0] ? groups[0].id : null);
+  const [date, setDate] = React.useState(defaultDate || window.koutsiTodayStr());
+  const [time, setTime] = React.useState('');
+  const [type, setType] = React.useState('Yksityistunti');
+
+  React.useEffect(() => { setType(targetType === 'group' ? 'Ryhmätreeni' : 'Yksityistunti'); }, [targetType]);
+
+  const ready = (targetType === 'student' ? studentId != null : groupId != null) && date && time.trim();
+  const inputStyle = { flex: 1, boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const Pill = ({ on, children, onClick }) => (
+    <button onClick={onClick} style={{ padding: '9px 15px', borderRadius: 999, border: on ? 'none' : '1px solid #d8d4ca', background: on ? 'var(--lime)' : '#fff', color: on ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{children}</button>
+  );
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Uusi valmennus</h3>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+          <Pill on={targetType === 'student'} onClick={() => setTargetType('student')}>Yksittäinen pelaaja</Pill>
+          <Pill on={targetType === 'group'} onClick={() => setTargetType('group')}>Ryhmä</Pill>
+        </div>
+
+        {targetType === 'student' ? (
+          <React.Fragment>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Oppilas</div>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', marginBottom: 18, paddingBottom: 2 }}>
+              {students.map((s) => (
+                <button key={s.id} onClick={() => setStudentId(s.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                  <span style={{ borderRadius: '50%', padding: 2, border: studentId === s.id ? '2px solid var(--lime)' : '2px solid transparent' }}>
+                    <Avatar initial={s.initial} hue={s.hue} size={46} />
+                  </span>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: studentId === s.id ? '#111' : '#8a857a' }}>{s.name.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
+          </React.Fragment>
+        ) : (
+          <React.Fragment>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Ryhmä</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+              {groups.map((g) => (
+                <button key={g.id} onClick={() => setGroupId(g.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', borderRadius: 14, border: groupId === g.id ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: groupId === g.id ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: '#111', flex: 1 }}>{g.name}</span>
+                  <span style={{ fontSize: 12, color: '#8a857a' }}>{g.memberIds.length} pelaajaa</span>
+                </button>
+              ))}
+              {groups.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä ryhmiä.</div>}
+            </div>
+          </React.Fragment>
+        )}
+
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Ajankohta</div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, flex: 0.7 }} />
+        </div>
+
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Tyyppi</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+          {['Yksityistunti', 'Ryhmätreeni', 'Ottelu'].map((t) => <Pill key={t} on={type === t} onClick={() => setType(t)}>{t}</Pill>)}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button
+            onClick={() => ready && onSave({ studentId: targetType === 'student' ? studentId : null, groupId: targetType === 'group' ? groupId : null, date, time: time.trim(), type })}
+            className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Lisää</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Harjoitteet ──────────────────────────────────────────
+function ExercisesView({ exercises, onOpen, onAdd }) {
+  const [activeTag, setActiveTag] = React.useState('kaikki');
+  const [activeCount, setActiveCount] = React.useState('kaikki');
+  const filtered = exercises
+    .filter((e) => activeTag === 'kaikki' || e.tags.includes(activeTag))
+    .filter((e) => activeCount === 'kaikki' || (activeCount === 4 ? e.playerCount >= 4 : e.playerCount === activeCount));
+  return (
+    <div>
+      <PageHeader title="Harjoitteet" sub="Oma harjoitepankki" action={<button onClick={onAdd} className="btn-dark btn-sm">+ Lisää harjoite</button>} />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        {PLAYER_COUNT_FILTERS.map((f) => (
+          <button key={f.key} onClick={() => setActiveCount(f.key)} style={{ padding: '9px 16px', borderRadius: 999, border: activeCount === f.key ? 'none' : '1px solid var(--line)', background: activeCount === f.key ? 'var(--green-deep)' : '#fff', color: activeCount === f.key ? '#fff' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {EXERCISE_TAGS.map((t) => (
+          <button key={t} onClick={() => setActiveTag(t)} style={{ padding: '9px 16px', borderRadius: 999, border: activeTag === t ? 'none' : '1px solid var(--line)', background: activeTag === t ? 'var(--lime)' : '#fff', color: activeTag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+        {filtered.map((ex) => (
+          <button key={ex.id} onClick={() => onOpen(ex.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '18px 19px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ color: '#111', fontWeight: 700, fontSize: 16 }}>{ex.name}</div>
+            <div style={{ color: '#8a857a', fontSize: 13 }}>{ex.players} pelaajaa · {ex.duration} · {ex.level}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {ex.tags.map((t) => <span key={t} className="k-chip">{TAG_LABELS[t]}</span>)}
+            </div>
+          </button>
+        ))}
+        {filtered.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei harjoitteita tällä suodattimella.</div>}
+      </div>
+    </div>
+  );
+}
+
+function ExerciseDetail({ exercise, onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', padding: '28px 28px 26px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>{exercise.name}</h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 18 }}>
+          <span className="k-chip">{exercise.players} pelaajaa</span>
+          <span className="k-chip">{exercise.duration}</span>
+          <LevelChip level={exercise.level} />
+        </div>
+        <Field label="Tavoite">
+          <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f' }}>{exercise.goal}</p>
+        </Field>
+        <Field label="Teemat">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            {exercise.tags.map((t) => <span key={t} className="k-chip">{TAG_LABELS[t]}</span>)}
+          </div>
+        </Field>
+        <button onClick={onClose} className="btn-outline" style={{ width: '100%', padding: '13px 0' }}>Sulje</button>
+      </div>
+    </div>
+  );
+}
+
+function ExerciseFormModal({ onClose, onSave }) {
+  const [name, setName] = React.useState('');
+  const [goal, setGoal] = React.useState('');
+  const [players, setPlayers] = React.useState('');
+  const [playerCount, setPlayerCount] = React.useState(1);
+  const [duration, setDuration] = React.useState('');
+  const [level, setLevel] = React.useState('');
+  const [tags, setTags] = React.useState([]);
+  const toggleTag = (t) => setTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+  const ready = name.trim() && goal.trim() && players.trim() && duration.trim() && level.trim();
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Uusi harjoite</h3>
+        <div style={label}>Nimi</div>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. Kakkossyöttö + suunta" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Tavoite</div>
+        <textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={3} placeholder="Mitä tällä harjoitteella treenataan?" style={{ ...inputStyle, resize: 'none', marginBottom: 16 }} />
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Pelaajia</div>
+            <input value={players} onChange={(e) => setPlayers(e.target.value)} placeholder="2" style={inputStyle} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Kesto</div>
+            <input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="15 min" style={inputStyle} />
+          </div>
+        </div>
+        <div style={label}>Pelaajamäärä (suodatinta varten)</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {PLAYER_COUNT_FILTERS.filter((f) => f.key !== 'kaikki').map((f) => (
+            <button key={f.key} onClick={() => setPlayerCount(f.key)} style={{ padding: '8px 14px', borderRadius: 999, border: playerCount === f.key ? 'none' : '1px solid #d8d4ca', background: playerCount === f.key ? 'var(--lime)' : '#fff', color: playerCount === f.key ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
+          ))}
+        </div>
+        <div style={label}>Taso</div>
+        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Esim. Kaikki tasot" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Aihe</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {window.KOUTSI_TAGS.map((t) => (
+            <button key={t} onClick={() => toggleTag(t)} style={{ padding: '8px 14px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => ready && onSave({ name: name.trim(), goal: goal.trim(), players: players.trim(), playerCount, duration: duration.trim(), level: level.trim(), tags })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Lisää</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Profiili ─────────────────────────────────────────────
+function ProfileView({ coach, studentCount, groupCount, onSignOut }) {
+  return (
+    <div>
+      <PageHeader title="Profiili" />
+      <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
+        <div className="k-card" style={{ padding: 26, flex: '0 0 260px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
+          <Avatar initial={coach.initial} hue={coach.hue} size={84} ring />
+          <div style={{ color: '#111', fontWeight: 800, fontSize: 20 }}>{coach.name}</div>
+          <div style={{ color: '#8a857a', fontSize: 13.5 }}>{coach.tagline}</div>
+          <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 6 }}>
+            {[['Oppilaita', studentCount], ['Ryhmiä', groupCount]].map(([k, v]) => (
+              <div key={k} style={{ flex: 1, background: '#f7f5ef', borderRadius: 14, padding: '12px 10px' }}>
+                <div style={{ color: '#8a857a', fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 4 }}>{k}</div>
+                <div style={{ color: '#111', fontWeight: 800, fontSize: 18 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ flex: '1 1 320px' }}>
+          <Field label="Kuvaus">
+            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f' }}>{coach.bio}</p>
+          </Field>
+          {coach.experience && (
+            <Field label="Kokemus">
+              <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f' }}>{coach.experience}</p>
+            </Field>
+          )}
+          <Field label="Erikoisalat">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {coach.specialties.map((s) => <span key={s} className="k-chip">{s}</span>)}
+            </div>
+          </Field>
+          <Field label="Toiminnot">
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <a href="https://koutsi.krossi.app" className="btn-outline btn-sm">← Etusivulle</a>
+              <button onClick={onSignOut} className="btn-outline btn-sm" style={{ color: '#a13b2f', borderColor: '#e3c9c4' }}>Kirjaudu ulos</button>
+            </div>
+          </Field>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar ──────────────────────────────────────────────
+const NAV = [
+  { id: 'students', label: 'Oppilaat' },
+  { id: 'groups', label: 'Ryhmät' },
+  { id: 'trainings', label: 'Treenit' },
+  { id: 'exercises', label: 'Harjoitteet' },
+  { id: 'profile', label: 'Profiili' },
+];
+function NavIcon({ id, on, offColor = 'rgba(255,255,255,0.72)' }) {
+  const c = on ? '#101a08' : offColor;
+  if (id === 'students') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="8" cy="6.5" r="3" stroke={c} strokeWidth="1.7" /><path d="M2 19c0-3.2 2.7-5.3 6-5.3s6 2.1 6 5.3" stroke={c} strokeWidth="1.7" strokeLinecap="round" /><circle cx="16" cy="7.5" r="2.4" stroke={c} strokeWidth="1.7" /><path d="M13.8 19c.3-2.6 2.1-4.3 4.2-4.3S21.7 16.4 22 19" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
+  if (id === 'groups') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="7" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><circle cx="15" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><path d="M1.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5M9.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
+  if (id === 'trainings') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><rect x="2.5" y="4.5" width="17" height="15" rx="3" stroke={c} strokeWidth="1.7" /><path d="M2.5 9h17M7 2.5v4M15 2.5v4" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
+  if (id === 'exercises') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><rect x="4" y="3" width="14" height="17" rx="2.5" stroke={c} strokeWidth="1.7" /><path d="M8 1.5h6a1 1 0 011 1V4H7V2.5a1 1 0 011-1z" stroke={c} strokeWidth="1.7" /><path d="M7.5 9.5h7M7.5 13h7M7.5 16.5h4" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
+  return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="7.5" r="4" stroke={c} strokeWidth="1.7" /><path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
+}
+
+function Sidebar({ tab, setTab, coach, onSignOut }) {
+  return (
+    <div style={{ width: 248, flexShrink: 0, background: 'var(--green-deep)', color: '#fff', display: 'flex', flexDirection: 'column', padding: '26px 18px', position: 'fixed', top: 0, left: 0, bottom: 0, overflowY: 'auto' }}>
+      <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', paddingLeft: 6 }}>
+        <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--lime)', letterSpacing: -0.5 }}>Krossi</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
+      </a>
+      <span style={{ display: 'inline-flex', alignSelf: 'flex-start', marginLeft: 6, marginTop: 8, marginBottom: 22, padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.16)', border: '1px solid rgba(207,228,20,0.4)', color: 'var(--lime)', fontSize: 11, fontWeight: 800, letterSpacing: 0.5 }}>VALMENTAJA</span>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 'auto' }}>
+        {NAV.map((n) => {
+          const on = tab === n.id;
+          return (
+            <button key={n.id} onClick={() => setTab(n.id)} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12, border: 'none', cursor: 'pointer',
+              background: on ? 'var(--lime)' : 'transparent', color: on ? '#101a08' : 'rgba(255,255,255,0.85)',
+              fontWeight: on ? 700 : 600, fontSize: 14.5, fontFamily: 'inherit', textAlign: 'left', transition: 'background .15s',
+            }}>
+              <NavIcon id={n.id} on={on} />{n.label}
+            </button>
+          );
+        })}
+      </nav>
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.14)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 6px 8px' }}>
+          <Avatar initial={coach.initial} hue={coach.hue} size={34} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{coach.name}</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Valmentaja</div>
+          </div>
+        </div>
+        <button onClick={onSignOut} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: '4px 6px', fontFamily: 'inherit' }}>Kirjaudu ulos</button>
+      </div>
+    </div>
+  );
+}
+
+function MobileTopBar({ coach }) {
+  return (
+    <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'rgba(247,245,239,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, textDecoration: 'none' }}>
+          <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--green-deep)', letterSpacing: -0.4 }}>Krossi</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
+        </a>
+        <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(14,59,44,0.1)', border: '1px solid rgba(14,59,44,0.22)', color: 'var(--green-deep)', fontSize: 10, fontWeight: 800, letterSpacing: 0.4 }}>VALMENTAJA</span>
+      </div>
+      <Avatar initial={coach.initial} hue={coach.hue} size={30} />
+    </div>
+  );
+}
+
+function MobileBottomNav({ tab, setTab }) {
+  return (
+    <div className="kv-mobile-bottomnav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 68, zIndex: 45, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid var(--line)', boxShadow: '0 -8px 24px -18px rgba(0,0,0,0.2)' }}>
+      {NAV.map((n) => {
+        const on = tab === n.id;
+        const fs = n.label.length > 8 ? 9.5 : 10.5;
+        return (
+          <button key={n.id} onClick={() => setTab(n.id)} style={{ flex: 1, border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit' }}>
+            <NavIcon id={n.id} on={on} offColor="#9a958a" />
+            <span style={{ fontSize: fs, fontWeight: on ? 700 : 500, color: on ? 'var(--green-deep)' : '#9a958a' }}>{n.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CoachApp({ coachId, onSignOut }) {
+  const [state, setState] = React.useState(null);
+  const [tab, setTab] = React.useState('students');
+  const [detailId, setDetailId] = React.useState(null);
+  const [groupDetailId, setGroupDetailId] = React.useState(null);
+  const [entryOpen, setEntryOpen] = React.useState(false);
+  const [trainingOpen, setTrainingOpen] = React.useState(false);
+  const [trainingDefaultDate, setTrainingDefaultDate] = React.useState(null);
+  const [exerciseId, setExerciseId] = React.useState(null);
+  const [exerciseFormOpen, setExerciseFormOpen] = React.useState(false);
+  const [videoOpen, setVideoOpen] = React.useState(false);
+  const [presessionTrainingId, setPresessionTrainingId] = React.useState(null);
+  const [themeModalGroupId, setThemeModalGroupId] = React.useState(null);
+  const [groupFormOpen, setGroupFormOpen] = React.useState(false);
+  const [addMembersGroupId, setAddMembersGroupId] = React.useState(null);
+  const [backgroundOpen, setBackgroundOpen] = React.useState(false);
+
+  const reload = React.useCallback(async () => {
+    const next = await window.koutsiLoadCoachState(coachId);
+    setState(next);
+  }, [coachId]);
+
+  React.useEffect(() => { reload(); }, [reload]);
+
+  // Live sync: any change to the tables this coach can see (their own students,
+  // groups, trainings, etc.) — made from this device or the player's — refreshes state.
+  React.useEffect(() => {
+    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods'];
+    const channel = tables.reduce((ch, table) => ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => reload()), window.koutsiSupabase.channel(`koutsi-coach-${coachId}`)).subscribe();
+    return () => window.koutsiSupabase.removeChannel(channel);
+  }, [coachId, reload]);
+
+  if (!state) return <window.KoutsiAuthLoadingScreen />;
+
+  const detail = detailId != null ? state.students.find((s) => s.id === detailId) : null;
+  const detailGroup = detail ? window.koutsiGroupForStudent(state, detail.id) : null;
+  const detailGroupCoach = detailGroup ? window.koutsiCoachById(state, detailGroup.coachId) : null;
+  const detailUpcoming = detail ? window.koutsiUpcomingTrainingsForStudent(state, detail.id) : [];
+  const detailAbsences = detail ? state.trainings
+    .map((t) => ({ training: t, entry: (t.absences || []).find((a) => a.studentId === detail.id) }))
+    .filter((x) => x.entry)
+    .sort((a, b) => b.training.date.localeCompare(a.training.date)) : [];
+
+  const groupDetail = groupDetailId != null ? state.groups.find((g) => g.id === groupDetailId) : null;
+  const groupMembers = groupDetail ? groupDetail.memberIds.map((id) => state.students.find((s) => s.id === id)).filter(Boolean) : [];
+  const groupUpcoming = groupDetail ? window.koutsiTrainingsForGroup(state, groupDetail.id).filter((t) => t.date >= window.koutsiTodayStr()) : [];
+
+  const exercise = exerciseId != null ? state.exercises.find((e) => e.id === exerciseId) : null;
+  const presessionTraining = presessionTrainingId != null ? state.trainings.find((t) => t.id === presessionTrainingId) : null;
+
+  const guarded = (fn) => async (...args) => { try { await fn(...args); } catch (err) { alert(err.message || 'Jokin meni pieleen'); } };
+
+  const saveEntry = guarded(async (text) => {
+    await window.koutsiAddDiaryEntry(coachId, detailId, text);
+    await reload();
+    setEntryOpen(false);
+  });
+  const toggleHomework = guarded(async (i) => {
+    const item = detail.homework[i];
+    await window.koutsiToggleHomeworkDone(item.id, !item.done);
+    await reload();
+  });
+  const addTraining = guarded(async ({ studentId, groupId, date, time, type }) => {
+    await window.koutsiAddTraining({ coachId, studentId, groupId, date, time, type });
+    await reload();
+    setTrainingOpen(false);
+  });
+  const addHomework = guarded(async (text) => {
+    await window.koutsiAddHomework(detailId, text);
+    await reload();
+  });
+  const addVideo = guarded(async ({ title, date, tags, studentIds }) => {
+    await window.koutsiShareVideo({ title, date, tags, studentIds, addedById: coachId });
+    await reload();
+    setVideoOpen(false);
+  });
+  // Cycles a member's status for one training: paikalla → poissa → loukkaantunut → paikalla.
+  const cycleAbsence = guarded(async (trainingId, studentId) => {
+    const training = state.trainings.find((t) => t.id === trainingId);
+    const currentReason = (training?.absences || []).find((a) => a.studentId === studentId)?.reason;
+    await window.koutsiCycleAbsence(trainingId, studentId, currentReason);
+    await reload();
+  });
+  const saveBackground = guarded(async (text) => {
+    await window.koutsiSaveBackground(detailId, text);
+    await reload();
+    setBackgroundOpen(false);
+  });
+  const setLevel = guarded(async (level) => {
+    await window.koutsiSetStudentLevel(detailId, level);
+    await reload();
+  });
+  const uploadAnnualPlan = guarded(async (groupId, filename) => {
+    await window.koutsiUploadAnnualPlan(groupId, filename);
+    await reload();
+  });
+  const removeAnnualPlan = guarded(async (groupId) => {
+    await window.koutsiRemoveAnnualPlan(groupId);
+    await reload();
+  });
+  const addExercise = guarded(async ({ name, goal, players, playerCount, duration, level, tags }) => {
+    await window.koutsiAddExercise({ coachId, name, goal, players, playerCount, duration, level, tags });
+    await reload();
+    setExerciseFormOpen(false);
+  });
+  const saveTheme = guarded(async (theme) => {
+    await window.koutsiSaveTheme(themeModalGroupId, theme);
+    await reload();
+    setThemeModalGroupId(null);
+  });
+  const createGroup = guarded(async ({ name, level, day, time, memberIds }) => {
+    await window.koutsiCreateGroup({ coachId, name, level, day, time, memberIds });
+    await reload();
+    setGroupFormOpen(false);
+  });
+  const addMembers = guarded(async (ids) => {
+    await window.koutsiAddGroupMembers(addMembersGroupId, ids);
+    await reload();
+    setAddMembersGroupId(null);
+  });
+  const openStudentFromGroup = (id) => { setGroupDetailId(null); setDetailId(id); };
+  const openGroupFromStudent = () => { if (detailGroup) { setDetailId(null); setGroupDetailId(detailGroup.id); } };
+
+  return (
+    <div style={{ minHeight: '100vh' }}>
+      <div className="kv-sidebar-wrap">
+        <Sidebar tab={tab} setTab={setTab} coach={state.coach} onSignOut={onSignOut} />
+      </div>
+      <MobileTopBar coach={state.coach} />
+      <div className="kv-main">
+        <div key={tab} className="k-rise-in">
+          {tab === 'students' && <StudentsView students={state.students} coachId={coachId} onOpen={setDetailId} />}
+          {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} onOpen={setGroupDetailId} onCreate={() => setGroupFormOpen(true)} />}
+          {tab === 'trainings' && <CalendarView state={state} onAdd={(d) => { setTrainingDefaultDate(d); setTrainingOpen(true); }} onPreSession={setPresessionTrainingId} />}
+          {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} onAdd={() => setExerciseFormOpen(true)} />}
+          {tab === 'profile' && <ProfileView coach={state.coach} studentCount={state.students.length} groupCount={state.groups.length} onSignOut={onSignOut} />}
+        </div>
+      </div>
+      <MobileBottomNav tab={tab} setTab={setTab} />
+
+      {detail && <StudentDetail student={detail} group={detailGroup} groupCoach={detailGroupCoach} upcoming={detailUpcoming} absences={detailAbsences} onClose={() => setDetailId(null)} onAddEntry={() => setEntryOpen(true)} onToggleHomework={toggleHomework} onOpenGroup={openGroupFromStudent} onAddHomework={addHomework} onAddVideo={() => setVideoOpen(true)} onEditBackground={() => setBackgroundOpen(true)} onSetLevel={setLevel} />}
+      {detail && entryOpen && <EntryModal student={detail} onClose={() => setEntryOpen(false)} onSend={saveEntry} />}
+      {detail && videoOpen && <VideoModal students={state.students} initialStudentId={detailId} onClose={() => setVideoOpen(false)} onSave={addVideo} />}
+      {detail && backgroundOpen && <BackgroundModal student={detail} onClose={() => setBackgroundOpen(false)} onSave={saveBackground} />}
+      {groupDetail && <GroupDetail group={groupDetail} members={groupMembers} upcoming={groupUpcoming} onClose={() => setGroupDetailId(null)} onOpenStudent={openStudentFromGroup} onEditTheme={() => setThemeModalGroupId(groupDetail.id)} onAddMembers={() => setAddMembersGroupId(groupDetail.id)} onUploadPlan={(filename) => uploadAnnualPlan(groupDetail.id, filename)} onRemovePlan={() => removeAnnualPlan(groupDetail.id)} />}
+      {trainingOpen && <TrainingModal students={state.students} groups={state.groups} defaultDate={trainingDefaultDate} onClose={() => setTrainingOpen(false)} onSave={addTraining} />}
+      {exercise && <ExerciseDetail exercise={exercise} onClose={() => setExerciseId(null)} />}
+      {exerciseFormOpen && <ExerciseFormModal onClose={() => setExerciseFormOpen(false)} onSave={addExercise} />}
+      {presessionTraining && <PreSessionPanel training={presessionTraining} state={state} onClose={() => setPresessionTrainingId(null)} onToggleAbsence={(studentId) => cycleAbsence(presessionTraining.id, studentId)} />}
+      {themeModalGroupId != null && <ThemeModal theme={(state.groups.find((g) => g.id === themeModalGroupId) || {}).theme} onClose={() => setThemeModalGroupId(null)} onSave={saveTheme} />}
+      {groupFormOpen && <GroupFormModal students={state.students} onClose={() => setGroupFormOpen(false)} onSave={createGroup} />}
+      {addMembersGroupId != null && <AddMembersModal coachId={coachId} group={state.groups.find((g) => g.id === addMembersGroupId)} allStudents={state.students} onClose={() => setAddMembersGroupId(null)} onSave={addMembers} />}
+    </div>
+  );
+}
+
+// ── root gate: auth -> Krossi onboarding -> coach check -> app ─────────
+function NotACoachScreen({ onSignOut }) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--sand)', textAlign: 'center' }}>
+      <div className="k-card" style={{ width: 'min(420px, 100%)', padding: '30px 28px' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 10, color: '#111' }}>Tiliäsi ei ole vielä liitetty valmentajaksi</h2>
+        <p style={{ fontSize: 14, color: '#8a857a', lineHeight: 1.55, marginBottom: 20 }}>Ota yhteyttä Krossiin, niin liitetään valmentajaoikeudet tähän tiliin. Jos sinulla on liittymiskoodi pelaajana, avaa sen sijaan koutsi.krossi.app/pelaaja.</p>
+        <button onClick={onSignOut} className="btn-outline" style={{ width: '100%', padding: '13px 0' }}>Kirjaudu ulos</button>
+      </div>
+    </div>
+  );
+}
+function KoutsiValmentajaRoot() {
+  const auth = window.useKoutsiAuth();
+  const [coachRow, setCoachRow] = React.useState(undefined); // undefined = checking, null = not a coach
+
+  React.useEffect(() => {
+    if (!auth.session || auth.needsOnboarding) { setCoachRow(undefined); return; }
+    let cancelled = false;
+    window.koutsiFetchCoachRow(auth.session.user.id).then((row) => { if (!cancelled) setCoachRow(row); });
+    return () => { cancelled = true; };
+  }, [auth.session, auth.needsOnboarding]);
+
+  if (auth.loading) return <window.KoutsiAuthLoadingScreen />;
+  if (!auth.session) return <window.KoutsiAuthScreen />;
+  if (auth.needsOnboarding) return <window.KoutsiProfileOnboarding />;
+  if (coachRow === undefined) return <window.KoutsiAuthLoadingScreen />;
+  if (!coachRow) return <NotACoachScreen onSignOut={auth.signOut} />;
+  return <CoachApp coachId={auth.session.user.id} onSignOut={auth.signOut} />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <window.KoutsiAuthProvider><KoutsiValmentajaRoot /></window.KoutsiAuthProvider>
+);
