@@ -955,7 +955,7 @@ function ProfileView({ coach, studentCount, groupCount, onReset }) {
           <Field label="Toiminnot">
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <a href="/pelaaja" className="btn-outline btn-sm">Pelaajan näkymä →</a>
-              <a href="/" className="btn-outline btn-sm">← Etusivulle</a>
+              <a href="https://koutsi.krossi.app" className="btn-outline btn-sm">← Etusivulle</a>
               <button onClick={onReset} className="btn-outline btn-sm" style={{ color: '#a13b2f', borderColor: '#e3c9c4' }}>Nollaa demodata</button>
             </div>
           </Field>
@@ -1013,7 +1013,7 @@ function Sidebar({ tab, setTab, coach, onReset }) {
           </div>
         </div>
         <a href="/pelaaja" className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>Pelaajan näkymä →</a>
-        <a href="/" className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>← Etusivulle</a>
+        <a href="https://koutsi.krossi.app" className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>← Etusivulle</a>
         <button onClick={onReset} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: '4px 6px', fontFamily: 'inherit' }}>Nollaa demodata</button>
       </div>
     </div>

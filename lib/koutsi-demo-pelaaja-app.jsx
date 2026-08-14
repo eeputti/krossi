@@ -559,7 +559,7 @@ function ProfileView({ student, group }) {
       <SectionTitle>Toiminnot</SectionTitle>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <a href="/valmentaja" className="btn-outline btn-sm">Valmentajan näkymä →</a>
-        <a href="/" className="btn-outline btn-sm">← Etusivulle</a>
+        <a href="https://koutsi.krossi.app" className="btn-outline btn-sm">← Etusivulle</a>
       </div>
     </div>
   );
@@ -621,7 +621,7 @@ function Sidebar({ tab, setTab, student, students, activeId, onSwitch }) {
           </select>
         </label>
         <a href="/valmentaja" className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>Valmentajan näkymä →</a>
-        <a href="/" className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>← Etusivulle</a>
+        <a href="https://koutsi.krossi.app" className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>← Etusivulle</a>
       </div>
     </div>
   );
