@@ -18,7 +18,7 @@ function Nav() {
         <a href="#top" className="nav-logo"><Wordmark size={21} /></a>
         <nav className="nav-links">
           <a href="#miten-toimii">Miten toimii</a>
-          <a href="/demo">Kokeile demoa</a>
+          <a href="https://demo.koutsi.krossi.app">Kokeile demoa</a>
         </nav>
         <a href={CONTACT_MAILTO} className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Pyydä pääsy</a>
       </header>
@@ -34,7 +34,7 @@ function Hero() {
         <h1 className="hero-title">Valmennus ja<br /><span className="hl">kehitys,</span> samassa paikassa.</h1>
         <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Pelaajat, ryhmät, videot, harjoitteet ja tavoitteet — kaikki yhdessä näkymässä.</p>
         <div className="hero-cta">
-          <a href="/demo" className="btn-lime btn-lg">Avaa demo →</a>
+          <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-lg">Avaa demo →</a>
         </div>
       </div>
       <div className="hero-visual">
@@ -94,7 +94,7 @@ function ClosingCTA() {
     <section className="closing" id="liity">
       <div className="closing-inner">
         <h2>Rakennetaan tätä yhdessä.</h2>
-        <a href="/demo" className="btn-lime btn-lg">Avaa demo →</a>
+        <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-lg">Avaa demo →</a>
       </div>
     </section>
   );

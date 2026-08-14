@@ -1,6 +1,7 @@
-// koutsi-valmentaja-app.jsx — full-page coach web app for koutsi.krossi.app/valmentaja.
-// Reads/writes the shared demo store from koutsi-data.js, so changes made here
+// koutsi-demo-valmentaja-app.jsx — full-page coach sales-demo app for demo.koutsi.krossi.app/valmentaja.
+// Reads/writes the shared demo store from koutsi-demo-data.js, so changes made here
 // (diary entries, homework, new trainings) show up in the player view too.
+// This is the localStorage-only sales demo — see lib/koutsi-valmentaja-app.jsx for the real app.
 
 const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely' };
 const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely'];

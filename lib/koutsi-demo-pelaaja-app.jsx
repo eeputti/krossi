@@ -1,7 +1,8 @@
-// koutsi-pelaaja-app.jsx — full-page player web app for koutsi.krossi.app/pelaaja.
-// Reads/writes the same shared demo store as the coach view (koutsi-data.js), so
+// koutsi-demo-pelaaja-app.jsx — full-page player sales-demo app for demo.koutsi.krossi.app/pelaaja.
+// Reads/writes the same shared demo store as the coach view (koutsi-demo-data.js), so
 // whatever the coach adds — a diary entry, a new training, a video — shows up here,
 // and whatever the player sets — their goal, a wish, a video — shows up for the coach.
+// This is the localStorage-only sales demo — see lib/koutsi-pelaaja-app.jsx for the real app.
 
 const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely' };
 const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely'];

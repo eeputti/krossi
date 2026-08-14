@@ -2,9 +2,11 @@
   "framework": null,
   "routes": [
     { "src": "/", "has": [{ "type": "host", "value": "koutsi.krossi.app" }], "dest": "/koutsi.html" },
-    { "src": "/demo", "has": [{ "type": "host", "value": "koutsi.krossi.app" }], "dest": "/koutsi-demo.html" },
     { "src": "/valmentaja", "has": [{ "type": "host", "value": "koutsi.krossi.app" }], "dest": "/koutsi-valmentaja.html" },
     { "src": "/pelaaja", "has": [{ "type": "host", "value": "koutsi.krossi.app" }], "dest": "/koutsi-pelaaja.html" },
+    { "src": "/", "has": [{ "type": "host", "value": "demo.koutsi.krossi.app" }], "dest": "/koutsi-demo.html" },
+    { "src": "/valmentaja", "has": [{ "type": "host", "value": "demo.koutsi.krossi.app" }], "dest": "/koutsi-valmentaja-demo.html" },
+    { "src": "/pelaaja", "has": [{ "type": "host", "value": "demo.koutsi.krossi.app" }], "dest": "/koutsi-pelaaja-demo.html" },
     { "handle": "filesystem" },
     { "src": "/pelaa", "dest": "/app.html" }
   ]
