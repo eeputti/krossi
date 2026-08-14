@@ -19,8 +19,9 @@ function Nav() {
         <nav className="nav-links">
           <a href="#miten-toimii">Miten toimii</a>
           <a href="https://demo.koutsi.krossi.app">Kokeile demoa</a>
+          <a href="https://koutsi.krossi.app/valmentaja">Kirjaudu sisään</a>
         </nav>
-        <a href={CONTACT_MAILTO} className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Pyydä pääsy</a>
+        <a href="https://koutsi.krossi.app/valmentaja" className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Luo tili</a>
       </header>
     </div>
   );
@@ -35,6 +36,7 @@ function Hero() {
         <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Pelaajat, ryhmät, videot, harjoitteet ja tavoitteet — kaikki yhdessä näkymässä.</p>
         <div className="hero-cta">
           <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-lg">Avaa demo →</a>
+          <a href="https://koutsi.krossi.app/valmentaja" className="btn-outline btn-lg">Luo tili →</a>
         </div>
       </div>
       <div className="hero-visual">
