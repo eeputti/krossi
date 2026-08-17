@@ -1236,12 +1236,38 @@ function CoachApp({ coachId, onSignOut }) {
 }
 
 // ── root gate: auth -> Krossi onboarding -> coach check -> app ─────────
-function NotACoachScreen({ onSignOut }) {
+// Self-serve coach provisioning, gated by a shared key checked server-side
+// (redeem_koutsi_coach_key) — the real value never ships to the browser.
+function CoachKeyGate({ onSignOut, onRedeemed }) {
+  const [key, setKey] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!key.trim()) return;
+    setError(''); setBusy(true);
+    try {
+      await window.koutsiRedeemCoachKey(key.trim());
+      await onRedeemed();
+    } catch (err) {
+      setError((err.message || '').includes('invalid coach key') ? 'Väärä avain.' : (err.message || 'Jokin meni pieleen.'));
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--sand)', textAlign: 'center' }}>
       <div className="k-card" style={{ width: 'min(420px, 100%)', padding: '30px 28px' }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 10, color: '#111' }}>Tiliäsi ei ole vielä liitetty valmentajaksi</h2>
-        <p style={{ fontSize: 14, color: '#8a857a', lineHeight: 1.55, marginBottom: 20 }}>Ota yhteyttä Krossiin, niin liitetään valmentajaoikeudet tähän tiliin. Jos sinulla on liittymiskoodi pelaajana, avaa sen sijaan koutsi.krossi.app/pelaaja.</p>
+        <p style={{ fontSize: 14, color: '#8a857a', lineHeight: 1.55, marginBottom: 20 }}>Jos olet valmentaja, syötä Krossilta saamasi valmentaja-avain. Jos sinulla on liittymiskoodi pelaajana, avaa sen sijaan koutsi.krossi.app/pelaaja.</p>
+        {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14, textAlign: 'left' }}>{error}</div>}
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+          <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="Valmentaja-avain" type="password" autoFocus
+            style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' }} />
+          <button className="btn-dark" type="submit" disabled={busy || !key.trim()} style={{ padding: '13px 0', border: 'none', opacity: (busy || !key.trim()) ? 0.45 : 1 }}>
+            {busy ? 'Tarkistetaan...' : 'Vahvista'}
+          </button>
+        </form>
         <button onClick={onSignOut} className="btn-outline" style={{ width: '100%', padding: '13px 0' }}>Kirjaudu ulos</button>
       </div>
     </div>
@@ -1250,6 +1276,11 @@ function NotACoachScreen({ onSignOut }) {
 function KoutsiValmentajaRoot() {
   const auth = window.useKoutsiAuth();
   const [coachRow, setCoachRow] = React.useState(undefined); // undefined = checking, null = not a coach
+
+  const checkCoachRow = React.useCallback(() => {
+    if (!auth.session) return Promise.resolve();
+    return window.koutsiFetchCoachRow(auth.session.user.id).then((row) => setCoachRow(row));
+  }, [auth.session]);
 
   React.useEffect(() => {
     if (!auth.session || auth.needsOnboarding) { setCoachRow(undefined); return; }
@@ -1262,7 +1293,7 @@ function KoutsiValmentajaRoot() {
   if (!auth.session) return <window.KoutsiAuthScreen />;
   if (auth.needsOnboarding) return <window.KoutsiProfileOnboarding />;
   if (coachRow === undefined) return <window.KoutsiAuthLoadingScreen />;
-  if (!coachRow) return <NotACoachScreen onSignOut={auth.signOut} />;
+  if (!coachRow) return <CoachKeyGate onSignOut={auth.signOut} onRedeemed={checkCoachRow} />;
   return <CoachApp coachId={auth.session.user.id} onSignOut={auth.signOut} />;
 }
 
