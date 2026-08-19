@@ -263,6 +263,24 @@ function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose
             </Field>
           )}
 
+          <Field label="Ottelumuistiinpanot">
+            {(student.matchNotes || []).length === 0 ? (
+              <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä ottelumuistiinpanoja.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {student.matchNotes.map((n) => (
+                  <div key={n.id} className="k-card" style={{ padding: '13px 15px' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: n.note ? 6 : 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{n.opponentName}</div>
+                      <div style={{ fontSize: 11.5, color: '#8a857a', flexShrink: 0 }}>{window.koutsiFmtShortDate(n.date)}</div>
+                    </div>
+                    {n.note && <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}>{n.note}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Field>
+
           {upcoming.length > 0 && (
             <Field label="Tulevat treenit">
               {upcoming.map((t) => (
@@ -1106,7 +1124,7 @@ function CoachApp({ coachId, onSignOut }) {
   // Live sync: any change to the tables this coach can see (their own students,
   // groups, trainings, etc.) — made from this device or the player's — refreshes state.
   React.useEffect(() => {
-    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods'];
+    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes'];
     const channel = tables.reduce((ch, table) => ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => reload()), window.koutsiSupabase.channel(`koutsi-coach-${coachId}`)).subscribe();
     return () => window.koutsiSupabase.removeChannel(channel);
   }, [coachId, reload]);
