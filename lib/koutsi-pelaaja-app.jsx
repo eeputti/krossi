@@ -496,8 +496,40 @@ function MoodModal({ onClose, onSave }) {
   );
 }
 
-function ProgressView({ student, onAddVideo, onAddMood }) {
+function MatchNoteModal({ onClose, onSave }) {
+  const [opponentName, setOpponentName] = React.useState('');
+  const [date, setDate] = React.useState(window.koutsiTodayStr());
+  const [note, setNote] = React.useState('');
+  const ready = opponentName.trim() && date;
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Ottelumuistiinpano</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Kirjaa taktiikkasi ja huomiosi vastustajasta — löydät nämä helposti uudestaan, jos sama vastustaja tulee vastaan.</p>
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Vastustaja</div>
+        <input value={opponentName} onChange={(e) => setOpponentName(e.target.value)} placeholder="Esim. Matti Meikäläinen" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Päivämäärä</div>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Muistiinpano</div>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={5} placeholder="Oliko taktiikkaa etukäteen? Piti/muuttuiko se? Mitä huomasit vastustajan syötöstä, lyönneistä, pelistä?"
+          style={{ ...inputStyle, resize: 'none', marginBottom: 16 }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => ready && onSave({ opponentName: opponentName.trim(), date, note: note.trim() })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Tallenna</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressView({ student, onAddVideo, onAddMood, onAddMatchNote }) {
   const moods = student.moods || [];
+  const matchNotes = student.matchNotes || [];
+  const [opponentSearch, setOpponentSearch] = React.useState('');
+  const filteredNotes = opponentSearch.trim()
+    ? matchNotes.filter((n) => n.opponentName.toLowerCase().includes(opponentSearch.trim().toLowerCase()))
+    : matchNotes;
   return (
     <div>
       <PageHeader title="Kehitys" sub="Kehityshistoriasi ja valmentajan huomiot jokaisesta kerrasta" />
@@ -525,6 +557,32 @@ function ProgressView({ student, onAddVideo, onAddMood }) {
           </div>
         )}
         <button onClick={onAddMood} className="btn-outline btn-sm" style={{ marginTop: 10 }}>+ Lisää fiilis treenin jälkeen</button>
+      </div>
+
+      <div style={{ marginBottom: 26 }}>
+        <SectionTitle>Ottelumuistiinpanot</SectionTitle>
+        {matchNotes.length > 0 && (
+          <input value={opponentSearch} onChange={(e) => setOpponentSearch(e.target.value)} placeholder="Hae vastustajan nimellä…"
+            style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '11px 14px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 10 }} />
+        )}
+        {filteredNotes.length === 0 ? (
+          <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>
+            {matchNotes.length === 0 ? 'Ei vielä ottelumuistiinpanoja.' : 'Ei osumia haulla.'}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
+            {filteredNotes.map((n) => (
+              <div key={n.id} className="k-card" style={{ padding: '13px 15px' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: n.note ? 6 : 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{n.opponentName}</div>
+                  <div style={{ fontSize: 11.5, color: '#8a857a', flexShrink: 0 }}>{window.koutsiFmtShortDate(n.date)}</div>
+                </div>
+                {n.note && <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}>{n.note}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+        <button onClick={onAddMatchNote} className="btn-outline btn-sm" style={{ marginTop: 10 }}>+ Lisää ottelumuistiinpano</button>
       </div>
 
       <SectionTitle>Aikajana</SectionTitle>
@@ -659,6 +717,7 @@ function PlayerApp({ studentId, onSignOut }) {
   const [exerciseId, setExerciseId] = React.useState(null);
   const [videoOpen, setVideoOpen] = React.useState(false);
   const [moodOpen, setMoodOpen] = React.useState(false);
+  const [matchNoteOpen, setMatchNoteOpen] = React.useState(false);
   const [note, setNote] = React.useState('');
   const [noteSaved, setNoteSaved] = React.useState(false);
   const [wish, setWish] = React.useState('');
@@ -673,7 +732,7 @@ function PlayerApp({ studentId, onSignOut }) {
   React.useEffect(() => { reload(); }, [reload]);
 
   React.useEffect(() => {
-    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods'];
+    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes'];
     const channel = tables.reduce((ch, table) => ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => reload()), window.koutsiSupabase.channel(`koutsi-player-${studentId}`)).subscribe();
     return () => window.koutsiSupabase.removeChannel(channel);
   }, [studentId, reload]);
@@ -725,6 +784,11 @@ function PlayerApp({ studentId, onSignOut }) {
     await reload();
     setMoodOpen(false);
   });
+  const addMatchNote = guarded(async ({ opponentName, date, note: matchNote }) => {
+    await window.koutsiAddMatchNote(studentId, { opponentName, date, note: matchNote });
+    await reload();
+    setMatchNoteOpen(false);
+  });
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -738,7 +802,7 @@ function PlayerApp({ studentId, onSignOut }) {
           {tab === 'group' && <GroupView student={student} state={state} />}
           {tab === 'trainings' && <TrainingsView student={student} state={state} upcoming={upcoming} note={note} setNote={setNote} noteSaved={noteSaved} onSaveNote={saveNote} onToggleHomework={toggleHomework} />}
           {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} />}
-          {tab === 'progress' && <ProgressView student={student} onAddVideo={() => setVideoOpen(true)} onAddMood={() => setMoodOpen(true)} />}
+          {tab === 'progress' && <ProgressView student={student} onAddVideo={() => setVideoOpen(true)} onAddMood={() => setMoodOpen(true)} onAddMatchNote={() => setMatchNoteOpen(true)} />}
           {tab === 'profile' && <ProfileView student={student} group={group} onSignOut={onSignOut} />}
         </div>
       </div>
@@ -746,6 +810,7 @@ function PlayerApp({ studentId, onSignOut }) {
       {exercise && <ExerciseDetail exercise={exercise} onClose={() => setExerciseId(null)} />}
       {videoOpen && <VideoModal onClose={() => setVideoOpen(false)} onSave={addVideo} />}
       {moodOpen && <MoodModal onClose={() => setMoodOpen(false)} onSave={addMood} />}
+      {matchNoteOpen && <MatchNoteModal onClose={() => setMatchNoteOpen(false)} onSave={addMatchNote} />}
     </div>
   );
 }
