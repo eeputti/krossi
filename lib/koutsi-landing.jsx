@@ -11,7 +11,22 @@ function Wordmark({ size = 23 }) {
   );
 }
 
-function Nav() {
+function RoleChooserModal({ onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(10,15,10,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(420px, 100%)', background: '#fff', borderRadius: 24, padding: '30px 28px', border: '1px solid var(--line)' }}>
+        <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: 'var(--ink)' }}>Kumpi olet?</h3>
+        <p style={{ fontSize: 13.5, color: '#8a857a', marginBottom: 20, lineHeight: 1.5 }}>Valmentaja ja pelaaja käyttävät eri näkymää — valitse kumpi olet, niin pääset kirjautumaan tai luomaan tilin oikeaan paikkaan.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <a href="https://koutsi.krossi.app/valmentaja" className="btn-dark" style={{ width: '100%', padding: '14px 0' }}>Olen valmentaja →</a>
+          <a href="https://koutsi.krossi.app/pelaaja" className="btn-outline" style={{ width: '100%', padding: '14px 0' }}>Olen pelaaja →</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Nav({ onOpenRoleChooser }) {
   return (
     <div className="nav-wrap">
       <header className="nav-pill">
@@ -19,15 +34,15 @@ function Nav() {
         <nav className="nav-links">
           <a href="#miten-toimii">Miten toimii</a>
           <a href="https://demo.koutsi.krossi.app">Kokeile demoa</a>
-          <a href="https://koutsi.krossi.app/valmentaja">Kirjaudu sisään</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); onOpenRoleChooser(); }}>Kirjaudu sisään</a>
         </nav>
-        <a href="https://koutsi.krossi.app/valmentaja" className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Luo tili</a>
+        <button type="button" onClick={onOpenRoleChooser} className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Luo tili</button>
       </header>
     </div>
   );
 }
 
-function Hero() {
+function Hero({ onOpenRoleChooser }) {
   return (
     <section className="hero" id="lataa">
       <div className="hero-copy">
@@ -36,7 +51,7 @@ function Hero() {
         <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Pelaajat, ryhmät, videot, harjoitteet ja tavoitteet — kaikki yhdessä näkymässä.</p>
         <div className="hero-cta">
           <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-lg">Avaa demo →</a>
-          <a href="https://koutsi.krossi.app/valmentaja" className="btn-outline btn-lg">Luo tili →</a>
+          <button type="button" onClick={onOpenRoleChooser} className="btn-outline btn-lg">Luo tili →</button>
         </div>
       </div>
       <div className="hero-visual">
@@ -120,14 +135,17 @@ function Footer() {
 }
 
 function App() {
+  const [roleChooserOpen, setRoleChooserOpen] = React.useState(false);
+  const openRoleChooser = () => setRoleChooserOpen(true);
   return (
     <div className="krossi-root" id="top">
-      <Nav />
-      <Hero />
+      <Nav onOpenRoleChooser={openRoleChooser} />
+      <Hero onOpenRoleChooser={openRoleChooser} />
       <Promise_ />
       <HowItWorks />
       <ClosingCTA />
       <Footer />
+      {roleChooserOpen && <RoleChooserModal onClose={() => setRoleChooserOpen(false)} />}
     </div>
   );
 }
