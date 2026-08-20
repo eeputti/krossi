@@ -137,6 +137,60 @@ function StudentsView({ students, onOpen }) {
   );
 }
 
+// How the player has felt after their sessions — the counterpart to the fiilis the player
+// records in the demo player view. Entries the player marked as private are filtered out
+// here; in the real app the database refuses to hand them to a coach at all.
+function MoodTrend({ moods }) {
+  const shared = (moods || []).filter((m) => !m.hiddenFromCoach);
+  if (shared.length === 0) return <div style={{ color: '#8a857a', fontSize: 14 }}>Pelaaja ei ole jakanut fiiliksiä.</div>;
+  const avg = shared.reduce((sum, m) => sum + m.score, 0) / shared.length;
+  const labels = { 1: 'Raskas', 2: 'Vaisu', 3: 'Ihan ok', 4: 'Hyvä', 5: 'Loistava' };
+  return (
+    <div className="k-card" style={{ padding: '14px 16px' }}>
+      <div style={{ fontSize: 13, color: '#514c42', marginBottom: 11 }}>
+        Keskiarvo <b style={{ color: '#111' }}>{avg.toFixed(1)}</b> · {shared.length} merkintää
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {shared.slice(0, 6).map((m) => (
+          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <span style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, background: m.score <= 2 ? 'rgba(194,59,40,0.14)' : 'var(--lime)', color: m.score <= 2 ? '#a13b2f' : '#101a08' }}>{m.score}</span>
+            <div style={{ minWidth: 0, flex: 1, fontSize: 13.5, color: '#3c382f', lineHeight: 1.45 }}>
+              <b style={{ color: '#111' }}>{labels[m.score]}</b>{m.note ? ` — ${m.note}` : ''}
+            </div>
+            <span style={{ fontSize: 11.5, color: '#a8a294', flexShrink: 0 }}>{window.koutsiFmtEventDate(m.at)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Where a player's goal has travelled. A coach preparing a session cares less about the
+// current sentence than about the fact that it used to say something else.
+function GoalHistory({ history }) {
+  const [open, setOpen] = React.useState(false);
+  const past = (history || []).filter((h) => h.previousValue);
+  if (past.length === 0) return null;
+  return (
+    <div style={{ borderTop: '1px dashed #e3dfd4', paddingTop: 9 }}>
+      <button onClick={() => setOpen((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--green-deep)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+        {open ? 'Piilota tavoitehistoria' : `Tavoite on muuttunut ${past.length} kertaa — näytä historia`}
+      </button>
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+          {past.map((h) => (
+            <div key={h.id} style={{ fontSize: 13, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#a8a294', textTransform: 'uppercase', letterSpacing: 0.5 }}>{window.koutsiFmtEventDate(h.at)}</div>
+              <div style={{ color: '#111' }}>{h.value}</div>
+              <div style={{ color: '#8a857a' }}>aiemmin: {h.previousValue}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditBackground }) {
   const [homeworkText, setHomeworkText] = React.useState('');
   return (
@@ -158,6 +212,7 @@ function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose
               <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {student.goal} <span style={{ color: '#8a857a', fontSize: 12 }}>(pelaajan asettama)</span></div>
               <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Viime treenissä:</b> {student.lastSession}</div>
               <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Seuraavaksi:</b> {student.focus}</div>
+              <GoalHistory history={student.goalHistory} />
             </div>
           </Field>
 
@@ -234,6 +289,10 @@ function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose
               </div>
             </Field>
           )}
+
+          <Field label="Fiilikset treenien jälkeen">
+            <MoodTrend moods={student.moods} />
+          </Field>
 
           <Field label="Ottelumuistiinpanot">
             {(student.matchNotes || []).length === 0 ? (

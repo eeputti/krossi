@@ -305,6 +305,35 @@ function ClubEventModal({ editing, defaultDate, onClose, onSave }) {
   );
 }
 
+// How the player has felt after their sessions. The coach could not see this at all
+// before, which made the player's "pidä omana tietona" choice meaningless. Rows the player
+// hid never reach the coach's query in the first place — RLS filters them — so this list
+// only ever renders what the player chose to share.
+function MoodTrend({ moods }) {
+  const shared = (moods || []).filter((m) => !m.hiddenFromCoach);
+  if (shared.length === 0) return <div style={{ color: '#8a857a', fontSize: 14 }}>Pelaaja ei ole jakanut fiiliksiä.</div>;
+  const avg = shared.reduce((sum, m) => sum + m.score, 0) / shared.length;
+  const labels = { 1: 'Raskas', 2: 'Vaisu', 3: 'Ihan ok', 4: 'Hyvä', 5: 'Loistava' };
+  return (
+    <div className="k-card" style={{ padding: '14px 16px' }}>
+      <div style={{ fontSize: 13, color: '#514c42', marginBottom: 11 }}>
+        Keskiarvo <b style={{ color: '#111' }}>{avg.toFixed(1)}</b> · {shared.length} merkintää
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {shared.slice(0, 6).map((m) => (
+          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <span style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, background: m.score <= 2 ? 'rgba(194,59,40,0.14)' : 'var(--lime)', color: m.score <= 2 ? '#a13b2f' : '#101a08' }}>{m.score}</span>
+            <div style={{ minWidth: 0, flex: 1, fontSize: 13.5, color: '#3c382f', lineHeight: 1.45 }}>
+              <b style={{ color: '#111' }}>{labels[m.score]}</b>{m.note ? ` — ${m.note}` : ''}
+            </div>
+            <span style={{ fontSize: 11.5, color: '#a8a294', flexShrink: 0 }}>{window.koutsiFmtEventDate(m.at)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Where a player's goal has travelled. A coach preparing a session cares less about the
 // current sentence than about the fact that it used to say something else — that is the
 // clearest read on whether the season is moving.
@@ -434,6 +463,10 @@ function StudentDetail({ student, group, groupCoach, upcoming, attendance, onClo
               </div>
             </Field>
           )}
+
+          <Field label="Fiilikset treenien jälkeen">
+            <MoodTrend moods={student.moods} />
+          </Field>
 
           <Field label="Ottelumuistiinpanot">
             {(student.matchNotes || []).length === 0 ? (
@@ -1998,7 +2031,7 @@ function CoachApp({ coachId, onSignOut }) {
   // Live sync: any change to the tables this coach can see (their own students,
   // groups, trainings, etc.) — made from this device or the player's — refreshes state.
   React.useEffect(() => {
-    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes'];
+    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes', 'koutsi_player_history'];
     const channel = tables.reduce((ch, table) => ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => reload()), window.koutsiSupabase.channel(`koutsi-coach-${coachId}`)).subscribe();
     return () => window.koutsiSupabase.removeChannel(channel);
   }, [coachId, reload]);
