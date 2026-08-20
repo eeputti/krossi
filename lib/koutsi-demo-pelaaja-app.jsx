@@ -27,39 +27,6 @@ function Avatar({ initial, hue = 150, size = 44, ring = false }) {
   );
 }
 
-function VideoRow({ videos, onAdd }) {
-  return (
-    <div>
-      {videos.length === 0 ? (
-        <div style={{ color: '#8a857a', fontSize: 14.5, marginBottom: 12 }}>Ei vielä videoita.</div>
-      ) : (
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 2, marginBottom: 12 }}>
-          {videos.map((v) => (
-            <div key={v.id} style={{ width: 160, flexShrink: 0 }}>
-              <div style={{ width: '100%', aspectRatio: '4/3', borderRadius: 16, position: 'relative', overflow: 'hidden', background: `radial-gradient(120% 120% at 30% 20%, hsl(${v.hue} 55% 45%), hsl(${v.hue + 24} 60% 22%))` }}>
-                <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="14" height="16" viewBox="0 0 12 14"><path d="M1 1v12l10-6L1 1z" fill="#101a08" /></svg>
-                  </span>
-                </span>
-                {v.addedBy === 'player' && <span style={{ position: 'absolute', left: 7, top: 7, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6 }}>Oma</span>}
-              </div>
-              <div style={{ color: '#111', fontSize: 13, fontWeight: 600, marginTop: 7, lineHeight: 1.35 }}>{v.title}</div>
-              <div style={{ color: '#8a857a', fontSize: 11, marginTop: 2 }}>{window.koutsiFmtShortDate(v.date)}</div>
-              {v.tags && v.tags.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                  {v.tags.map((t) => <span key={t} className="k-chip" style={{ padding: '2px 8px', fontSize: 10.5 }}>{window.KOUTSI_TAG_LABELS[t] || t}</span>)}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      <button onClick={onAdd} className="btn-outline btn-sm">+ Lisää video</button>
-    </div>
-  );
-}
-
 function SectionTitle({ children }) {
   return <div style={{ fontWeight: 800, fontSize: 12.5, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 }}>{children}</div>;
 }
@@ -619,11 +586,12 @@ const MOOD_LABELS = { 1: 'Raskas', 2: 'Vaisu', 3: 'Ihan ok', 4: 'Hyvä', 5: 'Loi
 function MoodModal({ onClose, onSave }) {
   const [score, setScore] = React.useState(null);
   const [note, setNote] = React.useState('');
+  const [hidden, setHidden] = React.useState(false);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Miltä treeni tuntui?</h3>
-        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Merkitse fiiliksesi treenin jälkeen — tämä näkyy myös valmentajallesi.</p>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Merkitse fiiliksesi treenin jälkeen. Oletuksena valmentajasi näkee tämän — voit halutessasi pitää sen omana tietonasi.</p>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {[1, 2, 3, 4, 5].map((n) => (
             <button key={n} onClick={() => setScore(n)} style={{
@@ -637,10 +605,14 @@ function MoodModal({ onClose, onSave }) {
           ))}
         </div>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Miksi? (valinnainen)" rows={3}
-          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 16, background: '#fff' }} />
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 14, background: '#fff' }} />
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginBottom: 16, cursor: 'pointer' }}>
+          <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: 'var(--green-deep)', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: '#3c382f', lineHeight: 1.45 }}>Älä näytä tätä valmentajalle — vain omaan seurantaani</span>
+        </label>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => score && onSave({ score, note: note.trim() })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: score ? 1 : 0.45, cursor: score ? 'pointer' : 'default' }}>Tallenna</button>
+          <button onClick={() => score && onSave({ score, note: note.trim(), hiddenFromCoach: hidden })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: score ? 1 : 0.45, cursor: score ? 'pointer' : 'default' }}>Tallenna</button>
         </div>
       </div>
     </div>
@@ -687,6 +659,7 @@ function ProgressView({ student, state, onAddVideo, onAddMood, onAddMatchNote })
       <window.KoutsiTimeline
         student={student}
         trainings={trainings}
+        clubEvents={state.clubEvents}
         actions={(
           <React.Fragment>
             <button onClick={onAddMood} className="btn-outline btn-sm">+ Fiilis</button>
@@ -843,34 +816,39 @@ function App() {
   const update = (fn) => setState((prev) => { const next = fn(prev); window.koutsiSaveState(next); return next; });
 
   const toggleHomework = (i) => {
-    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId ? { ...s, homework: s.homework.map((h, k) => k === i ? { ...h, done: !h.done } : h) } : s) }));
+    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId
+      ? { ...s, homework: s.homework.map((h, k) => k === i ? { ...h, done: !h.done, doneAt: h.done ? null : new Date().toISOString() } : h) }
+      : s) }));
+  };
+  // Goal, wish and note all overwrite one value on the student. Each edit appends to that
+  // field's history first, so the previous text survives onto the Kehitys timeline.
+  const savePlayerField = (field, column, historyKey, value) => {
+    update((prev) => ({ ...prev, students: prev.students.map((s) => {
+      if (s.id !== activeId || (s[column] || '') === value) return s;
+      const history = s[historyKey] || [];
+      const entry = { id: history.reduce((max, h) => Math.max(max, h.id), -1) + 1, at: new Date().toISOString(), value, previousValue: s[column] || '', byPlayer: true };
+      return { ...s, [column]: value, [historyKey]: [entry, ...history] };
+    }) }));
   };
   const saveNote = () => {
-    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId ? { ...s, playerNote: note.trim() } : s) }));
+    savePlayerField('note', 'playerNote', 'noteHistory', note.trim());
     setNoteSaved(true);
     setTimeout(() => setNoteSaved(false), 1800);
   };
   const saveWish = () => {
-    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId ? { ...s, playerWish: wish.trim() } : s) }));
+    savePlayerField('wish', 'playerWish', 'wishHistory', wish.trim());
     setWishSaved(true);
     setTimeout(() => setWishSaved(false), 1800);
   };
   // Editing a goal does not overwrite the old one — the previous text is kept in
   // goalHistory so it reappears on the Kehitys timeline as "Aiempi tavoite".
-  const saveGoal = (goal) => {
-    update((prev) => ({ ...prev, students: prev.students.map((s) => {
-      if (s.id !== activeId || s.goal === goal) return s;
-      const history = s.goalHistory || [];
-      const entry = { id: history.reduce((max, g) => Math.max(max, g.id), -1) + 1, at: new Date().toISOString(), goal, previousGoal: s.goal || '', byPlayer: true };
-      return { ...s, goal, goalHistory: [entry, ...history] };
-    }) }));
-  };
+  const saveGoal = (goal) => savePlayerField('goal', 'goal', 'goalHistory', goal);
   const addVideo = ({ title, date, tags }) => {
     update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId ? { ...s, videos: [...s.videos, { id: window.koutsiNextVideoId(s), title, date, at: new Date().toISOString(), tags, hue: s.hue, addedBy: 'player' }] } : s) }));
     setVideoOpen(false);
   };
-  const addMood = ({ score, note }) => {
-    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId ? { ...s, moods: [{ id: (s.moods || []).reduce((max, m) => Math.max(max, m.id || 0), -1) + 1, at: new Date().toISOString(), date: window.koutsiFmtShortDate(window.koutsiTodayStr()), score, note }, ...(s.moods || [])] } : s) }));
+  const addMood = ({ score, note, hiddenFromCoach }) => {
+    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === activeId ? { ...s, moods: [{ id: (s.moods || []).reduce((max, m) => Math.max(max, m.id || 0), -1) + 1, at: new Date().toISOString(), date: window.koutsiFmtShortDate(window.koutsiTodayStr()), score, note, hiddenFromCoach: !!hiddenFromCoach }, ...(s.moods || [])] } : s) }));
     setMoodOpen(false);
   };
   const addMatchNote = ({ opponentName, date, note: matchNote }) => {

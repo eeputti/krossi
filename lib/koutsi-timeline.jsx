@@ -12,6 +12,7 @@
 // same shape, and both load a koutsi-data with the same date helpers on `window`.
 
 const KOUTSI_TL_MOOD_LABELS = { 1: 'Raskas', 2: 'Vaisu', 3: 'Ihan ok', 4: 'Hyvä', 5: 'Loistava' };
+const KOUTSI_TL_PREVIOUS_LABELS = { goal: 'Aiempi tavoite', wish: 'Aiempi toive', note: 'Aiempi muistiinpano' };
 
 // One entry per event kind: the filter chip label, the rail dot colour, and the little
 // glyph in the card's badge. Order here is the order the filter chips appear in.
@@ -22,10 +23,13 @@ const KOUTSI_TL_KINDS = {
   mood: { label: 'Fiilikset', short: 'Fiilis', fg: '#2a5d94', bg: 'rgba(58,130,212,0.13)', dot: '#3a82d4', icon: '☺' },
   match: { label: 'Ottelut', short: 'Ottelu', fg: '#a13b2f', bg: 'rgba(161,59,47,0.11)', dot: '#a13b2f', icon: '⚑' },
   video: { label: 'Videot', short: 'Video', fg: '#6a389c', bg: 'rgba(148,88,214,0.13)', dot: '#9458d6', icon: '▶' },
+  wish: { label: 'Toiveet', short: 'Toive', fg: '#1f6b5c', bg: 'rgba(31,107,92,0.12)', dot: '#1f6b5c', icon: '✱' },
+  note: { label: 'Muistiinpanot', short: 'Muistiinpano', fg: '#6b665c', bg: '#efece4', dot: '#6b665c', icon: '✐' },
+  event: { label: 'Tapahtumat', short: 'Tapahtuma', fg: '#94571a', bg: 'rgba(214,140,44,0.13)', dot: '#c07820', icon: '★' },
   training: { label: 'Treenit', short: 'Treeni', fg: '#514c42', bg: '#efece4', dot: '#a8a294', icon: '●' },
-  start: { label: 'Alku', short: 'Alku', fg: '#514c42', bg: '#efece4', dot: '#a8a294', icon: '★' },
+  start: { label: 'Alku', short: 'Alku', fg: '#514c42', bg: '#efece4', dot: '#a8a294', icon: '⚑' },
 };
-const KOUTSI_TL_KIND_ORDER = ['goal', 'diary', 'homework', 'mood', 'match', 'video', 'training', 'start'];
+const KOUTSI_TL_KIND_ORDER = ['goal', 'diary', 'homework', 'mood', 'match', 'video', 'wish', 'note', 'event', 'training', 'start'];
 
 // ── time helpers ─────────────────────────────────────────────
 // Sources mix full ISO timestamps (created_at) with plain date strings (a video's or a
@@ -64,16 +68,16 @@ function koutsiTlDayLabel(dayStr) {
 // Turns one student (plus the trainings that concern them) into a flat, newest-first list
 // of timeline events. `search` on each event is the blob the free-text filter matches, so
 // searching "Venla" finds the match note and searching "syöttö" finds the coach's note.
-function koutsiBuildTimeline(student, trainings) {
+function koutsiBuildTimeline(student, trainings, clubEvents) {
   const items = [];
   const push = (e) => { if (e.at) items.push(e); };
 
   (student.goalHistory || []).forEach((g) => push({
     id: `goal-${g.id}`, kind: 'goal', at: g.at, source: g,
-    title: g.previousGoal ? 'Tavoite päivitetty' : 'Tavoite asetettu',
-    body: g.goal || '(tavoite tyhjennetty)',
-    previous: g.previousGoal || '',
-    search: `${g.goal || ''} ${g.previousGoal || ''} tavoite`,
+    title: g.previousValue ? 'Tavoite päivitetty' : 'Tavoite asetettu',
+    body: g.value || '(tavoite tyhjennetty)',
+    previous: g.previousValue || '',
+    search: `${g.value || ''} ${g.previousValue || ''} tavoite`,
   }));
 
   (student.diary || []).forEach((d) => push({
@@ -82,17 +86,26 @@ function koutsiBuildTimeline(student, trainings) {
     search: `${d.text} valmentaja`,
   }));
 
-  (student.homework || []).forEach((h, i) => push({
-    id: `hw-${h.id != null ? h.id : i}`, kind: 'homework', at: h.at, source: h,
-    title: h.done ? 'Kotiläksy — tehty' : 'Kotiläksy', body: h.text,
-    done: h.done,
-    search: `${h.text} kotiläksy`,
-  }));
+  // Assigned and ticked-off are two separate moments, and putting "tehty" on the day the
+  // coach assigned it would misdate the one thing the player actually did.
+  (student.homework || []).forEach((h, i) => {
+    const key = h.id != null ? h.id : i;
+    push({
+      id: `hw-${key}`, kind: 'homework', at: h.at, source: h,
+      title: 'Kotiläksy', body: h.text,
+      search: `${h.text} kotiläksy`,
+    });
+    if (h.done && h.doneAt) push({
+      id: `hw-done-${key}`, kind: 'homework', at: h.doneAt, source: h,
+      title: 'Kotiläksy tehty', body: h.text, done: true,
+      search: `${h.text} kotiläksy tehty`,
+    });
+  });
 
   (student.moods || []).forEach((m, i) => push({
     id: `mood-${m.id != null ? m.id : i}`, kind: 'mood', at: m.at, source: m,
     title: `Fiilis treenin jälkeen: ${KOUTSI_TL_MOOD_LABELS[m.score] || m.score}`,
-    body: m.note || '', score: m.score,
+    body: m.note || '', score: m.score, hidden: !!m.hiddenFromCoach,
     search: `${m.note || ''} fiilis ${KOUTSI_TL_MOOD_LABELS[m.score] || ''}`,
   }));
 
@@ -109,6 +122,22 @@ function koutsiBuildTimeline(student, trainings) {
     search: `${v.title} video ${(v.tags || []).join(' ')}`,
   }));
 
+  // The wish and the player's own note overwrite themselves exactly like the goal did, so
+  // each edit is kept and shown the same way — with what it replaced underneath.
+  (student.wishHistory || []).forEach((w) => push({
+    id: `wish-${w.id}`, kind: 'wish', at: w.at, source: w,
+    title: w.previousValue ? 'Toive päivitetty' : 'Toive valmentajalle',
+    body: w.value || '(toive tyhjennetty)', previous: w.previousValue || '',
+    search: `${w.value || ''} ${w.previousValue || ''} toive`,
+  }));
+
+  (student.noteHistory || []).forEach((n) => push({
+    id: `note-${n.id}`, kind: 'note', at: n.at, source: n,
+    title: n.previousValue ? 'Muistiinpano päivitetty' : 'Oma muistiinpano',
+    body: n.value || '(muistiinpano tyhjennetty)', previous: n.previousValue || '',
+    search: `${n.value || ''} ${n.previousValue || ''} muistiinpano`,
+  }));
+
   // Only sessions that have already happened belong on a history timeline; the upcoming
   // ones live on the Treenit tab.
   const today = window.koutsiTodayStr();
@@ -123,6 +152,14 @@ function koutsiBuildTimeline(student, trainings) {
       search: `${t.type} ${t.groupName || ''} treeni ${reason}`,
     });
   });
+
+  // Club tournaments and play days are things that happened to the player too, even though
+  // they belong to the club rather than to one student.
+  (clubEvents || []).filter((e) => e.date <= today).forEach((e) => push({
+    id: `event-${e.id}`, kind: 'event', at: e.date,
+    title: e.title, body: e.kind ? `Seuran ${e.kind}` : '',
+    search: `${e.title} ${e.kind || ''} tapahtuma seura`,
+  }));
 
   if (student.joinedAt) push({
     id: 'start', kind: 'start', at: student.joinedAt,
@@ -185,16 +222,19 @@ function KoutsiTlEvent({ event, onOpenVideo, renderActions }) {
       {event.kind === 'mood' ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
           <span style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--lime)', color: '#101a08', fontWeight: 800, fontSize: 13, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{event.score}</span>
-          {event.body && <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}>{event.body}</div>}
+          <div style={{ minWidth: 0 }}>
+            {event.body && <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}>{event.body}</div>}
+            {event.hidden && <span className="k-chip" style={{ marginTop: event.body ? 5 : 0, fontSize: 11 }}>🔒 Vain sinulle</span>}
+          </div>
         </div>
       ) : event.body ? (
         <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.55, textDecoration: event.done ? 'line-through' : 'none' }}>{event.body}</div>
       ) : null}
 
-      {/* The whole point of goal history: the goal it replaced stays readable underneath. */}
-      {event.kind === 'goal' && event.previous && (
+      {/* The whole point of keeping a history: the text it replaced stays readable underneath. */}
+      {event.previous && (
         <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px dashed #e3dfd4' }}>
-          <span style={{ fontSize: 10.5, fontWeight: 800, color: '#a8a294', textTransform: 'uppercase', letterSpacing: 0.5 }}>Aiempi tavoite</span>
+          <span style={{ fontSize: 10.5, fontWeight: 800, color: '#a8a294', textTransform: 'uppercase', letterSpacing: 0.5 }}>{KOUTSI_TL_PREVIOUS_LABELS[event.kind] || 'Aiempi'}</span>
           <div style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5, marginTop: 3 }}>{event.previous}</div>
         </div>
       )}
@@ -220,12 +260,12 @@ function KoutsiTlEvent({ event, onOpenVideo, renderActions }) {
 
 const KOUTSI_TL_PAGE = 40;
 
-function KoutsiTimeline({ student, trainings, onOpenVideo, actions, renderActions }) {
+function KoutsiTimeline({ student, trainings, clubEvents, onOpenVideo, actions, renderActions }) {
   const [kind, setKind] = React.useState('kaikki');
   const [query, setQuery] = React.useState('');
   const [limit, setLimit] = React.useState(KOUTSI_TL_PAGE);
 
-  const all = React.useMemo(() => koutsiBuildTimeline(student, trainings), [student, trainings]);
+  const all = React.useMemo(() => koutsiBuildTimeline(student, trainings, clubEvents), [student, trainings, clubEvents]);
 
   // Counts come off the unfiltered list so a chip never reads "0" while showing results.
   const counts = React.useMemo(() => {

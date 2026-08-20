@@ -29,6 +29,7 @@ const PAGES = {
     'lib/koutsi-data.js',
     'lib/koutsi-qr.js',
     'lib/koutsi-ui.jsx',
+    'lib/koutsi-timeline.jsx',
     'lib/koutsi-valmentaja-app.jsx',
   ],
   'koutsi-pelaaja': [
@@ -38,6 +39,21 @@ const PAGES = {
     'lib/koutsi-ui.jsx',
     'lib/koutsi-timeline.jsx',
     'lib/koutsi-pelaaja-app.jsx',
+  ],
+  // The demo is the first thing a prospective coach opens, so it gets the same treatment.
+  'koutsi-valmentaja-demo': [
+    'lib/koutsi-demo-data.js',
+    'lib/koutsi-timeline.jsx',
+    'lib/koutsi-demo-valmentaja-app.jsx',
+  ],
+  'koutsi-pelaaja-demo': [
+    'lib/koutsi-demo-data.js',
+    'lib/koutsi-timeline.jsx',
+    'lib/koutsi-demo-pelaaja-app.jsx',
+  ],
+  'koutsi-landing': [
+    'lib/koutsi-phone.jsx',
+    'lib/koutsi-landing.jsx',
   ],
 };
 

@@ -185,14 +185,24 @@ function InviteStudentModal({ coachId, coachName, onClose }) {
 
 function StudentsView({ students, coachId, coachName, onOpen, groupCount, trainingCount, onCreateGroup, onAddTraining }) {
   const [inviteOpen, setInviteOpen] = React.useState(false);
+  // A search box only earns its space once the list stops fitting on one screen.
+  const [search, setSearch] = React.useState('');
+  const q = search.trim().toLowerCase();
+  const shown = q
+    ? students.filter((s) => `${s.name} ${s.goal || ''} ${s.focus || ''} ${s.level || ''}`.toLowerCase().includes(q))
+    : students;
   return (
     <div>
       <PageHeader title="Oppilaani" sub={`${students.length} valmennettavaa`} action={<button onClick={() => setInviteOpen(true)} className="btn-dark btn-sm">+ Kutsu oppilas</button>} />
       <GettingStarted
         studentCount={students.length} groupCount={groupCount} trainingCount={trainingCount}
         onInvite={() => setInviteOpen(true)} onCreateGroup={onCreateGroup} onAddTraining={onAddTraining} />
+      {students.length > 6 && (
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Hae oppilaan nimellä tai tavoitteella…"
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '12px 15px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 18 }} />
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
-        {students.map((s) => (
+        {shown.map((s) => (
           <button key={s.id} onClick={() => onOpen(s.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <Avatar initial={s.initial} hue={s.hue} size={48} />
@@ -209,13 +219,120 @@ function StudentsView({ students, coachId, coachName, onOpen, groupCount, traini
           </button>
         ))}
         {students.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei vielä oppilaita — kutsu ensimmäinen yllä olevasta linkistä.</div>}
+        {students.length > 0 && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei osumia haulla ”{search.trim()}”.</div>}
       </div>
       {inviteOpen && <InviteStudentModal coachId={coachId} coachName={coachName} onClose={() => setInviteOpen(false)} />}
     </div>
   );
 }
 
-function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditBackground, onSetLevel, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEndCoaching }) {
+// Absences were listed one by one with no total, which is the number a coach is actually
+// asked for at the end of a season. Only past sessions count — a season planned ahead
+// would otherwise read as one long absence.
+function AttendanceCard({ attendance }) {
+  const [open, setOpen] = React.useState(false);
+  const { total, present, absent, injured, rate, events } = attendance;
+  const tone = rate >= 85 ? '#2f7d54' : rate >= 70 ? '#8a6a12' : '#a13b2f';
+  return (
+    <Field label="Läsnäolo">
+      <div className="k-card" style={{ padding: '15px 17px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 26, fontWeight: 800, color: tone, letterSpacing: -0.5 }}>{rate}%</span>
+          <span style={{ fontSize: 13, color: '#8a857a' }}>{present}/{total} pidetystä treenistä</span>
+        </div>
+        <div style={{ display: 'flex', height: 7, borderRadius: 999, overflow: 'hidden', background: '#f0ede5', marginBottom: 12 }}>
+          <span style={{ width: `${total ? (present / total) * 100 : 0}%`, background: '#2f7d54' }} />
+          <span style={{ width: `${total ? (absent / total) * 100 : 0}%`, background: '#a8a297' }} />
+          <span style={{ width: `${total ? (injured / total) * 100 : 0}%`, background: '#c23b28' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12.5, color: '#514c42' }}>
+          <span><b style={{ color: '#2f7d54' }}>{present}</b> paikalla</span>
+          <span><b style={{ color: '#6b665c' }}>{absent}</b> poissa</span>
+          <span><b style={{ color: '#c23b28' }}>{injured}</b> loukkaantuneena</span>
+        </div>
+        {events.length > 0 && (
+          <React.Fragment>
+            <button onClick={() => setOpen((v) => !v)} style={{ background: 'none', border: 'none', padding: '10px 0 0', color: 'var(--green-deep)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {open ? 'Piilota erittely' : `Näytä ${events.length} poissaoloa`}
+            </button>
+            {open && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+                {events.map(({ training, reason }) => (
+                  <div key={training.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: reason === 'vamma' ? 'rgba(214,60,44,0.08)' : 'rgba(138,133,122,0.1)' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: reason === 'vamma' ? '#c23b28' : '#8a857a', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, color: '#3c382f', flex: 1 }}>{window.koutsiFmtShortDate(training.date)} — {training.type}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: reason === 'vamma' ? '#c23b28' : '#6b665c' }}>{window.KOUTSI_ABSENCE_REASON_LABELS[reason]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </React.Fragment>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+function ClubEventModal({ editing, defaultDate, onClose, onSave }) {
+  const isEdit = Boolean(editing);
+  const [title, setTitle] = React.useState(() => (editing ? editing.title : ''));
+  const [date, setDate] = React.useState(() => (editing ? editing.date : (defaultDate || window.koutsiTodayStr())));
+  const [kind, setKind] = React.useState(() => (editing ? editing.kind || 'seura' : 'seura'));
+  const ready = title.trim() && date;
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>{isEdit ? 'Muokkaa tapahtumaa' : 'Uusi tapahtuma'}</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Kilpailut, leirit ja muut merkinnät näkyvät kalenterissa sinulle ja oppilaillesi.</p>
+        <div style={label}>Otsikko</div>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Seuran kevätkisat" autoFocus style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Päivämäärä</div>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Tyyppi</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {window.KOUTSI_EVENT_KINDS.map((k) => (
+            <button key={k.value} onClick={() => setKind(k.value)} style={{ padding: '8px 14px', borderRadius: 999, border: kind === k.value ? 'none' : '1px solid #d8d4ca', background: kind === k.value ? 'var(--lime)' : '#fff', color: kind === k.value ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{k.label}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={() => ready && onSave({ title: title.trim(), date, kind })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{isEdit ? 'Tallenna' : 'Lisää'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Where a player's goal has travelled. A coach preparing a session cares less about the
+// current sentence than about the fact that it used to say something else — that is the
+// clearest read on whether the season is moving.
+function GoalHistory({ history }) {
+  const [open, setOpen] = React.useState(false);
+  const past = (history || []).filter((h) => h.previousValue);
+  if (past.length === 0) return null;
+  return (
+    <div style={{ borderTop: '1px dashed #e3dfd4', paddingTop: 9 }}>
+      <button onClick={() => setOpen((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--green-deep)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+        {open ? 'Piilota tavoitehistoria' : `Tavoite on muuttunut ${past.length} kertaa — näytä historia`}
+      </button>
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+          {past.map((h) => (
+            <div key={h.id} style={{ fontSize: 13, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#a8a294', textTransform: 'uppercase', letterSpacing: 0.5 }}>{window.koutsiFmtEventDate(h.at)}</div>
+              <div style={{ color: '#111' }}>{h.value}</div>
+              <div style={{ color: '#8a857a' }}>aiemmin: {h.previousValue}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudentDetail({ student, group, groupCoach, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditBackground, onSetLevel, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEndCoaching }) {
   const [homeworkText, setHomeworkText] = React.useState('');
   const [levelPickerOpen, setLevelPickerOpen] = React.useState(false);
   const [editingHomework, setEditingHomework] = React.useState(null); // homework id being renamed
@@ -249,6 +366,7 @@ function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose
               <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {student.goal} <span style={{ color: '#8a857a', fontSize: 12 }}>(pelaajan asettama)</span></div>
               <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Viime treenissä:</b> {student.lastSession}</div>
               <div style={{ fontSize: 14, lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Seuraavaksi:</b> {student.focus}</div>
+              <GoalHistory history={student.goalHistory} />
             </div>
           </Field>
 
@@ -263,19 +381,7 @@ function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose
             <button onClick={onEditBackground} className="btn-outline btn-sm" style={{ marginTop: 10 }}>Muokkaa taustatietoja</button>
           </Field>
 
-          {absences && absences.length > 0 && (
-            <Field label="Poissaolot ja vammat">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {absences.map(({ training, entry }) => (
-                  <div key={training.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 12, background: entry.reason === 'vamma' ? 'rgba(214,60,44,0.08)' : 'rgba(138,133,122,0.1)' }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: entry.reason === 'vamma' ? '#c23b28' : '#8a857a', flexShrink: 0 }} />
-                    <span style={{ fontSize: 13.5, color: '#3c382f', flex: 1 }}>{window.koutsiFmtShortDate(training.date)} — {training.type}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: entry.reason === 'vamma' ? '#c23b28' : '#6b665c' }}>{window.KOUTSI_ABSENCE_REASON_LABELS[entry.reason]}</span>
-                  </div>
-                ))}
-              </div>
-            </Field>
-          )}
+          {attendance && attendance.total > 0 && <AttendanceCard attendance={attendance} />}
 
           {group && (
             <Field label="Valmennusryhmä">
@@ -1123,7 +1229,7 @@ function CalendarGrid({ state, viewYear, viewMonth, selectedDate, todayStr, onSe
   );
 }
 
-function CalendarView({ state, onAdd, onPreSession, onEditTraining, onDeleteTraining }) {
+function CalendarView({ state, onAdd, onPreSession, onEditTraining, onDeleteTraining, onAddEvent, onEditEvent, onDeleteEvent }) {
   const todayStr = window.koutsiTodayStr();
   const todayDate = window.koutsiDateFromStr(todayStr);
   const [viewYear, setViewYear] = React.useState(todayDate.getFullYear());
@@ -1141,7 +1247,12 @@ function CalendarView({ state, onAdd, onPreSession, onEditTraining, onDeleteTrai
 
   return (
     <div>
-      <PageHeader title="Treenit" sub="Kalenteri ja tulevat valmennukset" action={<button onClick={() => onAdd(selectedDate)} className="btn-dark btn-sm">+ Lisää valmennus</button>} />
+      <PageHeader title="Treenit" sub="Kalenteri ja tulevat valmennukset" action={
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => onAddEvent(selectedDate)} className="btn-outline btn-sm">+ Tapahtuma</button>
+          <button onClick={() => onAdd(selectedDate)} className="btn-dark btn-sm">+ Lisää valmennus</button>
+        </div>
+      } />
       <div className="kv-calendar-layout">
         <CalendarGrid state={state} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
           onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
@@ -1149,12 +1260,17 @@ function CalendarView({ state, onAdd, onPreSession, onEditTraining, onDeleteTrai
           <div style={{ fontSize: 13, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 14 }}>{window.koutsiFmtLongDate(selectedDate)}</div>
           {clubEventsOnSelected.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-              {clubEventsOnSelected.map((e) => (
-                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 14, background: 'rgba(199,123,46,0.1)', border: '1px solid rgba(199,123,46,0.3)' }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c77b2e', flexShrink: 0 }} />
-                  <span style={{ fontSize: 13.5, color: '#7a4c1e', fontWeight: 700 }}>{e.title}</span>
-                </div>
-              ))}
+              {clubEventsOnSelected.map((e) => {
+                const kindLabel = (window.KOUTSI_EVENT_KINDS.find((k) => k.value === e.kind) || {}).label;
+                return (
+                  <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 14, background: 'rgba(199,123,46,0.1)', border: '1px solid rgba(199,123,46,0.3)' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c77b2e', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13.5, color: '#7a4c1e', fontWeight: 700, flex: 1, minWidth: 0 }}>{e.title}</span>
+                    {kindLabel && <span style={{ fontSize: 11.5, color: '#9a6a30', fontWeight: 600 }}>{kindLabel}</span>}
+                    <window.KoutsiRowActions onEdit={() => onEditEvent(e)} onDelete={() => onDeleteEvent(e)} editLabel="Muokkaa tapahtumaa" deleteLabel="Poista tapahtuma" />
+                  </div>
+                );
+              })}
             </div>
           )}
           {trainingsOnSelected.length === 0 && clubEventsOnSelected.length === 0 && <div className="k-card" style={{ padding: 22, color: '#8a857a', fontSize: 14.5 }}>Ei valmennuksia tänä päivänä.</div>}
@@ -1575,6 +1691,82 @@ function ProfileEditModal({ coach, onClose, onSaved }) {
   );
 }
 
+// Only rendered for people in koutsi_admins. Replaces the hand-written UPDATE that
+// publishing a reviewed annual plan used to require.
+function AnnualPlanReviewPanel() {
+  const toast = window.useKoutsiToast();
+  const confirm = window.useKoutsiConfirm();
+  const [plans, setPlans] = React.useState(null);
+  const [busyId, setBusyId] = React.useState(null);
+
+  const load = React.useCallback(async () => {
+    try { setPlans(await window.koutsiPendingAnnualPlans()); } catch { setPlans([]); }
+  }, []);
+  React.useEffect(() => { load(); }, [load]);
+
+  const open = async (plan) => {
+    setBusyId(plan.groupId);
+    try {
+      const url = await window.koutsiAnnualPlanUrl(plan.storagePath);
+      window.open(url, '_blank', 'noopener');
+    } catch (err) { toast.error(window.koutsiErrorText(err)); } finally { setBusyId(null); }
+  };
+  const publish = async (plan) => {
+    const ok = await confirm({
+      title: 'Merkitse lisätyksi?',
+      body: `${plan.groupName} · ${plan.filename}. Valmentaja ${plan.coachName} saa ilmoituksen, ja suunnitelma näkyy sovelluksessa käytössä olevana.`,
+      confirmLabel: 'Merkitse lisätyksi',
+    });
+    if (!ok) return;
+    setBusyId(plan.groupId);
+    await toast.run(async () => { await window.koutsiPublishAnnualPlan(plan.groupId); await load(); }, 'Merkitty lisätyksi.');
+    setBusyId(null);
+  };
+
+  if (plans === null || plans.length === 0) return null;
+  return (
+    <Field label={`Odottavat vuosisuunnitelmat (${plans.length})`}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {plans.map((plan) => (
+          <div key={plan.groupId} className="k-card" style={{ padding: '13px 15px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 140, flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{plan.groupName}</div>
+              <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>
+                {plan.coachName} · {plan.filename}
+                {plan.uploadedAt ? ` · ${window.koutsiFmtShortDate(String(plan.uploadedAt).slice(0, 10))}` : ''}
+              </div>
+            </div>
+            <button onClick={() => open(plan)} disabled={busyId === plan.groupId} className="btn-outline btn-sm">Avaa</button>
+            <button onClick={() => publish(plan)} disabled={busyId === plan.groupId} className="btn-dark btn-sm">Merkitse lisätyksi</button>
+          </div>
+        ))}
+      </div>
+    </Field>
+  );
+}
+
+// Turns an access/portability request from an evening of manual queries into a button.
+// The export contains only rows the caller can already read — RLS decides, not the client.
+function DataExportButton({ userId, role, name }) {
+  const toast = window.useKoutsiToast();
+  const [busy, setBusy] = React.useState(false);
+  const run = async () => {
+    setBusy(true);
+    await toast.run(async () => {
+      const payload = await window.koutsiExportMyData(userId, role);
+      const stamp = window.koutsiTodayStr();
+      const safe = (name || 'koutsi').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      window.koutsiDownloadJson(payload, `koutsi-tiedot-${safe}-${stamp}.json`);
+    }, 'Tiedot ladattu.');
+    setBusy(false);
+  };
+  return (
+    <button onClick={run} disabled={busy} className="btn-outline btn-sm" style={{ opacity: busy ? 0.6 : 1 }}>
+      {busy ? 'Kootaan…' : 'Lataa omat tietoni (JSON)'}
+    </button>
+  );
+}
+
 function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload }) {
   const [editOpen, setEditOpen] = React.useState(false);
   const specialties = coach.specialties || [];
@@ -1616,11 +1808,16 @@ function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload }) {
               <button onClick={onSignOut} className="btn-outline btn-sm">Kirjaudu ulos</button>
             </div>
           </Field>
+          <AnnualPlanReviewPanel />
           <Field label="Tili ja tiedot">
             <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.55, marginBottom: 10 }}>
-              Tilin poisto tyhjentää pysyvästi kaikki oppilastietosi, ryhmäsi, treenisi ja harjoitteesi. Oppilaiden omat tilit säilyvät.
+              Voit ladata kaikki sinulle näkyvät tiedot yhtenä tiedostona. Tilin poisto tyhjentää pysyvästi
+              kaikki oppilastietosi, ryhmäsi, treenisi ja harjoitteesi — oppilaiden omat tilit säilyvät.
             </p>
-            <window.KoutsiDeleteAccountButton profileName={coach.name} />
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <DataExportButton userId={coach.id} role="coach" name={coach.name} />
+              <window.KoutsiDeleteAccountButton profileName={coach.name} />
+            </div>
             <window.KoutsiLegalLinks style={{ marginTop: 16 }} />
           </Field>
         </div>
@@ -1781,6 +1978,9 @@ function CoachApp({ coachId, onSignOut }) {
   const [editingGroup, setEditingGroup] = React.useState(null);
   const [addMembersGroupId, setAddMembersGroupId] = React.useState(null);
   const [backgroundOpen, setBackgroundOpen] = React.useState(false);
+  const [eventOpen, setEventOpen] = React.useState(false);
+  const [editingEvent, setEditingEvent] = React.useState(null);
+  const [eventDefaultDate, setEventDefaultDate] = React.useState(null);
 
   const [loadError, setLoadError] = React.useState(false);
   const reload = React.useCallback(async () => {
@@ -1810,10 +2010,7 @@ function CoachApp({ coachId, onSignOut }) {
   const detailGroup = detail ? window.koutsiGroupForStudent(state, detail.id) : null;
   const detailGroupCoach = detailGroup ? window.koutsiCoachById(state, detailGroup.coachId) : null;
   const detailUpcoming = detail ? window.koutsiUpcomingTrainingsForStudent(state, detail.id) : [];
-  const detailAbsences = detail ? state.trainings
-    .map((t) => ({ training: t, entry: (t.absences || []).find((a) => a.studentId === detail.id) }))
-    .filter((x) => x.entry)
-    .sort((a, b) => b.training.date.localeCompare(a.training.date)) : [];
+  const detailAttendance = detail ? window.koutsiAttendanceSummary(state, detail.id) : null;
 
   const groupDetail = groupDetailId != null ? state.groups.find((g) => g.id === groupDetailId) : null;
   const groupMembers = groupDetail ? groupDetail.memberIds.map((id) => state.students.find((s) => s.id === id)).filter(Boolean) : [];
@@ -1992,6 +2189,19 @@ function CoachApp({ coachId, onSignOut }) {
 
   const openStudentFromGroup = (id) => { setGroupDetailId(null); setDetailId(id); };
   const openGroupFromStudent = () => { if (detailGroup) { setDetailId(null); setGroupDetailId(detailGroup.id); } };
+  const saveClubEvent = async ({ title, date, kind }) => {
+    const ok = await toast.run(async () => {
+      if (editingEvent) await window.koutsiUpdateClubEvent(editingEvent.id, { title, date, kind });
+      else await window.koutsiAddClubEvent({ coachId, title, date, kind });
+      await reload();
+    }, editingEvent ? 'Tapahtuma päivitetty.' : 'Tapahtuma lisätty.');
+    if (ok) { setEventOpen(false); setEditingEvent(null); }
+  };
+  const deleteClubEvent = async (e) => {
+    const ok = await confirm({ title: 'Poista tapahtuma?', body: `${e.title} — ${window.koutsiFmtShortDate(e.date)}`, confirmLabel: 'Poista', danger: true });
+    if (ok) await act(() => window.koutsiDeleteClubEvent(e.id), 'Tapahtuma poistettu.')();
+  };
+
   const openNewTraining = (d) => { setEditingTraining(null); setTrainingDefaultDate(d || window.koutsiTodayStr()); setTrainingOpen(true); };
   const openEditTraining = (t) => { setEditingTraining(t); setTrainingOpen(true); };
 
@@ -2011,7 +2221,14 @@ function CoachApp({ coachId, onSignOut }) {
               onAddTraining={() => { setTab('trainings'); openNewTraining(null); }} />
           )}
           {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} onOpen={setGroupDetailId} onCreate={() => { setEditingGroup(null); setGroupFormOpen(true); }} />}
-          {tab === 'trainings' && <CalendarView state={state} onAdd={openNewTraining} onPreSession={setPresessionTrainingId} onEditTraining={openEditTraining} onDeleteTraining={deleteTraining} />}
+          {tab === 'trainings' && (
+            <CalendarView
+              state={state} onAdd={openNewTraining} onPreSession={setPresessionTrainingId}
+              onEditTraining={openEditTraining} onDeleteTraining={deleteTraining}
+              onAddEvent={(d) => { setEditingEvent(null); setEventDefaultDate(d); setEventOpen(true); }}
+              onEditEvent={(e) => { setEditingEvent(e); setEventOpen(true); }}
+              onDeleteEvent={deleteClubEvent} />
+          )}
           {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} onAdd={() => { setEditingExercise(null); setExerciseFormOpen(true); }} onRestoreStarters={restoreStarters} />}
           {tab === 'profile' && <ProfileView coach={state.coach} studentCount={state.students.length} groupCount={state.groups.length} onSignOut={onSignOut} onReload={reload} />}
         </div>
@@ -2020,7 +2237,7 @@ function CoachApp({ coachId, onSignOut }) {
 
       {detail && (
         <StudentDetail
-          student={detail} group={detailGroup} groupCoach={detailGroupCoach} upcoming={detailUpcoming} absences={detailAbsences}
+          student={detail} group={detailGroup} groupCoach={detailGroupCoach} upcoming={detailUpcoming} attendance={detailAttendance}
           onClose={() => setDetailId(null)} onAddEntry={() => { setEditingEntry(null); setEntryOpen(true); }}
           onToggleHomework={toggleHomework} onOpenGroup={openGroupFromStudent} onAddHomework={addHomework}
           onAddVideo={() => setVideoOpen(true)} onEditBackground={() => setBackgroundOpen(true)} onSetLevel={setLevel}
@@ -2059,6 +2276,7 @@ function CoachApp({ coachId, onSignOut }) {
         return themeGroup ? <WeeklyThemesModal group={themeGroup} onClose={() => setThemeModalGroupId(null)} onSave={saveThemes} /> : null;
       })()}
       {groupFormOpen && <GroupFormModal students={state.students} editing={editingGroup} onClose={() => { setGroupFormOpen(false); setEditingGroup(null); }} onSave={saveGroup} />}
+      {eventOpen && <ClubEventModal editing={editingEvent} defaultDate={eventDefaultDate} onClose={() => { setEventOpen(false); setEditingEvent(null); }} onSave={saveClubEvent} />}
       {addMembersGroupId != null && <AddMembersModal coachId={coachId} coachName={state.coach.name} group={state.groups.find((g) => g.id === addMembersGroupId)} allStudents={state.students} onClose={() => setAddMembersGroupId(null)} onSave={addMembers} />}
     </div>
   );

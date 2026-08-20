@@ -36,7 +36,16 @@ supabase secrets set \
   KOUTSI_CRON_KEY='<arvo jonka arvot itse, esim. openssl rand -hex 32>'
 ```
 
-Lähettäjäosoitteen (`KOUTSI_MAIL_FROM`) pitää olla Brevossa vahvistettu.
+**Lähettäjä pitää lisätä Brevoon ensin.** Tilillä on tällä hetkellä vain `mums.fi`-osoitteet
+(`info@mums.fi`, `kideko@mums.fi`), joten Koutsin viestit lähtisivät väärältä brändiltä.
+Lisää Brevossa kohdassa Senders, Domains & Dedicated IPs joko:
+
+- **yksittäinen lähettäjä** `koutsi@krossi.app` — nopein, vahvistus sähköpostilinkillä; tai
+- **koko `krossi.app`-domain** — lisää DKIM- ja SPF-tietueet DNS:ään. Hitaampi mutta
+  selvästi parempi perillemeno, ja tämä kannattaa jos viestejä lähtee säännöllisesti.
+
+Ilman vahvistettua lähettäjää Brevo hylkää lähetykset, ja `email_status` jää arvoon
+`failed` kolmen yrityksen jälkeen.
 
 ### 2. Vault-salaisuudet ajastusta varten
 
@@ -164,6 +173,24 @@ Ryhmän viikkoteemat ovat taulussa `koutsi_group_themes`, avaimena ISO-viikko
 kerralla; pelaajalle näytetään aina kuluvan viikon teema ja seuraavat suunnitellut.
 Vanhat `koutsi_groups.theme_title` / `theme_lead` -sarakkeet ovat käytöstä poistuneita,
 ja niiden sisältö siirrettiin migraatiossa kuluvan viikon riviksi.
+
+## Ylläpitäjän toiminnot
+
+`koutsi_admins`-taulussa olevat käyttäjät näkevät valmentajanäkymän Profiili-välilehdellä
+listan odottavista vuosisuunnitelmista sekä napit "Avaa" ja "Merkitse lisätyksi". Aiemmin
+julkaisu oli käsin kirjoitettu UPDATE SQL-editorissa; se toimii yhä, mutta ei ole enää
+tarpeen.
+
+```sql
+insert into koutsi_admins (user_id) select id from auth.users where email = 'joku@esimerkki.fi';
+```
+
+## Omien tietojen lataus
+
+Sekä valmentaja että pelaaja voivat ladata kaikki heille näkyvät tiedot yhtenä
+JSON-tiedostona Profiili-välilehdeltä. Tämä kattaa GDPR:n tarkastus- ja siirto-oikeuden,
+joten yksittäinen pyyntö ei vaadi käsityötä. Vienti kunnioittaa RLS:ää — se ei voi
+palauttaa mitään, mitä käyttäjä ei jo näe sovelluksessa.
 
 ## Tallennussäiliöt
 

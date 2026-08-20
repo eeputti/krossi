@@ -59,48 +59,6 @@ function VideoPlayerModal({ video, onClose }) {
   );
 }
 
-function VideoRow({ videos, onAdd, onDelete }) {
-  const [playing, setPlaying] = React.useState(null);
-  return (
-    <div>
-      {playing && <VideoPlayerModal video={playing} onClose={() => setPlaying(null)} />}
-      {videos.length === 0 ? (
-        <div style={{ color: '#8a857a', fontSize: 14.5, marginBottom: 12 }}>Ei vielä videoita.</div>
-      ) : (
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 2, marginBottom: 12 }}>
-          {videos.map((v) => (
-            <div key={v.id} style={{ width: 160, flexShrink: 0 }}>
-              <div onClick={() => (v.storagePath || v.externalUrl) && setPlaying(v)} title={(v.storagePath || v.externalUrl) ? 'Toista video' : 'Tälle merkinnälle ei ole tiedostoa'}
-                style={{ width: '100%', aspectRatio: '4/3', borderRadius: 16, position: 'relative', overflow: 'hidden', cursor: (v.storagePath || v.externalUrl) ? 'pointer' : 'default', background: `radial-gradient(120% 120% at 30% 20%, hsl(${v.hue} 55% 45%), hsl(${v.hue + 24} 60% 22%))` }}>
-                <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="14" height="16" viewBox="0 0 12 14"><path d="M1 1v12l10-6L1 1z" fill="#101a08" /></svg>
-                  </span>
-                </span>
-                {v.addedBy === 'player' && <span style={{ position: 'absolute', left: 7, top: 7, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 6 }}>Oma</span>}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 7 }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ color: '#111', fontSize: 13, fontWeight: 600, lineHeight: 1.35 }}>{v.title}</div>
-                  <div style={{ color: '#8a857a', fontSize: 11, marginTop: 2 }}>{window.koutsiFmtShortDate(v.date)}</div>
-                </div>
-                {/* only your own uploads — a coach's video is theirs to remove */}
-                {onDelete && v.addedBy === 'player' && <window.KoutsiRowActions onDelete={() => onDelete(v)} deleteLabel="Poista video" />}
-              </div>
-              {v.tags && v.tags.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                  {v.tags.map((t) => <span key={t} className="k-chip" style={{ padding: '2px 8px', fontSize: 10.5 }}>{window.KOUTSI_TAG_LABELS[t] || t}</span>)}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      <button onClick={onAdd} className="btn-outline btn-sm">+ Lisää video</button>
-    </div>
-  );
-}
-
 function SectionTitle({ children }) {
   return <div style={{ fontWeight: 800, fontSize: 12.5, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 }}>{children}</div>;
 }
@@ -752,11 +710,12 @@ const MOOD_LABELS = { 1: 'Raskas', 2: 'Vaisu', 3: 'Ihan ok', 4: 'Hyvä', 5: 'Loi
 function MoodModal({ onClose, onSave }) {
   const [score, setScore] = React.useState(null);
   const [note, setNote] = React.useState('');
+  const [hidden, setHidden] = React.useState(false);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Miltä treeni tuntui?</h3>
-        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Merkitse fiiliksesi treenin jälkeen — tämä näkyy myös valmentajallesi.</p>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Merkitse fiiliksesi treenin jälkeen. Oletuksena valmentajasi näkee tämän — voit halutessasi pitää sen omana tietonasi.</p>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {[1, 2, 3, 4, 5].map((n) => (
             <button key={n} onClick={() => setScore(n)} style={{
@@ -770,10 +729,14 @@ function MoodModal({ onClose, onSave }) {
           ))}
         </div>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Miksi? (valinnainen)" rows={3}
-          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 16, background: '#fff' }} />
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 14, background: '#fff' }} />
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginBottom: 16, cursor: 'pointer' }}>
+          <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: 'var(--green-deep)', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: '#3c382f', lineHeight: 1.45 }}>Älä näytä tätä valmentajalle — vain omaan seurantaani</span>
+        </label>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => score && onSave({ score, note: note.trim() })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: score ? 1 : 0.45, cursor: score ? 'pointer' : 'default' }}>Tallenna</button>
+          <button onClick={() => score && onSave({ score, note: note.trim(), hiddenFromCoach: hidden })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: score ? 1 : 0.45, cursor: score ? 'pointer' : 'default' }}>Tallenna</button>
         </div>
       </div>
     </div>
@@ -811,14 +774,23 @@ function MatchNoteModal({ editing, onClose, onSave }) {
 // homework item, mood, match note, video and past training lands in the same stream —
 // see koutsi-timeline.jsx for the builder and the month/filter/search shell. Entries the
 // player owns keep their edit/delete controls, now hung off the timeline card itself.
-function ProgressView({ student, state, hasCoach, onAddVideo, onAddMood, onAddMatchNote, onDeleteMood, onEditMatchNote, onDeleteMatchNote, onDeleteVideo }) {
+function ProgressView({ student, state, hasCoach, onAddVideo, onAddMood, onAddMatchNote, onDeleteMood, onToggleMoodHidden, onEditMatchNote, onDeleteMatchNote, onDeleteVideo }) {
   const [playing, setPlaying] = React.useState(null);
   const trainings = React.useMemo(() => window.koutsiTrainingsForStudent(state, student.id).map((t) => ({
     ...t, groupName: t.groupId != null ? (window.koutsiGroupById(state, t.groupId)?.name || '') : '',
   })), [state, student.id]);
 
   const rowActions = (event) => {
-    if (event.kind === 'mood') return <window.KoutsiRowActions onDelete={() => onDeleteMood(event.source)} deleteLabel="Poista fiilis" />;
+    if (event.kind === 'mood') return (
+      <React.Fragment>
+        <button onClick={() => onToggleMoodHidden(event.source)} className="btn-outline btn-sm"
+          title={event.source.hiddenFromCoach ? 'Näytä tämä fiilis valmentajalle' : 'Piilota tämä fiilis valmentajalta'}
+          style={{ padding: '3px 9px', fontSize: 11.5 }}>
+          {event.source.hiddenFromCoach ? 'Näytä valmentajalle' : 'Piilota'}
+        </button>
+        <window.KoutsiRowActions onDelete={() => onDeleteMood(event.source)} deleteLabel="Poista fiilis" />
+      </React.Fragment>
+    );
     if (event.kind === 'match') return <window.KoutsiRowActions onEdit={() => onEditMatchNote(event.source)} onDelete={() => onDeleteMatchNote(event.source)} />;
     // The coach's own uploads are not the player's to delete.
     if (event.kind === 'video' && event.source.addedBy === 'player') return <window.KoutsiRowActions onDelete={() => onDeleteVideo(event.source)} deleteLabel="Poista video" />;
@@ -834,6 +806,7 @@ function ProgressView({ student, state, hasCoach, onAddVideo, onAddMood, onAddMa
       <window.KoutsiTimeline
         student={student}
         trainings={trainings}
+        clubEvents={state.clubEvents}
         onOpenVideo={setPlaying}
         renderActions={rowActions}
         actions={(
@@ -849,6 +822,27 @@ function ProgressView({ student, state, hasCoach, onAddVideo, onAddMood, onAddMa
 }
 
 // ── Profiili ─────────────────────────────────────────────
+// Same self-serve export as the coach side, so an access request is a button rather than
+// an email thread — the privacy policy promises the right either way.
+function DataExportButton({ userId, name }) {
+  const toast = window.useKoutsiToast();
+  const [busy, setBusy] = React.useState(false);
+  const run = async () => {
+    setBusy(true);
+    await toast.run(async () => {
+      const payload = await window.koutsiExportMyData(userId, 'player');
+      const safe = (name || 'koutsi').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      window.koutsiDownloadJson(payload, `koutsi-tiedot-${safe}-${window.koutsiTodayStr()}.json`);
+    }, 'Tiedot ladattu.');
+    setBusy(false);
+  };
+  return (
+    <button onClick={run} disabled={busy} className="btn-outline btn-sm" style={{ opacity: busy ? 0.6 : 1 }}>
+      {busy ? 'Kootaan…' : 'Lataa omat tietoni (JSON)'}
+    </button>
+  );
+}
+
 function ProfileView({ student, group, onSignOut }) {
   return (
     <div>
@@ -869,10 +863,13 @@ function ProfileView({ student, group, onSignOut }) {
       <div style={{ marginTop: 26 }}>
         <SectionTitle>Tili ja tiedot</SectionTitle>
         <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.55, marginBottom: 10 }}>
-          Tilin poisto tyhjentää pysyvästi profiilisi, tavoitteesi, fiiliksesi, ottelumuistiinpanosi ja videosi.
-          Valmentajasi ei näe sinua enää sen jälkeen.
+          Voit ladata kaikki tietosi yhtenä tiedostona. Tilin poisto tyhjentää pysyvästi profiilisi,
+          tavoitteesi, fiiliksesi, ottelumuistiinpanosi ja videosi — valmentajasi ei näe sinua enää sen jälkeen.
         </p>
-        <window.KoutsiDeleteAccountButton profileName={student.name} />
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <DataExportButton userId={student.id} name={student.name} />
+          <window.KoutsiDeleteAccountButton profileName={student.name} />
+        </div>
         <window.KoutsiLegalLinks style={{ marginTop: 16 }} />
       </div>
     </div>
@@ -1053,10 +1050,14 @@ function PlayerApp({ studentId, onSignOut }) {
     if (ok) await act(() => window.koutsiDeleteVideo(v.id, v.storagePath), 'Video poistettu.')();
   };
 
-  const addMood = async ({ score, note: moodNote }) => {
-    const ok = await toast.run(async () => { await window.koutsiAddMood(studentId, { score, note: moodNote }); await reload(); }, 'Fiilis tallennettu.');
+  const addMood = async ({ score, note: moodNote, hiddenFromCoach }) => {
+    const ok = await toast.run(async () => { await window.koutsiAddMood(studentId, { score, note: moodNote, hiddenFromCoach }); await reload(); }, 'Fiilis tallennettu.');
     if (ok) setMoodOpen(false);
   };
+  const toggleMoodHidden = (m) => toast.run(
+    async () => { await window.koutsiSetMoodHidden(m.id, !m.hiddenFromCoach); await reload(); },
+    m.hiddenFromCoach ? 'Fiilis näkyy nyt valmentajalle.' : 'Fiilis piilotettu valmentajalta.',
+  );
   const deleteMood = async (m) => {
     const ok = await confirm({ title: 'Poista fiilis?', body: `${m.date} — ${MOOD_LABELS[m.score]}`, confirmLabel: 'Poista', danger: true });
     if (ok) await act(() => window.koutsiDeleteMood(m.id), 'Fiilis poistettu.')();
@@ -1092,7 +1093,7 @@ function PlayerApp({ studentId, onSignOut }) {
               student={student} state={state} hasCoach={hasCoach}
               onAddVideo={() => setVideoOpen(true)} onAddMood={() => setMoodOpen(true)}
               onAddMatchNote={() => { setEditingMatchNote(null); setMatchNoteOpen(true); }}
-              onDeleteMood={deleteMood} onDeleteVideo={deleteVideo}
+              onDeleteMood={deleteMood} onToggleMoodHidden={toggleMoodHidden} onDeleteVideo={deleteVideo}
               onEditMatchNote={(n) => { setEditingMatchNote(n); setMatchNoteOpen(true); }}
               onDeleteMatchNote={deleteMatchNote} />
           )}
