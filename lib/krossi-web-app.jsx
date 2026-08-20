@@ -131,7 +131,11 @@ function mapMatchResult(row) {
   return { id:row.id, createdAt:row.created_at, gameType:row.game_type, format:row.format, partnerName:row.partner_name, opponentName:row.opponent_name, oppPartnerName:row.opp_partner_name, sets:row.sets||[], won:row.won };
 }
 async function fetchMatchResultsWeb() {
-  const { data, error } = await supabase.from('match_results').select('*').order('created_at',{ascending:false}).limit(50);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  // created_by-rajaus on pakollinen: match_results on luettavissa kaikille kirjautuneille,
+  // jotta ottelut näkyvät myös toisen pelaajan profiilissa.
+  const { data, error } = await supabase.from('match_results').select('*').eq('created_by',user.id).order('created_at',{ascending:false}).limit(50);
   if (error) throw error;
   return (data||[]).map(mapMatchResult);
 }
@@ -147,20 +151,102 @@ async function deleteMatchResultWeb(id) {
   const { error } = await supabase.from('match_results').delete().eq('id', id);
   if (error) throw error;
 }
-async function recordChallengeOutcome(challengeId, outcome) {
-  const { error } = await supabase.from('challenges').update({ outcome, outcome_recorded_at: new Date().toISOString() }).eq('id', challengeId);
+// ── Push-ilmoitukset ───────────────────────────────────
+// Sama send-push-notification -edge function ja sama tapahtumamuoto kuin
+// mobiilisovelluksen triggerPushNotification (src/services/notifications.ts).
+// Ilman näitä webistä lähetetty viesti tai luotu haaste ei ilmoittanut
+// mobiilikäyttäjälle mitään. Vastaanottajien valinta ja käyttäjän
+// ilmoitusasetusten kunnioittaminen tapahtuu edge functionissa.
+async function triggerPush(event) {
+  try {
+    const { error } = await supabase.functions.invoke('send-push-notification', { body: event });
+    if (error) console.warn('Push-ilmoituksen lähetys epäonnistui', error);
+  } catch (err) {
+    // Push ei saa koskaan kaataa itse toimintoa, joka onnistui jo.
+    console.warn('Push-ilmoituksen lähetys epäonnistui', err);
+  }
+}
+
+// ── Esto, ilmoitukset ja tilin poisto ──────────────────
+async function fetchBlockedIds(uid) {
+  if (!uid) return new Set();
+  const { data } = await supabase.from('blocked_profiles').select('blocked_id').eq('blocker_id', uid);
+  return new Set((data || []).map(r => r.blocked_id));
+}
+async function fetchBlockedProfiles(uid) {
+  const { data, error } = await supabase
+    .from('blocked_profiles')
+    .select('id,blocked_id,created_at,profile:profiles!blocked_profiles_blocked_id_fkey(name,avatar_url,avatar_color)')
+    .eq('blocker_id', uid).order('created_at', { ascending: false });
   if (error) throw error;
+  return (data || []).map(r => ({
+    rowId: r.id, userId: r.blocked_id, name: r.profile?.name || 'Pelaaja',
+    avatarUrl: r.profile?.avatar_url, avatarColor: r.profile?.avatar_color || 'blue',
+  }));
+}
+async function blockProfile(uid, blockedId) {
+  const { error } = await supabase.from('blocked_profiles').insert({ blocker_id: uid, blocked_id: blockedId });
+  // uniikkirajoite: jo estetty -> ei virhettä käyttäjälle
+  if (error && !String(error.message || '').includes('duplicate')) throw error;
+}
+async function unblockProfile(rowId) {
+  const { error } = await supabase.from('blocked_profiles').delete().eq('id', rowId);
+  if (error) throw error;
+}
+// Liitetään ilmoitukseen yhteinen keskustelu jos sellainen on, jotta
+// ilmoituksen käsittelijä näkee kontekstin.
+async function findSharedConversationId(uid, otherId) {
+  const { data: mine } = await supabase.from('conversation_participants').select('conversation_id').eq('user_id', uid);
+  const ids = (mine || []).map(r => r.conversation_id);
+  if (ids.length === 0) return null;
+  const { data: shared } = await supabase.from('conversation_participants')
+    .select('conversation_id').eq('user_id', otherId).in('conversation_id', ids).limit(1);
+  return shared?.[0]?.conversation_id || null;
+}
+async function reportProfile(uid, reportedId, reason) {
+  const conversationId = await findSharedConversationId(uid, reportedId).catch(() => null);
+  const { data, error } = await supabase.from('reports').insert({
+    reporter_id: uid, reported_id: reportedId, reason: reason.trim(), conversation_id: conversationId,
+  }).select('id').single();
+  if (error) throw error;
+  // Ilmoitus menee pushina ylläpidolle — reports-taulua ei voi lukea sovelluksesta.
+  if (data?.id) triggerPush({ type:'account_report', reportId:data.id, reporterId:uid, reportedId });
+}
+async function deleteOwnAccount() {
+  const { error } = await supabase.functions.invoke('delete-account', { body: {} });
+  if (error) throw error;
+  await supabase.auth.signOut();
+}
+
+async function recordChallengeOutcome(challengeId, outcome) {
+  // Suora UPDATE ei mene läpi: challenges-taulun UPDATE-policy vaatii status = 'cancelled'.
+  // record_challenge_outcome on SECURITY DEFINER -RPC, joka sallii vastauksen sekä
+  // haasteen luojalle että osallistujille.
+  const { error } = await supabase.rpc('record_challenge_outcome', {
+    challenge_id_input: challengeId,
+    outcome_input: outcome,
+  });
+  if (error) throw error;
+}
+// Haaste on "ohi" kun päättymisaika on mennyt. Osalla haasteista ei ole
+// expires_at-arvoa lainkaan, jolloin peliaika ratkaisee — muuten niistä ei
+// koskaan kysyttäisi lopputulosta.
+function challengeIsPast(c, nowIso) {
+  if (c.expires_at) return c.expires_at < nowIso;
+  if (c.scheduled_at) return c.scheduled_at < nowIso;
+  return false;
 }
 async function fetchPendingOutcomeChallenges(uid) {
   const nowIso = new Date().toISOString();
-  const cols = 'id,creator_id,location,location_type,scheduled_at,match_type,title';
+  const cols = 'id,creator_id,location,location_type,scheduled_at,expires_at,match_type,title';
   const [{ data: created }, { data: joinedRows }] = await Promise.all([
-    supabase.from('challenges').select(cols).eq('creator_id', uid).in('status', ['open', 'filled']).is('outcome', null).lt('expires_at', nowIso),
-    supabase.from('challenge_participants').select(`challenge:challenges!challenge_participants_challenge_id_fkey(${cols},status,outcome,expires_at)`).eq('user_id', uid),
+    supabase.from('challenges').select(cols).eq('creator_id', uid).in('status', ['open', 'filled']).is('outcome', null),
+    supabase.from('challenge_participants').select(`challenge:challenges!challenge_participants_challenge_id_fkey(${cols},status,outcome)`).eq('user_id', uid),
   ]);
-  const joined = (joinedRows || []).map(r => r.challenge).filter(c => c && ['open', 'filled'].includes(c.status) && c.outcome == null && c.expires_at && c.expires_at < nowIso);
+  const mine = (created || []).filter(c => challengeIsPast(c, nowIso));
+  const joined = (joinedRows || []).map(r => r.challenge).filter(c => c && ['open', 'filled'].includes(c.status) && c.outcome == null && challengeIsPast(c, nowIso));
   const merged = new Map();
-  [...(created || []), ...joined].forEach(c => merged.set(c.id, c));
+  [...mine, ...joined].forEach(c => merged.set(c.id, c));
   const list = [...merged.values()];
   if (list.length === 0) return [];
   const ids = list.map(c => c.id);
@@ -468,8 +554,14 @@ function PrivacyContent() {
       <LegalSection title="Oikeutesi">
         Sinulla on oikeus tarkastaa, oikaista ja pyytää poistettavaksi omat tietosi, rajoittaa niiden käsittelyä, siirtää tiedot toiseen palveluun sekä vastustaa käsittelyä. Voit käyttää oikeuksiasi yllä olevasta sähköpostiosoitteesta. Sinulla on myös oikeus tehdä valitus tietosuojavaltuutetun toimistolle.
       </LegalSection>
-      <LegalSection title="Evästeet">
-        Krossin markkinointisivustolla käytetään erikseen evästesuostumuksella hallittavia analytiikka- ja markkinointievästeitä. Tämä ei koske sovelluksen sisäisiä profiilitietoja.
+      <LegalSection title="Evästeet ja vastaavat tekniikat">
+        Käytämme välttämättömiä evästeitä ja selaimen paikallista tallennustilaa kirjautumisen ylläpitämiseen — näitä ei voi kytkeä pois, koska palvelu ei toimi ilman niitä, eivätkä ne vaadi suostumusta. Lisäksi sekä markkinointisivustolla että selainsovelluksessa voidaan käyttää Metan (Facebook) analytiikka- ja markkinointievästeitä. Ne ladataan vasta, jos annat siihen nimenomaisen suostumuksen evästebannerissa.
+      </LegalSection>
+      <LegalSection title="Suostumuksen peruuttaminen">
+        Voit muuttaa tai peruuttaa evästesuostumuksesi milloin tahansa kohdasta Profiili → Asetukset → Evästeasetukset. Peruuttaminen ei vaikuta ennen peruutusta tehdyn käsittelyn lainmukaisuuteen.
+      </LegalSection>
+      <LegalSection title="Automaattinen päätöksenteko">
+        Emme tee tietojesi perusteella automaattista päätöksentekoa tai profilointia, jolla olisi sinuun oikeusvaikutuksia. Emme myöskään siirrä tietoja EU- tai ETA-alueen ulkopuolelle muutoin kuin siltä osin kuin käyttämäsi kirjautumis- tai markkinointipalvelu sitä omien ehtojensa mukaisesti edellyttää.
       </LegalSection>
     </div>
   );
@@ -585,6 +677,16 @@ function OnboardingScreen() {
   );
 }
 
+// ── Ikonit ─────────────────────────────────────────────
+function GearIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
 // ── Sidebar Profile ────────────────────────────────────
 function SidebarProfile({ onEdit }) {
   const { session, profile, refreshProfile } = useAuth();
@@ -618,7 +720,10 @@ function SidebarProfile({ onEdit }) {
         </div>
       </>}
       <div className="sidebar-divider" />
-      <button className="sidebar-edit" onClick={onEdit}>Muokkaa profiilia</button>
+      <button className="sidebar-edit" onClick={onEdit} title="Profiilin asetukset" aria-label="Profiilin asetukset" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
+        <GearIcon size={15} />
+        Asetukset
+      </button>
     </div>
   );
 }
@@ -650,11 +755,29 @@ function PlayerDetail({ player, onBack, currentUserId }) {
   const [showReq, setShowReq] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [toast, setToast] = React.useState('');
+  const [showReport, setShowReport] = React.useState(false);
+  const [reportText, setReportText] = React.useState('');
+  const [busyAction, setBusyAction] = React.useState(false);
+  const block = async () => {
+    if (!window.confirm(`Estetäänkö ${player.nimi}? Hän katoaa pelaajalistaltasi. Voit purkaa eston profiilisi asetuksista.`)) return;
+    setBusyAction(true);
+    try { await blockProfile(currentUserId, player.id); onBack(); }
+    catch (err) { alert(err.message); setBusyAction(false); }
+  };
+  const submitReport = async () => {
+    setBusyAction(true);
+    try {
+      await reportProfile(currentUserId, player.id, reportText);
+      setShowReport(false); setReportText('');
+      setToast('Ilmoitus lähetetty. Kiitos.'); setTimeout(()=>setToast(''),3000);
+    } catch (err) { alert(err.message); } finally { setBusyAction(false); }
+  };
   const send = async () => {
     setSending(true);
     try {
       const { error } = await supabase.from('connection_requests').insert({ sender_id:currentUserId, receiver_id:player.id, message:reqText });
       if (error) throw error;
+      triggerPush({ type:'play_request', senderId:currentUserId, receiverId:player.id });
       setShowReq(false); setToast('Pelipyyntö lähetetty!'); setTimeout(()=>setToast(''),2500);
     } catch (err) { alert(err.message); } finally { setSending(false); }
   };
@@ -674,15 +797,64 @@ function PlayerDetail({ player, onBack, currentUserId }) {
         {player.katisyys && <div className="detail-field"><div className="detail-label">Kätisyys</div><div className="detail-value">{titleCase(player.katisyys)}</div></div>}
         {player.bio && <div className="detail-field"><div className="detail-label">Bio</div><div className="detail-value">{player.bio}</div></div>}
         {currentUserId && currentUserId !== player.id && <button className="btn btn-lime btn-lg btn-full" style={{marginTop:20}} onClick={()=>{setReqText('Lähtisitkö pelaamaan?');setShowReq(true);}}>Pyydä pelaamaan</button>}
+        {currentUserId && currentUserId !== player.id && (
+          <div style={{display:'flex',gap:8,marginTop:10}}>
+            <button className="btn btn-outline-d btn-sm" style={{flex:1}} disabled={busyAction} onClick={()=>setShowReport(true)}>Ilmoita</button>
+            <button className="btn btn-outline-d btn-sm" style={{flex:1,color:'var(--danger)',borderColor:'var(--danger)'}} disabled={busyAction} onClick={block}>Estä</button>
+          </div>
+        )}
       </div>
       {showReq && <div className="modal-overlay" onClick={()=>setShowReq(false)}><div className="modal-sheet" onClick={e=>e.stopPropagation()}>
         <h3 style={{margin:'0 0 12px',fontSize:17,fontWeight:800}}>Pyyntö: {player.nimi}</h3>
         <textarea className="input" rows={3} value={reqText} onChange={e=>setReqText(e.target.value)}/>
         <div style={{display:'flex',gap:8,marginTop:12}}><button className="btn btn-outline-d btn-md" onClick={()=>setShowReq(false)}>Peruuta</button><button className="btn btn-dark btn-lg" style={{flex:1}} onClick={send} disabled={sending||!reqText.trim()}>{sending?'Lähetetään...':'Lähetä'}</button></div>
       </div></div>}
+      {showReport && <div className="modal-overlay" onClick={()=>setShowReport(false)}><div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+        <h3 style={{margin:'0 0 6px',fontSize:17,fontWeight:800}}>Ilmoita käyttäjästä</h3>
+        <p style={{margin:'0 0 12px',fontSize:13,color:'var(--text-muted)',lineHeight:1.5}}>Kerro lyhyesti mistä on kyse. Ilmoitus välitetään Krossin ylläpidolle, eikä {player.nimi} saa siitä tietoa.</p>
+        <textarea className="input" rows={4} value={reportText} onChange={e=>setReportText(e.target.value)} placeholder="Mitä tapahtui?"/>
+        <div style={{display:'flex',gap:8,marginTop:12}}>
+          <button className="btn btn-outline-d btn-md" onClick={()=>setShowReport(false)}>Peruuta</button>
+          <button className="btn btn-dark btn-lg" style={{flex:1}} onClick={submitReport} disabled={busyAction||!reportText.trim()}>{busyAction?'Lähetetään...':'Lähetä ilmoitus'}</button>
+        </div>
+      </div></div>}
       <Toast show={!!toast} text={toast}/>
     </div>
   );
+}
+
+// ── Estetyt profiilit ──────────────────────────────────
+function BlockedProfilesScreen({ onBack }) {
+  const { session } = useAuth();
+  const uid = session?.user?.id;
+  const [list, setList] = React.useState(null);
+  const [busy, setBusy] = React.useState(null);
+  const load = React.useCallback(async () => {
+    if (!uid) return;
+    try { setList(await fetchBlockedProfiles(uid)); } catch (e) { console.error(e); setList([]); }
+  }, [uid]);
+  React.useEffect(() => { load(); }, [load]);
+  const remove = async (row) => {
+    setBusy(row.rowId);
+    try { await unblockProfile(row.rowId); await load(); }
+    catch (err) { alert(err.message); } finally { setBusy(null); }
+  };
+  return <div className="clay-bg" style={{minHeight:'100%',padding:'20px 24px 60px'}}>
+    <button className="back-btn" onClick={onBack}>← Takaisin</button>
+    <div style={{maxWidth:500,margin:'24px auto 0'}}>
+      <h2 style={{color:'var(--ink)',fontWeight:800,fontSize:22,marginBottom:6}}>Estetyt profiilit</h2>
+      <p style={{color:'var(--text-muted)',fontSize:13,marginBottom:18,lineHeight:1.5}}>Estetyt pelaajat eivät näy pelaajalistallasi.</p>
+      {list === null && <Spinner/>}
+      {list !== null && list.length === 0 && <div className="card" style={{color:'var(--text-muted)',fontSize:14}}>Et ole estänyt ketään.</div>}
+      {(list||[]).map(row => (
+        <div key={row.rowId} className="card" style={{display:'flex',alignItems:'center',gap:12,marginBottom:8}}>
+          <Avatar uri={row.avatarUrl} name={row.name} color={row.avatarColor} size={38}/>
+          <span style={{flex:1,color:'var(--ink)',fontWeight:600,fontSize:15}}>{row.name}</span>
+          <button className="btn btn-outline-d btn-sm" disabled={busy===row.rowId} onClick={()=>remove(row)}>{busy===row.rowId?'Puretaan...':'Poista esto'}</button>
+        </div>
+      ))}
+    </div>
+  </div>;
 }
 
 // ── Players Screen ─────────────────────────────────────
@@ -693,8 +865,12 @@ function PlayersScreen({ onOpenPlayer }) {
   const [filter, setFilter] = React.useState({ skill:'', style:'' });
   const load = React.useCallback(async () => {
     try {
-      const { data } = await supabase.from('profiles').select(PROFILE_SELECT).eq('hidden_from_feed',false).order('playing_this_week',{ascending:false}).order('updated_at',{ascending:false});
-      setPlayers((data||[]).map(mapProfile).filter(p=>p.id!==session?.user?.id));
+      const uid = session?.user?.id;
+      const [{ data }, blocked] = await Promise.all([
+        supabase.from('profiles').select(PROFILE_SELECT).eq('hidden_from_feed',false).order('playing_this_week',{ascending:false}).order('updated_at',{ascending:false}),
+        fetchBlockedIds(uid),
+      ]);
+      setPlayers((data||[]).map(mapProfile).filter(p=>p.id!==uid && !blocked.has(p.id)));
     } catch {} finally { setLoading(false); }
   }, [session]);
   React.useEffect(() => { load(); }, [load]);
@@ -755,12 +931,22 @@ function ChallengeCard({ challenge, onClick }) {
 // ── Challenge Detail ───────────────────────────────────
 function ChallengeDetail({ challenge, onBack, currentUserId }) {
   const [joining, setJoining] = React.useState(false);
+  const [cancelling, setCancelling] = React.useState(false);
   const [toast, setToast] = React.useState('');
   const join = async () => {
     setJoining(true);
     try { const {error}=await supabase.rpc('join_challenge',{challenge_id_input:challenge.id}); if(error) throw error;
+      triggerPush({ type:'challenge_join', challengeId:challenge.id, challengeCreatorId:challenge.creatorId, joinerId:currentUserId });
       setToast('Liityit haasteeseen!'); setTimeout(()=>setToast(''),2500);
     } catch(err) { alert(err.message); } finally { setJoining(false); }
+  };
+  const cancel = async () => {
+    if (!window.confirm('Perutaanko haaste? Se poistuu avoimista haasteista eikä sitä voi palauttaa.')) return;
+    setCancelling(true);
+    try { const {error}=await supabase.from('challenges').update({ status:'cancelled' }).eq('id',challenge.id); if(error) throw error;
+      triggerPush({ type:'challenge_cancelled', challengeId:challenge.id, creatorId:currentUserId });
+      onBack();
+    } catch(err) { alert(err.message); setCancelling(false); }
   };
   const isMine = challenge.creatorId===currentUserId;
   const joined = challenge.participants.some(p=>p.userId===currentUserId);
@@ -780,6 +966,7 @@ function ChallengeDetail({ challenge, onBack, currentUserId }) {
         <div className="detail-field"><div className="detail-label">Tyyppi</div><div className="detail-value">{titleCase(challenge.matchType)} · {titleCase(challenge.locationType)}</div></div>
         {challenge.participants.length>0 && <div className="detail-field"><div className="detail-label">Osallistujat</div><div style={{display:'flex',gap:6,marginTop:4}}>{challenge.participants.map(p=><div key={p.userId} style={{display:'flex',alignItems:'center',gap:5}}><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={26}/><span style={{color:'#6b665c',fontSize:12}}>{p.name}</span></div>)}</div></div>}
         {currentUserId && !isMine && !joined && !full && <button className="btn btn-lime btn-lg btn-full" style={{marginTop:20}} onClick={join} disabled={joining}>{joining?'Liitytään...':'Liity haasteeseen'}</button>}
+        {isMine && challenge.status!=='cancelled' && <button className="btn btn-outline-d btn-md btn-full" style={{marginTop:20,color:'var(--danger)',borderColor:'var(--danger)'}} onClick={cancel} disabled={cancelling}>{cancelling?'Perutaan...':'Peruuta haaste'}</button>}
       </div>
       <Toast show={!!toast} text={toast}/>
     </div>
@@ -836,8 +1023,10 @@ function CreateChallengeScreen({ onBack, onCreated }) {
       if (form.minSkillLevel) payload.min_skill_level = form.minSkillLevel;
       if (form.courtPrice) payload.court_price = Number(form.courtPrice);
       if (form.creatorCoversFull) payload.creator_covers_full = true;
-      const {error}=await supabase.from('challenges').insert(payload);
-      if(error) throw error; onCreated();
+      const {data:created,error}=await supabase.from('challenges').insert(payload).select('id').single();
+      if(error) throw error;
+      if(created?.id) triggerPush({ type:'new_area_challenge', challengeId:created.id, creatorId:session.user.id, area:homeCity });
+      onCreated();
     } catch(err) { setError(err.message||'Virhe'); } finally { setBusy(false); }
   };
   return <div className="clay-bg" style={{minHeight:'100%',padding:'20px 24px'}}>
@@ -1010,10 +1199,17 @@ function ChatScreen({ conversation, onBack }) {
   React.useEffect(()=>{if(uid)(async()=>{try{await supabase.rpc('mark_conversation_read',{p_conversation_id:conversation.id,p_user_id:uid});}catch{}})();},[conversation.id,uid,msgs.length]);
   const send = async () => {
     if(!text.trim()||sending)return; setSending(true);
-    try{await supabase.from('messages').insert({conversation_id:conversation.id,content:text.trim()});setText('');}catch(e){alert(e.message);}finally{setSending(false);}
+    try{
+      await supabase.from('messages').insert({conversation_id:conversation.id,content:text.trim()});
+      setText('');
+      triggerPush({type:'new_message',conversationId:conversation.id,senderId:uid,hasImage:false,isThumbsUp:false});
+    }catch(e){alert(e.message);}finally{setSending(false);}
   };
   const thumbs = async () => {
-    setSending(true);try{await supabase.from('messages').insert({conversation_id:conversation.id,content:JSON.stringify({__type:'thumbs_up'})});}catch(e){alert(e.message);}finally{setSending(false);}
+    setSending(true);try{
+      await supabase.from('messages').insert({conversation_id:conversation.id,content:JSON.stringify({__type:'thumbs_up'})});
+      triggerPush({type:'new_message',conversationId:conversation.id,senderId:uid,hasImage:false,isThumbsUp:true});
+    }catch(e){alert(e.message);}finally{setSending(false);}
   };
   return <div className="clay-bg" style={{display:'flex',flexDirection:'column',height:'100%'}}>
     <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',borderBottom:'1px solid var(--border)',flexShrink:0}}>
@@ -1238,13 +1434,15 @@ function PendingOutcomeCheck() {
 const HANDEDNESS = ['oikeakätinen','vasenkätinen'];
 const BACKHAND_TYPES = ['yhden käden','kahden käden'];
 
-function ProfileFullScreen() {
+function ProfileFullScreen({ onOpenBlocked }) {
   const { session, profile, refreshProfile } = useAuth();
   const [editing, setEditing] = React.useState(false);
   const [form, setForm] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [toast, setToast] = React.useState('');
   const [identities, setIdentities] = React.useState([]);
+  const [legal, setLegal] = React.useState(null); // null | 'terms' | 'privacy'
+  const [deleting, setDeleting] = React.useState(false);
 
   React.useEffect(() => {
     if(profile&&!form) setForm({
@@ -1276,12 +1474,14 @@ function ProfileFullScreen() {
     } catch(e){alert(e.message);}finally{setBusy(false);}
   };
 
-  const toggleHidden = async () => {
-    await supabase.from('profiles').update({hidden_from_feed:!profile.hiddenFromFeed}).eq('id',session.user.id);
-    refreshProfile();
-  };
-
   const signOut = ()=>supabase.auth.signOut();
+  const deleteAccount = async () => {
+    if (!window.confirm('Poistetaanko tilisi pysyvästi?\n\nProfiilisi, haasteesi, viestisi ja ottelutuloksesi poistetaan lopullisesti. Tätä ei voi perua.')) return;
+    if (!window.confirm('Vahvista vielä: tilin poisto on lopullinen.')) return;
+    setDeleting(true);
+    try { await deleteOwnAccount(); }
+    catch (e) { alert(e.message || 'Tilin poisto epäonnistui'); setDeleting(false); }
+  };
   if(!profile) return <div className="page"><Spinner/></div>;
   const set=(k,v)=>setForm(p=>({...p,[k]:v}));
   const tog=(k,v)=>setForm(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
@@ -1294,8 +1494,18 @@ function ProfileFullScreen() {
     </button>
   );
 
+  const legalModal = legal && (
+    <div className="modal-overlay" onClick={()=>setLegal(null)}>
+      <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+        {legal==='terms' ? <TermsContent/> : <PrivacyContent/>}
+        <button className="btn btn-outline-d btn-md btn-full" style={{marginTop:16}} onClick={()=>setLegal(null)}>Sulje</button>
+      </div>
+    </div>
+  );
+
   if(editing&&form) return <div className="page" style={{paddingBottom:40}}>
-    <div className="page-header"><h2 className="page-title">Muokkaa profiilia</h2><button className="btn btn-outline-d btn-sm" onClick={()=>{setEditing(false);setForm(null);}}>Peruuta</button></div>
+    <div className="page-header"><h2 className="page-title">Profiilin asetukset</h2><button className="btn btn-outline-d btn-sm" onClick={()=>{setEditing(false);setForm(null);}}>Peruuta</button></div>
+    <SectionTitle>Profiilin tiedot</SectionTitle>
     <div style={{display:'flex',flexDirection:'column',gap:12}}>
       <div className="field"><div className="detail-label">Nimi</div><input className="input input-dark" value={form.nimi} onChange={e=>set('nimi',e.target.value)}/></div>
       <div className="field"><div className="detail-label">Ikä</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{AGE_RANGES.map(r=><button key={r.value} className={`filter-chip ${form.ika===r.value?'active':''}`} onClick={()=>set('ika',r.value)}>{r.label}</button>)}</div></div>
@@ -1310,10 +1520,50 @@ function ProfileFullScreen() {
       <div className="field"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><span style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>Piilota profiilini pelaajasyötteestä</span><button onClick={()=>set('hiddenFromFeed',!form.hiddenFromFeed)} style={{width:48,height:28,borderRadius:14,border:'none',padding:2,cursor:'pointer',background:form.hiddenFromFeed?'var(--green-deep)':'#ccc',transition:'background .2s',position:'relative',flexShrink:0}}><span style={{display:'block',width:24,height:24,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,.2)',transition:'transform .2s',transform:form.hiddenFromFeed?'translateX(20px)':'translateX(0)'}}/></button></div></div>
       <button className="btn btn-dark btn-lg btn-full" onClick={save} disabled={busy}>{busy?'Tallennetaan...':'Tallenna muutokset'}</button>
     </div>
+
+    <SectionTitle>Kirjautumistavat</SectionTitle>
+    <div className="card" style={{marginBottom:6}}>
+      <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:8}}>Linkitetyt tilit</div>
+      {['google','apple','email'].map(p=>{
+        const linked = p==='email' || identities.includes(p);
+        return <div key={p} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid #f0ede6'}}>
+          <span style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>{p==='google'?'Google':p==='apple'?'Apple':'Sähköposti'}</span>
+          <span style={{fontSize:12,fontWeight:600,color:linked?'#2d7a4d':'var(--text-muted)'}}>{linked?'Linkitetty':'Ei linkitetty'}</span>
+        </div>;
+      })}
+    </div>
+
+    <SectionTitle>Tietosuoja ja ehdot</SectionTitle>
+    <SettingsRow label="Käyttöehdot" onClick={()=>setLegal('terms')}/>
+    <SettingsRow label="Tietosuojaseloste" onClick={()=>setLegal('privacy')}/>
+    <SettingsRow label="Evästeasetukset" onClick={()=>{
+      if(typeof window.krossiOpenCookieSettings==='function') window.krossiOpenCookieSettings();
+      else alert('Evästeasetuksia ei voitu avata.');
+    }}/>
+    <SettingsRow label="Omat tiedot ja poistopyynnöt" onClick={()=>window.open('mailto:eelispuro@gmail.com?subject=Tietosuojapyyntö')}/>
+    <p style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.55,margin:'8px 2px 0'}}>
+      Sinulla on oikeus tarkastaa, oikaista ja poistaa omat tietosi sekä siirtää ne toiseen palveluun.
+      Tiedot käsitellään EU-alueella. Lue tarkemmin tietosuojaselosteesta.
+    </p>
+
+    <SectionTitle>Muut</SectionTitle>
+    <SettingsRow label="Estetyt profiilit" onClick={onOpenBlocked}/>
+    <SettingsRow label="Ota yhteyttä tukeen" onClick={()=>window.open('mailto:eelispuro@gmail.com')}/>
+    <button className="btn btn-outline-d btn-md btn-full" onClick={signOut} style={{marginTop:16}}>Kirjaudu ulos</button>
+
+    <SectionTitle>Tili</SectionTitle>
+    <SettingsRow label={deleting?'Poistetaan tiliä...':'Poista tili pysyvästi'} danger onClick={deleting?undefined:deleteAccount}/>
+    <p style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.55,margin:'2px 2px 0'}}>
+      Poistaa profiilisi, haasteesi, viestisi ja ottelutuloksesi lopullisesti. Toimintoa ei voi perua.
+    </p>
+    {legalModal}
   </div>;
 
   return <div className="page" style={{paddingBottom:40}}>
-    <div className="page-header"><h2 className="page-title">Profiili</h2><button className="btn btn-outline-d btn-sm" onClick={()=>setEditing(true)}>Muokkaa profiilia</button></div>
+    <div className="page-header">
+      <h2 className="page-title">Profiili</h2>
+      <button className="icon-btn" onClick={()=>setEditing(true)} title="Profiilin asetukset" aria-label="Profiilin asetukset"><GearIcon size={19}/></button>
+    </div>
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginBottom:24}}>
       <Avatar uri={profile.avatarUrl} name={profile.nimi} color={profile.avatarColor} size={76}/>
       <h3 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{profile.nimi}, {ageRangeLabel(profile.ika)}</h3>
@@ -1329,26 +1579,19 @@ function ProfileFullScreen() {
 
     <MatchHistorySection/>
 
-    <SectionTitle>Asetukset</SectionTitle>
-    <SettingsRow label="Piilota profiili feedistä" value={profile.hiddenFromFeed?'Päällä':'Pois'} valueColor={profile.hiddenFromFeed?'#2d7a4d':'#c0392b'} onClick={toggleHidden}/>
-
-    <SectionTitle>Kirjautumistavat</SectionTitle>
-    <div className="card" style={{marginBottom:6}}>
-      <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:8}}>Linkitetyt tilit</div>
-      {['google','apple','email'].map(p=>{
-        const linked = p==='email' || identities.includes(p);
-        return <div key={p} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid #f0ede6'}}>
-          <span style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>{p==='google'?'Google':p==='apple'?'Apple':'Sähköposti'}</span>
-          <span style={{fontSize:12,fontWeight:600,color:linked?'#2d7a4d':'var(--text-muted)'}}>{linked?'Linkitetty':'Ei linkitetty'}</span>
-        </div>;
-      })}
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginTop:20,padding:'12px 16px',background:'#fff',border:'1px solid var(--border)',borderRadius:12}}>
+      <div>
+        <div style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>Näkyvyys pelaajasyötteessä</div>
+        <div style={{fontSize:12,color:'var(--text-muted)',marginTop:2}}>{profile.hiddenFromFeed?'Profiilisi on piilotettu muilta.':'Profiilisi näkyy muille pelaajille.'}</div>
+      </div>
+      <span style={{fontSize:13,fontWeight:700,color:profile.hiddenFromFeed?'#c0392b':'#2d7a4d',whiteSpace:'nowrap'}}>{profile.hiddenFromFeed?'Piilotettu':'Näkyvissä'}</span>
     </div>
-
-    <SectionTitle>Muut</SectionTitle>
-    <SettingsRow label="Estetyt profiilit" onClick={()=>alert('Estetyt profiilit -näkymä tulossa.')}/>
-    <SettingsRow label="Ota yhteyttä tukeen" onClick={()=>window.open('mailto:eelispuro@gmail.com')}/>
-    <button className="btn btn-outline-d btn-md btn-full" onClick={signOut} style={{marginTop:16}}>Kirjaudu ulos</button>
+    <button className="btn btn-outline-d btn-md btn-full" onClick={()=>setEditing(true)} style={{marginTop:10,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+      <GearIcon size={16}/>
+      Profiilin asetukset
+    </button>
     <Toast show={!!toast} text={toast}/>
+    {legalModal}
   </div>;
 }
 
@@ -1392,6 +1635,7 @@ function AppShell() {
   if (screen.type === 'challengeDetail') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><ChallengeDetail challenge={screen.challenge} onBack={back} currentUserId={session?.user?.id}/></div></div></div>;
   if (screen.type === 'createChallenge') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full"><CreateChallengeScreen onBack={back} onCreated={()=>{back();setTab('challenges');}}/></div></div></div>;
   if (screen.type === 'chat') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full" style={{display:'flex',flexDirection:'column'}}><ChatScreen conversation={screen.conversation} onBack={back}/></div></div></div>;
+  if (screen.type === 'blocked') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><BlockedProfilesScreen onBack={back}/></div></div></div>;
   if (screen.type === 'archive') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full"><ArchivedConversationsScreen onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })}/></div></div></div>;
 
   return (
@@ -1407,7 +1651,7 @@ function AppShell() {
           {tab === 'players' && <PlayersScreen onOpenPlayer={p => setScreen({ type: 'playerDetail', player: p })} />}
           {tab === 'challenges' && <ChallengesScreen onOpenChallenge={c => setScreen({ type: 'challengeDetail', challenge: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} />}
           {tab === 'messages' && <MessagesScreen onOpenChat={c => setScreen({ type: 'chat', conversation: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} onOpenArchive={() => setScreen({ type: 'archive' })} />}
-          {tab === 'profile' && <ProfileFullScreen />}
+          {tab === 'profile' && <ProfileFullScreen onOpenBlocked={() => setScreen({ type: 'blocked' })} />}
         </div>
       </div>
     </div>

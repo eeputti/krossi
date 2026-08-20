@@ -12,9 +12,17 @@ function Wordmark({ size = 23 }) {
 }
 
 function RoleChooserModal({ onClose }) {
+  // Taustan klikkaus sulki jo, mutta se ei näy mistään: ilman rastia ja Esciä valinta
+  // näyttää pakolliselta, vaikka kävijä olisi vain halunnut lukea sivua eteenpäin.
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(10,15,10,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(420px, 100%)', background: '#fff', borderRadius: 24, padding: '30px 28px', border: '1px solid var(--line)' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative', width: 'min(420px, 100%)', background: '#fff', borderRadius: 24, padding: '30px 28px', border: '1px solid var(--line)' }}>
+        <button type="button" onClick={onClose} aria-label="Sulje" style={{ position: 'absolute', top: 14, right: 14, width: 32, height: 32, borderRadius: '50%', border: 'none', background: 'none', color: '#8a857a', fontSize: 20, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
         <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: 'var(--ink)' }}>Kumpi olet?</h3>
         <p style={{ fontSize: 13.5, color: '#8a857a', marginBottom: 20, lineHeight: 1.5 }}>Valmentaja ja pelaaja käyttävät eri näkymää — valitse kumpi olet, niin pääset kirjautumaan tai luomaan tilin oikeaan paikkaan.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

@@ -95,7 +95,7 @@ function Nav() {
           <a href="#ominaisuudet">Ominaisuudet</a>
           <a href="#halleille">Halleille</a>
         </nav>
-        <a href="/pelaa" className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Kokeile Krossia</a>
+        <a href="/pelaa" className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Aloita pelit</a>
       </header>
     </div>
   );
@@ -170,7 +170,7 @@ function Hero({ t }) {
           </h1>
           <p className="hero-sub">Löydä pelaajia, luo ja sovi pelejä ja pysy mukana paikallisissa tennistapahtumissa.</p>
           <div className="hero-cta">
-            <a href="/pelaa" className="btn-lime btn-lg">Kokeile Krossia</a>
+            <a href="/pelaa" className="btn-lime btn-lg">Aloita pelit</a>
           </div>
 
           <p className="demo-hint">Testaa vieressä olevaa interaktiivista demoa</p>
@@ -248,7 +248,7 @@ function UpcomingMatches() {
           ))}
         </div>
         <div style={{ textAlign: 'center', marginTop: 'clamp(20px,3vw,32px)' }}>
-          <a href="/pelaa" className="btn-lime btn-lg">Kokeile Krossia selaimessa →</a>
+          <a href="/pelaa" className="btn-lime btn-lg">Aloita pelit selaimessa →</a>
         </div>
       </div>
     </section>
@@ -313,7 +313,7 @@ function ClosingCTA() {
         <div className="closing-inner">
           <h2>Valmiina kentälle!</h2>
           <p>Löydä. Valitse. Sovi. Pelaa.</p>
-          <a href="/pelaa" className="btn-lime btn-lg">Kokeile Krossia</a>
+          <a href="/pelaa" className="btn-lime btn-lg">Aloita pelit</a>
         </div>
       </div>
     </section>

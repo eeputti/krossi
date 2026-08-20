@@ -86,23 +86,15 @@ window.krossiLoadPixel = function () {
   p { text-wrap: pretty; }
   a { color: inherit; }
 
-  /* ── clay-court surface ── */
-  .kp-clay {
-    background-color: #8f3216;
-    background-image:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E"),
-      repeating-linear-gradient(1.5deg, rgba(0,0,0,0.05) 0 2px, rgba(255,255,255,0.018) 2px 4px, transparent 4px 10px),
-      radial-gradient(135% 95% at 50% -8%, #c25e30 0%, #a3431d 38%, #7c2c12 72%, #5e1f0c 100%);
-    background-size: 150px 150px, 100% 100%, 100% 100%;
-    background-blend-mode: overlay, normal, normal;
-  }
+  /* ── phone demo skin (light) ── */
+  .kp-light { background: #fff; }
   .kp-screen, .kp-scroll-x { scrollbar-width: none; }
   .kp-screen::-webkit-scrollbar, .kp-scroll-x::-webkit-scrollbar { display: none; }
   .kp-card {
-    background: rgba(255,255,255,0.09);
-    border: 1px solid rgba(255,255,255,0.15);
+    background: #fff;
+    border: 1px solid var(--line);
     border-radius: 18px; padding: 15px 16px;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 1px 3px rgba(20,15,5,0.05);
   }
 
   /* ── buttons ── */
@@ -178,7 +170,7 @@ window.krossiLoadPixel = function () {
   .hero-visual { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; isolation: isolate; }
   .phone-caption { margin-top: 14px; font-size: 13px; font-weight: 600; color: #8a857a; letter-spacing: 0.01em; display: flex; align-items: center; gap: 5px; }
   .phone-caption svg { opacity: 0.6; }
-  .phone-glow { position: absolute; inset: -6% -12%; z-index: 0; background: radial-gradient(circle at 50% 44%, rgba(180,68,32,0.28), transparent 64%); filter: blur(30px); }
+  .phone-glow { position: absolute; inset: -6% -12%; z-index: 0; background: radial-gradient(circle at 50% 44%, rgba(14,59,44,0.16), transparent 64%); filter: blur(30px); }
   .hero-stage { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; }
   .phone-front { position: relative; z-index: 3; transform: rotate(-3deg); }
   .phone-back { position: relative; z-index: 1; margin-left: -72px; margin-top: 18px; transform: rotate(7deg); pointer-events: none; }

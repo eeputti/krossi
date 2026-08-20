@@ -210,7 +210,7 @@ function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose
               {student.diary.map((d, i) => (
                 <div key={i} className="k-card" style={{ padding: '12px 15px' }}>
                   <div style={{ color: '#111', fontSize: 14, lineHeight: 1.5 }}>{d.text}</div>
-                  <div style={{ marginTop: 6, fontSize: 12, color: '#8a857a', fontWeight: 600 }}>{d.date}</div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: '#8a857a', fontWeight: 600 }}>{window.koutsiFmtEventDate(d.at)}</div>
                 </div>
               ))}
             </div>
@@ -234,6 +234,24 @@ function StudentDetail({ student, group, groupCoach, upcoming, absences, onClose
               </div>
             </Field>
           )}
+
+          <Field label="Ottelumuistiinpanot">
+            {(student.matchNotes || []).length === 0 ? (
+              <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä ottelumuistiinpanoja.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {student.matchNotes.map((n) => (
+                  <div key={n.id} className="k-card" style={{ padding: '13px 15px' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: n.note ? 6 : 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{n.opponentName}</div>
+                      <div style={{ fontSize: 11.5, color: '#8a857a', flexShrink: 0 }}>{window.koutsiFmtShortDate(n.date)}</div>
+                    </div>
+                    {n.note && <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}>{n.note}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Field>
 
           {upcoming.length > 0 && (
             <Field label="Tulevat treenit">
@@ -1094,7 +1112,9 @@ function App() {
   const presessionTraining = presessionTrainingId != null ? state.trainings.find((t) => t.id === presessionTrainingId) : null;
 
   const saveEntry = (text) => {
-    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === detailId ? { ...s, diary: [{ date: 'Juuri nyt', text }, ...s.diary] } : s) }));
+    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === detailId
+      ? { ...s, diary: [{ id: s.diary.reduce((max, d) => Math.max(max, d.id || 0), -1) + 1, at: new Date().toISOString(), text }, ...s.diary] }
+      : s) }));
     setEntryOpen(false);
   };
   const toggleHomework = (i) => {
@@ -1106,10 +1126,10 @@ function App() {
     setTrainingOpen(false);
   };
   const addHomework = (text) => {
-    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === detailId ? { ...s, homework: [...s.homework, { text, done: false }] } : s) }));
+    update((prev) => ({ ...prev, students: prev.students.map((s) => s.id === detailId ? { ...s, homework: [...s.homework, { id: s.homework.reduce((max, h) => Math.max(max, h.id || 0), -1) + 1, at: new Date().toISOString(), text, done: false }] } : s) }));
   };
   const addVideo = ({ title, date, tags, studentIds }) => {
-    update((prev) => ({ ...prev, students: prev.students.map((s) => studentIds.includes(s.id) ? { ...s, videos: [...s.videos, { id: window.koutsiNextVideoId(s), title, date, tags, hue: s.hue, addedBy: 'coach' }] } : s) }));
+    update((prev) => ({ ...prev, students: prev.students.map((s) => studentIds.includes(s.id) ? { ...s, videos: [...s.videos, { id: window.koutsiNextVideoId(s), title, date, at: new Date().toISOString(), tags, hue: s.hue, addedBy: 'coach' }] } : s) }));
     setVideoOpen(false);
   };
   // Cycles a member's status for one training: paikalla → poissa → loukkaantunut → paikalla.

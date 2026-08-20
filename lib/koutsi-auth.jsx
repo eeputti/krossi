@@ -22,6 +22,33 @@ const KOUTSI_AGE_RANGES = [
   { value: '60+', label: '60+' },
 ];
 
+// The phrasebook lives in koutsi-data.js, which loads after this file; guarded so a
+// half-loaded page still says something in Finnish instead of a raw Postgres sentence.
+function koutsiAuthErrorText(err, fallback) {
+  if (window.koutsiErrorText) return window.koutsiErrorText(err, fallback);
+  return (typeof err === 'string' ? err : err?.message) || fallback || 'Jokin meni pieleen. Yritä uudelleen.';
+}
+function koutsiAuthRawMessage(err) {
+  return (typeof err === 'string' ? err : (err?.message || err?.error_description || '')) || '';
+}
+
+// Supabase bounces a dead confirmation / recovery link back here with the reason in the
+// URL fragment and no session. Without reading it the person just lands on the login form
+// again with no idea why the link did nothing — so say it, and point at the way forward.
+// Safe to clear the fragment here: this only runs once the auth screen renders, i.e. after
+// the client has already had its chance to exchange any real tokens in the URL.
+function koutsiAuthLinkError() {
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : '';
+  const params = new URLSearchParams(hash || window.location.search.slice(1));
+  const code = params.get('error_code') || '';
+  const desc = params.get('error_description') || params.get('error') || '';
+  if (!code && !desc) return '';
+  window.history.replaceState(null, '', window.location.pathname);
+  if (/expired|otp_expired/i.test(`${code} ${desc}`)) return 'Linkki on vanhentunut tai se on jo käytetty. Pyydä uusi linkki alta.';
+  if (/access_denied/i.test(`${code} ${desc}`)) return 'Kirjautuminen peruuntui. Yritä uudelleen.';
+  return 'Linkki ei kelvannut. Yritä kirjautua sisään tai pyydä uusi linkki alta.';
+}
+
 function koutsiAuthAvatarUrl(path) {
   return path ? (path.startsWith('http') ? path : `${KOUTSI_SUPABASE_URL}/storage/v1/object/public/profile-avatars/${path}`) : null;
 }
@@ -35,22 +62,34 @@ function KoutsiAuthProvider({ children }) {
   const [session, setSession] = React.useState(null);
   const [profile, setProfile] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  // Supabase turns a recovery link into a real session before firing PASSWORD_RECOVERY.
+  // Without this flag the person would simply land in the app, still holding the old
+  // password they came here to change — which is exactly what used to happen.
+  const [recoveryMode, setRecoveryMode] = React.useState(
+    () => window.location.hash.includes('type=recovery') || new URLSearchParams(window.location.search).get('type') === 'recovery'
+  );
+  // A failed profile fetch is not the same thing as "no profile yet": treating a dropped
+  // connection as "new user" used to push an existing coach into onboarding, and a hard
+  // failure left the gates spinning forever. Both now end up on KoutsiErrorScreen.
+  const [profileError, setProfileError] = React.useState(false);
   const loadProfile = React.useCallback(async (uid) => {
-    if (!uid) { setProfile(null); return; }
+    if (!uid) { setProfile(null); setProfileError(false); return; }
     try {
       const { data, error } = await koutsiSupabase.from('profiles').select('id, name, avatar_url, avatar_color').eq('id', uid).maybeSingle();
       if (error) throw error;
       setProfile(data || null);
-    } catch { setProfile(null); }
+      setProfileError(false);
+    } catch { setProfile(null); setProfileError(true); }
   }, []);
   React.useEffect(() => {
     koutsiSupabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       if (s?.user?.id) loadProfile(s.user.id).finally(() => setLoading(false));
       else setLoading(false);
-    });
+    }).catch(() => setLoading(false)); // no session beats an eternal spinner
     const { data: { subscription } } = koutsiSupabase.auth.onAuthStateChange((ev, s) => {
       setSession(s);
+      if (ev === 'PASSWORD_RECOVERY') { setRecoveryMode(true); setLoading(false); return; }
       if (ev === 'TOKEN_REFRESHED' || ev === 'USER_UPDATED') return;
       if (s?.user?.id) { setLoading(true); loadProfile(s.user.id).finally(() => setLoading(false)); }
       else { setProfile(null); setLoading(false); }
@@ -58,44 +97,64 @@ function KoutsiAuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, [loadProfile]);
   const refreshProfile = React.useCallback(async () => { if (session?.user?.id) await loadProfile(session.user.id); }, [session, loadProfile]);
+  const retryProfile = React.useCallback(async () => {
+    if (!session?.user?.id) return;
+    setLoading(true);
+    await loadProfile(session.user.id);
+    setLoading(false);
+  }, [session, loadProfile]);
   const value = React.useMemo(() => ({
     session, profile, loading,
-    needsOnboarding: Boolean(session?.user && !profile && !loading),
+    needsOnboarding: Boolean(session?.user && !profile && !profileError && !loading),
+    profileError, retryProfile,
+    recoveryMode,
+    endRecovery: () => {
+      setRecoveryMode(false);
+      // drop the recovery fragment so a refresh doesn't reopen the reset screen
+      window.history.replaceState(null, '', window.location.pathname);
+    },
     refreshProfile,
     signOut: () => koutsiSupabase.auth.signOut(),
-  }), [session, profile, loading, refreshProfile]);
+  }), [session, profile, loading, profileError, retryProfile, recoveryMode, refreshProfile]);
   return <KoutsiAuthContext.Provider value={value}>{children}</KoutsiAuthContext.Provider>;
 }
 function useKoutsiAuth() { return React.useContext(KoutsiAuthContext); }
 
 // ── Auth screen ──────────────────────────────────────────
 function KoutsiAuthScreen() {
-  const [mode, setMode] = React.useState('register');
+  // A dead link means they already have an account, so open on the login form — that is
+  // also where "Unohditko salasanan?" lives, which is what a stale recovery link needs.
+  const [linkError] = React.useState(koutsiAuthLinkError);
+  const [mode, setMode] = React.useState(linkError ? 'login' : 'register');
   const [email, setEmail] = React.useState('');
   const [pw, setPw] = React.useState('');
-  const [error, setError] = React.useState('');
+  const [error, setError] = React.useState(linkError);
   const [info, setInfo] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  // Shown after a sign-up, and after a login that failed only because the address is
+  // still unconfirmed — without it a lost confirmation mail is the end of the road.
+  const [canResend, setCanResend] = React.useState(false);
 
   const redirectPath = window.location.pathname.startsWith('/pelaaja') ? '/pelaaja' : '/valmentaja';
   const redirectTo = window.location.origin + redirectPath;
+  const isCoachRoute = redirectPath === '/valmentaja';
 
   const signInWithGoogle = async () => {
     setError(''); setBusy(true);
     try {
       const { error: e } = await koutsiSupabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
       if (e) throw e;
-    } catch (err) { setError(err.message || 'Google-kirjautuminen epäonnistui'); setBusy(false); }
+    } catch (err) { setError(koutsiAuthErrorText(err, 'Google-kirjautuminen epäonnistui')); setBusy(false); }
   };
   const signInWithApple = async () => {
     setError(''); setBusy(true);
     try {
       const { error: e } = await koutsiSupabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo } });
       if (e) throw e;
-    } catch (err) { setError(err.message || 'Apple-kirjautuminen epäonnistui'); setBusy(false); }
+    } catch (err) { setError(koutsiAuthErrorText(err, 'Apple-kirjautuminen epäonnistui')); setBusy(false); }
   };
   const submit = async (e) => {
-    e.preventDefault(); setError(''); setInfo(''); setBusy(true);
+    e.preventDefault(); setError(''); setInfo(''); setCanResend(false); setBusy(true);
     try {
       if (mode === 'login') {
         const { error } = await koutsiSupabase.auth.signInWithPassword({ email, password: pw });
@@ -103,13 +162,27 @@ function KoutsiAuthScreen() {
       } else if (mode === 'register') {
         const { data, error } = await koutsiSupabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: redirectTo } });
         if (error) throw error;
-        if (data.user && !data.session) setInfo('Vahvistusviesti lähetetty sähköpostiisi.');
+        if (data.user && !data.session) {
+          setInfo('Vahvistusviesti lähetetty sähköpostiisi. Tarkista myös roskaposti.');
+          setCanResend(true);
+        }
       } else {
         const { error } = await koutsiSupabase.auth.resetPasswordForEmail(email, { redirectTo });
         if (error) throw error;
-        setInfo('Palautuslinkki lähetetty.');
+        setInfo('Palautuslinkki lähetetty. Avaa se samalla laitteella ja aseta uusi salasana.');
       }
-    } catch (err) { setError(err.message || 'Virhe'); } finally { setBusy(false); }
+    } catch (err) {
+      setError(koutsiAuthErrorText(err));
+      if (/email not confirmed/i.test(koutsiAuthRawMessage(err))) setCanResend(true);
+    } finally { setBusy(false); }
+  };
+  const resendConfirmation = async () => {
+    setError(''); setInfo(''); setBusy(true);
+    try {
+      const { error } = await koutsiSupabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirectTo } });
+      if (error) throw error;
+      setInfo('Uusi vahvistusviesti lähetetty. Tarkista myös roskaposti.');
+    } catch (err) { setError(koutsiAuthErrorText(err, 'Viestin lähetys ei onnistunut')); } finally { setBusy(false); }
   };
 
   const oauthBtnStyle = {
@@ -126,14 +199,21 @@ function KoutsiAuthScreen() {
         <span style={{ fontSize: 14, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
       </a>
       <div className="k-card" style={{ width: 'min(400px, 100%)', padding: '30px 28px' }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: '#111' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: isCoachRoute ? 12 : 18, color: '#111' }}>
           {mode === 'login' ? 'Kirjaudu sisään' : mode === 'register' ? 'Luo tili' : 'Palauta salasana'}
         </h2>
-        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>
-          Sama tili toimii koko Krossissa — jos sinulla on jo Krossi-tili, kirjaudu samoilla tunnuksilla.
-        </p>
+        {isCoachRoute && (
+          <div style={{ background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.4)', borderRadius: 12, padding: '11px 14px', fontSize: 12.5, color: '#5c6b06', lineHeight: 1.5, marginBottom: 18 }}>
+            Valmentajana tarvitset tämän jälkeen kertaluonteisen valmentaja-avaimen tilin viimeistelyyn. Sen saa vain minulta — jos sinulla ei vielä ole avainta, älä jaa sitä eteenpäin ja <a href="mailto:eelispuro@gmail.com" style={{ color: 'inherit', fontWeight: 700 }}>pyydä sitä minulta sähköpostilla</a>.
+          </div>
+        )}
         {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
         {info && <div style={{ background: 'rgba(14,59,44,0.08)', border: '1px solid rgba(14,59,44,0.25)', color: 'var(--green-deep)', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{info}</div>}
+        {canResend && email.trim() && (
+          <button onClick={resendConfirmation} disabled={busy} style={{ background: 'none', border: 'none', color: 'var(--green-deep)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 14, textAlign: 'left' }}>
+            Eikö viesti tullut perille? Lähetä vahvistusviesti uudelleen
+          </button>
+        )}
 
         {mode !== 'reset' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
@@ -161,15 +241,25 @@ function KoutsiAuthScreen() {
             {busy ? 'Odota...' : mode === 'login' ? 'Kirjaudu' : mode === 'register' ? 'Luo tili' : 'Lähetä linkki'}
           </button>
         </form>
+        {mode === 'register' && (
+          <p style={{ marginTop: 14, fontSize: 11.5, color: '#8a857a', lineHeight: 1.5, textAlign: 'center' }}>
+            Luomalla tilin hyväksyt <a href="/kayttoehdot" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>käyttöehdot</a> ja{' '}
+            <a href="/tietosuoja" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>tietosuojaselosteen</a>. Alle 15-vuotiaan tilin luo huoltaja.
+          </p>
+        )}
         <div style={{ marginTop: 18, textAlign: 'center', fontSize: 13 }}>
           {mode === 'login' ? (
             <React.Fragment>
-              <button onClick={() => { setMode('register'); setError(''); setInfo(''); }} style={{ background: 'none', border: 'none', color: 'var(--green-deep)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Luo uusi tili</button>
+              <span style={{ color: '#8a857a' }}>Eikö sinulla ole vielä tiliä?</span>{' '}
+              <button onClick={() => { setMode('register'); setError(''); setInfo(''); setCanResend(false); }} style={{ background: 'none', border: 'none', color: 'var(--green-deep)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Luo tili</button>
               <span style={{ color: '#c5c0b5', margin: '0 8px' }}>·</span>
-              <button onClick={() => { setMode('reset'); setError(''); setInfo(''); }} style={{ background: 'none', border: 'none', color: '#8a857a', cursor: 'pointer', fontFamily: 'inherit' }}>Unohditko salasanan?</button>
+              <button onClick={() => { setMode('reset'); setError(''); setInfo(''); setCanResend(false); }} style={{ background: 'none', border: 'none', color: '#8a857a', cursor: 'pointer', fontFamily: 'inherit' }}>Unohditko salasanan?</button>
             </React.Fragment>
           ) : (
-            <button onClick={() => { setMode('login'); setError(''); setInfo(''); }} style={{ background: 'none', border: 'none', color: 'var(--green-deep)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Kirjaudu sisään</button>
+            <React.Fragment>
+              <span style={{ color: '#8a857a' }}>Onko sinulla jo tili?</span>{' '}
+              <button onClick={() => { setMode('login'); setError(''); setInfo(''); setCanResend(false); }} style={{ background: 'none', border: 'none', color: 'var(--green-deep)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Kirjaudu sisään</button>
+            </React.Fragment>
           )}
         </div>
       </div>
@@ -185,7 +275,7 @@ function KoutsiAuthScreen() {
 // someone who joined through a coach shouldn't unexpectedly show up in the "find a
 // playing partner" feed until they choose to complete a real player profile.
 function KoutsiProfileOnboarding() {
-  const { session, refreshProfile } = useKoutsiAuth();
+  const { session, refreshProfile, signOut } = useKoutsiAuth();
   const [name, setName] = React.useState('');
   const [age, setAge] = React.useState('');
   const [area, setArea] = React.useState('');
@@ -221,7 +311,7 @@ function KoutsiProfileOnboarding() {
       if (upsertErr) throw upsertErr;
       await koutsiSupabase.auth.updateUser({ data: { display_name: name.trim(), full_name: name.trim() } });
       await refreshProfile();
-    } catch (err) { setError(err.message || 'Tallennus epäonnistui'); } finally { setBusy(false); }
+    } catch (err) { setError(koutsiAuthErrorText(err, 'Tallennus epäonnistui')); } finally { setBusy(false); }
   };
   const chipStyle = (active) => ({
     padding: '8px 14px', borderRadius: 999, border: active ? 'none' : '1px solid #d8d4ca',
@@ -262,7 +352,110 @@ function KoutsiProfileOnboarding() {
         <button onClick={save} className="btn-dark" disabled={!ready || busy} style={{ width: '100%', padding: '13px 0', border: 'none', opacity: (!ready || busy) ? 0.45 : 1, cursor: (!ready || busy) ? 'default' : 'pointer' }}>
           {busy ? 'Tallennetaan...' : 'Jatka'}
         </button>
+        <button onClick={signOut} style={{ background: 'none', border: 'none', color: '#8a857a', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginTop: 16, width: '100%' }}>
+          Kirjaudu ulos
+        </button>
       </div>
+    </div>
+  );
+}
+
+// ── Set a new password ───────────────────────────────────
+// Reached only from a "unohditko salasanan" email. Supabase has already exchanged the
+// link for a session by the time this renders, so updateUser is all that is left; the
+// screen exists because without it that session would silently drop the person into the
+// app with their old password unchanged.
+function KoutsiPasswordResetScreen() {
+  const { endRecovery, signOut } = useKoutsiAuth();
+  const [pw, setPw] = React.useState('');
+  const [pw2, setPw2] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [done, setDone] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const tooShort = pw.length > 0 && pw.length < 8;
+  const mismatch = pw2.length > 0 && pw !== pw2;
+  const ready = pw.length >= 8 && pw === pw2;
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!ready) return;
+    setError(''); setBusy(true);
+    try {
+      const { error: err } = await koutsiSupabase.auth.updateUser({ password: pw });
+      if (err) throw err;
+      setDone(true);
+      setTimeout(() => endRecovery(), 1200);
+    } catch (err) {
+      setError(window.koutsiErrorText ? window.koutsiErrorText(err) : (err.message || 'Salasanan vaihto epäonnistui'));
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--sand)' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, marginBottom: 28 }}>
+        <span style={{ fontWeight: 800, fontSize: 30, color: 'var(--green-deep)', letterSpacing: -1 }}>Krossi</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
+      </span>
+      <div className="k-card" style={{ width: 'min(400px, 100%)', padding: '30px 28px' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: '#111' }}>Aseta uusi salasana</h2>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Vähintään 8 merkkiä. Uusi salasana tulee voimaan heti.</p>
+        {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
+        {done ? (
+          <div style={{ background: 'rgba(14,59,44,0.08)', border: '1px solid rgba(14,59,44,0.25)', color: 'var(--green-deep)', padding: '12px 14px', borderRadius: 12, fontSize: 13.5, fontWeight: 600 }}>
+            Salasana vaihdettu. Siirrytään Koutsiin…
+          </div>
+        ) : (
+          <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input style={inputStyle} type="password" placeholder="Uusi salasana" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus required minLength={8} autoComplete="new-password" />
+            {tooShort && <div style={{ fontSize: 12, color: '#a13b2f' }}>Salasanan pitää olla vähintään 8 merkkiä.</div>}
+            <input style={inputStyle} type="password" placeholder="Uusi salasana uudelleen" value={pw2} onChange={(e) => setPw2(e.target.value)} required minLength={8} autoComplete="new-password" />
+            {mismatch && <div style={{ fontSize: 12, color: '#a13b2f' }}>Salasanat eivät täsmää.</div>}
+            <button className="btn-dark" type="submit" disabled={!ready || busy} style={{ padding: '13px 0', border: 'none', opacity: (!ready || busy) ? 0.45 : 1, cursor: (!ready || busy) ? 'default' : 'pointer' }}>
+              {busy ? 'Tallennetaan...' : 'Tallenna salasana'}
+            </button>
+          </form>
+        )}
+        {!done && (
+          <button onClick={() => { signOut(); endRecovery(); }} style={{ background: 'none', border: 'none', color: '#8a857a', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', marginTop: 16, width: '100%' }}>Peruuta</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Every gate in both apps waits on a fetch that can fail on hall wifi. Before this, a
+// single rejected promise left the person on the spinner with no way forward but guessing
+// that a manual reload might help. Same visual language as the loading screen, but with
+// the two exits that were missing: try again, or get out.
+function KoutsiErrorScreen({ title, message, onRetry, onSignOut }) {
+  const [busy, setBusy] = React.useState(false);
+  const retry = async () => {
+    if (!onRetry) return;
+    setBusy(true);
+    try { await onRetry(); } finally { setBusy(false); }
+  };
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--sand)' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, marginBottom: 28 }}>
+        <span style={{ fontWeight: 800, fontSize: 30, color: 'var(--green-deep)', letterSpacing: -1 }}>Krossi</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
+      </span>
+      <div className="k-card" style={{ width: 'min(400px, 100%)', padding: '30px 28px' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: '#111' }}>{title || 'Tietojen haku ei onnistunut'}</h2>
+        <p style={{ fontSize: 13.5, color: '#8a857a', lineHeight: 1.55, marginBottom: 20 }}>
+          {message || 'Tarkista verkkoyhteys ja yritä uudelleen. Jos ongelma jatkuu, kirjaudu ulos ja takaisin sisään.'}
+        </p>
+        {onRetry && (
+          <button onClick={retry} className="btn-dark" disabled={busy} style={{ width: '100%', padding: '13px 0', border: 'none', opacity: busy ? 0.5 : 1, marginBottom: 10 }}>
+            {busy ? 'Yritetään...' : 'Yritä uudelleen'}
+          </button>
+        )}
+        {onSignOut && (
+          <button onClick={onSignOut} className="btn-outline" style={{ width: '100%', padding: '13px 0' }}>Kirjaudu ulos</button>
+        )}
+      </div>
+      <a href="https://koutsi.krossi.app" style={{ color: '#8a857a', marginTop: 22, fontSize: 13, textDecoration: 'none' }}>← Takaisin etusivulle</a>
     </div>
   );
 }
@@ -277,9 +470,12 @@ function KoutsiAuthLoadingScreen() {
   );
 }
 
+// KOUTSI_SUPABASE_ANON_KEY is exported (not just a top-level const) because the bundled
+// build wraps each file in its own scope — koutsi-data.js reaches it through window.
 Object.assign(window, {
-  koutsiSupabase, KOUTSI_SUPABASE_URL,
+  koutsiSupabase, KOUTSI_SUPABASE_URL, KOUTSI_SUPABASE_ANON_KEY,
   koutsiAuthAvatarUrl,
   KoutsiAuthProvider, useKoutsiAuth,
-  KoutsiAuthScreen, KoutsiProfileOnboarding, KoutsiAuthLoadingScreen,
+  KoutsiAuthScreen, KoutsiProfileOnboarding, KoutsiAuthLoadingScreen, KoutsiPasswordResetScreen,
+  KoutsiErrorScreen,
 });

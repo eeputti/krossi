@@ -1,0 +1,16 @@
+{
+  "name": "Krossi Koutsi",
+  "short_name": "Koutsi",
+  "description": "Valmennus ja kehitys samassa paikassa — treenit, kotiläksyt ja palautteet valmentajalle ja pelaajalle.",
+  "lang": "fi",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F5EF",
+  "theme_color": "#0E3B2C",
+  "icons": [
+    { "src": "/assets/krossi-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/krossi-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

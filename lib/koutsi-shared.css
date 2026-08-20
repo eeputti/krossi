@@ -51,6 +51,11 @@ button.k-card:active { transform: translateY(0); box-shadow: 0 4px 10px -6px rgb
 }
 .k-chip-lime { background: var(--lime); color: #101a08; border: none; }
 
+/* Filter rows that outgrow a phone screen scroll sideways instead of wrapping into a
+   three-line block that pushes the content it filters off screen. */
+.k-scroll-x { -ms-overflow-style: none; scrollbar-width: none; }
+.k-scroll-x::-webkit-scrollbar { display: none; }
+
 @keyframes kcPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.75); } }
 .kc-pulse { animation: kcPulse 1s ease-in-out infinite; }
 
