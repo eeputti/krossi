@@ -16,15 +16,24 @@ const PLAYER_COUNT_FILTERS = [
   { key: 4, label: '4+ pelaajaa' },
 ];
 
-function Avatar({ initial, hue = 150, size = 44, ring = false }) {
+// `src` on profiilikuva, jos sellainen on ladattu; ilman sitä (tai jos kuva ei lataudu)
+// näytetään sama nimikirjain-ympyrä kuin ennenkin.
+function Avatar({ initial, hue = 150, size = 44, ring = false, src = '' }) {
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => { setFailed(false); }, [src]);
+  const shell = {
+    width: size, height: size, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+    background: `radial-gradient(120% 120% at 30% 20%, hsl(${hue} 55% 62%), hsl(${hue + 24} 60% 38%))`,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#fff', fontWeight: 700, fontSize: size * 0.38,
+    boxShadow: ring ? '0 0 0 3px var(--lime)' : 'none', letterSpacing: 0.3,
+  };
   return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `radial-gradient(120% 120% at 30% 20%, hsl(${hue} 55% 62%), hsl(${hue + 24} 60% 38%))`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#fff', fontWeight: 700, fontSize: size * 0.38,
-      boxShadow: ring ? '0 0 0 3px var(--lime)' : 'none', letterSpacing: 0.3,
-    }}>{initial}</div>
+    <div style={shell}>
+      {src && !failed
+        ? <img src={src} alt="" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        : initial}
+    </div>
   );
 }
 function AvatarStack({ members, size = 34, max = 4 }) {
@@ -32,7 +41,7 @@ function AvatarStack({ members, size = 34, max = 4 }) {
     <div style={{ display: 'flex', alignItems: 'center' }}>
       {members.slice(0, max).map((m, i) => (
         <div key={m.id} style={{ marginLeft: i > 0 ? -Math.round(size * 0.28) : 0, position: 'relative', zIndex: max - i }}>
-          <Avatar initial={m.initial} hue={m.hue} size={size} ring />
+          <Avatar src={m.avatarUrl} initial={m.initial} hue={m.hue} size={size} ring />
         </div>
       ))}
     </div>
@@ -206,7 +215,7 @@ function StudentsView({ students, coachId, coachName, onOpen, groupCount, traini
         {shown.map((s) => (
           <button key={s.id} onClick={() => onOpen(s.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Avatar initial={s.initial} hue={s.hue} size={48} />
+              <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={48} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <span style={{ color: '#111', fontWeight: 700, fontSize: 16.5 }}>{s.name}{s.age ? `, ${s.age}` : ''}</span>
@@ -377,7 +386,7 @@ function StudentDetail({ student, group, groupCoach, upcoming, attendance, onClo
         </div>
         <div style={{ padding: '10px 28px 120px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, marginBottom: 24 }}>
-            <Avatar initial={student.initial} hue={student.hue} size={84} ring />
+            <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={84} ring />
             <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{student.name}{student.age ? `, ${student.age}` : ''}</div>
             <button onClick={() => setLevelPickerOpen((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
               <LevelChip level={student.level || 'Aseta taso'} />
@@ -646,7 +655,7 @@ function VideoModal({ students, initialStudentId, onClose, onSave }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, maxHeight: 220, overflowY: 'auto' }}>
           {students.map((s) => (
             <button key={s.id} onClick={() => toggleStudent(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: studentIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: studentIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-              <Avatar initial={s.initial} hue={s.hue} size={30} />
+              <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={30} />
               <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
             </button>
           ))}
@@ -987,7 +996,7 @@ function GroupFormModal({ students, editing, onClose, onSave }) {
         <div style={{ display: isEdit ? 'none' : 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 220, overflowY: 'auto' }}>
           {students.map((s) => (
             <button key={s.id} onClick={() => toggleMember(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: memberIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: memberIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-              <Avatar initial={s.initial} hue={s.hue} size={30} />
+              <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={30} />
               <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
             </button>
           ))}
@@ -1014,7 +1023,7 @@ function AddMembersModal({ coachId, coachName, group, allStudents, onClose, onSa
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 260, overflowY: 'auto' }}>
           {available.map((s) => (
             <button key={s.id} onClick={() => toggle(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: selected.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: selected.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
-              <Avatar initial={s.initial} hue={s.hue} size={30} />
+              <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={30} />
               <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
             </button>
           ))}
@@ -1162,7 +1171,7 @@ function GroupDetail({ group, members, upcoming, onClose, onOpenStudent, onEditT
               {members.map((m) => (
                 <div key={m.id} className="k-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px' }}>
                   <button onClick={() => onOpenStudent(m.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, textAlign: 'left', cursor: 'pointer', background: 'none', border: 'none', padding: 0, fontFamily: 'inherit' }}>
-                    <Avatar initial={m.initial} hue={m.hue} size={40} />
+                    <Avatar src={m.avatarUrl} initial={m.initial} hue={m.hue} size={40} />
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{m.name}</div>
                       <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{m.focus}</div>
@@ -1316,7 +1325,7 @@ function CalendarView({ state, onAdd, onPreSession, onEditTraining, onDeleteTrai
                 <div key={t.id} className="k-card" style={{ padding: '16px 18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                     <div style={{ width: 50, fontSize: 14.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
-                    {party.kind === 'student' && party.student && <Avatar initial={party.student.initial} hue={party.student.hue} size={38} />}
+                    {party.kind === 'student' && party.student && <Avatar src={party.student.avatarUrl} initial={party.student.initial} hue={party.student.hue} size={38} />}
                     {party.kind === 'group' && <AvatarStack members={party.members} size={38} />}
                     <div style={{ flex: 1, minWidth: 140 }}>
                       <div style={{ color: '#111', fontWeight: 700, fontSize: 15 }}>{party.kind === 'group' ? (party.group ? party.group.name : 'Ryhmä') : (party.student ? party.student.name : '—')}</div>
@@ -1363,7 +1372,7 @@ function PreSessionPanel({ training, state, onClose, onToggleAbsence }) {
               const statusColor = entry ? (entry.reason === 'vamma' ? '#c23b28' : '#8a857a') : 'var(--green-deep)';
               return (
                 <div key={m.id} className="k-card" style={{ display: 'flex', gap: 13, alignItems: 'flex-start', padding: '13px 15px', opacity: entry ? 0.7 : 1 }}>
-                  <Avatar initial={m.initial} hue={m.hue} size={40} />
+                  <Avatar src={m.avatarUrl} initial={m.initial} hue={m.hue} size={40} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{m.name}</div>
                     <div style={{ fontSize: 13, color: '#514c42', marginTop: 3, lineHeight: 1.4 }}>Jatka: {m.focus}</div>
@@ -1452,7 +1461,7 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
               {students.map((s) => (
                 <button key={s.id} onClick={() => setStudentId(s.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
                   <span style={{ borderRadius: '50%', padding: 2, border: studentId === s.id ? '2px solid var(--lime)' : '2px solid transparent' }}>
-                    <Avatar initial={s.initial} hue={s.hue} size={46} />
+                    <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={46} />
                   </span>
                   <span style={{ fontSize: 11.5, fontWeight: 600, color: studentId === s.id ? '#111' : '#8a857a' }}>{s.name.split(' ')[0]}</span>
                 </button>
@@ -1693,7 +1702,7 @@ function ProfileEditModal({ coach, onClose, onSaved }) {
           <button onClick={() => avatarInputRef.current?.click()} style={{ position: 'relative', width: 84, height: 84, padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '50%' }}>
             {avatarPreview
               ? <img src={avatarPreview} alt="" style={{ width: 84, height: 84, borderRadius: '50%', objectFit: 'cover' }} />
-              : <Avatar initial={coach.initial} hue={coach.hue} size={84} />}
+              : <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={84} />}
             <span style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: '50%', background: 'var(--green-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M3 7h3l2-3h8l2 3h3v13H3z" /><circle cx="12" cy="13" r="4" /></svg>
             </span>
@@ -1809,7 +1818,7 @@ function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload }) {
       <PageHeader title="Profiili" action={<button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>} />
       <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
         <div className="k-card" style={{ padding: 26, flex: '0 0 260px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
-          <Avatar initial={coach.initial} hue={coach.hue} size={84} ring />
+          <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={84} ring />
           <div style={{ color: '#111', fontWeight: 800, fontSize: 20 }}>{coach.name}</div>
           <div style={{ color: '#8a857a', fontSize: 13.5 }}>{coach.tagline || 'Lisää lyhyt esittely'}</div>
           <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 6 }}>
@@ -1942,7 +1951,7 @@ function Sidebar({ tab, setTab, coach, onSignOut }) {
       </nav>
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.14)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 6px 8px' }}>
-          <Avatar initial={coach.initial} hue={coach.hue} size={34} />
+          <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={34} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{coach.name}</div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Valmentaja</div>
@@ -1967,7 +1976,7 @@ function MobileTopBar({ coach }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <window.KoutsiNotificationBell userId={coach.id} />
-        <Avatar initial={coach.initial} hue={coach.hue} size={30} />
+        <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={30} />
       </div>
     </div>
   );

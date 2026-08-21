@@ -17,15 +17,24 @@ const PLAYER_COUNT_FILTERS = [
 ];
 const CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 
-function Avatar({ initial, hue = 150, size = 44, ring = false }) {
+// `src` on profiilikuva, jos sellainen on ladattu; ilman sitä (tai jos kuva ei lataudu)
+// näytetään sama nimikirjain-ympyrä kuin ennenkin.
+function Avatar({ initial, hue = 150, size = 44, ring = false, src = '' }) {
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => { setFailed(false); }, [src]);
+  const shell = {
+    width: size, height: size, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+    background: `radial-gradient(120% 120% at 30% 20%, hsl(${hue} 55% 62%), hsl(${hue + 24} 60% 38%))`,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#fff', fontWeight: 700, fontSize: size * 0.38,
+    boxShadow: ring ? '0 0 0 3px var(--lime)' : 'none', letterSpacing: 0.3,
+  };
   return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `radial-gradient(120% 120% at 30% 20%, hsl(${hue} 55% 62%), hsl(${hue + 24} 60% 38%))`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#fff', fontWeight: 700, fontSize: size * 0.38,
-      boxShadow: ring ? '0 0 0 3px var(--lime)' : 'none', letterSpacing: 0.3,
-    }}>{initial}</div>
+    <div style={shell}>
+      {src && !failed
+        ? <img src={src} alt="" onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        : initial}
+    </div>
   );
 }
 
@@ -63,11 +72,14 @@ function VideoPlayerModal({ video, onClose }) {
 function SectionTitle({ children }) {
   return <div style={{ fontWeight: 800, fontSize: 12.5, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 }}>{children}</div>;
 }
-function PageHeader({ title, sub }) {
+function PageHeader({ title, sub, action }) {
   return (
-    <div style={{ marginBottom: 22 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5, color: 'var(--green-deep)' }}>{title}</h1>
-      {sub && <p style={{ fontSize: 14.5, color: '#8a857a', marginTop: 4 }}>{sub}</p>}
+    <div style={{ marginBottom: 22, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+      <div>
+        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5, color: 'var(--green-deep)' }}>{title}</h1>
+        {sub && <p style={{ fontSize: 14.5, color: '#8a857a', marginTop: 4 }}>{sub}</p>}
+      </div>
+      {action}
     </div>
   );
 }
@@ -78,7 +90,7 @@ function LevelChip({ level }) {
 function IdentityBlock({ student, group }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 26, textAlign: 'center' }}>
-      <Avatar initial={student.initial} hue={student.hue} size={76} ring />
+      <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={76} ring />
       <div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>{student.name}</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
         <LevelChip level={student.level || 'Ei asetettu'} />
@@ -423,7 +435,7 @@ function GroupCard({ group, state, student }) {
                 borderRadius: isMe ? 12 : 0,
                 marginTop: isMe && i > 0 ? -1 : 0,
               }}>
-                <Avatar initial={m.initial} hue={m.hue} size={38} />
+                <Avatar src={m.avatarUrl} initial={m.initial} hue={m.hue} size={38} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{m.name}{isMe ? ' (sinä)' : ''}</span>
@@ -844,11 +856,110 @@ function DataExportButton({ userId, name }) {
   );
 }
 
-function ProfileView({ student, group, onSignOut }) {
+// Pelaaja omistaa nimensä, kuvansa, ikänsä ja taustatietonsa. Tason asettaa valmentaja,
+// joten se näkyy täällä vain luettavana — samoin ryhmä ja valmentaja.
+function PlayerProfileEditModal({ student, onClose, onSaved }) {
+  const toast = window.useKoutsiToast();
+  const [name, setName] = React.useState(student.name || '');
+  const [age, setAge] = React.useState(student.age == null ? '' : String(student.age));
+  const [background, setBackground] = React.useState(student.background || '');
+  const [avatarFile, setAvatarFile] = React.useState(null);
+  const [avatarPreview, setAvatarPreview] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const avatarInputRef = React.useRef(null);
+
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  const parsedAge = age.trim() === '' ? null : Number(age);
+  const ageValid = parsedAge === null || (Number.isInteger(parsedAge) && parsedAge > 0 && parsedAge < 120);
+  const ready = name.trim() && ageValid;
+
+  const save = async () => {
+    if (!ready) return;
+    setBusy(true);
+    const ok = await toast.run(async () => {
+      if (avatarFile) await window.koutsiUploadAvatar(student.id, avatarFile);
+      if (name.trim() !== student.name) await window.koutsiSaveDisplayName(student.id, name.trim());
+      await window.koutsiSaveStudentProfile(student.id, { age: parsedAge, background: background.trim() });
+    }, 'Profiili tallennettu.');
+    setBusy(false);
+    if (ok) { await onSaved(); onClose(); }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 18 }}>Muokkaa profiilia</h3>
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+          <button onClick={() => avatarInputRef.current?.click()} style={{ position: 'relative', width: 84, height: 84, padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '50%' }}>
+            {avatarPreview
+              ? <img src={avatarPreview} alt="" style={{ width: 84, height: 84, borderRadius: '50%', objectFit: 'cover' }} />
+              : <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={84} />}
+            <span style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: '50%', background: 'var(--green-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M3 7h3l2-3h8l2 3h3v13H3z" /><circle cx="12" cy="13" r="4" /></svg>
+            </span>
+          </button>
+          <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) { setAvatarFile(f); setAvatarPreview(URL.createObjectURL(f)); }
+          }} />
+        </div>
+
+        <div style={label}>Nimi</div>
+        <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Ikä</div>
+        <input value={age} onChange={(e) => setAge(e.target.value)} inputMode="numeric" placeholder="Esim. 16"
+          style={{ ...inputStyle, marginBottom: ageValid ? 16 : 6, borderColor: ageValid ? '#d8d4ca' : '#c2543f' }} />
+        {!ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Anna ikä kokonaislukuna.</div>}
+        <div style={label}>Taustatiedot</div>
+        <textarea value={background} onChange={(e) => setBackground(e.target.value)} rows={4}
+          placeholder="Vammat, sairaudet, tavoitteet kaudelle — mitä valmentajan on hyvä tietää?"
+          style={{ ...inputStyle, resize: 'none', marginBottom: 6 }} />
+        <div style={{ fontSize: 12, color: '#a8a297', marginBottom: 20 }}>Nämä näkyvät valmentajallesi, ja myös hän voi täydentää niitä.</div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={save} disabled={busy || !ready} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: (busy || !ready) ? 0.45 : 1 }}>{busy ? 'Tallennetaan…' : 'Tallenna'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileRow({ label, value, hint }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, padding: '11px 0', borderBottom: '1px solid var(--line)' }}>
+      <span style={{ fontSize: 13, color: '#8a857a', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 14.5, color: value ? '#111' : '#a8a297', fontWeight: value ? 600 : 400, textAlign: 'right' }}>
+        {value || hint || '—'}
+      </span>
+    </div>
+  );
+}
+
+function ProfileView({ student, group, state, onSignOut, onReload }) {
+  const [editOpen, setEditOpen] = React.useState(false);
+  const coaches = (state && state.coaches) || [];
   return (
     <div>
-      <PageHeader title="Profiili" />
+      <PageHeader title="Profiili" action={<button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>} />
       <IdentityBlock student={student} group={group} />
+
+      <SectionTitle>Omat tiedot</SectionTitle>
+      <div className="k-card" style={{ padding: '4px 18px 14px', marginBottom: 26 }}>
+        <ProfileRow label="Nimi" value={student.name} />
+        <ProfileRow label="Ikä" value={student.age == null ? '' : `${student.age} v`} hint="Ei asetettu" />
+        <ProfileRow label="Taso" value={student.level} hint="Valmentaja asettaa" />
+        <ProfileRow label="Ryhmä" value={group ? `${group.name} · ${group.day} klo ${group.time}` : ''} hint="Ei ryhmää" />
+        <ProfileRow label="Valmentaja" value={coaches.map((c) => c.name).join(', ')} hint="Ei valmentajaa" />
+        <div style={{ paddingTop: 12 }}>
+          <div style={{ fontSize: 13, color: '#8a857a', marginBottom: 5 }}>Taustatiedot</div>
+          <div style={{ fontSize: 14.5, color: student.background ? '#111' : '#a8a297', lineHeight: 1.55 }}>
+            {student.background || 'Ei vielä lisätty — kerro valmentajalle esimerkiksi vammoista tai kauden tavoitteista.'}
+          </div>
+        </div>
+      </div>
 
       <SectionTitle>Ilmoitukset</SectionTitle>
       <window.KoutsiEmailPrefToggle userId={student.id} />
@@ -873,6 +984,8 @@ function ProfileView({ student, group, onSignOut }) {
         </div>
         <window.KoutsiLegalLinks style={{ marginTop: 16 }} />
       </div>
+
+      {editOpen && <PlayerProfileEditModal student={student} onClose={() => setEditOpen(false)} onSaved={onReload} />}
     </div>
   );
 }
@@ -920,7 +1033,7 @@ function Sidebar({ tab, setTab, student, onSignOut }) {
       </nav>
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.14)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 6px 8px' }}>
-          <Avatar initial={student.initial} hue={student.hue} size={34} />
+          <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={34} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{student.name}</div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Pelaaja</div>
@@ -945,7 +1058,7 @@ function MobileTopBar({ student }) {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <window.KoutsiNotificationBell userId={student.id} />
-        <Avatar initial={student.initial} hue={student.hue} size={30} />
+        <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={30} />
       </div>
     </div>
   );
@@ -1098,7 +1211,7 @@ function PlayerApp({ studentId, onSignOut }) {
               onEditMatchNote={(n) => { setEditingMatchNote(n); setMatchNoteOpen(true); }}
               onDeleteMatchNote={deleteMatchNote} />
           )}
-          {tab === 'profile' && <ProfileView student={student} group={group} onSignOut={onSignOut} />}
+          {tab === 'profile' && <ProfileView student={student} group={group} state={state} onSignOut={onSignOut} onReload={reload} />}
         </div>
       </div>
       <MobileBottomNav tab={tab} setTab={setTab} />

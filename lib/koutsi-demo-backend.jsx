@@ -197,7 +197,7 @@
   window.koutsiSupabase = {
     channel: () => noopChannel,
     removeChannel: () => {},
-    storage: { from: () => ({ createSignedUrl: () => Promise.resolve({ data: null, error: null }) }) },
+    storage: { from: () => ({ createSignedUrl: () => Promise.resolve({ data: null, error: null }), getPublicUrl: (p) => ({ data: { publicUrl: p || '' } }) }) },
   };
 
   // ── auth shim ─────────────────────────────────────────────────────────────
@@ -548,7 +548,32 @@
     save();
     return done();
   };
-  window.koutsiUploadAvatar = (uid, file) => done(URL.createObjectURL(file));
+  // Oikea backend tallentaa polun julkiseen ämpäriin; demossa kuva menee data-URL:na
+  // samaan localStorage-tilaan, jotta se säilyy myös sivun uudelleenlatauksen yli.
+  window.koutsiUploadAvatar = (uid, file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Kuvaa ei voitu lukea.'));
+    reader.onload = () => {
+      const url = String(reader.result || '');
+      const s = load();
+      if (uid === COACH) s.coach.avatarUrl = url;
+      s.coaches.forEach((c) => { if (c.id === uid) c.avatarUrl = url; });
+      const st = findStudent(uid);
+      if (st) st.avatarUrl = url;
+      try { save(); } catch { /* kuva voi ylittää kiintiön — jää tämän istunnon ajaksi */ }
+      resolve(url);
+    };
+    reader.readAsDataURL(file);
+  });
+  window.koutsiSaveStudentProfile = (studentId, patch) => {
+    const st = findStudent(studentId);
+    if (st) {
+      if (patch.age !== undefined) st.age = patch.age;
+      if (patch.background !== undefined) st.background = patch.background;
+      save();
+    }
+    return done();
+  };
   window.koutsiLoadNotifications = () => done(clone(load().notifications).map((n) => Object.assign({}, n, { date: shortDate(n.createdAt) })));
   window.koutsiMarkNotificationsRead = () => {
     load().notifications.forEach((n) => { n.read = true; });
