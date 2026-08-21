@@ -141,20 +141,22 @@ Valmentajan lataama vuosisuunnitelma ei mene suoraan käyttöön. Tiedosto talle
 Jokainen `koutsi_admins`-taulussa oleva käyttäjä saa siitä ilmoituksen (sovelluksessa ja
 sähköpostilla), ja ilmoituksen tekstissä on tiedostonimi sekä polku säiliössä.
 
-Kun suunnitelma on käyty läpi ja lisätty järjestelmään, se merkitään julkaistuksi — tämä
-lähettää valmentajalle ilmoituksen ja vaihtaa merkinnän sovelluksessa tilaan "Käytössä":
+Käsittely tapahtuu sovelluksessa: valmentajanäkymän **Profiili**-välilehdellä on
+`koutsi_admins`-käyttäjille kortti "Odottavat vuosisuunnitelmat". Siitä tiedoston voi avata
+(**Avaa**) ja merkitä lisätyksi (**Merkitse lisätyksi**) — jälkimmäinen lähettää
+valmentajalle ilmoituksen ja vaihtaa merkinnän tilaan "Käytössä". Kortti on näkymätön
+kaikille muille. Tiedoston avaaminen nojaa `koutsi_plans_object_admin_select`
+-storage-politiikkaan; ilman sitä allekirjoitettu linkki ei aukea muun valmentajan
+suunnitelmaan.
+
+Sama SQL:llä, jos sovellukseen ei pääse:
 
 ```sql
-update koutsi_groups set annual_plan_status = 'published' where id = '<ryhman-uuid>';
+select * from koutsi_pending_annual_plans();
 ```
 
-Odottavat suunnitelmat saa listattua näin:
-
 ```sql
-select g.id, g.name, p.name as valmentaja, g.annual_plan_filename, g.annual_plan_storage_path, g.annual_plan_uploaded_at
-  from koutsi_groups g left join profiles p on p.id = g.coach_id
- where g.annual_plan_storage_path is not null and g.annual_plan_status = 'review'
- order by g.annual_plan_uploaded_at;
+select koutsi_publish_annual_plan('<ryhman-uuid>');
 ```
 
 Käsittelijän lisääminen tai vaihtaminen:

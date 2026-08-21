@@ -12,18 +12,6 @@
         "."
       ],
       "port": 4321
-    },
-    {
-      "name": "krossi-demo-test",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": [
-        "-y",
-        "serve",
-        "-l",
-        "4399",
-        "."
-      ],
-      "port": 4399
     }
   ]
 }
