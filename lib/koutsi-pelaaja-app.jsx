@@ -2,8 +2,9 @@
 // Reads/writes the real Supabase-backed store from koutsi-data.js (see koutsi-auth.jsx
 // for the login/onboarding gate this file is mounted behind), so whatever the coach adds
 // (a diary entry, a new training, a video) shows up here live, and whatever the player
-// sets (their goal, a wish, a video) shows up for the coach live too. The localStorage-only
-// sales demo is lib/koutsi-demo-pelaaja-app.jsx.
+// sets (their goal, a wish, a video) shows up for the coach live too. The sales demo at
+// demo.koutsi.krossi.app runs this very file — lib/koutsi-demo-backend.jsx swaps an
+// in-memory store in underneath koutsi-data.js.
 
 const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely' };
 const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely'];

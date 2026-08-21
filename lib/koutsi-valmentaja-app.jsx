@@ -1,8 +1,9 @@
 // koutsi-valmentaja-app.jsx — full-page coach web app for koutsi.krossi.app/valmentaja.
 // Reads/writes the real Supabase-backed store from koutsi-data.js (see koutsi-auth.jsx
 // for the login/onboarding gate this file is mounted behind), so changes made here show
-// up on the player's device too, live. The localStorage-only sales demo is
-// lib/koutsi-demo-valmentaja-app.jsx.
+// up on the player's device too, live. The sales demo at demo.koutsi.krossi.app runs this
+// very file — lib/koutsi-demo-backend.jsx swaps an in-memory store in underneath
+// koutsi-data.js.
 
 const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely' };
 const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely'];

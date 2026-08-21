@@ -7,9 +7,9 @@
 // absences — grouped by month, filterable by kind and searchable as free text, because a
 // player who has been in the app for a season has a *lot* of entries.
 //
-// It is deliberately shared by both the Supabase-backed app (koutsi-pelaaja-app.jsx) and
-// the localStorage demo (koutsi-demo-pelaaja-app.jsx): both build a `student` object of the
-// same shape, and both load a koutsi-data with the same date helpers on `window`.
+// It is deliberately kept free of any backend detail: koutsi-pelaaja-app.jsx builds the
+// `student` object out of Supabase and the demo builds the same shape out of
+// lib/koutsi-demo-backend.jsx, and both leave the same date helpers on `window`.
 
 const KOUTSI_TL_MOOD_LABELS = { 1: 'Raskas', 2: 'Vaisu', 3: 'Ihan ok', 4: 'Hyvä', 5: 'Loistava' };
 const KOUTSI_TL_PREVIOUS_LABELS = { goal: 'Aiempi tavoite', wish: 'Aiempi toive', note: 'Aiempi muistiinpano' };
