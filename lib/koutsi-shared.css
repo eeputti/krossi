@@ -62,7 +62,10 @@ button.k-card:active { transform: translateY(0); box-shadow: 0 4px 10px -6px rgb
 @keyframes kSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes kFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes kRiseIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.k-rise-in { animation: kRiseIn .35s ease both; }
+/* backwards eika both: forwards-taytto jattaisi transformin voimaan animaation
+   jalkeenkin, jolloin sisaltoalue jaa omaksi pinoutuskontekstikseen ja peittaa
+   sivupalkista avatut overlayt. Loppuruutu on sama kuin elementin oma tila. */
+.k-rise-in { animation: kRiseIn .35s ease backwards; }
 
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; }
