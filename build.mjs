@@ -40,16 +40,26 @@ const PAGES = {
     'lib/koutsi-timeline.jsx',
     'lib/koutsi-pelaaja-app.jsx',
   ],
-  // The demo is the first thing a prospective coach opens, so it gets the same treatment.
+  // The demo runs the REAL app files. koutsi-data.js loads first for its pure helpers,
+  // then koutsi-demo-backend.jsx overwrites every Supabase-backed function with an
+  // in-memory version and shims auth — so the demo can never drift from the product.
   'koutsi-valmentaja-demo': [
-    'lib/koutsi-demo-data.js',
+    'lib/koutsi-demo-role-coach.js',
+    'lib/koutsi-data.js',
+    'lib/koutsi-demo-backend.jsx',
+    'lib/koutsi-qr.js',
+    'lib/koutsi-ui.jsx',
     'lib/koutsi-timeline.jsx',
-    'lib/koutsi-demo-valmentaja-app.jsx',
+    'lib/koutsi-valmentaja-app.jsx',
   ],
   'koutsi-pelaaja-demo': [
-    'lib/koutsi-demo-data.js',
+    'lib/koutsi-demo-role-player.js',
+    'lib/koutsi-data.js',
+    'lib/koutsi-demo-backend.jsx',
+    'lib/koutsi-qr.js',
+    'lib/koutsi-ui.jsx',
     'lib/koutsi-timeline.jsx',
-    'lib/koutsi-demo-pelaaja-app.jsx',
+    'lib/koutsi-pelaaja-app.jsx',
   ],
   'koutsi-landing': [
     'lib/koutsi-phone.jsx',

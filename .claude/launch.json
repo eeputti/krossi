@@ -4,8 +4,26 @@
     {
       "name": "krossi-static",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["-y", "serve", "-l", "4321", "."],
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "4321",
+        "."
+      ],
       "port": 4321
+    },
+    {
+      "name": "krossi-demo-test",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "serve",
+        "-l",
+        "4399",
+        "."
+      ],
+      "port": 4399
     }
   ]
 }
