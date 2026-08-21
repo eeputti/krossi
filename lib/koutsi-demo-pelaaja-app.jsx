@@ -215,7 +215,7 @@ function HomeView({ student, state, group, onSaveGoal, wish, setWish, wishSaved,
 
       {group && group.theme && (
         <div className="k-card" style={{ padding: '17px 20px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', marginBottom: 22 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>Viikon teema — {group.name}</div>
+          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>Viikon teema · vko {group.theme.week} — {group.name}</div>
           <div style={{ fontSize: 16.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{group.theme.title}</div>
           <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5 }}>{group.theme.lead}</div>
         </div>
@@ -284,11 +284,30 @@ function GroupCard({ group, state, student }) {
         </div>
       </div>
 
-      {group.theme && (
+      {(group.theme || (group.upcomingThemes || []).length > 0) && (
         <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--line)' }}>
-          <GroupCardLabel>Viikon teema</GroupCardLabel>
-          <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{group.theme.title}</div>
-          <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5 }}>{group.theme.lead}</div>
+          {group.theme ? (
+            <React.Fragment>
+              <GroupCardLabel>Viikon teema · vko {group.theme.week}</GroupCardLabel>
+              <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{group.theme.title}</div>
+              {group.theme.lead && <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5 }}>{group.theme.lead}</div>}
+            </React.Fragment>
+          ) : (
+            <React.Fragment>
+              <GroupCardLabel>Viikon teema</GroupCardLabel>
+              <div style={{ fontSize: 13.5, color: '#8a857a' }}>Tälle viikolle ei ole teemaa.</div>
+            </React.Fragment>
+          )}
+          {(group.upcomingThemes || []).length > 0 && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--line)' }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Tulossa</div>
+              {group.upcomingThemes.slice(0, 3).map((t) => (
+                <div key={t.id} style={{ fontSize: 13, color: '#514c42', padding: '2px 0' }}>
+                  <b style={{ color: 'var(--green-deep)' }}>vko {t.week}</b> · {t.title}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -30,22 +30,19 @@ salaisuuksia jono vain kertyy eikä mitään lähde, mikä on turvallinen oletus
 
 ```bash
 supabase secrets set \
-  BREVO_API_KEY='<Brevon transactional API -avain>' \
+  RESEND_API_KEY='<Resendin API-avain>' \
   KOUTSI_MAIL_FROM='koutsi@krossi.app' \
   KOUTSI_MAIL_FROM_NAME='Krossi Koutsi' \
-  KOUTSI_CRON_KEY='<arvo jonka arvot itse, esim. openssl rand -hex 32>'
+  KOUTSI_MAIL_REPLY_TO='eelispuro@gmail.com' \
+  KOUTSI_CRON_KEY="$(openssl rand -hex 32)"
 ```
 
-**Lähettäjä pitää lisätä Brevoon ensin.** Tilillä on tällä hetkellä vain `mums.fi`-osoitteet
-(`info@mums.fi`, `kideko@mums.fi`), joten Koutsin viestit lähtisivät väärältä brändiltä.
-Lisää Brevossa kohdassa Senders, Domains & Dedicated IPs joko:
+**Domain pitää vahvistaa Resendissä ensin.** Resend → Domains → Add Domain → `krossi.app`,
+ja lisää sen antamat DKIM- ja SPF-tietueet DNS:ään. Ennen vahvistusta lähetys onnistuu
+vain omaan osoitteeseesi, ja `email_status` jää arvoon `failed` kolmen yrityksen jälkeen.
 
-- **yksittäinen lähettäjä** `koutsi@krossi.app` — nopein, vahvistus sähköpostilinkillä; tai
-- **koko `krossi.app`-domain** — lisää DKIM- ja SPF-tietueet DNS:ään. Hitaampi mutta
-  selvästi parempi perillemeno, ja tämä kannattaa jos viestejä lähtee säännöllisesti.
-
-Ilman vahvistettua lähettäjää Brevo hylkää lähetykset, ja `email_status` jää arvoon
-`failed` kolmen yrityksen jälkeen.
+Lähetys on tarkoituksella eriytetty muista projekteista: Koutsin viestit lähtevät vain
+`krossi.app`-domainilta eivätkä koskaan minkään muun yrityksen sähköpostitilin kautta.
 
 ### 2. Vault-salaisuudet ajastusta varten
 
@@ -82,7 +79,7 @@ yrityksen jälkeen, ja syy on `email_error`-sarakkeessa.
   Roisku Media (Y-tunnus 3413406-6, Rauhankatu 10 C 809, 15110 Lahti). Jos mukaan tulee
   seurayhteistyötä — eli seura päättää mitä oppilaista kirjataan — rekisterinpitäjän ja
   käsittelijän roolit menevät uusiksi ja ne kannattaa tarkistuttaa juristilla.
-- **Käsittelysopimukset (DPA)** Supabasen, Vercelin ja Brevon kanssa: tarkista että ne ovat
+- **Käsittelysopimukset (DPA)** Supabasen, Vercelin ja Resendin kanssa: tarkista että ne ovat
   voimassa ennen kuin alaikäisten tietoja kertyy oikeasti.
 
 ## Valmentaja-avaimet

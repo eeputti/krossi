@@ -99,13 +99,15 @@ function LevelChip({ level }) {
   const c = window.koutsiLevelColor(level);
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, lineHeight: 1, background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>{level}</span>;
 }
-function GroupThemeBanner({ theme }) {
+function GroupThemeBanner({ theme, label }) {
   if (!theme) return null;
   return (
     <div className="k-card" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)' }}>
-      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>Viikon teema</div>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>
+        {label || 'Viikon teema'}{theme.week ? ` · vko ${theme.week}` : ''}
+      </div>
       <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{theme.title}</div>
-      <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5 }}>{theme.lead}</div>
+      {theme.lead && <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5 }}>{theme.lead}</div>}
     </div>
   );
 }
@@ -437,7 +439,11 @@ function GroupsView({ groups, students, onOpen, onCreate }) {
                 <div style={{ marginTop: 6 }}><LevelChip level={g.level} /></div>
               </div>
               <div style={{ fontSize: 13, color: '#8a857a' }}>{g.day} klo {g.time} viikoittain</div>
-              {g.theme && <div style={{ fontSize: 12.5, color: '#3c382f' }}><b style={{ color: 'var(--green-deep)' }}>Viikon teema:</b> {g.theme.title}</div>}
+              {g.theme
+                ? <div style={{ fontSize: 12.5, color: '#3c382f' }}><b style={{ color: 'var(--green-deep)' }}>Viikon teema:</b> {g.theme.title}</div>
+                : (g.upcomingThemes || []).length > 0
+                  ? <div style={{ fontSize: 12.5, color: '#8a857a' }}><b style={{ color: 'var(--green-deep)' }}>Vko {g.upcomingThemes[0].week}:</b> {g.upcomingThemes[0].title}</div>
+                  : <div style={{ fontSize: 12.5, color: '#a8a297' }}>Ei viikon teemaa</div>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <AvatarStack members={members} size={32} />
                 <span style={{ fontSize: 12.5, color: '#8a857a', fontWeight: 600 }}>{members.length} pelaajaa</span>
@@ -450,22 +456,114 @@ function GroupsView({ groups, students, onOpen, onCreate }) {
   );
 }
 
-function ThemeModal({ theme, onClose, onSave }) {
-  const [title, setTitle] = React.useState(theme ? theme.title : '');
-  const [lead, setLead] = React.useState(theme ? theme.lead : '');
-  const ready = title.trim() && lead.trim();
-  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+// Mirrors the real app's weekly-theme editor: every planned week in one list, a whole run
+// of weeks added in one click, saved in one go. Written without the shared UI kit, which
+// the demo bundle deliberately does not load.
+function DemoTrashIcon() {
+  return <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.5 6.5v5M9.5 6.5v5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+function WeeklyThemeRow({ row, weekOptions, onChange, onRemove }) {
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  return (
+    <div className="k-card" style={{ padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <select value={window.koutsiIsoWeekKey(row)} onChange={(e) => {
+          const opt = weekOptions.find((o) => window.koutsiIsoWeekKey(o) === e.target.value);
+          if (opt) onChange({ ...row, year: opt.year, week: opt.week, weekOffset: null });
+        }} style={{ ...inputStyle, width: 'auto', flex: 1, cursor: 'pointer', fontWeight: 700 }}>
+          {weekOptions.map((o) => (
+            <option key={window.koutsiIsoWeekKey(o)} value={window.koutsiIsoWeekKey(o)}>
+              vko {o.week} · {window.koutsiIsoWeekRangeLabel(o.year, o.week)}{o.isNow ? ' (tämä viikko)' : ''}
+            </option>
+          ))}
+        </select>
+        <button onClick={onRemove} title="Poista tämän viikon teema" aria-label="Poista tämän viikon teema" style={{
+          width: 30, height: 30, borderRadius: 9, flexShrink: 0, border: '1px solid var(--line)',
+          background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8f2f24',
+        }}><DemoTrashIcon /></button>
+      </div>
+      <input value={row.title} onChange={(e) => onChange({ ...row, title: e.target.value })} placeholder="Teema, esim. Kämmenen pelitila" style={inputStyle} />
+      <textarea value={row.lead} onChange={(e) => onChange({ ...row, lead: e.target.value })} rows={2} placeholder="Mihin tällä viikolla keskitytään? (vapaaehtoinen)" style={{ ...inputStyle, resize: 'none' }} />
+    </div>
+  );
+}
+
+function WeeklyThemesModal({ group, onClose, onSave }) {
+  const now = window.koutsiCurrentIsoWeek();
+  const [rows, setRows] = React.useState(() => {
+    const existing = (group.themes || []).map((t) => ({ key: String(t.id), id: t.id, year: t.year, week: t.week, weekOffset: t.weekOffset ?? null, title: t.title, lead: t.lead || '' }));
+    return existing.length ? existing : [{ key: 'uusi-0', id: null, year: now.year, week: now.week, weekOffset: null, title: '', lead: '' }];
+  });
+  const [addCount, setAddCount] = React.useState(4);
+  const nextKey = React.useRef(1);
+
+  const weekOptions = React.useMemo(() => {
+    const out = [];
+    for (let i = -1; i <= 52; i++) {
+      const w = window.koutsiAddIsoWeeks(now, i);
+      out.push({ ...w, isNow: i === 0 });
+    }
+    return out;
+  }, [now.year, now.week]);
+
+  const sorted = rows.slice().sort(window.koutsiCompareIsoWeeks);
+  const lastWeek = sorted.length ? sorted[sorted.length - 1] : window.koutsiAddIsoWeeks(now, -1);
+
+  const addWeeks = (count) => {
+    const added = [];
+    let cursor = rows.length ? lastWeek : window.koutsiAddIsoWeeks(now, -1);
+    for (let i = 0; i < count; i++) {
+      cursor = window.koutsiAddIsoWeeks(cursor, 1);
+      added.push({ key: `uusi-${nextKey.current++}`, id: null, year: cursor.year, week: cursor.week, weekOffset: null, title: '', lead: '' });
+    }
+    setRows((prev) => [...prev, ...added]);
+  };
+  const updateRow = (key, next) => setRows((prev) => prev.map((r) => (r.key === key ? next : r)));
+  const removeRow = (row) => setRows((prev) => prev.filter((r) => r.key !== row.key));
+
+  const filled = rows.filter((r) => r.title.trim());
+  const duplicate = (() => {
+    const seen = new Set();
+    return filled.some((r) => {
+      const k = window.koutsiIsoWeekKey(r);
+      if (seen.has(k)) return true;
+      seen.add(k);
+      return false;
+    });
+  })();
+  const ready = filled.length > 0 && !duplicate;
+
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
-        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Viikon teema</h3>
-        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Otsikko</div>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Kämmenen pelitila" style={{ ...inputStyle, marginBottom: 16 }} />
-        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Kuvaus</div>
-        <textarea value={lead} onChange={(e) => setLead(e.target.value)} rows={3} placeholder="Mihin tällä viikolla keskitytään?" style={{ ...inputStyle, resize: 'none', marginBottom: 20 }} />
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => ready && onSave({ title: title.trim(), lead: lead.trim() })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Tallenna</button>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(520px, 100%)', maxHeight: 'calc(100vh - 40px)', padding: 0, display: 'flex', flexDirection: 'column', animation: 'kFadeIn .2s ease' }}>
+        <div style={{ padding: '24px 26px 14px', borderBottom: '1px solid var(--line)' }}>
+          <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 5 }}>Viikon teemat</h3>
+          <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5 }}>{group.name} — jokaiselle viikolle oma teema. Pelaajat näkevät aina kuluvan viikon teeman.</p>
+        </div>
+        <div style={{ padding: '16px 26px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {sorted.map((row) => (
+            <WeeklyThemeRow key={row.key} row={row} weekOptions={weekOptions}
+              onChange={(next) => updateRow(row.key, next)} onRemove={() => removeRow(row)} />
+          ))}
+          {rows.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei yhtään viikkoa. Lisää alta.</div>}
+        </div>
+        <div style={{ padding: '14px 26px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => addWeeks(1)} className="btn-outline btn-sm">+ Lisää viikko</button>
+          <span style={{ fontSize: 13, color: '#8a857a' }}>tai</span>
+          <input type="number" min={2} max={26} value={addCount} aria-label="Montako viikkoa lisätään kerralla"
+            onChange={(e) => setAddCount(Math.max(2, Math.min(26, Number(e.target.value) || 2)))}
+            style={{ width: 58, boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 10, padding: '8px 10px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff' }} />
+          <button onClick={() => addWeeks(addCount)} className="btn-outline btn-sm">+ Lisää {addCount} viikkoa kerralla</button>
+        </div>
+        <div style={{ padding: '14px 26px 22px', borderTop: '1px solid var(--line)' }}>
+          {duplicate && <div style={{ fontSize: 12.5, color: '#8f2f24', marginBottom: 10, fontWeight: 600 }}>Kahdella rivillä on sama viikko.</div>}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+            <button onClick={() => ready && onSave(filled)} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>
+              Tallenna {filled.length} viikkoa
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: '#a8a297', marginTop: 9, textAlign: 'center' }}>Rivit ilman teemaa jätetään tallentamatta.</div>
         </div>
       </div>
     </div>
@@ -566,7 +664,7 @@ function AddMembersModal({ group, allStudents, onClose, onSave }) {
   );
 }
 
-function GroupDetail({ group, members, upcoming, onClose, onOpenStudent, onEditTheme, onAddMembers, onUploadPlan, onRemovePlan }) {
+function GroupDetail({ group, members, upcoming, onClose, onOpenStudent, onEditTheme, onAddMembers, onUploadPlan, onRemovePlan, onDeleteGroup }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'flex-end' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(10,15,10,0.35)', animation: 'kFadeIn .2s ease' }} />
@@ -581,28 +679,64 @@ function GroupDetail({ group, members, upcoming, onClose, onOpenStudent, onEditT
             <div style={{ fontSize: 14, color: '#514c42', marginTop: 12 }}>Viikoittain: {group.day} klo {group.time}</div>
           </div>
           <div style={{ marginBottom: 22 }}>
-            {group.theme && <GroupThemeBanner theme={group.theme} />}
-            <button onClick={onEditTheme} className="btn-outline btn-sm" style={{ marginTop: group.theme ? 10 : 0 }}>{group.theme ? 'Muokkaa viikon teemaa' : '+ Lisää viikon teema'}</button>
+            {group.theme
+              ? <GroupThemeBanner theme={group.theme} label="Tämän viikon teema" />
+              : (group.upcomingThemes || []).length > 0
+                ? <GroupThemeBanner theme={group.upcomingThemes[0]} label="Seuraava suunniteltu teema" />
+                : <div style={{ fontSize: 14, color: '#8a857a' }}>Ei vielä viikkoteemoja. Voit suunnitella useamman viikon kerralla.</div>}
+            <button onClick={onEditTheme} className="btn-outline btn-sm" style={{ marginTop: 10 }}>
+              {(group.themes || []).length > 0 ? `Muokkaa viikkoteemoja (${group.themes.length})` : '+ Suunnittele viikkoteemat'}
+            </button>
+            {(group.upcomingThemes || []).length > 0 && (
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tulevat viikot</div>
+                {group.upcomingThemes.slice(0, 5).map((t) => (
+                  <div key={t.id} style={{ fontSize: 13.5, color: '#3c382f' }}>
+                    <b style={{ color: 'var(--green-deep)' }}>vko {t.week}</b> · {window.koutsiIsoWeekRangeLabel(t.year, t.week)} — {t.title}
+                  </div>
+                ))}
+                {group.upcomingThemes.length > 5 && <div style={{ fontSize: 12.5, color: '#a8a297' }}>+{group.upcomingThemes.length - 5} viikkoa lisää</div>}
+              </div>
+            )}
           </div>
           <Field label="Vuosisuunnitelma">
+            <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '12px 14px', borderRadius: 13, background: 'rgba(214,140,44,0.10)', border: '1px solid rgba(214,140,44,0.28)', marginBottom: 12 }}>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, color: '#8a5a12', background: 'rgba(214,140,44,0.22)', borderRadius: 999, padding: '3px 8px', flexShrink: 0, marginTop: 1 }}>BETA</span>
+              <div style={{ fontSize: 12.5, color: '#6b4a12', lineHeight: 1.5 }}>
+                Vuosisuunnitelman lataus on vielä beta-vaiheessa. Voit lähettää suunnitelman tästä, mutta se ei mene suoraan käyttöön: tiedosto tulee meille, ja me lisäämme sen järjestelmään sinun ryhmällesi. Saat ilmoituksen, kun se on valmis.
+              </div>
+            </div>
             {group.annualPlan ? (
-              <div className="k-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px' }}>
-                <span style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(14,59,44,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 1.5h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1v-12a1 1 0 011-1z" stroke="var(--green-deep)" strokeWidth="1.4" /><path d="M5 8.5h6M5 11h6" stroke="var(--green-deep)" strokeWidth="1.4" strokeLinecap="round" /></svg>
-                </span>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13.5, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.annualPlan.filename}</div>
-                  <div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>Ladattu {window.koutsiFmtShortDate(group.annualPlan.date)}</div>
+              <div>
+                <div className="k-card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px' }}>
+                  <span style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(14,59,44,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 1.5h7l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1v-12a1 1 0 011-1z" stroke="var(--green-deep)" strokeWidth="1.4" /><path d="M5 8.5h6M5 11h6" stroke="var(--green-deep)" strokeWidth="1.4" strokeLinecap="round" /></svg>
+                  </span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.annualPlan.filename}</div>
+                    <div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>
+                      {group.annualPlan.status === 'published' ? 'Lisätty järjestelmään' : 'Lähetetty'} {window.koutsiFmtShortDate(group.annualPlan.date)}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, letterSpacing: 0.3, borderRadius: 999, padding: '5px 10px', flexShrink: 0,
+                    background: group.annualPlan.status === 'published' ? 'rgba(14,59,44,0.10)' : 'rgba(214,140,44,0.16)',
+                    color: group.annualPlan.status === 'published' ? 'var(--green-deep)' : '#8a5a12',
+                  }}>{group.annualPlan.status === 'published' ? 'Käytössä' : 'Käsittelyssä'}</span>
+                  <button onClick={onRemovePlan} className="btn-outline btn-sm" style={{ flexShrink: 0, padding: '6px 12px', fontSize: 12 }}>Poista</button>
                 </div>
-                <button onClick={onRemovePlan} className="btn-outline btn-sm" style={{ flexShrink: 0, padding: '6px 12px', fontSize: 12 }}>Poista</button>
+                <label className="btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-block', marginTop: 10 }}>
+                  Lähetä uusi versio
+                  <input type="file" accept=".xlsx,.xls,.csv,.pdf" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files[0]; if (f) onUploadPlan(f.name); e.target.value = ''; }} />
+                </label>
               </div>
             ) : (
               <div>
-                <div style={{ color: '#8a857a', fontSize: 14, marginBottom: 10 }}>Ei vielä ladattua vuosisuunnitelmaa tälle ryhmälle.</div>
                 <label className="btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-block' }}>
-                  + Lataa vuosisuunnitelma
+                  + Lähetä vuosisuunnitelma
                   <input type="file" accept=".xlsx,.xls,.csv,.pdf" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files[0]; if (f) onUploadPlan(f.name); e.target.value = ''; }} />
                 </label>
+                <div style={{ fontSize: 12, color: '#a8a297', marginTop: 8 }}>PDF, CSV tai Excel, enintään 20 Mt.</div>
               </div>
             )}
           </Field>
@@ -630,6 +764,21 @@ function GroupDetail({ group, members, upcoming, onClose, onOpenStudent, onEditT
               ))}
             </div>
           </Field>
+
+          <div style={{ marginTop: 34, paddingTop: 20, borderTop: '1px solid var(--line)' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Ryhmän poistaminen</div>
+            <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5, marginBottom: 12 }}>
+              Ryhmä ja sen tulevat treenit poistetaan. Pelaajat säilyvät oppilainasi.
+            </p>
+            <button onClick={onDeleteGroup} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              border: '1px solid rgba(143,47,36,0.35)', background: '#fff', color: '#8f2f24',
+              borderRadius: 999, padding: '11px 20px', fontSize: 14, fontWeight: 700,
+              fontFamily: 'inherit', cursor: 'pointer',
+            }}>
+              <DemoTrashIcon /> Poista ryhmä
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -790,9 +939,9 @@ function PreSessionPanel({ training, state, onClose, onToggleAbsence }) {
             })}
           </div>
         </Field>
-        {party.kind === 'group' && party.group && party.group.theme && (
-          <Field label="Ryhmän teema">
-            <GroupThemeBanner theme={party.group.theme} />
+        {party.kind === 'group' && party.group && window.koutsiThemeForDate(party.group, training.date) && (
+          <Field label="Tämän treenin viikkoteema">
+            <GroupThemeBanner theme={window.koutsiThemeForDate(party.group, training.date)} label="Viikon teema" />
           </Field>
         )}
         <Field label="Ehdotetut harjoitteet">
@@ -1210,7 +1359,7 @@ function App() {
     setBackgroundOpen(false);
   };
   const uploadAnnualPlan = (groupId, filename) => {
-    update((prev) => ({ ...prev, groups: prev.groups.map((g) => g.id === groupId ? { ...g, annualPlan: { filename, date: window.koutsiTodayStr() } } : g) }));
+    update((prev) => ({ ...prev, groups: prev.groups.map((g) => g.id === groupId ? { ...g, annualPlan: { filename, date: window.koutsiTodayStr(), status: 'review' } } : g) }));
   };
   const removeAnnualPlan = (groupId) => {
     update((prev) => ({ ...prev, groups: prev.groups.map((g) => g.id === groupId ? { ...g, annualPlan: null } : g) }));
@@ -1219,12 +1368,26 @@ function App() {
     update((prev) => ({ ...prev, exercises: [...prev.exercises, { id: window.koutsiNextExerciseId(prev), name, goal, players, playerCount, duration, level, tags }] }));
     setExerciseFormOpen(false);
   };
-  const saveTheme = (theme) => {
-    update((prev) => ({ ...prev, groups: prev.groups.map((g) => g.id === themeModalGroupId ? { ...g, theme } : g) }));
+  const saveThemes = (rows) => {
+    const themes = rows.map((r) => ({ id: r.id != null ? r.id : `oma-${r.year}-${r.week}`, year: r.year, week: r.week, weekOffset: r.weekOffset ?? null, title: r.title.trim(), lead: (r.lead || '').trim() }));
+    update((prev) => window.koutsiDeriveGroupThemes({
+      ...prev,
+      groups: prev.groups.map((g) => (g.id === themeModalGroupId ? { ...g, themes } : g)),
+    }));
     setThemeModalGroupId(null);
   };
+  const deleteGroup = () => {
+    if (!groupDetail) return;
+    if (!window.confirm(`Poista ryhmä ${groupDetail.name}?\n\nRyhmä ja sen tulevat treenit poistetaan. Pelaajat säilyvät oppilainasi.`)) return;
+    update((prev) => ({
+      ...prev,
+      groups: prev.groups.filter((g) => g.id !== groupDetail.id),
+      trainings: prev.trainings.filter((t) => t.groupId !== groupDetail.id),
+    }));
+    setGroupDetailId(null);
+  };
   const createGroup = ({ name, level, day, time, memberIds }) => {
-    update((prev) => ({ ...prev, groups: [...prev.groups, { id: window.koutsiNextGroupId(prev), name, level, day, time, memberIds, coachId: prev.coach.id, theme: null }] }));
+    update((prev) => ({ ...prev, groups: [...prev.groups, { id: window.koutsiNextGroupId(prev), name, level, day, time, memberIds, coachId: prev.coach.id, themes: [], theme: null, upcomingThemes: [], annualPlan: null }] }));
     setGroupFormOpen(false);
   };
   const addMembers = (ids) => {
@@ -1260,12 +1423,15 @@ function App() {
       {detail && entryOpen && <EntryModal student={detail} onClose={() => setEntryOpen(false)} onSend={saveEntry} />}
       {detail && videoOpen && <VideoModal students={state.students} initialStudentId={detailId} onClose={() => setVideoOpen(false)} onSave={addVideo} />}
       {detail && backgroundOpen && <BackgroundModal student={detail} onClose={() => setBackgroundOpen(false)} onSave={saveBackground} />}
-      {groupDetail && <GroupDetail group={groupDetail} members={groupMembers} upcoming={groupUpcoming} onClose={() => setGroupDetailId(null)} onOpenStudent={openStudentFromGroup} onEditTheme={() => setThemeModalGroupId(groupDetail.id)} onAddMembers={() => setAddMembersGroupId(groupDetail.id)} onUploadPlan={(filename) => uploadAnnualPlan(groupDetail.id, filename)} onRemovePlan={() => removeAnnualPlan(groupDetail.id)} />}
+      {groupDetail && <GroupDetail group={groupDetail} members={groupMembers} upcoming={groupUpcoming} onClose={() => setGroupDetailId(null)} onOpenStudent={openStudentFromGroup} onEditTheme={() => setThemeModalGroupId(groupDetail.id)} onAddMembers={() => setAddMembersGroupId(groupDetail.id)} onUploadPlan={(filename) => uploadAnnualPlan(groupDetail.id, filename)} onRemovePlan={() => removeAnnualPlan(groupDetail.id)} onDeleteGroup={deleteGroup} />}
       {trainingOpen && <TrainingModal students={state.students} groups={state.groups} defaultDate={trainingDefaultDate} onClose={() => setTrainingOpen(false)} onSave={addTraining} />}
       {exercise && <ExerciseDetail exercise={exercise} onClose={() => setExerciseId(null)} />}
       {exerciseFormOpen && <ExerciseFormModal onClose={() => setExerciseFormOpen(false)} onSave={addExercise} />}
       {presessionTraining && <PreSessionPanel training={presessionTraining} state={state} onClose={() => setPresessionTrainingId(null)} onToggleAbsence={(studentId) => cycleAbsence(presessionTraining.id, studentId)} />}
-      {themeModalGroupId != null && <ThemeModal theme={(state.groups.find((g) => g.id === themeModalGroupId) || {}).theme} onClose={() => setThemeModalGroupId(null)} onSave={saveTheme} />}
+      {themeModalGroupId != null && (() => {
+        const themeGroup = state.groups.find((g) => g.id === themeModalGroupId);
+        return themeGroup ? <WeeklyThemesModal group={themeGroup} onClose={() => setThemeModalGroupId(null)} onSave={saveThemes} /> : null;
+      })()}
       {groupFormOpen && <GroupFormModal students={state.students} onClose={() => setGroupFormOpen(false)} onSave={createGroup} />}
       {addMembersGroupId != null && <AddMembersModal group={state.groups.find((g) => g.id === addMembersGroupId)} allStudents={state.students} onClose={() => setAddMembersGroupId(null)} onSave={addMembers} />}
     </div>
