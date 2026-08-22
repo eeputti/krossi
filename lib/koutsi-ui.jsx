@@ -275,7 +275,7 @@ function KoutsiNotificationBell({ userId, dark = false }) {
       {/* Kello istuu sivupalkissa, jonka sisaruksena main-sisalto muodostaa oman
           pinoutuskontekstin — ilman porttia paneeli jaisi sivun korttien alle. */}
       {open && ReactDOM.createPortal((
-        <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 150, background: 'rgba(10,15,10,0.4)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '70px 16px 20px' }}>
+        <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 150, background: 'rgba(10,15,10,0.4)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '70px 16px 20px' }}>
           <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', maxHeight: '70vh', overflowY: 'auto', padding: '22px 22px 18px', animation: 'kFadeIn .18s ease' }}>
             <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 14, color: '#111' }}>Ilmoitukset</h3>
             {items.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä ilmoituksia.</div>}
