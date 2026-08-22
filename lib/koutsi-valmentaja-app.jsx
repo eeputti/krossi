@@ -193,8 +193,51 @@ function InviteStudentModal({ coachId, coachName, onClose }) {
   );
 }
 
-function StudentsView({ students, coachId, coachName, onOpen, groupCount, trainingCount, onCreateGroup, onAddTraining }) {
+// Pelaajan lisäys pelkällä nimellä: valmentaja pääsee heti töihin, eikä
+// pelaajan tarvitse luoda tiliä. Pelaaja voi myöhemmin lunastaa profiilin
+// valmentajan koodilla, jolloin kaikki kirjattu työ seuraa mukana.
+function AddPlayerModal({ onClose, onSave }) {
+  const [name, setName] = React.useState('');
+  const [age, setAge] = React.useState('');
+  const [level, setLevel] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const ready = name.trim() && !busy;
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  const submit = async () => {
+    if (!ready) return;
+    setBusy(true); setError('');
+    try { await onSave({ name: name.trim(), age: age ? Number(age) : null, level: level.trim() || null }); }
+    catch (err) { setError(window.koutsiErrorText(err, 'Pelaajan lisäys epäonnistui')); setBusy(false); }
+  };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Lisää pelaaja</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>
+          Pelaaja ei tarvitse tiliä. Voit kirjata hänelle treenejä ja muistiinpanoja heti — ja
+          antaa myöhemmin liittymiskoodisi, jolloin hän saa kaiken näkyviinsä omalla tunnuksellaan.
+        </p>
+        {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
+        <div style={label}>Nimi</div>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. Onni Virtanen" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Ikä (valinnainen)</div>
+        <input value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="13" style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Taso (valinnainen)</div>
+        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Aloittelija" style={{ ...inputStyle, marginBottom: 20 }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Lisätään…' : 'Lisää'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudentsView({ students, coachId, coachName, onOpen, groupCount, trainingCount, onCreateGroup, onAddTraining, onAddPlayer }) {
   const [inviteOpen, setInviteOpen] = React.useState(false);
+  const [addOpen, setAddOpen] = React.useState(false);
   // A search box only earns its space once the list stops fitting on one screen.
   const [search, setSearch] = React.useState('');
   const q = search.trim().toLowerCase();
@@ -203,7 +246,12 @@ function StudentsView({ students, coachId, coachName, onOpen, groupCount, traini
     : students;
   return (
     <div>
-      <PageHeader title="Oppilaani" sub={`${students.length} valmennettavaa`} action={<button onClick={() => setInviteOpen(true)} className="btn-dark btn-sm">+ Kutsu oppilas</button>} />
+      <PageHeader title="Oppilaani" sub={`${students.length} valmennettavaa`} action={
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => setAddOpen(true)} className="btn-outline btn-sm">+ Lisää pelaaja</button>
+          <button onClick={() => setInviteOpen(true)} className="btn-dark btn-sm">+ Kutsu oppilas</button>
+        </div>
+      } />
       <GettingStarted
         studentCount={students.length} groupCount={groupCount} trainingCount={trainingCount}
         onInvite={() => setInviteOpen(true)} onCreateGroup={onCreateGroup} onAddTraining={onAddTraining} />
@@ -231,6 +279,7 @@ function StudentsView({ students, coachId, coachName, onOpen, groupCount, traini
         {students.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei vielä oppilaita — kutsu ensimmäinen yllä olevasta linkistä.</div>}
         {students.length > 0 && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei osumia haulla ”{search.trim()}”.</div>}
       </div>
+      {addOpen && <AddPlayerModal onClose={() => setAddOpen(false)} onSave={async (data) => { await onAddPlayer(data); setAddOpen(false); }} />}
       {inviteOpen && <InviteStudentModal coachId={coachId} coachName={coachName} onClose={() => setInviteOpen(false)} />}
     </div>
   );
@@ -1910,16 +1959,272 @@ function GettingStarted({ studentCount, groupCount, trainingCount, onInvite, onC
 }
 
 
+// ── Ylläpito ─────────────────────────────────────────────
+// Only mounted for people in koutsi_admins. Exists so running the pilot means opening a
+// tab, not the SQL editor: who the coaches are, what their invite codes are, adding an
+// annual plan on their behalf, and turning a pasted player list into ready-to-send links.
+function AdminCoachCard({ coach, onOpenPlans, onOpenImport }) {
+  const [showCodes, setShowCodes] = React.useState(false);
+  return (
+    <div className="k-card" style={{ padding: '16px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111' }}>{coach.name}</div>
+          <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2, wordBreak: 'break-all' }}>{coach.email}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[['Oppilaita', coach.studentCount], ['Ryhmiä', coach.groupCount], ['Treenejä', coach.trainingCount]].map(([k, v]) => (
+            <div key={k} style={{ background: '#f7f5ef', borderRadius: 11, padding: '7px 11px', textAlign: 'center', minWidth: 62 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 700, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>{k}</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {coach.pendingPlans > 0 && (
+        <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(199,123,46,0.12)', border: '1px solid rgba(199,123,46,0.35)', fontSize: 12.5, color: '#7a4c1e', fontWeight: 700 }}>
+          {coach.pendingPlans} vuosisuunnitelmaa odottaa käsittelyä
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        <button onClick={() => onOpenImport(coach)} className="btn-dark btn-sm">Tuo pelaajalista</button>
+        <button onClick={() => onOpenPlans(coach)} className="btn-outline btn-sm">Vuosisuunnitelmat</button>
+        {coach.codes.length > 0 && (
+          <button onClick={() => setShowCodes((v) => !v)} className="btn-outline btn-sm">
+            {showCodes ? 'Piilota koodit' : `Kutsukoodit (${coach.codes.length})`}
+          </button>
+        )}
+      </div>
+
+      {showCodes && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+          {coach.codes.map((c) => (
+            <div key={c.code} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 11px', borderRadius: 10, background: '#f7f5ef', border: '1px solid var(--line)', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 800, letterSpacing: 1.5, fontSize: 13.5, color: '#111' }}>{c.code}</span>
+              <span style={{ fontSize: 12, color: '#514c42', flex: 1, minWidth: 90 }}>
+                {c.label || c.group_name || 'Ei ryhmää'} · {c.used}/{c.max_uses ?? '∞'}
+              </span>
+              <window.KoutsiCopyButton text={window.koutsiInviteLink(c.code)} label="Kopioi linkki" style={{ padding: '5px 10px', fontSize: 11.5 }} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A player is an auth user who signs up themselves — that is also where they accept the
+// terms — so no spreadsheet can create accounts. What this does instead is turn the list
+// into one labelled code and link per name, ready to paste back to the coach.
+function AdminImportModal({ coach, onClose }) {
+  const toast = window.useKoutsiToast();
+  const [groups, setGroups] = React.useState([]);
+  const [groupId, setGroupId] = React.useState(null);
+  const [text, setText] = React.useState('');
+  const [result, setResult] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    window.koutsiAdminGroups(coach.id).then(setGroups).catch(() => setGroups([]));
+  }, [coach.id]);
+
+  const names = window.koutsiParseNameList(text);
+  const run = async () => {
+    if (!names.length) return;
+    setBusy(true);
+    await toast.run(async () => {
+      setResult(await window.koutsiAdminBulkInviteCodes(coach.id, names, groupId));
+    }, `${names.length} kutsulinkkiä luotu.`);
+    setBusy(false);
+  };
+
+  const asText = result
+    ? result.map((r) => `${r.label}\t${r.link}`).join('\n')
+    : '';
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '12px 14px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff' };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Tuo pelaajalista — {coach.name}</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>
+          Liitä nimet Excelistä, yksi per rivi. Jokaiselle syntyy oma nimetty kutsulinkki, jonka
+          valmentaja lähettää pelaajalle. Tilin luo pelaaja itse — sitä ei voi tehdä hänen puolestaan,
+          koska siinä hyväksytään myös käyttöehdot.
+        </p>
+
+        {result ? (
+          <React.Fragment>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>{result.length} linkkiä valmiina</div>
+            <div style={{ maxHeight: 260, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 12, marginBottom: 14 }}>
+              {result.map((r) => (
+                <div key={r.code} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 700, color: '#111', minWidth: 110 }}>{r.label}</span>
+                  <span style={{ fontSize: 12, color: '#514c42', flex: 1, wordBreak: 'break-all' }}>{r.link}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <window.KoutsiCopyButton text={asText} label="Kopioi kaikki (nimi + linkki)" copiedLabel="Kopioitu!" className="btn-dark btn-sm" />
+              <button onClick={() => { setResult(null); setText(''); }} className="btn-outline btn-sm">Tee uusi lista</button>
+              <button onClick={onClose} className="btn-outline btn-sm">Sulje</button>
+            </div>
+          </React.Fragment>
+        ) : (
+          <React.Fragment>
+            {groups.length > 0 && (
+              <React.Fragment>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Liitä ryhmään (valinnainen)</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                  <button onClick={() => setGroupId(null)} style={{ padding: '8px 14px', borderRadius: 999, border: groupId === null ? 'none' : '1px solid #d8d4ca', background: groupId === null ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei ryhmää</button>
+                  {groups.map((g) => (
+                    <button key={g.id} onClick={() => setGroupId(g.id)} style={{ padding: '8px 14px', borderRadius: 999, border: groupId === g.id ? 'none' : '1px solid #d8d4ca', background: groupId === g.id ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{g.name}</button>
+                  ))}
+                </div>
+              </React.Fragment>
+            )}
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Nimet</div>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={9}
+              placeholder={'Maria Korhonen\nAleksi Rantanen\nEmma Laine'}
+              style={{ ...inputStyle, resize: 'vertical', marginBottom: 8, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13 }} />
+            <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 18 }}>
+              {names.length > 0 ? `${names.length} nimeä tunnistettu.` : 'Yksi nimi per rivi. CSV käy myös — ensimmäinen sarake luetaan.'}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+              <button onClick={run} disabled={!names.length || busy} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: (!names.length || busy) ? 0.45 : 1 }}>
+                {busy ? 'Luodaan…' : `Luo ${names.length || ''} linkkiä`}
+              </button>
+            </div>
+          </React.Fragment>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdminPlansModal({ coach, onClose, onChanged }) {
+  const toast = window.useKoutsiToast();
+  const [groups, setGroups] = React.useState(null);
+  const [busyId, setBusyId] = React.useState(null);
+
+  const load = React.useCallback(() => {
+    window.koutsiAdminGroups(coach.id).then(setGroups).catch(() => setGroups([]));
+  }, [coach.id]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const upload = async (group, file) => {
+    if (!file) return;
+    setBusyId(group.id);
+    await toast.run(async () => {
+      await window.koutsiAdminUploadAnnualPlan(group.id, file);
+      load();
+      onChanged();
+    }, 'Vuosisuunnitelma lisätty ja merkitty käytössä olevaksi.');
+    setBusyId(null);
+  };
+  const open = async (group) => {
+    setBusyId(group.id);
+    try {
+      const { data } = await window.koutsiSupabase.from('koutsi_groups').select('annual_plan_storage_path').eq('id', group.id).maybeSingle();
+      if (!data?.annual_plan_storage_path) { toast.info('Ei tallennettua tiedostoa.'); return; }
+      window.open(await window.koutsiAnnualPlanUrl(data.annual_plan_storage_path), '_blank', 'noopener');
+    } catch (err) { toast.error(window.koutsiErrorText(err)); } finally { setBusyId(null); }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Vuosisuunnitelmat — {coach.name}</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>
+          Voit ladata suunnitelman valmentajan puolesta. Ladattu tiedosto menee heti käyttöön eikä jää odottamaan käsittelyä.
+        </p>
+        {groups === null && <div style={{ color: '#8a857a', fontSize: 14 }}>Ladataan…</div>}
+        {groups && groups.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Tällä valmentajalla ei ole vielä ryhmiä.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {(groups || []).map((g) => (
+            <div key={g.id} className="k-card" style={{ padding: '13px 15px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 150px', minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{g.name}</div>
+                <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>
+                  {g.memberCount} pelaajaa · {g.planFilename ? `${g.planFilename} (${g.planStatus === 'review' ? 'odottaa' : 'käytössä'})` : 'ei suunnitelmaa'}
+                </div>
+              </div>
+              {g.planFilename && <button onClick={() => open(g)} disabled={busyId === g.id} className="btn-outline btn-sm">Avaa</button>}
+              <label className="btn-dark btn-sm" style={{ cursor: busyId === g.id ? 'default' : 'pointer', opacity: busyId === g.id ? 0.6 : 1 }}>
+                {busyId === g.id ? 'Ladataan…' : (g.planFilename ? 'Korvaa' : 'Lataa')}
+                <input type="file" accept=".pdf,.csv,.xls,.xlsx" style={{ display: 'none' }} disabled={busyId === g.id}
+                  onChange={(e) => { upload(g, e.target.files[0]); e.target.value = ''; }} />
+              </label>
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} className="btn-outline" style={{ width: '100%', padding: '13px 0', marginTop: 18 }}>Sulje</button>
+      </div>
+    </div>
+  );
+}
+
+function AdminView() {
+  const [coaches, setCoaches] = React.useState(null);
+  const [importCoach, setImportCoach] = React.useState(null);
+  const [plansCoach, setPlansCoach] = React.useState(null);
+  const [search, setSearch] = React.useState('');
+
+  const load = React.useCallback(() => {
+    window.koutsiAdminCoaches().then(setCoaches).catch(() => setCoaches([]));
+  }, []);
+  React.useEffect(() => { load(); }, [load]);
+
+  const q = search.trim().toLowerCase();
+  const shown = (coaches || []).filter((c) => !q || `${c.name} ${c.email}`.toLowerCase().includes(q));
+  const totals = (coaches || []).reduce((acc, c) => ({
+    students: acc.students + c.studentCount,
+    groups: acc.groups + c.groupCount,
+    pending: acc.pending + c.pendingPlans,
+  }), { students: 0, groups: 0, pending: 0 });
+
+  return (
+    <div>
+      <PageHeader title="Ylläpito" sub={coaches ? `${coaches.length} valmentajaa · ${totals.students} pelaajaa · ${totals.groups} ryhmää` : 'Ladataan…'} />
+      {totals.pending > 0 && (
+        <div className="k-card" style={{ padding: '14px 17px', marginBottom: 18, background: 'rgba(199,123,46,0.1)', borderColor: 'rgba(199,123,46,0.35)', fontSize: 14, color: '#7a4c1e', fontWeight: 700 }}>
+          {totals.pending} vuosisuunnitelmaa odottaa käsittelyä.
+        </div>
+      )}
+      {(coaches || []).length > 5 && (
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Hae valmentajan nimellä tai sähköpostilla…"
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '12px 15px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 18 }} />
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {shown.map((c) => (
+          <AdminCoachCard key={c.id} coach={c} onOpenImport={setImportCoach} onOpenPlans={setPlansCoach} />
+        ))}
+        {coaches && coaches.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei vielä valmentajia.</div>}
+      </div>
+      {importCoach && <AdminImportModal coach={importCoach} onClose={() => setImportCoach(null)} />}
+      {plansCoach && <AdminPlansModal coach={plansCoach} onClose={() => setPlansCoach(null)} onChanged={load} />}
+    </div>
+  );
+}
+
 // ── Sidebar ──────────────────────────────────────────────
-const NAV = [
+const NAV_BASE = [
   { id: 'students', label: 'Oppilaat' },
   { id: 'groups', label: 'Ryhmät' },
   { id: 'trainings', label: 'Treenit' },
   { id: 'exercises', label: 'Harjoitteet' },
   { id: 'profile', label: 'Profiili' },
 ];
+const NAV_ADMIN = { id: 'admin', label: 'Ylläpito' };
+// The tab is absent for a normal coach, and every RPC behind it re-checks koutsi_is_admin()
+// server-side — hiding it is convenience, not the access control.
+function koutsiNav(isAdmin) { return isAdmin ? [...NAV_BASE, NAV_ADMIN] : NAV_BASE; }
 function NavIcon({ id, on, offColor = 'rgba(255,255,255,0.72)' }) {
   const c = on ? '#101a08' : offColor;
+  if (id === 'admin') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><path d="M11 2l7 3v5.5c0 4.2-2.9 7.9-7 9-4.1-1.1-7-4.8-7-9V5l7-3z" stroke={c} strokeWidth="1.7" strokeLinejoin="round" /><path d="M8 11l2.2 2.2L14.5 9" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
   if (id === 'students') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="8" cy="6.5" r="3" stroke={c} strokeWidth="1.7" /><path d="M2 19c0-3.2 2.7-5.3 6-5.3s6 2.1 6 5.3" stroke={c} strokeWidth="1.7" strokeLinecap="round" /><circle cx="16" cy="7.5" r="2.4" stroke={c} strokeWidth="1.7" /><path d="M13.8 19c.3-2.6 2.1-4.3 4.2-4.3S21.7 16.4 22 19" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   if (id === 'groups') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="7" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><circle cx="15" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><path d="M1.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5M9.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   if (id === 'trainings') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><rect x="2.5" y="4.5" width="17" height="15" rx="3" stroke={c} strokeWidth="1.7" /><path d="M2.5 9h17M7 2.5v4M15 2.5v4" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
@@ -1927,7 +2232,7 @@ function NavIcon({ id, on, offColor = 'rgba(255,255,255,0.72)' }) {
   return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="7.5" r="4" stroke={c} strokeWidth="1.7" /><path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
 }
 
-function Sidebar({ tab, setTab, coach, onSignOut }) {
+function Sidebar({ tab, setTab, coach, onSignOut, nav }) {
   return (
     <div style={{ width: 248, flexShrink: 0, background: 'var(--green-deep)', color: '#fff', display: 'flex', flexDirection: 'column', padding: '26px 18px', position: 'fixed', top: 0, left: 0, bottom: 0, overflowY: 'auto' }}>
       <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', paddingLeft: 6 }}>
@@ -1936,7 +2241,7 @@ function Sidebar({ tab, setTab, coach, onSignOut }) {
       </a>
       <span style={{ display: 'inline-flex', alignSelf: 'flex-start', marginLeft: 6, marginTop: 8, marginBottom: 22, padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.16)', border: '1px solid rgba(207,228,20,0.4)', color: 'var(--lime)', fontSize: 11, fontWeight: 800, letterSpacing: 0.5 }}>VALMENTAJA</span>
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 'auto' }}>
-        {NAV.map((n) => {
+        {nav.map((n) => {
           const on = tab === n.id;
           return (
             <button key={n.id} onClick={() => setTab(n.id)} style={{
@@ -1982,10 +2287,10 @@ function MobileTopBar({ coach }) {
   );
 }
 
-function MobileBottomNav({ tab, setTab }) {
+function MobileBottomNav({ tab, setTab, nav }) {
   return (
     <div className="kv-mobile-bottomnav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 68, zIndex: 45, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid var(--line)', boxShadow: '0 -8px 24px -18px rgba(0,0,0,0.2)' }}>
-      {NAV.map((n) => {
+      {nav.map((n) => {
         const on = tab === n.id;
         const fs = n.label.length > 8 ? 9.5 : 10.5;
         return (
@@ -2026,6 +2331,7 @@ function CoachApp({ coachId, onSignOut }) {
   const [eventDefaultDate, setEventDefaultDate] = React.useState(null);
 
   const [loadError, setLoadError] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
   const reload = React.useCallback(async () => {
     const next = await window.koutsiLoadCoachState(coachId);
     setState(next);
@@ -2037,6 +2343,8 @@ function CoachApp({ coachId, onSignOut }) {
   }, [reload]);
 
   React.useEffect(() => { initialLoad(); }, [initialLoad]);
+  // Decides whether the Ylläpito tab is offered; the RPCs behind it check again server-side.
+  React.useEffect(() => { window.koutsiIsAdmin().then(setIsAdmin); }, []);
 
   // Live sync: any change to the tables this coach can see (their own students,
   // groups, trainings, etc.) — made from this device or the player's — refreshes state.
@@ -2245,13 +2553,15 @@ function CoachApp({ coachId, onSignOut }) {
     if (ok) await act(() => window.koutsiDeleteClubEvent(e.id), 'Tapahtuma poistettu.')();
   };
 
+  const nav = koutsiNav(isAdmin);
+
   const openNewTraining = (d) => { setEditingTraining(null); setTrainingDefaultDate(d || window.koutsiTodayStr()); setTrainingOpen(true); };
   const openEditTraining = (t) => { setEditingTraining(t); setTrainingOpen(true); };
 
   return (
     <div style={{ minHeight: '100vh' }}>
       <div className="kv-sidebar-wrap">
-        <Sidebar tab={tab} setTab={setTab} coach={state.coach} onSignOut={onSignOut} />
+        <Sidebar tab={tab} setTab={setTab} coach={state.coach} onSignOut={onSignOut} nav={nav} />
       </div>
       <MobileTopBar coach={state.coach} />
       <div className="kv-main">
@@ -2261,7 +2571,8 @@ function CoachApp({ coachId, onSignOut }) {
               students={state.students} coachId={coachId} coachName={state.coach.name} onOpen={setDetailId}
               groupCount={state.groups.length} trainingCount={state.trainings.length}
               onCreateGroup={() => { setEditingGroup(null); setTab('groups'); setGroupFormOpen(true); }}
-              onAddTraining={() => { setTab('trainings'); openNewTraining(null); }} />
+              onAddTraining={() => { setTab('trainings'); openNewTraining(null); }}
+              onAddPlayer={addPlayer} />
           )}
           {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} onOpen={setGroupDetailId} onCreate={() => { setEditingGroup(null); setGroupFormOpen(true); }} />}
           {tab === 'trainings' && (
@@ -2273,10 +2584,11 @@ function CoachApp({ coachId, onSignOut }) {
               onDeleteEvent={deleteClubEvent} />
           )}
           {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} onAdd={() => { setEditingExercise(null); setExerciseFormOpen(true); }} onRestoreStarters={restoreStarters} />}
+          {tab === 'admin' && isAdmin && <AdminView />}
           {tab === 'profile' && <ProfileView coach={state.coach} studentCount={state.students.length} groupCount={state.groups.length} onSignOut={onSignOut} onReload={reload} />}
         </div>
       </div>
-      <MobileBottomNav tab={tab} setTab={setTab} />
+      <MobileBottomNav tab={tab} setTab={setTab} nav={nav} />
 
       {detail && (
         <StudentDetail
