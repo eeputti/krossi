@@ -97,6 +97,45 @@ async function buildPage(name, files) {
   return bundle.length;
 }
 
+// ── demon kattavuustarkistus ────────────────────────────────────────────────
+// Demo ajaa oikeaa sovellusta valedatakerroksen päällä. Jos koutsi-data.js saa
+// uuden Supabase-funktion jota koutsi-demo-backend.jsx ei korvaa, demo kaatuu
+// vasta ajossa ("rpc is not a function"). Kaadetaan build sen sijaan heti.
+async function assertDemoCoverage() {
+  const read = (f) => readFile(join(root, f), 'utf8');
+  const data = await read('lib/koutsi-data.js');
+  const demo = await read('lib/koutsi-demo-backend.jsx');
+  const appSources = await Promise.all(
+    ['lib/koutsi-valmentaja-app.jsx', 'lib/koutsi-pelaaja-app.jsx', 'lib/koutsi-ui.jsx', 'lib/koutsi-timeline.jsx'].map(read),
+  );
+
+  // paloittele koutsi-data.js funktioiksi, jotta nähdään mitkä koskevat Supabaseen
+  const marks = [...data.matchAll(/^(?:async\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/gm)];
+  const backed = new Set();
+  marks.forEach((m, i) => {
+    const body = data.slice(m.index, i + 1 < marks.length ? marks[i + 1].index : data.length);
+    if (body.includes('koutsiSupabase')) backed.add(m[1]);
+  });
+
+  const used = new Set();
+  appSources.forEach((src) => {
+    for (const m of src.matchAll(/window\.([A-Za-z_][A-Za-z0-9_]*)/g)) used.add(m[1]);
+  });
+  const overridden = new Set([...demo.matchAll(/window\.([A-Za-z_][A-Za-z0-9_]*)\s*=/g)].map((m) => m[1]));
+
+  const missing = [...used].filter((n) => backed.has(n) && !overridden.has(n)).sort();
+  if (missing.length > 0) {
+    console.error('\nDemo ei kata kaikkia datakerroksen funktioita.');
+    console.error('Lisaa nama lib/koutsi-demo-backend.jsx:aan:\n');
+    missing.forEach((n) => console.error('  - ' + n));
+    console.error('');
+    process.exit(1);
+  }
+  console.log(`demo kattaa ${[...used].filter((n) => backed.has(n)).length}/${[...used].filter((n) => backed.has(n)).length} datakerroksen funktiota`);
+}
+
+await assertDemoCoverage();
+
 await mkdir(outDir, { recursive: true });
 for (const [name, files] of Object.entries(PAGES)) {
   const bytes = await buildPage(name, files);

@@ -2462,6 +2462,12 @@ function CoachApp({ coachId, onSignOut }) {
     return ok;
   };
   const setLevel = act((level) => window.koutsiSetStudentLevel(detailId, level));
+  // Ei act(): AddPlayerModal näyttää virheen itse ja palauttaa nappinsa tilan.
+  const addPlayer = async ({ name, age, level }) => {
+    await window.koutsiCreatePlayer(name, age, level);
+    await reload();
+    toast.success(`${name} lisätty. Anna hänelle liittymiskoodisi, jos haluat että hän näkee tiedot itse.`);
+  };
   const endCoaching = async () => {
     const ok = await confirm({
       title: `Päätä ${detail.name} valmennussuhde?`,

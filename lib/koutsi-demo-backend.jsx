@@ -194,10 +194,20 @@
     on() { return this; },
     subscribe() { return this; },
   };
+  // Jos datakerrokseen ilmestyy uusi Supabase-funktio jota demo ei korvaa, kutsu
+  // päätyisi tänne. Kaadetaan selkeällä viestillä sen sijaan että tulisi
+  // arvoituksellinen "rpc is not a function". build.mjs tarkistaa tämän myös
+  // etukäteen, joten tämä on vain viimeinen turvaverkko.
+  const notInDemo = (what) => () => {
+    throw new Error(`Demo ei toteuta tätä toimintoa (${what}). Lisää se koutsi-demo-backend.jsx:ään.`);
+  };
   window.koutsiSupabase = {
     channel: () => noopChannel,
     removeChannel: () => {},
     storage: { from: () => ({ createSignedUrl: () => Promise.resolve({ data: null, error: null }), getPublicUrl: (p) => ({ data: { publicUrl: p || '' } }) }) },
+    rpc: notInDemo('rpc'),
+    from: notInDemo('from'),
+    functions: { invoke: notInDemo('functions.invoke') },
   };
 
   // ── auth shim ─────────────────────────────────────────────────────────────
@@ -523,6 +533,17 @@
     if (hit) { hit.revokedAt = new Date().toISOString(); hit.active = false; save(); }
     return done();
   };
+  // Nimellä lisätty pelaaja: demossa hän ilmestyy heti luetteloon.
+  window.koutsiCreatePlayer = (name, age, level) => {
+    const id = newId('demo-student');
+    load().students.push(student(id, name, age || null, level || null, { isPlaceholder: true }));
+    save();
+    return done(id);
+  };
+  // Demossa ei ole toista tiliä lunastamassa, joten lista on aina tyhjä ja
+  // pelaajademo menee suoraan tavalliseen liittymiseen.
+  window.koutsiUnclaimedPlayers = () => done([]);
+  window.koutsiClaimPlayer = () => done({ coach_id: COACH, coach_name: 'Anna Koskinen', claimed: true });
   window.koutsiRedeemInviteCode = () => done({ coach_id: COACH, coach_name: 'Anna Koskinen', group_id: GROUP, group_name: 'Juniorit A' });
   window.koutsiRedeemCoachKey = () => done({ ok: true });
   window.koutsiEndCoaching = (coachId, studentId) => {
@@ -585,6 +606,14 @@
   window.koutsiExportMyData = () => done(clone(load()));
   // Nothing to delete server-side — treat it as "start the demo over".
   window.koutsiDeleteAccount = () => { reset(); return done(); };
+
+  // ── ylläpito ──────────────────────────────────────────────────────────────
+  // Demokäyttäjä ei ole ylläpitäjä, joten paneeli ei näy eikä sen hakuja ajeta.
+  window.koutsiIsAdmin = () => done(false);
+  window.koutsiAdminCoaches = () => done([]);
+  window.koutsiAdminGroups = () => done([]);
+  window.koutsiAdminBulkInviteCodes = () => done([]);
+  window.koutsiAdminUploadAnnualPlan = () => done();
 
   // Exposed so a "Aloita demo alusta" control can call it.
   window.koutsiDemoReset = () => { reset(); window.location.reload(); };

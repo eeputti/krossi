@@ -1232,15 +1232,63 @@ function JoinCodeForm({ onJoined, autoFocus }) {
   const [error, setError] = React.useState('');
   const [info, setInfo] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  // Valmentaja on voinut lisätä pelaajan valmiiksi pelkällä nimellä. Jos koodin
+  // takaa löytyy lunastamattomia profiileja, kysytään ensin kuka pelaaja on —
+  // muuten hänen valmentajansa siihen asti kirjaama työ jäisi orvoksi.
+  const [pending, setPending] = React.useState(null); // null = ei kysytty, [] = ei odottavia
+  const [claiming, setClaiming] = React.useState(false);
+
+  const finish = (result) => {
+    setInfo(`Liityit${result.group_name ? ` ryhmään ${result.group_name}` : ''}${result.coach_name ? ` — valmentaja ${result.coach_name}` : ''}!`);
+    setTimeout(() => onJoined(), 1400);
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setInfo(''); setBusy(true);
+    const normalized = code.trim().toUpperCase();
     try {
-      const result = await window.koutsiRedeemInviteCode(code.trim().toUpperCase());
-      setInfo(`Liityit${result.group_name ? ` ryhmään ${result.group_name}` : ''}${result.coach_name ? ` — valmentaja ${result.coach_name}` : ''}!`);
-      setTimeout(() => onJoined(), 1400);
+      let waiting = [];
+      // Lunastettavien haku ei saa estää liittymistä jos se jostain syystä kaatuu.
+      try { waiting = await window.koutsiUnclaimedPlayers(normalized); } catch { waiting = []; }
+      if (waiting.length > 0) { setPending(waiting); setBusy(false); return; }
+      finish(await window.koutsiRedeemInviteCode(normalized));
     } catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); } finally { setBusy(false); }
   };
+
+  const claim = async (studentId) => {
+    setError(''); setClaiming(true);
+    try { finish(await window.koutsiClaimPlayer(code.trim().toUpperCase(), studentId)); }
+    catch (err) { setError(window.koutsiErrorText(err, 'Profiilin lunastus epäonnistui')); setClaiming(false); }
+  };
+
+  const joinAsNew = async () => {
+    setError(''); setClaiming(true);
+    try { finish(await window.koutsiRedeemInviteCode(code.trim().toUpperCase())); }
+    catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); setClaiming(false); }
+  };
+
+  if (pending && pending.length > 0) {
+    return (
+      <React.Fragment>
+        {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
+        {info && <div style={{ background: 'rgba(14,59,44,0.08)', border: '1px solid rgba(14,59,44,0.25)', color: 'var(--green-deep)', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{info}</div>}
+        <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5, marginBottom: 14 }}>
+          Valmentajasi on jo lisännyt pelaajia valmiiksi. Oletko sinä joku näistä?
+          Valitsemalla nimesi saat valmentajan siihen asti kirjaamat tiedot omaan näkymääsi.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+          {pending.map((pl) => (
+            <button key={pl.id} onClick={() => claim(pl.id)} disabled={claiming} className="k-card"
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', textAlign: 'left', cursor: claiming ? 'default' : 'pointer', width: '100%', fontFamily: 'inherit', opacity: claiming ? 0.6 : 1 }}>
+              <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{pl.name}</span>
+            </button>
+          ))}
+        </div>
+        <button onClick={joinAsNew} disabled={claiming} className="btn-outline btn-sm">En ole kukaan näistä — liity uutena</button>
+      </React.Fragment>
+    );
+  }
   return (
     <React.Fragment>
       {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
