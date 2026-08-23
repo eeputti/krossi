@@ -147,9 +147,9 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
     push({
       id: `training-${t.id}`, kind: 'training', at: t.date,
       title: absence ? `${t.type} — ${reason}` : t.type,
-      body: t.groupName ? t.groupName : '',
+      body: [t.groupName || '', absence?.note || ''].filter(Boolean).join(' · '),
       time: t.time, absent: !!absence,
-      search: `${t.type} ${t.groupName || ''} treeni ${reason}`,
+      search: `${t.type} ${t.groupName || ''} treeni ${reason} ${absence?.note || ''}`,
     });
   });
 

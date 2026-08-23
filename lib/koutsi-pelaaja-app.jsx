@@ -134,11 +134,15 @@ function GoalCard({ student, onSave }) {
   );
 }
 function VideoModal({ onClose, onSave }) {
+  const [shareId] = React.useState(() => window.koutsiRandomUuid());
   const [title, setTitle] = React.useState('');
   const [date, setDate] = React.useState(window.koutsiTodayStr());
   const [tags, setTags] = React.useState([]);
   const [file, setFile] = React.useState(null);
+  const [externalUrl, setExternalUrl] = React.useState('');
+  const [source, setSource] = React.useState('link');
   const [busy, setBusy] = React.useState(false);
+  const [progress, setProgress] = React.useState(0);
   const [error, setError] = React.useState('');
   const fileRef = React.useRef(null);
   const toggleTag = (t) => setTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
@@ -146,28 +150,61 @@ function VideoModal({ onClose, onSave }) {
     const f = e.target.files?.[0];
     setError('');
     if (!f) return;
+    if (f.size > 50 * 1024 * 1024) {
+      setFile(null);
+      setSource('link');
+      setError(`${Math.round(f.size / 1048576)} Mt tiedosto on liian suuri. Lataa pitkä video YouTubeen tai Driveen rajatulla näkyvyydellä ja liitä linkki tähän.`);
+      return;
+    }
     setFile(f);
     if (!title.trim()) setTitle(f.name.replace(/\.[^.]+$/, ''));
   };
-  const ready = title.trim() && date && file && !busy;
+  const hasSource = source === 'file' ? Boolean(file) : /^https?:\/\//i.test(externalUrl.trim());
+  const ready = title.trim() && date && hasSource && !busy;
   const submit = async () => {
     if (!ready) return;
-    setBusy(true); setError('');
-    try { await onSave({ title: title.trim(), date, tags, file }); }
+    setBusy(true); setProgress(0); setError('');
+    try {
+      await onSave({
+        shareId, title: title.trim(), date, tags,
+        file: source === 'file' ? file : null,
+        externalUrl: source === 'link' ? externalUrl.trim() : null,
+        onProgress: setProgress,
+      });
+    }
     catch (err) { setError(err.message || 'Videon tallennus epäonnistui'); setBusy(false); }
   };
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Lisää video</h3>
-        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Video näkyy sinulle ja valmentajallesi. Tuetut muodot MP4, MOV ja WebM, enintään 300 MB.</p>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Video näkyy sinulle ja valmentajallesi. Pitkälle videolle käytä rajattua YouTube- tai Drive-linkkiä; lyhyen klipin voit ladata suoraan.</p>
         {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
-        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Videotiedosto</div>
-        <input ref={fileRef} type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/mpeg" onChange={pickFile} style={{ display: 'none' }} />
-        <button onClick={() => fileRef.current?.click()} disabled={busy} className="btn-outline" style={{ width: '100%', padding: '13px 0', marginBottom: 16 }}>
-          {file ? `${file.name} (${Math.max(1, Math.round(file.size / 1048576))} MB)` : 'Valitse video…'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          {[['link', 'Pitkä video linkkinä'], ['file', 'Lyhyt klippi tiedostona']].map(([key, label]) => (
+            <button key={key} onClick={() => { setSource(key); setError(''); }} disabled={busy} style={{ padding: '9px 15px', borderRadius: 999, border: source === key ? 'none' : '1px solid #d8d4ca', background: source === key ? 'var(--lime)' : '#fff', color: source === key ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{label}</button>
+          ))}
+        </div>
+        {source === 'file' ? (
+          <React.Fragment>
+            <input ref={fileRef} type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/mpeg" onChange={pickFile} style={{ display: 'none' }} />
+            <button onClick={() => fileRef.current?.click()} disabled={busy} className="btn-outline" style={{ width: '100%', padding: '13px 0', marginBottom: 16 }}>
+              {file ? `${file.name} (${Math.max(1, Math.round(file.size / 1048576))} Mt)` : 'Valitse enintään 50 Mt video…'}
+            </button>
+          </React.Fragment>
+        ) : (
+          <React.Fragment>
+            <input value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} placeholder="https://youtube.com/... tai https://drive.google.com/..." style={{ ...inputStyle, marginBottom: 8 }} />
+            <div style={{ color: '#8a857a', fontSize: 11.5, lineHeight: 1.45, marginBottom: 16 }}>Koutsi näyttää linkin vain sinulle ja valmentajallesi. Aseta myös YouTube- tai Drive-videon omat jako-oikeudet huolellisesti.</div>
+          </React.Fragment>
+        )}
+        {busy && source === 'file' && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b665c', marginBottom: 6 }}><span>Suora lataus Storageen</span><b>{progress}%</b></div>
+            <div style={{ height: 7, borderRadius: 999, overflow: 'hidden', background: '#ebe8df' }}><div style={{ height: '100%', width: `${progress}%`, background: 'var(--lime)', transition: 'width .2s ease' }} /></div>
+          </div>
+        )}
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Otsikko</div>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Oma syöttöharjoittelu" style={{ ...inputStyle, marginBottom: 16 }} />
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Päivämäärä</div>
@@ -175,12 +212,12 @@ function VideoModal({ onClose, onSave }) {
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Aihe</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
           {window.KOUTSI_TAGS.map((t) => (
-            <button key={t} onClick={() => toggleTag(t)} style={{ padding: '8px 14px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
+            <button key={t} onClick={() => toggleTag(t)} disabled={busy} style={{ padding: '8px 14px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Ladataan…' : 'Lisää'}</button>
+          <button onClick={submit} disabled={!ready} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? (source === 'file' ? `Ladataan ${progress}%` : 'Jaetaan…') : 'Lisää'}</button>
         </div>
       </div>
     </div>
@@ -359,7 +396,7 @@ function GroupMetaIcon({ kind }) {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.6" cy="5.8" r="2.2" stroke={c} strokeWidth="1.4" /><circle cx="11" cy="5.8" r="2.2" stroke={c} strokeWidth="1.4" /><path d="M1.4 13.4c0-2.2 1.9-3.5 4.2-3.5s4.2 1.3 4.2 3.5M7.6 13.4c0-2.2 1.9-3.5 4.2-3.5s2.8 1.3 2.8 3.5" stroke={c} strokeWidth="1.4" strokeLinecap="round" /></svg>;
 }
 
-function GroupCard({ group, state, student }) {
+function GroupCard({ group, state, student, onEditAttendance }) {
   const coach = window.koutsiCoachById(state, group.coachId);
   const members = group.memberIds.map((id) => window.koutsiStudentById(state, id)).filter(Boolean);
   const today = window.koutsiTodayStr();
@@ -411,13 +448,18 @@ function GroupCard({ group, state, student }) {
           <div style={{ fontSize: 13.5, color: '#8a857a' }}>Ei tulevia ryhmätreenejä kalenterissa.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {upcoming.map((t) => (
-              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+            {upcoming.map((t) => {
+              const entry = (t.absences || []).find((a) => a.studentId === student.id);
+              return (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 14 }}>
                 <span style={{ minWidth: 74, fontWeight: 700, color: 'var(--green-deep)' }}>{window.koutsiFmtShortDate(t.date)}</span>
                 <span style={{ color: '#111' }}>klo {t.time}</span>
-                <span style={{ color: '#8a857a' }}>· {t.type}</span>
+                <span style={{ color: '#8a857a', flex: 1 }}>· {t.type}</span>
+                <window.KoutsiAttendanceBadge entry={entry} compact onClick={() => onEditAttendance(t.id)} />
+                {entry?.note && <div style={{ width: '100%', paddingLeft: 84, color: '#6b665c', fontSize: 12.5, lineHeight: 1.4 }}>{entry.note}</div>}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -451,7 +493,7 @@ function GroupCard({ group, state, student }) {
   );
 }
 
-function GroupView({ student, state, hasCoach, onJoined }) {
+function GroupView({ student, state, hasCoach, onJoined, onEditAttendance }) {
   const groups = window.koutsiGroupsForStudent(state, student.id);
   // Molemmat tyhjät tilanteet päätyvät samaan korttiin: pelkkä "et ole ryhmässä" oli
   // umpikuja, vaikka koodi taskussa on juuri se, mikä sen ratkaisee.
@@ -476,7 +518,7 @@ function GroupView({ student, state, hasCoach, onJoined }) {
   return (
     <div>
       <PageHeader title="Ryhmä" sub={groups.length === 1 ? 'Ryhmäsi, teema ja ryhmäläiset' : `Olet ${groups.length} ryhmässä — jokainen omalla kortillaan`} />
-      {groups.map((g) => <GroupCard key={g.id} group={g} state={state} student={student} />)}
+      {groups.map((g) => <GroupCard key={g.id} group={g} state={state} student={student} onEditAttendance={onEditAttendance} />)}
     </div>
   );
 }
@@ -557,7 +599,7 @@ function HomeworkRow({ item, onToggle, done }) {
   );
 }
 
-function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onSaveNote, onToggleHomework }) {
+function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onSaveNote, onToggleHomework, onEditAttendance }) {
   const todayStr = window.koutsiTodayStr();
   const todayDate = window.koutsiDateFromStr(todayStr);
   const [viewYear, setViewYear] = React.useState(todayDate.getFullYear());
@@ -617,13 +659,16 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
                 const party = window.koutsiTrainingParty(state, t);
                 const coach = window.koutsiCoachById(state, t.coachId);
                 const label = party.kind === 'group' && party.group ? party.group.name : t.type;
+                const entry = (t.absences || []).find((a) => a.studentId === student.id);
                 return (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderBottom: i === trainingsOnSelected.length - 1 ? 'none' : '1px solid var(--line)' }}>
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '14px 18px', borderBottom: i === trainingsOnSelected.length - 1 ? 'none' : '1px solid var(--line)' }}>
                     <div style={{ width: 52, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}</div>
                       {coach && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
                     </div>
+                    <window.KoutsiAttendanceBadge entry={entry} onClick={() => onEditAttendance(t.id)} />
+                    {entry?.note && <div style={{ width: '100%', paddingLeft: 66, color: '#6b665c', fontSize: 12.5, lineHeight: 1.45 }}>{entry.note}</div>}
                   </div>
                 );
               })}
@@ -855,13 +900,12 @@ function DataExportButton({ userId, name }) {
   );
 }
 
-// Pelaaja omistaa nimensä, kuvansa, ikänsä ja taustatietonsa. Tason asettaa valmentaja,
-// joten se näkyy täällä vain luettavana — samoin ryhmä ja valmentaja.
+// Pelaaja omistaa nimensä, kuvansa ja ikänsä. Tason asettaa valmentaja. Pilotissa
+// taustatietokenttä ei ole käytössä, koska se pyysi aiemmin terveystietoja.
 function PlayerProfileEditModal({ student, onClose, onSaved }) {
   const toast = window.useKoutsiToast();
   const [name, setName] = React.useState(student.name || '');
   const [age, setAge] = React.useState(student.age == null ? '' : String(student.age));
-  const [background, setBackground] = React.useState(student.background || '');
   const [avatarFile, setAvatarFile] = React.useState(null);
   const [avatarPreview, setAvatarPreview] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
@@ -870,7 +914,7 @@ function PlayerProfileEditModal({ student, onClose, onSaved }) {
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const parsedAge = age.trim() === '' ? null : Number(age);
-  const ageValid = parsedAge === null || (Number.isInteger(parsedAge) && parsedAge > 0 && parsedAge < 120);
+  const ageValid = Number.isInteger(parsedAge) && parsedAge >= 18 && parsedAge < 120;
   const ready = name.trim() && ageValid;
 
   const save = async () => {
@@ -879,7 +923,7 @@ function PlayerProfileEditModal({ student, onClose, onSaved }) {
     const ok = await toast.run(async () => {
       if (avatarFile) await window.koutsiUploadAvatar(student.id, avatarFile);
       if (name.trim() !== student.name) await window.koutsiSaveDisplayName(student.id, name.trim());
-      await window.koutsiSaveStudentProfile(student.id, { age: parsedAge, background: background.trim() });
+      await window.koutsiSaveStudentProfile(student.id, { age: parsedAge });
     }, 'Profiili tallennettu.');
     setBusy(false);
     if (ok) { await onSaved(); onClose(); }
@@ -908,14 +952,12 @@ function PlayerProfileEditModal({ student, onClose, onSaved }) {
         <div style={label}>Nimi</div>
         <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
         <div style={label}>Ikä</div>
-        <input value={age} onChange={(e) => setAge(e.target.value)} inputMode="numeric" placeholder="Esim. 16"
+        <input value={age} onChange={(e) => setAge(e.target.value)} inputMode="numeric" placeholder="Esim. 24"
           style={{ ...inputStyle, marginBottom: ageValid ? 16 : 6, borderColor: ageValid ? '#d8d4ca' : '#c2543f' }} />
-        {!ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Anna ikä kokonaislukuna.</div>}
-        <div style={label}>Taustatiedot</div>
-        <textarea value={background} onChange={(e) => setBackground(e.target.value)} rows={4}
-          placeholder="Vammat, sairaudet, tavoitteet kaudelle — mitä valmentajan on hyvä tietää?"
-          style={{ ...inputStyle, resize: 'none', marginBottom: 6 }} />
-        <div style={{ fontSize: 12, color: '#a8a297', marginBottom: 20 }}>Nämä näkyvät valmentajallesi, ja myös hän voi täydentää niitä.</div>
+        {!ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Beta-pilotti on vain vähintään 18-vuotiaille. Anna ikä kokonaislukuna.</div>}
+        <div style={{ padding: '11px 13px', marginBottom: 20, borderRadius: 12, background: '#f7f5ef', color: '#6b665c', fontSize: 12.5, lineHeight: 1.5 }}>
+          Älä kirjoita Koutsiin vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.
+        </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
@@ -952,11 +994,8 @@ function ProfileView({ student, group, state, onSignOut, onReload }) {
         <ProfileRow label="Taso" value={student.level} hint="Valmentaja asettaa" />
         <ProfileRow label="Ryhmä" value={group ? `${group.name} · ${group.day} klo ${group.time}` : ''} hint="Ei ryhmää" />
         <ProfileRow label="Valmentaja" value={coaches.map((c) => c.name).join(', ')} hint="Ei valmentajaa" />
-        <div style={{ paddingTop: 12 }}>
-          <div style={{ fontSize: 13, color: '#8a857a', marginBottom: 5 }}>Taustatiedot</div>
-          <div style={{ fontSize: 14.5, color: student.background ? '#111' : '#a8a297', lineHeight: 1.55 }}>
-            {student.background || 'Ei vielä lisätty — kerro valmentajalle esimerkiksi vammoista tai kauden tavoitteista.'}
-          </div>
+        <div style={{ paddingTop: 12, color: '#8a857a', fontSize: 12.5, lineHeight: 1.5 }}>
+          Beta-pilotissa terveystietoja ei tallenneta Koutsiin.
         </div>
       </div>
 
@@ -1057,34 +1096,38 @@ function Sidebar({ tab, setTab, student, onSignOut }) {
   );
 }
 
-function MobileTopBar({ student }) {
+function MobileTopBar({ student, onProfile }) {
   const homeHref = window.KOUTSI_DEMO_ROLE ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
   return (
-    <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'rgba(247,245,239,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid var(--line)', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-        <a href={homeHref} style={{ display: 'inline-flex', alignItems: 'baseline', textDecoration: 'none', flexShrink: 0 }}>
-          <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--green-deep)', letterSpacing: -0.4 }}>Krossi</span>
+    <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 96, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px 10px', background: 'var(--green-deep)', borderBottom: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 10px 28px -22px rgba(0,0,0,0.65)', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 7, minWidth: 0 }}>
+        <a href={homeHref} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, textDecoration: 'none', flexShrink: 0 }}>
+          <span style={{ fontWeight: 800, fontSize: 21, color: 'var(--lime)', letterSpacing: -0.5 }}>Krossi</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
         </a>
-        <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(14,59,44,0.1)', border: '1px solid rgba(14,59,44,0.22)', color: 'var(--green-deep)', fontSize: 10, fontWeight: 800, letterSpacing: 0.4, flexShrink: 0 }}>PELAAJA</span>
+        <span style={{ padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.5)', color: 'var(--lime)', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, flexShrink: 0 }}>PELAAJA</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <window.KoutsiNotificationBell userId={student.id} />
-        <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={30} />
+        <window.KoutsiNotificationBell userId={student.id} dark />
+        <button onClick={onProfile} aria-label="Avaa profiili" title="Profiili" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 2, borderRadius: '50%', border: '2px solid var(--lime)', background: 'transparent', cursor: 'pointer' }}>
+          <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={32} />
+        </button>
       </div>
     </div>
   );
 }
 
 function MobileBottomNav({ tab, setTab }) {
+  const mobileNav = NAV.filter((item) => item.id !== 'profile');
   return (
-    <div className="kv-mobile-bottomnav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 68, zIndex: 45, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid var(--line)', boxShadow: '0 -8px 24px -18px rgba(0,0,0,0.2)' }}>
-      {NAV.map((n) => {
+    <div className="kv-mobile-bottomnav" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, minHeight: 72, zIndex: 45, padding: '6px 5px max(6px, env(safe-area-inset-bottom))', background: 'var(--green-deep)', borderTop: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 -12px 28px -20px rgba(0,0,0,0.65)' }}>
+      {mobileNav.map((n) => {
         const on = tab === n.id;
         const fs = n.label.length > 8 ? 9.5 : 10.5;
         return (
-          <button key={n.id} onClick={() => setTab(n.id)} style={{ flex: 1, border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit' }}>
-            <NavIcon id={n.id} on={on} />
-            <span style={{ fontSize: fs, fontWeight: on ? 700 : 500, color: on ? 'var(--green-deep)' : '#9a958a' }}>{n.label}</span>
+          <button key={n.id} onClick={() => setTab(n.id)} aria-current={on ? 'page' : undefined} style={{ flex: 1, minWidth: 0, margin: '0 2px', border: 'none', borderRadius: 14, background: on ? 'var(--lime)' : 'transparent', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit' }}>
+            <NavIcon id={n.id} on={on} offColor="rgba(255,255,255,0.72)" />
+            <span style={{ fontSize: fs, fontWeight: on ? 800 : 600, color: on ? 'var(--green-deep)' : 'rgba(255,255,255,0.78)' }}>{n.label}</span>
           </button>
         );
       })}
@@ -1101,6 +1144,7 @@ function PlayerApp({ studentId, onSignOut }) {
   const [videoOpen, setVideoOpen] = React.useState(false);
   const [moodOpen, setMoodOpen] = React.useState(false);
   const [matchNoteOpen, setMatchNoteOpen] = React.useState(false);
+  const [attendanceTrainingId, setAttendanceTrainingId] = React.useState(null);
   const [editingMatchNote, setEditingMatchNote] = React.useState(null);
   const [note, setNote] = React.useState('');
   const [noteSaved, setNoteSaved] = React.useState(false);
@@ -1141,6 +1185,9 @@ function PlayerApp({ studentId, onSignOut }) {
   const group = window.koutsiGroupForStudent(state, student.id);
   const hasCoach = (state.coaches || []).length > 0;
   const exercise = exerciseId != null ? state.exercises.find((e) => e.id === exerciseId) : null;
+  const attendanceTraining = attendanceTrainingId != null ? state.trainings.find((t) => t.id === attendanceTrainingId) : null;
+  const attendanceEntry = attendanceTraining ? (attendanceTraining.absences || []).find((a) => a.studentId === student.id) : null;
+  const attendanceEligibleTrainings = window.koutsiTrainingsForStudent(state, student.id);
 
   // Every write reports failures as Finnish toasts instead of a raw alert().
   const act = (fn, successMessage) => async (...args) => {
@@ -1162,10 +1209,14 @@ function PlayerApp({ studentId, onSignOut }) {
     setTimeout(() => setWishSaved(false), 1800);
   });
   const saveGoal = act((goal) => window.koutsiSaveGoal(studentId, goal));
+  const saveAttendance = async ({ trainingIds, status, note: attendanceNote }) => toast.run(async () => {
+    await window.koutsiSetAttendance(trainingIds, studentId, status, attendanceNote);
+    await reload();
+  }, status === 'paikalla' ? 'Läsnäolo merkitty.' : `${window.KOUTSI_ATTENDANCE_STATUS_LABELS[status]} ilmoitettu valmentajalle.`);
   // Ei guarded: VideoModal näyttää virheen itse ja palauttaa nappinsa tilan,
   // muuten modaali jäisi jumiin "Ladataan…"-tilaan latauksen kaatuessa.
-  const addVideo = async ({ title, date, tags, file, externalUrl }) => {
-    await window.koutsiShareVideo({ title, date, tags, studentIds: [studentId], addedById: studentId, file, externalUrl });
+  const addVideo = async ({ shareId, title, date, tags, file, externalUrl, onProgress }) => {
+    await window.koutsiShareVideo({ shareId, title, date, tags, studentIds: [studentId], addedById: studentId, file, externalUrl, onProgress });
     await reload();
     setVideoOpen(false);
     toast.success('Video tallennettu.');
@@ -1206,12 +1257,12 @@ function PlayerApp({ studentId, onSignOut }) {
       <div className="kv-sidebar-wrap">
         <Sidebar tab={tab} setTab={setTab} student={student} onSignOut={onSignOut} />
       </div>
-      <MobileTopBar student={student} />
+      <MobileTopBar student={student} onProfile={() => setTab('profile')} />
       <div className="kv-main">
         <div key={tab} className="k-rise-in" style={{ maxWidth: 640, margin: '0 auto' }}>
           {tab === 'home' && <HomeView student={student} state={state} group={group} hasCoach={hasCoach} onSaveGoal={saveGoal} wish={wish} setWish={setWish} wishSaved={wishSaved} onSaveWish={saveWish} onToggleHomework={toggleHomework} onGoTab={setTab} />}
-          {tab === 'group' && <GroupView student={student} state={state} hasCoach={hasCoach} onJoined={reload} />}
-          {tab === 'trainings' && <TrainingsView student={student} state={state} hasCoach={hasCoach} note={note} setNote={setNote} noteSaved={noteSaved} onSaveNote={saveNote} onToggleHomework={toggleHomework} />}
+          {tab === 'group' && <GroupView student={student} state={state} hasCoach={hasCoach} onJoined={reload} onEditAttendance={setAttendanceTrainingId} />}
+          {tab === 'trainings' && <TrainingsView student={student} state={state} hasCoach={hasCoach} note={note} setNote={setNote} noteSaved={noteSaved} onSaveNote={saveNote} onToggleHomework={toggleHomework} onEditAttendance={setAttendanceTrainingId} />}
           {tab === 'exercises' && <ExercisesView exercises={state.exercises} hasCoach={hasCoach} onOpen={setExerciseId} />}
           {tab === 'progress' && (
             <ProgressView
@@ -1230,14 +1281,18 @@ function PlayerApp({ studentId, onSignOut }) {
       {videoOpen && <VideoModal onClose={() => setVideoOpen(false)} onSave={addVideo} />}
       {moodOpen && <MoodModal onClose={() => setMoodOpen(false)} onSave={addMood} />}
       {matchNoteOpen && <MatchNoteModal editing={editingMatchNote} onClose={() => { setMatchNoteOpen(false); setEditingMatchNote(null); }} onSave={saveMatchNote} />}
+      {attendanceTraining && (
+        <window.KoutsiAttendanceModal
+          studentName={student.name} training={attendanceTraining} eligibleTrainings={attendanceEligibleTrainings}
+          entry={attendanceEntry} viewerRole="player" onClose={() => setAttendanceTrainingId(null)} onSave={saveAttendance} />
+      )}
     </div>
   );
 }
 
-// ── root gate: auth -> Krossi onboarding -> koodi tai tutustuminen -> app ──────
-// Sama lomake kahdessa paikassa: aloitusruudussa ennen sisäänpääsyä ja Ryhmä-
-// välilehdellä, jos pelaaja jatkoi ilman koodia. Valmentajan linkin ?koodi= tulee
-// esitäytettynä, jottei koodia tarvitse sanella puhelimessa.
+// ── root gate: auth -> pilot acknowledgement -> Krossi onboarding -> invite -> app ──
+// Suljetussa pilotissa jokainen pelaaja tulee valmentajan koodilla. Linkin ?koodi=
+// tulee esitäytettynä, jottei koodia tarvitse sanella puhelimessa.
 function JoinCodeForm({ onJoined, autoFocus }) {
   const [code, setCode] = React.useState(() => (new URLSearchParams(window.location.search).get('koodi') || '').trim().toUpperCase());
   const [error, setError] = React.useState('');
@@ -1312,35 +1367,19 @@ function JoinCodeForm({ onJoined, autoFocus }) {
   );
 }
 
-// Ilman koodia jatkaminen tekee pelaajalle oman tyhjän Koutsin: valmentajan puoli
-// (treenit, läksyt, harjoitteet, palautteet) jää tyhjäksi, mutta tavoite, fiilikset ja
-// ottelumuistiinpanot toimivat heti ja ovat tallessa, kun koodi lisätään myöhemmin.
 function InviteCodeScreen({ onSignOut }) {
-  const [error, setError] = React.useState('');
-  const [busy, setBusy] = React.useState(false);
-  const continueWithoutCode = async () => {
-    setError(''); setBusy(true);
-    try {
-      await window.koutsiStartWithoutCode();
-      window.location.reload();
-    } catch (err) { setError(window.koutsiErrorText(err, 'Aloitus ei onnistunut')); setBusy(false); }
-  };
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--sand)' }}>
       <div className="k-card" style={{ width: 'min(400px, 100%)', padding: '30px 28px' }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6, color: '#111' }}>Liity valmentajasi ryhmään</h2>
         <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Syötä valmentajaltasi saamasi liittymiskoodi.</p>
-        {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
         <JoinCodeForm onJoined={() => window.location.reload()} autoFocus />
 
         <div style={{ borderTop: '1px solid var(--line)', marginTop: 22, paddingTop: 18 }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#111', marginBottom: 5 }}>Etkö tiedä koodia?</div>
           <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.55, marginBottom: 12 }}>
-            Pyydä liittymiskoodi valmentajaltasi. Voit myös jatkaa ilman koodia ja tutustua Koutsiin rauhassa — lisäät koodin myöhemmin Ryhmä-välilehdeltä.
+            Suljettuun beta-pilottiin pääsee vain valmentajan kutsulla. Pyydä koodi valmentajaltasi ja varmista, että olet hänen etukäteen valitsemansa vähintään 18-vuotias testaaja.
           </p>
-          <button onClick={continueWithoutCode} disabled={busy} className="btn-outline" style={{ width: '100%', padding: '12px 0', opacity: busy ? 0.5 : 1 }}>
-            {busy ? 'Hetki...' : 'Jatka ilman koodia'}
-          </button>
         </div>
 
         <div style={{ marginTop: 16, textAlign: 'center', fontSize: 13 }}>
@@ -1355,9 +1394,8 @@ function KoutsiPelaajaRoot() {
   const [studentRow, setStudentRow] = React.useState(undefined); // undefined = checking, null = no coach yet
   const [checkFailed, setCheckFailed] = React.useState(false);
 
-  // Rivin olemassaolo riittää: se syntyy joko koodia lunastaessa tai "jatka ilman
-  // koodia" -napista. Valmentajan puuttuminen ei enää lukitse ulos — ilman valmentajaa
-  // sovellus vain on tyhjä ja tarjoaa koodikentän Ryhmä-välilehdellä.
+  // Rivin olemassaolo riittää. Suljetussa pilotissa uusi rivi syntyy vain valmentajan
+  // koodia lunastaessa; aiemmin luodut koodittomat rivit saavat silti jatkaa.
   // Keyed on the user id rather than the session object: Supabase hands out a new session
   // object on every token refresh and every return to the tab, so depending on the object
   // itself re-queried the student row each time for a person who had not changed.
@@ -1373,14 +1411,16 @@ function KoutsiPelaajaRoot() {
   }, [uid]);
 
   React.useEffect(() => {
-    if (!uid || auth.needsOnboarding) { setStudentRow(undefined); return; }
+    if (!uid || !auth.pilotAccepted || auth.needsOnboarding) { setStudentRow(undefined); return; }
     checkStudent();
-  }, [uid, auth.needsOnboarding, checkStudent]);
+  }, [uid, auth.pilotAccepted, auth.needsOnboarding, checkStudent]);
 
   if (auth.loading) return <window.KoutsiAuthLoadingScreen />;
   // a recovery link must lead to a new password, not straight into the app
   if (auth.recoveryMode && auth.session) return <window.KoutsiPasswordResetScreen />;
   if (!auth.session) return <window.KoutsiAuthScreen />;
+  if (auth.pilotError) return <window.KoutsiErrorScreen message="Pilotin käyttörajausta ei saatu tarkistettua. Tarkista verkkoyhteys ja yritä uudelleen." onRetry={auth.retryPilot} onSignOut={auth.signOut} />;
+  if (!auth.pilotAccepted) return <window.KoutsiPilotGate />;
   if (auth.profileError) return <window.KoutsiErrorScreen message="Profiilitietojasi ei saatu haettua. Tarkista verkkoyhteys ja yritä uudelleen." onRetry={auth.retryProfile} onSignOut={auth.signOut} />;
   if (auth.needsOnboarding) return <window.KoutsiProfileOnboarding />;
   if (checkFailed) return <window.KoutsiErrorScreen onRetry={checkStudent} onSignOut={auth.signOut} />;

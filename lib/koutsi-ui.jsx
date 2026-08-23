@@ -133,7 +133,7 @@ function KoutsiUIProvider({ children }) {
 // ── Small shared controls ────────────────────────────────────
 function KoutsiIconButton({ label, onClick, danger, children }) {
   return (
-    <button onClick={onClick} title={label} aria-label={label} style={{
+    <button type="button" onClick={(e) => { e.stopPropagation(); onClick(e); }} title={label} aria-label={label} style={{
       width: 30, height: 30, borderRadius: 9, flexShrink: 0,
       border: '1px solid var(--line)', background: '#fff', cursor: 'pointer',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -153,6 +153,113 @@ function KoutsiRowActions({ onEdit, onDelete, editLabel = 'Muokkaa', deleteLabel
     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
       {onEdit && <KoutsiIconButton label={editLabel} onClick={onEdit}><KoutsiEditIcon /></KoutsiIconButton>}
       {onDelete && <KoutsiIconButton label={deleteLabel} onClick={onDelete} danger><KoutsiTrashIcon /></KoutsiIconButton>}
+    </div>
+  );
+}
+
+// ── Attendance controls shared by coach and player ─────────────────────────
+const KOUTSI_ATTENDANCE_TONES = {
+  paikalla: { fg: '#2f7d54', bg: 'rgba(47,125,84,0.10)', border: 'rgba(47,125,84,0.28)' },
+  poissa: { fg: '#6b665c', bg: 'rgba(138,133,122,0.10)', border: 'rgba(138,133,122,0.30)' },
+};
+
+function KoutsiAttendanceBadge({ entry, onClick, compact = false }) {
+  const status = entry ? 'poissa' : 'paikalla';
+  const tone = KOUTSI_ATTENDANCE_TONES[status] || KOUTSI_ATTENDANCE_TONES.paikalla;
+  const label = (window.KOUTSI_ATTENDANCE_STATUS_LABELS || {})[status] || 'Paikalla';
+  return (
+    <button type="button" onClick={(e) => { e.stopPropagation(); onClick(); }} style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+      minHeight: compact ? 30 : 34, padding: compact ? '6px 10px' : '7px 12px',
+      borderRadius: 999, border: `1px solid ${tone.border}`, background: tone.bg,
+      color: tone.fg, fontWeight: 750, fontSize: compact ? 11.5 : 12.5,
+      cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
+    }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: tone.fg }} />
+      {label} · Muokkaa
+    </button>
+  );
+}
+
+function KoutsiAttendanceModal({ studentName, training, eligibleTrainings, entry, viewerRole = 'coach', onClose, onSave }) {
+  const [status, setStatus] = React.useState(entry ? 'poissa' : 'paikalla');
+  const [count, setCount] = React.useState(1);
+  const [busy, setBusy] = React.useState(false);
+  const baseKey = `${training.date}T${training.time || '00:00'}`;
+  const candidates = [training, ...(eligibleTrainings || [])]
+    .filter((t, i, all) => t && `${t.date}T${t.time || '00:00'}` >= baseKey && all.findIndex((x) => x && x.id === t.id) === i)
+    .sort((a, b) => `${a.date}T${a.time || ''}`.localeCompare(`${b.date}T${b.time || ''}`))
+    .slice(0, 4);
+  const maxCount = status === 'paikalla' ? 1 : Math.max(1, candidates.length);
+  const chosenCount = Math.min(count, maxCount);
+  const statusOptions = [
+    { value: 'paikalla', label: 'Paikalla' },
+    { value: 'poissa', label: 'Poissa' },
+  ];
+  const submit = async () => {
+    if (busy) return;
+    setBusy(true);
+    const ok = await onSave({
+      trainingIds: candidates.slice(0, chosenCount).map((t) => t.id),
+      status,
+      note: '',
+    });
+    setBusy(false);
+    if (ok !== false) onClose();
+  };
+  return (
+    <div onClick={onClose} role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Läsnäolo — ${studentName}`} className="k-card" style={{ width: 'min(500px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 5 }}>Läsnäolo — {studentName}</h3>
+        <div style={{ fontSize: 13.5, color: '#8a857a', marginBottom: 20 }}>{window.koutsiFmtShortDate(training.date)} · klo {training.time} · {training.type}</div>
+
+        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.55, marginBottom: 9 }}>Tila</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 18 }}>
+          {statusOptions.map((option) => {
+            const on = status === option.value;
+            const tone = KOUTSI_ATTENDANCE_TONES[option.value];
+            return (
+              <button type="button" key={option.value} onClick={() => { setStatus(option.value); if (option.value === 'paikalla') setCount(1); }} style={{
+                minHeight: 44, padding: '9px 7px', borderRadius: 13,
+                border: `1.5px solid ${on ? tone.fg : '#d8d4ca'}`,
+                background: on ? tone.bg : '#fff', color: on ? tone.fg : '#514c42',
+                fontWeight: 750, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit',
+              }}>{option.label}</button>
+            );
+          })}
+        </div>
+
+        {status !== 'paikalla' && (
+          <React.Fragment>
+            {candidates.length > 1 && (
+              <React.Fragment>
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.55, marginBottom: 9 }}>Kuinka moneen treeniin?</div>
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 18 }}>
+                  {Array.from({ length: candidates.length }, (_, i) => i + 1).map((n) => (
+                    <button type="button" key={n} onClick={() => setCount(n)} style={{
+                      padding: '8px 12px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
+                      border: n === chosenCount ? '1px solid var(--green-deep)' : '1px solid #d8d4ca',
+                      background: n === chosenCount ? 'rgba(14,59,44,0.08)' : '#fff',
+                      color: n === chosenCount ? 'var(--green-deep)' : '#514c42', fontSize: 12.5, fontWeight: 700,
+                    }}>{n === 1 ? 'Vain tämä' : `${n} treeniä`}</button>
+                  ))}
+                </div>
+              </React.Fragment>
+            )}
+          </React.Fragment>
+        )}
+
+        <div style={{ borderRadius: 12, background: '#f7f5ef', padding: '10px 12px', color: '#6b665c', fontSize: 12.5, lineHeight: 1.45, marginBottom: 18 }}>
+          {viewerRole === 'player'
+            ? 'Valmentajasi näkee läsnäolotilan heti. Beta-pilotissa poissaolon syytä ei tallenneta.'
+            : 'Pelaaja näkee merkinnän omassa treenikalenterissaan. Beta-pilotissa poissaolon syytä ei tallenneta.'}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button type="button" onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button type="button" onClick={submit} disabled={busy} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: busy ? 0.65 : 1 }}>{busy ? 'Tallennetaan…' : 'Tallenna'}</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -439,6 +546,7 @@ Object.assign(window, {
   KoutsiUIProvider, KoutsiToastProvider, KoutsiConfirmProvider,
   useKoutsiToast, useKoutsiConfirm,
   KoutsiIconButton, KoutsiRowActions, KoutsiEditIcon, KoutsiTrashIcon,
+  KoutsiAttendanceBadge, KoutsiAttendanceModal,
   KoutsiQrCode, KoutsiCopyButton, koutsiCopyText,
   KoutsiNotificationBell, KoutsiEmailPrefToggle,
   KoutsiDeleteAccountButton, KoutsiLegalLinks,

@@ -63,20 +63,19 @@
     return {
       coach: person(COACH, 'Anna Koskinen', {
         tagline: 'Tennisvalmentaja · Lahti',
-        bio: 'Valmennan juniori- ja aikuispelaajia. Erikoisalana lyöntitekniikka ja kilpapelaajien fysiikka.',
+        bio: 'Valmennan aikuispelaajia. Erikoisalana lyöntitekniikka ja kilpapelaajien fysiikka.',
         experience: '12 vuotta valmennuskokemusta · Suomen Tennisliiton tason 2 valmentajakoulutus',
-        specialties: ['Yksityistunnit', 'Ryhmätreenit', 'Junioripelaajat', 'Kilpavalmennus'],
+        specialties: ['Yksityistunnit', 'Ryhmätreenit', 'Aikuispelaajat', 'Kilpavalmennus'],
       }),
       coaches: [
         person(COACH, 'Anna Koskinen', { tagline: 'Tennisvalmentaja · Lahti', bio: '', experience: '', specialties: [] }),
         person(COACH2, 'Juho Aalto', { tagline: 'Fysiikkavalmentaja', bio: '', experience: '', specialties: [] }),
       ],
       students: [
-        student(S1, 'Maria K.', 16, 'Kilpapelaaja', {
+        student(S1, 'Maria K.', 26, 'Kilpapelaaja', {
           goal: 'Varmempi kakkossyöttö ja rohkeampi verkkopeli',
           lastSession: 'Kämmenen valmistautuminen myöhässä',
           focus: 'Split step + ensimmäinen askel',
-          background: 'Vanha nilkkavamma (2025) — vältä äkkinäisiä suunnanmuutoksia alkulämmittelyssä. Tavoitteena SM-kisat keväällä.',
           playerWish: 'Haluaisin harjoitella enemmän verkkopeliä ensi kerralla.',
           diary: [
             { id: 'd1', at: isoAt(-2), text: 'Hyvä nousu syötössä tällä viikolla — jatka samaan malliin.' },
@@ -95,7 +94,7 @@
             { id: 'n1', at: isoAt(-5), opponentName: 'Sofia L.', date: dayStr(-5), note: 'Vahva kämmen, rystyllä epävarma paineessa. Pelaa toiselle puolelle.' },
           ],
         }),
-        student(S2, 'Aleksi R.', 14, 'Keskitaso', {
+        student(S2, 'Aleksi R.', 24, 'Keskitaso', {
           goal: 'Backhandin tasapaino pitkissä vaihdoissa',
           lastSession: 'Liikkeen aloitus parani huomattavasti',
           focus: 'Askelkuvio ennen lyöntiä',
@@ -103,7 +102,7 @@
           homework: [{ id: 'h2', at: isoAt(-13), text: 'Katso videoanalyysi backhandista', done: true, doneAt: isoAt(-11) }],
           videos: [{ id: 'v3', at: isoAt(-42), title: 'Backhand-analyysi', date: dayStr(-42), tags: ['tekniikka'], addedBy: 'coach' }],
         }),
-        student(S3, 'Venla H.', 12, 'Aloittelija', {
+        student(S3, 'Venla H.', 22, 'Aloittelija', {
           goal: 'Pallon rytmi ja peliin pääsy',
           focus: 'Perusotteet',
           diary: [],
@@ -112,7 +111,7 @@
         }),
       ],
       groups: [{
-        id: GROUP, coachId: COACH, name: 'Juniorit A', level: 'Keskitaso', day: 'Ti', time: '17:00',
+        id: GROUP, coachId: COACH, name: 'Aikuiset A', level: 'Keskitaso', day: 'Ti', time: '17:00',
         memberIds: [S1, S2, S3],
         themes: [{ id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' }],
         theme: { id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' },
@@ -122,7 +121,7 @@
       trainings: [
         { id: 'tr1', date: dayStr(1), time: '17:00', type: 'Ryhmätreeni', studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [] },
         { id: 'tr2', date: dayStr(8), time: '17:00', type: 'Ryhmätreeni', studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [] },
-        { id: 'tr3', date: dayStr(-6), time: '17:00', type: 'Ryhmätreeni', studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [{ studentId: S3, reason: 'poissa' }] },
+        { id: 'tr3', date: dayStr(-6), time: '17:00', type: 'Ryhmätreeni', studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [{ studentId: S3, reason: 'poissa', note: '', reportedBy: S3, updatedAt: isoAt(-7) }] },
         { id: 'tr4', date: dayStr(3), time: '15:30', type: 'Yksityistunti', studentId: S1, groupId: null, coachId: COACH, seriesId: null, absences: [] },
       ],
       exercises: [
@@ -145,7 +144,7 @@
 
   function student(id, name, age, level, extra) {
     return Object.assign(person(id, name, {
-      age, level, goal: '', lastSession: '', focus: '', background: '', playerNote: '', playerWish: '',
+      age, level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '',
       joinedAt: isoAt(-120), diary: [], homework: [], videos: [], moods: [], matchNotes: [],
     }), extra || {});
   }
@@ -216,6 +215,8 @@
     session: { user: { id: DEMO_UID, email: 'demo@krossi.app' } },
     profile: { id: DEMO_UID, name: DEMO_UID === COACH ? 'Anna Koskinen' : 'Maria K.' },
     needsOnboarding: false,
+    pilotAccepted: true,
+    pilotError: false,
     recoveryMode: false,
     profileError: null,
     retryProfile: () => {},
@@ -276,8 +277,6 @@
   // Row presence is what gates the app; in the demo both always exist.
   window.koutsiFetchCoachRow = (uid) => done(uid === COACH ? { id: COACH } : null);
   window.koutsiFetchStudentRow = (uid) => done(findStudent(uid) ? { id: uid } : null);
-  window.koutsiStartWithoutCode = () => done({ id: DEMO_UID });
-
   // ── diary ─────────────────────────────────────────────────────────────────
   window.koutsiAddDiaryEntry = (coachId, studentId, text) => {
     const st = findStudent(studentId);
@@ -323,7 +322,6 @@
     if (st) { st[key] = value; save(); }
     return done();
   };
-  window.koutsiSaveBackground = (id, text) => setField(id, 'background', text);
   window.koutsiSetStudentLevel = (id, level) => setField(id, 'level', level);
   window.koutsiSaveGoal = (id, goal) => setField(id, 'goal', goal);
   window.koutsiSaveNote = (id, v) => setField(id, 'playerNote', v);
@@ -332,16 +330,42 @@
   // ── videos ────────────────────────────────────────────────────────────────
   // No file ever leaves the browser in the demo: an uploaded file becomes an
   // object URL so it still plays, and a link stays a link.
-  window.koutsiShareVideo = ({ title, date, tags, studentIds, addedById, file, externalUrl }) => {
+  window.koutsiShareVideo = ({ shareId, title, date, tags, studentIds, addedById, file, externalUrl, onProgress }) => {
+    const resolvedShareId = shareId || newId('vs');
     const url = file ? URL.createObjectURL(file) : null;
+    if (file && onProgress) onProgress(100);
     (studentIds || []).forEach((sid) => {
       const st = findStudent(sid);
       if (!st) return;
       st.videos.unshift({
-        id: newId('v'), at: new Date().toISOString(), title, date, tags: tags || [],
+        id: newId('v'), shareId: resolvedShareId, recipientIds: [...studentIds],
+        at: new Date().toISOString(), title, date, tags: tags || [],
         addedBy: addedById === sid ? 'player' : 'coach',
         storagePath: url, externalUrl: externalUrl || null, mimeType: file ? file.type : null,
       });
+    });
+    save();
+    return done();
+  };
+  window.koutsiSetVideoRecipients = (shareId, studentIds) => {
+    const s = load();
+    let source = null;
+    s.students.forEach((st) => {
+      const match = (st.videos || []).find((v) => v.shareId === shareId);
+      if (match && !source) source = match;
+    });
+    if (!source) return done();
+    const recipients = [...new Set(studentIds || [])];
+    s.students.forEach((st) => {
+      st.videos = (st.videos || []).filter((v) => v.shareId !== shareId || recipients.includes(st.id));
+      const current = st.videos.find((v) => v.shareId === shareId);
+      if (recipients.includes(st.id) && !current) {
+        st.videos.unshift({
+          ...source, id: newId('v'), recipientIds: recipients,
+          addedBy: source.addedBy,
+        });
+      }
+      st.videos.forEach((v) => { if (v.shareId === shareId) v.recipientIds = recipients; });
     });
     save();
     return done();
@@ -390,17 +414,28 @@
   window.koutsiCountSeriesRemaining = (seriesId, fromDate) =>
     done(load().trainings.filter((t) => t.seriesId === seriesId && t.date >= fromDate).length);
 
-  // paikalla → poissa → loukkaantunut → paikalla
-  window.koutsiCycleAbsence = (trainingId, studentId, currentReason) => {
-    const t = load().trainings.find((x) => x.id === trainingId);
-    if (t) {
+  window.koutsiSetAttendance = (trainingIds, studentId, status, note) => {
+    const ids = new Set(trainingIds || []);
+    load().trainings.forEach((t) => {
+      if (!ids.has(t.id)) return;
       const rest = (t.absences || []).filter((a) => a.studentId !== studentId);
-      if (!currentReason) rest.push({ studentId, reason: 'poissa' });
-      else if (currentReason === 'poissa') rest.push({ studentId, reason: 'vamma' });
+      if (status !== 'paikalla') rest.push({
+        studentId,
+        reason: 'poissa',
+        note: '',
+        reportedBy: DEMO_UID,
+        updatedAt: new Date().toISOString(),
+      });
       t.absences = rest;
-      save();
-    }
+    });
+    save();
     return done();
+  };
+
+  // paikalla → poissa → paikalla
+  window.koutsiCycleAbsence = (trainingId, studentId, currentReason) => {
+    const next = !currentReason ? 'poissa' : 'paikalla';
+    return window.koutsiSetAttendance([trainingId], studentId, next, '');
   };
 
   // ── groups ────────────────────────────────────────────────────────────────
@@ -582,12 +617,14 @@
   };
   // Nimellä lisätty pelaaja: demossa hän ilmestyy heti luetteloon.
   window.koutsiCreatePlayer = (name, age, level) => {
+    if (!Number.isInteger(age) || age < 18) return Promise.reject(new Error('Koutsi-beta on rajattu vähintään 18-vuotiaille.'));
     const id = newId('demo-student');
     load().students.push(student(id, name, age || null, level || null, { isPlaceholder: true }));
     save();
     return done(id);
   };
   window.koutsiBulkSetup = ({ groups = [], players = [], themes = [] }) => {
+    if (players.some((player) => !Number.isInteger(player.age) || player.age < 18)) return Promise.reject(new Error('Koutsi-beta on rajattu vähintään 18-vuotiaille.'));
     const s = load();
     const groupIds = {};
     let groupsCreated = 0;
@@ -652,7 +689,7 @@
     save();
     return done({ coach_id: COACH, coach_name: s.coach.name, claimed: true });
   };
-  window.koutsiRedeemInviteCode = () => done({ coach_id: COACH, coach_name: 'Anna Koskinen', group_id: GROUP, group_name: 'Juniorit A' });
+  window.koutsiRedeemInviteCode = () => done({ coach_id: COACH, coach_name: 'Anna Koskinen', group_id: GROUP, group_name: 'Aikuiset A' });
   window.koutsiRedeemCoachKey = () => done({ ok: true });
   window.koutsiEndCoaching = (coachId, studentId) => {
     const s = load();
@@ -698,7 +735,6 @@
     const st = findStudent(studentId);
     if (st) {
       if (patch.age !== undefined) st.age = patch.age;
-      if (patch.background !== undefined) st.background = patch.background;
       save();
     }
     return done();
@@ -719,6 +755,8 @@
   // Demokäyttäjä ei ole ylläpitäjä, joten paneeli ei näy eikä sen hakuja ajeta.
   window.koutsiIsAdmin = () => done(false);
   window.koutsiAdminCoaches = () => done([]);
+  window.koutsiAdminUsers = () => done([]);
+  window.koutsiAdminDeleteUser = () => Promise.reject(new Error('not allowed'));
   window.koutsiAdminActAs = () => Promise.reject(new Error('not allowed'));
   window.koutsiAdminGroups = () => done([]);
   window.koutsiAdminBulkInviteCodes = () => done([]);

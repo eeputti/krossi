@@ -21,6 +21,8 @@ const KOUTSI_AGE_RANGES = [
   { value: '50-60', label: '50–60' },
   { value: '60+', label: '60+' },
 ];
+const KOUTSI_PILOT_TERMS_VERSION = '2026-08-23-adult-pilot';
+const KOUTSI_PILOT_PRIVACY_VERSION = '2026-08-23-adult-pilot';
 
 // The phrasebook lives in koutsi-data.js, which loads after this file; guarded so a
 // half-loaded page still says something in Finnish instead of a raw Postgres sentence.
@@ -61,6 +63,8 @@ const KoutsiAuthContext = React.createContext(null);
 function KoutsiAuthProvider({ children }) {
   const [session, setSession] = React.useState(null);
   const [profile, setProfile] = React.useState(null);
+  const [pilotAccepted, setPilotAccepted] = React.useState(false);
+  const [pilotError, setPilotError] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   // Supabase turns a recovery link into a real session before firing PASSWORD_RECOVERY.
   // Without this flag the person would simply land in the app, still holding the old
@@ -81,6 +85,27 @@ function KoutsiAuthProvider({ children }) {
       setProfileError(false);
     } catch { setProfile(null); setProfileError(true); }
   }, []);
+  const loadPilotAcknowledgement = React.useCallback(async (uid) => {
+    if (!uid) { setPilotAccepted(false); setPilotError(false); return; }
+    try {
+      const { data, error } = await koutsiSupabase.from('koutsi_pilot_acknowledgements')
+        .select('terms_version, privacy_version, adult_confirmed_at, restricted_data_rules_confirmed_at')
+        .eq('user_id', uid)
+        .maybeSingle();
+      if (error) throw error;
+      setPilotAccepted(Boolean(
+        data
+        && data.terms_version === KOUTSI_PILOT_TERMS_VERSION
+        && data.privacy_version === KOUTSI_PILOT_PRIVACY_VERSION
+        && data.adult_confirmed_at
+        && data.restricted_data_rules_confirmed_at
+      ));
+      setPilotError(false);
+    } catch {
+      setPilotAccepted(false);
+      setPilotError(true);
+    }
+  }, []);
   // Supabase re-validates the stored session every time the tab becomes visible again and
   // reports it as a fresh SIGNED_IN — same person, same session, nothing to do. Acting on
   // it flipped `loading` back on, and since the roots render a loading screen instead of
@@ -94,9 +119,16 @@ function KoutsiAuthProvider({ children }) {
     const uid = s?.user?.id || null;
     if (uid === appliedUid.current) return; // same person returning — keep the app mounted
     appliedUid.current = uid;
-    if (uid) { setLoading(true); loadProfile(uid).finally(() => setLoading(false)); }
-    else { setProfile(null); setLoading(false); }
-  }, [loadProfile]);
+    if (uid) {
+      setLoading(true);
+      Promise.all([loadProfile(uid), loadPilotAcknowledgement(uid)]).finally(() => setLoading(false));
+    } else {
+      setProfile(null);
+      setPilotAccepted(false);
+      setPilotError(false);
+      setLoading(false);
+    }
+  }, [loadProfile, loadPilotAcknowledgement]);
   React.useEffect(() => {
     koutsiSupabase.auth.getSession()
       .then(({ data: { session: s } }) => applySession(s))
@@ -115,10 +147,33 @@ function KoutsiAuthProvider({ children }) {
     await loadProfile(session.user.id);
     setLoading(false);
   }, [session, loadProfile]);
+  const retryPilot = React.useCallback(async () => {
+    if (!session?.user?.id) return;
+    setLoading(true);
+    await loadPilotAcknowledgement(session.user.id);
+    setLoading(false);
+  }, [session, loadPilotAcknowledgement]);
+  const acceptPilot = React.useCallback(async () => {
+    const uid = session?.user?.id;
+    if (!uid) throw new Error('Kirjaudu uudelleen ennen jatkamista.');
+    const now = new Date().toISOString();
+    const { error } = await koutsiSupabase.from('koutsi_pilot_acknowledgements').upsert({
+      user_id: uid,
+      terms_version: KOUTSI_PILOT_TERMS_VERSION,
+      privacy_version: KOUTSI_PILOT_PRIVACY_VERSION,
+      adult_confirmed_at: now,
+      restricted_data_rules_confirmed_at: now,
+      updated_at: now,
+    }, { onConflict: 'user_id' });
+    if (error) throw error;
+    setPilotAccepted(true);
+    setPilotError(false);
+  }, [session]);
   const value = React.useMemo(() => ({
     session, profile, loading,
     needsOnboarding: Boolean(session?.user && !profile && !profileError && !loading),
     profileError, retryProfile,
+    pilotAccepted, pilotError, retryPilot, acceptPilot,
     recoveryMode,
     endRecovery: () => {
       setRecoveryMode(false);
@@ -127,7 +182,7 @@ function KoutsiAuthProvider({ children }) {
     },
     refreshProfile,
     signOut: () => koutsiSupabase.auth.signOut(),
-  }), [session, profile, loading, profileError, retryProfile, recoveryMode, refreshProfile]);
+  }), [session, profile, loading, profileError, retryProfile, pilotAccepted, pilotError, retryPilot, acceptPilot, recoveryMode, refreshProfile]);
   return <KoutsiAuthContext.Provider value={value}>{children}</KoutsiAuthContext.Provider>;
 }
 function useKoutsiAuth() { return React.useContext(KoutsiAuthContext); }
@@ -147,6 +202,7 @@ function KoutsiAuthScreen() {
   const [error, setError] = React.useState(linkError);
   const [info, setInfo] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  const [adultDeclared, setAdultDeclared] = React.useState(false);
   // Shown after a sign-up, and after a login that failed only because the address is
   // still unconfirmed — without it a lost confirmation mail is the end of the road.
   const [canResend, setCanResend] = React.useState(false);
@@ -167,6 +223,7 @@ function KoutsiAuthScreen() {
   };
 
   const signInWithGoogle = async () => {
+    if (mode === 'register' && !adultDeclared) { setError('Koutsi-beta on tarkoitettu vain vähintään 18-vuotiaille. Vahvista ikäsi ennen tilin luomista.'); return; }
     setError(''); setBusy(true);
     try {
       const { error: e } = await koutsiSupabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
@@ -174,6 +231,7 @@ function KoutsiAuthScreen() {
     } catch (err) { setError(koutsiAuthErrorText(err, 'Google-kirjautuminen epäonnistui')); setBusy(false); }
   };
   const signInWithApple = async () => {
+    if (mode === 'register' && !adultDeclared) { setError('Koutsi-beta on tarkoitettu vain vähintään 18-vuotiaille. Vahvista ikäsi ennen tilin luomista.'); return; }
     setError(''); setBusy(true);
     try {
       const { error: e } = await koutsiSupabase.auth.signInWithOAuth({ provider: 'apple', options: { redirectTo } });
@@ -187,6 +245,7 @@ function KoutsiAuthScreen() {
         const { error } = await koutsiSupabase.auth.signInWithPassword({ email, password: pw });
         if (error) throw error;
       } else if (mode === 'register') {
+        if (!adultDeclared) throw new Error('Koutsi-beta on tarkoitettu vain vähintään 18-vuotiaille. Vahvista ikäsi ennen tilin luomista.');
         const { data, error } = await koutsiSupabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: redirectTo } });
         if (error) throw error;
         if (data.user && !data.session) {
@@ -220,12 +279,17 @@ function KoutsiAuthScreen() {
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--sand)' }}>
-      <a href="https://koutsi.krossi.app" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', marginBottom: 28 }}>
-        <span style={{ fontWeight: 800, fontSize: 30, color: 'var(--green-deep)', letterSpacing: -1 }}>Krossi</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--green-deep)' }}>
+      <a href="https://koutsi.krossi.app" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 24 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7 }}>
+          <span style={{ fontWeight: 800, fontSize: 30, color: 'var(--lime)', letterSpacing: -1 }}>Krossi</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
+        </span>
+        <span style={{ padding: '5px 14px', borderRadius: 999, background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.5)', color: 'var(--lime)', fontSize: 11.5, fontWeight: 800, letterSpacing: 0.7 }}>
+          {isCoachRoute ? 'VALMENTAJA' : 'PELAAJA'}
+        </span>
       </a>
-      <div className="k-card" style={{ width: 'min(400px, 100%)', padding: '30px 28px' }}>
+      <div className="k-card" style={{ width: 'min(400px, 100%)', padding: '30px 28px', boxShadow: '0 22px 55px -28px rgba(0,0,0,0.65)' }}>
         <div role="tablist" aria-label="Valitse rooli" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4, marginBottom: 22, borderRadius: 14, background: '#f1efe8', border: '1px solid var(--line)' }}>
           {[
             { role: 'coach', label: 'Valmentaja', selected: isCoachRoute },
@@ -264,11 +328,11 @@ function KoutsiAuthScreen() {
 
         {mode !== 'reset' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-            <button style={oauthBtnStyle} onClick={signInWithGoogle} disabled={busy}>
+            <button style={oauthBtnStyle} onClick={signInWithGoogle} disabled={busy || (mode === 'register' && !adultDeclared)}>
               <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" /><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.0 24.0 0 0 0 0 21.56l7.98-6.19z" /><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" /></svg>
               Jatka Googlella
             </button>
-            <button style={oauthBtnStyle} onClick={signInWithApple} disabled={busy}>
+            <button style={oauthBtnStyle} onClick={signInWithApple} disabled={busy || (mode === 'register' && !adultDeclared)}>
               <svg width="16" height="20" viewBox="0 0 20 24" fill="#111"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.2-1.2 3.1-2.5.7-1 1-2 1-2-.1 0-2-.8-2-3.3zM13.9 3.5c.7-.9 1.2-2.1 1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3.1-1.4z" /></svg>
               Jatka Applella
             </button>
@@ -281,17 +345,23 @@ function KoutsiAuthScreen() {
             <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
           </div>
         )}
+        {mode === 'register' && (
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 12px', marginBottom: 12, borderRadius: 12, background: '#f7f5ef', color: '#514c42', fontSize: 12.5, lineHeight: 1.45, cursor: 'pointer' }}>
+            <input type="checkbox" checked={adultDeclared} onChange={(e) => setAdultDeclared(e.target.checked)} style={{ marginTop: 2, accentColor: 'var(--green-deep)' }} />
+            <span>Vahvistan olevani vähintään 18-vuotias. Suljettuun beta-pilottiin ei oteta alaikäisiä.</span>
+          </label>
+        )}
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input style={inputStyle} type="email" placeholder="Sähköposti" value={email} onChange={(e) => setEmail(e.target.value)} required />
           {mode !== 'reset' && <input style={inputStyle} type="password" placeholder="Salasana" value={pw} onChange={(e) => setPw(e.target.value)} required minLength={6} />}
-          <button className="btn-dark" type="submit" disabled={busy} style={{ padding: '13px 0', opacity: busy ? 0.6 : 1 }}>
+          <button className="btn-dark" type="submit" disabled={busy || (mode === 'register' && !adultDeclared)} style={{ padding: '13px 0', opacity: (busy || (mode === 'register' && !adultDeclared)) ? 0.6 : 1 }}>
             {busy ? 'Odota...' : mode === 'login' ? 'Kirjaudu' : mode === 'register' ? 'Luo tili' : 'Lähetä linkki'}
           </button>
         </form>
         {mode === 'register' && (
           <p style={{ marginTop: 14, fontSize: 11.5, color: '#8a857a', lineHeight: 1.5, textAlign: 'center' }}>
             Luomalla tilin hyväksyt <a href="/kayttoehdot" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>käyttöehdot</a> ja{' '}
-            <a href="/tietosuoja" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>tietosuojaselosteen</a>.{!isCoachRoute && ' Alle 15-vuotiaan tilin luo huoltaja.'}
+            <a href="/tietosuoja" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>tietosuojaselosteen</a>. Pilottiin ei saa kirjata terveystietoja eikä alaikäisten oikeita henkilötietoja.
           </p>
         )}
         <div style={{ marginTop: 18, textAlign: 'center', fontSize: 13 }}>
@@ -310,7 +380,7 @@ function KoutsiAuthScreen() {
           )}
         </div>
       </div>
-      <a href="https://koutsi.krossi.app" style={{ color: '#8a857a', marginTop: 22, fontSize: 13, textDecoration: 'none' }}>← Takaisin etusivulle</a>
+      <a href="https://koutsi.krossi.app" style={{ color: 'rgba(255,255,255,0.68)', marginTop: 22, fontSize: 13, textDecoration: 'none' }}>← Takaisin etusivulle</a>
     </div>
   );
 }
@@ -517,12 +587,57 @@ function KoutsiAuthLoadingScreen() {
   );
 }
 
+// Closed-pilot gate. This is an acknowledgement of the pilot's scope, not consent to
+// process health data: health data is expressly excluded and its dedicated inputs are
+// disabled elsewhere in the app and database.
+function KoutsiPilotGate() {
+  const { acceptPilot, signOut } = useKoutsiAuth();
+  const [adult, setAdult] = React.useState(false);
+  const [rules, setRules] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const submit = async () => {
+    if (!adult || !rules || busy) return;
+    setBusy(true); setError('');
+    try { await acceptPilot(); }
+    catch (err) { setError(koutsiAuthErrorText(err, 'Vahvistusta ei voitu tallentaa.')); setBusy(false); }
+  };
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--sand)' }}>
+      <div className="k-card" style={{ width: 'min(470px, 100%)', padding: '30px 28px' }}>
+        <div style={{ display: 'inline-flex', padding: '5px 10px', marginBottom: 14, borderRadius: 999, background: 'rgba(207,228,20,0.18)', color: '#526006', fontSize: 11.5, fontWeight: 800 }}>SULJETTU BETA</div>
+        <h2 style={{ fontSize: 21, fontWeight: 800, marginBottom: 9, color: '#111' }}>Ennen kuin jatkat</h2>
+        <p style={{ fontSize: 14, color: '#6b665c', lineHeight: 1.55, marginBottom: 18 }}>
+          Ensimmäinen Koutsi-pilotti on rajattu täysi-ikäisille. Terveystietoja tai alaikäisten oikeita henkilötietoja ei saa tallentaa palveluun.
+        </p>
+        {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '12px 13px', marginBottom: 10, borderRadius: 12, border: '1px solid var(--line)', cursor: 'pointer', fontSize: 13.5, lineHeight: 1.45 }}>
+          <input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} style={{ marginTop: 2, accentColor: 'var(--green-deep)' }} />
+          <span>Vahvistan olevani vähintään 18-vuotias.</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '12px 13px', marginBottom: 16, borderRadius: 12, border: '1px solid var(--line)', cursor: 'pointer', fontSize: 13.5, lineHeight: 1.45 }}>
+          <input type="checkbox" checked={rules} onChange={(e) => setRules(e.target.checked)} style={{ marginTop: 2, accentColor: 'var(--green-deep)' }} />
+          <span>Ymmärrän, ettei Koutsiin saa pilotin aikana kirjata vammoja, sairauksia, diagnooseja, lääkityksiä tai alaikäisten oikeita tietoja.</span>
+        </label>
+        <p style={{ fontSize: 11.5, color: '#8a857a', lineHeight: 1.5, marginBottom: 16 }}>
+          Vahvistus tallennetaan käyttäjätilillesi. Lue myös <a href="/kayttoehdot" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>käyttöehdot</a> ja{' '}
+          <a href="/tietosuoja" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>tietosuojaseloste</a>.
+        </p>
+        <button onClick={submit} disabled={busy || !adult || !rules} className="btn-dark" style={{ width: '100%', padding: '13px 0', opacity: (busy || !adult || !rules) ? 0.45 : 1 }}>
+          {busy ? 'Tallennetaan…' : 'Vahvista ja jatka'}
+        </button>
+        <button onClick={signOut} disabled={busy} style={{ width: '100%', marginTop: 14, background: 'none', border: 'none', color: '#8a857a', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Kirjaudu ulos</button>
+      </div>
+    </div>
+  );
+}
+
 // KOUTSI_SUPABASE_ANON_KEY is exported (not just a top-level const) because the bundled
 // build wraps each file in its own scope — koutsi-data.js reaches it through window.
 Object.assign(window, {
   koutsiSupabase, KOUTSI_SUPABASE_URL, KOUTSI_SUPABASE_ANON_KEY,
   koutsiAuthAvatarUrl,
   KoutsiAuthProvider, useKoutsiAuth,
-  KoutsiAuthScreen, KoutsiProfileOnboarding, KoutsiAuthLoadingScreen, KoutsiPasswordResetScreen,
+  KoutsiAuthScreen, KoutsiProfileOnboarding, KoutsiAuthLoadingScreen, KoutsiPasswordResetScreen, KoutsiPilotGate,
   KoutsiErrorScreen,
 });

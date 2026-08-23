@@ -40,7 +40,7 @@ const COACH_STUDENTS = [
 
 const PLAYER_STUDENT = {
   initial: 'M', hue: 205, name: 'Maria K.', level: 'Kilpapelaaja',
-  group: { name: 'Kilpajuniorit', day: 'Ke', time: '17:00' },
+  group: { name: 'Kilpapelaajat', day: 'Ke', time: '17:00' },
   goal: 'Varmempi kakkossyöttö ja rohkeampi verkkopeli',
   theme: { title: 'Kämmenen pelitila', lead: 'Valmistautuminen alkaa heti vastustajan osumasta.' },
   feedback: { text: 'Hyvä nousu syötössä tällä viikolla — jatka samaan malliin.', date: '2 pv sitten' },

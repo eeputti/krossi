@@ -31,8 +31,8 @@ salaisuuksia jono vain kertyy eikä mitään lähde, mikä on turvallinen oletus
 ```bash
 supabase secrets set \
   RESEND_API_KEY='<Resendin API-avain>' \
-  KOUTSI_MAIL_FROM='koutsi@krossi.app' \
-  KOUTSI_MAIL_FROM_NAME='Krossi Koutsi' \
+  KOUTSI_MAIL_FROM='messages@krossi.app' \
+  KOUTSI_MAIL_FROM_NAME='Krossi' \
   KOUTSI_MAIL_REPLY_TO='eelispuro@gmail.com' \
   KOUTSI_CRON_KEY="$(openssl rand -hex 32)"
 ```
@@ -70,6 +70,24 @@ select id, kind, email_status, email_error from koutsi_notifications order by cr
 kytkenyt sähköpostit pois tai hänellä ei ole osoitetta. `failed` näkyy kolmen epäonnistuneen
 yrityksen jälkeen, ja syy on `email_error`-sarakkeessa.
 
+## Ennen oikeiden henkilötietojen pilottia
+
+**Pilotin tila on BLOKATTU**, kunnes [KOUTSI-DPA-CHECKLIST.md](KOUTSI-DPA-CHECKLIST.md)
+on kokonaan täytetty ja hyväksytty. Julkaistujen ehtojen tarkistus ei yksin todista, että
+Roisku Median tilillä vaadittu hyväksyntä, palvelutaso ja sopimusarkistointi ovat kunnossa.
+
+Ensimmäinen pilotti on rajattu vähintään 18-vuotiaisiin. Jokainen käyttäjä vahvistaa
+täysi-ikäisyyden ja kielletyt tietoryhmät käyttäjäkohtaisesti; vahvistus tallentuu
+`koutsi_pilot_acknowledgements`-tauluun. Valmentaja saa lisätä vain vähintään 18-vuotiaita
+pelaajia. Taustatietokenttä, loukkaantumismerkintä ja poissaolon syyn tallennus on poistettu
+käytöstä, ja tietokantatriggerit estävät niiden käyttämisen vanhalla käyttöliittymälläkin.
+
+Migraatio `20260823164809_koutsi_adult_pilot_acknowledgement_and_health_lock.sql` tyhjentää
+vanhan sekakäyttöisen `background`-kentän sekä poissaolojen syyt ja muuntaa vanhat
+`vamma`-merkinnät tavallisiksi poissaoloiksi. Ota tarvittaessa tietokannan hallittu
+varmuuskopio ennen migraatiota; erityisiin henkilötietoryhmiin kuuluvaa sisältöä ei pidä
+siirtää pilotin uuteen käyttödataan.
+
 ## Vielä tehtäväksi jäävät asetukset
 
 - **Vuotaneiden salasanojen esto**: Supabase-hallinnassa Authentication → Policies →
@@ -79,8 +97,9 @@ yrityksen jälkeen, ja syy on `email_error`-sarakkeessa.
   Roisku Media (Y-tunnus 3413406-6, Rauhankatu 10 C 809, 15110 Lahti). Jos mukaan tulee
   seurayhteistyötä — eli seura päättää mitä oppilaista kirjataan — rekisterinpitäjän ja
   käsittelijän roolit menevät uusiksi ja ne kannattaa tarkistuttaa juristilla.
-- **Käsittelysopimukset (DPA)** Supabasen, Vercelin ja Resendin kanssa: tarkista että ne ovat
-  voimassa ennen kuin alaikäisten tietoja kertyy oikeasti.
+- **Käsittelysopimukset (DPA):** seuraa erillistä
+  [DPA-tarkistuslistaa](KOUTSI-DPA-CHECKLIST.md). Älä kutsu ulkopuolisia testaajia ennen
+  sen lopullista hyväksyntää.
 
 ## Valmentaja-avaimet
 
@@ -96,43 +115,16 @@ values (upper('esim-avain-tahan'), 'Matti Meikäläinen / Lahden Tennisseura', n
 Taulussa on RLS päällä ilman politiikkoja: siihen pääsee vain SQL-editorista tai
 service-rolella, ei koskaan selaimesta. Sama koskee `koutsi_admins`-taulua.
 
-## Pelaaja ilman liittymiskoodia
+## Pelaajien kutsuminen suljettuun pilottiin
 
-Pelaaja pääsee `/pelaaja`-portista sisään myös ilman valmentajan koodia ("Jatka ilman
-koodia"). Se tarvitsee funktion `start_koutsi_without_code()`, koska `koutsi_students`-
-taulussa ei ole INSERT-politiikkaa — rivit syntyvät vain SECURITY DEFINER -funktioista.
-Funktio on jo tuotantokannassa; tässä se siltä varalta, että kanta rakennetaan uudelleen:
+Uusi pelaaja pääsee pilottiin vain valmentajan liittymiskoodilla. Käyttöliittymän
+”Jatka ilman koodia” -polku on poistettu, ja migraatio peruu authenticated-roolilta
+`start_koutsi_without_code()`-funktion suoritusoikeuden. Aiemmin luotuja pelaajarivejä ei
+poisteta automaattisesti.
 
-```sql
-create or replace function public.start_koutsi_without_code()
-returns jsonb
-language plpgsql
-security definer
-set search_path to 'public'
-as $function$
-declare
-  v_uid uuid := auth.uid();
-begin
-  if v_uid is null then
-    raise exception 'authentication required';
-  end if;
-  if not exists (select 1 from profiles where id = v_uid) then
-    raise exception 'profile required';
-  end if;
-
-  insert into koutsi_students (id) values (v_uid) on conflict (id) do nothing;
-
-  return jsonb_build_object('ok', true);
-end;
-$function$;
-
-revoke all on function public.start_koutsi_without_code() from public, anon;
-grant execute on function public.start_koutsi_without_code() to authenticated;
-```
-
-Tällainen pelaaja näkyy `koutsi_students`-taulussa ilman riviä `koutsi_coach_students`-
-taulussa. Sovellus on hänelle tyhjä ja tarjoaa koodikenttää Ryhmä-välilehdellä; koodin
-lunastus liittää hänet valmentajaan ja kaikki hänen omat merkintänsä säilyvät.
+Valmentaja varmistaa testaajan täysi-ikäisyyden ennen koodin lähettämistä. Koodia ei saa
+jakaa julkisessa ryhmässä tai avoimella verkkosivulla. Testaaja vahvistaa lisäksi itse
+täysi-ikäisyytensä sovelluksen tallennettavassa pilottiportissa.
 
 ## Vuosisuunnitelmat (beta)
 
@@ -229,6 +221,31 @@ Tämän toiminnon loppuunvienti, pelaajan rajattu ryhmärosteri sekä ylläpitä
 rajatut Storage-politiikat ovat versionoitu migraatiossa
 `supabase/migrations/20260823131111_finish_admin_acting_and_player_roster.sql`.
 
+### Käyttäjähallinta ja tilankäyttö
+
+Ylläpito-välilehti listaa kaikki Auth-käyttäjät ja näyttää erikseen roolit **Ylläpitäjä**,
+**Valmentaja** ja **Pelaaja**. Käyttäjiä voi hakea nimellä tai sähköpostilla ja suodattaa
+roolin mukaan. `koutsi_admin_users()` lukee sähköpostit `auth.users`-taulusta ja laskee
+käyttäjäkohtaisen Storage-käytön `storage.objects.metadata.size`-kentästä; tavallinen
+kirjautunut käyttäjä ei saa kumpaankaan tauluun suoraa lukuoikeutta. Valmentajalle
+kohdistetaan myös hänen ryhmiensä `koutsi-plans`-tiedostot, vaikka tiedoston olisi ladannut
+ylläpitäjä hänen puolestaan.
+
+**Poista tili** vaatii vahvistukseksi käyttäjän sähköpostiosoitteen. Selain kutsuu
+JWT-suojattua `koutsi-admin-delete-user`-Edge Functionia, joka tarkistaa kutsujan
+`koutsi_admins`-jäsenyyden palvelimella, estää oman sekä kaikkien ylläpitäjätilien poiston,
+poistaa käyttäjälle kohdistetut Storage-objektit ja vasta sitten Auth-käyttäjän. Auth-poisto
+poistaa viiteavainten `ON DELETE CASCADE` -säännöillä myös profiilin ja Koutsi-rivit.
+Poistosta jää henkilötiedot minimoiva audit-rivi tauluun `koutsi_admin_deletions`; taulu on
+RLS-suojattu eikä sitä voi lukea asiakassovelluksesta.
+
+Toteutus on migraatioissa `20260823165327_admin_user_management.sql` ja
+`20260823165933_tighten_admin_deletion_audit.sql`. Edge Function julkaistaan näin:
+
+```bash
+supabase functions deploy koutsi-admin-delete-user --project-ref hhybjpgrvlbazbqiaaao
+```
+
 ## Pelaajan ryhmärosteri
 
 Pelaaja ei saa laajaa SELECT-oikeutta muiden `koutsi_students`-riveihin. Ryhmäkortti hakee
@@ -249,11 +266,22 @@ palauttaa mitään, mitä käyttäjä ei jo näe sovelluksessa.
 
 | Säiliö | Sisältö | Katto | Näkyvyys |
 |---|---|---|---|
-| `koutsi-videos` | Treenivideot | 200 Mt / tiedosto | Pelaaja + hänen valmentajansa, `koutsi_videos`-rivien kautta |
+| `koutsi-videos` | Lyhyet treenivideot | 50 Mt / tiedosto | Vain videolle valitut pelaajat + heidän valmentajansa, `koutsi_videos`-rivien kautta |
 | `koutsi-plans` | Ryhmien vuosisuunnitelmat | 20 Mt / tiedosto | Ryhmän valmentaja + jäsenet |
 
 Molemmat ovat yksityisiä. Tiedostot avataan määräaikaisilla allekirjoitetuilla linkeillä,
 eli suora URL ei toimi ilman kirjautumista.
+
+Yli 6 Mt videot ladataan TUS-protokollalla 6 Mt paloissa suoraan selaimesta Supabasen
+dedikoituun Storage-osoitteeseen. Lataus ei kierrä Vercelin tai oman sovelluspalvelimen
+kautta, näyttää etenemisen ja jatkaa katkenneesta kohdasta. Pitkät pelianalyysit (esim.
+30 min) jaetaan ensisijaisesti rajattuna YouTube- tai Google Drive -linkkinä. Näin Koutsi
+ei maksa eikä välitä niiden raskasta tallennus- ja katseluliikennettä; linkkirivi näkyy
+silti vain valmentajan valitsemille vastaanottajille.
+
+Yksi tiedosto tallennetaan vain kerran. `koutsi_videos.share_id` ryhmittää sen
+vastaanottajarivit, ja valmentaja voi muuttaa näkyvyyttä jälkikäteen atomisella
+`koutsi_set_video_recipients`-RPC:llä ilman uutta latausta tai tiedostokopioita.
 
 Acting-tilan lisäpolitiikat ovat `TO authenticated`, mutta pelkkä kirjautuminen ei riitä:
 niissä vaaditaan aina `koutsi_is_admin()` ja Storage-polun ensimmäisen kansion pitää vastata
