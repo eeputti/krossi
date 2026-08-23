@@ -676,15 +676,19 @@
     ? 'https://koutsi.krossi.app/pelaaja'
     : 'https://koutsi.krossi.app/valmentaja';
 
+  const CTA_DISMISS_KEY = 'koutsi_demo_cta_dismissed';
+
   function mountDemoCta() {
     if (document.getElementById('koutsi-demo-cta')) return;
+    try { if (sessionStorage.getItem(CTA_DISMISS_KEY)) return; } catch { /* private mode */ }
+
     const bar = document.createElement('div');
     bar.id = 'koutsi-demo-cta';
     bar.setAttribute('style', [
       'position:fixed', 'right:18px', 'bottom:18px', 'z-index:150',
-      'display:flex', 'align-items:center', 'gap:12px',
+      'display:flex', 'align-items:center', 'gap:10px',
       'background:#0E3B2C', 'color:#fff', 'border-radius:16px',
-      'padding:12px 14px 12px 16px', 'font-family:inherit',
+      'padding:12px 12px 12px 16px', 'font-family:inherit',
       'box-shadow:0 18px 40px -18px rgba(0,0,0,0.55)',
       'max-width:min(360px, calc(100vw - 36px))',
     ].join(';'));
@@ -695,8 +699,29 @@
       '</div>' +
       '<a href="' + SIGNUP_URL + '" style="flex-shrink:0;background:var(--lime,#CFE414);color:#101a08;' +
         'font-weight:800;font-size:13px;text-decoration:none;padding:10px 14px;border-radius:11px;white-space:nowrap;">' +
-        'Luo tili</a>';
+        'Luo tili</a>' +
+      '<button type="button" aria-label="Sulje" style="flex-shrink:0;background:none;border:none;color:#fff;' +
+        'opacity:.6;font-size:18px;line-height:1;cursor:pointer;padding:4px 2px;font-family:inherit;">&times;</button>';
+
+    bar.querySelector('button').onclick = () => {
+      try { sessionStorage.setItem(CTA_DISMISS_KEY, '1'); } catch { /* private mode */ }
+      bar.remove();
+    };
     document.body.appendChild(bar);
+
+    // Mobiilissa sovelluksella on kiinteä alanavigaatio. Nostetaan kehote sen
+    // yläpuolelle korkeus mitaten, jotta navi ei jää sen alle — kovakoodattu
+    // arvo vanhenisi heti kun navin korkeus muuttuu.
+    const lift = () => {
+      const nav = document.querySelector('.kv-mobile-bottomnav');
+      const visible = nav && getComputedStyle(nav).display !== 'none' && nav.getBoundingClientRect().height > 0;
+      bar.style.bottom = visible ? `${Math.round(nav.getBoundingClientRect().height) + 12}px` : '18px';
+    };
+    lift();
+    window.addEventListener('resize', lift);
+    // navi ilmestyy vasta kun React on renderöinyt
+    setTimeout(lift, 300);
+    setTimeout(lift, 1200);
   }
   if (document.body) mountDemoCta();
   else document.addEventListener('DOMContentLoaded', mountDemoCta);
