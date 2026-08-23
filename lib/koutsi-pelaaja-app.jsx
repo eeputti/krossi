@@ -441,7 +441,6 @@ function GroupCard({ group, state, student }) {
                     <span style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{m.name}{isMe ? ' (sinä)' : ''}</span>
                     <LevelChip level={m.level} />
                   </div>
-                  {m.goal && <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{m.goal}</div>}
                 </div>
               </div>
             );

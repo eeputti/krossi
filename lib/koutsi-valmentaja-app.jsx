@@ -958,7 +958,7 @@ function InviteCodeBox({ coachId, coachName, groupId, groupName }) {
   const generate = async () => {
     setBusy(true);
     const ok = await toast.run(async () => {
-      const result = await window.koutsiCreateInviteCode(groupId, { expiresDays: 14, maxUses });
+      const result = await window.koutsiCreateInviteCode(groupId, { expiresDays: 14, maxUses, coachId });
       setIssued(result);
       await loadCodes();
     });
@@ -1924,12 +1924,14 @@ function DataExportButton({ userId, role, name }) {
   );
 }
 
-function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload }) {
+// `acting` = ylläpitäjä katsoo toisen valmentajan näkymää. Silloin profiili on pelkkä
+// kortti: nimi, kuva, ilmoitusasetukset ja tili ovat valmentajan omia, ei ylläpidettäviä.
+function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload, acting }) {
   const [editOpen, setEditOpen] = React.useState(false);
   const specialties = coach.specialties || [];
   return (
     <div>
-      <PageHeader title="Profiili" action={<button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>} />
+      <PageHeader title="Profiili" action={acting ? null : <button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>} />
       <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
         <div className="k-card" style={{ padding: 26, flex: '0 0 260px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
           <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={84} ring />
@@ -1956,6 +1958,15 @@ function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload }) {
               ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>{specialties.map((s) => <span key={s} className="k-chip">{s}</span>)}</div>
               : <div style={{ fontSize: 14.5, color: '#8a857a' }}>Ei vielä lisätty.</div>}
           </Field>
+          {acting ? (
+            <Field label="Ylläpitotila">
+              <p style={{ fontSize: 13.5, color: '#8a857a', lineHeight: 1.55 }}>
+                Valmentajan omat profiilitiedot, ilmoitusasetukset ja tili näkyvät tässä vain luettavina.
+                Niitä muokkaa hän itse — sinä voit lisätä ja muokata pelaajia, ryhmiä, treenejä ja harjoitteita.
+              </p>
+            </Field>
+          ) : (
+          <React.Fragment>
           <Field label="Ilmoitukset">
             <window.KoutsiEmailPrefToggle userId={coach.id} />
           </Field>
@@ -1977,9 +1988,11 @@ function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload }) {
             </div>
             <window.KoutsiLegalLinks style={{ marginTop: 16 }} />
           </Field>
+          </React.Fragment>
+          )}
         </div>
       </div>
-      {editOpen && <ProfileEditModal coach={coach} onClose={() => setEditOpen(false)} onSaved={onReload} />}
+      {editOpen && !acting && <ProfileEditModal coach={coach} onClose={() => setEditOpen(false)} onSaved={onReload} />}
     </div>
   );
 }
@@ -2028,8 +2041,15 @@ function GettingStarted({ studentCount, groupCount, trainingCount, onInvite, onC
 // Only mounted for people in koutsi_admins. Exists so running the pilot means opening a
 // tab, not the SQL editor: who the coaches are, what their invite codes are, adding an
 // annual plan on their behalf, and turning a pasted player list into ready-to-send links.
-function AdminCoachCard({ coach, onOpenPlans, onOpenImport }) {
+function AdminCoachCard({ coach, onOpenPlans, onOpenImport, onActAs }) {
+  const toast = window.useKoutsiToast();
   const [showCodes, setShowCodes] = React.useState(false);
+  const [opening, setOpening] = React.useState(false);
+  const openView = async () => {
+    setOpening(true);
+    try { await onActAs(coach.id); }
+    catch (err) { toast.error(window.koutsiErrorText(err, 'Näkymää ei saatu auki.')); setOpening(false); }
+  };
   return (
     <div className="k-card" style={{ padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
@@ -2054,7 +2074,10 @@ function AdminCoachCard({ coach, onOpenPlans, onOpenImport }) {
       )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        <button onClick={() => onOpenImport(coach)} className="btn-dark btn-sm">Tuo pelaajalista</button>
+        <button onClick={openView} disabled={opening} className="btn-dark btn-sm" style={{ opacity: opening ? 0.5 : 1 }}>
+          {opening ? 'Avataan…' : 'Avaa näkymä'}
+        </button>
+        <button onClick={() => onOpenImport(coach)} className="btn-outline btn-sm">Tuo pelaajalista</button>
         <button onClick={() => onOpenPlans(coach)} className="btn-outline btn-sm">Vuosisuunnitelmat</button>
         {coach.codes.length > 0 && (
           <button onClick={() => setShowCodes((v) => !v)} className="btn-outline btn-sm">
@@ -2232,7 +2255,7 @@ function AdminPlansModal({ coach, onClose, onChanged }) {
   );
 }
 
-function AdminView() {
+function AdminView({ onActAs }) {
   const [coaches, setCoaches] = React.useState(null);
   const [importCoach, setImportCoach] = React.useState(null);
   const [plansCoach, setPlansCoach] = React.useState(null);
@@ -2265,7 +2288,7 @@ function AdminView() {
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {shown.map((c) => (
-          <AdminCoachCard key={c.id} coach={c} onOpenImport={setImportCoach} onOpenPlans={setPlansCoach} />
+          <AdminCoachCard key={c.id} coach={c} onOpenImport={setImportCoach} onOpenPlans={setPlansCoach} onActAs={onActAs} />
         ))}
         {coaches && coaches.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei vielä valmentajia.</div>}
       </div>
@@ -2298,17 +2321,26 @@ const COACH_TAB_SLUGS = {
   profile: 'profiili',
   admin: 'yllapito',
 };
+// Switch the address before remounting CoachApp. The tab hook then reads the intended
+// destination on its first render instead of inheriting /yllapito or /profiili.
+function replaceCoachTabRoute(tab) {
+  const path = window.location.pathname;
+  if (path !== '/valmentaja' && !path.startsWith('/valmentaja/')) return;
+  const slug = COACH_TAB_SLUGS[tab] || COACH_TAB_SLUGS.students;
+  const url = `/valmentaja/${encodeURIComponent(slug)}${window.location.search}${window.location.hash}`;
+  window.history.replaceState({ koutsiTab: tab }, '', url);
+}
 function NavIcon({ id, on, offColor = 'rgba(255,255,255,0.72)' }) {
   const c = on ? '#101a08' : offColor;
   if (id === 'admin') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><path d="M11 2l7 3v5.5c0 4.2-2.9 7.9-7 9-4.1-1.1-7-4.8-7-9V5l7-3z" stroke={c} strokeWidth="1.7" strokeLinejoin="round" /><path d="M8 11l2.2 2.2L14.5 9" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-  if (id === 'students') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="8" cy="6.5" r="3" stroke={c} strokeWidth="1.7" /><path d="M2 19c0-3.2 2.7-5.3 6-5.3s6 2.1 6 5.3" stroke={c} strokeWidth="1.7" strokeLinecap="round" /><circle cx="16" cy="7.5" r="2.4" stroke={c} strokeWidth="1.7" /><path d="M13.8 19c.3-2.6 2.1-4.3 4.2-4.3S21.7 16.4 22 19" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
+  if (id === 'students') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="7.5" r="4" stroke={c} strokeWidth="1.7" /><path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   if (id === 'groups') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="7" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><circle cx="15" cy="7.5" r="3" stroke={c} strokeWidth="1.7" /><path d="M1.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5M9.5 19c0-3.1 2.5-5 5.5-5s5.5 1.9 5.5 5" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   if (id === 'trainings') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><rect x="2.5" y="4.5" width="17" height="15" rx="3" stroke={c} strokeWidth="1.7" /><path d="M2.5 9h17M7 2.5v4M15 2.5v4" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   if (id === 'exercises') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><rect x="4" y="3" width="14" height="17" rx="2.5" stroke={c} strokeWidth="1.7" /><path d="M8 1.5h6a1 1 0 011 1V4H7V2.5a1 1 0 011-1z" stroke={c} strokeWidth="1.7" /><path d="M7.5 9.5h7M7.5 13h7M7.5 16.5h4" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
   return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="7.5" r="4" stroke={c} strokeWidth="1.7" /><path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke={c} strokeWidth="1.7" strokeLinecap="round" /></svg>;
 }
 
-function Sidebar({ tab, setTab, coach, onSignOut, nav }) {
+function Sidebar({ tab, setTab, coach, onSignOut, nav, acting }) {
   return (
     <div style={{ width: 248, flexShrink: 0, background: 'var(--green-deep)', color: '#fff', display: 'flex', flexDirection: 'column', padding: '26px 18px', position: 'fixed', top: 0, left: 0, bottom: 0, overflowY: 'auto' }}>
       <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', paddingLeft: 6 }}>
@@ -2337,15 +2369,15 @@ function Sidebar({ tab, setTab, coach, onSignOut, nav }) {
             <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{coach.name}</div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Valmentaja</div>
           </div>
-          <window.KoutsiNotificationBell userId={coach.id} dark />
+          {!acting && <window.KoutsiNotificationBell userId={coach.id} dark />}
         </div>
-        <button onClick={onSignOut} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: '4px 6px', fontFamily: 'inherit' }}>Kirjaudu ulos</button>
+        {!acting && <button onClick={onSignOut} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: '4px 6px', fontFamily: 'inherit' }}>Kirjaudu ulos</button>}
       </div>
     </div>
   );
 }
 
-function MobileTopBar({ coach }) {
+function MobileTopBar({ coach, acting }) {
   return (
     <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'rgba(247,245,239,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2356,7 +2388,7 @@ function MobileTopBar({ coach }) {
         <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(14,59,44,0.1)', border: '1px solid rgba(14,59,44,0.22)', color: 'var(--green-deep)', fontSize: 10, fontWeight: 800, letterSpacing: 0.4 }}>VALMENTAJA</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <window.KoutsiNotificationBell userId={coach.id} />
+        {!acting && <window.KoutsiNotificationBell userId={coach.id} />}
         <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={30} />
       </div>
     </div>
@@ -2380,7 +2412,24 @@ function MobileBottomNav({ tab, setTab, nav }) {
   );
 }
 
-function CoachApp({ coachId, onSignOut }) {
+// Ylläpitäjä toisen valmentajan näkymässä. Palkki on tarkoituksella rumahko ja tarttuu
+// yläreunaan: se on ainoa asia, joka erottaa "kirjoitan omaan Koutsiini" tilanteesta
+// "kirjoitan jonkun toisen oppilaille".
+function ActingBanner({ coachName, onExit }) {
+  return (
+    <div className="kv-acting-banner" style={{ background: '#7a4c1e', color: '#fff', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', boxShadow: '0 6px 18px -12px rgba(20,15,5,0.6)' }}>
+      <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', background: 'rgba(255,255,255,0.18)', padding: '4px 9px', borderRadius: 999 }}>Ylläpitotila</span>
+      <span style={{ fontSize: 13.5, fontWeight: 600, flex: 1, minWidth: 180 }}>
+        Toimit valmentajan <strong>{coachName}</strong> näkymässä. Kaikki mitä lisäät tallentuu hänen nimissään.
+      </span>
+      <button onClick={onExit} style={{ background: '#fff', color: '#7a4c1e', border: 'none', borderRadius: 999, padding: '7px 15px', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+        Palaa omaan näkymään
+      </button>
+    </div>
+  );
+}
+
+function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   const toast = window.useKoutsiToast();
   const confirm = window.useKoutsiConfirm();
   const [state, setState] = React.useState(null);
@@ -2427,6 +2476,11 @@ function CoachApp({ coachId, onSignOut }) {
   React.useEffect(() => {
     if (isAdmin === false && tab === 'admin') setTab('students', { replace: true });
   }, [isAdmin, tab, setTab]);
+  // Profile, notifications and account actions belong to the signed-in administrator,
+  // never to the target coach. A typed/restored acting URL is corrected immediately.
+  React.useEffect(() => {
+    if (actingCoach && (tab === 'admin' || tab === 'profile')) setTab('students', { replace: true });
+  }, [actingCoach, tab, setTab]);
 
   // Live sync: any change to the tables this coach can see (their own students,
   // groups, trainings, etc.) — made from this device or the player's — refreshes state.
@@ -2546,7 +2600,7 @@ function CoachApp({ coachId, onSignOut }) {
   const setLevel = act((level) => window.koutsiSetStudentLevel(detailId, level));
   // Ei act(): AddPlayerModal näyttää virheen itse ja palauttaa nappinsa tilan.
   const addPlayer = async ({ name, age, level }) => {
-    await window.koutsiCreatePlayer(name, age, level);
+    await window.koutsiCreatePlayer(name, age, level, coachId);
     await reload();
     toast.success(`${name} lisätty. Anna hänelle liittymiskoodisi, jos haluat että hän näkee tiedot itse.`);
   };
@@ -2577,7 +2631,7 @@ function CoachApp({ coachId, onSignOut }) {
   };
   const restoreStarters = async () => {
     await toast.run(async () => {
-      const added = await window.koutsiSeedExercises();
+      const added = await window.koutsiSeedExercises(coachId);
       await reload();
       toast.info(added > 0 ? `${added} esimerkkiharjoitetta palautettu.` : 'Kaikki esimerkkiharjoitteet ovat jo pankissasi.');
     });
@@ -2651,7 +2705,9 @@ function CoachApp({ coachId, onSignOut }) {
     if (ok) await act(() => window.koutsiDeleteClubEvent(e.id), 'Tapahtuma poistettu.')();
   };
 
-  const nav = koutsiNav(isAdmin);
+  // Acting mode has neither Ylläpito nor Profiili. The sticky banner is the only exit,
+  // which also works when the mobile bottom navigation has no room for an extra action.
+  const nav = koutsiNav(isAdmin && !actingCoach).filter((item) => !actingCoach || item.id !== 'profile');
 
   const openNewTraining = (d) => { setEditingTraining(null); setTrainingDefaultDate(d || window.koutsiTodayStr()); setTrainingOpen(true); };
   const openEditTraining = (t) => { setEditingTraining(t); setTrainingOpen(true); };
@@ -2659,10 +2715,11 @@ function CoachApp({ coachId, onSignOut }) {
   return (
     <div style={{ minHeight: '100vh' }}>
       <div className="kv-sidebar-wrap">
-        <Sidebar tab={tab} setTab={setTab} coach={state.coach} onSignOut={onSignOut} nav={nav} />
+        <Sidebar tab={tab} setTab={setTab} coach={state.coach} onSignOut={onSignOut} nav={nav} acting={Boolean(actingCoach)} />
       </div>
-      <MobileTopBar coach={state.coach} />
+      <MobileTopBar coach={state.coach} acting={Boolean(actingCoach)} />
       <div className="kv-main">
+        {actingCoach && <ActingBanner coachName={state.coach.name} onExit={onExitActing} />}
         <div key={tab} className="k-rise-in">
           {tab === 'students' && (
             <StudentsView
@@ -2682,8 +2739,8 @@ function CoachApp({ coachId, onSignOut }) {
               onDeleteEvent={deleteClubEvent} />
           )}
           {tab === 'exercises' && <ExercisesView exercises={state.exercises} onOpen={setExerciseId} onAdd={() => { setEditingExercise(null); setExerciseFormOpen(true); }} onRestoreStarters={restoreStarters} />}
-          {tab === 'admin' && isAdmin && <AdminView />}
-          {tab === 'profile' && <ProfileView coach={state.coach} studentCount={state.students.length} groupCount={state.groups.length} onSignOut={onSignOut} onReload={reload} />}
+          {tab === 'admin' && isAdmin && !actingCoach && <AdminView onActAs={onActAs} />}
+          {tab === 'profile' && !actingCoach && <ProfileView coach={state.coach} studentCount={state.students.length} groupCount={state.groups.length} onSignOut={onSignOut} onReload={reload} acting={false} />}
         </div>
       </div>
       <MobileBottomNav tab={tab} setTab={setTab} nav={nav} />
@@ -2792,6 +2849,54 @@ function KoutsiValmentajaRoot() {
   // itself re-queried the coach row each time for a person who had not changed.
   const uid = auth.session?.user?.id || null;
 
+  // sessionStorage is only a hint. Its target is never rendered until the current JWT has
+  // called koutsi_admin_act_as again and the server has confirmed koutsi_admins membership.
+  const [actingCoach, setActingCoach] = React.useState(undefined); // undefined = validating
+  const [actingValidatedUid, setActingValidatedUid] = React.useState(null);
+  React.useEffect(() => {
+    if (!uid) { setActingCoach(undefined); setActingValidatedUid(null); return undefined; }
+    let cancelled = false;
+    let cached = null;
+    try { cached = JSON.parse(sessionStorage.getItem('koutsiActingCoach') || 'null'); } catch { cached = null; }
+    if (!cached?.id) {
+      setActingCoach(null);
+      setActingValidatedUid(uid);
+      return undefined;
+    }
+
+    setActingCoach(undefined);
+    setActingValidatedUid(null);
+    window.koutsiAdminActAs(cached.id)
+      .then((verified) => {
+        if (!cancelled) { setActingCoach(verified); setActingValidatedUid(uid); }
+      })
+      .catch(() => {
+        try { sessionStorage.removeItem('koutsiActingCoach'); } catch { /* private mode */ }
+        if (!cancelled) { setActingCoach(null); setActingValidatedUid(uid); }
+      });
+    return () => { cancelled = true; };
+  }, [uid]);
+
+  React.useEffect(() => {
+    if (!uid || actingValidatedUid !== uid || actingCoach === undefined) return;
+    try {
+      if (actingCoach) sessionStorage.setItem('koutsiActingCoach', JSON.stringify(actingCoach));
+      else sessionStorage.removeItem('koutsiActingCoach');
+    } catch { /* yksityinen selaustila: tila elää silti muistissa */ }
+  }, [uid, actingCoach, actingValidatedUid]);
+
+  const actAs = React.useCallback(async (coachId) => {
+    const verified = await window.koutsiAdminActAs(coachId);
+    replaceCoachTabRoute('students');
+    setActingCoach(verified);
+    setActingValidatedUid(uid);
+  }, [uid]);
+  const exitActing = React.useCallback(() => {
+    replaceCoachTabRoute('admin');
+    setActingCoach(null);
+    setActingValidatedUid(uid);
+  }, [uid]);
+
   const checkCoachRow = React.useCallback(() => {
     if (!uid) return Promise.resolve();
     setCheckFailed(false);
@@ -2819,7 +2924,14 @@ function KoutsiValmentajaRoot() {
   if (checkFailed) return <window.KoutsiErrorScreen onRetry={checkCoachRow} onSignOut={auth.signOut} />;
   if (coachRow === undefined) return <window.KoutsiAuthLoadingScreen />;
   if (!coachRow) return <CoachKeyGate onSignOut={auth.signOut} onRedeemed={checkCoachRow} />;
-  return <CoachApp coachId={auth.session.user.id} onSignOut={auth.signOut} />;
+  if (actingValidatedUid !== uid || actingCoach === undefined) return <window.KoutsiAuthLoadingScreen />;
+  return (
+    <CoachApp
+      key={actingCoach ? actingCoach.id : auth.session.user.id}
+      coachId={actingCoach ? actingCoach.id : auth.session.user.id}
+      actingCoach={actingCoach} onExitActing={exitActing} onActAs={actAs}
+      onSignOut={auth.signOut} />
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

@@ -258,9 +258,18 @@
   window.koutsiLoadStudentState = (studentId) => {
     const s = clone(load());
     const me = s.students.find((x) => x.id === studentId) || s.students[0];
+    const groups = s.groups.filter((g) => g.memberIds.includes(me.id));
+    const rosterIds = new Set(groups.flatMap((g) => g.memberIds));
+    const roster = s.students
+      .filter((student) => student.id !== me.id && rosterIds.has(student.id))
+      .map((student) => ({
+        id: student.id, initial: student.initial, hue: student.hue,
+        avatarUrl: student.avatarUrl || '', name: student.name,
+        level: student.level || null, rosterOnly: true,
+      }));
     return done({
-      coach: s.coaches[0] || null, coaches: s.coaches, students: [me],
-      groups: s.groups.filter((g) => g.memberIds.includes(me.id)),
+      coach: s.coaches[0] || null, coaches: s.coaches, students: [me, ...roster],
+      groups,
       trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents,
     });
   };
@@ -664,6 +673,7 @@
   // Demokäyttäjä ei ole ylläpitäjä, joten paneeli ei näy eikä sen hakuja ajeta.
   window.koutsiIsAdmin = () => done(false);
   window.koutsiAdminCoaches = () => done([]);
+  window.koutsiAdminActAs = () => Promise.reject(new Error('not allowed'));
   window.koutsiAdminGroups = () => done([]);
   window.koutsiAdminBulkInviteCodes = () => done([]);
   window.koutsiAdminUploadAnnualPlan = () => done();

@@ -184,6 +184,60 @@ tarpeen.
 insert into koutsi_admins (user_id) select id from auth.users where email = 'joku@esimerkki.fi';
 ```
 
+## Ylläpitäjä valmentajan näkymässä
+
+Ylläpito-välilehden valmentajakortissa on **Avaa näkymä**. Se vaihtaa koko valmentaja-
+sovelluksen kyseisen valmentajan tietoihin: pelaajat, ryhmät, treenit, harjoitteet ja
+kutsukoodit ovat hänen, ja kaikki mitä lisäät tallentuu hänen nimissään. Ruudun ylälaidassa
+on ruskea palkki, joka kertoo kenen näkymässä olet, ja josta pääsee takaisin omaan.
+Näkymä avautuu aina Oppilaat-välilehdelle ja paluu vie takaisin Ylläpitoon. Profiili-
+välilehti, ilmoitukset, ilmoitusasetukset, tilin poisto ja uloskirjautuminen eivät ole
+käytettävissä acting-tilassa. Myös `sessionStorage`-kohde tarkistetaan palvelimelta uudelleen
+ennen kuin kohdevalmentajan tietoja ladataan.
+
+Rajaus on kannassa, ei käyttöliittymässä: kaikki valmentajan puolen politiikat käyttävät
+funktiota `koutsi_acts_as(coach_id)`, joka päästää läpi joko omistajan tai ylläpitäjän.
+Taulut `profiles` ja `koutsi_coaches` jäivät tarkoituksella ennalleen, joten **valmentajan
+omia profiilitietoja, ilmoitusasetuksia tai tiliä ei pääse muokkaamaan** — ei
+käyttöliittymästä eikä suoralla kutsulla.
+
+```sql
+-- yksi käsite, jota jokainen valmentajan puolen politiikka kutsuu
+create or replace function public.koutsi_acts_as(target uuid)
+returns boolean language sql stable security definer set search_path to ''
+as $$ select target is not null and (target = (select auth.uid()) or public.koutsi_is_admin()); $$;
+```
+
+Funktiot `create_koutsi_invite_code`, `koutsi_create_player` ja `koutsi_seed_exercises`
+ottavat valinnaisen valmentajan id:n; muu kuin oma id vaatii ylläpitäjän oikeudet.
+
+Jokainen onnistunut näkymän avaus (myös tallennetun acting-tilan palautus) kirjautuu tauluun
+`koutsi_admin_actions`:
+
+```sql
+select a.created_at, p.name as valmentaja
+  from koutsi_admin_actions a left join profiles p on p.id = a.coach_id
+ order by a.created_at desc limit 20;
+```
+
+Auditoinnin rajaus on tärkeä: taulu kirjaa **acting-näkymän avaukset**, ei jokaista sen
+jälkeen tehtyä lisäystä, muokkausta tai poistoa. Varsinaiset rivimuutokset näkyvät taulujen
+omissa `created_at`/`updated_at`-kentissä silloin kun sellainen kenttä on olemassa, mutta ne
+eivät muodosta kattavaa ylläpitäjäkohtaista audit-lokia.
+
+Tämän toiminnon loppuunvienti, pelaajan rajattu ryhmärosteri sekä ylläpitäjän tarkasti
+rajatut Storage-politiikat ovat versionoitu migraatiossa
+`supabase/migrations/20260823131111_finish_admin_acting_and_player_roster.sql`.
+
+## Pelaajan ryhmärosteri
+
+Pelaaja ei saa laajaa SELECT-oikeutta muiden `koutsi_students`-riveihin. Ryhmäkortti hakee
+aktiiviset ryhmäläiset RPC:llä `koutsi_player_group_roster()`, joka palauttaa vain ryhmän id:n,
+pelaajan id:n, nimen, `avatar_url`:n ja tason. Funktio vaatii, että sekä kutsujan että
+palautettavan ryhmäläisen jäsenyys ja valmennussuhde kyseisen ryhmän valmentajaan ovat
+aktiivisia. Tavoitteita, taustatietoja, fiiliksiä, muistiinpanoja tai muuta valmennusdataa
+ei palauteta.
+
 ## Omien tietojen lataus
 
 Sekä valmentaja että pelaaja voivat ladata kaikki heille näkyvät tiedot yhtenä
@@ -200,3 +254,23 @@ palauttaa mitään, mitä käyttäjä ei jo näe sovelluksessa.
 
 Molemmat ovat yksityisiä. Tiedostot avataan määräaikaisilla allekirjoitetuilla linkeillä,
 eli suora URL ei toimi ilman kirjautumista.
+
+Acting-tilan lisäpolitiikat ovat `TO authenticated`, mutta pelkkä kirjautuminen ei riitä:
+niissä vaaditaan aina `koutsi_is_admin()` ja Storage-polun ensimmäisen kansion pitää vastata
+olemassa olevaa, arkistoimatonta Koutsi-valmentajaa (`koutsi-videos`) tai tämän olemassa
+olevaa ryhmää (`koutsi-plans`). Vuosisuunnitelman korvaus käyttää samaa Storage-avainta
+upsertilla; poiston epäonnistuessa metatiedot palautetaan, jotta objektia ei jätetä orvoksi.
+
+## Security advisor
+
+Supabasen security advisor ilmoittaa tarkoituksella INFO-tasolla, että tauluilla
+`koutsi_admins` ja `koutsi_coach_invite_codes` on RLS ilman politiikkoja. Se on näissä
+kahdessa taulussa deny-all-oletus selaimelle: niitä hallitaan vain migraatioilla,
+SQL-editorilla tai service rolella.
+
+Advisor ilmoittaa myös WARN-tasolla selaimelle tarkoituksella julkaistuista
+`SECURITY DEFINER` -RPC:istä. Koutsin RPC:t on rajattu `authenticated`-roolille,
+anonin ja `PUBLIC`in EXECUTE on poistettu, `search_path` on kiinteä ja oikeus tarkistetaan
+funktion sisällä `auth.uid()`- sekä omistaja-, jäsenyys- tai `koutsi_admins`-ehdolla.
+Varoitus on siis tarkistusmuistutus, ei lupa poistaa näitä sovelluksen tarvitsemia
+EXECUTE-oikeuksia ilman korvaavaa rajapintaa.

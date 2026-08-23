@@ -81,6 +81,15 @@ button.k-card:active { transform: translateY(0); box-shadow: 0 4px 10px -6px rgb
   .kv-mobile-bottomnav { display: flex; }
   .kv-main { margin-left: 0; padding: 78px 16px 100px; max-width: 100%; }
 }
+/* Ylläpitäjän "toimit valmentajana X" -palkki. Tarttuu näkymän ylälaitaan, jottei
+   toisen nimissä kirjoittaminen jää koskaan ruudun ulkopuolelle vieritettäessä. */
+.kv-acting-banner { position: sticky; top: 0; z-index: 46; margin: -36px -44px 22px; padding: 12px 44px; }
+@media (max-width: 880px) {
+  /* Ylareunan palkki on kiinnitetty ja 60px korkea, joten palkin oma paikka nostetaan
+     tasan sen alareunaan. Isompi negatiivinen marginaali veisi laatikon topbarin alle,
+     jolloin sticky maalaisi sen omaa paikkaansa alemmas ja sisällön päälle. */
+  .kv-acting-banner { top: 60px; margin: -18px -16px 18px; padding: 11px 16px; }
+}
 @media (max-width: 680px) {
   .kv-calendar-layout { grid-template-columns: 1fr; }
 }
