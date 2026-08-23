@@ -166,6 +166,23 @@ function LevelChip({ level }) {
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, lineHeight: 1, background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>{level}</span>;
 }
 // `label` distinguishes the theme running this week from one planned for a later week.
+function PlayerAppStatus({ isPlaceholder, compact = false }) {
+  const waiting = Boolean(isPlaceholder);
+  return (
+    <span title={waiting ? 'Pelaaja on tallennettu nimellä, mutta ei ole vielä lunastanut profiiliaan.' : 'Pelaaja on lunastanut profiilinsa ja käyttää pelaajasovellusta.'} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content',
+      padding: compact ? '4px 8px' : '5px 10px', borderRadius: 999,
+      fontSize: compact ? 10.5 : 11.5, fontWeight: 750, lineHeight: 1.1,
+      color: waiting ? '#8a5a12' : '#2f7d54',
+      background: waiting ? 'rgba(214,140,44,0.12)' : 'rgba(47,125,84,0.10)',
+      border: `1px solid ${waiting ? 'rgba(214,140,44,0.30)' : 'rgba(47,125,84,0.24)'}`,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: waiting ? '#d68c2c' : '#46a66d', flexShrink: 0 }} />
+      {waiting ? 'Ei vielä kirjautunut' : 'Pelaajasovellus käytössä'}
+    </span>
+  );
+}
+
 function GroupThemeBanner({ theme, label }) {
   if (!theme) return null;
   return (
@@ -235,9 +252,400 @@ function AddPlayerModal({ onClose, onSave }) {
   );
 }
 
-function StudentsView({ students, coachId, coachName, onOpen, groupCount, trainingCount, onCreateGroup, onAddTraining, onAddPlayer }) {
+function BulkSetupModal({ groups, onClose, onSave }) {
+  const now = window.koutsiCurrentIsoWeek();
+  const groupSeq = React.useRef(2);
+  const playerSeq = React.useRef(5);
+  const themeSeq = React.useRef(1);
+  const [step, setStep] = React.useState(0);
+  const [newGroups, setNewGroups] = React.useState(() => groups.length ? [] : [
+    { key: 'new-1', name: '', level: '', day: 'Ma', time: '' },
+  ]);
+  const [players, setPlayers] = React.useState(() => Array.from({ length: 4 }, (_, i) => ({
+    key: `player-${i + 1}`, name: '', age: '', level: '', groupKey: '',
+  })));
+  const [themeRows, setThemeRows] = React.useState([]);
+  const [pasteOpen, setPasteOpen] = React.useState(false);
+  const [pasteText, setPasteText] = React.useState('');
+  const [pasteGroupKey, setPasteGroupKey] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [result, setResult] = React.useState(null);
+
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '10px 11px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const labelStyle = { fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5 };
+  const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+  const steps = ['Ryhmät', 'Pelaajat', 'Viikkoteemat', 'Tarkista'];
+
+  const startedGroups = newGroups.filter((g) => g.name.trim() || g.level.trim() || g.time);
+  const incompleteGroup = startedGroups.some((g) => !g.name.trim() || !g.time);
+  const filledPlayers = players.filter((p) => p.name.trim());
+  const duplicatePlayerNames = (() => {
+    const seen = new Set();
+    return filledPlayers.some((p) => {
+      const key = p.name.trim().toLocaleLowerCase('fi');
+      if (seen.has(key)) return true;
+      seen.add(key);
+      return false;
+    });
+  })();
+  const groupOptions = [
+    ...groups.map((g) => ({ key: `existing:${g.id}`, name: g.name, existing: true, group: g })),
+    ...startedGroups.filter((g) => g.name.trim() && g.time).map((g) => ({ key: g.key, name: g.name.trim(), existing: false, group: g })),
+  ];
+  const groupOptionByKey = new Map(groupOptions.map((g) => [g.key, g]));
+
+  const updateGroup = (key, patch) => setNewGroups((prev) => prev.map((g) => g.key === key ? { ...g, ...patch } : g));
+  const addGroup = () => setNewGroups((prev) => [...prev, { key: `new-${groupSeq.current++}`, name: '', level: '', day: 'Ma', time: '' }]);
+  const removeGroup = (key) => {
+    setNewGroups((prev) => prev.filter((g) => g.key !== key));
+    setPlayers((prev) => prev.map((p) => p.groupKey === key ? { ...p, groupKey: '' } : p));
+    setThemeRows((prev) => prev.filter((r) => r.groupKey !== key));
+  };
+  const updatePlayer = (key, patch) => setPlayers((prev) => prev.map((p) => p.key === key ? { ...p, ...patch } : p));
+  const addPlayerRow = (defaults = {}) => setPlayers((prev) => [...prev, {
+    key: `player-${playerSeq.current++}`, name: '', age: '', level: '', groupKey: '', ...defaults,
+  }]);
+  const removePlayer = (key) => setPlayers((prev) => prev.filter((p) => p.key !== key));
+
+  const importNames = () => {
+    const names = window.koutsiParseNameList(pasteText);
+    if (!names.length) { setError('Liitä vähintään yksi nimi omalle rivilleen.'); return; }
+    const empty = players.filter((p) => !p.name.trim());
+    let emptyIndex = 0;
+    const additions = [];
+    const updates = new Map();
+    names.forEach((name) => {
+      if (emptyIndex < empty.length) {
+        updates.set(empty[emptyIndex].key, { name, groupKey: pasteGroupKey });
+        emptyIndex += 1;
+      } else additions.push({ key: `player-${playerSeq.current++}`, name, age: '', level: '', groupKey: pasteGroupKey });
+    });
+    setPlayers((prev) => [...prev.map((p) => updates.has(p.key) ? { ...p, ...updates.get(p.key) } : p), ...additions]);
+    setPasteText(''); setPasteOpen(false); setError('');
+  };
+
+  const involvedGroupKeys = React.useMemo(() => {
+    const keys = new Set(startedGroups.filter((g) => g.name.trim() && g.time).map((g) => g.key));
+    filledPlayers.forEach((p) => { if (p.groupKey && groupOptionByKey.has(p.groupKey)) keys.add(p.groupKey); });
+    themeRows.forEach((r) => { if (r.title.trim() && groupOptionByKey.has(r.groupKey)) keys.add(r.groupKey); });
+    return [...keys];
+  }, [startedGroups, filledPlayers, themeRows, groupOptions]);
+
+  const ensureThemeRows = () => {
+    setThemeRows((prev) => {
+      const next = prev.slice();
+      involvedGroupKeys.forEach((groupKey) => {
+        if (next.some((r) => r.groupKey === groupKey)) return;
+        const option = groupOptionByKey.get(groupKey);
+        const existing = option?.existing
+          ? (option.group.themes || []).find((t) => t.year === now.year && t.week === now.week)
+          : null;
+        next.push({
+          key: `theme-${themeSeq.current++}`, groupKey, year: now.year, week: now.week,
+          title: existing?.title || '', lead: existing?.lead || '',
+        });
+      });
+      return next;
+    });
+  };
+  const weekOptions = React.useMemo(() => Array.from({ length: 27 }, (_, i) => {
+    const week = window.koutsiAddIsoWeeks(now, i);
+    return { ...week, isNow: i === 0 };
+  }), [now.year, now.week]);
+  const addThemeWeek = (groupKey) => {
+    const rows = themeRows.filter((r) => r.groupKey === groupKey).sort(window.koutsiCompareIsoWeeks);
+    const nextWeek = rows.length ? window.koutsiAddIsoWeeks(rows[rows.length - 1], 1) : now;
+    setThemeRows((prev) => [...prev, { key: `theme-${themeSeq.current++}`, groupKey, ...nextWeek, title: '', lead: '' }]);
+  };
+  const updateTheme = (key, patch) => setThemeRows((prev) => prev.map((r) => r.key === key ? { ...r, ...patch } : r));
+  const removeTheme = (key) => setThemeRows((prev) => prev.filter((r) => r.key !== key));
+  const filledThemes = themeRows.filter((r) => r.title.trim() && groupOptionByKey.has(r.groupKey));
+  const duplicateThemeWeeks = (() => {
+    const seen = new Set();
+    return filledThemes.some((r) => {
+      const key = `${r.groupKey}:${r.year}-${r.week}`;
+      if (seen.has(key)) return true;
+      seen.add(key);
+      return false;
+    });
+  })();
+
+  const payload = React.useMemo(() => {
+    const used = new Set(involvedGroupKeys);
+    const importGroups = groupOptions.filter((g) => used.has(g.key)).map((option) => option.existing ? {
+      client_id: option.key, existing_id: option.group.id,
+    } : {
+      client_id: option.key, existing_id: null, name: option.group.name.trim(),
+      level: option.group.level.trim() || null, day: option.group.day, time: option.group.time,
+    });
+    return {
+      groups: importGroups,
+      players: filledPlayers.map((p) => ({
+        name: p.name.trim(), age: p.age ? Number(p.age) : null, level: p.level.trim() || null,
+        group_refs: p.groupKey && used.has(p.groupKey) ? [p.groupKey] : [],
+      })),
+      themes: filledThemes.map((r) => ({
+        group_ref: r.groupKey, year: r.year, week: r.week,
+        title: r.title.trim(), lead: r.lead.trim() || null,
+      })),
+    };
+  }, [groupOptions, involvedGroupKeys, filledPlayers, filledThemes]);
+
+  const next = () => {
+    setError('');
+    if (step === 0 && incompleteGroup) { setError('Täytä uuden ryhmän nimi ja kellonaika tai poista keskeneräinen rivi.'); return; }
+    if (step === 1 && filledPlayers.length === 0) { setError('Lisää vähintään yksi pelaaja.'); return; }
+    if (step === 1 && duplicatePlayerNames) { setError('Samanniminen pelaaja on listalla kahdesti. Tarkista nimet ennen jatkamista.'); return; }
+    if (step === 1) ensureThemeRows();
+    if (step === 2 && duplicateThemeWeeks) { setError('Samalle ryhmälle on kaksi teemaa samalla viikolla.'); return; }
+    setStep((s) => Math.min(3, s + 1));
+  };
+  const save = async () => {
+    setBusy(true); setError('');
+    try {
+      const saved = await onSave(payload);
+      setResult(saved || {
+        players_created: payload.players.length,
+        groups_created: payload.groups.filter((g) => !g.existing_id).length,
+        groups_reused: payload.groups.filter((g) => g.existing_id).length,
+        themes_saved: payload.themes.length,
+      });
+    } catch (err) {
+      setError(window.koutsiErrorText(err, 'Käyttöönoton tallennus epäonnistui.'));
+    } finally { setBusy(false); }
+  };
+
+  const modalHeader = (
+    <div style={{ padding: '22px 26px 16px', borderBottom: '1px solid var(--line)', background: '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>Nopea käyttöönotto</div>
+          <h2 style={{ fontSize: 21, fontWeight: 800, color: 'var(--green-deep)' }}>Lisää monta pelaajaa ja ryhmää</h2>
+        </div>
+        <CloseButton onClick={onClose} />
+      </div>
+      {!result && (
+        <div className="kv-bulk-progress" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 18 }}>
+          {steps.map((title, i) => (
+            <div key={title} style={{ minWidth: 0 }}>
+              <div style={{ height: 4, borderRadius: 999, background: i <= step ? 'var(--green-deep)' : '#e8e4da', marginBottom: 7 }} />
+              <div style={{ fontSize: 11.5, fontWeight: i === step ? 800 : 650, color: i <= step ? 'var(--green-deep)' : '#a8a297' }}>{i + 1}. {title}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 85, background: 'rgba(10,15,10,0.52)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" role="dialog" aria-modal="true" aria-label="Lisää monta pelaajaa ja ryhmää" style={{ width: 'min(920px, 100%)', height: 'min(760px, calc(100vh - 32px))', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'kFadeIn .2s ease' }}>
+        {modalHeader}
+
+        {result ? (
+          <div style={{ flex: 1, overflowY: 'auto', padding: '34px 28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 'min(560px, 100%)', textAlign: 'center' }}>
+              <div style={{ width: 58, height: 58, borderRadius: '50%', margin: '0 auto 17px', background: 'var(--lime)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="25" height="20" viewBox="0 0 24 19"><path d="M2 9.5l6.2 6.2L22 2" fill="none" stroke="#101a08" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </div>
+              <h3 style={{ fontSize: 24, fontWeight: 800, color: 'var(--green-deep)', marginBottom: 8 }}>Hyvä — pohjat ovat valmiina!</h3>
+              <p style={{ fontSize: 14.5, color: '#514c42', lineHeight: 1.6, margin: '0 auto 22px', maxWidth: 500 }}>
+                Pelaajat on tallennettu ilman käyttäjätilejä. Voit suunnitella treenejä heti ja lähettää liittymiskutsut vasta silloin, kun se sopii sinulle.
+              </p>
+              <div className="kv-bulk-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 22 }}>
+                {[
+                  ['Pelaajia', result.players_created || 0],
+                  ['Uusia ryhmiä', result.groups_created || 0],
+                  ['Viikkoteemoja', result.themes_saved || 0],
+                ].map(([title, count]) => (
+                  <div key={title} className="k-card" style={{ padding: '15px 10px' }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#111' }}>{count}</div>
+                    <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 3 }}>{title}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="k-card" style={{ padding: '14px 16px', textAlign: 'left', background: 'rgba(214,140,44,0.08)', borderColor: 'rgba(214,140,44,0.26)', marginBottom: 22 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#8a5a12', marginBottom: 4 }}>Kutsut voi lähettää myöhemmin</div>
+                <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5 }}>Oppilaslistassa näet merkinnästä, kuka ei ole vielä kirjautunut. Avaa pelaajan kortti, kun haluat kopioida hänelle liittymisviestin.</div>
+              </div>
+              <button onClick={onClose} className="btn-dark" style={{ padding: '13px 26px' }}>Siirry oppilaslistaan</button>
+            </div>
+          </div>
+        ) : (
+          <React.Fragment>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px 26px 28px', background: '#fbfaf7' }}>
+              {error && <div role="alert" style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 16 }}>{error}</div>}
+
+              {step === 0 && (
+                <div>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 5 }}>Mitkä ryhmät ovat käytössä?</h3>
+                  <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55, marginBottom: 18 }}>Olemassa olevat ryhmät ovat heti valittavissa pelaajariveillä. Luo tässä vain puuttuvat ryhmät — yksityisoppilaan voi jättää ilman ryhmää.</p>
+                  {groups.length > 0 && (
+                    <div className="k-card" style={{ padding: '14px 16px', marginBottom: 18 }}>
+                      <div style={{ ...labelStyle, marginBottom: 9 }}>Olemassa olevat ryhmät ({groups.length})</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                        {groups.map((g) => <span key={g.id} className="k-chip">{g.name} · {g.day} {g.time}</span>)}
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {newGroups.map((g, index) => (
+                      <div key={g.key} className="k-card" style={{ padding: '13px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--green-deep)' }}>Uusi ryhmä {index + 1}</div>
+                          <button onClick={() => removeGroup(g.key)} aria-label="Poista ryhmärivi" style={{ border: 'none', background: 'transparent', color: '#8a857a', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Poista</button>
+                        </div>
+                        <div className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.6fr) minmax(130px, 1fr) 92px 112px', gap: 9 }}>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Ryhmän nimi *</div><input value={g.name} onChange={(e) => updateGroup(g.key, { name: e.target.value })} placeholder="Esim. Tiistain juniorit" style={inputStyle} /></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Taso</div><input value={g.level} onChange={(e) => updateGroup(g.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} /></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Päivä</div><select value={g.day} onChange={(e) => updateGroup(g.key, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" value={g.time} onChange={(e) => updateGroup(g.key, { time: e.target.value })} style={inputStyle} /></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={addGroup} className="btn-outline btn-sm" style={{ marginTop: 12 }}>+ Lisää uusi ryhmä</button>
+                </div>
+              )}
+
+              {step === 1 && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <div>
+                      <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 5 }}>Kirjoita pelaajat riveille</h3>
+                      <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55 }}>Nimi riittää. Ikä, taso ja ryhmä voi täydentää nyt tai myöhemmin.</p>
+                    </div>
+                    <button onClick={() => { setPasteOpen((v) => !v); setError(''); }} className="btn-outline btn-sm">Liitä nimilista</button>
+                  </div>
+                  {pasteOpen && (
+                    <div className="k-card" style={{ padding: '14px 16px', marginBottom: 14, background: 'rgba(14,59,44,0.03)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--green-deep)', marginBottom: 5 }}>Yksi nimi per rivi</div>
+                      <p style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.45, marginBottom: 10 }}>Voit kopioida nimet suoraan sähköpostista, Excelistä tai joukkueen listasta.</p>
+                      <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={5} placeholder={'Onni Virtanen\nAino Laine\nLeevi Niemi'} style={{ ...inputStyle, resize: 'vertical', marginBottom: 9 }} autoFocus />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+                        <select value={pasteGroupKey} onChange={(e) => setPasteGroupKey(e.target.value)} aria-label="Nimilistan ryhmä" style={{ ...inputStyle, width: 'min(280px, 100%)' }}>
+                          <option value="">Ei ryhmää vielä</option>
+                          {groupOptions.map((g) => <option key={g.key} value={g.key}>{g.name}</option>)}
+                        </select>
+                        <button onClick={importNames} className="btn-dark btn-sm">Lisää nimet riveiksi</button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="kv-bulk-player-head" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.4fr) 76px minmax(120px, 1fr) minmax(160px, 1.2fr) 36px', gap: 8, padding: '0 11px 7px' }}>
+                    {['Nimi *', 'Ikä', 'Taso', 'Ryhmä', ''].map((h, i) => <div key={`${h}-${i}`} style={labelStyle}>{h}</div>)}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {players.map((p, index) => (
+                      <div key={p.key} className="k-card kv-bulk-player-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.4fr) 76px minmax(120px, 1fr) minmax(160px, 1.2fr) 36px', gap: 8, padding: '10px 11px', alignItems: 'center' }}>
+                        <input aria-label={`Pelaajan ${index + 1} nimi`} value={p.name} onChange={(e) => updatePlayer(p.key, { name: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter' && index === players.length - 1) { e.preventDefault(); addPlayerRow({ groupKey: p.groupKey }); } }} placeholder="Pelaajan nimi" style={inputStyle} />
+                        <input aria-label={`Pelaajan ${index + 1} ikä`} value={p.age} onChange={(e) => updatePlayer(p.key, { age: e.target.value.replace(/[^0-9]/g, '').slice(0, 2) })} inputMode="numeric" placeholder="14" style={inputStyle} />
+                        <input aria-label={`Pelaajan ${index + 1} taso`} value={p.level} onChange={(e) => updatePlayer(p.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} />
+                        <select aria-label={`Pelaajan ${index + 1} ryhmä`} value={p.groupKey} onChange={(e) => updatePlayer(p.key, { groupKey: e.target.value })} style={inputStyle}>
+                          <option value="">Ei ryhmää vielä</option>
+                          {groupOptions.map((g) => <option key={g.key} value={g.key}>{g.name}{g.existing ? ' (nykyinen)' : ' (uusi)'}</option>)}
+                        </select>
+                        <button onClick={() => removePlayer(p.key)} aria-label={`Poista pelaaja ${index + 1}`} style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#f4f2ec', color: '#8a857a', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => addPlayerRow()} className="btn-outline btn-sm" style={{ marginTop: 12 }}>+ Lisää pelaajarivi</button>
+                  <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 10 }}>{filledPlayers.length} pelaajaa valmiina · Enter lisää uuden rivin listan loppuun</div>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 5 }}>Suunnittele viikkoteemat</h3>
+                  <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55, marginBottom: 18 }}>Tämä vaihe on vapaaehtoinen. Lisää ryhmälle yksi tai useampi viikko — tyhjät rivit ohitetaan.</p>
+                  {involvedGroupKeys.length === 0 && <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Pelaajia ei ole liitetty ryhmiin, joten viikkoteemoja ei tarvitse lisätä.</div>}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {involvedGroupKeys.map((groupKey) => {
+                      const option = groupOptionByKey.get(groupKey);
+                      const rows = themeRows.filter((r) => r.groupKey === groupKey).sort(window.koutsiCompareIsoWeeks);
+                      if (!option) return null;
+                      return (
+                        <div key={groupKey} className="k-card" style={{ padding: '15px 16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 11 }}>
+                            <div><span style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{option.name}</span> <span style={{ fontSize: 11.5, color: '#8a857a' }}>{option.existing ? 'nykyinen ryhmä' : 'uusi ryhmä'}</span></div>
+                            <button onClick={() => addThemeWeek(groupKey)} className="btn-outline btn-sm" style={{ padding: '7px 12px', fontSize: 12 }}>+ Viikko</button>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {rows.map((r) => (
+                              <div key={r.key} className="kv-bulk-theme-row" style={{ display: 'grid', gridTemplateColumns: '175px minmax(180px, 1fr) minmax(180px, 1.2fr) 34px', gap: 8, alignItems: 'center' }}>
+                                <select value={window.koutsiIsoWeekKey(r)} onChange={(e) => { const w = weekOptions.find((o) => window.koutsiIsoWeekKey(o) === e.target.value); if (w) updateTheme(r.key, { year: w.year, week: w.week }); }} style={inputStyle} aria-label="Teeman viikko">
+                                  {weekOptions.map((w) => <option key={window.koutsiIsoWeekKey(w)} value={window.koutsiIsoWeekKey(w)}>vko {w.week} · {window.koutsiIsoWeekRangeLabel(w.year, w.week)}{w.isNow ? ' (nyt)' : ''}</option>)}
+                                </select>
+                                <input value={r.title} onChange={(e) => updateTheme(r.key, { title: e.target.value })} placeholder="Viikon teema" style={inputStyle} aria-label="Viikon teema" />
+                                <input value={r.lead} onChange={(e) => updateTheme(r.key, { lead: e.target.value })} placeholder="Tarkennus (vapaaehtoinen)" style={inputStyle} aria-label="Teeman tarkennus" />
+                                <button onClick={() => removeTheme(r.key)} aria-label="Poista viikkoteema" style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#f4f2ec', color: '#8a857a', cursor: 'pointer', fontSize: 18 }}>×</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 5 }}>Tarkista ennen tallennusta</h3>
+                  <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55, marginBottom: 18 }}>Mitään kutsuja ei lähetetä. Pelaajat näkyvät oppilaslistassasi heti ja voivat liittyä omille tunnuksilleen myöhemmin.</p>
+                  <div className="kv-bulk-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 18 }}>
+                    {[
+                      ['Pelaajia', payload.players.length],
+                      ['Uusia ryhmiä', payload.groups.filter((g) => !g.existing_id).length],
+                      ['Viikkoteemoja', payload.themes.length],
+                    ].map(([title, count]) => <div key={title} className="k-card" style={{ padding: '14px 15px' }}><div style={{ fontSize: 22, fontWeight: 800 }}>{count}</div><div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>{title}</div></div>)}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {payload.players.map((p, index) => {
+                      const source = filledPlayers[index];
+                      const assigned = source?.groupKey ? groupOptionByKey.get(source.groupKey) : null;
+                      return (
+                        <div key={`${p.name}-${index}`} className="k-card" style={{ padding: '12px 15px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <Avatar initial={p.name.charAt(0).toUpperCase()} hue={120 + index * 23} size={36} />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 14.5, fontWeight: 750, color: '#111' }}>{p.name}{p.age ? `, ${p.age}` : ''}</div>
+                            <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{assigned ? assigned.name : 'Ei ryhmää vielä'}{p.level ? ` · ${p.level}` : ''}</div>
+                          </div>
+                          <PlayerAppStatus isPlaceholder compact />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {payload.themes.length > 0 && (
+                    <div className="k-card" style={{ padding: '14px 16px', marginTop: 14 }}>
+                      <div style={{ ...labelStyle, marginBottom: 9 }}>Tallennettavat viikkoteemat</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {payload.themes.map((t, i) => <div key={`${t.group_ref}-${t.year}-${t.week}-${i}`} style={{ fontSize: 13.5, color: '#3c382f' }}><b style={{ color: 'var(--green-deep)' }}>{groupOptionByKey.get(t.group_ref)?.name} · vko {t.week}</b> — {t.title}</div>)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '14px 26px 18px', borderTop: '1px solid var(--line)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <button onClick={step === 0 ? onClose : () => { setStep((s) => s - 1); setError(''); }} disabled={busy} className="btn-outline" style={{ padding: '12px 20px' }}>{step === 0 ? 'Peruuta' : 'Takaisin'}</button>
+              <div style={{ fontSize: 12.5, color: '#8a857a', textAlign: 'center' }}>{step === 1 ? `${filledPlayers.length} pelaajaa` : step === 2 ? `${filledThemes.length} teemaa` : ''}</div>
+              {step < 3
+                ? <button onClick={next} className="btn-dark" style={{ padding: '12px 22px' }}>Jatka</button>
+                : <button onClick={save} disabled={busy} className="btn-dark" style={{ padding: '12px 22px', opacity: busy ? 0.6 : 1 }}>{busy ? 'Tallennetaan…' : `Tallenna ${payload.players.length} pelaajaa`}</button>}
+            </div>
+          </React.Fragment>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StudentsView({ students, groups, coachId, coachName, onOpen, trainingCount, onAddTraining, onAddPlayer, onBulkSetup }) {
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [addOpen, setAddOpen] = React.useState(false);
+  const [bulkOpen, setBulkOpen] = React.useState(false);
   // A search box only earns its space once the list stops fitting on one screen.
   const [search, setSearch] = React.useState('');
   const q = search.trim().toLowerCase();
@@ -248,13 +656,14 @@ function StudentsView({ students, coachId, coachName, onOpen, groupCount, traini
     <div>
       <PageHeader title="Oppilaani" sub={`${students.length} valmennettavaa`} action={
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => setAddOpen(true)} className="btn-outline btn-sm">+ Lisää pelaaja</button>
-          <button onClick={() => setInviteOpen(true)} className="btn-dark btn-sm">+ Kutsu oppilas</button>
+          <button onClick={() => setAddOpen(true)} className="btn-outline btn-sm">+ Lisää yksi</button>
+          <button onClick={() => setInviteOpen(true)} className="btn-outline btn-sm">Kutsu oppilas</button>
+          <button onClick={() => setBulkOpen(true)} className="btn-dark btn-sm">+ Lisää monta</button>
         </div>
       } />
       <GettingStarted
-        studentCount={students.length} groupCount={groupCount} trainingCount={trainingCount}
-        onInvite={() => setInviteOpen(true)} onCreateGroup={onCreateGroup} onAddTraining={onAddTraining} />
+        studentCount={students.length} trainingCount={trainingCount}
+        onBulkSetup={() => setBulkOpen(true)} onAddTraining={onAddTraining} />
       {students.length > 6 && (
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Hae oppilaan nimellä tai tavoitteella…"
           style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '12px 15px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 18 }} />
@@ -269,7 +678,7 @@ function StudentsView({ students, coachId, coachName, onOpen, groupCount, traini
                   <span style={{ color: '#111', fontWeight: 700, fontSize: 16.5 }}>{s.name}{s.age ? `, ${s.age}` : ''}</span>
                   {s.diary.length > 0 && <span title="Uusi merkintä" style={{ width: 7, height: 7, borderRadius: '50%', background: '#46a66d', flexShrink: 0 }} />}
                 </div>
-                <div style={{ marginTop: 6 }}><LevelChip level={s.level || 'Ei asetettu'} /></div>
+                <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}><LevelChip level={s.level || 'Ei asetettu'} /><PlayerAppStatus isPlaceholder={s.isPlaceholder} compact /></div>
               </div>
             </div>
             <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {s.goal || 'Ei vielä tavoitetta'}</div>
@@ -280,6 +689,7 @@ function StudentsView({ students, coachId, coachName, onOpen, groupCount, traini
         {students.length > 0 && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei osumia haulla ”{search.trim()}”.</div>}
       </div>
       {addOpen && <AddPlayerModal onClose={() => setAddOpen(false)} onSave={async (data) => { await onAddPlayer(data); setAddOpen(false); }} />}
+      {bulkOpen && <BulkSetupModal groups={groups} onClose={() => setBulkOpen(false)} onSave={onBulkSetup} />}
       {inviteOpen && <InviteStudentModal coachId={coachId} coachName={coachName} onClose={() => setInviteOpen(false)} />}
     </div>
   );
@@ -479,6 +889,7 @@ function StudentDetail({ student, coach, group, groupCoach, upcoming, attendance
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, marginBottom: 24 }}>
             <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={84} ring />
             <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{student.name}{student.age ? `, ${student.age}` : ''}</div>
+            <PlayerAppStatus isPlaceholder={student.isPlaceholder} />
             <button onClick={() => setLevelPickerOpen((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
               <LevelChip level={student.level || 'Aseta taso'} />
             </button>
@@ -1268,6 +1679,7 @@ function GroupDetail({ group, members, upcoming, onClose, onOpenStudent, onEditT
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{m.name}</div>
                       <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{m.focus}</div>
+                      <div style={{ marginTop: 4 }}><PlayerAppStatus isPlaceholder={m.isPlaceholder} compact /></div>
                     </div>
                   </button>
                   <window.KoutsiRowActions onDelete={() => onRemoveMember(m)} deleteLabel="Poista ryhmästä" />
@@ -2000,10 +2412,9 @@ function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload, act
 // ── Käyttöönotto ─────────────────────────────────────────
 // Shown until the coach has done the three things that make the app useful. Replaces the
 // old "Ei vielä oppilaita" dead end, which gave a brand-new coach nothing to act on.
-function GettingStarted({ studentCount, groupCount, trainingCount, onInvite, onCreateGroup, onAddTraining }) {
+function GettingStarted({ studentCount, trainingCount, onBulkSetup, onAddTraining }) {
   const steps = [
-    { done: groupCount > 0, title: 'Luo ensimmäinen ryhmä', body: 'Esim. "Tiistain iltaryhmä". Yksityisoppilaille ryhmää ei tarvita.', action: 'Luo ryhmä', onClick: onCreateGroup },
-    { done: studentCount > 0, title: 'Kutsu oppilaat mukaan', body: 'Saat linkin ja QR-koodin — lähetä se WhatsAppissa tai näytä kentällä.', action: 'Kutsu oppilas', onClick: onInvite },
+    { done: studentCount > 0, title: 'Lisää pelaajat ja ryhmät kerralla', body: 'Kirjoita koko pelaajalista, jaa pelaajat ryhmiin ja lisää viikkoteemat yhdessä näkymässä.', action: 'Aloita nopea käyttöönotto', onClick: onBulkSetup },
     { done: trainingCount > 0, title: 'Lisää ensimmäinen treeni', body: 'Merkitse toistuvaksi, niin koko kausi syntyy kerralla.', action: 'Lisää treeni', onClick: onAddTraining },
   ];
   const doneCount = steps.filter((s) => s.done).length;
@@ -2031,6 +2442,9 @@ function GettingStarted({ studentCount, groupCount, trainingCount, onInvite, onC
             {!s.done && <button onClick={s.onClick} className="btn-dark btn-sm" style={{ flexShrink: 0, padding: '8px 14px', fontSize: 12.5 }}>{s.action}</button>}
           </div>
         ))}
+      </div>
+      <div style={{ marginTop: 13, fontSize: 12.5, color: '#6f6a60', lineHeight: 1.5 }}>
+        Pelaajat voi tallentaa ensin ilman käyttäjätilejä. Liittymiskutsut lähetät myöhemmin pelaajan omalta kortilta.
       </div>
     </div>
   );
@@ -2616,6 +3030,14 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     await reload();
     toast.success(`${name} lisätty. Anna hänelle liittymiskoodisi, jos haluat että hän näkee tiedot itse.`);
   };
+  // BulkSetupModal owns its validation and error state. On success it keeps the dialog
+  // open for a useful summary while the underlying roster refreshes immediately.
+  const bulkSetup = async ({ groups, players, themes }) => {
+    const result = await window.koutsiBulkSetup({ coachId, groups, players, themes });
+    await reload();
+    toast.success(`${result?.players_created || players.length} pelaajaa lisätty.`);
+    return result;
+  };
   const endCoaching = async () => {
     const ok = await confirm({
       title: `Päätä ${detail.name} valmennussuhde?`,
@@ -2735,11 +3157,10 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
         <div key={tab} className="k-rise-in">
           {tab === 'students' && (
             <StudentsView
-              students={state.students} coachId={coachId} coachName={state.coach.name} onOpen={setDetailId}
-              groupCount={state.groups.length} trainingCount={state.trainings.length}
-              onCreateGroup={() => { setEditingGroup(null); setTab('groups'); setGroupFormOpen(true); }}
+              students={state.students} groups={state.groups} coachId={coachId} coachName={state.coach.name} onOpen={setDetailId}
+              trainingCount={state.trainings.length}
               onAddTraining={() => { setTab('trainings'); openNewTraining(null); }}
-              onAddPlayer={addPlayer} />
+              onAddPlayer={addPlayer} onBulkSetup={bulkSetup} />
           )}
           {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} onOpen={setGroupDetailId} onCreate={() => { setEditingGroup(null); setGroupFormOpen(true); }} />}
           {tab === 'trainings' && (

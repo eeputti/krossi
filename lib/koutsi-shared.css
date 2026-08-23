@@ -92,4 +92,18 @@ button.k-card:active { transform: translateY(0); box-shadow: 0 4px 10px -6px rgb
 }
 @media (max-width: 680px) {
   .kv-calendar-layout { grid-template-columns: 1fr; }
+  .kv-bulk-group-row { grid-template-columns: 1fr 1fr !important; }
+  .kv-bulk-player-head { display: none !important; }
+  .kv-bulk-player-row { grid-template-columns: minmax(0, 1fr) 82px !important; }
+  .kv-bulk-player-row > button:last-child { grid-column: 2; justify-self: end; }
+  .kv-bulk-theme-row { grid-template-columns: 1fr 34px !important; }
+  .kv-bulk-theme-row > select { grid-column: 1; grid-row: 1; }
+  .kv-bulk-theme-row > input { grid-column: 1 / -1; }
+  .kv-bulk-theme-row > button:last-child { grid-column: 2; grid-row: 1; }
+}
+@media (max-width: 460px) {
+  .kv-bulk-progress > div > div:last-child { font-size: 10px !important; }
+  .kv-bulk-group-row { grid-template-columns: 1fr !important; }
+  .kv-bulk-player-row { grid-template-columns: 1fr 68px !important; }
+  .kv-bulk-stats { grid-template-columns: 1fr !important; }
 }

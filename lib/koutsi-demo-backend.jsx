@@ -587,6 +587,52 @@
     save();
     return done(id);
   };
+  window.koutsiBulkSetup = ({ groups = [], players = [], themes = [] }) => {
+    const s = load();
+    const groupIds = {};
+    let groupsCreated = 0;
+    let groupsReused = 0;
+
+    groups.forEach((row) => {
+      let group = row.existing_id ? s.groups.find((g) => g.id === row.existing_id) : null;
+      if (row.existing_id && !group) throw new Error('Ryhmää ei löytynyt');
+      if (!group) {
+        group = {
+          id: newId('g'), coachId: COACH, name: row.name, level: row.level || 'Kaikki tasot',
+          day: row.day || 'Ma', time: row.time, memberIds: [], themes: [], theme: null,
+          upcomingThemes: [], annualPlan: null,
+        };
+        s.groups.push(group);
+        groupsCreated += 1;
+      } else groupsReused += 1;
+      groupIds[row.client_id] = group.id;
+    });
+
+    const created = players.map((row) => {
+      const id = newId('demo-student');
+      s.students.push(student(id, row.name, row.age || null, row.level || null, { isPlaceholder: true }));
+      (row.group_refs || []).forEach((ref) => {
+        const group = s.groups.find((g) => g.id === groupIds[ref]);
+        if (!group) throw new Error('Pelaajalle valittua ryhmää ei löytynyt');
+        if (!group.memberIds.includes(id)) group.memberIds.push(id);
+      });
+      return { id, name: row.name };
+    });
+
+    themes.forEach((row) => {
+      const group = s.groups.find((g) => g.id === groupIds[row.group_ref]);
+      if (!group) throw new Error('Viikkoteeman ryhmää ei löytynyt');
+      const hit = group.themes.find((t) => t.year === row.year && t.week === row.week);
+      if (hit) { hit.title = row.title; hit.lead = row.lead || ''; }
+      else group.themes.push({ id: newId('t'), year: row.year, week: row.week, title: row.title, lead: row.lead || '' });
+      refreshThemes(group);
+    });
+    save();
+    return done({
+      players_created: created.length, groups_created: groupsCreated,
+      groups_reused: groupsReused, themes_saved: themes.length, players: created,
+    });
+  };
   // Lunastus toimii demossa kuten tuotannossa: nimellä lisätyt pelaajat
   // odottavat lunastusta, ja valitsemalla nimensä pelaaja saa valmentajan
   // siihen asti kirjaaman työn omaan näkymäänsä.
