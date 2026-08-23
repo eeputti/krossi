@@ -291,7 +291,7 @@ function KoutsiAuthScreen() {
         {mode === 'register' && (
           <p style={{ marginTop: 14, fontSize: 11.5, color: '#8a857a', lineHeight: 1.5, textAlign: 'center' }}>
             Luomalla tilin hyväksyt <a href="/kayttoehdot" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>käyttöehdot</a> ja{' '}
-            <a href="/tietosuoja" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>tietosuojaselosteen</a>. Alle 15-vuotiaan tilin luo huoltaja.
+            <a href="/tietosuoja" target="_blank" rel="noopener" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>tietosuojaselosteen</a>.{!isCoachRoute && ' Alle 15-vuotiaan tilin luo huoltaja.'}
           </p>
         )}
         <div style={{ marginTop: 18, textAlign: 'center', fontSize: 13 }}>
