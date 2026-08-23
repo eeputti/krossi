@@ -250,7 +250,7 @@ function KoutsiAuthScreen() {
             <strong style={{ display: 'block', marginBottom: 4 }}>Onko sinulla valmentaja-avain?</strong>
             Jos ei ole, <a href={coachKeyEmailHref} style={{ color: 'inherit', fontWeight: 700 }}>pyydä se täältä</a>.
             <span style={{ display: 'block', marginTop: 6 }}>
-              Jos sinulla on jo avain, voit jatkaa kirjautumista valmentajana. Käytä omaa sähköpostiosoitettasi ja valitse itsellesi salasana.
+              Tarvitset sitä kirjautumisen jälkeen.
             </span>
           </div>
         )}
