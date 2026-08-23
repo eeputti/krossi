@@ -248,7 +248,7 @@ function KoutsiAuthScreen() {
         {isCoachRoute && (
           <div style={{ background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.4)', borderRadius: 12, padding: '11px 14px', fontSize: 12.5, color: '#5c6b06', lineHeight: 1.5, marginBottom: 18 }}>
             <strong style={{ display: 'block', marginBottom: 4 }}>Onko sinulla valmentaja-avain?</strong>
-            Jos ei ole, <a href={coachKeyEmailHref} style={{ color: 'inherit', fontWeight: 700 }}>pyydä se täältä</a>. Linkki avaa valmiin sähköpostipohjan.
+            Jos ei ole, <a href={coachKeyEmailHref} style={{ color: 'inherit', fontWeight: 700 }}>pyydä se täältä</a>.
             <span style={{ display: 'block', marginTop: 6 }}>
               Jos sinulla on jo avain, voit jatkaa kirjautumista valmentajana. Käytä omaa sähköpostiosoitettasi ja valitse itsellesi salasana.
             </span>
