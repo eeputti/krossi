@@ -81,21 +81,33 @@ function KoutsiAuthProvider({ children }) {
       setProfileError(false);
     } catch { setProfile(null); setProfileError(true); }
   }, []);
+  // Supabase re-validates the stored session every time the tab becomes visible again and
+  // reports it as a fresh SIGNED_IN — same person, same session, nothing to do. Acting on
+  // it flipped `loading` back on, and since the roots render a loading screen instead of
+  // their children, that unmounted the entire app: a coach who switched windows came back
+  // to a spinner, then to the first tab with every dialog closed and all data re-fetched.
+  // So the gate only reacts when the signed-in user actually changes. `undefined` means
+  // no session has been applied yet, which is distinct from a signed-out `null`.
+  const appliedUid = React.useRef(undefined);
+  const applySession = React.useCallback((s) => {
+    setSession(s);
+    const uid = s?.user?.id || null;
+    if (uid === appliedUid.current) return; // same person returning — keep the app mounted
+    appliedUid.current = uid;
+    if (uid) { setLoading(true); loadProfile(uid).finally(() => setLoading(false)); }
+    else { setProfile(null); setLoading(false); }
+  }, [loadProfile]);
   React.useEffect(() => {
-    koutsiSupabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      if (s?.user?.id) loadProfile(s.user.id).finally(() => setLoading(false));
-      else setLoading(false);
-    }).catch(() => setLoading(false)); // no session beats an eternal spinner
+    koutsiSupabase.auth.getSession()
+      .then(({ data: { session: s } }) => applySession(s))
+      .catch(() => setLoading(false)); // no session beats an eternal spinner
     const { data: { subscription } } = koutsiSupabase.auth.onAuthStateChange((ev, s) => {
-      setSession(s);
-      if (ev === 'PASSWORD_RECOVERY') { setRecoveryMode(true); setLoading(false); return; }
-      if (ev === 'TOKEN_REFRESHED' || ev === 'USER_UPDATED') return;
-      if (s?.user?.id) { setLoading(true); loadProfile(s.user.id).finally(() => setLoading(false)); }
-      else { setProfile(null); setLoading(false); }
+      if (ev === 'PASSWORD_RECOVERY') { setSession(s); setRecoveryMode(true); setLoading(false); return; }
+      if (ev === 'TOKEN_REFRESHED' || ev === 'USER_UPDATED') { setSession(s); return; }
+      applySession(s);
     });
     return () => subscription.unsubscribe();
-  }, [loadProfile]);
+  }, [applySession]);
   const refreshProfile = React.useCallback(async () => { if (session?.user?.id) await loadProfile(session.user.id); }, [session, loadProfile]);
   const retryProfile = React.useCallback(async () => {
     if (!session?.user?.id) return;

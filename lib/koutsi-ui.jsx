@@ -368,6 +368,73 @@ function KoutsiLegalLinks({ style }) {
   );
 }
 
+// ── Views as addresses ───────────────────────────────────────
+// Both apps kept the open view in a single useState, so every view shared one address:
+// a refresh dropped you back on the first tab, a link could not point at anything in
+// particular, and a phone's back button left the app instead of stepping back a view.
+// This maps each tab id to a path segment under the app's own base — /valmentaja/oppilaat,
+// /pelaaja/treenit — and keeps the two in step in both directions. Vercel serves the same
+// HTML for every segment (see vercel.json), so a deep link survives a cold load too.
+//
+// Opened any other way — the raw /koutsi-valmentaja.html during local development, say —
+// there is no base path to hang views off, so the hook quietly stays a plain useState and
+// leaves the address bar alone rather than inventing URLs the server would not serve.
+function koutsiRouteBase() {
+  const path = window.location.pathname;
+  for (const base of ['/valmentaja', '/pelaaja']) {
+    if (path === base || path.startsWith(base + '/')) return base;
+  }
+  return null;
+}
+
+// `slugs` maps tab id -> path segment and must be a stable object: define it once at
+// module level, never inline in a render.
+function useKoutsiTabRoute(slugs, fallback) {
+  const base = React.useMemo(koutsiRouteBase, []);
+  const readTab = React.useCallback(() => {
+    if (!base) return fallback;
+    let seg = window.location.pathname.slice(base.length).replace(/^\/+|\/+$/g, '');
+    try { seg = decodeURIComponent(seg); } catch { /* a broken %-escape is simply not a view */ }
+    return Object.keys(slugs).find((id) => slugs[id] === seg) || fallback;
+  }, [base, slugs, fallback]);
+
+  const [tab, setTabState] = React.useState(readTab);
+  // The view the address bar is currently showing. Starts unset so the first sync
+  // replaces rather than pushes — landing on the app should not leave a history entry
+  // that the back button has to chew through before it can leave.
+  const shown = React.useRef(null);
+  const replaceNext = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!base || shown.current === tab) return;
+    const url = base + '/' + encodeURIComponent(slugs[tab] || slugs[fallback]) + window.location.search + window.location.hash;
+    if (shown.current === null || replaceNext.current) window.history.replaceState({ koutsiTab: tab }, '', url);
+    else window.history.pushState({ koutsiTab: tab }, '', url);
+    shown.current = tab;
+    replaceNext.current = false;
+  }, [base, tab, slugs, fallback]);
+
+  React.useEffect(() => {
+    if (!base) return undefined;
+    const onPop = () => {
+      const next = readTab();
+      shown.current = next; // the browser already moved the address bar; do not push it back
+      setTabState(next);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [base, readTab]);
+
+  // { replace: true } for a correction rather than a move — swapping out a view the person
+  // cannot actually open should not become a back-button stop.
+  const setTab = React.useCallback((next, opts) => {
+    if (opts && opts.replace) replaceNext.current = true;
+    setTabState(next);
+  }, []);
+
+  return [tab, setTab];
+}
+
 Object.assign(window, {
   KoutsiUIProvider, KoutsiToastProvider, KoutsiConfirmProvider,
   useKoutsiToast, useKoutsiConfirm,
@@ -375,4 +442,5 @@ Object.assign(window, {
   KoutsiQrCode, KoutsiCopyButton, koutsiCopyText,
   KoutsiNotificationBell, KoutsiEmailPrefToggle,
   KoutsiDeleteAccountButton, KoutsiLegalLinks,
+  useKoutsiTabRoute,
 });

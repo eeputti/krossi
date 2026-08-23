@@ -15,7 +15,7 @@
       "dest": "/koutsi.html"
     },
     {
-      "src": "/valmentaja",
+      "src": "/valmentaja(/[^/]*)?",
       "has": [
         {
           "type": "host",
@@ -25,7 +25,7 @@
       "dest": "/koutsi-valmentaja.html"
     },
     {
-      "src": "/pelaaja",
+      "src": "/pelaaja(/[^/]*)?",
       "has": [
         {
           "type": "host",
@@ -45,7 +45,7 @@
       "dest": "/koutsi-demo.html"
     },
     {
-      "src": "/valmentaja",
+      "src": "/valmentaja(/[^/]*)?",
       "has": [
         {
           "type": "host",
@@ -55,7 +55,7 @@
       "dest": "/koutsi-valmentaja-demo.html"
     },
     {
-      "src": "/pelaaja",
+      "src": "/pelaaja(/[^/]*)?",
       "has": [
         {
           "type": "host",

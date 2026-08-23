@@ -220,7 +220,9 @@
     profileError: null,
     retryProfile: () => {},
     // "Kirjaudu ulos" in a demo means: start the tour over.
-    signOut: () => { reset(); window.location.reload(); },
+    // Demossa uloskirjautuminen päättää kokeilun ja vie oikeaan palveluun,
+    // kuten oikeassa sovelluksessa se veisi kirjautumisnäkymään.
+    signOut: () => { reset(); window.location.href = SIGNUP_URL; },
     refreshProfile: () => Promise.resolve(),
   };
   window.useKoutsiAuth = () => demoAuth;
@@ -497,7 +499,43 @@
     save();
     return done();
   };
-  window.koutsiSeedExercises = () => done(0);
+  // Sama harjoitepankki jonka oikea palvelu lisää koutsi_seed_exercises-RPC:llä,
+  // jotta demossa napin painaminen tuottaa saman tuloksen kuin tuotannossa.
+  const KOUTSI_DEMO_EXERCISE_TEMPLATES = [
+    {"name": "Pallonkuljetus mailalla", "goal": "Herätellään pallotuntuma ja kevyt liike ennen varsinaista treeniä. Pallo pysyy mailan päällä kävellen, sitten hölkäten.", "players": "1", "playerCount": 1, "duration": "5 min", "level": "Kaikki tasot", "tags": ["lammittely"]},
+    {"name": "Minitennis ristiin", "goal": "Pehmeä aloitus: pelataan syöttöruutujen sisällä ristiin. Katse palloon, lyhyet liikkeet, korkea osumapiste.", "players": "2", "playerCount": 2, "duration": "10 min", "level": "Kaikki tasot", "tags": ["lammittely", "tekniikka"]},
+    {"name": "Sivuttaisliike ja kosketus", "goal": "Sivuaskeleet päätyviivalla, kosketus kartioon kummassakin päässä. Rakentaa liikkumisen perusasennon.", "players": "1", "playerCount": 1, "duration": "8 min", "level": "Kaikki tasot", "tags": ["lammittely", "liikkuminen"]},
+    {"name": "Split step -ajoitus", "goal": "Valmentaja syöttää, pelaaja tekee splitin juuri ennen vastustajan osumaa. Ajoitus ennen nopeutta.", "players": "1", "playerCount": 1, "duration": "10 min", "level": "Kaikki tasot", "tags": ["liikkuminen", "tekniikka"]},
+    {"name": "Kahdeksikko kartioiden ympäri", "goal": "Nopeat jalat ja suunnanmuutokset ilman palloa. 4 x 30 s, välissä 30 s palautus.", "players": "1", "playerCount": 1, "duration": "10 min", "level": "Keskitaso", "tags": ["liikkuminen"]},
+    {"name": "Kämmen ristiin 10 palloa", "goal": "Kymmenen peräkkäistä kämmentä ristiin verkon yli. Tavoite on rytmi ja varmuus, ei vauhti.", "players": "2", "playerCount": 2, "duration": "12 min", "level": "Aloittelija", "tags": ["tekniikka"]},
+    {"name": "Rysty ristiin 10 palloa", "goal": "Sama kuin kämmenversio rystypuolelle. Vartalon kierto mukaan, lyönti loppuu korkealle.", "players": "2", "playerCount": 2, "duration": "12 min", "level": "Aloittelija", "tags": ["tekniikka"]},
+    {"name": "Kämmen–rysty vuorottelu", "goal": "Valmentaja syöttää vuorotellen puolille. Pelaajan pitää palata keskelle joka lyönnin jälkeen.", "players": "2", "playerCount": 2, "duration": "12 min", "level": "Keskitaso", "tags": ["tekniikka", "liikkuminen"]},
+    {"name": "Suora vs. risto -päätös", "goal": "Valmentaja huutaa \"suora\" tai \"risto\" pallon lähdettyä. Pakottaa katseen ylös ja päätöksen myöhään.", "players": "2", "playerCount": 2, "duration": "15 min", "level": "Edistynyt", "tags": ["tekniikka", "pistepeli"]},
+    {"name": "Syvyyspeli — kolmen metrin vyöhyke", "goal": "Piste vain, jos pallo putoaa päätyviivan takaosaan merkittyyn vyöhykkeeseen. Opettaa turvamarginaalin.", "players": "2", "playerCount": 2, "duration": "15 min", "level": "Keskitaso", "tags": ["tekniikka", "pistepeli"]},
+    {"name": "Ensimmäinen syöttö — 20 palloa", "goal": "Kaksikymmentä ykkössyöttöä, tavoitteena vähintään 12 sisään. Kirjataan prosentti joka kerta.", "players": "1", "playerCount": 1, "duration": "12 min", "level": "Kaikki tasot", "tags": ["syotto"]},
+    {"name": "Kakkossyöttö + suunta", "goal": "Kymmenen kakkossyöttöä ulos, kymmenen keskelle. Kierre ja korkeus verkon yli tärkeämpi kuin vauhti.", "players": "1", "playerCount": 1, "duration": "12 min", "level": "Keskitaso", "tags": ["syotto", "tekniikka"]},
+    {"name": "Syöttö kohdealueisiin", "goal": "Kartiot syöttöruudun kolmeen kohtaan. Valmentaja määrää kohteen ennen jokaista syöttöä.", "players": "1", "playerCount": 1, "duration": "15 min", "level": "Edistynyt", "tags": ["syotto"]},
+    {"name": "Syöttö + ensimmäinen lyönti", "goal": "Syöttö ja heti sen jälkeen ensimmäinen kämmen keskeltä. Yhdistää syötön muuhun peliin.", "players": "2", "playerCount": 2, "duration": "15 min", "level": "Keskitaso", "tags": ["syotto", "pistepeli"]},
+    {"name": "Palautus jalkojen kanssa", "goal": "Lyhyt heilautus, aikainen split. Ykkössyötön palautus vain kentälle, kakkossyötön palautus hyökkäävästi.", "players": "2", "playerCount": 2, "duration": "15 min", "level": "Keskitaso", "tags": ["syotto", "tekniikka"]},
+    {"name": "Lentolyönti läheltä verkkoa", "goal": "Pehmeät lentolyönnit vuorotellen kämmen ja rysty. Maila edessä, ei heilautusta.", "players": "2", "playerCount": 2, "duration": "10 min", "level": "Aloittelija", "tags": ["verkkopeli", "tekniikka"]},
+    {"name": "Lähestymislyönti ja verkkoon", "goal": "Lyhyt pallo, hyökkäävä lähestymislyönti suoraan, sitten lentolyönti pisteeseen.", "players": "2", "playerCount": 2, "duration": "15 min", "level": "Keskitaso", "tags": ["verkkopeli", "pistepeli"]},
+    {"name": "Verkkorefleksit", "goal": "Molemmat pelaajat syöttöviivalla, nopeita lyhyitä lentolyöntejä. Kehittää reaktion ja mailan otteen.", "players": "2", "playerCount": 2, "duration": "8 min", "level": "Edistynyt", "tags": ["verkkopeli", "liikkuminen"]},
+    {"name": "Ylälyönti paikaltaan", "goal": "Valmentaja syöttää korkean pallon, pelaaja ottaa ylälyönnin. Osoita vapaalla kädellä palloa.", "players": "2", "playerCount": 2, "duration": "10 min", "level": "Keskitaso", "tags": ["verkkopeli", "tekniikka"]},
+    {"name": "Pistepeli 7 pisteeseen", "goal": "Lyhyt kilpailu, jokainen piste aloitetaan syötöstä. Voittaja jää, häviäjä vaihtaa.", "players": "2+", "playerCount": 2, "duration": "15 min", "level": "Kaikki tasot", "tags": ["pistepeli"]},
+    {"name": "Tie-break -harjoitus", "goal": "Pelataan pelkkiä tie-breakeja. Totuttaa paineeseen ja syöttövuorojen vaihtumiseen.", "players": "2", "playerCount": 2, "duration": "20 min", "level": "Edistynyt", "tags": ["pistepeli", "syotto"]},
+    {"name": "Piste alkaa 0–30", "goal": "Jokainen peli aloitetaan 0–30 tilanteesta. Opettaa pelaamaan takaa-ajoasemasta.", "players": "2", "playerCount": 2, "duration": "20 min", "level": "Edistynyt", "tags": ["pistepeli"]},
+    {"name": "Kuningaskenttä", "goal": "Ryhmä kiertää kentän puolilla, voittaja siirtyy ylöspäin. Pitää tempon ja motivaation korkealla.", "players": "4+", "playerCount": 4, "duration": "20 min", "level": "Kaikki tasot", "tags": ["pistepeli", "liikkuminen"]},
+    {"name": "Nelinpeliasemat", "goal": "Käydään läpi syöttöparin ja palautusparin perusasemat, sitten pelataan pisteitä niistä.", "players": "4", "playerCount": 4, "duration": "20 min", "level": "Keskitaso", "tags": ["pistepeli", "verkkopeli"]},
+    {"name": "Jäähdyttely ja venyttely", "goal": "Kevyt hölkkä ja päälihasryhmien venytykset. Sulkee treenin ja tukee palautumista.", "players": "1", "playerCount": 1, "duration": "8 min", "level": "Kaikki tasot", "tags": ["lammittely"]}
+  ];
+  window.koutsiSeedExercises = () => {
+    const s = load();
+    const have = new Set(s.exercises.map((e) => e.name));
+    const added = KOUTSI_DEMO_EXERCISE_TEMPLATES.filter((t) => !have.has(t.name));
+    added.forEach((t) => s.exercises.push(Object.assign({ id: newId('e'), coachId: COACH }, t)));
+    save();
+    return done(added.length);
+  };
 
   // ── club events ───────────────────────────────────────────────────────────
   window.koutsiAddClubEvent = ({ date, title, kind }) => {
@@ -540,10 +578,25 @@
     save();
     return done(id);
   };
-  // Demossa ei ole toista tiliä lunastamassa, joten lista on aina tyhjä ja
-  // pelaajademo menee suoraan tavalliseen liittymiseen.
-  window.koutsiUnclaimedPlayers = () => done([]);
-  window.koutsiClaimPlayer = () => done({ coach_id: COACH, coach_name: 'Anna Koskinen', claimed: true });
+  // Lunastus toimii demossa kuten tuotannossa: nimellä lisätyt pelaajat
+  // odottavat lunastusta, ja valitsemalla nimensä pelaaja saa valmentajan
+  // siihen asti kirjaaman työn omaan näkymäänsä.
+  window.koutsiUnclaimedPlayers = () => done(
+    load().students.filter((x) => x.isPlaceholder).map((x) => ({ id: x.id, name: x.name })),
+  );
+  window.koutsiClaimPlayer = (code, studentId) => {
+    const s = load();
+    const ph = s.students.find((x) => x.id === studentId && x.isPlaceholder);
+    if (!ph) throw new Error('Tätä profiilia ei voi lunastaa');
+    // Demossa lunastaja ON tämä selain, joten paikanvaraaja muuttuu
+    // suoraan lunastetuksi pelaajaksi — data on jo hänen.
+    delete ph.isPlaceholder;
+    s.groups.forEach((g) => {
+      if (!g.memberIds.includes(ph.id)) g.memberIds.push(ph.id);
+    });
+    save();
+    return done({ coach_id: COACH, coach_name: s.coach.name, claimed: true });
+  };
   window.koutsiRedeemInviteCode = () => done({ coach_id: COACH, coach_name: 'Anna Koskinen', group_id: GROUP, group_name: 'Juniorit A' });
   window.koutsiRedeemCoachKey = () => done({ ok: true });
   window.koutsiEndCoaching = (coachId, studentId) => {
@@ -614,6 +667,39 @@
   window.koutsiAdminGroups = () => done([]);
   window.koutsiAdminBulkInviteCodes = () => done([]);
   window.koutsiAdminUploadAnnualPlan = () => done();
+
+  // ── "Luo tili" -kehote ────────────────────────────────────────────────────
+  // Demo on myyntityökalu, joten siitä pitää päästä yhdellä klikkauksella
+  // oikeaan palveluun. Kehote elää täällä eikä app-tiedostoissa, jotta
+  // tuotantosovellus pysyy täysin tietämättömänä demosta.
+  const SIGNUP_URL = window.KOUTSI_DEMO_ROLE === 'player'
+    ? 'https://koutsi.krossi.app/pelaaja'
+    : 'https://koutsi.krossi.app/valmentaja';
+
+  function mountDemoCta() {
+    if (document.getElementById('koutsi-demo-cta')) return;
+    const bar = document.createElement('div');
+    bar.id = 'koutsi-demo-cta';
+    bar.setAttribute('style', [
+      'position:fixed', 'right:18px', 'bottom:18px', 'z-index:150',
+      'display:flex', 'align-items:center', 'gap:12px',
+      'background:#0E3B2C', 'color:#fff', 'border-radius:16px',
+      'padding:12px 14px 12px 16px', 'font-family:inherit',
+      'box-shadow:0 18px 40px -18px rgba(0,0,0,0.55)',
+      'max-width:min(360px, calc(100vw - 36px))',
+    ].join(';'));
+    bar.innerHTML =
+      '<div style="font-size:12.5px;line-height:1.45;flex:1;min-width:0;">' +
+        '<strong style="display:block;font-size:13px;margin-bottom:2px;">Kokeilet demoa</strong>' +
+        '<span style="opacity:.82;">Tiedot ovat kuvitteellisia ja tallentuvat vain tähän selaimeen.</span>' +
+      '</div>' +
+      '<a href="' + SIGNUP_URL + '" style="flex-shrink:0;background:var(--lime,#CFE414);color:#101a08;' +
+        'font-weight:800;font-size:13px;text-decoration:none;padding:10px 14px;border-radius:11px;white-space:nowrap;">' +
+        'Luo tili</a>';
+    document.body.appendChild(bar);
+  }
+  if (document.body) mountDemoCta();
+  else document.addEventListener('DOMContentLoaded', mountDemoCta);
 
   // Exposed so a "Aloita demo alusta" control can call it.
   window.koutsiDemoReset = () => { reset(); window.location.reload(); };

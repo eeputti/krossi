@@ -999,6 +999,16 @@ const NAV = [
   { id: 'progress', label: 'Kehitys' },
   { id: 'profile', label: 'Profiili' },
 ];
+// Each view's own address: /pelaaja/treenit and so on. Module level on purpose —
+// useKoutsiTabRoute needs this object to keep its identity between renders.
+const PLAYER_TAB_SLUGS = {
+  home: 'koti',
+  group: 'ryhma',
+  trainings: 'treenit',
+  exercises: 'harjoitteet',
+  progress: 'kehitys',
+  profile: 'profiili',
+};
 function NavIcon({ id, on, offColor = '#9a958a' }) {
   const c = on ? 'var(--green-deep)' : offColor;
   if (id === 'home') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><path d="M3 10.5L11 3l8 7.5" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /><path d="M5 9v9.5a1 1 0 001 1h10a1 1 0 001-1V9" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -1085,7 +1095,7 @@ function PlayerApp({ studentId, onSignOut }) {
   const toast = window.useKoutsiToast();
   const confirm = window.useKoutsiConfirm();
   const [state, setState] = React.useState(null);
-  const [tab, setTab] = React.useState('home');
+  const [tab, setTab] = window.useKoutsiTabRoute(PLAYER_TAB_SLUGS, 'home');
   const [exerciseId, setExerciseId] = React.useState(null);
   const [videoOpen, setVideoOpen] = React.useState(false);
   const [moodOpen, setMoodOpen] = React.useState(false);
@@ -1349,19 +1359,24 @@ function KoutsiPelaajaRoot() {
   // Rivin olemassaolo riittää: se syntyy joko koodia lunastaessa tai "jatka ilman
   // koodia" -napista. Valmentajan puuttuminen ei enää lukitse ulos — ilman valmentajaa
   // sovellus vain on tyhjä ja tarjoaa koodikentän Ryhmä-välilehdellä.
+  // Keyed on the user id rather than the session object: Supabase hands out a new session
+  // object on every token refresh and every return to the tab, so depending on the object
+  // itself re-queried the student row each time for a person who had not changed.
+  const uid = auth.session?.user?.id || null;
+
   const checkStudent = React.useCallback(async () => {
-    if (!auth.session) return;
+    if (!uid) return;
     setCheckFailed(false);
     try {
-      const student = await window.koutsiFetchStudentRow(auth.session.user.id);
+      const student = await window.koutsiFetchStudentRow(uid);
       setStudentRow(student || null);
     } catch { setCheckFailed(true); } // katkennut yhteys ei saa jättää rautalankaan pyörimään
-  }, [auth.session]);
+  }, [uid]);
 
   React.useEffect(() => {
-    if (!auth.session || auth.needsOnboarding) { setStudentRow(undefined); return; }
+    if (!uid || auth.needsOnboarding) { setStudentRow(undefined); return; }
     checkStudent();
-  }, [auth.session, auth.needsOnboarding, checkStudent]);
+  }, [uid, auth.needsOnboarding, checkStudent]);
 
   if (auth.loading) return <window.KoutsiAuthLoadingScreen />;
   // a recovery link must lead to a new password, not straight into the app

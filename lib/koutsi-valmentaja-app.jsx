@@ -420,7 +420,49 @@ function GoalHistory({ history }) {
   );
 }
 
-function StudentDetail({ student, group, groupCoach, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditBackground, onSetLevel, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEndCoaching }) {
+// Valmentaja voi lisätä pelaajan pelkällä nimellä, jolloin takana ei ole Krossi-tiliä.
+// Ilman tätä huomautusta ero näkyy vasta siinä, ettei pelaaja koskaan vastaa mihinkään:
+// kortti näyttää samalta kuin liittyneellä pelaajalla. Koodi haetaan tähän mukaan, koska
+// juuri se on ainoa asia, jolla valmentaja saa pelaajan liittymään.
+function PlaceholderNotice({ student, coach }) {
+  const [code, setCode] = React.useState(null);
+  React.useEffect(() => {
+    let alive = true;
+    window.koutsiMyJoinCode(coach.id).then((c) => { if (alive) setCode(c || null); }).catch(() => {});
+    return () => { alive = false; };
+  }, [coach.id]);
+  const firstName = (student.name || '').split(' ')[0] || 'Pelaaja';
+  const link = code ? window.koutsiInviteLink(code) : '';
+  const message = code ? window.koutsiInviteMessage(code, coach.name, null) : '';
+  return (
+    <div className="k-card" style={{ padding: '15px 17px', marginBottom: 22, background: 'rgba(214,140,44,0.10)', borderColor: 'rgba(214,140,44,0.35)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="6.6" stroke="#8a5a12" strokeWidth="1.4" />
+          <path d="M8 4.8v3.6M8 11.1h.01" stroke="#8a5a12" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        <span style={{ fontSize: 11, fontWeight: 800, color: '#8a5a12', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ei vielä Krossi-tiliä</span>
+      </div>
+      <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55 }}>
+        {firstName} ei käytä Krossia vielä — lisäsit hänet nimellä. Voit kirjata treenit, päiväkirjan ja
+        läksyt normaalisti, eikä hän näe niistä mitään. Kun hän liittyy liittymiskoodillasi, kaikki tähän
+        kirjattu siirtyy hänen omalle tunnukselleen.
+      </div>
+      {code && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(214,140,44,0.3)' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#8a5a12', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Liittymiskoodisi</div>
+          <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: 3, color: '#111', marginBottom: 10 }}>{code}</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <window.KoutsiCopyButton text={message} label="Kopioi viesti" copiedLabel="Viesti kopioitu!" className="btn-dark btn-sm" />
+            <window.KoutsiCopyButton text={link} label="Kopioi linkki" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudentDetail({ student, coach, group, groupCoach, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditBackground, onSetLevel, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEndCoaching }) {
   const [homeworkText, setHomeworkText] = React.useState('');
   const [levelPickerOpen, setLevelPickerOpen] = React.useState(false);
   const [editingHomework, setEditingHomework] = React.useState(null); // homework id being renamed
@@ -448,6 +490,8 @@ function StudentDetail({ student, group, groupCoach, upcoming, attendance, onClo
               </div>
             )}
           </div>
+
+          {student.isPlaceholder && <PlaceholderNotice student={student} coach={coach} />}
 
           <Field label="Tavoite ja seuraava askel">
             <div className="k-card" style={{ padding: '15px 17px', display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -1013,7 +1057,7 @@ function InviteCodeBox({ coachId, coachName, groupId, groupName }) {
   );
 }
 
-function GroupFormModal({ students, editing, onClose, onSave }) {
+function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
   const isEdit = Boolean(editing);
   const [name, setName] = React.useState(() => (editing ? editing.name : ''));
   const [level, setLevel] = React.useState(() => (editing ? editing.level || '' : ''));
@@ -1026,7 +1070,7 @@ function GroupFormModal({ students, editing, onClose, onSave }) {
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>{isEdit ? 'Muokkaa ryhmää' : 'Uusi ryhmä'}</h3>
         <div style={label}>Nimi</div>
@@ -1453,7 +1497,7 @@ function PreSessionPanel({ training, state, onClose, onToggleAbsence }) {
 // Doubles as "new" and "edit". The repeat option is the reason a coach can now plan a
 // season in one sitting instead of adding ~40 rows by hand; when editing an occurrence
 // that belongs to a series, the save button asks which of the two they meant.
-function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave, onSaveSeries }) {
+function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave, onSaveSeries, onCreateGroup }) {
   const isEdit = Boolean(editing);
   const [targetType, setTargetType] = React.useState(() => (editing && editing.groupId != null ? 'group' : 'student'));
   const [studentId, setStudentId] = React.useState(() => (editing ? editing.studentId : (students[0] ? students[0].id : null)));
@@ -1463,6 +1507,7 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
   const [type, setType] = React.useState(() => (editing ? editing.type : 'Yksityistunti'));
   const [repeat, setRepeat] = React.useState(false);
   const [repeatUntil, setRepeatUntil] = React.useState('');
+  const [groupFormOpen, setGroupFormOpen] = React.useState(false);
 
   // only track the target for a brand-new session; changing it while editing would move
   // the session to a different player, which is what delete + re-add is for
@@ -1480,6 +1525,16 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
   const Pill = ({ on, children, onClick }) => (
     <button onClick={onClick} style={{ padding: '9px 15px', borderRadius: 999, border: on ? 'none' : '1px solid #d8d4ca', background: on ? 'var(--lime)' : '#fff', color: on ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{children}</button>
   );
+
+  // A coach booking their first ryhmatreeni has no group to pick yet. Sending them to the
+  // Ryhmat tab would throw away the half-filled form, so the group is created right here
+  // and selected the moment it exists.
+  const createGroup = async (fields) => {
+    const newId = await onCreateGroup(fields);
+    if (newId == null) return; // creation failed; the toast already said so
+    setGroupFormOpen(false);
+    setGroupId(newId);
+  };
 
   const save = () => {
     if (!ready) return;
@@ -1528,7 +1583,12 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
                   <span style={{ fontSize: 12, color: '#8a857a' }}>{g.memberIds.length} pelaajaa</span>
                 </button>
               ))}
-              {groups.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä ryhmiä.</div>}
+              {groups.length === 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 11 }}>
+                  <div style={{ color: '#8a857a', fontSize: 14 }}>Ei vielä ryhmiä.</div>
+                  <button onClick={() => setGroupFormOpen(true)} className="btn-dark btn-sm">+ Luo ryhmä</button>
+                </div>
+              )}
             </div>
           </React.Fragment>
         ))}
@@ -1576,6 +1636,11 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
           <button onClick={() => onSaveSeries({ time: time.trim(), type })} className="btn-outline btn-sm" style={{ width: '100%', marginTop: 10 }}>
             Tallenna kellonaika ja tyyppi koko sarjaan
           </button>
+        )}
+        {groupFormOpen && (
+          <GroupFormModal
+            students={students} editing={null} zIndex={90}
+            onClose={() => setGroupFormOpen(false)} onSave={createGroup} />
         )}
       </div>
     </div>
@@ -2222,6 +2287,17 @@ const NAV_ADMIN = { id: 'admin', label: 'Ylläpito' };
 // The tab is absent for a normal coach, and every RPC behind it re-checks koutsi_is_admin()
 // server-side — hiding it is convenience, not the access control.
 function koutsiNav(isAdmin) { return isAdmin ? [...NAV_BASE, NAV_ADMIN] : NAV_BASE; }
+// Each view's own address: /valmentaja/oppilaat and so on. Finnish segments to match the
+// labels the coach actually sees. Module level on purpose — useKoutsiTabRoute needs this
+// object to keep its identity between renders.
+const COACH_TAB_SLUGS = {
+  students: 'oppilaat',
+  groups: 'ryhmat',
+  trainings: 'treenit',
+  exercises: 'harjoitteet',
+  profile: 'profiili',
+  admin: 'yllapito',
+};
 function NavIcon({ id, on, offColor = 'rgba(255,255,255,0.72)' }) {
   const c = on ? '#101a08' : offColor;
   if (id === 'admin') return <svg width="19" height="19" viewBox="0 0 22 22" fill="none"><path d="M11 2l7 3v5.5c0 4.2-2.9 7.9-7 9-4.1-1.1-7-4.8-7-9V5l7-3z" stroke={c} strokeWidth="1.7" strokeLinejoin="round" /><path d="M8 11l2.2 2.2L14.5 9" stroke={c} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -2308,7 +2384,7 @@ function CoachApp({ coachId, onSignOut }) {
   const toast = window.useKoutsiToast();
   const confirm = window.useKoutsiConfirm();
   const [state, setState] = React.useState(null);
-  const [tab, setTab] = React.useState('students');
+  const [tab, setTab] = window.useKoutsiTabRoute(COACH_TAB_SLUGS, 'students');
   const [detailId, setDetailId] = React.useState(null);
   const [groupDetailId, setGroupDetailId] = React.useState(null);
   const [entryOpen, setEntryOpen] = React.useState(false);
@@ -2331,7 +2407,7 @@ function CoachApp({ coachId, onSignOut }) {
   const [eventDefaultDate, setEventDefaultDate] = React.useState(null);
 
   const [loadError, setLoadError] = React.useState(false);
-  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(null); // null = the check is still out
   const reload = React.useCallback(async () => {
     const next = await window.koutsiLoadCoachState(coachId);
     setState(next);
@@ -2344,7 +2420,13 @@ function CoachApp({ coachId, onSignOut }) {
 
   React.useEffect(() => { initialLoad(); }, [initialLoad]);
   // Decides whether the Ylläpito tab is offered; the RPCs behind it check again server-side.
-  React.useEffect(() => { window.koutsiIsAdmin().then(setIsAdmin); }, []);
+  React.useEffect(() => { window.koutsiIsAdmin().then((v) => setIsAdmin(Boolean(v))); }, []);
+  // /valmentaja/yllapito is now a real address anyone can type. Waiting for the answer
+  // before redirecting keeps a genuine admin's deep link intact; once it comes back false,
+  // send them to Oppilaat instead of an empty page — as a correction, not a back stop.
+  React.useEffect(() => {
+    if (isAdmin === false && tab === 'admin') setTab('students', { replace: true });
+  }, [isAdmin, tab, setTab]);
 
   // Live sync: any change to the tables this coach can see (their own students,
   // groups, trainings, etc.) — made from this device or the player's — refreshes state.
@@ -2517,6 +2599,16 @@ function CoachApp({ coachId, onSignOut }) {
     }, editingGroup ? 'Ryhmä päivitetty.' : 'Ryhmä luotu.');
     if (ok) { setGroupFormOpen(false); setEditingGroup(null); }
   };
+  // Used by the training modal's empty group list. Unlike saveGroup this keeps the modal
+  // open and returns the new id, so the coach lands back on a form that has the group picked.
+  const createGroupForTraining = async (fields) => {
+    let newId = null;
+    const ok = await toast.run(async () => {
+      newId = await window.koutsiCreateGroup(Object.assign({ coachId }, fields));
+      await reload();
+    }, 'Ryhmä luotu.');
+    return ok ? newId : null;
+  };
   const deleteGroup = async () => {
     const upcomingCount = groupUpcoming.length;
     const ok = await confirm({
@@ -2598,7 +2690,7 @@ function CoachApp({ coachId, onSignOut }) {
 
       {detail && (
         <StudentDetail
-          student={detail} group={detailGroup} groupCoach={detailGroupCoach} upcoming={detailUpcoming} attendance={detailAttendance}
+          student={detail} coach={state.coach} group={detailGroup} groupCoach={detailGroupCoach} upcoming={detailUpcoming} attendance={detailAttendance}
           onClose={() => setDetailId(null)} onAddEntry={() => { setEditingEntry(null); setEntryOpen(true); }}
           onToggleHomework={toggleHomework} onOpenGroup={openGroupFromStudent} onAddHomework={addHomework}
           onAddVideo={() => setVideoOpen(true)} onEditBackground={() => setBackgroundOpen(true)} onSetLevel={setLevel}
@@ -2622,7 +2714,7 @@ function CoachApp({ coachId, onSignOut }) {
         <TrainingModal
           students={state.students} groups={state.groups} defaultDate={trainingDefaultDate} editing={editingTraining}
           onClose={() => { setTrainingOpen(false); setEditingTraining(null); }}
-          onSave={saveTraining} onSaveSeries={saveTrainingSeries} />
+          onSave={saveTraining} onSaveSeries={saveTrainingSeries} onCreateGroup={createGroupForTraining} />
       )}
       {exercise && (
         <ExerciseDetail
@@ -2695,23 +2787,28 @@ function KoutsiValmentajaRoot() {
 
   const [checkFailed, setCheckFailed] = React.useState(false);
 
+  // Keyed on the user id rather than the session object: Supabase hands out a new session
+  // object on every token refresh and every return to the tab, so depending on the object
+  // itself re-queried the coach row each time for a person who had not changed.
+  const uid = auth.session?.user?.id || null;
+
   const checkCoachRow = React.useCallback(() => {
-    if (!auth.session) return Promise.resolve();
+    if (!uid) return Promise.resolve();
     setCheckFailed(false);
-    return window.koutsiFetchCoachRow(auth.session.user.id)
+    return window.koutsiFetchCoachRow(uid)
       .then((row) => setCoachRow(row))
       .catch(() => setCheckFailed(true)); // katkennut yhteys ei saa jättää rautalankaan pyörimään
-  }, [auth.session]);
+  }, [uid]);
 
   React.useEffect(() => {
-    if (!auth.session || auth.needsOnboarding) { setCoachRow(undefined); return; }
+    if (!uid || auth.needsOnboarding) { setCoachRow(undefined); return; }
     let cancelled = false;
     setCheckFailed(false);
-    window.koutsiFetchCoachRow(auth.session.user.id)
+    window.koutsiFetchCoachRow(uid)
       .then((row) => { if (!cancelled) setCoachRow(row); })
       .catch(() => { if (!cancelled) setCheckFailed(true); });
     return () => { cancelled = true; };
-  }, [auth.session, auth.needsOnboarding]);
+  }, [uid, auth.needsOnboarding]);
 
   if (auth.loading) return <window.KoutsiAuthLoadingScreen />;
   // a recovery link must lead to a new password, not straight into the app
