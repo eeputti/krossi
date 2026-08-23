@@ -1019,9 +1019,10 @@ function NavIcon({ id, on, offColor = '#9a958a' }) {
 }
 
 function Sidebar({ tab, setTab, student, onSignOut }) {
+  const homeHref = window.KOUTSI_DEMO_ROLE ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
   return (
     <div style={{ width: 248, flexShrink: 0, background: 'var(--green-deep)', color: '#fff', display: 'flex', flexDirection: 'column', padding: '26px 18px', position: 'fixed', top: 0, left: 0, bottom: 0, overflowY: 'auto' }}>
-      <a href="https://koutsi.krossi.app" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', paddingLeft: 6 }}>
+      <a href={homeHref} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', paddingLeft: 6 }}>
         <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--lime)', letterSpacing: -0.5 }}>Krossi</span>
         <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
       </a>
@@ -1057,10 +1058,11 @@ function Sidebar({ tab, setTab, student, onSignOut }) {
 }
 
 function MobileTopBar({ student }) {
+  const homeHref = window.KOUTSI_DEMO_ROLE ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
   return (
     <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'rgba(247,245,239,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid var(--line)', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-        <a href="https://koutsi.krossi.app" style={{ display: 'inline-flex', alignItems: 'baseline', textDecoration: 'none', flexShrink: 0 }}>
+        <a href={homeHref} style={{ display: 'inline-flex', alignItems: 'baseline', textDecoration: 'none', flexShrink: 0 }}>
           <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--green-deep)', letterSpacing: -0.4 }}>Krossi</span>
         </a>
         <span style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(14,59,44,0.1)', border: '1px solid rgba(14,59,44,0.22)', color: 'var(--green-deep)', fontSize: 10, fontWeight: 800, letterSpacing: 0.4, flexShrink: 0 }}>PELAAJA</span>
@@ -1342,8 +1344,6 @@ function InviteCodeScreen({ onSignOut }) {
         </div>
 
         <div style={{ marginTop: 16, textAlign: 'center', fontSize: 13 }}>
-          <a href="https://koutsi.krossi.app/valmentaja" style={{ color: '#8a857a', textDecoration: 'none' }}>Oletko sittenkin valmentaja?</a>
-          <span style={{ color: '#c5c0b5', margin: '0 8px' }}>·</span>
           <button onClick={onSignOut} style={{ background: 'none', border: 'none', color: '#8a857a', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Kirjaudu ulos</button>
         </div>
       </div>

@@ -137,7 +137,11 @@ function KoutsiAuthScreen() {
   // A dead link means they already have an account, so open on the login form — that is
   // also where "Unohditko salasanan?" lives, which is what a stale recovery link needs.
   const [linkError] = React.useState(koutsiAuthLinkError);
-  const [mode, setMode] = React.useState(linkError ? 'login' : 'register');
+  const [mode, setMode] = React.useState(() => {
+    if (linkError) return 'login';
+    const requestedMode = new URLSearchParams(window.location.search).get('auth');
+    return requestedMode === 'login' || requestedMode === 'reset' ? requestedMode : 'register';
+  });
   const [email, setEmail] = React.useState('');
   const [pw, setPw] = React.useState('');
   const [error, setError] = React.useState(linkError);
@@ -147,9 +151,20 @@ function KoutsiAuthScreen() {
   // still unconfirmed — without it a lost confirmation mail is the end of the road.
   const [canResend, setCanResend] = React.useState(false);
 
+  const pageParams = new URLSearchParams(window.location.search);
+  const inviteCode = pageParams.get('koodi');
   const redirectPath = window.location.pathname.startsWith('/pelaaja') ? '/pelaaja' : '/valmentaja';
-  const redirectTo = window.location.origin + redirectPath;
   const isCoachRoute = redirectPath === '/valmentaja';
+  const redirectTo = window.location.origin + redirectPath + (!isCoachRoute && inviteCode ? `?koodi=${encodeURIComponent(inviteCode)}` : '');
+  const coachKeyEmailHref = 'mailto:eelispuro@gmail.com?subject=Valmentaja-avain%20Koutsiin&body=Moi%20Eelis%2C%0A%0ATarvitsisin%20valmentaja-avaimen%20Koutsiin.%0A%0ATerveisin%2C%0A%5BOma%20nimi%5D';
+  const roleHref = (role) => {
+    const path = role === 'coach' ? '/valmentaja' : '/pelaaja';
+    const params = new URLSearchParams();
+    if (mode !== 'register') params.set('auth', mode);
+    if (inviteCode) params.set('koodi', inviteCode);
+    const query = params.toString();
+    return `${path}${query ? `?${query}` : ''}`;
+  };
 
   const signInWithGoogle = async () => {
     setError(''); setBusy(true);
@@ -211,12 +226,32 @@ function KoutsiAuthScreen() {
         <span style={{ fontSize: 14, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
       </a>
       <div className="k-card" style={{ width: 'min(400px, 100%)', padding: '30px 28px' }}>
+        <div role="tablist" aria-label="Valitse rooli" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4, marginBottom: 22, borderRadius: 14, background: '#f1efe8', border: '1px solid var(--line)' }}>
+          {[
+            { role: 'coach', label: 'Valmentaja', selected: isCoachRoute },
+            { role: 'player', label: 'Pelaaja', selected: !isCoachRoute },
+          ].map((item) => (
+            <a
+              key={item.role}
+              href={roleHref(item.role)}
+              role="tab"
+              aria-selected={item.selected}
+              onClick={(e) => { if (item.selected) e.preventDefault(); }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, padding: '9px 12px', borderRadius: 10, background: item.selected ? 'var(--green-deep)' : 'transparent', color: item.selected ? '#fff' : '#6b665c', fontSize: 13.5, fontWeight: 800, textDecoration: 'none', boxShadow: item.selected ? '0 5px 14px -9px rgba(14,59,44,0.8)' : 'none' }}>
+              {item.label}
+            </a>
+          ))}
+        </div>
         <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: isCoachRoute ? 12 : 18, color: '#111' }}>
           {mode === 'login' ? 'Kirjaudu sisään' : mode === 'register' ? 'Luo tili' : 'Palauta salasana'}
         </h2>
         {isCoachRoute && (
           <div style={{ background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.4)', borderRadius: 12, padding: '11px 14px', fontSize: 12.5, color: '#5c6b06', lineHeight: 1.5, marginBottom: 18 }}>
-            Valmentajana tarvitset tämän jälkeen kertaluonteisen valmentaja-avaimen tilin viimeistelyyn. Sen saa vain minulta — jos sinulla ei vielä ole avainta, älä jaa sitä eteenpäin ja <a href="mailto:eelispuro@gmail.com" style={{ color: 'inherit', fontWeight: 700 }}>pyydä sitä minulta sähköpostilla</a>.
+            <strong style={{ display: 'block', marginBottom: 4 }}>Onko sinulla valmentaja-avain?</strong>
+            Jos ei ole, <a href={coachKeyEmailHref} style={{ color: 'inherit', fontWeight: 700 }}>pyydä se täältä</a>. Linkki avaa valmiin sähköpostipohjan.
+            <span style={{ display: 'block', marginTop: 6 }}>
+              Jos sinulla on jo avain, voit jatkaa kirjautumista valmentajana. Käytä omaa sähköpostiosoitettasi ja valitse itsellesi salasana.
+            </span>
           </div>
         )}
         {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}

@@ -2341,9 +2341,11 @@ function NavIcon({ id, on, offColor = 'rgba(255,255,255,0.72)' }) {
 }
 
 function Sidebar({ tab, setTab, coach, onSignOut, nav, acting }) {
+  const isDemo = Boolean(window.KOUTSI_DEMO_ROLE);
+  const homeHref = isDemo ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
   return (
     <div style={{ width: 248, flexShrink: 0, background: 'var(--green-deep)', color: '#fff', display: 'flex', flexDirection: 'column', padding: '26px 18px', position: 'fixed', top: 0, left: 0, bottom: 0, overflowY: 'auto' }}>
-      <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', paddingLeft: 6 }}>
+      <a href={homeHref} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', paddingLeft: 6 }}>
         <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--lime)', letterSpacing: -0.5 }}>Krossi</span>
         <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
       </a>
@@ -2371,17 +2373,27 @@ function Sidebar({ tab, setTab, coach, onSignOut, nav, acting }) {
           </div>
           {!acting && <window.KoutsiNotificationBell userId={coach.id} dark />}
         </div>
-        {!acting && <button onClick={onSignOut} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: '4px 6px', fontFamily: 'inherit' }}>Kirjaudu ulos</button>}
+        {!acting && (
+          <button
+            onClick={onSignOut}
+            className={isDemo ? 'btn-lime' : undefined}
+            style={isDemo
+              ? { width: '100%', padding: '12px 18px', fontSize: 14 }
+              : { background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)', fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: '4px 6px', fontFamily: 'inherit' }}>
+            {isDemo ? 'Luo tili' : 'Kirjaudu ulos'}
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
 function MobileTopBar({ coach, acting }) {
+  const homeHref = window.KOUTSI_DEMO_ROLE ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
   return (
     <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 60, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'rgba(247,245,239,0.9)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <a href="/" style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, textDecoration: 'none' }}>
+        <a href={homeHref} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, textDecoration: 'none' }}>
           <span style={{ fontWeight: 800, fontSize: 18, color: 'var(--green-deep)', letterSpacing: -0.4 }}>Krossi</span>
           <span style={{ fontSize: 11, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
         </a>
@@ -2830,10 +2842,6 @@ function CoachKeyGate({ onSignOut, onRedeemed }) {
           </button>
         </form>
         <button onClick={onSignOut} className="btn-outline" style={{ width: '100%', padding: '13px 0' }}>Kirjaudu ulos</button>
-        <div style={{ marginTop: 16, fontSize: 13, color: '#8a857a', lineHeight: 1.5 }}>
-          Oletko sittenkin pelaaja?{' '}
-          <a href="https://koutsi.krossi.app/pelaaja" style={{ color: 'var(--green-deep)', fontWeight: 700 }}>Siirry pelaajan puolelle</a> — sinne pääsee valmentajan liittymiskoodilla tai ilman.
-        </div>
       </div>
     </div>
   );
