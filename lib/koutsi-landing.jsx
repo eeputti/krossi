@@ -36,7 +36,7 @@ function Hero() {
         <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Pelaajat, ryhmät, videot, harjoitteet ja tavoitteet — kaikki yhdessä näkymässä.</p>
         <div className="hero-cta">
           <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-lg">Avaa demo →</a>
-          <a href="https://koutsi.krossi.app/valmentaja" className="btn-outline btn-lg">Luo tili →</a>
+          <a href="https://koutsi.krossi.app/valmentaja" className="btn-dark btn-lg">Luo tili →</a>
         </div>
       </div>
       <div className="hero-visual">
@@ -110,7 +110,6 @@ function Footer() {
         <p className="footer-tag">Valmennus ja kehitys, samassa paikassa.</p>
         <div className="footer-links">
           <a href={CONTACT_MAILTO}>eelispuro@gmail.com</a>
-          <a href="https://krossi.app">Krossi pelaajille →</a>
           <a href="#" onClick={e => { e.preventDefault(); window.krossiOpenCookieSettings && window.krossiOpenCookieSettings(); }}>Evästeasetukset</a>
         </div>
         <div className="footer-base">© 2026 Krossi Koutsi</div>

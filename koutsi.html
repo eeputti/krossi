@@ -164,9 +164,13 @@ window.krossiLoadPixel = function () {
   .step-card p { margin: 0; font-size: 14px; line-height: 1.55; color: rgba(255,255,255,0.78); }
 
   /* ── closing ── */
-  .closing { text-align: center; padding: clamp(56px,9vw,110px) 22px; }
-  .closing-inner { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 18px; }
-  .closing h2 { margin: 0; font-size: clamp(2.2rem,6.5vw,3.4rem); font-weight: 800; letter-spacing: -0.03em; color: var(--green-deep); }
+  .closing {
+    position: relative; overflow: hidden; text-align: center; color: #fff;
+    padding: clamp(56px,9vw,110px) 22px;
+    background: url('assets/clay-court-left.jpg') center / cover no-repeat;
+  }
+  .closing-inner { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .closing h2 { margin: 0; font-size: clamp(2.2rem,6.5vw,3.4rem); font-weight: 800; letter-spacing: -0.03em; color: #fff; text-shadow: 0 2px 14px rgba(20,6,2,0.45); }
   .closing p { margin: 0 0 6px; font-size: clamp(1rem,2.1vw,1.12rem); color: #514c42; line-height: 1.55; }
 
   /* ── footer ── */
