@@ -1,5 +1,8 @@
 .DS_Store
 .vercel
+.wrangler
+cloudflare-dist
 node_modules
+.dev.vars*
 .env*
 !.env.example
