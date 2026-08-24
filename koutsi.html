@@ -166,7 +166,8 @@ window.krossiLoadPixel = function () {
   /* ── closing ── */
   .closing {
     position: relative; overflow: hidden; text-align: center; color: #fff;
-    padding: clamp(56px,9vw,110px) 22px;
+    display: grid; place-items: center; aspect-ratio: 1600 / 900;
+    padding: clamp(14px,3vw,48px) 22px;
     background: url('assets/clay-court-left.jpg') center / cover no-repeat;
   }
   .closing-inner { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 18px; }
