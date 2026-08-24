@@ -31,7 +31,7 @@ function Hero() {
   return (
     <section className="hero" id="lataa">
       <div className="hero-copy">
-        <span className="eyebrow"><span className="ball-dot" /> Krossi valmentajille ja pelaajille</span>
+        <span className="eyebrow"><span className="ball-dot" /> Tenniksen valmentajille ja pelaajille</span>
         <h1 className="hero-title">Valmennus ja<br /><span className="hl">kehitys.</span> Samassa paikassa.</h1>
         <p className="hero-sub">
           Krossi Koutsi yhdistää valmentajan ja pelaajan.<br />

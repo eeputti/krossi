@@ -3081,8 +3081,9 @@ function Sidebar({ tab, setTab, coach, onSignOut, nav, acting }) {
   );
 }
 
-function MobileTopBar({ coach, acting, onProfile }) {
-  const homeHref = window.KOUTSI_DEMO_ROLE ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
+function MobileTopBar({ coach, acting, onProfile, onSignOut }) {
+  const isDemo = Boolean(window.KOUTSI_DEMO_ROLE);
+  const homeHref = isDemo ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
   return (
     <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 96, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px 10px', background: 'var(--green-deep)', borderBottom: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 10px 28px -22px rgba(0,0,0,0.65)', gap: 10 }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 7, minWidth: 0 }}>
@@ -3092,7 +3093,12 @@ function MobileTopBar({ coach, acting, onProfile }) {
         </a>
         <span style={{ padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.5)', color: 'var(--lime)', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6 }}>VALMENTAJA</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+        {isDemo && !acting && (
+          <button onClick={onSignOut} className="btn-lime" style={{ minHeight: 38, padding: '9px 12px', fontSize: 12.5, whiteSpace: 'nowrap' }}>
+            Luo tili
+          </button>
+        )}
         {!acting && <window.KoutsiNotificationBell userId={coach.id} dark />}
         <button onClick={acting ? undefined : onProfile} disabled={acting} aria-label={acting ? 'Valmentajan profiili' : 'Avaa profiili'} title={acting ? undefined : 'Profiili'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 2, borderRadius: '50%', border: '2px solid var(--lime)', background: 'transparent', cursor: acting ? 'default' : 'pointer', opacity: acting ? 0.72 : 1 }}>
           <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={32} />
@@ -3442,7 +3448,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
       <div className="kv-sidebar-wrap">
         <Sidebar tab={tab} setTab={setTab} coach={state.coach} onSignOut={onSignOut} nav={nav} acting={Boolean(actingCoach)} />
       </div>
-      <MobileTopBar coach={state.coach} acting={Boolean(actingCoach)} onProfile={() => setTab('profile')} />
+      <MobileTopBar coach={state.coach} acting={Boolean(actingCoach)} onProfile={() => setTab('profile')} onSignOut={onSignOut} />
       <div className="kv-main">
         {actingCoach && <ActingBanner coachName={state.coach.name} onExit={onExitActing} />}
         <div key={tab} className="k-rise-in">
