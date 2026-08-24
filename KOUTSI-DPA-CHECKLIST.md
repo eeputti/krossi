@@ -1,9 +1,9 @@
 # Koutsi — DPA-tarkistus ennen ulkopuolista pilottia
 
-Päivitetty 23.8.2026. Tämä asiakirja erottaa toisistaan palveluntarjoajan julkaistujen
-ehtojen tarkistamisen ja Roisku Median omalla tilillä tehdyn hyväksynnän. Koodista tai
-julkiselta verkkosivulta ei voi todentaa, että tilinomistaja on hyväksynyt tai arkistoinut
-sopimuksen.
+Päivitetty 24.8.2026. Tämä asiakirja erottaa toisistaan palveluntarjoajan julkaistujen
+ehtojen tarkistamisen ja Roisku Median oman tilin asiakastiedot, palvelutason sekä
+sopimustositteen. Koodista tai julkiselta verkkosivulta ei voi todentaa kaikkia näitä
+tilikohtaisia tietoja.
 
 **Tila: ULKOPUOLINEN PILOTTI EI OLE VIELÄ HYVÄKSYTTY HENKILÖTIEDOILLE.** Kaikki alla
 olevat kohdat merkitään tehdyiksi ja tositteet tallennetaan samaan sopimusarkistoon ennen
@@ -12,13 +12,18 @@ videoita.
 
 ## Supabase
 
-- [x] Tuotantoprojektin alue tarkistettu: `eu-west-1` (Supabase-projekti
-  `hhybjpgrvlbazbqiaaao`, tarkistettu 23.8.2026).
-- [x] Nykyinen DPA tarkistettu. Se muodostaa osan palvelusopimusta siitä päivästä, kun
-  asiakas allekirjoittaa tai muuten hyväksyy DPA:n.
-- [ ] Lataa, täytä ja hyväksy/allekirjoita
-  [Supabasen nykyinen DPA](https://supabase.com/downloads/docs/Supabase%2BDPA%2B260317.pdf).
-- [ ] Tallenna hyväksytty tai allekirjoitettu kopio sopimusarkistoon.
+- [x] Tuotantoprojektin alue ja palvelutaso tarkistettu: `eu-west-1`, Free (Supabase-projekti
+  `hhybjpgrvlbazbqiaaao`, tarkistettu 24.8.2026).
+- [x] [Nykyinen DPA](https://supabase.com/legal/customer-resources/data-processing-addendum)
+  (versio 1, 1.8.2026) ja [palveluehdot](https://supabase.com/terms) tarkistettu. DPA on
+  sisällytetty palvelusopimukseen ja tulee voimaan palvelusopimuksen voimaantulopäivänä;
+  erillistä vanhaa PDF-allekirjoitusta ei nykytekstin mukaan tarvita.
+- [ ] Tarkista Supabase Dashboardin organisaatio-/laskutustiedoista, että sopimuksen
+  asiakkaana on **Roisku Media** ja että tilin hyväksynyt henkilö saa sitoa yrityksen.
+  Hallintarajapinta näyttää organisaation nimeksi tällä hetkellä `eeputti`, ei yrityksen
+  juridista nimeä.
+- [ ] Tallenna nykyisen DPA:n ja palveluehtojen PDF-kopiot, projektin alue, palvelutaso,
+  asiakastieto ja tarkistuspäivä sopimusarkistoon.
 
 ## Vercel
 
@@ -40,13 +45,13 @@ jakelulokitietoja, kuten IP-osoitetta.
 
 - [x] [Resendin DPA](https://resend.com/legal/dpa) tarkistettu. Sen mukaan DPA tulee
   osaksi palvelusopimusta ehtojen hyväksynnällä tai erillisellä allekirjoituksella.
-- [ ] Avaa Resend Dashboard → Settings → Legal ja lataa allekirjoitettu DPA
+- [ ] Avaa Resend Dashboard → Settings → Documents ja lataa allekirjoitettu DPA
   ([Resendin ohje](https://resend.com/docs/knowledge-base/downloading-documents)).
 - [ ] Tallenna allekirjoitettu kopio sopimusarkistoon.
 
 ## Lopullinen hyväksyntä
 
-- [ ] Supabase-tosite tallennettu
+- [ ] Supabasen asiakasnimi vahvistettu ja tosite tallennettu
 - [ ] Vercelin Pro/Enterprise-palvelutaso ja DPA-kopio tallennettu
 - [ ] Resendin allekirjoitettu DPA tallennettu
 - [ ] Tietosuojaselosteen käsittelijä- ja sijaintitiedot tarkistettu tositteita vasten

@@ -75,18 +75,22 @@ yrityksen jälkeen, ja syy on `email_error`-sarakkeessa.
 **Pilotin tila on BLOKATTU**, kunnes [KOUTSI-DPA-CHECKLIST.md](KOUTSI-DPA-CHECKLIST.md)
 on kokonaan täytetty ja hyväksytty. Julkaistujen ehtojen tarkistus ei yksin todista, että
 Roisku Median tilillä vaadittu hyväksyntä, palvelutaso ja sopimusarkistointi ovat kunnossa.
+Kun lista on valmis, ensimmäisen valmentajan opastus tehdään
+[pilottiohjeen](KOUTSI-PILOTTI-OHJE.md) mukaan.
 
 Ensimmäinen pilotti on rajattu vähintään 18-vuotiaisiin. Jokainen käyttäjä vahvistaa
 täysi-ikäisyyden ja kielletyt tietoryhmät käyttäjäkohtaisesti; vahvistus tallentuu
 `koutsi_pilot_acknowledgements`-tauluun. Valmentaja saa lisätä vain vähintään 18-vuotiaita
-pelaajia. Taustatietokenttä, loukkaantumismerkintä ja poissaolon syyn tallennus on poistettu
-käytöstä, ja tietokantatriggerit estävät niiden käyttämisen vanhalla käyttöliittymälläkin.
+pelaajia. Taustatietokenttä, loukkaantumismerkintä ja vapaaehtoinen poissaolosyy on poistettu
+käyttöliittymästä: poissaolosta tallennetaan vain tieto "poissa", ei syytä.
 
-Migraatio `20260823164809_koutsi_adult_pilot_acknowledgement_and_health_lock.sql` tyhjentää
-vanhan sekakäyttöisen `background`-kentän sekä poissaolojen syyt ja muuntaa vanhat
-`vamma`-merkinnät tavallisiksi poissaoloiksi. Ota tarvittaessa tietokannan hallittu
-varmuuskopio ennen migraatiota; erityisiin henkilötietoryhmiin kuuluvaa sisältöä ei pidä
-siirtää pilotin uuteen käyttödataan.
+Migraatio `20260824052633_koutsi_adult_pilot_acknowledgement_and_health_lock.sql` tyhjentää
+vanhan sekakäyttöisen `background`-kentän. Tuotannossa jo käytössä oleva migraatio
+`20260823170209_add_attendance_details_and_player_reporting.sql` loi läsnäolorivin tekniset
+lisäkentät. Sen jälkeen ajettava
+`20260824052642_koutsi_close_attendance_health_exception.sql` muuntaa mahdolliset vanhat
+`vamma`-merkinnät tavallisiksi poissaoloiksi, tyhjentää poissaolon syyt ja estää niiden
+tallentamisen myös vanhalla käyttöliittymällä tai suoralla API-kutsulla.
 
 ## Vielä tehtäväksi jäävät asetukset
 
@@ -239,8 +243,8 @@ poistaa viiteavainten `ON DELETE CASCADE` -säännöillä myös profiilin ja Kou
 Poistosta jää henkilötiedot minimoiva audit-rivi tauluun `koutsi_admin_deletions`; taulu on
 RLS-suojattu eikä sitä voi lukea asiakassovelluksesta.
 
-Toteutus on migraatioissa `20260823165327_admin_user_management.sql` ja
-`20260823165933_tighten_admin_deletion_audit.sql`. Edge Function julkaistaan näin:
+Toteutus on migraatioissa `20260823165750_admin_user_management.sql` ja
+`20260823165948_tighten_admin_deletion_audit.sql`. Edge Function julkaistaan näin:
 
 ```bash
 supabase functions deploy koutsi-admin-delete-user --project-ref hhybjpgrvlbazbqiaaao

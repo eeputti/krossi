@@ -43,12 +43,6 @@ update public.koutsi_students
    set background = null
  where background is not null;
 
-update public.koutsi_training_absences
-   set reason = 'poissa',
-       note = null
- where reason = 'vamma'
-    or note is not null;
-
 -- Enforce the pilot limits below the UI as well. Adults with a real account may have a
 -- null age because the shared Krossi profile stores an age range; the recorded adult
 -- acknowledgement is the authoritative pilot gate. Placeholder players created by a
@@ -91,30 +85,6 @@ revoke all on function public.koutsi_enforce_pilot_student_limits() from public,
 create trigger koutsi_students_pilot_limits
 before insert or update on public.koutsi_students
 for each row execute function public.koutsi_enforce_pilot_student_limits();
-
-create or replace function public.koutsi_enforce_pilot_absence_limits()
-returns trigger
-language plpgsql
-security invoker
-set search_path = ''
-as $function$
-begin
-  if new.reason <> 'poissa' then
-    raise exception 'Beta-pilotissa läsnäoloon voi merkitä vain poissaolon ilman terveystietoa';
-  end if;
-  if nullif(btrim(coalesce(new.note, '')), '') is not null then
-    raise exception 'Beta-pilotissa poissaolon syytä ei tallenneta';
-  end if;
-  new.note := null;
-  return new;
-end;
-$function$;
-
-revoke all on function public.koutsi_enforce_pilot_absence_limits() from public, anon, authenticated;
-
-create trigger koutsi_training_absences_pilot_limits
-before insert or update on public.koutsi_training_absences
-for each row execute function public.koutsi_enforce_pilot_absence_limits();
 
 -- A closed pilot must be invitation-only below the UI as well. Existing student rows are
 -- left intact, but new users cannot create a standalone Koutsi without a coach invite.

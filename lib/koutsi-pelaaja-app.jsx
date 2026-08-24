@@ -1058,7 +1058,8 @@ function NavIcon({ id, on, offColor = '#9a958a' }) {
 }
 
 function Sidebar({ tab, setTab, student, onSignOut }) {
-  const homeHref = window.KOUTSI_DEMO_ROLE ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
+  const isDemo = Boolean(window.KOUTSI_DEMO_ROLE);
+  const homeHref = isDemo ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
   return (
     <div style={{ width: 248, flexShrink: 0, background: 'var(--green-deep)', color: '#fff', display: 'flex', flexDirection: 'column', padding: '26px 18px', position: 'fixed', top: 0, left: 0, bottom: 0, overflowY: 'auto' }}>
       <a href={homeHref} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, textDecoration: 'none', paddingLeft: 6 }}>
@@ -1089,15 +1090,23 @@ function Sidebar({ tab, setTab, student, onSignOut }) {
           </div>
           <window.KoutsiNotificationBell userId={student.id} dark />
         </div>
-        <button onClick={onSignOut} className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>Kirjaudu ulos</button>
-        <a href="https://koutsi.krossi.app" className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>← Etusivulle</a>
+        <button
+          onClick={onSignOut}
+          className={isDemo ? 'btn-lime' : 'btn-ghost btn-sm'}
+          style={isDemo
+            ? { width: '100%', padding: '12px 18px', fontSize: 14 }
+            : { justifyContent: 'flex-start', gap: 8 }}>
+          {isDemo ? 'Luo tili' : 'Kirjaudu ulos'}
+        </button>
+        {!isDemo && <a href="https://koutsi.krossi.app" className="btn-ghost btn-sm" style={{ justifyContent: 'flex-start', gap: 8 }}>← Etusivulle</a>}
       </div>
     </div>
   );
 }
 
-function MobileTopBar({ student, onProfile }) {
-  const homeHref = window.KOUTSI_DEMO_ROLE ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
+function MobileTopBar({ student, onProfile, onSignOut }) {
+  const isDemo = Boolean(window.KOUTSI_DEMO_ROLE);
+  const homeHref = isDemo ? 'https://demo.koutsi.krossi.app' : 'https://koutsi.krossi.app';
   return (
     <div className="kv-mobile-topbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 96, zIndex: 45, alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px 10px', background: 'var(--green-deep)', borderBottom: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 10px 28px -22px rgba(0,0,0,0.65)', gap: 10 }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 7, minWidth: 0 }}>
@@ -1107,7 +1116,12 @@ function MobileTopBar({ student, onProfile }) {
         </a>
         <span style={{ padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.5)', color: 'var(--lime)', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, flexShrink: 0 }}>PELAAJA</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
+        {isDemo && (
+          <button onClick={onSignOut} className="btn-lime" style={{ minHeight: 38, padding: '9px 12px', fontSize: 12.5, whiteSpace: 'nowrap' }}>
+            Luo tili
+          </button>
+        )}
         <window.KoutsiNotificationBell userId={student.id} dark />
         <button onClick={onProfile} aria-label="Avaa profiili" title="Profiili" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 2, borderRadius: '50%', border: '2px solid var(--lime)', background: 'transparent', cursor: 'pointer' }}>
           <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={32} />
@@ -1257,7 +1271,7 @@ function PlayerApp({ studentId, onSignOut }) {
       <div className="kv-sidebar-wrap">
         <Sidebar tab={tab} setTab={setTab} student={student} onSignOut={onSignOut} />
       </div>
-      <MobileTopBar student={student} onProfile={() => setTab('profile')} />
+      <MobileTopBar student={student} onProfile={() => setTab('profile')} onSignOut={onSignOut} />
       <div className="kv-main">
         <div key={tab} className="k-rise-in" style={{ maxWidth: 640, margin: '0 auto' }}>
           {tab === 'home' && <HomeView student={student} state={state} group={group} hasCoach={hasCoach} onSaveGoal={saveGoal} wish={wish} setWish={setWish} wishSaved={wishSaved} onSaveWish={saveWish} onToggleHomework={toggleHomework} onGoTab={setTab} />}

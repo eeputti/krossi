@@ -3,23 +3,34 @@
 // apps (koutsi-valmentaja-app.jsx / koutsi-pelaaja-app.jsx): top bar with role pill,
 // one tab's content, and the real bottom nav bar. No state, no clicks — just a snapshot.
 
-function Avatar({ initial, hue = 150, size = 44, ring = false }) {
+const KC_BRAND = {
+  lime: '#CFE414',
+  green: '#0E3B2C',
+  avatar: {
+    forest: { light: '#4F8A72', dark: '#0E3B2C', text: '#FFFFFF' },
+    mint: { light: '#55997E', dark: '#1F684F', text: '#FFFFFF' },
+    olive: { light: '#E1EC6B', dark: '#A5B619', text: '#0E3B2C' },
+  },
+};
+
+function Avatar({ initial, tone = 'forest', size = 44, ring = false }) {
+  const palette = KC_BRAND.avatar[tone] || KC_BRAND.avatar.forest;
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `radial-gradient(120% 120% at 30% 20%, hsl(${hue} 55% 62%), hsl(${hue + 24} 60% 38%))`,
+      background: `radial-gradient(120% 120% at 30% 20%, ${palette.light}, ${palette.dark})`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#fff', fontWeight: 700, fontSize: size * 0.4,
-      boxShadow: ring ? '0 0 0 2px var(--lime)' : 'none', letterSpacing: 0.3,
+      color: palette.text, fontWeight: 700, fontSize: size * 0.4,
+      boxShadow: ring ? `0 0 0 2px ${KC_BRAND.lime}` : 'none', letterSpacing: 0.3,
     }}>{initial}</div>
   );
 }
 
 const KC_LEVEL_COLORS = {
-  aloitt: { bg: 'rgba(214,140,44,0.14)', fg: '#8a5a12', border: 'rgba(214,140,44,0.35)' },
-  keski: { bg: 'rgba(58,130,212,0.12)', fg: '#2a5d94', border: 'rgba(58,130,212,0.32)' },
-  edist: { bg: 'rgba(148,88,214,0.12)', fg: '#6a389c', border: 'rgba(148,88,214,0.32)' },
-  kilpa: { bg: 'rgba(180,205,20,0.22)', fg: '#5c6b06', border: 'rgba(180,205,20,0.55)' },
+  aloitt: { bg: 'rgba(138,106,74,0.10)', fg: '#6f5337', border: 'rgba(138,106,74,0.28)' },
+  keski: { bg: 'rgba(14,59,44,0.08)', fg: '#0E3B2C', border: 'rgba(14,59,44,0.22)' },
+  edist: { bg: 'rgba(14,59,44,0.14)', fg: '#0A2C20', border: 'rgba(14,59,44,0.34)' },
+  kilpa: { bg: 'rgba(207,228,20,0.20)', fg: '#536009', border: 'rgba(157,178,0,0.52)' },
 };
 function LevelChip({ level }) {
   const l = (level || '').toLowerCase();
@@ -33,13 +44,13 @@ function Chip({ children }) {
 
 // ── sample data ──────────────────────────────────────────
 const COACH_STUDENTS = [
-  { id: 0, initial: 'M', hue: 205, name: 'Maria K.', age: 16, level: 'Kilpapelaaja', goal: 'Varmempi kakkossyöttö ja rohkeampi verkkopeli', focus: 'Split step + ensimmäinen askel', newEntry: true },
-  { id: 1, initial: 'A', hue: 150, name: 'Aleksi R.', age: 14, level: 'Keskitaso', goal: 'Backhandin tasapaino pitkissä vaihdoissa', focus: 'Askelkuvio ennen lyöntiä', newEntry: true },
-  { id: 2, initial: 'E', hue: 40, name: 'Emma L.', age: 12, level: 'Aloittelija', goal: 'Luonteva ote ja perusasento', focus: 'Mailan ote peilin edessä', newEntry: false },
+  { id: 0, initial: 'M', tone: 'forest', name: 'Maria K.', age: 24, level: 'Kilpapelaaja', goal: 'Varmempi kakkossyöttö ja rohkeampi verkkopeli', focus: 'Split step + ensimmäinen askel', newEntry: true },
+  { id: 1, initial: 'A', tone: 'mint', name: 'Aleksi R.', age: 21, level: 'Keskitaso', goal: 'Backhandin tasapaino pitkissä vaihdoissa', focus: 'Askelkuvio ennen lyöntiä', newEntry: true },
+  { id: 2, initial: 'E', tone: 'olive', name: 'Emma L.', age: 19, level: 'Aloittelija', goal: 'Luonteva ote ja perusasento', focus: 'Mailan ote peilin edessä', newEntry: false },
 ];
 
 const PLAYER_STUDENT = {
-  initial: 'M', hue: 205, name: 'Maria K.', level: 'Kilpapelaaja',
+  initial: 'M', tone: 'forest', name: 'Maria K.', level: 'Kilpapelaaja',
   group: { name: 'Kilpapelaajat', day: 'Ke', time: '17:00' },
   goal: 'Varmempi kakkossyöttö ja rohkeampi verkkopeli',
   theme: { title: 'Kämmenen pelitila', lead: 'Valmistautuminen alkaa heti vastustajan osumasta.' },
@@ -114,18 +125,18 @@ const PLAYER_TABS = [{ id: 'home', label: 'Koti' }, { id: 'group', label: 'Ryhm�
 function CoachPhone({ width = 220 }) {
   return (
     <PhoneFrame width={width}>
-      <TopBar width={width} roleLabel="VALMENTAJA" avatar={<Avatar initial="A" hue={150} size={width * 0.09} />} />
+      <TopBar width={width} roleLabel="VALMENTAJA" avatar={<Avatar initial="A" tone="mint" size={width * 0.09} />} />
       <div style={{ flex: 1, overflow: 'hidden', padding: `${width * 0.05}px ${width * 0.06}px` }}>
         <div style={{ fontSize: width * 0.1, fontWeight: 800, color: 'var(--green-deep)', letterSpacing: -0.3, marginBottom: width * 0.045 }}>Oppilaani</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: width * 0.045 }}>
           {COACH_STUDENTS.map((s) => (
             <div key={s.id} className="kp-card" style={{ padding: width * 0.055 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: width * 0.045, marginBottom: width * 0.04 }}>
-                <Avatar initial={s.initial} hue={s.hue} size={width * 0.15} />
+                <Avatar initial={s.initial} tone={s.tone} size={width * 0.15} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ color: '#111', fontWeight: 700, fontSize: width * 0.058 }}>{s.name}, {s.age}</span>
-                    {s.newEntry && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#46a66d', flexShrink: 0 }} />}
+                    {s.newEntry && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--lime)', boxShadow: '0 0 0 1px rgba(14,59,44,0.18)', flexShrink: 0 }} />}
                   </div>
                   <div style={{ marginTop: 4 }}><LevelChip level={s.level} /></div>
                 </div>
@@ -145,10 +156,10 @@ function PlayerPhone({ width = 220 }) {
   const s = PLAYER_STUDENT;
   return (
     <PhoneFrame width={width}>
-      <TopBar width={width} roleLabel="PELAAJA" avatar={<Avatar initial={s.initial} hue={s.hue} size={width * 0.09} />} />
+      <TopBar width={width} roleLabel="PELAAJA" avatar={<Avatar initial={s.initial} tone={s.tone} size={width * 0.09} />} />
       <div style={{ flex: 1, overflow: 'hidden', padding: `${width * 0.055}px ${width * 0.06}px` }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: width * 0.025, marginBottom: width * 0.07, textAlign: 'center' }}>
-          <Avatar initial={s.initial} hue={s.hue} size={width * 0.24} ring />
+          <Avatar initial={s.initial} tone={s.tone} size={width * 0.24} ring />
           <div style={{ fontSize: width * 0.075, fontWeight: 800, color: '#111' }}>{s.name}</div>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
             <LevelChip level={s.level} />

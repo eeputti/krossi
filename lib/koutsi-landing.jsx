@@ -31,9 +31,13 @@ function Hero() {
   return (
     <section className="hero" id="lataa">
       <div className="hero-copy">
-        <span className="eyebrow"><span className="ball-dot" /> Krossi valmentajille</span>
-        <h1 className="hero-title">Valmennus ja<br /><span className="hl">kehitys,</span> samassa paikassa.</h1>
-        <p className="hero-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Pelaajat, ryhmät, videot, harjoitteet ja tavoitteet — kaikki yhdessä näkymässä.</p>
+        <span className="eyebrow"><span className="ball-dot" /> Krossi valmentajille ja pelaajille</span>
+        <h1 className="hero-title">Valmennus ja<br /><span className="hl">kehitys.</span> Samassa paikassa.</h1>
+        <p className="hero-sub">
+          Krossi Koutsi yhdistää valmentajan ja pelaajan.<br />
+          Pelaajat, ryhmät, videot, treenit ja tavoitteet.<br />
+          Kaikki löytyy täältä.
+        </p>
         <div className="hero-cta">
           <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-lg">Avaa demo →</a>
           <a href="https://koutsi.krossi.app/valmentaja" className="btn-dark btn-lg">Luo tili →</a>
