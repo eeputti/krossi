@@ -16,6 +16,9 @@ const PLAYER_COUNT_FILTERS = [
   { key: 4, label: '4+ pelaajaa' },
 ];
 const CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+function playerAgeLabel(player) {
+  return player.ageLabel || (player.age == null ? '' : `${player.age} v`);
+}
 
 // `src` on profiilikuva, jos sellainen on ladattu; ilman sitä (tai jos kuva ei lataudu)
 // näytetään sama nimikirjain-ympyrä kuin ennenkin.
@@ -902,28 +905,47 @@ function DataExportButton({ userId, name }) {
 
 // Pelaaja omistaa nimensä, kuvansa ja ikänsä. Tason asettaa valmentaja. Pilotissa
 // taustatietokenttä ei ole käytössä, koska se pyysi aiemmin terveystietoja.
+const PLAYER_AGE_RANGES = [
+  { value: 'alle20', label: 'Alle 20' },
+  { value: '20-30', label: '20–30' },
+  { value: '30-40', label: '30–40' },
+  { value: '40-50', label: '40–50' },
+  { value: '50-60', label: '50–60' },
+  { value: '60+', label: '60+' },
+];
+const PLAYER_AGE_RANGE_VALUES = new Set(PLAYER_AGE_RANGES.map((range) => range.value));
+
 function PlayerProfileEditModal({ student, onClose, onSaved }) {
   const toast = window.useKoutsiToast();
   const [name, setName] = React.useState(student.name || '');
-  const [age, setAge] = React.useState(student.age == null ? '' : String(student.age));
-  const [avatarFile, setAvatarFile] = React.useState(null);
-  const [avatarPreview, setAvatarPreview] = React.useState(null);
+  const [age, setAge] = React.useState(student.ageValue || (student.age == null ? '' : String(student.age)));
   const [busy, setBusy] = React.useState(false);
-  const avatarInputRef = React.useRef(null);
 
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
-  const parsedAge = age.trim() === '' ? null : Number(age);
-  const ageValid = Number.isInteger(parsedAge) && parsedAge >= 18 && parsedAge < 120;
+  const exactAge = /^\d+$/.test(age) ? age : '';
+  const parsedAge = exactAge ? Number(exactAge) : null;
+  const pilotAgeGroup = student.pilotAgeGroup || 'adult';
+  const exactAgeMatchesPilotGroup = Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120
+    && ((pilotAgeGroup === 'adult' && parsedAge >= 18)
+      || (pilotAgeGroup === 'junior_13_17' && parsedAge >= 13 && parsedAge <= 17)
+      || (pilotAgeGroup === 'child_under_13' && parsedAge <= 12));
+  const rangeMatchesPilotGroup = PLAYER_AGE_RANGE_VALUES.has(age)
+    && (pilotAgeGroup === 'adult' || age === 'alle20');
+  const ageValid = !age || rangeMatchesPilotGroup || exactAgeMatchesPilotGroup;
   const ready = name.trim() && ageValid;
+  const ageChipStyle = (active) => ({
+    padding: '8px 13px', borderRadius: 999, border: active ? 'none' : '1px solid #d8d4ca',
+    background: active ? 'var(--lime)' : '#fff', color: active ? '#101a08' : '#3c382f',
+    fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit',
+  });
 
   const save = async () => {
     if (!ready) return;
     setBusy(true);
     const ok = await toast.run(async () => {
-      if (avatarFile) await window.koutsiUploadAvatar(student.id, avatarFile);
       if (name.trim() !== student.name) await window.koutsiSaveDisplayName(student.id, name.trim());
-      await window.koutsiSaveStudentProfile(student.id, { age: parsedAge });
+      await window.koutsiSaveStudentProfile(student.id, { age: parsedAge, profileAge: age || null });
     }, 'Profiili tallennettu.');
     setBusy(false);
     if (ok) { await onSaved(); onClose(); }
@@ -934,27 +956,20 @@ function PlayerProfileEditModal({ student, onClose, onSaved }) {
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 18 }}>Muokkaa profiilia</h3>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-          <button onClick={() => avatarInputRef.current?.click()} style={{ position: 'relative', width: 84, height: 84, padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '50%' }}>
-            {avatarPreview
-              ? <img src={avatarPreview} alt="" style={{ width: 84, height: 84, borderRadius: '50%', objectFit: 'cover' }} />
-              : <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={84} />}
-            <span style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: '50%', background: 'var(--green-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><path d="M3 7h3l2-3h8l2 3h3v13H3z" /><circle cx="12" cy="13" r="4" /></svg>
-            </span>
-          </button>
-          <input ref={avatarInputRef} type="file" accept="image/*" hidden onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) { setAvatarFile(f); setAvatarPreview(URL.createObjectURL(f)); }
-          }} />
-        </div>
-
         <div style={label}>Nimi</div>
         <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
-        <div style={label}>Ikä</div>
-        <input value={age} onChange={(e) => setAge(e.target.value)} inputMode="numeric" placeholder="Esim. 24"
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 9 }}>
+          <div style={{ ...label, marginBottom: 0 }}>Ikä (valinnainen)</div>
+          {age && <button type="button" onClick={() => setAge('')} style={{ border: 'none', background: 'none', padding: 0, color: '#8a857a', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer' }}>Tyhjennä</button>}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          {PLAYER_AGE_RANGES.map((range) => (
+            <button key={range.value} type="button" onClick={() => setAge(range.value)} style={ageChipStyle(age === range.value)}>{range.label}</button>
+          ))}
+        </div>
+        <input value={exactAge} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} inputMode="numeric" placeholder="Tai tarkka ikä, esim. 24"
           style={{ ...inputStyle, marginBottom: ageValid ? 16 : 6, borderColor: ageValid ? '#d8d4ca' : '#c2543f' }} />
-        {!ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Beta-pilotti on vain vähintään 18-vuotiaille. Anna ikä kokonaislukuna.</div>}
+        {!ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Iän pitää vastata valmentajan vahvistamaa ikäryhmää.</div>}
         <div style={{ padding: '11px 13px', marginBottom: 20, borderRadius: 12, background: '#f7f5ef', color: '#6b665c', fontSize: 12.5, lineHeight: 1.5 }}>
           Älä kirjoita Koutsiin vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.
         </div>
@@ -990,7 +1005,7 @@ function ProfileView({ student, group, state, onSignOut, onReload }) {
       <SectionTitle>Omat tiedot</SectionTitle>
       <div className="k-card" style={{ padding: '4px 18px 14px', marginBottom: 26 }}>
         <ProfileRow label="Nimi" value={student.name} />
-        <ProfileRow label="Ikä" value={student.age == null ? '' : `${student.age} v`} hint="Ei asetettu" />
+        <ProfileRow label="Ikä" value={playerAgeLabel(student)} hint="Ei asetettu" />
         <ProfileRow label="Taso" value={student.level} hint="Valmentaja asettaa" />
         <ProfileRow label="Ryhmä" value={group ? `${group.name} · ${group.day} klo ${group.time}` : ''} hint="Ei ryhmää" />
         <ProfileRow label="Valmentaja" value={coaches.map((c) => c.name).join(', ')} hint="Ei valmentajaa" />
@@ -1304,19 +1319,16 @@ function PlayerApp({ studentId, onSignOut }) {
   );
 }
 
-// ── root gate: auth -> pilot acknowledgement -> Krossi onboarding -> invite -> app ──
+// ── root gate: auth -> Krossi onboarding -> personal invite -> pilot acknowledgement -> app ──
 // Suljetussa pilotissa jokainen pelaaja tulee valmentajan koodilla. Linkin ?koodi=
 // tulee esitäytettynä, jottei koodia tarvitse sanella puhelimessa.
 function JoinCodeForm({ onJoined, autoFocus }) {
-  const [code, setCode] = React.useState(() => (new URLSearchParams(window.location.search).get('koodi') || '').trim().toUpperCase());
+  const pageParams = new URLSearchParams(window.location.search);
+  const [code, setCode] = React.useState(() => (pageParams.get('koodi') || '').trim().toUpperCase());
+  const targetStudentId = pageParams.get('oppilas') || '';
   const [error, setError] = React.useState('');
   const [info, setInfo] = React.useState('');
   const [busy, setBusy] = React.useState(false);
-  // Valmentaja on voinut lisätä pelaajan valmiiksi pelkällä nimellä. Jos koodin
-  // takaa löytyy lunastamattomia profiileja, kysytään ensin kuka pelaaja on —
-  // muuten hänen valmentajansa siihen asti kirjaama työ jäisi orvoksi.
-  const [pending, setPending] = React.useState(null); // null = ei kysytty, [] = ei odottavia
-  const [claiming, setClaiming] = React.useState(false);
 
   const finish = (result) => {
     setInfo(`Liityit${result.group_name ? ` ryhmään ${result.group_name}` : ''}${result.coach_name ? ` — valmentaja ${result.coach_name}` : ''}!`);
@@ -1328,54 +1340,19 @@ function JoinCodeForm({ onJoined, autoFocus }) {
     setError(''); setInfo(''); setBusy(true);
     const normalized = code.trim().toUpperCase();
     try {
-      let waiting = [];
-      // Lunastettavien haku ei saa estää liittymistä jos se jostain syystä kaatuu.
-      try { waiting = await window.koutsiUnclaimedPlayers(normalized); } catch { waiting = []; }
-      if (waiting.length > 0) { setPending(waiting); setBusy(false); return; }
-      finish(await window.koutsiRedeemInviteCode(normalized));
+      const result = targetStudentId
+        ? await window.koutsiClaimPlayer(normalized, targetStudentId)
+        : await window.koutsiRedeemInviteCode(normalized);
+      finish(result);
     } catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); } finally { setBusy(false); }
   };
-
-  const claim = async (studentId) => {
-    setError(''); setClaiming(true);
-    try { finish(await window.koutsiClaimPlayer(code.trim().toUpperCase(), studentId)); }
-    catch (err) { setError(window.koutsiErrorText(err, 'Profiilin lunastus epäonnistui')); setClaiming(false); }
-  };
-
-  const joinAsNew = async () => {
-    setError(''); setClaiming(true);
-    try { finish(await window.koutsiRedeemInviteCode(code.trim().toUpperCase())); }
-    catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); setClaiming(false); }
-  };
-
-  if (pending && pending.length > 0) {
-    return (
-      <React.Fragment>
-        {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
-        {info && <div style={{ background: 'rgba(14,59,44,0.08)', border: '1px solid rgba(14,59,44,0.25)', color: 'var(--green-deep)', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{info}</div>}
-        <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5, marginBottom: 14 }}>
-          Valmentajasi on jo lisännyt pelaajia valmiiksi. Oletko sinä joku näistä?
-          Valitsemalla nimesi saat valmentajan siihen asti kirjaamat tiedot omaan näkymääsi.
-        </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-          {pending.map((pl) => (
-            <button key={pl.id} onClick={() => claim(pl.id)} disabled={claiming} className="k-card"
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 15px', textAlign: 'left', cursor: claiming ? 'default' : 'pointer', width: '100%', fontFamily: 'inherit', opacity: claiming ? 0.6 : 1 }}>
-              <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>{pl.name}</span>
-            </button>
-          ))}
-        </div>
-        <button onClick={joinAsNew} disabled={claiming} className="btn-outline btn-sm">En ole kukaan näistä — liity uutena</button>
-      </React.Fragment>
-    );
-  }
   return (
     <React.Fragment>
       {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
       {info && <div style={{ background: 'rgba(14,59,44,0.08)', border: '1px solid rgba(14,59,44,0.25)', color: 'var(--green-deep)', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{info}</div>}
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Esim. VHDC6P" autoFocus={autoFocus} style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 18, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'inherit', color: '#111', background: '#fff' }} />
-        <button className="btn-dark" type="submit" disabled={busy || !code.trim()} style={{ padding: '13px 0', opacity: (busy || !code.trim()) ? 0.5 : 1 }}>{busy ? 'Liitytään...' : 'Liity'}</button>
+        <button className="btn-dark" type="submit" disabled={busy || !code.trim()} style={{ padding: '13px 0', opacity: (busy || !code.trim()) ? 0.5 : 1 }}>{busy ? 'Liitytään...' : targetStudentId ? 'Aktivoi oma pelaajaprofiili' : 'Liity'}</button>
       </form>
     </React.Fragment>
   );
@@ -1392,7 +1369,7 @@ function InviteCodeScreen({ onSignOut }) {
         <div style={{ borderTop: '1px solid var(--line)', marginTop: 22, paddingTop: 18 }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#111', marginBottom: 5 }}>Etkö tiedä koodia?</div>
           <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.55, marginBottom: 12 }}>
-            Suljettuun beta-pilottiin pääsee vain valmentajan kutsulla. Pyydä koodi valmentajaltasi ja varmista, että olet hänen etukäteen valitsemansa vähintään 18-vuotias testaaja.
+            Suljettuun beta-pilottiin pääsee vain valmentajan kutsulla. Jos olet alle 18-vuotias, pyydä valmentajalta juuri sinulle tehty henkilökohtainen liittymislinkki. Alle 13-vuotias tarvitsee lisäksi huoltajan hyväksynnän.
           </p>
         </div>
 
@@ -1425,21 +1402,21 @@ function KoutsiPelaajaRoot() {
   }, [uid]);
 
   React.useEffect(() => {
-    if (!uid || !auth.pilotAccepted || auth.needsOnboarding) { setStudentRow(undefined); return; }
+    if (!uid || auth.needsOnboarding) { setStudentRow(undefined); return; }
     checkStudent();
-  }, [uid, auth.pilotAccepted, auth.needsOnboarding, checkStudent]);
+  }, [uid, auth.needsOnboarding, checkStudent]);
 
   if (auth.loading) return <window.KoutsiAuthLoadingScreen />;
   // a recovery link must lead to a new password, not straight into the app
   if (auth.recoveryMode && auth.session) return <window.KoutsiPasswordResetScreen />;
   if (!auth.session) return <window.KoutsiAuthScreen />;
-  if (auth.pilotError) return <window.KoutsiErrorScreen message="Pilotin käyttörajausta ei saatu tarkistettua. Tarkista verkkoyhteys ja yritä uudelleen." onRetry={auth.retryPilot} onSignOut={auth.signOut} />;
-  if (!auth.pilotAccepted) return <window.KoutsiPilotGate />;
   if (auth.profileError) return <window.KoutsiErrorScreen message="Profiilitietojasi ei saatu haettua. Tarkista verkkoyhteys ja yritä uudelleen." onRetry={auth.retryProfile} onSignOut={auth.signOut} />;
   if (auth.needsOnboarding) return <window.KoutsiProfileOnboarding />;
   if (checkFailed) return <window.KoutsiErrorScreen onRetry={checkStudent} onSignOut={auth.signOut} />;
   if (studentRow === undefined) return <window.KoutsiAuthLoadingScreen />;
   if (!studentRow) return <InviteCodeScreen onSignOut={auth.signOut} />;
+  if (auth.pilotError) return <window.KoutsiErrorScreen message="Pilotin käyttörajausta ei saatu tarkistettua. Tarkista verkkoyhteys ja yritä uudelleen." onRetry={auth.retryPilot} onSignOut={auth.signOut} />;
+  if (!auth.pilotAccepted) return <window.KoutsiPilotGate />;
   return <PlayerApp studentId={auth.session.user.id} onSignOut={auth.signOut} />;
 }
 

@@ -99,7 +99,16 @@ function fmtLastMsg(raw) {
   } catch {} return { text: raw };
 }
 function slotLabel(v) { const s = AVAILABILITY_SLOTS.find(a => a.value === v); return s ? (s.time ? `${s.label} ${s.time}` : s.label) : v; }
-function ageRangeLabel(v) { const r = AGE_RANGES.find(a => a.value === v); return r ? r.label : v; }
+function ageRangeLabel(v) {
+  if (!v) return '';
+  if (/^\d{2,3}$/.test(v)) return `${v} v`;
+  const r = AGE_RANGES.find(a => a.value === v);
+  return r ? r.label : v;
+}
+function profileNameWithAge(profile) {
+  const age = ageRangeLabel(profile?.ika);
+  return `${profile?.nimi || 'Pelaaja'}${age ? `, ${age}` : ''}`;
+}
 function archivedStorageKey(uid) { return `krossi_archived_conversations_${uid}`; }
 function getArchivedIds(uid) {
   if (!uid) return [];
@@ -698,7 +707,7 @@ function SidebarProfile({ onEdit }) {
   return (
     <div className="sidebar-profile">
       <Avatar uri={profile.avatarUrl} name={profile.nimi} color={profile.avatarColor} size={64} />
-      <div className="sidebar-name">{profile.nimi}, {ageRangeLabel(profile.ika)}</div>
+      <div className="sidebar-name">{profileNameWithAge(profile)}</div>
       {profile.bio && <div className="sidebar-bio">{profile.bio}</div>}
       <div className="sidebar-areas">
         {profile.alue.map(a => <span key={a} className="sidebar-area">{a}</span>)}
@@ -736,7 +745,7 @@ function PlayerCard({ player, onClick }) {
         <Avatar uri={player.avatarUrl} name={player.nimi} color={player.avatarColor} size={42} />
         <div style={{ flex:1,minWidth:0 }}>
           <div style={{ display:'flex',alignItems:'center',gap:8,flexWrap:'wrap' }}>
-            <span style={{ color:'var(--ink)',fontWeight:700,fontSize:15 }}>{player.nimi}, {ageRangeLabel(player.ika)}</span>
+            <span style={{ color:'var(--ink)',fontWeight:700,fontSize:15 }}>{profileNameWithAge(player)}</span>
             {player.playingThisWeek && <span className="chip chip-active" style={{padding:'2px 7px',fontSize:11}}><span style={{width:5,height:5,borderRadius:'50%',background:'#7ee06a'}}/>Tällä viikolla</span>}
           </div>
           <div style={{ display:'flex',flexWrap:'wrap',gap:4,marginTop:3 }}>
@@ -786,7 +795,7 @@ function PlayerDetail({ player, onBack, currentUserId }) {
       <button className="back-btn" onClick={onBack}>← Takaisin</button>
       <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:8,margin:'24px auto',maxWidth:500 }}>
         <Avatar uri={player.avatarUrl} name={player.nimi} color={player.avatarColor} size={84} />
-        <h2 style={{ color:'var(--ink)',fontWeight:800,fontSize:22,margin:0 }}>{player.nimi}, {ageRangeLabel(player.ika)}</h2>
+        <h2 style={{ color:'var(--ink)',fontWeight:800,fontSize:22,margin:0 }}>{profileNameWithAge(player)}</h2>
         <p style={{ color:'var(--text-muted)',fontSize:14 }}>{player.alue.join(', ')}</p>
         {player.playingThisWeek && <span className="chip chip-active">Tällä viikolla</span>}
       </div>
@@ -1566,7 +1575,7 @@ function ProfileFullScreen({ onOpenBlocked }) {
     </div>
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginBottom:24}}>
       <Avatar uri={profile.avatarUrl} name={profile.nimi} color={profile.avatarColor} size={76}/>
-      <h3 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{profile.nimi}, {ageRangeLabel(profile.ika)}</h3>
+      <h3 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{profileNameWithAge(profile)}</h3>
       {profile.bio&&<p style={{color:'var(--text-muted)',fontSize:13,textAlign:'center'}}>{profile.bio}</p>}
     </div>
     <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:16}}>{profile.alue.map(a=><span key={a} className="sidebar-area">{a}</span>)}</div>

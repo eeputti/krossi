@@ -15,6 +15,9 @@ const PLAYER_COUNT_FILTERS = [
   { key: 3, label: '3 pelaajaa' },
   { key: 4, label: '4+ pelaajaa' },
 ];
+function playerAgeLabel(player) {
+  return player.ageLabel || (player.age == null ? '' : `${player.age} v`);
+}
 
 // `src` on profiilikuva, jos sellainen on ladattu; ilman sitä (tai jos kuva ei lataudu)
 // näytetään sama nimikirjain-ympyrä kuin ennenkin.
@@ -229,7 +232,7 @@ function InviteStudentModal({ coachId, coachName, onClose }) {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Kutsu uusi oppilas</h3>
-        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Tämä koodi liittää pelaajan sinun valmennettavaksesi ilman ryhmää — sopii esim. yksityistunneille. Voit lisätä pelaajan johonkin ryhmään myöhemmin erikseen.</p>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Tämä yhteinen koodi on täysi-ikäiselle pelaajalle uutena liittymiseen. Lisää alaikäinen ensin nimellä oppilaslistaan ja lähetä henkilökohtainen linkki hänen pelaajakortiltaan.</p>
         <InviteCodeBox coachId={coachId} coachName={coachName} groupId={null} groupName={null} />
         <button onClick={onClose} className="btn-outline" style={{ width: '100%', padding: '13px 0', marginTop: 16 }}>Sulje</button>
       </div>
@@ -243,18 +246,33 @@ function InviteStudentModal({ coachId, coachName, onClose }) {
 function AddPlayerModal({ onClose, onSave }) {
   const [name, setName] = React.useState('');
   const [age, setAge] = React.useState('');
+  const [ageGroup, setAgeGroup] = React.useState('');
   const [level, setLevel] = React.useState('');
+  const [minorNoticeConfirmed, setMinorNoticeConfirmed] = React.useState(false);
+  const [guardianApproved, setGuardianApproved] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
-  const parsedAge = Number(age);
-  const ageValid = Number.isInteger(parsedAge) && parsedAge >= 18 && parsedAge < 120;
-  const ready = name.trim() && ageValid && !busy;
+  const parsedAge = age ? Number(age) : null;
+  const ageValid = parsedAge == null || (
+    Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120
+    && ((ageGroup === 'adult' && parsedAge >= 18)
+      || (ageGroup === 'junior_13_17' && parsedAge >= 13 && parsedAge <= 17)
+      || (ageGroup === 'child_under_13' && parsedAge <= 12))
+  );
+  const isMinor = ageGroup === 'junior_13_17' || ageGroup === 'child_under_13';
+  const ready = name.trim() && ageGroup && ageValid
+    && (!isMinor || minorNoticeConfirmed)
+    && (ageGroup !== 'child_under_13' || guardianApproved)
+    && !busy;
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const submit = async () => {
     if (!ready) return;
     setBusy(true); setError('');
-    try { await onSave({ name: name.trim(), age: parsedAge, level: level.trim() || null }); }
+    try { await onSave({
+      name: name.trim(), age: parsedAge, level: level.trim() || null, ageGroup,
+      minorNoticeConfirmed, guardianApproved,
+    }); }
     catch (err) { setError(window.koutsiErrorText(err, 'Pelaajan lisäys epäonnistui')); setBusy(false); }
   };
   return (
@@ -262,17 +280,40 @@ function AddPlayerModal({ onClose, onSave }) {
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Lisää pelaaja</h3>
         <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>
-          Beta-pilottiin saa lisätä vain vähintään 18-vuotiaita pelaajia. Älä kirjoita nimi- tai
-          muistiinpanokenttiin terveystietoja.
+          Voit lisätä kaikenikäisen pelaajan. Valitse vain ikäryhmä — syntymäaikaa,
+          henkilöllisyystodistusta tai huoltajan yhteystietoja ei kerätä. Älä kirjoita terveystietoja.
         </p>
         {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
         <div style={label}>Nimi</div>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. Onni Virtanen" style={{ ...inputStyle, marginBottom: 16 }} />
-        <div style={label}>Ikä *</div>
+        <div style={label}>Ikäryhmä *</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+          {[
+            ['adult', '18+'], ['junior_13_17', '13–17'], ['child_under_13', 'Alle 13'],
+          ].map(([value, text]) => (
+            <button key={value} type="button" onClick={() => { setAgeGroup(value); setMinorNoticeConfirmed(false); setGuardianApproved(false); }}
+              style={{ minHeight: 42, borderRadius: 11, border: ageGroup === value ? '2px solid var(--green-deep)' : '1px solid #d8d4ca', background: ageGroup === value ? 'rgba(207,228,20,0.16)' : '#fff', color: '#302d27', fontFamily: 'inherit', fontWeight: 800, cursor: 'pointer' }}>{text}</button>
+          ))}
+        </div>
+        <div style={label}>Tarkka ikä (valinnainen)</div>
         <input value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="24" style={{ ...inputStyle, marginBottom: age && !ageValid ? 6 : 16, borderColor: age && !ageValid ? '#c2543f' : '#d8d4ca' }} />
-        {age && !ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Beta-pilotti on vain vähintään 18-vuotiaille.</div>}
+        {age && !ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Tarkan iän pitää vastata valittua ikäryhmää.</div>}
         <div style={label}>Taso (valinnainen)</div>
-        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Aloittelija" style={{ ...inputStyle, marginBottom: 20 }} />
+        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Aloittelija" style={{ ...inputStyle, marginBottom: isMinor ? 14 : 20 }} />
+        {isMinor && (
+          <React.Fragment>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 12px', marginBottom: 9, borderRadius: 12, background: '#f7f5ef', fontSize: 12.5, lineHeight: 1.45, cursor: 'pointer' }}>
+              <input type="checkbox" checked={minorNoticeConfirmed} onChange={(e) => setMinorNoticeConfirmed(e.target.checked)} style={{ marginTop: 2, accentColor: 'var(--green-deep)' }} />
+              <span>Olen kertonut alaikäiselle Koutsin käytöstä ja siitä, ettei sovellukseen kirjata terveystietoja.</span>
+            </label>
+            {ageGroup === 'child_under_13' && (
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 12px', marginBottom: 14, borderRadius: 12, background: 'rgba(207,228,20,0.12)', fontSize: 12.5, lineHeight: 1.45, cursor: 'pointer' }}>
+                <input type="checkbox" checked={guardianApproved} onChange={(e) => setGuardianApproved(e.target.checked)} style={{ marginTop: 2, accentColor: 'var(--green-deep)' }} />
+                <span>Huoltaja on hyväksynyt Koutsin käytön. En tallenna huoltajan nimeä tai yhteystietoja tähän vahvistukseen.</span>
+              </label>
+            )}
+          </React.Fragment>
+        )}
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
           <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Lisätään…' : 'Lisää'}</button>
@@ -295,7 +336,7 @@ function BulkSetupModal({ groups, onClose, onSave }) {
     { key: 'new-1', name: '', level: '', day: 'Ma', time: '' },
   ]);
   const [players, setPlayers] = React.useState(() => Array.from({ length: 4 }, (_, i) => ({
-    key: `player-${i + 1}`, name: '', age: '', level: '', groupKey: '',
+    key: `player-${i + 1}`, name: '', age: '', ageGroup: '', level: '', groupKey: '',
   })));
   const [themeRows, setThemeRows] = React.useState([]);
   const [pasteOpen, setPasteOpen] = React.useState(false);
@@ -304,6 +345,8 @@ function BulkSetupModal({ groups, onClose, onSave }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [result, setResult] = React.useState(null);
+  const [minorNoticeConfirmed, setMinorNoticeConfirmed] = React.useState(false);
+  const [guardianApproved, setGuardianApproved] = React.useState(false);
 
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '10px 11px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const labelStyle = { fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5 };
@@ -313,10 +356,17 @@ function BulkSetupModal({ groups, onClose, onSave }) {
   const startedGroups = newGroups.filter((g) => g.name.trim() || g.level.trim() || g.time);
   const incompleteGroup = startedGroups.some((g) => !g.name.trim() || !g.time);
   const filledPlayers = players.filter((p) => p.name.trim());
+  const missingPlayerAgeGroup = filledPlayers.some((p) => !p.ageGroup);
   const invalidPlayerAge = filledPlayers.some((p) => {
+    if (!p.age) return false;
     const value = Number(p.age);
-    return !p.age || !Number.isInteger(value) || value < 18 || value >= 120;
+    return !Number.isInteger(value) || value < 1 || value >= 120
+      || (p.ageGroup === 'adult' && value < 18)
+      || (p.ageGroup === 'junior_13_17' && (value < 13 || value > 17))
+      || (p.ageGroup === 'child_under_13' && value > 12);
   });
+  const hasMinors = filledPlayers.some((p) => p.ageGroup === 'junior_13_17' || p.ageGroup === 'child_under_13');
+  const hasUnder13 = filledPlayers.some((p) => p.ageGroup === 'child_under_13');
   const duplicatePlayerNames = (() => {
     const seen = new Set();
     return filledPlayers.some((p) => {
@@ -341,7 +391,7 @@ function BulkSetupModal({ groups, onClose, onSave }) {
   };
   const updatePlayer = (key, patch) => setPlayers((prev) => prev.map((p) => p.key === key ? { ...p, ...patch } : p));
   const addPlayerRow = (defaults = {}) => setPlayers((prev) => [...prev, {
-    key: `player-${playerSeq.current++}`, name: '', age: '', level: '', groupKey: '', ...defaults,
+    key: `player-${playerSeq.current++}`, name: '', age: '', ageGroup: '', level: '', groupKey: '', ...defaults,
   }]);
   const removePlayer = (key) => setPlayers((prev) => prev.filter((p) => p.key !== key));
 
@@ -356,7 +406,7 @@ function BulkSetupModal({ groups, onClose, onSave }) {
       if (emptyIndex < empty.length) {
         updates.set(empty[emptyIndex].key, { name, groupKey: pasteGroupKey });
         emptyIndex += 1;
-      } else additions.push({ key: `player-${playerSeq.current++}`, name, age: '', level: '', groupKey: pasteGroupKey });
+      } else additions.push({ key: `player-${playerSeq.current++}`, name, age: '', ageGroup: '', level: '', groupKey: pasteGroupKey });
     });
     setPlayers((prev) => [...prev.map((p) => updates.has(p.key) ? { ...p, ...updates.get(p.key) } : p), ...additions]);
     setPasteText(''); setPasteOpen(false); setError('');
@@ -420,6 +470,9 @@ function BulkSetupModal({ groups, onClose, onSave }) {
       groups: importGroups,
       players: filledPlayers.map((p) => ({
         name: p.name.trim(), age: p.age ? Number(p.age) : null, level: p.level.trim() || null,
+        age_group: p.ageGroup,
+        minor_notice_confirmed: p.ageGroup !== 'adult' && minorNoticeConfirmed,
+        guardian_approved: p.ageGroup === 'child_under_13' && guardianApproved,
         group_refs: p.groupKey && used.has(p.groupKey) ? [p.groupKey] : [],
       })),
       themes: filledThemes.map((r) => ({
@@ -427,19 +480,22 @@ function BulkSetupModal({ groups, onClose, onSave }) {
         title: r.title.trim(), lead: r.lead.trim() || null,
       })),
     };
-  }, [groupOptions, involvedGroupKeys, filledPlayers, filledThemes]);
+  }, [groupOptions, involvedGroupKeys, filledPlayers, filledThemes, minorNoticeConfirmed, guardianApproved]);
 
   const next = () => {
     setError('');
     if (step === 0 && incompleteGroup) { setError('Täytä uuden ryhmän nimi ja kellonaika tai poista keskeneräinen rivi.'); return; }
     if (step === 1 && filledPlayers.length === 0) { setError('Lisää vähintään yksi pelaaja.'); return; }
-    if (step === 1 && invalidPlayerAge) { setError('Anna jokaiselle pelaajalle vähintään 18 vuoden ikä. Alaikäisiä ei oteta beta-pilottiin.'); return; }
+    if (step === 1 && missingPlayerAgeGroup) { setError('Valitse jokaiselle pelaajalle ikäryhmä. Tarkkaa ikää ei tarvitse antaa.'); return; }
+    if (step === 1 && invalidPlayerAge) { setError('Tarkan iän pitää vastata valittua ikäryhmää. Iän voi myös jättää tyhjäksi.'); return; }
     if (step === 1 && duplicatePlayerNames) { setError('Samanniminen pelaaja on listalla kahdesti. Tarkista nimet ennen jatkamista.'); return; }
     if (step === 1) ensureThemeRows();
     if (step === 2 && duplicateThemeWeeks) { setError('Samalle ryhmälle on kaksi teemaa samalla viikolla.'); return; }
     setStep((s) => Math.min(3, s + 1));
   };
   const save = async () => {
+    if (hasMinors && !minorNoticeConfirmed) { setError('Vahvista, että alaikäiset tietävät Koutsin käytöstä.'); return; }
+    if (hasUnder13 && !guardianApproved) { setError('Vahvista huoltajan hyväksyntä alle 13-vuotiaiden osalta.'); return; }
     setBusy(true); setError('');
     try {
       const saved = await onSave(payload);
@@ -552,7 +608,7 @@ function BulkSetupModal({ groups, onClose, onSave }) {
                   <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
                     <div>
                       <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 5 }}>Kirjoita pelaajat riveille</h3>
-                      <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55 }}>Nimi riittää. Ikä, taso ja ryhmä voi täydentää nyt tai myöhemmin.</p>
+                      <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55 }}>Nimi ja ikäryhmä riittävät. Tarkka ikä on vapaaehtoinen; syntymäaikaa tai henkilöllisyystodistusta ei kerätä.</p>
                     </div>
                     <button onClick={() => { setPasteOpen((v) => !v); setError(''); }} className="btn-outline btn-sm">Liitä nimilista</button>
                   </div>
@@ -570,13 +626,19 @@ function BulkSetupModal({ groups, onClose, onSave }) {
                       </div>
                     </div>
                   )}
-                  <div className="kv-bulk-player-head" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.4fr) 76px minmax(120px, 1fr) minmax(160px, 1.2fr) 36px', gap: 8, padding: '0 11px 7px' }}>
-                    {['Nimi *', 'Ikä *', 'Taso', 'Ryhmä', ''].map((h, i) => <div key={`${h}-${i}`} style={labelStyle}>{h}</div>)}
+                  <div className="kv-bulk-player-head" style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 1.25fr) 116px 66px minmax(105px, .9fr) minmax(140px, 1.1fr) 36px', gap: 8, padding: '0 11px 7px' }}>
+                    {['Nimi *', 'Ikäryhmä *', 'Ikä', 'Taso', 'Ryhmä', ''].map((h, i) => <div key={`${h}-${i}`} style={labelStyle}>{h}</div>)}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {players.map((p, index) => (
-                      <div key={p.key} className="k-card kv-bulk-player-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.4fr) 76px minmax(120px, 1fr) minmax(160px, 1.2fr) 36px', gap: 8, padding: '10px 11px', alignItems: 'center' }}>
+                      <div key={p.key} className="k-card kv-bulk-player-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 1.25fr) 116px 66px minmax(105px, .9fr) minmax(140px, 1.1fr) 36px', gap: 8, padding: '10px 11px', alignItems: 'center' }}>
                         <input aria-label={`Pelaajan ${index + 1} nimi`} value={p.name} onChange={(e) => updatePlayer(p.key, { name: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter' && index === players.length - 1) { e.preventDefault(); addPlayerRow({ groupKey: p.groupKey }); } }} placeholder="Pelaajan nimi" style={inputStyle} />
+                        <select aria-label={`Pelaajan ${index + 1} ikäryhmä`} value={p.ageGroup} onChange={(e) => updatePlayer(p.key, { ageGroup: e.target.value })} style={inputStyle}>
+                          <option value="">Valitse</option>
+                          <option value="adult">18+</option>
+                          <option value="junior_13_17">13–17</option>
+                          <option value="child_under_13">Alle 13</option>
+                        </select>
                         <input aria-label={`Pelaajan ${index + 1} ikä`} value={p.age} onChange={(e) => updatePlayer(p.key, { age: e.target.value.replace(/[^0-9]/g, '').slice(0, 3) })} inputMode="numeric" placeholder="24" style={inputStyle} />
                         <input aria-label={`Pelaajan ${index + 1} taso`} value={p.level} onChange={(e) => updatePlayer(p.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} />
                         <select aria-label={`Pelaajan ${index + 1} ryhmä`} value={p.groupKey} onChange={(e) => updatePlayer(p.key, { groupKey: e.target.value })} style={inputStyle}>
@@ -588,7 +650,7 @@ function BulkSetupModal({ groups, onClose, onSave }) {
                     ))}
                   </div>
                   <button onClick={() => addPlayerRow()} className="btn-outline btn-sm" style={{ marginTop: 12 }}>+ Lisää pelaajarivi</button>
-                  <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 10 }}>{filledPlayers.length} pelaajaa valmiina · Enter lisää uuden rivin listan loppuun</div>
+                  <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 10 }}>{filledPlayers.length} pelaajaa valmiina · Alaikäisten vahvistukset tehdään tarkistusvaiheessa</div>
                 </div>
               )}
 
@@ -647,13 +709,30 @@ function BulkSetupModal({ groups, onClose, onSave }) {
                           <Avatar initial={p.name.charAt(0).toUpperCase()} hue={120 + index * 23} size={36} />
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ fontSize: 14.5, fontWeight: 750, color: '#111' }}>{p.name}{p.age ? `, ${p.age}` : ''}</div>
-                            <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{assigned ? assigned.name : 'Ei ryhmää vielä'}{p.level ? ` · ${p.level}` : ''}</div>
+                            <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>
+                              {p.age_group === 'adult' ? '18+' : p.age_group === 'junior_13_17' ? '13–17 vuotta' : 'Alle 13 vuotta'} · {assigned ? assigned.name : 'Ei ryhmää vielä'}{p.level ? ` · ${p.level}` : ''}
+                            </div>
                           </div>
                           <PlayerAppStatus isPlaceholder compact />
                         </div>
                       );
                     })}
                   </div>
+                  {hasMinors && (
+                    <div className="k-card" style={{ padding: '14px 16px', marginTop: 14, background: 'rgba(207,228,20,0.08)', borderColor: 'rgba(207,228,20,0.35)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--green-deep)', marginBottom: 9 }}>Alaikäisten pilotin vahvistukset</div>
+                      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginBottom: hasUnder13 ? 10 : 0, fontSize: 12.5, lineHeight: 1.5, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={minorNoticeConfirmed} onChange={(e) => setMinorNoticeConfirmed(e.target.checked)} style={{ marginTop: 2, accentColor: 'var(--green-deep)' }} />
+                        <span>Olen kertonut kaikille listan alaikäisille Koutsin käytöstä ja siitä, ettei sovellukseen kirjata terveystietoja.</span>
+                      </label>
+                      {hasUnder13 && (
+                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 12.5, lineHeight: 1.5, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={guardianApproved} onChange={(e) => setGuardianApproved(e.target.checked)} style={{ marginTop: 2, accentColor: 'var(--green-deep)' }} />
+                          <span>Alle 13-vuotiaiden huoltajat ovat hyväksyneet käytön. Huoltajien nimiä tai yhteystietoja ei tallenneta.</span>
+                        </label>
+                      )}
+                    </div>
+                  )}
                   {payload.themes.length > 0 && (
                     <div className="k-card" style={{ padding: '14px 16px', marginTop: 14 }}>
                       <div style={{ ...labelStyle, marginBottom: 9 }}>Tallennettavat viikkoteemat</div>
@@ -713,7 +792,7 @@ function StudentsView({ students, groups, coachId, coachName, onOpen, trainingCo
               <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={48} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <span style={{ color: '#111', fontWeight: 700, fontSize: 16.5 }}>{s.name}{s.age ? `, ${s.age}` : ''}</span>
+                  <span style={{ color: '#111', fontWeight: 700, fontSize: 16.5 }}>{s.name}{playerAgeLabel(s) ? `, ${playerAgeLabel(s)}` : ''}</span>
                   {s.diary.length > 0 && <span title="Uusi merkintä" style={{ width: 7, height: 7, borderRadius: '50%', background: '#46a66d', flexShrink: 0 }} />}
                 </div>
                 <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}><LevelChip level={s.level || 'Ei asetettu'} /><PlayerAppStatus isPlaceholder={s.isPlaceholder} compact /></div>
@@ -922,8 +1001,8 @@ function PlaceholderNotice({ student, coach }) {
     return () => { alive = false; };
   }, [coach.id]);
   const firstName = (student.name || '').split(' ')[0] || 'Pelaaja';
-  const link = code ? window.koutsiInviteLink(code) : '';
-  const message = code ? window.koutsiInviteMessage(code, coach.name, null) : '';
+  const link = code ? window.koutsiInviteLink(code, student.id) : '';
+  const message = code ? window.koutsiInviteMessage(code, coach.name, null, student.id, student.pilotAgeGroup || 'adult') : '';
   return (
     <div className="k-card" style={{ padding: '15px 17px', marginBottom: 22, background: 'rgba(214,140,44,0.10)', borderColor: 'rgba(214,140,44,0.35)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
@@ -936,7 +1015,8 @@ function PlaceholderNotice({ student, coach }) {
       <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55 }}>
         {firstName} ei käytä Krossia vielä — lisäsit hänet nimellä. Voit kirjata treenit, päiväkirjan ja
         läksyt normaalisti, eikä hän näe niistä mitään. Kun hän liittyy liittymiskoodillasi, kaikki tähän
-        kirjattu siirtyy hänen omalle tunnukselleen.
+        kirjattu siirtyy hänen omalle tunnukselleen. Lähetä juuri alla oleva henkilökohtainen linkki,
+        jotta muiden pelaajien nimet eivät näy kutsun vastaanottajalle.
       </div>
       {code && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(214,140,44,0.3)' }}>
@@ -968,7 +1048,7 @@ function StudentDetail({ student, coach, state, trainings, group, groupCoach, up
         <div style={{ padding: '10px 28px 120px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 9, marginBottom: 24 }}>
             <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={84} ring />
-            <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{student.name}{student.age ? `, ${student.age}` : ''}</div>
+            <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{student.name}{playerAgeLabel(student) ? `, ${playerAgeLabel(student)}` : ''}</div>
             <PlayerAppStatus isPlaceholder={student.isPlaceholder} />
             <button onClick={() => setLevelPickerOpen((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
               <LevelChip level={student.level || 'Aseta taso'} />
@@ -1589,11 +1669,11 @@ function InviteCodeBox({ coachId, coachName, groupId, groupName }) {
       </div>
       <p style={{ fontSize: 12, color: '#514c42', lineHeight: 1.5, marginTop: 12 }}>
         {isPermanent
-          ? 'Tämä on pysyvä koodisi. Se ei vanhene eikä kulu, joten voit jakaa saman koodin kaikille pelaajillesi. Pelaaja avaa linkin, kirjautuu tai luo Krossi-tilin ja liittyy valmennettavaksesi.'
+          ? 'Tämä on pysyvä koodisi aikuiselle uutena liittymiseen. Alaikäinen lisätään ensin nimellä oppilaslistaan, minkä jälkeen lähetät hänen pelaajakortiltaan henkilökohtaisen liittymislinkin.'
           : `Pelaaja avaa linkin, kirjautuu tai luo Krossi-tilin ja liittyy${groupName ? ' suoraan tähän ryhmään' : ' valmennettavaksesi'} — koodia ei tarvitse näpytellä.${issued && issued.expires_at ? ` Linkki on voimassa ${window.koutsiFmtShortDate(String(issued.expires_at).slice(0, 10))} asti.` : ''}`}
       </p>
       <p style={{ fontSize: 12, color: '#8f2f24', lineHeight: 1.5, marginTop: 8, fontWeight: 700 }}>
-        Jaa koodi vain etukäteen valituille vähintään 18-vuotiaille testaajille. Älä jaa sitä julkisesti.
+        Älä jaa koodia julkisesti. Alaikäiselle käytetään aina pelaajakortin henkilökohtaista linkkiä sekä tarvittavia vahvistuksia.
       </p>
       {!isPermanent && <button onClick={() => setIssued(null)} className="btn-outline btn-sm" style={{ marginTop: 10 }}>Valmis</button>}
     </div>
@@ -3322,8 +3402,8 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
 
   const setLevel = act((level) => window.koutsiSetStudentLevel(detailId, level));
   // Ei act(): AddPlayerModal näyttää virheen itse ja palauttaa nappinsa tilan.
-  const addPlayer = async ({ name, age, level }) => {
-    await window.koutsiCreatePlayer(name, age, level, coachId);
+  const addPlayer = async ({ name, age, level, ageGroup, minorNoticeConfirmed, guardianApproved }) => {
+    await window.koutsiCreatePlayer(name, age, level, coachId, ageGroup, minorNoticeConfirmed, guardianApproved);
     await reload();
     toast.success(`${name} lisätty. Anna hänelle liittymiskoodisi, jos haluat että hän näkee tiedot itse.`);
   };

@@ -143,8 +143,10 @@
   }
 
   function student(id, name, age, level, extra) {
+    const ageValue = age == null ? '' : String(age);
     return Object.assign(person(id, name, {
-      age, level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '',
+      age, ageRange: null, ageValue, ageLabel: age == null ? '' : `${age} v`,
+      level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '',
       joinedAt: isoAt(-120), diary: [], homework: [], videos: [], moods: [], matchNotes: [],
     }), extra || {});
   }
@@ -616,15 +618,21 @@
     return done();
   };
   // Nimellä lisätty pelaaja: demossa hän ilmestyy heti luetteloon.
-  window.koutsiCreatePlayer = (name, age, level) => {
-    if (!Number.isInteger(age) || age < 18) return Promise.reject(new Error('Koutsi-beta on rajattu vähintään 18-vuotiaille.'));
+  window.koutsiCreatePlayer = (name, age, level, coachId, ageGroup = 'adult', minorNoticeConfirmed = false, guardianApproved = false) => {
+    if (age != null && (!Number.isInteger(age) || age < 1 || age >= 120)) return Promise.reject(new Error('Jos annat pelaajan iän, sen pitää olla 1–119 vuotta.'));
+    if (!['adult', 'junior_13_17', 'child_under_13'].includes(ageGroup)) return Promise.reject(new Error('Valitse pelaajan ikäryhmä.'));
+    if (ageGroup !== 'adult' && !minorNoticeConfirmed) return Promise.reject(new Error('Vahvista, että alaikäinen tietää Koutsin käytöstä.'));
+    if (ageGroup === 'child_under_13' && !guardianApproved) return Promise.reject(new Error('Alle 13-vuotiaan lisääminen vaatii huoltajan hyväksynnän.'));
     const id = newId('demo-student');
-    load().students.push(student(id, name, age || null, level || null, { isPlaceholder: true }));
+    load().students.push(student(id, name, age || null, level || null, { isPlaceholder: true, pilotAgeGroup: ageGroup }));
     save();
     return done(id);
   };
   window.koutsiBulkSetup = ({ groups = [], players = [], themes = [] }) => {
-    if (players.some((player) => !Number.isInteger(player.age) || player.age < 18)) return Promise.reject(new Error('Koutsi-beta on rajattu vähintään 18-vuotiaille.'));
+    if (players.some((player) => player.age != null && (!Number.isInteger(player.age) || player.age < 1 || player.age >= 120))) return Promise.reject(new Error('Jos annat pelaajan iän, sen pitää olla 1–119 vuotta.'));
+    if (players.some((player) => !['adult', 'junior_13_17', 'child_under_13'].includes(player.age_group))) return Promise.reject(new Error('Valitse jokaiselle pelaajalle ikäryhmä.'));
+    if (players.some((player) => player.age_group !== 'adult' && !player.minor_notice_confirmed)) return Promise.reject(new Error('Vahvista, että alaikäiset tietävät Koutsin käytöstä.'));
+    if (players.some((player) => player.age_group === 'child_under_13' && !player.guardian_approved)) return Promise.reject(new Error('Alle 13-vuotiaan lisääminen vaatii huoltajan hyväksynnän.'));
     const s = load();
     const groupIds = {};
     let groupsCreated = 0;
@@ -647,7 +655,7 @@
 
     const created = players.map((row) => {
       const id = newId('demo-student');
-      s.students.push(student(id, row.name, row.age || null, row.level || null, { isPlaceholder: true }));
+      s.students.push(student(id, row.name, row.age || null, row.level || null, { isPlaceholder: true, pilotAgeGroup: row.age_group }));
       (row.group_refs || []).forEach((ref) => {
         const group = s.groups.find((g) => g.id === groupIds[ref]);
         if (!group) throw new Error('Pelaajalle valittua ryhmää ei löytynyt');
@@ -670,12 +678,8 @@
       groups_reused: groupsReused, themes_saved: themes.length, players: created,
     });
   };
-  // Lunastus toimii demossa kuten tuotannossa: nimellä lisätyt pelaajat
-  // odottavat lunastusta, ja valitsemalla nimensä pelaaja saa valmentajan
-  // siihen asti kirjaaman työn omaan näkymäänsä.
-  window.koutsiUnclaimedPlayers = () => done(
-    load().students.filter((x) => x.isPlaceholder).map((x) => ({ id: x.id, name: x.name })),
-  );
+  // Henkilökohtainen linkki sisältää paikanvaraajan satunnaisen tunnisteen, joten
+  // yhteisen koodin haltijalle ei tarvitse näyttää muiden pelaajien nimilistaa.
   window.koutsiClaimPlayer = (code, studentId) => {
     const s = load();
     const ph = s.students.find((x) => x.id === studentId && x.isPlaceholder);
@@ -734,7 +738,20 @@
   window.koutsiSaveStudentProfile = (studentId, patch) => {
     const st = findStudent(studentId);
     if (st) {
-      if (patch.age !== undefined) st.age = patch.age;
+      if (patch.profileAge !== undefined) {
+        const labels = { alle20: 'Alle 20', '20-30': '20–30', '30-40': '30–40', '40-50': '40–50', '50-60': '50–60', '60+': '60+' };
+        const value = patch.profileAge || '';
+        const exact = /^\d{2,3}$/.test(value) ? Number(value) : null;
+        st.age = exact;
+        st.ageRange = labels[value] ? value : null;
+        st.ageValue = value;
+        st.ageLabel = exact == null ? (labels[value] || '') : `${exact} v`;
+      } else if (patch.age !== undefined) {
+        st.age = patch.age;
+        st.ageRange = null;
+        st.ageValue = patch.age == null ? '' : String(patch.age);
+        st.ageLabel = patch.age == null ? '' : `${patch.age} v`;
+      }
       save();
     }
     return done();

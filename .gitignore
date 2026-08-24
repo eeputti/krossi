@@ -3,6 +3,9 @@
 .wrangler
 cloudflare-dist
 node_modules
+output/pdf/
+tmp/pdfs/
+supabase/.temp/
 .dev.vars*
 .env*
 !.env.example

@@ -5,6 +5,12 @@
   "compatibility_date": "2026-08-24",
   "workers_dev": true,
   "preview_urls": true,
+  "routes": [
+    { "pattern": "krossi.app/*", "zone_name": "krossi.app" },
+    { "pattern": "www.krossi.app/*", "zone_name": "krossi.app" },
+    { "pattern": "koutsi.krossi.app", "custom_domain": true },
+    { "pattern": "demo.koutsi.krossi.app", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./cloudflare-dist",
     "binding": "ASSETS",

@@ -46,7 +46,7 @@
     <p class="updated">Päivitetty 24.8.2026 · EU:n yleisen tietosuoja-asetuksen (GDPR) artiklojen 13 ja 14 mukainen seloste</p>
 
     <div class="note">
-      <p><strong>Lyhyesti:</strong> Krossi Koutsin ensimmäinen suljettu beta-pilotti on tarkoitettu vain vähintään 18-vuotiaille. Palveluun ei saa tallentaa terveystietoja eikä alaikäisten oikeita henkilötietoja. Tietoja ei myydä eikä käytetä mainontaan.</p>
+      <p><strong>Lyhyesti:</strong> Krossi Koutsin suljetussa beta-pilotissa valmentaja voi lisätä kaikenikäisiä pelaajia. 13–17-vuotias hyväksyy itse selkokielisen juniorin tietosuojanäkymän, ja alle 13-vuotiaan tilin aktivointi vaatii huoltajan hyväksynnän. Profiili ei ole julkinen. Palveluun ei saa tallentaa terveystietoja. Tietoja ei myydä eikä käytetä mainontaan.</p>
     </div>
 
     <h2>1. Rekisterinpitäjä</h2>
@@ -62,8 +62,9 @@
     <h2>2. Kenen tietoja käsittelemme</h2>
     <ul>
       <li><strong>Valmentajat</strong>, jotka käyttävät palvelua oppilaidensa valmennuksen kirjaamiseen.</li>
-      <li><strong>Täysi-ikäiset pelaajat</strong> (oppilaat), jotka liittyvät valmentajan lähettämällä liittymislinkillä.</li>
-      <li><strong>Alaikäisiä ei oteta ensimmäiseen pilottiin.</strong> Käyttäjä vahvistaa vähintään 18 vuoden iän ennen sovelluksen käyttöä, ja valmentajaa ohjeistetaan kutsumaan vain etukäteen valittuja täysi-ikäisiä testaajia.</li>
+      <li><strong>Täysi-ikäiset pelaajat</strong> (oppilaat), jotka liittyvät valmentajan lähettämällä liittymislinkillä tai -koodilla.</li>
+      <li><strong>13–17-vuotiaat pelaajat</strong>, jotka liittyvät valmentajan heille tekemällä henkilökohtaisella linkillä ja hyväksyvät juniorille kirjoitetun tietosuojanäkymän.</li>
+      <li><strong>Alle 13-vuotiaat pelaajat</strong>, joiden henkilökohtaisen tilin aktivointi edellyttää huoltajan hyväksyntää. Valmentaja vahvistaa hyväksynnän saamisen; huoltajan nimeä, yhteystietoa, syntymäaikaa tai henkilöllisyystodistusta ei tallenneta tätä varten.</li>
     </ul>
 
     <h2>3. Mitä tietoja käsittelemme ja miksi</h2>
@@ -100,7 +101,7 @@
           </tr>
           <tr>
             <td>Pilotin käyttörajauksen vahvistus</td>
-            <td>Vahvistuksen ajankohta, ehtojen ja tietosuojaselosteen versio sekä vahvistus täysi-ikäisyydestä ja kielletyistä tietoryhmistä</td>
+            <td>Ikäryhmä (alle 13, 13–17 tai 18+), vahvistusten ajankohta, ehtojen ja tietosuojaselosteen versio, valmentajan vahvistus alaikäiselle kertomisesta sekä alle 13-vuotiaan osalta tieto huoltajan hyväksynnän saamisesta. Huoltajan henkilöllisyyttä tai yhteystietoja ei tallenneta.</td>
             <td>Sopimuksen täyttäminen ja rekisterinpitäjän oikeutettu etu (GDPR 6.1 b ja f) — pilotin rajauksen noudattaminen ja osoittaminen</td>
           </tr>
           <tr>
@@ -121,13 +122,16 @@
     <p>
       Pilotissa ei käsitellä GDPR:n 9 artiklan tarkoittamia terveystietoja. Terveystietojen syöttöön aiemmin ohjannut taustatietokenttä ja loukkaantumiseen perustuva poissaolosyy on poistettu käytöstä; poissaolosta tallennetaan vain poissa-merkintä ilman syytä. Vapaatekstikenttiin ei saa kirjoittaa vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja. Jos tällaista tietoa tallentuu vahingossa, ilmoita siitä heti osoitteeseen <a href="mailto:eelispuro@gmail.com">eelispuro@gmail.com</a>, jotta tieto voidaan poistaa.
     </p>
+    <p>
+      Ikä tarkistetaan mahdollisimman kevyesti. Käyttöönottoa varten riittää ikäryhmä; tarkka ikä on valinnainen. Syntymäaikaa, henkilötunnusta, henkilöllisyystodistusta tai huoltajan yhteystietoja ei pyydetä. Ensimmäisessä junioripilotissa valmentaja vahvistaa, että alaikäiselle on kerrottu käytöstä ja että alle 13-vuotiaan huoltaja on hyväksynyt käytön.
+    </p>
 
     <h2>4. Kuka näkee tietosi</h2>
     <ul>
       <li><strong>Oma valmentajasi</strong> näkee valmennustietosi, kotiläksysi, ottelumuistiinpanosi ja jakamasi videot. Valmentaja ei näe muiden valmentajien oppilaita.</li>
       <li><strong>Pelaaja</strong> näkee omat tietonsa sekä oman ryhmänsä treeniajat, teemat ja jäsenet.</li>
-      <li><strong>Muut käyttäjät</strong> eivät näe tietojasi. Pääsy on rajattu tietokantatasolla (row level security), ei pelkästään käyttöliittymässä.</li>
-      <li>Koutsissa luotu profiili <strong>ei näy</strong> Krossin peliseuranhaussa, ellet erikseen täydennä pelaajaprofiiliasi ja valitse näkyvyyttä.</li>
+      <li><strong>Muut kuin oma valmentaja ja oman ryhmän rajatut käyttäjät</strong> eivät näe tietojasi. Pääsy on rajattu tietokantatasolla (row level security), ei pelkästään käyttöliittymässä.</li>
+      <li>Koutsin pelaajapolussa luotu profiili <strong>ei näy</strong> Krossin peliseuranhaussa. Näkyvyys vaatii myöhemmin erillisen valinnan Krossin puolella.</li>
     </ul>
 
     <h2>5. Käsittelijät ja tietojen sijainti</h2>
@@ -136,13 +140,13 @@
         <thead><tr><th>Palvelu</th><th>Käyttötarkoitus</th><th>Sijainti</th></tr></thead>
         <tbody>
           <tr><td>Supabase</td><td>Tietokanta, kirjautuminen, tiedostojen tallennus</td><td>Tietokantaprojekti EU:ssa (eu-west-1); tukipalveluja voidaan tuottaa kansainvälisesti</td></tr>
-          <tr><td>Vercel</td><td>Staattisen sivuston ja sovellustiedostojen jakelu sekä tekniset lokit</td><td>USA ja maailmanlaajuinen jakeluverkko</td></tr>
+          <tr><td>Cloudflare</td><td>Staattisen sivuston ja sovellustiedostojen jakelu, DNS sekä tekniset lokit</td><td>USA ja maailmanlaajuinen jakeluverkko</td></tr>
           <tr><td>Resend</td><td>Ilmoitussähköpostien lähetys</td><td>USA ja kansainväliset alikäsittelijät</td></tr>
           <tr><td>Google, Apple</td><td>Vapaaehtoinen kirjautumistapa</td><td>EU ja USA</td></tr>
         </tbody>
       </table>
     </div>
-    <p>Ulkopuolista pilottia ei avata ennen kuin sovellettavan käsittelysopimuksen (DPA) voimaantulo, tilin juridinen asiakas ja käytössä oleva palvelutaso on tarkistettu ja sopimusasiakirja tallennettu rekisterinpitäjän sopimusarkistoon. Supabasen 1.8.2026 voimaan tullut DPA on sisällytetty sen palvelusopimukseen. Vercelin DPA:n käsittelijäehdot koskevat sen nykytekstin mukaan Pro- ja Enterprise-palvelutasoja. Resendin DPA tulee osaksi palvelusopimusta sen ehtojen mukaisesti, ja sopimuskopio ladataan Resendin hallinnasta. EU:n ulkopuolisissa siirroissa käytetään palveluntarjoajan DPA:ssa kuvattuja Euroopan komission vakiolausekkeita tai muuta lainmukaista siirtoperustetta.</p>
+    <p>Ulkopuolista pilottia ei avata ennen kuin sovellettavan käsittelysopimuksen (DPA) voimaantulo, tilin juridinen asiakas ja käytössä oleva palvelutaso on tarkistettu ja sopimusasiakirja tallennettu rekisterinpitäjän sopimusarkistoon. Supabasen 1.8.2026 voimaan tullut DPA on sisällytetty sen palvelusopimukseen. Cloudflaren standardi-DPA on sen nykyisen GDPR-ohjeen mukaan sisällytetty self-service-palvelusopimukseen. Resendin DPA tulee osaksi palvelusopimusta sen ehtojen mukaisesti, ja sopimuskopio ladataan Resendin hallinnasta. EU:n ulkopuolisissa siirroissa käytetään palveluntarjoajan DPA:ssa kuvattuja Euroopan komission vakiolausekkeita tai muuta lainmukaista siirtoperustetta.</p>
 
     <h2>6. Säilytysaika</h2>
     <ul>
@@ -161,10 +165,10 @@
       <li>poistaa tietosi (”oikeus tulla unohdetuksi”)</li>
       <li>rajoittaa käsittelyä tai vastustaa sitä</li>
       <li>siirtää tietosi järjestelmästä toiseen</li>
-      <li>peruuttaa antamasi suostumus milloin tahansa</li>
+      <li>peruuttaa antamasi suostumus tai alaikäisen käyttöä koskeva hyväksyntä silloin, kun käsittely perustuu siihen</li>
       <li>tehdä valitus valvontaviranomaiselle: <a href="https://tietosuoja.fi" target="_blank" rel="noopener">tietosuoja.fi</a></li>
     </ul>
-    <p>Pääset itse poistamaan tilisi ja kaikki tietosi sovelluksen <strong>Profiili</strong>-välilehdeltä. Muissa pyynnöissä ota yhteyttä sähköpostitse.</p>
+    <p>Pääset itse poistamaan tilisi ja kaikki tietosi sovelluksen <strong>Profiili</strong>-välilehdeltä. Alaikäinen tai huoltaja voi pyytää käytön lopettamista ja tietojen poistamista myös sähköpostitse. Muissa pyynnöissä ota yhteyttä sähköpostitse.</p>
 
     <h2>8. Evästeet ja vastaavat tekniikat</h2>
     <p>Sovellus tallentaa selaimeesi kirjautumistiedon (istuntotunnisteen), jotta et joudu kirjautumaan uudelleen jokaisella käynnillä. Tämä on palvelun toiminnan kannalta välttämätöntä eikä vaadi suostumusta. Markkinointievästeitä ladataan vain, jos annat siihen suostumuksen evästebannerissa.</p>

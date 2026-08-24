@@ -9,16 +9,41 @@ selaimessa. Ne lataavat valmiin niteen kansiosta `dist/`.
 
 ```bash
 npm install
-npm run build
+npm run test:cloudflare
 ```
 
-`dist/` on **committoitu repoon**, joten Vercel tarjoilee sivut edelleen staattisina eikä
-buildivaihetta tarvita. Aja `npm run build` aina kun olet muokannut mitään `lib/`-kansiossa,
-ja committoi syntyneet `dist/*.js`-tiedostot muutoksen mukana. Jos unohdat, sivusto pyörii
-vanhalla koodilla.
+`npm run test:cloudflare` muodostaa ensin `dist/*.js`-niteet, kokoaa vain julkiset tiedostot
+`cloudflare-dist/`-hakemistoon ja tarkistaa kaikki domain- ja syvälinkkireitit. Generoitu
+`cloudflare-dist/` ei kuulu versionhallintaan. Sisäiset ohjeet, `.env`-tiedostot ja
+Supabase-migraatiot eivät päädy julkiseen jakeluun.
 
 Demo-sivut (`koutsi-demo.html`, `koutsi-*-demo.html`) ja markkinointisivut käyttävät
 edelleen selainkäännöstä. Se on niille tarkoituksella jätetty — ne eivät ole kriittisiä.
+
+## Cloudflare-hostaus
+
+Tuotanto ajetaan Cloudflare Workers Static Assets -palvelussa. Worker `krossi` säilyttää
+nykyiset domainit ja Vercelin reittikäytöksen:
+
+- `krossi.app/` → Krossin etusivu ja `/pelaa` → selainversio
+- `koutsi.krossi.app/` → Koutsin etusivu sekä `/valmentaja/<näkymä>` ja
+  `/pelaaja/<näkymä>` → oikea sovellus
+- `demo.koutsi.krossi.app/` → demo ja vastaavat valmentaja-/pelaajareitit
+
+Cloudflare Workers Builds -asetukset:
+
+- Git-repositorio: `eeputti/krossi`
+- tuotantohaara: `main`
+- Worker-nimi: `krossi` (täsmättävä `wrangler.jsonc`-tiedoston nimeen)
+- build-komento: jätä tyhjäksi
+- deploy-komento: `npm run deploy:cloudflare`
+- root directory: `/`
+
+Ennen domainien siirtoa avaa Cloudflaren `workers.dev`-esikatselu ja tarkista ainakin
+etusivut, `/pelaa`, Koutsin kirjautuminen, salasanan palautus, pelaajan liittymislinkki,
+valmentajan ja pelaajan syvälinkit sekä demo. Liitä vasta sen jälkeen custom domainit
+`krossi.app`, `koutsi.krossi.app` ja `demo.koutsi.krossi.app`. Pidä Vercel-projekti
+rollbackia varten, kunnes kaikki tuotantoreitit on tarkistettu Cloudflaresta.
 
 ## Sähköposti-ilmoitukset
 
@@ -78,10 +103,20 @@ Roisku Median tilillä vaadittu hyväksyntä, palvelutaso ja sopimusarkistointi 
 Kun lista on valmis, ensimmäisen valmentajan opastus tehdään
 [pilottiohjeen](KOUTSI-PILOTTI-OHJE.md) mukaan.
 
-Ensimmäinen pilotti on rajattu vähintään 18-vuotiaisiin. Jokainen käyttäjä vahvistaa
-täysi-ikäisyyden ja kielletyt tietoryhmät käyttäjäkohtaisesti; vahvistus tallentuu
-`koutsi_pilot_acknowledgements`-tauluun. Valmentaja saa lisätä vain vähintään 18-vuotiaita
-pelaajia. Taustatietokenttä, loukkaantumismerkintä ja vapaaehtoinen poissaolosyy on poistettu
+Pilottiin voi lisätä kaikenikäisiä pelaajia. Valmentaja valitsee pelaajalle karkean
+ikäryhmän (`adult`, `junior_13_17` tai `child_under_13`) ilman syntymäaikaa tai
+henkilöllisyystodistusta. 13–17-vuotias hyväksyy itse juniorin selkokielisen
+tietosuojanäkymän. Alle 13-vuotiaan tilin aktivointi onnistuu vain, jos valmentaja on
+vahvistanut huoltajan hyväksynnän. Vahvistukset ja asiakirjaversiot tallentuvat
+`koutsi_pilot_acknowledgements`-tauluun.
+
+Migraatio `20260824075632_add_koutsi_junior_pilot.sql` lisää ikäryhmät ja vahvistukset,
+estää pelaajaa muokkaamasta valmentajan vahvistuksia, tekee Koutsin pelaajapolussa luodusta
+profiilista ei-haettavan ja poistaa yhteisen koodin haltijalta mahdollisuuden nähdä
+valmentajan lunastamattomien pelaajien nimilistaa. Alaikäinen liittyy aina pelaajakortilta
+lähetettävällä henkilökohtaisella linkillä.
+
+Taustatietokenttä, loukkaantumismerkintä ja vapaaehtoinen poissaolosyy on poistettu
 käyttöliittymästä: poissaolosta tallennetaan vain tieto "poissa", ei syytä.
 
 Migraatio `20260824052633_koutsi_adult_pilot_acknowledgement_and_health_lock.sql` tyhjentää
@@ -94,8 +129,11 @@ tallentamisen myös vanhalla käyttöliittymällä tai suoralla API-kutsulla.
 
 ## Vielä tehtäväksi jäävät asetukset
 
-- **Vuotaneiden salasanojen esto**: Supabase-hallinnassa Authentication → Policies →
-  "Leaked password protection" päälle. Tätä ei voi asettaa migraatiolla.
+- **Vuotaneiden salasanojen esto (siirretty)**: ominaisuus kuuluu Supabasen Pro-tasoon,
+  joten sitä ei oteta käyttöön Free-tasolla ajettavassa ensimmäisessä pilotissa. Jos
+  organisaatio päivitetään myöhemmin Prohon, kytke Authentication → Policies →
+  "Leaked password protection" päälle. Päätös tarkistettu 24.8.2026 Supabasen
+  salasanasuojausohjetta vasten.
 - **Tietosuojaseloste ja käyttöehdot** (`/tietosuoja`, `/kayttoehdot`) on kirjoitettu
   tämänhetkisen toteutuksen mukaisiksi. Rekisterinpitäjänä ja palveluntarjoajana on
   Roisku Media (Y-tunnus 3413406-6, Rauhankatu 10 C 809, 15110 Lahti). Jos mukaan tulee
@@ -126,9 +164,13 @@ Uusi pelaaja pääsee pilottiin vain valmentajan liittymiskoodilla. Käyttöliit
 `start_koutsi_without_code()`-funktion suoritusoikeuden. Aiemmin luotuja pelaajarivejä ei
 poisteta automaattisesti.
 
-Valmentaja varmistaa testaajan täysi-ikäisyyden ennen koodin lähettämistä. Koodia ei saa
-jakaa julkisessa ryhmässä tai avoimella verkkosivulla. Testaaja vahvistaa lisäksi itse
-täysi-ikäisyytensä sovelluksen tallennettavassa pilottiportissa.
+Yhteinen valmentajakoodi on vain täysi-ikäiselle pelaajalle uutena liittymiseen, eikä sitä
+saa jakaa julkisessa ryhmässä tai avoimella verkkosivulla. Alaikäinen lisätään ensin nimellä
+ja ikäryhmällä oppilaslistaan. Valmentaja vahvistaa, että alaikäinen tietää käytöstä, ja alle
+13-vuotiaan osalta myös huoltajan hyväksynnän. Sen jälkeen valmentaja lähettää pelaajakortilta
+henkilökohtaisen linkin. Pelaaja valitsee saman ikäryhmän sovelluksen tallennettavassa
+pilottiportissa; tietokanta estää ristiriitaisen tai puuttuvalla huoltajavahvistuksella tehdyn
+aktivoinnin.
 
 ## Vuosisuunnitelmat (beta)
 
@@ -277,7 +319,7 @@ Molemmat ovat yksityisiä. Tiedostot avataan määräaikaisilla allekirjoitetuil
 eli suora URL ei toimi ilman kirjautumista.
 
 Yli 6 Mt videot ladataan TUS-protokollalla 6 Mt paloissa suoraan selaimesta Supabasen
-dedikoituun Storage-osoitteeseen. Lataus ei kierrä Vercelin tai oman sovelluspalvelimen
+dedikoituun Storage-osoitteeseen. Lataus ei kierrä Cloudflaren tai oman sovelluspalvelimen
 kautta, näyttää etenemisen ja jatkaa katkenneesta kohdasta. Pitkät pelianalyysit (esim.
 30 min) jaetaan ensisijaisesti rajattuna YouTube- tai Google Drive -linkkinä. Näin Koutsi
 ei maksa eikä välitä niiden raskasta tallennus- ja katseluliikennettä; linkkirivi näkyy
