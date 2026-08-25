@@ -103,18 +103,16 @@ Roisku Median tilillä vaadittu hyväksyntä, palvelutaso ja sopimusarkistointi 
 Kun lista on valmis, ensimmäisen valmentajan opastus tehdään
 [pilottiohjeen](KOUTSI-PILOTTI-OHJE.md) mukaan.
 
-Pilottiin voi lisätä kaikenikäisiä pelaajia. Valmentaja valitsee pelaajalle karkean
-ikäryhmän (`adult`, `junior_13_17` tai `child_under_13`) ilman syntymäaikaa tai
-henkilöllisyystodistusta. 13–17-vuotias hyväksyy itse juniorin selkokielisen
-tietosuojanäkymän. Alle 13-vuotiaan tilin aktivointi onnistuu vain, jos valmentaja on
-vahvistanut huoltajan hyväksynnän. Vahvistukset ja asiakirjaversiot tallentuvat
-`koutsi_pilot_acknowledgements`-tauluun.
+Pilottiin voi lisätä kaikenikäisiä pelaajia pelkällä nimellä. Tarkka ikä on vapaaehtoinen:
+valmentaja voi lisätä sen pelaajariville tai pelaaja omaan profiiliinsa myöhemmin. Jos ikää
+ei anneta, Koutsi ei tallenna eikä päättele ikää tai ikäryhmää. Syntymäaikaa,
+henkilöllisyystodistusta tai huoltajan yhteystietoja ei kerätä.
 
-Migraatio `20260824075632_add_koutsi_junior_pilot.sql` lisää ikäryhmät ja vahvistukset,
-estää pelaajaa muokkaamasta valmentajan vahvistuksia, tekee Koutsin pelaajapolussa luodusta
-profiilista ei-haettavan ja poistaa yhteisen koodin haltijalta mahdollisuuden nähdä
-valmentajan lunastamattomien pelaajien nimilistaa. Alaikäinen liittyy aina pelaajakortilta
-lähetettävällä henkilökohtaisella linkillä.
+Migraatio `20260824204654_remove_required_player_age_groups.sql` poistaa ikäryhmän
+pakollisuuden ja lopettaa uusien ikäryhmäarvojen tallentamisen, säilyttää tarkan iän
+vapaaehtoisena sekä pitää terveystietojen tallennuskiellon tietokantatasolla. Aiemmat
+pilottivahvistukset säilyvät historiatietona. Asiakirjaversiot ja terveystietosäännön
+vahvistus tallentuvat edelleen `koutsi_pilot_acknowledgements`-tauluun.
 
 Taustatietokenttä, loukkaantumismerkintä ja vapaaehtoinen poissaolosyy on poistettu
 käyttöliittymästä: poissaolosta tallennetaan vain tieto "poissa", ei syytä.
@@ -129,6 +127,15 @@ tallentamisen myös vanhalla käyttöliittymällä tai suoralla API-kutsulla.
 
 ## Vielä tehtäväksi jäävät asetukset
 
+- **Salasanapolitiikka ja sähköpostivahvistus (blokkaa henkilötietopilotin):** tuotannon
+  Auth-palvelin hyväksyi 24.8.2026 kertakäyttöisessä testissä 7-merkkisen salasanan, ja
+  julkinen Auth-konfiguraatio ilmoitti `mailer_autoconfirm: true`. Testitili poistettiin
+  heti. Aseta Supabase Dashboardissa Authentication → Sign In / Providers → Email:
+  vähimmäispituudeksi vähintään 8 merkkiä, vaadi vahva merkkijoukko ja ota sähköpostin
+  vahvistaminen käyttöön. Sovellus vaatii nyt rekisteröinnissä ja salasanan palautuksessa
+  vähintään 8 merkkiä, mutta selainvalidointi ei korvaa palvelinpuolen politiikkaa.
+  Varmista muutoksen jälkeen, että 7-merkkinen rekisteröinti hylätään ja
+  `/auth/v1/settings` palauttaa `mailer_autoconfirm: false`.
 - **Vuotaneiden salasanojen esto (siirretty)**: ominaisuus kuuluu Supabasen Pro-tasoon,
   joten sitä ei oteta käyttöön Free-tasolla ajettavassa ensimmäisessä pilotissa. Jos
   organisaatio päivitetään myöhemmin Prohon, kytke Authentication → Policies →
@@ -164,13 +171,9 @@ Uusi pelaaja pääsee pilottiin vain valmentajan liittymiskoodilla. Käyttöliit
 `start_koutsi_without_code()`-funktion suoritusoikeuden. Aiemmin luotuja pelaajarivejä ei
 poisteta automaattisesti.
 
-Yhteinen valmentajakoodi on vain täysi-ikäiselle pelaajalle uutena liittymiseen, eikä sitä
-saa jakaa julkisessa ryhmässä tai avoimella verkkosivulla. Alaikäinen lisätään ensin nimellä
-ja ikäryhmällä oppilaslistaan. Valmentaja vahvistaa, että alaikäinen tietää käytöstä, ja alle
-13-vuotiaan osalta myös huoltajan hyväksynnän. Sen jälkeen valmentaja lähettää pelaajakortilta
-henkilökohtaisen linkin. Pelaaja valitsee saman ikäryhmän sovelluksen tallennettavassa
-pilottiportissa; tietokanta estää ristiriitaisen tai puuttuvalla huoltajavahvistuksella tehdyn
-aktivoinnin.
+Yhteistä valmentajakoodia ei saa jakaa julkisessa ryhmässä tai avoimella verkkosivulla.
+Valmentaja voi lisätä pelaajan ensin pelkällä nimellä ja lähettää pelaajakortilta
+henkilökohtaisen linkin. Pelaajan ei tarvitse ilmoittaa ikäänsä liittyessä tai myöhemmin.
 
 ## Vuosisuunnitelmat (beta)
 

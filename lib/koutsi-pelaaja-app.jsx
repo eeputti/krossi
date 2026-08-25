@@ -645,7 +645,12 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
               {clubEventsOnSelected.map((e) => (
                 <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 14, background: 'rgba(199,123,46,0.1)', border: '1px solid rgba(199,123,46,0.3)' }}>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c77b2e', flexShrink: 0 }} />
-                  <span style={{ fontSize: 13.5, color: '#7a4c1e', fontWeight: 700 }}>{e.title}</span>
+                  <span>
+                    <span style={{ display: 'block', fontSize: 13.5, color: '#7a4c1e', fontWeight: 700 }}>{e.title}</span>
+                    {e.endDate && e.endDate !== e.date && (
+                      <span style={{ display: 'block', fontSize: 11.5, color: '#9a6a30', marginTop: 2 }}>{window.koutsiFmtShortDate(e.date)}–{window.koutsiFmtShortDate(e.endDate)}</span>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>
@@ -905,40 +910,18 @@ function DataExportButton({ userId, name }) {
 
 // Pelaaja omistaa nimensä, kuvansa ja ikänsä. Tason asettaa valmentaja. Pilotissa
 // taustatietokenttä ei ole käytössä, koska se pyysi aiemmin terveystietoja.
-const PLAYER_AGE_RANGES = [
-  { value: 'alle20', label: 'Alle 20' },
-  { value: '20-30', label: '20–30' },
-  { value: '30-40', label: '30–40' },
-  { value: '40-50', label: '40–50' },
-  { value: '50-60', label: '50–60' },
-  { value: '60+', label: '60+' },
-];
-const PLAYER_AGE_RANGE_VALUES = new Set(PLAYER_AGE_RANGES.map((range) => range.value));
-
 function PlayerProfileEditModal({ student, onClose, onSaved }) {
   const toast = window.useKoutsiToast();
   const [name, setName] = React.useState(student.name || '');
-  const [age, setAge] = React.useState(student.ageValue || (student.age == null ? '' : String(student.age)));
+  const [age, setAge] = React.useState(student.age == null ? '' : String(student.age));
   const [busy, setBusy] = React.useState(false);
 
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const exactAge = /^\d+$/.test(age) ? age : '';
   const parsedAge = exactAge ? Number(exactAge) : null;
-  const pilotAgeGroup = student.pilotAgeGroup || 'adult';
-  const exactAgeMatchesPilotGroup = Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120
-    && ((pilotAgeGroup === 'adult' && parsedAge >= 18)
-      || (pilotAgeGroup === 'junior_13_17' && parsedAge >= 13 && parsedAge <= 17)
-      || (pilotAgeGroup === 'child_under_13' && parsedAge <= 12));
-  const rangeMatchesPilotGroup = PLAYER_AGE_RANGE_VALUES.has(age)
-    && (pilotAgeGroup === 'adult' || age === 'alle20');
-  const ageValid = !age || rangeMatchesPilotGroup || exactAgeMatchesPilotGroup;
+  const ageValid = !age || (Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120);
   const ready = name.trim() && ageValid;
-  const ageChipStyle = (active) => ({
-    padding: '8px 13px', borderRadius: 999, border: active ? 'none' : '1px solid #d8d4ca',
-    background: active ? 'var(--lime)' : '#fff', color: active ? '#101a08' : '#3c382f',
-    fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit',
-  });
 
   const save = async () => {
     if (!ready) return;
@@ -962,14 +945,9 @@ function PlayerProfileEditModal({ student, onClose, onSaved }) {
           <div style={{ ...label, marginBottom: 0 }}>Ikä (valinnainen)</div>
           {age && <button type="button" onClick={() => setAge('')} style={{ border: 'none', background: 'none', padding: 0, color: '#8a857a', fontSize: 12, fontFamily: 'inherit', cursor: 'pointer' }}>Tyhjennä</button>}
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-          {PLAYER_AGE_RANGES.map((range) => (
-            <button key={range.value} type="button" onClick={() => setAge(range.value)} style={ageChipStyle(age === range.value)}>{range.label}</button>
-          ))}
-        </div>
         <input value={exactAge} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} inputMode="numeric" placeholder="Tai tarkka ikä, esim. 24"
           style={{ ...inputStyle, marginBottom: ageValid ? 16 : 6, borderColor: ageValid ? '#d8d4ca' : '#c2543f' }} />
-        {!ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Iän pitää vastata valmentajan vahvistamaa ikäryhmää.</div>}
+        {!ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Iän pitää olla väliltä 1–119 vuotta.</div>}
         <div style={{ padding: '11px 13px', marginBottom: 20, borderRadius: 12, background: '#f7f5ef', color: '#6b665c', fontSize: 12.5, lineHeight: 1.5 }}>
           Älä kirjoita Koutsiin vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.
         </div>

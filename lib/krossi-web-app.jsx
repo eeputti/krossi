@@ -411,6 +411,7 @@ function AuthScreen() {
     try {
       if (mode === 'login') { const { error } = await supabase.auth.signInWithPassword({ email, password: pw }); if (error) throw error; }
       else if (mode === 'register') {
+        if (pw.length < 8) throw new Error('Salasanan pitää olla vähintään 8 merkkiä.');
         const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: window.location.origin + '/pelaa' } });
         if (error) throw error;
         if (typeof fbq !== 'undefined') fbq('track', 'Lead');
@@ -472,8 +473,9 @@ function AuthScreen() {
         )}
 
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input className="input" type="email" placeholder="Sähköposti" value={email} onChange={e => setEmail(e.target.value)} required />
-          {mode !== 'reset' && <input className="input" type="password" placeholder="Salasana" value={pw} onChange={e => setPw(e.target.value)} required minLength={6} />}
+          <input className="input" type="email" placeholder="Sähköposti" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+          {mode !== 'reset' && <input className="input" type="password" placeholder="Salasana" value={pw} onChange={e => setPw(e.target.value)} required minLength={mode === 'register' ? 8 : undefined} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} />}
+          {mode === 'register' && <div style={{ fontSize:12, color:'var(--text-muted)', lineHeight:1.4 }}>Vähintään 8 merkkiä. Käytä uniikkia salasanaa, jota et käytä muissa palveluissa.</div>}
           <button className="btn btn-dark btn-lg btn-full" type="submit" disabled={busy}>
             {busy ? 'Odota...' : mode === 'login' ? 'Kirjaudu' : mode === 'register' ? 'Luo tili' : 'Lähetä linkki'}
           </button>

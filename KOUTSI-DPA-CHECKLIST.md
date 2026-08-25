@@ -38,8 +38,9 @@ videoita.
 - [x] DPA:n nykytekstin mukaan Vercel toimii Customer Datan käsittelijänä Pro- ja
   Enterprise-palvelutasoilla. Vercelin Customer Dataan ei saa sisällyttää erityisiin
   henkilötietoryhmiin kuuluvia tietoja.
-- [x] Tuotantoprojektin palvelutasoksi vahvistettu **Hobby** 24.8.2026. Verceliä ei
-  päivitetä Prohon, vaan tuotantohostaus siirretään Cloudflareen kustannussyistä.
+- [x] Tuotantoprojektin palvelutasoksi vahvistettu **Hobby** 24.8.2026. Cloudflare on
+  24.8.2026 alkaen ensisijainen tuotantoalusta; Vercel säilytetään vain väliaikaisena
+  rollbackina eikä sitä päivitetä Prohon.
 - [ ] Viimeistele Vercel → Cloudflare -siirto ennen henkilötietopilottia ja varmista,
   ettei tuotantoliikennettä tai lokitietoja enää käsitellä Vercelissä.
 - [ ] Varmista domainien siirron jälkeen, etteivät `krossi.app`, `koutsi.krossi.app` tai
@@ -55,6 +56,10 @@ videoita.
 - [x] Tekninen toteutus rajattu Workers Static Assets -jakeluun ja pieneen
   domain-/polkureitittimeen. Sovellusdata ja tiedostolataukset menevät selaimesta suoraan
   Supabaseen eivätkä kulje Cloudflare Workerin kautta.
+- [x] Worker `krossi` julkaistu nykyisestä `main`-haarasta 24.8.2026. Julkaistu versio
+  `d2441731-59ff-4051-aba1-b71d7ff2f545`; `workers.dev` ja `krossi.app/pelaa`
+  vastasivat Cloudflaren kautta. Koutsin alidomainien lopullinen DNS-varmistus jää yllä
+  olevaan avoimeen domain-kohtaan.
 - [ ] Tarkista Cloudflare Dashboardista, että tilin juridinen asiakas on **Roisku Media**,
   tilin hyväksynyt henkilö saa sitoa yrityksen ja tuotanto-Worker käyttää Free-tasoa.
 - [ ] Tallenna DPA:n, self-service-ehtojen ja alikäsittelijäluettelon päivätyt kopiot sekä

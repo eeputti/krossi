@@ -545,6 +545,26 @@
     save();
     return done();
   };
+  window.koutsiSetExerciseVideo = ({ exerciseId, title, file, externalUrl, onProgress }) => {
+    const exercise = load().exercises.find((e) => e.id === exerciseId);
+    if (exercise) {
+      if (file && onProgress) onProgress(100);
+      exercise.video = {
+        title,
+        storagePath: file ? URL.createObjectURL(file) : null,
+        externalUrl: externalUrl || null,
+        mimeType: file ? file.type : null,
+        sizeBytes: file ? file.size : null,
+      };
+      save();
+    }
+    return done();
+  };
+  window.koutsiRemoveExerciseVideo = (exerciseId) => {
+    const exercise = load().exercises.find((e) => e.id === exerciseId);
+    if (exercise) { exercise.video = null; save(); }
+    return done();
+  };
   // Sama harjoitepankki jonka oikea palvelu lisää koutsi_seed_exercises-RPC:llä,
   // jotta demossa napin painaminen tuottaa saman tuloksen kuin tuotannossa.
   const KOUTSI_DEMO_EXERCISE_TEMPLATES = [
@@ -584,8 +604,8 @@
   };
 
   // ── club events ───────────────────────────────────────────────────────────
-  window.koutsiAddClubEvent = ({ date, title, kind }) => {
-    load().clubEvents.push({ id: newId('ce'), date, title, kind });
+  window.koutsiAddClubEvent = ({ date, endDate, title, kind }) => {
+    load().clubEvents.push({ id: newId('ce'), date, endDate: endDate || null, title, kind });
     save();
     return done();
   };
@@ -618,21 +638,15 @@
     return done();
   };
   // Nimellä lisätty pelaaja: demossa hän ilmestyy heti luetteloon.
-  window.koutsiCreatePlayer = (name, age, level, coachId, ageGroup = 'adult', minorNoticeConfirmed = false, guardianApproved = false) => {
+  window.koutsiCreatePlayer = (name, age, level) => {
     if (age != null && (!Number.isInteger(age) || age < 1 || age >= 120)) return Promise.reject(new Error('Jos annat pelaajan iän, sen pitää olla 1–119 vuotta.'));
-    if (!['adult', 'junior_13_17', 'child_under_13'].includes(ageGroup)) return Promise.reject(new Error('Valitse pelaajan ikäryhmä.'));
-    if (ageGroup !== 'adult' && !minorNoticeConfirmed) return Promise.reject(new Error('Vahvista, että alaikäinen tietää Koutsin käytöstä.'));
-    if (ageGroup === 'child_under_13' && !guardianApproved) return Promise.reject(new Error('Alle 13-vuotiaan lisääminen vaatii huoltajan hyväksynnän.'));
     const id = newId('demo-student');
-    load().students.push(student(id, name, age || null, level || null, { isPlaceholder: true, pilotAgeGroup: ageGroup }));
+    load().students.push(student(id, name, age || null, level || null, { isPlaceholder: true }));
     save();
     return done(id);
   };
   window.koutsiBulkSetup = ({ groups = [], players = [], themes = [] }) => {
     if (players.some((player) => player.age != null && (!Number.isInteger(player.age) || player.age < 1 || player.age >= 120))) return Promise.reject(new Error('Jos annat pelaajan iän, sen pitää olla 1–119 vuotta.'));
-    if (players.some((player) => !['adult', 'junior_13_17', 'child_under_13'].includes(player.age_group))) return Promise.reject(new Error('Valitse jokaiselle pelaajalle ikäryhmä.'));
-    if (players.some((player) => player.age_group !== 'adult' && !player.minor_notice_confirmed)) return Promise.reject(new Error('Vahvista, että alaikäiset tietävät Koutsin käytöstä.'));
-    if (players.some((player) => player.age_group === 'child_under_13' && !player.guardian_approved)) return Promise.reject(new Error('Alle 13-vuotiaan lisääminen vaatii huoltajan hyväksynnän.'));
     const s = load();
     const groupIds = {};
     let groupsCreated = 0;
@@ -655,7 +669,7 @@
 
     const created = players.map((row) => {
       const id = newId('demo-student');
-      s.students.push(student(id, row.name, row.age || null, row.level || null, { isPlaceholder: true, pilotAgeGroup: row.age_group }));
+      s.students.push(student(id, row.name, row.age || null, row.level || null, { isPlaceholder: true }));
       (row.group_refs || []).forEach((ref) => {
         const group = s.groups.find((g) => g.id === groupIds[ref]);
         if (!group) throw new Error('Pelaajalle valittua ryhmää ei löytynyt');

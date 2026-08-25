@@ -155,9 +155,9 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
 
   // Club tournaments and play days are things that happened to the player too, even though
   // they belong to the club rather than to one student.
-  (clubEvents || []).filter((e) => e.date <= today).forEach((e) => push({
-    id: `event-${e.id}`, kind: 'event', at: e.date,
-    title: e.title, body: e.kind ? `Seuran ${e.kind}` : '',
+  (clubEvents || []).filter((e) => (e.endDate || e.date) <= today).forEach((e) => push({
+    id: `event-${e.id}`, kind: 'event', at: e.endDate || e.date,
+    title: e.title, body: [e.kind ? `Seuran ${e.kind}` : '', e.endDate && e.endDate !== e.date ? `${window.koutsiFmtShortDate(e.date)}–${window.koutsiFmtShortDate(e.endDate)}` : ''].filter(Boolean).join(' · '),
     search: `${e.title} ${e.kind || ''} tapahtuma seura`,
   }));
 
