@@ -127,15 +127,15 @@ tallentamisen myös vanhalla käyttöliittymällä tai suoralla API-kutsulla.
 
 ## Vielä tehtäväksi jäävät asetukset
 
-- **Salasanapolitiikka ja sähköpostivahvistus (blokkaa henkilötietopilotin):** tuotannon
-  Auth-palvelin hyväksyi 24.8.2026 kertakäyttöisessä testissä 7-merkkisen salasanan, ja
-  julkinen Auth-konfiguraatio ilmoitti `mailer_autoconfirm: true`. Testitili poistettiin
-  heti. Aseta Supabase Dashboardissa Authentication → Sign In / Providers → Email:
-  vähimmäispituudeksi vähintään 8 merkkiä, vaadi vahva merkkijoukko ja ota sähköpostin
-  vahvistaminen käyttöön. Sovellus vaatii nyt rekisteröinnissä ja salasanan palautuksessa
-  vähintään 8 merkkiä, mutta selainvalidointi ei korvaa palvelinpuolen politiikkaa.
-  Varmista muutoksen jälkeen, että 7-merkkinen rekisteröinti hylätään ja
-  `/auth/v1/settings` palauttaa `mailer_autoconfirm: false`.
+- **Salasanapolitiikka ja sähköpostivahvistus (valmis):** tuotannon Auth-palvelimen
+  vähimmäispituudeksi asetettiin 8
+  merkkiä. Suljetussa betassa käytetään tarkoituksella Supabasen asetusta
+  `No required characters`; vuotaneiden salasanojen maksullinen tarkistus on käsitelty
+  erikseen alla. Palvelintesti 25.8.2026 hylkäsi 7-merkkisen salasanan ja tietokannasta
+  vahvistettiin, ettei testikäyttäjiä jäänyt. Sovellus vaatii rekisteröinnissä ja
+  salasanan palautuksessa saman 8 merkkiä. Uusien tilien erillinen `Confirm email`
+  otettiin käyttöön 25.8.2026; tuotannon `/auth/v1/settings` palautti varmennuksessa
+  `mailer_autoconfirm: false` ja email-providerin aktiiviseksi.
 - **Vuotaneiden salasanojen esto (siirretty)**: ominaisuus kuuluu Supabasen Pro-tasoon,
   joten sitä ei oteta käyttöön Free-tasolla ajettavassa ensimmäisessä pilotissa. Jos
   organisaatio päivitetään myöhemmin Prohon, kytke Authentication → Policies →
