@@ -2962,6 +2962,13 @@ function adminFormatBytes(bytes) {
   return `${(value / (1024 * 1024 * 1024)).toFixed(1)} Gt`;
 }
 
+function adminFormatAccountDate(value) {
+  if (!value) return 'Ei tiedossa';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Ei tiedossa';
+  return date.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric', year: 'numeric' });
+}
+
 function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
   const toast = window.useKoutsiToast();
   const confirm = window.useKoutsiConfirm();
@@ -2999,6 +3006,7 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
         <div style={{ flex: '1 1 200px', minWidth: 0 }}>
           <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111' }}>{user.name}</div>
           <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2, wordBreak: 'break-all' }}>{user.email || 'Ei sähköpostia'}</div>
+          <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 4 }}>Tili luotu {adminFormatAccountDate(user.joinedAt)}</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
             {roles.map((role) => (
               <span key={role.label} style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '4px 9px', fontSize: 10.5, fontWeight: 800, color: role.fg, background: role.bg, border: `1px solid ${role.border}` }}>{role.label}</span>
