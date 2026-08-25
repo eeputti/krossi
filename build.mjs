@@ -27,7 +27,6 @@ const PAGES = {
   'koutsi-valmentaja': [
     'lib/koutsi-auth.jsx',
     'lib/koutsi-data.js',
-    'lib/koutsi-theme-import.js',
     'lib/koutsi-qr.js',
     'lib/koutsi-ui.jsx',
     'lib/koutsi-timeline.jsx',
@@ -48,7 +47,6 @@ const PAGES = {
     'lib/koutsi-demo-role-coach.js',
     'lib/koutsi-data.js',
     'lib/koutsi-demo-backend.jsx',
-    'lib/koutsi-theme-import.js',
     'lib/koutsi-qr.js',
     'lib/koutsi-ui.jsx',
     'lib/koutsi-timeline.jsx',
@@ -71,7 +69,6 @@ const PAGES = {
 
 async function transform(file) {
   const source = await readFile(join(root, file), 'utf8');
-  const bundlesDependencies = file === 'lib/koutsi-theme-import.js';
   const result = await build({
     stdin: {
       contents: source,
@@ -80,7 +77,7 @@ async function transform(file) {
       resolveDir: root,
     },
     write: false,
-    bundle: bundlesDependencies,
+    bundle: false,
     minify: true,
     format: 'iife',
     target: ['es2019', 'safari14'],

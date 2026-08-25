@@ -137,6 +137,7 @@
         { id: 'nt1', kind: 'homework_done', title: 'Aleksi R. merkitsi kotitehtävän tehdyksi', body: 'Katso videoanalyysi backhandista', linkPath: null, createdAt: isoAt(-11), read: false },
       ],
       inviteCodes: [],
+      annualPlanSubmissions: [],
       joinCode: 'DEMO24',
       emailPref: true,
     };
@@ -792,6 +793,31 @@
   window.koutsiAdminGroups = () => done([]);
   window.koutsiAdminBulkInviteCodes = () => done([]);
   window.koutsiAdminUploadAnnualPlan = () => done();
+  window.koutsiUploadSharedAnnualPlan = (coachId, file) => {
+    const s = load();
+    const submission = {
+      id: newId('annual-plan'), coachId, filename: file.name,
+      storagePath: URL.createObjectURL(file), sizeBytes: file.size,
+      status: 'pending', uploadedAt: new Date().toISOString(), handledAt: null,
+    };
+    (s.annualPlanSubmissions ||= []).unshift(submission);
+    save();
+    return done(clone(submission));
+  };
+  window.koutsiAnnualPlanSubmissions = (coachId = null, pendingOnly = false) => {
+    const rows = (load().annualPlanSubmissions || []).filter((submission) =>
+      (!coachId || submission.coachId === coachId)
+      && (!pendingOnly || submission.status === 'pending'));
+    return done(clone(rows));
+  };
+  window.koutsiAdminHandleAnnualPlanSubmission = (submissionId) => {
+    const submission = (load().annualPlanSubmissions || []).find((item) => item.id === submissionId);
+    if (!submission || submission.status !== 'pending') return Promise.reject(new Error('Vuosisuunnitelmaa ei löytynyt tai se on jo käsitelty.'));
+    submission.status = 'handled';
+    submission.handledAt = new Date().toISOString();
+    save();
+    return done();
+  };
 
   // ── "Luo tili" -kehote ────────────────────────────────────────────────────
   // Demo on myyntityökalu, joten siitä pitää päästä yhdellä klikkauksella

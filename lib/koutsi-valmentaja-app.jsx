@@ -287,10 +287,9 @@ function AddPlayerModal({ onClose, onSave }) {
   );
 }
 
-// The fast start accepts both hand-entered rows and a shared annual-plan workbook. A
-// coach can mix existing and new groups, map every weekly theme, and review the whole
-// result before anything is written.
-function BulkSetupModal({ groups, onClose, onSave }) {
+// The fast start keeps the coach's hand-entered players, groups and weekly themes in one
+// reviewed transaction. A shared workbook can be sent alongside them for admin review.
+function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   const now = window.koutsiCurrentIsoWeek();
   const groupSeq = React.useRef(2);
   const playerSeq = React.useRef(5);
@@ -306,8 +305,8 @@ function BulkSetupModal({ groups, onClose, onSave }) {
   const [pasteOpen, setPasteOpen] = React.useState(false);
   const [pasteText, setPasteText] = React.useState('');
   const [pasteGroupKey, setPasteGroupKey] = React.useState('');
-  const [themeImportBusy, setThemeImportBusy] = React.useState(false);
-  const [themeImport, setThemeImport] = React.useState(null);
+  const [sharedPlanBusy, setSharedPlanBusy] = React.useState(false);
+  const [sharedPlanSent, setSharedPlanSent] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [result, setResult] = React.useState(null);
@@ -369,6 +368,16 @@ function BulkSetupModal({ groups, onClose, onSave }) {
     setPlayers((prev) => [...prev.map((p) => updates.has(p.key) ? { ...p, ...updates.get(p.key) } : p), ...additions]);
     setPasteText(''); setPasteOpen(false); setError('');
   };
+  const sendSharedPlan = async (file) => {
+    if (!file) return;
+    setSharedPlanBusy(true); setError('');
+    try {
+      await window.koutsiUploadSharedAnnualPlan(coachId, file);
+      setSharedPlanSent(file.name);
+    } catch (err) {
+      setError(window.koutsiErrorText(err, 'Vuosisuunnitelman lähetys epäonnistui.'));
+    } finally { setSharedPlanBusy(false); }
+  };
 
   const involvedGroupKeys = React.useMemo(() => {
     const keys = new Set(startedGroups.filter((g) => g.name.trim() && g.time).map((g) => g.key));
@@ -407,57 +416,6 @@ function BulkSetupModal({ groups, onClose, onSave }) {
   };
   const updateTheme = (key, patch) => setThemeRows((prev) => prev.map((r) => r.key === key ? { ...r, ...patch } : r));
   const removeTheme = (key) => setThemeRows((prev) => prev.filter((r) => r.key !== key));
-  const importThemeWorkbook = async (file) => {
-    if (!file) return;
-    if (file.size > 15 * 1024 * 1024) { setError('Excel-tiedosto on liian suuri. Enimmäiskoko on 15 Mt.'); return; }
-    setThemeImportBusy(true); setThemeImport(null); setError('');
-    try {
-      const parsed = await window.koutsiReadThemeWorkbook(file, { fallbackYear: now.year });
-      if (parsed.issues.length > 0) {
-        const shown = parsed.issues.slice(0, 3).join(' · ');
-        throw new Error(`Excelissä on korjattavaa: ${shown}${parsed.issues.length > 3 ? ` · +${parsed.issues.length - 3} muuta` : ''}`);
-      }
-      if (parsed.rows.length === 0) throw new Error('Excelistä ei löytynyt viikkoteemoja. Tarkista otsikot ja viikkonumerot.');
-      if (parsed.rows.length > 520) throw new Error('Excelissä on yli 520 viikkoteemaa. Tuo suunnitelma kahdessa osassa.');
-
-      const normalizeGroupName = (value) => String(value || '').trim().toLocaleLowerCase('fi-FI').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '');
-      const optionsByName = new Map();
-      groupOptions.forEach((option) => {
-        const key = normalizeGroupName(option.name);
-        if (!optionsByName.has(key)) optionsByName.set(key, option);
-        else optionsByName.set(key, null);
-      });
-      const unmatched = [...new Set(parsed.rows.filter((row) => !optionsByName.get(normalizeGroupName(row.groupName))).map((row) => row.groupName))];
-      if (unmatched.length > 0) throw new Error(`Excelin ryhmiä ei löytynyt ryhmälistasta: ${unmatched.join(', ')}. Lisää tai nimeä ryhmät ensin Ryhmät-vaiheessa.`);
-
-      const tooLong = parsed.rows.find((row) => row.title.length > 160 || row.lead.length > 1000);
-      if (tooLong) throw new Error(`${tooLong.groupName}, vko ${tooLong.week}: teeman teksti on liian pitkä.`);
-      const invalidWeek = parsed.rows.find((row) => row.week > window.koutsiWeeksInIsoYear(row.year));
-      if (invalidWeek) throw new Error(`${invalidWeek.year} ei sisällä viikkoa ${invalidWeek.week}.`);
-
-      const imported = parsed.rows.map((row) => ({
-        groupKey: optionsByName.get(normalizeGroupName(row.groupName)).key,
-        year: row.year, week: row.week, title: row.title, lead: row.lead,
-      }));
-      setThemeRows((prev) => {
-        const next = prev.slice();
-        imported.forEach((row) => {
-          const existingIndex = next.findIndex((item) => item.groupKey === row.groupKey && item.year === row.year && item.week === row.week);
-          if (existingIndex >= 0) next[existingIndex] = { ...next[existingIndex], title: row.title, lead: row.lead };
-          else next.push({ key: `theme-${themeSeq.current++}`, ...row });
-        });
-        return next;
-      });
-      setThemeImport({
-        fileName: file.name,
-        rowCount: imported.length,
-        groupCount: new Set(imported.map((row) => row.groupKey)).size,
-        warnings: parsed.warnings,
-      });
-    } catch (err) {
-      setError(window.koutsiErrorText(err, 'Excelin lukeminen epäonnistui.'));
-    } finally { setThemeImportBusy(false); }
-  };
   const filledThemes = themeRows.filter((r) => r.title.trim() && groupOptionByKey.has(r.groupKey));
   const duplicateThemeWeeks = (() => {
     const seen = new Set();
@@ -655,24 +613,21 @@ function BulkSetupModal({ groups, onClose, onSave }) {
 
               {step === 2 && (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-                    <div>
-                      <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 5 }}>Suunnittele viikkoteemat</h3>
-                      <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55 }}>Lisää teemat käsin tai tuo kaikkien ryhmien yhteinen vuosisuunnitelma Excelistä.</p>
-                    </div>
-                    <label className="btn-dark btn-sm" style={{ cursor: themeImportBusy ? 'default' : 'pointer', opacity: themeImportBusy ? 0.6 : 1 }}>
-                      {themeImportBusy ? 'Luetaan Exceliä…' : 'Tuo vuosisuunnitelma (.xlsx)'}
-                      <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled={themeImportBusy} style={{ display: 'none' }} onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; importThemeWorkbook(file); }} />
-                    </label>
-                  </div>
-                  <div className="k-card" style={{ padding: '12px 14px', marginBottom: 16, background: 'rgba(14,59,44,0.03)' }}>
-                    <div style={{ fontSize: 12.5, color: '#514c42', lineHeight: 1.5 }}><b>Excel voi olla kolmessa muodossa:</b> Ryhmä–Viikko–Teema-riveinä, ryhmät sarakkeina tai omana välilehtenä jokaiselle ryhmälle. Ryhmän nimen pitää vastata ryhmälistaa.</div>
-                    {themeImport && (
-                      <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--green-deep)', fontWeight: 750 }}>
-                        {themeImport.fileName}: tuotu {themeImport.rowCount} viikkoteemaa {themeImport.groupCount} ryhmälle.
-                        {themeImport.warnings.length > 0 && <span style={{ display: 'block', color: '#8a5a12', fontWeight: 600, marginTop: 4 }}>{themeImport.warnings.slice(0, 2).join(' ')}</span>}
+                  <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 5 }}>Suunnittele viikkoteemat</h3>
+                  <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55, marginBottom: 14 }}>Lisää teemat käsin tai lähetä usean ryhmän yhteinen Excel ylläpidon tarkistettavaksi.</p>
+                  <div className="k-card" style={{ padding: '14px 16px', marginBottom: 16, background: 'rgba(14,59,44,0.035)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+                      <div style={{ flex: '1 1 330px' }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)', marginBottom: 3 }}>Onko kaikki ryhmät samassa Excelissä?</div>
+                        <div style={{ fontSize: 12.5, color: '#514c42', lineHeight: 1.5 }}>Lähetä `.xlsx` ylläpidolle. Se ei muuta teemoja automaattisesti, vaan ylläpito saa sähköposti-ilmoituksen ja käy tiedoston läpi.</div>
                       </div>
-                    )}
+                      <label className="btn-dark btn-sm" style={{ cursor: sharedPlanBusy ? 'default' : 'pointer', opacity: sharedPlanBusy ? 0.55 : 1 }}>
+                        {sharedPlanBusy ? 'Lähetetään…' : (sharedPlanSent ? 'Lähetä uusi versio' : 'Lähetä Excel')}
+                        <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled={sharedPlanBusy} style={{ display: 'none' }}
+                          onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; sendSharedPlan(file); }} />
+                      </label>
+                    </div>
+                    {sharedPlanSent && <div style={{ marginTop: 9, fontSize: 12.5, color: '#0e5b42', fontWeight: 750 }}>{sharedPlanSent} lähetetty ylläpidolle.</div>}
                   </div>
                   {involvedGroupKeys.length === 0 && <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Pelaajia ei ole liitetty ryhmiin, joten viikkoteemoja ei tarvitse lisätä.</div>}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -807,7 +762,7 @@ function StudentsView({ students, groups, coachId, coachName, onOpen, trainingCo
         {students.length > 0 && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei osumia haulla ”{search.trim()}”.</div>}
       </div>
       {addOpen && <AddPlayerModal onClose={() => setAddOpen(false)} onSave={async (data) => { await onAddPlayer(data); setAddOpen(false); }} />}
-      {bulkOpen && <BulkSetupModal groups={groups} onClose={() => setBulkOpen(false)} onSave={onBulkSetup} />}
+      {bulkOpen && <BulkSetupModal groups={groups} coachId={coachId} onClose={() => setBulkOpen(false)} onSave={onBulkSetup} />}
       {inviteOpen && <InviteStudentModal coachId={coachId} coachName={coachName} onClose={() => setInviteOpen(false)} />}
     </div>
   );
@@ -1401,10 +1356,74 @@ function VideoAudienceModal({ video, students, onClose, onSave }) {
 }
 
 // ── Ryhmät ───────────────────────────────────────────────
-function GroupsView({ groups, students, onOpen, onCreate }) {
+function SharedAnnualPlanSubmissionCard({ coachId }) {
+  const toast = window.useKoutsiToast();
+  const [submissions, setSubmissions] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const load = React.useCallback(() => {
+    window.koutsiAnnualPlanSubmissions(coachId).then(setSubmissions).catch(() => setSubmissions([]));
+  }, [coachId]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const upload = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    const sent = await toast.run(
+      () => window.koutsiUploadSharedAnnualPlan(coachId, file),
+      'Vuosisuunnitelma lähetetty ylläpidolle.',
+    );
+    if (sent) load();
+    setBusy(false);
+  };
+  const open = async (submission) => {
+    try {
+      const url = await window.koutsiAnnualPlanUrl(submission.storagePath);
+      if (!url) throw new Error('Tiedostoa ei löytynyt.');
+      window.open(url, '_blank', 'noopener');
+    } catch (err) { toast.error(window.koutsiErrorText(err, 'Tiedostoa ei saatu auki.')); }
+  };
+
+  return (
+    <div className="k-card" style={{ padding: '18px 20px', marginBottom: 18, background: 'rgba(14,59,44,0.035)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 330px' }}>
+          <div style={{ fontSize: 15.5, fontWeight: 800, color: 'var(--green-deep)', marginBottom: 5 }}>Lähetä yhteinen vuosisuunnitelma</div>
+          <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5 }}>
+            Jos samassa Excelissä on usean ryhmän viikkoteemat, lähetä se tästä ylläpidolle. Tiedosto ei muuta teemoja automaattisesti — ylläpito saa ilmoituksen ja käy suunnitelman läpi.
+          </div>
+        </div>
+        <label className="btn-dark btn-sm" style={{ cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.55 : 1 }}>
+          {busy ? 'Lähetetään…' : 'Lähetä Excel'}
+          <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled={busy} style={{ display: 'none' }}
+            onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; upload(file); }} />
+        </label>
+      </div>
+      {submissions === null && <div style={{ marginTop: 12, color: '#8a857a', fontSize: 12.5 }}>Ladataan lähetyksiä…</div>}
+      {submissions && submissions.slice(0, 3).map((submission) => {
+        const pending = submission.status === 'pending';
+        return (
+          <div key={submission.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 11, padding: '10px 12px', borderRadius: 11, border: '1px solid var(--line)', background: '#fff', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 210px', minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 750, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.filename}</div>
+              <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 2 }}>{new Date(submission.uploadedAt).toLocaleDateString('fi-FI')} · {adminFormatBytes(submission.sizeBytes)}</div>
+            </div>
+            <span style={{ borderRadius: 999, padding: '5px 9px', fontSize: 10.5, fontWeight: 800, color: pending ? '#7a4c1e' : '#0e5b42', background: pending ? 'rgba(199,123,46,0.12)' : 'rgba(47,125,84,0.11)', border: `1px solid ${pending ? 'rgba(199,123,46,0.3)' : 'rgba(47,125,84,0.25)'}` }}>
+              {pending ? 'Odottaa ylläpitoa' : 'Käsitelty'}
+            </span>
+            <button type="button" onClick={() => open(submission)} className="btn-outline btn-sm">Avaa</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GroupsView({ groups, students, coachId, acting, onOpen, onCreate }) {
   return (
     <div>
       <PageHeader title="Ryhmät" sub={`${groups.length} valmennusryhmää`} action={<button onClick={onCreate} className="btn-dark btn-sm">+ Uusi ryhmä</button>} />
+      {!acting && <SharedAnnualPlanSubmissionCard coachId={coachId} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
         {groups.map((g) => {
           const members = g.memberIds.map((id) => students.find((s) => s.id === id)).filter(Boolean);
@@ -3129,15 +3148,56 @@ function AdminImportModal({ coach, onClose }) {
   );
 }
 
-function AdminPlansModal({ coach, onClose, onChanged }) {
+function AdminPlansModal({ coach, onClose, onChanged, onActAs }) {
   const toast = window.useKoutsiToast();
+  const confirm = window.useKoutsiConfirm();
   const [groups, setGroups] = React.useState(null);
+  const [submissions, setSubmissions] = React.useState(null);
   const [busyId, setBusyId] = React.useState(null);
 
   const load = React.useCallback(() => {
-    window.koutsiAdminGroups(coach.id).then(setGroups).catch(() => setGroups([]));
+    Promise.all([
+      window.koutsiAdminGroups(coach.id),
+      window.koutsiAnnualPlanSubmissions(coach.id),
+    ]).then(([nextGroups, nextSubmissions]) => {
+      setGroups(nextGroups);
+      setSubmissions(nextSubmissions);
+    }).catch(() => {
+      setGroups([]);
+      setSubmissions([]);
+    });
   }, [coach.id]);
   React.useEffect(() => { load(); }, [load]);
+
+  const openSubmission = async (submission) => {
+    setBusyId(submission.id);
+    try {
+      const url = await window.koutsiAnnualPlanUrl(submission.storagePath);
+      if (!url) throw new Error('Tiedostoa ei löytynyt.');
+      window.open(url, '_blank', 'noopener');
+    } catch (err) { toast.error(window.koutsiErrorText(err, 'Tiedostoa ei saatu auki.')); }
+    finally { setBusyId(null); }
+  };
+  const markHandled = async (submission) => {
+    const ok = await confirm({
+      title: 'Merkitse vuosisuunnitelma käsitellyksi?',
+      body: `${submission.filename}. Tee tämä vasta, kun olet tarkistanut Excelin ja päivittänyt viikkoteemat valmentajan näkymässä.`,
+      confirmLabel: 'Merkitse käsitellyksi',
+    });
+    if (!ok) return;
+    setBusyId(submission.id);
+    const handled = await toast.run(
+      () => window.koutsiAdminHandleAnnualPlanSubmission(submission.id),
+      'Vuosisuunnitelma merkitty käsitellyksi.',
+    );
+    if (handled) { await load(); onChanged(); }
+    setBusyId(null);
+  };
+  const openCoachView = async () => {
+    setBusyId('coach-view');
+    try { await onActAs(coach.id); }
+    catch (err) { toast.error(window.koutsiErrorText(err, 'Valmentajan näkymää ei saatu auki.')); setBusyId(null); }
+  };
 
   const upload = async (group, file) => {
     if (!file) return;
@@ -3160,13 +3220,42 @@ function AdminPlansModal({ coach, onClose, onChanged }) {
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" role="dialog" aria-modal="true" aria-label={`Vuosisuunnitelmat — ${coach.name}`} style={{ width: 'min(700px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Vuosisuunnitelmat — {coach.name}</h3>
         <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>
-          Voit ladata suunnitelman valmentajan puolesta. Ladattu tiedosto menee heti käyttöön eikä jää odottamaan käsittelyä.
+          Avaa koutsin lähettämä Excel, siirry hänen valmentajanäkymäänsä ja päivitä viikkoteemat oikeisiin ryhmiin. Merkitse tiedosto käsitellyksi vasta lopuksi.
         </p>
-        {groups === null && <div style={{ color: '#8a857a', fontSize: 14 }}>Ladataan…</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+          <button type="button" onClick={openCoachView} disabled={busyId === 'coach-view'} className="btn-dark btn-sm" style={{ opacity: busyId === 'coach-view' ? 0.55 : 1 }}>
+            {busyId === 'coach-view' ? 'Avataan…' : 'Avaa valmentajan näkymä'}
+          </button>
+        </div>
+
+        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Koutsin lähettämät Excelit</div>
+        {submissions === null && <div style={{ color: '#8a857a', fontSize: 14, marginBottom: 18 }}>Ladataan lähetyksiä…</div>}
+        {submissions && submissions.length === 0 && <div style={{ color: '#8a857a', fontSize: 14, marginBottom: 18 }}>Koutsi ei ole vielä lähettänyt yhteistä Excel-vuosisuunnitelmaa.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+          {[...(submissions || [])].sort((a, b) => (a.status === b.status ? 0 : a.status === 'pending' ? -1 : 1)).map((submission) => {
+            const pending = submission.status === 'pending';
+            return (
+              <div key={submission.id} className="k-card" style={{ padding: '13px 15px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: pending ? 'rgba(199,123,46,0.055)' : '#fff' }}>
+                <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 750, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.filename}</div>
+                  <div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>{new Date(submission.uploadedAt).toLocaleDateString('fi-FI')} · {adminFormatBytes(submission.sizeBytes)}</div>
+                </div>
+                <span style={{ borderRadius: 999, padding: '5px 9px', fontSize: 10.5, fontWeight: 800, color: pending ? '#7a4c1e' : '#0e5b42', background: pending ? 'rgba(199,123,46,0.12)' : 'rgba(47,125,84,0.11)', border: `1px solid ${pending ? 'rgba(199,123,46,0.3)' : 'rgba(47,125,84,0.25)'}` }}>
+                  {pending ? 'Odottaa käsittelyä' : 'Käsitelty'}
+                </span>
+                <button type="button" onClick={() => openSubmission(submission)} disabled={busyId === submission.id} className="btn-outline btn-sm">Avaa Excel</button>
+                {pending && <button type="button" onClick={() => markHandled(submission)} disabled={busyId === submission.id} className="btn-dark btn-sm" style={{ opacity: busyId === submission.id ? 0.55 : 1 }}>Merkitse käsitellyksi</button>}
+              </div>
+            );
+          })}
+        </div>
+
+        {groups === null && <div style={{ color: '#8a857a', fontSize: 14 }}>Ladataan ryhmiä…</div>}
         {groups && groups.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Tällä valmentajalla ei ole vielä ryhmiä.</div>}
+        {groups && groups.length > 0 && <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Ryhmään liitetyt tiedostot</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {(groups || []).map((g) => (
             <div key={g.id} className="k-card" style={{ padding: '13px 15px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -3276,7 +3365,7 @@ function AdminView({ onActAs }) {
         {users && !loadError && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Suodattimilla ei löytynyt käyttäjiä.</div>}
       </div>
       {importCoach && <AdminImportModal coach={importCoach} onClose={() => setImportCoach(null)} />}
-      {plansCoach && <AdminPlansModal coach={plansCoach} onClose={() => setPlansCoach(null)} onChanged={load} />}
+      {plansCoach && <AdminPlansModal coach={plansCoach} onClose={() => setPlansCoach(null)} onChanged={load} onActAs={onActAs} />}
     </div>
   );
 }
@@ -3791,7 +3880,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
               onAddTraining={() => { setTab('trainings'); openNewTraining(null); }}
               onAddPlayer={addPlayer} onBulkSetup={bulkSetup} />
           )}
-          {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} onOpen={setGroupDetailId} onCreate={() => { setEditingGroup(null); setGroupFormOpen(true); }} />}
+          {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} coachId={coachId} acting={Boolean(actingCoach)} onOpen={setGroupDetailId} onCreate={() => { setEditingGroup(null); setGroupFormOpen(true); }} />}
           {tab === 'trainings' && (
             <CalendarView
               state={state} onAdd={openNewTraining} onPreSession={setPresessionTrainingId}
