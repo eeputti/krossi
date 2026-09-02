@@ -111,12 +111,17 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
 
   (student.matchNotes || []).forEach((n) => {
     const resultLabel = n.result === 'voitto' ? 'Voitto' : n.result === 'tappio' ? 'Tappio' : '';
-    const meta = [resultLabel, n.score, n.format === 'nelinpeli' ? 'Nelinpeli' : n.format === 'kaksinpeli' ? 'Kaksinpeli' : ''].filter(Boolean).join(' · ');
+    const opponents = n.format === 'nelinpeli' && n.opponent2Name ? `${n.opponentName} & ${n.opponent2Name}` : n.opponentName;
+    const meta = [
+      resultLabel, n.score,
+      n.format === 'nelinpeli' ? 'Nelinpeli' : n.format === 'kaksinpeli' ? 'Kaksinpeli' : '',
+      n.format === 'nelinpeli' && n.partnerName ? `Pari: ${n.partnerName}` : '',
+    ].filter(Boolean).join(' · ');
     push({
       id: `match-${n.id}`, kind: 'match', at: n.at || n.date, source: n,
-      title: `Ottelu: ${n.opponentName}${resultLabel ? ` — ${resultLabel}` : ''}`,
+      title: `Ottelu: ${opponents}${resultLabel ? ` — ${resultLabel}` : ''}`,
       body: [meta, n.note || ''].filter(Boolean).join('\n'),
-      search: `${n.opponentName} ${n.note || ''} ${n.score || ''} ottelu vastustaja ${resultLabel}`,
+      search: `${opponents} ${n.partnerName || ''} ${n.note || ''} ${n.score || ''} ottelu vastustaja ${resultLabel}`,
     });
   });
 

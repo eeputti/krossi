@@ -776,9 +776,7 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
         </div>
       )}
 
-      <MonthSummaryCard summary={monthSummary} monthLabel={`${window.KOUTSI_MONTHS[viewMonth]} ${viewYear}`} />
-
-      <div className="kv-calendar-layout" style={{ marginBottom: 26 }}>
+      <div className="kv-calendar-layout" style={{ marginBottom: 20 }}>
         <PlayerCalendarGrid state={state} studentId={student.id} matchDates={matchDates} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
           onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
 
@@ -808,7 +806,7 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
                 <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 14, background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)' }}>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#a13b2f', flexShrink: 0 }} />
                   <span style={{ fontSize: 13.5, color: '#7a2c22', fontWeight: 700 }}>
-                    Ottelu: {n.opponentName}{n.result ? ` — ${n.result === 'voitto' ? 'Voitto' : 'Tappio'}` : ''}{n.score ? ` (${n.score})` : ''}
+                    Ottelu: {n.format === 'nelinpeli' && n.opponent2Name ? `${n.opponentName} & ${n.opponent2Name}` : n.opponentName}{n.result ? ` — ${n.result === 'voitto' ? 'Voitto' : 'Tappio'}` : ''}{n.score ? ` (${n.score})` : ''}
                   </span>
                 </div>
               ))}
@@ -850,6 +848,8 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
         </div>
       </div>
 
+      <MonthSummaryCard summary={monthSummary} monthLabel={`${window.KOUTSI_MONTHS[viewMonth]} ${viewYear}`} />
+
       {doneHomework.length > 0 && (
         <div style={{ marginBottom: 26 }}>
           <SectionTitle>{`Tehdyt kotiläksyt (${doneHomework.length})`}</SectionTitle>
@@ -885,44 +885,100 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
 }
 
 // ── Harjoitteet ──────────────────────────────────────────
-function ExercisesView({ exercises, hasCoach, onOpen }) {
+// A player's own saved video links live in the same koutsi_videos table their coach's
+// shares already use — this just gives them a filterable bank of their own, parallel to
+// the coach's harjoitepankki below, instead of only surfacing on the Kehitys timeline.
+function MyVideoBank({ student, onAddVideo, onOpenVideo, onDeleteVideo }) {
+  const [tag, setTag] = React.useState('kaikki');
+  const myVideos = (student.videos || []).filter((v) => v.addedBy === 'player');
+  const filtered = tag === 'kaikki' ? myVideos : myVideos.filter((v) => (v.tags || []).includes(tag));
+  return (
+    <div style={{ marginBottom: 34 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
+        <SectionTitle>{`Omat videot (${myVideos.length})`}</SectionTitle>
+        <button onClick={onAddVideo} className="btn-dark btn-sm">+ Lisää oma video</button>
+      </div>
+      <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5, marginBottom: 14 }}>
+        Tallenna tänne hyviä tennisvideoita, tekniikkaklippejä tai muita linkkejä — löydät ne täältä helposti myöhemmin.
+      </p>
+      {myVideos.length === 0 ? (
+        <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Et ole vielä lisännyt omia videoita.</div>
+      ) : (
+        <React.Fragment>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            {EXERCISE_TAGS.map((t) => (
+              <button key={t} onClick={() => setTag(t)} style={{ padding: '8px 14px', borderRadius: 999, border: tag === t ? 'none' : '1px solid var(--line)', background: tag === t ? 'var(--lime)' : '#fff', color: tag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {filtered.map((v) => (
+              <div key={v.id} className="k-card" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button onClick={() => onOpenVideo(v)} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', fontFamily: 'inherit' }}>
+                  <span style={{ width: 46, height: 36, borderRadius: 9, flexShrink: 0, position: 'relative', background: `radial-gradient(120% 120% at 30% 20%, hsl(${v.hue} 55% 45%), hsl(${v.hue + 24} 60% 22%))` }}>
+                    <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="11" height="13" viewBox="0 0 12 14"><path d="M1 1v12l10-6L1 1z" fill="rgba(255,255,255,0.92)" /></svg>
+                    </span>
+                  </span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ color: '#111', fontWeight: 700, fontSize: 14.5 }}>{v.title}</div>
+                    <div style={{ color: '#8a857a', fontSize: 12, marginTop: 2 }}>
+                      {window.koutsiFmtShortDate(v.date)}{(v.tags || []).length > 0 ? ` · ${v.tags.map((t) => window.KOUTSI_TAG_LABELS[t] || t).join(', ')}` : ''}
+                    </div>
+                  </div>
+                </button>
+                <window.KoutsiRowActions onDelete={() => onDeleteVideo(v)} deleteLabel="Poista video" />
+              </div>
+            ))}
+            {filtered.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei videoita tällä aiheella.</div>}
+          </div>
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
+function ExercisesView({ exercises, hasCoach, onOpen, student, onAddVideo, onDeleteVideo }) {
   const [activeTag, setActiveTag] = React.useState('kaikki');
   const [activeCount, setActiveCount] = React.useState('kaikki');
-  if (exercises.length === 0) {
-    return (
-      <div>
-        <PageHeader title="Harjoitteet" sub="Valmentajan harjoitepankki" />
-        <div className="k-card" style={{ padding: 22, color: '#8a857a', fontSize: 14.5, lineHeight: 1.55 }}>
-          {hasCoach ? 'Valmentajasi ei ole vielä jakanut harjoitteita.' : 'Harjoitepankki tulee näkyviin, kun liityt valmentajan ryhmään koodilla.'}
-        </div>
-      </div>
-    );
-  }
+  const [playing, setPlaying] = React.useState(null);
   const filtered = exercises
     .filter((e) => activeTag === 'kaikki' || e.tags.includes(activeTag))
     .filter((e) => activeCount === 'kaikki' || (activeCount === 4 ? e.playerCount >= 4 : e.playerCount === activeCount));
   return (
     <div>
-      <PageHeader title="Harjoitteet" sub="Valmentajan harjoitepankki" />
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        {PLAYER_COUNT_FILTERS.map((f) => (
-          <button key={f.key} onClick={() => setActiveCount(f.key)} style={{ padding: '9px 16px', borderRadius: 999, border: activeCount === f.key ? 'none' : '1px solid var(--line)', background: activeCount === f.key ? 'var(--green-deep)' : '#fff', color: activeCount === f.key ? '#fff' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
-        ))}
-      </div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {EXERCISE_TAGS.map((t) => (
-          <button key={t} onClick={() => setActiveTag(t)} style={{ padding: '9px 16px', borderRadius: 999, border: activeTag === t ? 'none' : '1px solid var(--line)', background: activeTag === t ? 'var(--lime)' : '#fff', color: activeTag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
-        ))}
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {filtered.map((ex) => (
-          <button key={ex.id} onClick={() => onOpen(ex.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ color: '#111', fontWeight: 700, fontSize: 15.5 }}>{ex.name}</div>
-            <div style={{ color: '#8a857a', fontSize: 13 }}>{ex.players} pelaajaa · {ex.duration} · {ex.level}</div>
-          </button>
-        ))}
-        {filtered.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei harjoitteita tällä suodattimella.</div>}
-      </div>
+      <PageHeader title="Harjoitteet" sub="Omat videot ja valmentajan harjoitepankki" />
+      {playing && <VideoPlayerModal video={playing} onClose={() => setPlaying(null)} />}
+
+      <MyVideoBank student={student} onAddVideo={onAddVideo} onOpenVideo={setPlaying} onDeleteVideo={onDeleteVideo} />
+
+      <SectionTitle>{`Valmentajan harjoitepankki (${exercises.length})`}</SectionTitle>
+      {exercises.length === 0 ? (
+        <div className="k-card" style={{ padding: 22, color: '#8a857a', fontSize: 14.5, lineHeight: 1.55 }}>
+          {hasCoach ? 'Valmentajasi ei ole vielä jakanut harjoitteita.' : 'Harjoitepankki tulee näkyviin, kun liityt valmentajan ryhmään koodilla.'}
+        </div>
+      ) : (
+        <React.Fragment>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            {PLAYER_COUNT_FILTERS.map((f) => (
+              <button key={f.key} onClick={() => setActiveCount(f.key)} style={{ padding: '9px 16px', borderRadius: 999, border: activeCount === f.key ? 'none' : '1px solid var(--line)', background: activeCount === f.key ? 'var(--green-deep)' : '#fff', color: activeCount === f.key ? '#fff' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+            {EXERCISE_TAGS.map((t) => (
+              <button key={t} onClick={() => setActiveTag(t)} style={{ padding: '9px 16px', borderRadius: 999, border: activeTag === t ? 'none' : '1px solid var(--line)', background: activeTag === t ? 'var(--lime)' : '#fff', color: activeTag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {filtered.map((ex) => (
+              <button key={ex.id} onClick={() => onOpen(ex.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ color: '#111', fontWeight: 700, fontSize: 15.5 }}>{ex.name}</div>
+                <div style={{ color: '#8a857a', fontSize: 13 }}>{ex.players} pelaajaa · {ex.duration} · {ex.level}</div>
+              </button>
+            ))}
+            {filtered.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei harjoitteita tällä suodattimella.</div>}
+          </div>
+        </React.Fragment>
+      )}
     </div>
   );
 }
@@ -986,12 +1042,15 @@ const MATCH_RESULT_OPTIONS = [['voitto', 'Voitto'], ['tappio', 'Tappio']];
 const MATCH_FORMAT_OPTIONS = [['kaksinpeli', 'Kaksinpeli'], ['nelinpeli', 'Nelinpeli']];
 function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
   const [opponentName, setOpponentName] = React.useState(() => (editing ? editing.opponentName : ''));
+  const [opponent2Name, setOpponent2Name] = React.useState(() => (editing ? editing.opponent2Name || '' : ''));
+  const [partnerName, setPartnerName] = React.useState(() => (editing ? editing.partnerName || '' : ''));
   const [date, setDate] = React.useState(() => (editing ? editing.date : (defaultDate || window.koutsiTodayStr())));
   const [result, setResult] = React.useState(() => (editing ? editing.result || '' : ''));
   const [format, setFormat] = React.useState(() => (editing ? editing.format || '' : ''));
   const [durationMinutes, setDurationMinutes] = React.useState(() => (editing ? editing.durationMinutes || '' : ''));
   const [score, setScore] = React.useState(() => (editing ? editing.score || '' : ''));
   const [note, setNote] = React.useState(() => (editing ? editing.note || '' : ''));
+  const isDoubles = format === 'nelinpeli';
   const ready = opponentName.trim() && date;
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
@@ -1003,14 +1062,14 @@ function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
     result: result || null, format: format || null,
     durationMinutes: durationMinutes === '' ? null : Number(durationMinutes),
     score: score.trim(),
+    partnerName: isDoubles ? partnerName.trim() : '',
+    opponent2Name: isDoubles ? opponent2Name.trim() : '',
   });
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>{editing ? 'Muokkaa ottelumuistiinpanoa' : 'Ottelumuistiinpano'}</h3>
         <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Kirjaa tulos ja taktiikkasi — löydät nämä helposti uudestaan, jos sama vastustaja tulee vastaan.</p>
-        <div style={label}>Vastustaja</div>
-        <input value={opponentName} onChange={(e) => setOpponentName(e.target.value)} placeholder="Esim. Matti Meikäläinen" style={{ ...inputStyle, marginBottom: 16 }} />
         <div style={label}>Päivämäärä</div>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
         <div style={label}>Tulos</div>
@@ -1021,6 +1080,20 @@ function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {MATCH_FORMAT_OPTIONS.map(([key, l]) => <Pill key={key} on={format === key} onClick={() => setFormat(format === key ? '' : key)}>{l}</Pill>)}
         </div>
+        {isDoubles && (
+          <React.Fragment>
+            <div style={label}>Oma pari (valinnainen)</div>
+            <input value={partnerName} onChange={(e) => setPartnerName(e.target.value)} placeholder="Esim. Liisa Lahtinen" style={{ ...inputStyle, marginBottom: 16 }} />
+          </React.Fragment>
+        )}
+        <div style={label}>{isDoubles ? 'Vastustaja 1' : 'Vastustaja'}</div>
+        <input value={opponentName} onChange={(e) => setOpponentName(e.target.value)} placeholder="Esim. Matti Meikäläinen" style={{ ...inputStyle, marginBottom: 16 }} />
+        {isDoubles && (
+          <React.Fragment>
+            <div style={label}>Vastustaja 2 (valinnainen)</div>
+            <input value={opponent2Name} onChange={(e) => setOpponent2Name(e.target.value)} placeholder="Esim. Jussi Jokinen" style={{ ...inputStyle, marginBottom: 16 }} />
+          </React.Fragment>
+        )}
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <div style={{ flex: 1 }}>
             <div style={label}>Erien tulos</div>
@@ -1456,9 +1529,9 @@ function PlayerApp({ studentId, onSignOut }) {
     if (ok) await act(() => window.koutsiDeleteMood(m.id), 'Fiilis poistettu.')();
   };
 
-  const saveMatchNote = async ({ opponentName, date, note: matchNote, result, format, durationMinutes, score }) => {
+  const saveMatchNote = async ({ opponentName, date, note: matchNote, result, format, durationMinutes, score, partnerName, opponent2Name }) => {
     const ok = await toast.run(async () => {
-      const payload = { opponentName, date, note: matchNote, result, format, durationMinutes, score };
+      const payload = { opponentName, date, note: matchNote, result, format, durationMinutes, score, partnerName, opponent2Name };
       if (editingMatchNote) await window.koutsiUpdateMatchNote(editingMatchNote.id, payload);
       else await window.koutsiAddMatchNote(studentId, payload);
       await reload();
@@ -1498,7 +1571,10 @@ function PlayerApp({ studentId, onSignOut }) {
               onSaveNote={saveNote} onToggleHomework={toggleHomework} onEditAttendance={setAttendanceTrainingId}
               onAddSelfTraining={addSelfTraining} onDeleteSelfTraining={deleteSelfTraining} onSwitchToMatch={openMatchNoteForDate} />
           )}
-          {tab === 'exercises' && <ExercisesView exercises={state.exercises} hasCoach={hasCoach} onOpen={setExerciseId} />}
+          {tab === 'exercises' && (
+            <ExercisesView exercises={state.exercises} hasCoach={hasCoach} onOpen={setExerciseId}
+              student={student} onAddVideo={() => setVideoOpen(true)} onDeleteVideo={deleteVideo} />
+          )}
           {tab === 'progress' && (
             <ProgressView
               student={student} state={state} hasCoach={hasCoach}
