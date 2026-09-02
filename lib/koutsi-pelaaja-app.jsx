@@ -6,8 +6,8 @@
 // demo.koutsi.krossi.app runs this very file — lib/koutsi-demo-backend.jsx swaps an
 // in-memory store in underneath koutsi-data.js.
 
-const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely' };
-const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely'];
+const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely', fysiikka: 'Fysiikka', drilli: 'Drilli' };
+const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely', 'fysiikka', 'drilli'];
 const PLAYER_COUNT_FILTERS = [
   { key: 'kaikki', label: 'Kaikki' },
   { key: 1, label: '1 pelaaja' },
@@ -527,7 +527,14 @@ function GroupView({ student, state, hasCoach, onJoined, onEditAttendance }) {
 }
 
 // ── kalenteri (pelaajan omat treenit) ────────────────────
-function PlayerCalendarGrid({ state, studentId, viewYear, viewMonth, selectedDate, todayStr, onSelect, onPrev, onNext }) {
+// Coach individual = lime, coach group = green, player's own logged practice = blue
+// (matches the mood dot elsewhere), a played match = red (matches the Kehitys timeline's
+// match colour), a club event stays orange.
+function koutsiCalDotColor(t) {
+  if (t.loggedBy === 'player') return '#3a82d4';
+  return t.groupId != null ? 'var(--green-deep)' : 'var(--lime)';
+}
+function PlayerCalendarGrid({ state, studentId, matchDates, viewYear, viewMonth, selectedDate, todayStr, onSelect, onPrev, onNext }) {
   const firstOfMonth = new Date(viewYear, viewMonth, 1);
   const startWeekday = (firstOfMonth.getDay() + 6) % 7;
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -556,6 +563,7 @@ function PlayerCalendarGrid({ state, studentId, viewYear, viewMonth, selectedDat
           const ds = dateStrFor(d);
           const dayTrainings = window.koutsiTrainingsOnDateForStudent(state, ds, studentId);
           const dayClubEvents = window.koutsiClubEventsOnDate(state, ds);
+          const hasMatch = matchDates.has(ds);
           const isToday = ds === todayStr;
           const isSelected = ds === selectedDate;
           return (
@@ -565,9 +573,10 @@ function PlayerCalendarGrid({ state, studentId, viewYear, viewMonth, selectedDat
               cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit',
             }}>
               <span style={{ fontSize: 13, fontWeight: isToday ? 800 : 600, color: '#111' }}>{d}</span>
-              {(dayTrainings.length > 0 || dayClubEvents.length > 0) && (
+              {(dayTrainings.length > 0 || dayClubEvents.length > 0 || hasMatch) && (
                 <span style={{ display: 'flex', gap: 2 }}>
-                  {dayTrainings.slice(0, 3).map((t, ti) => <span key={ti} style={{ width: 5, height: 5, borderRadius: '50%', background: t.groupId != null ? 'var(--green-deep)' : 'var(--lime)' }} />)}
+                  {dayTrainings.slice(0, 3).map((t, ti) => <span key={ti} style={{ width: 5, height: 5, borderRadius: '50%', background: koutsiCalDotColor(t) }} />)}
+                  {hasMatch && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#a13b2f' }} />}
                   {dayClubEvents.length > 0 && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#c77b2e' }} />}
                 </span>
               )}
@@ -578,6 +587,8 @@ function PlayerCalendarGrid({ state, studentId, viewYear, viewMonth, selectedDat
       <div style={{ display: 'flex', gap: 16, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)', flexWrap: 'wrap' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--lime)' }} />Yksilö</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green-deep)' }} />Ryhmä</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#3a82d4' }} />Oma merkintä</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#a13b2f' }} />Ottelu</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#8a857a' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#c77b2e' }} />Seuran tapahtuma</span>
       </div>
     </div>
@@ -602,16 +613,147 @@ function HomeworkRow({ item, onToggle, done }) {
   );
 }
 
-function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onSaveNote, onToggleHomework, onEditAttendance }) {
+// Lets a player log their own practice — self-directed drills, physical training,
+// another sport, or a tournament — for a given day, alongside whatever the coach
+// schedules. "Ottelu" is a shortcut into the (more detailed) match note form rather than
+// its own entry, so a played match is recorded once, not as two half-empty records.
+const SELF_TRAINING_TYPES = ['Omatoiminen harjoitus', 'Fysiikka', 'Muu liikunta', 'Turnaus', 'Ottelu'];
+const SELF_TRAINING_NOTE_HINTS = {
+  'Omatoiminen harjoitus': 'Esim. Löin kaverin kanssa syöttöjä ja pistepeliä.',
+  Fysiikka: 'Esim. Kuntosali — jalat ja keskivartalo.',
+  'Muu liikunta': 'Esim. Juoksu 5 km.',
+  Turnaus: 'Esim. Piirinmestaruuskisat, Lahti.',
+};
+function AddSelfTrainingModal({ date, onClose, onSave, onSwitchToMatch }) {
+  const [type, setType] = React.useState('Omatoiminen harjoitus');
+  const [time, setTime] = React.useState('12:00');
+  const [durationMinutes, setDurationMinutes] = React.useState(60);
+  const [endDate, setEndDate] = React.useState('');
+  const [notes, setNotes] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  const isMatch = type === 'Ottelu';
+  const isTournament = type === 'Turnaus';
+  const ready = isMatch || isTournament || (time.trim() && Number(durationMinutes) > 0);
+  const submit = async () => {
+    if (!ready) return;
+    if (isMatch) { onSwitchToMatch(date); return; }
+    setBusy(true); setError('');
+    try {
+      await onSave({
+        date, type, notes: notes.trim(),
+        time: isTournament ? '09:00' : time.trim(),
+        durationMinutes: isTournament ? null : Number(durationMinutes),
+        endDate: isTournament && endDate ? endDate : null,
+      });
+    }
+    catch (err) { setError(err.message || 'Tallennus epäonnistui'); setBusy(false); }
+  };
+  return (
+    <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Lisää oma merkintä</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>{window.koutsiFmtLongDate(date)}. Kirjaa omatoiminen harjoitus, fysiikkatreeni, muu liikunta tai turnaus — se näkyy sinulle ja valmentajallesi.</p>
+        {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
+        <div style={label}>Mitä teit</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {SELF_TRAINING_TYPES.map((t) => (
+            <button key={t} onClick={() => setType(t)} style={{ padding: '9px 15px', borderRadius: 999, border: type === t ? 'none' : '1px solid #d8d4ca', background: type === t ? 'var(--lime)' : '#fff', color: type === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{t}</button>
+          ))}
+        </div>
+        {isMatch ? (
+          <div style={{ padding: '12px 14px', borderRadius: 12, background: '#f7f5ef', color: '#6b665c', fontSize: 13, lineHeight: 1.5, marginBottom: 4 }}>
+            Ottelut kirjataan ottelumuistiinpanoon — sinne merkitset myös tuloksen ja vastustajan.
+          </div>
+        ) : isTournament ? (
+          <React.Fragment>
+            <div style={label}>Päättyy (valinnainen, useampipäiväinen turnaus)</div>
+            <input type="date" min={date} value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
+            <div style={label}>Kuvaus (valinnainen)</div>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={SELF_TRAINING_NOTE_HINTS[type] || ''}
+              style={{ ...inputStyle, resize: 'none', marginBottom: 4 }} />
+          </React.Fragment>
+        ) : (
+          <React.Fragment>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <div style={{ flex: 1 }}>
+                <div style={label}>Kellonaika</div>
+                <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} style={inputStyle} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={label}>Kesto (min)</div>
+                <input type="number" inputMode="numeric" min={15} max={480} step={15} value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(e.target.value === '' ? '' : Number(e.target.value))}
+                  onBlur={() => setDurationMinutes((d) => window.koutsiRoundToQuarterHourMinutes(d))}
+                  style={inputStyle} />
+              </div>
+            </div>
+            <div style={label}>Kuvaus (valinnainen)</div>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder={SELF_TRAINING_NOTE_HINTS[type] || ''}
+              style={{ ...inputStyle, resize: 'none', marginBottom: 4 }} />
+          </React.Fragment>
+        )}
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} disabled={!ready || busy} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: (ready && !busy) ? 1 : 0.45, cursor: (ready && !busy) ? 'pointer' : 'default' }}>
+            {isMatch ? 'Jatka ottelutietoihin' : (busy ? 'Tallennetaan…' : 'Tallenna')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Strava-style month overview: how much the player actually did this month, broken down
+// by who logged it. Pulled from koutsiMonthlySummary, which only counts sessions that
+// have already happened — a month still in progress should not look busier than it is.
+function MonthSummaryCard({ summary, monthLabel }) {
+  const active = summary.categories.filter((c) => c.count > 0);
+  if (summary.totalSessions === 0) {
+    return (
+      <div className="k-card" style={{ padding: '16px 18px', marginBottom: 20, color: '#8a857a', fontSize: 13.5, lineHeight: 1.5 }}>
+        Ei vielä merkintöjä kuussa {monthLabel.toLowerCase()}. Lisää treenejä, fysiikkaa tai otteluita kalenteriin.
+      </div>
+    );
+  }
+  return (
+    <div className="k-card" style={{ padding: '18px 20px', marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{monthLabel}</div>
+        <div style={{ fontSize: 12.5, color: '#8a857a' }}>{summary.totalSessions} suoritusta{summary.totalMinutes ? ` · ${window.koutsiFmtDuration(summary.totalMinutes)}` : ''}</div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
+        {active.map((c) => (
+          <div key={c.key} style={{ padding: '10px 12px', borderRadius: 12, background: '#f7f5ef' }}>
+            <div style={{ fontSize: 19, fontWeight: 800, color: '#111', lineHeight: 1.1 }}>{c.count}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#8a857a', marginTop: 3 }}>{c.label}</div>
+            {c.minutes > 0 && <div style={{ fontSize: 11, color: '#a8a294', marginTop: 1 }}>{window.koutsiFmtDuration(c.minutes)}</div>}
+          </div>
+        ))}
+      </div>
+      {(summary.matchWins > 0 || summary.matchLosses > 0) && (
+        <div style={{ marginTop: 12, fontSize: 12.5, color: '#6b665c' }}>Ottelut: {summary.matchWins} voittoa, {summary.matchLosses} tappiota</div>
+      )}
+    </div>
+  );
+}
+
+function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onSaveNote, onToggleHomework, onEditAttendance, onAddSelfTraining, onDeleteSelfTraining, onSwitchToMatch }) {
   const todayStr = window.koutsiTodayStr();
   const todayDate = window.koutsiDateFromStr(todayStr);
   const [viewYear, setViewYear] = React.useState(todayDate.getFullYear());
   const [viewMonth, setViewMonth] = React.useState(todayDate.getMonth());
   const [selectedDate, setSelectedDate] = React.useState(todayStr);
+  const [addOpen, setAddOpen] = React.useState(false);
   const prevMonth = () => { if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); } else setViewMonth((m) => m - 1); };
   const nextMonth = () => { if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); } else setViewMonth((m) => m + 1); };
   const trainingsOnSelected = window.koutsiTrainingsOnDateForStudent(state, selectedDate, student.id);
   const clubEventsOnSelected = window.koutsiClubEventsOnDate(state, selectedDate);
+  const matchesOnSelected = (student.matchNotes || []).filter((n) => n.date === selectedDate);
+  const matchDates = React.useMemo(() => new Set((student.matchNotes || []).map((n) => n.date)), [student.matchNotes]);
+  const monthSummary = React.useMemo(() => window.koutsiMonthlySummary(state, student.id, viewYear, viewMonth), [state, student.id, viewYear, viewMonth]);
   const homework = student.homework || [];
   const openHomework = homework.map((h, i) => ({ h, i })).filter((x) => !x.h.done);
   const doneHomework = homework.map((h, i) => ({ h, i })).filter((x) => x.h.done);
@@ -634,12 +776,17 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
         </div>
       )}
 
+      <MonthSummaryCard summary={monthSummary} monthLabel={`${window.KOUTSI_MONTHS[viewMonth]} ${viewYear}`} />
+
       <div className="kv-calendar-layout" style={{ marginBottom: 26 }}>
-        <PlayerCalendarGrid state={state} studentId={student.id} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
+        <PlayerCalendarGrid state={state} studentId={student.id} matchDates={matchDates} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
           onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
 
         <div>
-          <SectionTitle>{window.koutsiFmtLongDate(selectedDate)}</SectionTitle>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <SectionTitle>{window.koutsiFmtLongDate(selectedDate)}</SectionTitle>
+            {hasCoach && <button onClick={() => setAddOpen(true)} className="btn-outline btn-sm" style={{ marginBottom: 12 }}>+ Lisää</button>}
+          </div>
           {clubEventsOnSelected.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
               {clubEventsOnSelected.map((e) => (
@@ -655,8 +802,20 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
               ))}
             </div>
           )}
+          {matchesOnSelected.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              {matchesOnSelected.map((n) => (
+                <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 14, background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)' }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#a13b2f', flexShrink: 0 }} />
+                  <span style={{ fontSize: 13.5, color: '#7a2c22', fontWeight: 700 }}>
+                    Ottelu: {n.opponentName}{n.result ? ` — ${n.result === 'voitto' ? 'Voitto' : 'Tappio'}` : ''}{n.score ? ` (${n.score})` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           {trainingsOnSelected.length === 0 ? (
-            clubEventsOnSelected.length === 0 && (
+            clubEventsOnSelected.length === 0 && matchesOnSelected.length === 0 && (
               <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>
                 Ei valmennuksia tänä päivänä. Valitse kalenterista päivä, jossa on merkintä.
               </div>
@@ -668,15 +827,21 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
                 const coach = window.koutsiCoachById(state, t.coachId);
                 const label = party.kind === 'group' && party.group ? party.group.name : t.type;
                 const entry = (t.absences || []).find((a) => a.studentId === student.id);
+                const isSelf = t.loggedBy === 'player';
                 return (
                   <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '14px 18px', borderBottom: i === trainingsOnSelected.length - 1 ? 'none' : '1px solid var(--line)' }}>
                     <div style={{ width: 52, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}</div>
-                      {coach && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
+                      <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}{isSelf ? ' · Oma merkintä' : ''}</div>
+                      {coach && !isSelf && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
+                      {isSelf && t.durationMinutes && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{window.koutsiFmtDuration(t.durationMinutes)}</div>}
+                      {isSelf && t.endDate && t.endDate !== t.date && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{window.koutsiFmtShortDate(t.date)}–{window.koutsiFmtShortDate(t.endDate)}</div>}
                     </div>
-                    <window.KoutsiAttendanceBadge entry={entry} onClick={() => onEditAttendance(t.id)} />
+                    {isSelf
+                      ? <window.KoutsiRowActions onDelete={() => onDeleteSelfTraining(t)} deleteLabel="Poista merkintä" />
+                      : <window.KoutsiAttendanceBadge entry={entry} onClick={() => onEditAttendance(t.id)} />}
                     {entry?.note && <div style={{ width: '100%', paddingLeft: 66, color: '#6b665c', fontSize: 12.5, lineHeight: 1.45 }}>{entry.note}</div>}
+                    {isSelf && t.notes && <div style={{ width: '100%', paddingLeft: 66, color: '#6b665c', fontSize: 12.5, lineHeight: 1.45 }}>{t.notes}</div>}
                   </div>
                 );
               })}
@@ -705,6 +870,15 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
             style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--line)', borderRadius: 14, padding: '13px 14px', fontSize: 14, fontFamily: 'inherit', color: '#111', resize: 'none', background: '#fff', marginBottom: 10 }} />
           <button onClick={onSaveNote} className="btn-dark btn-sm">{noteSaved ? 'Tallennettu ✓' : 'Lähetä kommentti valmentajalle'}</button>
         </div>
+      )}
+
+      {addOpen && (
+        <AddSelfTrainingModal
+          date={selectedDate}
+          onClose={() => setAddOpen(false)}
+          onSave={async (payload) => { await onAddSelfTraining(payload); setAddOpen(false); }}
+          onSwitchToMatch={(date) => { setAddOpen(false); onSwitchToMatch(date); }}
+        />
       )}
     </div>
   );
@@ -808,27 +982,62 @@ function MoodModal({ onClose, onSave }) {
   );
 }
 
-function MatchNoteModal({ editing, onClose, onSave }) {
+const MATCH_RESULT_OPTIONS = [['voitto', 'Voitto'], ['tappio', 'Tappio']];
+const MATCH_FORMAT_OPTIONS = [['kaksinpeli', 'Kaksinpeli'], ['nelinpeli', 'Nelinpeli']];
+function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
   const [opponentName, setOpponentName] = React.useState(() => (editing ? editing.opponentName : ''));
-  const [date, setDate] = React.useState(() => (editing ? editing.date : window.koutsiTodayStr()));
+  const [date, setDate] = React.useState(() => (editing ? editing.date : (defaultDate || window.koutsiTodayStr())));
+  const [result, setResult] = React.useState(() => (editing ? editing.result || '' : ''));
+  const [format, setFormat] = React.useState(() => (editing ? editing.format || '' : ''));
+  const [durationMinutes, setDurationMinutes] = React.useState(() => (editing ? editing.durationMinutes || '' : ''));
+  const [score, setScore] = React.useState(() => (editing ? editing.score || '' : ''));
   const [note, setNote] = React.useState(() => (editing ? editing.note || '' : ''));
   const ready = opponentName.trim() && date;
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  const Pill = ({ on, children, onClick }) => (
+    <button onClick={onClick} style={{ padding: '9px 15px', borderRadius: 999, border: on ? 'none' : '1px solid #d8d4ca', background: on ? 'var(--lime)' : '#fff', color: on ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{children}</button>
+  );
+  const submit = () => ready && onSave({
+    opponentName: opponentName.trim(), date, note: note.trim(),
+    result: result || null, format: format || null,
+    durationMinutes: durationMinutes === '' ? null : Number(durationMinutes),
+    score: score.trim(),
+  });
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>{editing ? 'Muokkaa ottelumuistiinpanoa' : 'Ottelumuistiinpano'}</h3>
-        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Kirjaa taktiikkasi ja huomiosi vastustajasta — löydät nämä helposti uudestaan, jos sama vastustaja tulee vastaan.</p>
-        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Vastustaja</div>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Kirjaa tulos ja taktiikkasi — löydät nämä helposti uudestaan, jos sama vastustaja tulee vastaan.</p>
+        <div style={label}>Vastustaja</div>
         <input value={opponentName} onChange={(e) => setOpponentName(e.target.value)} placeholder="Esim. Matti Meikäläinen" style={{ ...inputStyle, marginBottom: 16 }} />
-        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Päivämäärä</div>
+        <div style={label}>Päivämäärä</div>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
-        <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Muistiinpano</div>
+        <div style={label}>Tulos</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {MATCH_RESULT_OPTIONS.map(([key, l]) => <Pill key={key} on={result === key} onClick={() => setResult(result === key ? '' : key)}>{l}</Pill>)}
+        </div>
+        <div style={label}>Pelimuoto</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {MATCH_FORMAT_OPTIONS.map(([key, l]) => <Pill key={key} on={format === key} onClick={() => setFormat(format === key ? '' : key)}>{l}</Pill>)}
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Erien tulos</div>
+            <input value={score} onChange={(e) => setScore(e.target.value)} placeholder="Esim. 6-4 6-3" style={inputStyle} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Kesto (min)</div>
+            <input type="number" inputMode="numeric" min={1} max={300} value={durationMinutes}
+              onChange={(e) => setDurationMinutes(e.target.value === '' ? '' : Number(e.target.value))} style={inputStyle} />
+          </div>
+        </div>
+        <div style={label}>Muistiinpano</div>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={5} placeholder="Oliko taktiikkaa etukäteen? Piti/muuttuiko se? Mitä huomasit vastustajan syötöstä, lyönneistä, pelistä?"
           style={{ ...inputStyle, resize: 'none', marginBottom: 16 }} />
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => ready && onSave({ opponentName: opponentName.trim(), date, note: note.trim() })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Tallenna</button>
+          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Tallenna</button>
         </div>
       </div>
     </div>
@@ -1151,6 +1360,7 @@ function PlayerApp({ studentId, onSignOut }) {
   const [videoOpen, setVideoOpen] = React.useState(false);
   const [moodOpen, setMoodOpen] = React.useState(false);
   const [matchNoteOpen, setMatchNoteOpen] = React.useState(false);
+  const [matchNoteDefaultDate, setMatchNoteDefaultDate] = React.useState(null);
   const [attendanceTrainingId, setAttendanceTrainingId] = React.useState(null);
   const [editingMatchNote, setEditingMatchNote] = React.useState(null);
   const [note, setNote] = React.useState('');
@@ -1246,10 +1456,11 @@ function PlayerApp({ studentId, onSignOut }) {
     if (ok) await act(() => window.koutsiDeleteMood(m.id), 'Fiilis poistettu.')();
   };
 
-  const saveMatchNote = async ({ opponentName, date, note: matchNote }) => {
+  const saveMatchNote = async ({ opponentName, date, note: matchNote, result, format, durationMinutes, score }) => {
     const ok = await toast.run(async () => {
-      if (editingMatchNote) await window.koutsiUpdateMatchNote(editingMatchNote.id, { opponentName, date, note: matchNote });
-      else await window.koutsiAddMatchNote(studentId, { opponentName, date, note: matchNote });
+      const payload = { opponentName, date, note: matchNote, result, format, durationMinutes, score };
+      if (editingMatchNote) await window.koutsiUpdateMatchNote(editingMatchNote.id, payload);
+      else await window.koutsiAddMatchNote(studentId, payload);
       await reload();
     }, editingMatchNote ? 'Muistiinpano päivitetty.' : 'Muistiinpano tallennettu.');
     if (ok) { setMatchNoteOpen(false); setEditingMatchNote(null); }
@@ -1258,6 +1469,18 @@ function PlayerApp({ studentId, onSignOut }) {
     const ok = await confirm({ title: 'Poista ottelumuistiinpano?', body: `Vastustaja ${n.opponentName}`, confirmLabel: 'Poista', danger: true });
     if (ok) await act(() => window.koutsiDeleteMatchNote(n.id), 'Muistiinpano poistettu.')();
   };
+
+  // Ei guarded: AddSelfTrainingModal näyttää virheen itse (sama malli kuin videon lisäys).
+  const addSelfTraining = async (payload) => {
+    const coachId = (state.coaches[0] || {}).id;
+    await window.koutsiAddSelfTraining({ studentId, coachId, ...payload });
+    await reload();
+  };
+  const deleteSelfTraining = async (t) => {
+    const ok = await confirm({ title: 'Poista merkintä?', body: `${t.type} — ${window.koutsiFmtShortDate(t.date)}`, confirmLabel: 'Poista', danger: true });
+    if (ok) await act(() => window.koutsiDeleteSelfTraining(t.id), 'Merkintä poistettu.')();
+  };
+  const openMatchNoteForDate = (date) => { setEditingMatchNote(null); setMatchNoteDefaultDate(date); setMatchNoteOpen(true); };
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -1269,13 +1492,18 @@ function PlayerApp({ studentId, onSignOut }) {
         <div key={tab} className="k-rise-in" style={{ maxWidth: 640, margin: '0 auto' }}>
           {tab === 'home' && <HomeView student={student} state={state} group={group} hasCoach={hasCoach} onSaveGoal={saveGoal} wish={wish} setWish={setWish} wishSaved={wishSaved} onSaveWish={saveWish} onToggleHomework={toggleHomework} onGoTab={setTab} />}
           {tab === 'group' && <GroupView student={student} state={state} hasCoach={hasCoach} onJoined={reload} onEditAttendance={setAttendanceTrainingId} />}
-          {tab === 'trainings' && <TrainingsView student={student} state={state} hasCoach={hasCoach} note={note} setNote={setNote} noteSaved={noteSaved} onSaveNote={saveNote} onToggleHomework={toggleHomework} onEditAttendance={setAttendanceTrainingId} />}
+          {tab === 'trainings' && (
+            <TrainingsView
+              student={student} state={state} hasCoach={hasCoach} note={note} setNote={setNote} noteSaved={noteSaved}
+              onSaveNote={saveNote} onToggleHomework={toggleHomework} onEditAttendance={setAttendanceTrainingId}
+              onAddSelfTraining={addSelfTraining} onDeleteSelfTraining={deleteSelfTraining} onSwitchToMatch={openMatchNoteForDate} />
+          )}
           {tab === 'exercises' && <ExercisesView exercises={state.exercises} hasCoach={hasCoach} onOpen={setExerciseId} />}
           {tab === 'progress' && (
             <ProgressView
               student={student} state={state} hasCoach={hasCoach}
               onAddVideo={() => setVideoOpen(true)} onAddMood={() => setMoodOpen(true)}
-              onAddMatchNote={() => { setEditingMatchNote(null); setMatchNoteOpen(true); }}
+              onAddMatchNote={() => { setEditingMatchNote(null); setMatchNoteDefaultDate(null); setMatchNoteOpen(true); }}
               onDeleteMood={deleteMood} onToggleMoodHidden={toggleMoodHidden} onDeleteVideo={deleteVideo}
               onEditMatchNote={(n) => { setEditingMatchNote(n); setMatchNoteOpen(true); }}
               onDeleteMatchNote={deleteMatchNote} />
@@ -1287,7 +1515,10 @@ function PlayerApp({ studentId, onSignOut }) {
       {exercise && <ExerciseDetail exercise={exercise} onClose={() => setExerciseId(null)} />}
       {videoOpen && <VideoModal onClose={() => setVideoOpen(false)} onSave={addVideo} />}
       {moodOpen && <MoodModal onClose={() => setMoodOpen(false)} onSave={addMood} />}
-      {matchNoteOpen && <MatchNoteModal editing={editingMatchNote} onClose={() => { setMatchNoteOpen(false); setEditingMatchNote(null); }} onSave={saveMatchNote} />}
+      {matchNoteOpen && (
+        <MatchNoteModal editing={editingMatchNote} defaultDate={matchNoteDefaultDate}
+          onClose={() => { setMatchNoteOpen(false); setEditingMatchNote(null); setMatchNoteDefaultDate(null); }} onSave={saveMatchNote} />
+      )}
       {attendanceTraining && (
         <window.KoutsiAttendanceModal
           studentName={student.name} training={attendanceTraining} eligibleTrainings={attendanceEligibleTrainings}

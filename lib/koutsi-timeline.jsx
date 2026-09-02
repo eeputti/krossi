@@ -109,11 +109,16 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
     search: `${m.note || ''} fiilis ${KOUTSI_TL_MOOD_LABELS[m.score] || ''}`,
   }));
 
-  (student.matchNotes || []).forEach((n) => push({
-    id: `match-${n.id}`, kind: 'match', at: n.at || n.date, source: n,
-    title: `Ottelu: ${n.opponentName}`, body: n.note || '',
-    search: `${n.opponentName} ${n.note || ''} ottelu vastustaja`,
-  }));
+  (student.matchNotes || []).forEach((n) => {
+    const resultLabel = n.result === 'voitto' ? 'Voitto' : n.result === 'tappio' ? 'Tappio' : '';
+    const meta = [resultLabel, n.score, n.format === 'nelinpeli' ? 'Nelinpeli' : n.format === 'kaksinpeli' ? 'Kaksinpeli' : ''].filter(Boolean).join(' · ');
+    push({
+      id: `match-${n.id}`, kind: 'match', at: n.at || n.date, source: n,
+      title: `Ottelu: ${n.opponentName}${resultLabel ? ` — ${resultLabel}` : ''}`,
+      body: [meta, n.note || ''].filter(Boolean).join('\n'),
+      search: `${n.opponentName} ${n.note || ''} ${n.score || ''} ottelu vastustaja ${resultLabel}`,
+    });
+  });
 
   (student.videos || []).forEach((v, i) => push({
     id: `video-${v.id != null ? v.id : i}`, kind: 'video', at: v.at || v.date, source: v,
@@ -228,7 +233,7 @@ function KoutsiTlEvent({ event, onOpenVideo, renderActions }) {
           </div>
         </div>
       ) : event.body ? (
-        <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.55, textDecoration: event.done ? 'line-through' : 'none' }}>{event.body}</div>
+        <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.55, textDecoration: event.done ? 'line-through' : 'none', whiteSpace: 'pre-line' }}>{event.body}</div>
       ) : null}
 
       {/* The whole point of keeping a history: the text it replaced stays readable underneath. */}
@@ -302,6 +307,9 @@ function KoutsiTimeline({ student, trainings, clubEvents, onOpenVideo, actions, 
   const moods = student.moods || [];
   const moodAvg = moods.length ? (moods.reduce((sum, m) => sum + m.score, 0) / moods.length) : null;
   const pastTrainings = counts.training || 0;
+  const matchNotes = student.matchNotes || [];
+  const matchWins = matchNotes.filter((n) => n.result === 'voitto').length;
+  const matchLosses = matchNotes.filter((n) => n.result === 'tappio').length;
 
   const activeKinds = KOUTSI_TL_KIND_ORDER.filter((k) => counts[k]);
 
@@ -311,7 +319,7 @@ function KoutsiTimeline({ student, trainings, clubEvents, onOpenVideo, actions, 
         <KoutsiTlStat label="Treenejä" value={pastTrainings} hint="tähän mennessä" />
         <KoutsiTlStat label="Fiilis ka." value={moodAvg == null ? '–' : moodAvg.toFixed(1)} hint={moods.length ? `${moods.length} merkintää` : 'ei merkintöjä'} />
         <KoutsiTlStat label="Videoita" value={(student.videos || []).length} />
-        <KoutsiTlStat label="Otteluita" value={(student.matchNotes || []).length} />
+        <KoutsiTlStat label="Otteluita" value={matchNotes.length} hint={matchWins || matchLosses ? `${matchWins}V – ${matchLosses}T` : undefined} />
       </div>
 
       {actions && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>{actions}</div>}

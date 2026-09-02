@@ -91,7 +91,7 @@
             { id: 'm2', at: isoAt(-9), score: 3, note: '', hiddenFromCoach: false },
           ],
           matchNotes: [
-            { id: 'n1', at: isoAt(-5), opponentName: 'Sofia L.', date: dayStr(-5), note: 'Vahva kämmen, rystyllä epävarma paineessa. Pelaa toiselle puolelle.' },
+            { id: 'n1', at: isoAt(-5), opponentName: 'Sofia L.', date: dayStr(-5), note: 'Vahva kämmen, rystyllä epävarma paineessa. Pelaa toiselle puolelle.', durationMinutes: 95, result: 'voitto', format: 'kaksinpeli', score: '6-4 6-3' },
           ],
         }),
         student(S2, 'Aleksi R.', 24, 'Keskitaso', {
@@ -123,6 +123,10 @@
         { id: 'tr2', date: dayStr(8), time: '17:00', type: 'Ryhmätreeni', durationMinutes: 90, studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [] },
         { id: 'tr3', date: dayStr(-6), time: '17:00', type: 'Ryhmätreeni', durationMinutes: 90, studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [{ studentId: S3, reason: 'poissa', note: '', reportedBy: S3, updatedAt: isoAt(-7) }] },
         { id: 'tr4', date: dayStr(3), time: '15:30', type: 'Yksityistunti', durationMinutes: null, studentId: S1, groupId: null, coachId: COACH, seriesId: null, absences: [] },
+        // Näyttää valmentajalle heti demossa, miltä pelaajan oma aktiivisuus näyttää:
+        // Maria on käynyt tekemässä omatoimisia juttuja, Aleksi ja Venla eivät.
+        { id: 'tr5', date: dayStr(-1), time: '09:00', type: 'Fysiikka', durationMinutes: 45, loggedBy: 'player', notes: 'Kuntosali — jalat ja keskivartalo.', studentId: S1, groupId: null, coachId: COACH, seriesId: null, absences: [] },
+        { id: 'tr6', date: dayStr(-3), time: '12:00', type: 'Omatoiminen harjoitus', durationMinutes: 40, loggedBy: 'player', notes: 'Syöttöjä yksin seinää vasten.', studentId: S1, groupId: null, coachId: COACH, seriesId: null, absences: [] },
       ],
       exercises: [
         { id: 'e1', coachId: COACH, name: 'Ristiin–suoraan', goal: 'Suunnanvaihdon tarkkuus', players: '2 pelaajaa', playerCount: 2, duration: '15 min', level: 'Keskitaso', tags: ['tekniikka'] },
@@ -311,9 +315,15 @@
   };
   window.koutsiSetMoodHidden = (id, hidden) => patchById('moods', id, { hiddenFromCoach: !!hidden });
   window.koutsiDeleteMood = (id) => removeById('moods', id);
-  window.koutsiAddMatchNote = (studentId, { opponentName, date, note }) => {
+  window.koutsiAddMatchNote = (studentId, { opponentName, date, note, durationMinutes, result, format, score }) => {
     const st = findStudent(studentId);
-    if (st) { st.matchNotes.unshift({ id: newId('n'), at: new Date().toISOString(), opponentName, date, note: note || '' }); save(); }
+    if (st) {
+      st.matchNotes.unshift({
+        id: newId('n'), at: new Date().toISOString(), opponentName, date, note: note || '',
+        durationMinutes: durationMinutes || null, result: result || null, format: format || null, score: score || '',
+      });
+      save();
+    }
     return done();
   };
   window.koutsiUpdateMatchNote = (id, patch) => patchById('matchNotes', id, patch);
@@ -416,6 +426,23 @@
   };
   window.koutsiCountSeriesRemaining = (seriesId, fromDate) =>
     done(load().trainings.filter((t) => t.seriesId === seriesId && t.date >= fromDate).length);
+
+  window.koutsiAddSelfTraining = ({ studentId, coachId, date, endDate, time, type, durationMinutes, notes }) => {
+    const s = load();
+    s.trainings.push({
+      id: newId('tr'), date, endDate: endDate || null, time, type, durationMinutes: durationMinutes || null,
+      loggedBy: 'player', notes: notes || '',
+      studentId: studentId || null, groupId: null, coachId: coachId || COACH, seriesId: null, absences: [],
+    });
+    save();
+    return done();
+  };
+  window.koutsiDeleteSelfTraining = (id) => {
+    const s = load();
+    s.trainings = s.trainings.filter((t) => t.id !== id);
+    save();
+    return done();
+  };
 
   window.koutsiSetAttendance = (trainingIds, studentId, status, note) => {
     const ids = new Set(trainingIds || []);

@@ -5,12 +5,11 @@
 // very file — lib/koutsi-demo-backend.jsx swaps an in-memory store in underneath
 // koutsi-data.js.
 
-const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely' };
-const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely'];
+const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely', fysiikka: 'Fysiikka', drilli: 'Drilli' };
+const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely', 'fysiikka', 'drilli'];
 const CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 // Every training slot is quarter-hour, so the same list of lengths works for a 45 min
 // junior session all the way up to a 3 h camp block.
-const GROUP_DURATION_OPTIONS = [45, 60, 75, 90, 105, 120, 150, 180];
 const PLAYER_COUNT_FILTERS = [
   { key: 'kaikki', label: 'Kaikki' },
   { key: 1, label: '1 pelaaja' },
@@ -562,7 +561,7 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Taso</div><input value={g.level} onChange={(e) => updateGroup(g.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Päivä</div><select value={g.day} onChange={(e) => updateGroup(g.key, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={g.time} onChange={(e) => updateGroup(g.key, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} style={inputStyle} /></div>
-                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto</div><select value={g.duration || 60} onChange={(e) => updateGroup(g.key, { duration: Number(e.target.value) })} style={{ ...inputStyle, cursor: 'pointer' }}>{GROUP_DURATION_OPTIONS.map((m) => <option key={m} value={m}>{window.koutsiFmtDuration(m)}</option>)}</select></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={g.duration || 60} onChange={(e) => updateGroup(g.key, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroup(g.key, { duration: window.koutsiRoundToQuarterHourMinutes(g.duration || 60) })} style={inputStyle} /></div>
                         </div>
                         {g.time && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 7 }}>Treenit ilmestyvät kalenteriin: {g.day} klo {window.koutsiTimeRangeLabel(g.time, g.duration || 60)} viikoittain</div>}
                       </div>
@@ -721,16 +720,39 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   );
 }
 
-function StudentsView({ students, groups, coachId, coachName, onOpen, trainingCount, onAddTraining, onAddPlayer, onBulkSetup }) {
+// Days since this student's last self-logged practice, or null if they've never logged
+// one. Shared by the roster card badge and the "Ei omatoimista viikkoon" filter, so both
+// agree on what "inactive" means.
+function koutsiDaysSinceSelfLog(state, studentId) {
+  const todayStr = window.koutsiTodayStr();
+  const last = window.koutsiTrainingsForStudent(state, studentId)
+    .filter((t) => t.loggedBy === 'player' && t.date <= todayStr)
+    .sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+  if (!last) return null;
+  return Math.round((window.koutsiDateFromStr(todayStr) - window.koutsiDateFromStr(last.date)) / 86400000);
+}
+function ActivityBadge({ daysSince }) {
+  const inactive = daysSince == null || daysSince >= 7;
+  const text = daysSince == null ? 'Ei omatoimisia merkintöjä' : daysSince === 0 ? 'Omatoiminen tänään' : `Omatoiminen ${daysSince} pv sitten`;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, color: inactive ? '#a13b2f' : '#2f7d54' }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: inactive ? '#a13b2f' : '#2f7d54', flexShrink: 0 }} />
+      {text}
+    </span>
+  );
+}
+function StudentsView({ students, groups, state, coachId, coachName, onOpen, trainingCount, onAddTraining, onAddPlayer, onBulkSetup }) {
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [addOpen, setAddOpen] = React.useState(false);
   const [bulkOpen, setBulkOpen] = React.useState(false);
   // A search box only earns its space once the list stops fitting on one screen.
   const [search, setSearch] = React.useState('');
+  const [onlyInactive, setOnlyInactive] = React.useState(false);
   const q = search.trim().toLowerCase();
-  const shown = q
-    ? students.filter((s) => `${s.name} ${s.goal || ''} ${s.focus || ''} ${s.level || ''}`.toLowerCase().includes(q))
-    : students;
+  const withActivity = students.map((s) => ({ s, daysSince: koutsiDaysSinceSelfLog(state, s.id) }));
+  const shown = withActivity
+    .filter(({ daysSince }) => !onlyInactive || daysSince == null || daysSince >= 7)
+    .filter(({ s }) => !q || `${s.name} ${s.goal || ''} ${s.focus || ''} ${s.level || ''}`.toLowerCase().includes(q));
   return (
     <div>
       <PageHeader title="Oppilaani" sub={`${students.length} valmennettavaa`} action={
@@ -745,10 +767,16 @@ function StudentsView({ students, groups, coachId, coachName, onOpen, trainingCo
         onBulkSetup={() => setBulkOpen(true)} onAddTraining={onAddTraining} />
       {students.length > 5 && (
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Hae oppilaan nimellä tai tavoitteella…"
-          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '12px 15px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 18 }} />
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '12px 15px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 12 }} />
+      )}
+      {students.length > 1 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+          <button onClick={() => setOnlyInactive(false)} style={{ padding: '8px 14px', borderRadius: 999, border: onlyInactive ? '1px solid #d8d4ca' : 'none', background: onlyInactive ? '#fff' : 'var(--lime)', color: onlyInactive ? '#3c382f' : '#101a08', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Kaikki</button>
+          <button onClick={() => setOnlyInactive(true)} style={{ padding: '8px 14px', borderRadius: 999, border: onlyInactive ? 'none' : '1px solid #d8d4ca', background: onlyInactive ? 'var(--lime)' : '#fff', color: onlyInactive ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei omatoimista viikkoon</button>
+        </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
-        {shown.map((s) => (
+        {shown.map(({ s, daysSince }) => (
           <button key={s.id} onClick={() => onOpen(s.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={48} />
@@ -762,10 +790,11 @@ function StudentsView({ students, groups, coachId, coachName, onOpen, trainingCo
             </div>
             <div style={{ fontSize: 13.5, color: '#3c382f', lineHeight: 1.5 }}><b style={{ color: 'var(--green-deep)' }}>Tavoite:</b> {s.goal || 'Ei vielä tavoitetta'}</div>
             <div style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.5 }}>Seuraavaksi: {s.focus || '—'}</div>
+            <ActivityBadge daysSince={daysSince} />
           </button>
         ))}
         {students.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei vielä oppilaita — kutsu ensimmäinen yllä olevasta linkistä.</div>}
-        {students.length > 0 && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei osumia haulla ”{search.trim()}”.</div>}
+        {students.length > 0 && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei osumia{onlyInactive ? ' suodattimella' : search.trim() ? ` haulla "${search.trim()}"` : ''}.</div>}
       </div>
       {addOpen && <AddPlayerModal onClose={() => setAddOpen(false)} onSave={async (data) => { await onAddPlayer(data); setAddOpen(false); }} />}
       {bulkOpen && <BulkSetupModal groups={groups} coachId={coachId} onClose={() => setBulkOpen(false)} onSave={onBulkSetup} />}
@@ -822,9 +851,130 @@ function AttendanceCard({ attendance }) {
   );
 }
 
+// Coach individual = lime, coach group = green, player's own logged practice = blue, a
+// played match = red — same scheme as the player's own calendar (koutsi-pelaaja-app.jsx),
+// duplicated here because the two app files ship as separate bundles.
+function coachCalDotColor(t) {
+  if (t.loggedBy === 'player') return '#3a82d4';
+  return t.groupId != null ? 'var(--green-deep)' : 'var(--lime)';
+}
+// The player's own Strava-style month view (koutsi-pelaaja-app.jsx), mirrored read-only
+// on the coach side: how much this specific player has actually done — tennis (coached
+// or self-directed), physical training, other sport, matches — and whether they've gone
+// quiet, which is the concrete "why isn't this player developing" signal the roadmap
+// asked for. Reuses koutsiMonthlySummary (built for the player's own view) rather than a
+// second aggregation.
+function PlayerActivityCalendarCard({ state, student }) {
+  const todayStr = window.koutsiTodayStr();
+  const todayDate = window.koutsiDateFromStr(todayStr);
+  const [viewYear, setViewYear] = React.useState(todayDate.getFullYear());
+  const [viewMonth, setViewMonth] = React.useState(todayDate.getMonth());
+  const [selectedDate, setSelectedDate] = React.useState(todayStr);
+  const prevMonth = () => { if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); } else setViewMonth((m) => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); } else setViewMonth((m) => m + 1); };
+
+  const trainings = window.koutsiTrainingsForStudent(state, student.id);
+  const matchNotes = student.matchNotes || [];
+  const summary = React.useMemo(() => window.koutsiMonthlySummary(state, student.id, viewYear, viewMonth), [state, student.id, viewYear, viewMonth]);
+
+  const lastSelf = trainings.filter((t) => t.loggedBy === 'player' && t.date <= todayStr).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+  const daysSince = lastSelf ? Math.round((window.koutsiDateFromStr(todayStr) - window.koutsiDateFromStr(lastSelf.date)) / 86400000) : null;
+  const inactive = daysSince == null || daysSince >= 7;
+
+  const firstOfMonth = new Date(viewYear, viewMonth, 1);
+  const startWeekday = (firstOfMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const dateStrFor = (d) => `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+  const trainingsOnSelected = trainings.filter((t) => t.date === selectedDate);
+  const matchesOnSelected = matchNotes.filter((n) => n.date === selectedDate);
+  const active = summary.categories.filter((c) => c.count > 0);
+
+  return (
+    <Field label="Pelaajan oma kalenteri">
+      <div style={{ padding: '9px 12px', borderRadius: 10, background: inactive ? 'rgba(161,59,47,0.08)' : 'rgba(47,125,84,0.08)', color: inactive ? '#a13b2f' : '#2f7d54', fontSize: 12.5, fontWeight: 600, marginBottom: 12 }}>
+        {lastSelf
+          ? (daysSince === 0 ? 'Viimeisin omatoiminen merkintä tänään.' : `Viimeisin omatoiminen merkintä ${daysSince} pv sitten.`)
+          : 'Ei vielä yhtään omatoimista merkintää.'}
+      </div>
+      <div className="k-card" style={{ padding: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <button onClick={prevMonth} aria-label="Edellinen kuukausi" style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="6" height="11" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+          <div style={{ fontWeight: 800, fontSize: 14, color: '#111', textTransform: 'capitalize' }}>{window.KOUTSI_MONTHS[viewMonth]} {viewYear}</div>
+          <button onClick={nextMonth} aria-label="Seuraava kuukausi" style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="6" height="11" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12.5, color: '#8a857a' }}>{summary.totalSessions} suoritusta{summary.totalMinutes ? ` · ${window.koutsiFmtDuration(summary.totalMinutes)}` : ''}</span>
+        </div>
+        {active.length > 0 && (
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12.5, color: '#514c42', marginBottom: 14 }}>
+            {active.map((c) => <span key={c.key}><b style={{ color: '#111' }}>{c.count}</b> {c.label.toLowerCase()}{c.minutes > 0 ? ` (${window.koutsiFmtDuration(c.minutes)})` : ''}</span>)}
+            {summary.categories.find((c) => c.key === 'ottelu')?.count > 0 && <span><b style={{ color: '#111' }}>{summary.matchWins}–{summary.matchLosses}</b> V–T</span>}
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 6 }}>
+          {CAL_WEEKDAY_LABELS.map((d) => <div key={d} style={{ fontSize: 10, fontWeight: 700, color: '#a8a297', textAlign: 'center' }}>{d}</div>)}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 14 }}>
+          {cells.map((d, i) => {
+            if (d == null) return <div key={i} />;
+            const ds = dateStrFor(d);
+            const dayTrainings = trainings.filter((t) => t.date === ds);
+            const hasMatch = matchNotes.some((n) => n.date === ds);
+            const isToday = ds === todayStr;
+            const isSelected = ds === selectedDate;
+            return (
+              <button key={i} onClick={() => setSelectedDate(ds)} style={{
+                aspectRatio: '1', borderRadius: 9, border: isSelected ? '2px solid var(--green-deep)' : '2px solid transparent',
+                background: isSelected ? 'rgba(14,59,44,0.06)' : isToday ? 'rgba(207,228,20,0.2)' : 'transparent',
+                cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, fontFamily: 'inherit',
+              }}>
+                <span style={{ fontSize: 11.5, fontWeight: isToday ? 800 : 600, color: '#111' }}>{d}</span>
+                {(dayTrainings.length > 0 || hasMatch) && (
+                  <span style={{ display: 'flex', gap: 2 }}>
+                    {dayTrainings.slice(0, 3).map((t, ti) => <span key={ti} style={{ width: 4, height: 4, borderRadius: '50%', background: coachCalDotColor(t) }} />)}
+                    {hasMatch && <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#a13b2f' }} />}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#111', marginBottom: 8 }}>{window.koutsiFmtLongDate(selectedDate)}</div>
+        {matchesOnSelected.map((n) => (
+          <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 12px', borderRadius: 12, background: 'rgba(161,59,47,0.08)', marginBottom: 6, fontSize: 12.5, color: '#7a2c22', fontWeight: 600 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a13b2f', flexShrink: 0 }} />
+            Ottelu: {n.opponentName}{n.result ? ` — ${n.result === 'voitto' ? 'Voitto' : 'Tappio'}` : ''}{n.score ? ` (${n.score})` : ''}
+          </div>
+        ))}
+        {trainingsOnSelected.map((t) => (
+          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 12px', borderRadius: 12, background: '#f7f5ef', marginBottom: 6, fontSize: 12.5, color: '#3c382f' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: coachCalDotColor(t), flexShrink: 0 }} />
+            <span style={{ flex: 1 }}>{t.type}{t.loggedBy === 'player' ? ' · Oma merkintä' : ''}{t.durationMinutes ? ` · ${window.koutsiFmtDuration(t.durationMinutes)}` : ''}</span>
+          </div>
+        ))}
+        {trainingsOnSelected.length === 0 && matchesOnSelected.length === 0 && (
+          <div style={{ fontSize: 12.5, color: '#a8a294' }}>Ei merkintöjä tälle päivälle.</div>
+        )}
+      </div>
+    </Field>
+  );
+}
+
 function StudentAttendanceEditor({ student, state, trainings, onEdit }) {
   const nowWeek = window.koutsiCurrentIsoWeek();
-  const sorted = (trainings || []).slice().sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+  // Player-logged practice isn't a session the coach is running, so it has no attendance to take.
+  const sorted = (trainings || []).filter((t) => t.loggedBy !== 'player').slice().sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
   const thisWeek = sorted.filter((t) => {
     const w = window.koutsiIsoWeekOfDateStr(t.date);
     return w.year === nowWeek.year && w.week === nowWeek.week;
@@ -1074,6 +1224,8 @@ function StudentDetail({ student, coach, state, trainings, group, groupCoach, up
 
           {attendance && attendance.total > 0 && <AttendanceCard attendance={attendance} />}
 
+          <PlayerActivityCalendarCard state={state} student={student} />
+
           {group && (
             <Field label="Valmennusryhmä">
               <button onClick={onOpenGroup} className="k-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 15px', width: '100%', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', marginBottom: group.theme ? 10 : 0 }}>
@@ -1207,7 +1359,7 @@ function EntryModal({ student, entry, onClose, onSend }) {
   );
 }
 
-function VideoModal({ students, initialStudentId, onClose, onSave }) {
+function VideoModal({ students, groups, initialStudentId, onClose, onSave }) {
   const [shareId] = React.useState(() => window.koutsiRandomUuid());
   const [title, setTitle] = React.useState('');
   const [date, setDate] = React.useState(window.koutsiTodayStr());
@@ -1301,6 +1453,16 @@ function VideoModal({ students, initialStudentId, onClose, onSave }) {
             <button onClick={() => setStudentIds([])} disabled={busy} style={{ background: 'none', border: 'none', padding: 0, color: '#8a857a', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Tyhjennä</button>
           </div>
         </div>
+        {(groups || []).length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            {groups.map((g) => (
+              <button key={g.id} onClick={() => setStudentIds((prev) => Array.from(new Set([...prev, ...g.memberIds])))} disabled={busy}
+                style={{ padding: '7px 13px', borderRadius: 999, border: '1px solid #d8d4ca', background: '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12, cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+                + {g.name} ({g.memberIds.length})
+              </button>
+            ))}
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, maxHeight: 220, overflowY: 'auto' }}>
           {students.map((s) => (
             <button key={s.id} onClick={() => toggleStudent(s.id)} disabled={busy} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: studentIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: studentIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
@@ -1758,12 +1920,11 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
               style={inputStyle} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={label}>Kesto</div>
-            <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} style={{ ...inputStyle, cursor: 'pointer' }}>
-              {GROUP_DURATION_OPTIONS.map((minutes) => (
-                <option key={minutes} value={minutes}>{window.koutsiFmtDuration(minutes)}</option>
-              ))}
-            </select>
+            <div style={label}>Kesto (min)</div>
+            <input type="number" inputMode="numeric" min={15} max={480} step={15} value={duration}
+              onChange={(e) => setDuration(e.target.value === '' ? '' : Number(e.target.value))}
+              onBlur={() => setDuration((d) => window.koutsiRoundToQuarterHourMinutes(d))}
+              style={inputStyle} />
           </div>
         </div>
         {time && <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 20 }}>{day} klo {window.koutsiTimeRangeLabel(time, duration)} viikoittain</div>}
@@ -2137,7 +2298,10 @@ function CalendarGrid({ state, viewYear, viewMonth, selectedDate, todayStr, onSe
         {cells.map((d, i) => {
           if (d == null) return <div key={i} />;
           const ds = dateStrFor(d);
-          const dayTrainings = window.koutsiTrainingsOnDate(state, ds);
+          // Player-logged practice is the player's own calendar, not a session the coach
+          // is running — it stays off the coach's schedule grid (see StudentDetail's
+          // Omatoimisuus card for where the coach does see it).
+          const dayTrainings = window.koutsiTrainingsOnDate(state, ds).filter((t) => t.loggedBy !== 'player');
           const dayClubEvents = window.koutsiClubEventsOnDate(state, ds);
           const isToday = ds === todayStr;
           const isSelected = ds === selectedDate;
@@ -2173,14 +2337,14 @@ function CalendarView({ state, onAdd, onPreSession, onEditTraining, onDeleteTrai
   const [viewYear, setViewYear] = React.useState(todayDate.getFullYear());
   const [viewMonth, setViewMonth] = React.useState(todayDate.getMonth());
   const [selectedDate, setSelectedDate] = React.useState(() => {
-    const upcoming = state.trainings.filter((t) => t.date >= todayStr).slice().sort((a, b) => a.date.localeCompare(b.date));
+    const upcoming = state.trainings.filter((t) => t.loggedBy !== 'player' && t.date >= todayStr).slice().sort((a, b) => a.date.localeCompare(b.date));
     return upcoming[0] ? upcoming[0].date : todayStr;
   });
 
   const prevMonth = () => { if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); } else setViewMonth((m) => m - 1); };
   const nextMonth = () => { if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); } else setViewMonth((m) => m + 1); };
 
-  const trainingsOnSelected = window.koutsiTrainingsOnDate(state, selectedDate);
+  const trainingsOnSelected = window.koutsiTrainingsOnDate(state, selectedDate).filter((t) => t.loggedBy !== 'player');
   const clubEventsOnSelected = window.koutsiClubEventsOnDate(state, selectedDate);
 
   return (
@@ -3906,8 +4070,8 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
         <div key={tab} className="k-rise-in">
           {tab === 'students' && (
             <StudentsView
-              students={state.students} groups={state.groups} coachId={coachId} coachName={state.coach.name} onOpen={setDetailId}
-              trainingCount={state.trainings.length}
+              students={state.students} groups={state.groups} state={state} coachId={coachId} coachName={state.coach.name} onOpen={setDetailId}
+              trainingCount={state.trainings.filter((t) => t.loggedBy !== 'player').length}
               onAddTraining={() => { setTab('trainings'); openNewTraining(null); }}
               onAddPlayer={addPlayer} onBulkSetup={bulkSetup} />
           )}
@@ -3940,7 +4104,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
       )}
       {detail && entryOpen && <EntryModal student={detail} entry={editingEntry} onClose={() => { setEntryOpen(false); setEditingEntry(null); }} onSend={saveEntry} />}
       {detail && homeworkOpen && <HomeworkModal student={detail} onClose={() => setHomeworkOpen(false)} onSend={saveHomework} />}
-      {detail && videoOpen && <VideoModal students={state.students} initialStudentId={detailId} onClose={() => setVideoOpen(false)} onSave={addVideo} />}
+      {detail && videoOpen && <VideoModal students={state.students} groups={state.groups} initialStudentId={detailId} onClose={() => setVideoOpen(false)} onSave={addVideo} />}
       {audienceVideo && <VideoAudienceModal video={audienceVideo} students={state.students} onClose={() => setAudienceVideo(null)} onSave={saveVideoAudience} />}
       {groupDetail && (
         <GroupDetail
