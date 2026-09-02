@@ -111,7 +111,7 @@
         }),
       ],
       groups: [{
-        id: GROUP, coachId: COACH, name: 'Aikuiset A', level: 'Keskitaso', day: 'Ti', time: '17:00',
+        id: GROUP, coachId: COACH, name: 'Aikuiset A', level: 'Keskitaso', day: 'Ti', time: '17:00', durationMinutes: 90,
         memberIds: [S1, S2, S3],
         themes: [{ id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' }],
         theme: { id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' },
@@ -119,10 +119,10 @@
         annualPlan: null,
       }],
       trainings: [
-        { id: 'tr1', date: dayStr(1), time: '17:00', type: 'Ryhmätreeni', studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [] },
-        { id: 'tr2', date: dayStr(8), time: '17:00', type: 'Ryhmätreeni', studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [] },
-        { id: 'tr3', date: dayStr(-6), time: '17:00', type: 'Ryhmätreeni', studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [{ studentId: S3, reason: 'poissa', note: '', reportedBy: S3, updatedAt: isoAt(-7) }] },
-        { id: 'tr4', date: dayStr(3), time: '15:30', type: 'Yksityistunti', studentId: S1, groupId: null, coachId: COACH, seriesId: null, absences: [] },
+        { id: 'tr1', date: dayStr(1), time: '17:00', type: 'Ryhmätreeni', durationMinutes: 90, studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [] },
+        { id: 'tr2', date: dayStr(8), time: '17:00', type: 'Ryhmätreeni', durationMinutes: 90, studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [] },
+        { id: 'tr3', date: dayStr(-6), time: '17:00', type: 'Ryhmätreeni', durationMinutes: 90, studentId: null, groupId: GROUP, coachId: COACH, seriesId: 'ser1', absences: [{ studentId: S3, reason: 'poissa', note: '', reportedBy: S3, updatedAt: isoAt(-7) }] },
+        { id: 'tr4', date: dayStr(3), time: '15:30', type: 'Yksityistunti', durationMinutes: null, studentId: S1, groupId: null, coachId: COACH, seriesId: null, absences: [] },
       ],
       exercises: [
         { id: 'e1', coachId: COACH, name: 'Ristiin–suoraan', goal: 'Suunnanvaihdon tarkkuus', players: '2 pelaajaa', playerCount: 2, duration: '15 min', level: 'Keskitaso', tags: ['tekniikka'] },
@@ -383,7 +383,7 @@
     const seriesId = repeatUntil ? newId('ser') : null;
     const dates = repeatUntil ? window.koutsiWeeklyDates(date, repeatUntil) : [date];
     dates.forEach((d) => s.trainings.push({
-      id: newId('tr'), date: d, time, type,
+      id: newId('tr'), date: d, time, type, durationMinutes: null,
       studentId: studentId || null, groupId: groupId || null, coachId: coachId || COACH,
       seriesId, absences: [],
     }));
@@ -442,19 +442,41 @@
   };
 
   // ── groups ────────────────────────────────────────────────────────────────
-  window.koutsiCreateGroup = ({ coachId, name, level, day, time, memberIds }) => {
+  // Mirrors koutsi-data.js's real generation so the demo's calendar fills in the same
+  // way a live coach's would, instead of leaving a freshly created group with no sessions.
+  const demoGenerateGroupTrainings = (s, groupId, coachId, day, time, durationMinutes, fromDate) => {
+    const first = window.koutsiNextWeekday ? window.koutsiNextWeekday(fromDate, day) : null;
+    if (!first || !time) return;
+    const dates = window.koutsiWeeklyDates(first, window.koutsiAddDays(first, 364));
+    const seriesId = newId('ser');
+    dates.forEach((d) => s.trainings.push({
+      id: newId('tr'), date: d, time, type: 'Ryhmätreeni', durationMinutes: durationMinutes || null,
+      studentId: null, groupId, coachId: coachId || COACH, seriesId, absences: [],
+    }));
+  };
+  window.koutsiCreateGroup = ({ coachId, name, level, day, time, durationMinutes, memberIds }) => {
     const s = load();
     const id = newId('g');
+    const duration = durationMinutes || 60;
     s.groups.push({
-      id, coachId: coachId || COACH, name, level, day, time,
+      id, coachId: coachId || COACH, name, level, day, time, durationMinutes: duration,
       memberIds: memberIds || [], themes: [], theme: null, upcomingThemes: [], annualPlan: null,
     });
+    demoGenerateGroupTrainings(s, id, coachId, day, time, duration, window.koutsiTodayStr());
     save();
     return done(id);
   };
   window.koutsiUpdateGroup = (groupId, patch) => {
     const s = load();
-    s.groups = s.groups.map((g) => (g.id === groupId ? Object.assign({}, g, patch) : g));
+    const existing = s.groups.find((g) => g.id === groupId);
+    const duration = patch.durationMinutes || (existing && existing.durationMinutes) || 60;
+    const scheduleChanged = existing && (existing.day !== patch.day || existing.time !== patch.time || (existing.durationMinutes || 60) !== duration);
+    s.groups = s.groups.map((g) => (g.id === groupId ? Object.assign({}, g, patch, { durationMinutes: duration }) : g));
+    if (scheduleChanged) {
+      const today = window.koutsiTodayStr();
+      s.trainings = s.trainings.filter((t) => !(t.groupId === groupId && t.date >= today));
+      demoGenerateGroupTrainings(s, groupId, existing.coachId, patch.day, patch.time, duration, today);
+    }
     save();
     return done();
   };
@@ -657,12 +679,14 @@
       let group = row.existing_id ? s.groups.find((g) => g.id === row.existing_id) : null;
       if (row.existing_id && !group) throw new Error('Ryhmää ei löytynyt');
       if (!group) {
+        const duration = row.duration_minutes || 60;
         group = {
           id: newId('g'), coachId: COACH, name: row.name, level: row.level || 'Kaikki tasot',
-          day: row.day || 'Ma', time: row.time, memberIds: [], themes: [], theme: null,
+          day: row.day || 'Ma', time: row.time, durationMinutes: duration, memberIds: [], themes: [], theme: null,
           upcomingThemes: [], annualPlan: null,
         };
         s.groups.push(group);
+        demoGenerateGroupTrainings(s, group.id, COACH, group.day, group.time, duration, window.koutsiTodayStr());
         groupsCreated += 1;
       } else groupsReused += 1;
       groupIds[row.client_id] = group.id;

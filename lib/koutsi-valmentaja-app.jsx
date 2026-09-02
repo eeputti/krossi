@@ -8,6 +8,9 @@
 const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely' };
 const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely'];
 const CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+// Every training slot is quarter-hour, so the same list of lengths works for a 45 min
+// junior session all the way up to a 3 h camp block.
+const GROUP_DURATION_OPTIONS = [45, 60, 75, 90, 105, 120, 150, 180];
 const PLAYER_COUNT_FILTERS = [
   { key: 'kaikki', label: 'Kaikki' },
   { key: 1, label: '1 pelaaja' },
@@ -296,7 +299,7 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   const themeSeq = React.useRef(1);
   const [step, setStep] = React.useState(0);
   const [newGroups, setNewGroups] = React.useState(() => groups.length ? [] : [
-    { key: 'new-1', name: '', level: '', day: 'Ma', time: '' },
+    { key: 'new-1', name: '', level: '', day: 'Ma', time: '', duration: 60 },
   ]);
   const [players, setPlayers] = React.useState(() => Array.from({ length: 4 }, (_, i) => ({
     key: `player-${i + 1}`, name: '', age: '', level: '', groupKey: '',
@@ -340,7 +343,7 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   const groupOptionByKey = new Map(groupOptions.map((g) => [g.key, g]));
 
   const updateGroup = (key, patch) => setNewGroups((prev) => prev.map((g) => g.key === key ? { ...g, ...patch } : g));
-  const addGroup = () => setNewGroups((prev) => [...prev, { key: `new-${groupSeq.current++}`, name: '', level: '', day: 'Ma', time: '' }]);
+  const addGroup = () => setNewGroups((prev) => [...prev, { key: `new-${groupSeq.current++}`, name: '', level: '', day: 'Ma', time: '', duration: 60 }]);
   const removeGroup = (key) => {
     setNewGroups((prev) => prev.filter((g) => g.key !== key));
     setPlayers((prev) => prev.map((p) => p.groupKey === key ? { ...p, groupKey: '' } : p));
@@ -434,6 +437,7 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
     } : {
       client_id: option.key, existing_id: null, name: option.group.name.trim(),
       level: option.group.level.trim() || null, day: option.group.day, time: option.group.time,
+      duration_minutes: option.group.duration || 60,
     });
     return {
       groups: importGroups,
@@ -542,7 +546,7 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                     <div className="k-card" style={{ padding: '14px 16px', marginBottom: 18 }}>
                       <div style={{ ...labelStyle, marginBottom: 9 }}>Olemassa olevat ryhmät ({groups.length})</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                        {groups.map((g) => <span key={g.id} className="k-chip">{g.name} · {g.day} {g.time}</span>)}
+                        {groups.map((g) => <span key={g.id} className="k-chip">{g.name} · {g.day} {window.koutsiTimeRangeLabel(g.time, g.durationMinutes)}</span>)}
                       </div>
                     </div>
                   )}
@@ -553,12 +557,14 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                           <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--green-deep)' }}>Uusi ryhmä {index + 1}</div>
                           <button onClick={() => removeGroup(g.key)} aria-label="Poista ryhmärivi" style={{ border: 'none', background: 'transparent', color: '#8a857a', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Poista</button>
                         </div>
-                        <div className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.6fr) minmax(130px, 1fr) 92px 112px', gap: 9 }}>
+                        <div className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.6fr) minmax(130px, 1fr) 92px 112px 120px', gap: 9 }}>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Ryhmän nimi *</div><input value={g.name} onChange={(e) => updateGroup(g.key, { name: e.target.value })} placeholder="Esim. Tiistain aikuiset" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Taso</div><input value={g.level} onChange={(e) => updateGroup(g.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Päivä</div><select value={g.day} onChange={(e) => updateGroup(g.key, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
-                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" value={g.time} onChange={(e) => updateGroup(g.key, { time: e.target.value })} style={inputStyle} /></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={g.time} onChange={(e) => updateGroup(g.key, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} style={inputStyle} /></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto</div><select value={g.duration || 60} onChange={(e) => updateGroup(g.key, { duration: Number(e.target.value) })} style={{ ...inputStyle, cursor: 'pointer' }}>{GROUP_DURATION_OPTIONS.map((m) => <option key={m} value={m}>{window.koutsiFmtDuration(m)}</option>)}</select></div>
                         </div>
+                        {g.time && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 7 }}>Treenit ilmestyvät kalenteriin: {g.day} klo {window.koutsiTimeRangeLabel(g.time, g.duration || 60)} viikoittain</div>}
                       </div>
                     ))}
                   </div>
@@ -1433,7 +1439,7 @@ function GroupsView({ groups, students, coachId, acting, onOpen, onCreate }) {
                 <div style={{ color: '#111', fontWeight: 700, fontSize: 17 }}>{g.name}</div>
                 <div style={{ marginTop: 6 }}><LevelChip level={g.level} /></div>
               </div>
-              <div style={{ fontSize: 13, color: '#8a857a' }}>{g.day} klo {g.time} viikoittain</div>
+              <div style={{ fontSize: 13, color: '#8a857a' }}>{g.day} klo {window.koutsiTimeRangeLabel(g.time, g.durationMinutes)} viikoittain</div>
               {g.theme
                 ? <div style={{ fontSize: 12.5, color: '#3c382f' }}><b style={{ color: 'var(--green-deep)' }}>Viikon teema:</b> {g.theme.title}</div>
                 : (g.upcomingThemes || []).length > 0
@@ -1723,6 +1729,7 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
   const [level, setLevel] = React.useState(() => (editing ? editing.level || '' : ''));
   const [day, setDay] = React.useState(() => (editing ? editing.day || 'Ma' : 'Ma'));
   const [time, setTime] = React.useState(() => (editing ? editing.time || '' : ''));
+  const [duration, setDuration] = React.useState(() => (editing ? editing.durationMinutes || 60 : 60));
   const [memberIds, setMemberIds] = React.useState([]);
   const toggleMember = (id) => setMemberIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   const ready = name.trim() && time.trim();
@@ -1743,8 +1750,24 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
             <button key={d} onClick={() => setDay(d)} style={{ padding: '8px 13px', borderRadius: 999, border: day === d ? 'none' : '1px solid #d8d4ca', background: day === d ? 'var(--lime)' : '#fff', color: day === d ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{d}</button>
           ))}
         </div>
-        <div style={label}>Kellonaika</div>
-        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, marginBottom: 20 }} />
+        <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Kellonaika</div>
+            <input type="time" step={900} value={time}
+              onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))}
+              style={inputStyle} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Kesto</div>
+            <select value={duration} onChange={(e) => setDuration(Number(e.target.value))} style={{ ...inputStyle, cursor: 'pointer' }}>
+              {GROUP_DURATION_OPTIONS.map((minutes) => (
+                <option key={minutes} value={minutes}>{window.koutsiFmtDuration(minutes)}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {time && <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 20 }}>{day} klo {window.koutsiTimeRangeLabel(time, duration)} viikoittain</div>}
+        {!time && <div style={{ marginBottom: 20 }} />}
         {!isEdit && <div style={label}>Pelaajat ({memberIds.length} valittu)</div>}
         <div style={{ display: isEdit ? 'none' : 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 220, overflowY: 'auto' }}>
           {students.map((s) => (
@@ -1756,9 +1779,9 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
           <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => ready && onSave({ name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time: time.trim(), memberIds })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</button>
+          <button onClick={() => ready && onSave({ name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time: time.trim(), durationMinutes: duration, memberIds })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</button>
         </div>
-        {!isEdit && <p style={{ fontSize: 12, color: '#8a857a', marginTop: 12, lineHeight: 1.5 }}>Voit kutsua uusia pelaajia liittymislinkillä ryhmän luomisen jälkeen.</p>}
+        {!isEdit && <p style={{ fontSize: 12, color: '#8a857a', marginTop: 12, lineHeight: 1.5 }}>Viikoittaiset treenit ilmestyvät kalenteriin automaattisesti vuodeksi eteenpäin. Voit kutsua uusia pelaajia liittymislinkillä ryhmän luomisen jälkeen.</p>}
       </div>
     </div>
   );
@@ -1992,7 +2015,7 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{group.name}</div>
               <div style={{ marginTop: 8 }}><LevelChip level={group.level} /></div>
-              <div style={{ fontSize: 14, color: '#514c42', marginTop: 12 }}>Viikoittain: {group.day} klo {group.time}</div>
+              <div style={{ fontSize: 14, color: '#514c42', marginTop: 12 }}>Viikoittain: {group.day} klo {window.koutsiTimeRangeLabel(group.time, group.durationMinutes)}</div>
             </div>
             <window.KoutsiRowActions onEdit={onEditGroup} editLabel="Muokkaa ryhmää" />
           </div>
@@ -2205,7 +2228,7 @@ function CalendarView({ state, onAdd, onPreSession, onEditTraining, onDeleteTrai
                   onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onPreSession(t.id); } }}
                   style={{ padding: '16px 18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                    <div style={{ width: 50, fontSize: 14.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
+                    <div style={{ width: 90, fontSize: 14.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{window.koutsiTimeRangeLabel(t.time, t.durationMinutes)}</div>
                     {party.kind === 'student' && party.student && <Avatar src={party.student.avatarUrl} initial={party.student.initial} hue={party.student.hue} size={38} />}
                     {party.kind === 'group' && <AvatarStack members={party.members} size={38} />}
                     <div style={{ flex: 1, minWidth: 140 }}>
@@ -2241,7 +2264,7 @@ function PreSessionPanel({ training, state, onClose, onEditAttendance }) {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(560px, 100%)', maxHeight: '86vh', overflowY: 'auto', padding: '28px 28px 26px', animation: 'kFadeIn .2s ease' }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Treenin tiedot ja läsnäolot</div>
-        <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{window.koutsiFmtShortDate(training.date)} · {training.time}</h3>
+        <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{window.koutsiFmtShortDate(training.date)} · {window.koutsiTimeRangeLabel(training.time, training.durationMinutes)}</h3>
         <div style={{ fontSize: 14, color: '#8a857a', fontWeight: 600, marginBottom: 20 }}>
           {party.kind === 'group' && party.group ? party.group.name : ''}{party.kind === 'group' && party.group && trainingCoach ? ' · ' : ''}{trainingCoach ? trainingCoach.name : ''}
         </div>
@@ -2397,7 +2420,7 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Ajankohta</div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...inputStyle, flex: 0.7 }} />
+          <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} style={{ ...inputStyle, flex: 0.7 }} />
         </div>
 
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Tyyppi</div>
@@ -3787,10 +3810,10 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     }, rows.length === 1 ? 'Viikon teema tallennettu.' : `${rows.length} viikkoteemaa tallennettu.`);
     if (ok) setThemeModalGroupId(null);
   };
-  const saveGroup = async ({ name, level, day, time, memberIds }) => {
+  const saveGroup = async ({ name, level, day, time, durationMinutes, memberIds }) => {
     const ok = await toast.run(async () => {
-      if (editingGroup) await window.koutsiUpdateGroup(editingGroup.id, { name, level, day, time });
-      else await window.koutsiCreateGroup({ coachId, name, level, day, time, memberIds });
+      if (editingGroup) await window.koutsiUpdateGroup(editingGroup.id, { name, level, day, time, durationMinutes });
+      else await window.koutsiCreateGroup({ coachId, name, level, day, time, durationMinutes, memberIds });
       await reload();
     }, editingGroup ? 'Ryhmä päivitetty.' : 'Ryhmä luotu.');
     if (ok) { setGroupFormOpen(false); setEditingGroup(null); }
