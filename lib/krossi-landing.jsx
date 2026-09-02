@@ -273,7 +273,7 @@ function Features() {
   );
 }
 
-const KROSSI_CITIES = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio'];
+const KROSSI_CITIES = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio', 'Rovaniemi', 'Mikkeli'];
 
 function Trust() {
   return (
@@ -281,7 +281,7 @@ function Trust() {
       <div className="trust-inner">
         <span className="eyebrow eyebrow-light"><span className="ball-dot" /> Krossi laajenee kaupunkeihin ympäri Suomen</span>
         <h2>Rakennetaan Suomen<br />tennisverkostoa yhdessä.</h2>
-        <p>Krossi on jo käytössä kahdeksassa kaupungissa. Kun pelaajat löytyvät samasta paikasta, pelien sopiminen, tapahtumien jakaminen ja uusien tenniskavereiden löytäminen helpottuu kaikille.</p>
+        <p>Krossi on jo käytössä kymmenessä kaupungissa. Kun pelaajat löytyvät samasta paikasta, pelien sopiminen, tapahtumien jakaminen ja uusien tenniskavereiden löytäminen helpottuu kaikille.</p>
         <div className="city-pills">
           {KROSSI_CITIES.map((c) => <span key={c} className="city-pill">{c}</span>)}
         </div>

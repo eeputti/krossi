@@ -12,7 +12,7 @@ const koutsiSupabase = window.supabase.createClient(KOUTSI_SUPABASE_URL, KOUTSI_
   auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
 });
 
-const KOUTSI_AREA_OPTIONS = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio'];
+const KOUTSI_AREA_OPTIONS = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio', 'Rovaniemi', 'Mikkeli'];
 function koutsiOptionalAgeValid(value) {
   if (!value) return true;
   const exact = Number(value);

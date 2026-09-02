@@ -127,15 +127,20 @@ tallentamisen myös vanhalla käyttöliittymällä tai suoralla API-kutsulla.
 
 ## Vielä tehtäväksi jäävät asetukset
 
-- **Salasanapolitiikka ja sähköpostivahvistus (valmis):** tuotannon Auth-palvelimen
-  vähimmäispituudeksi asetettiin 8
+- **Salasanapolitiikka (valmis):** tuotannon Auth-palvelimen vähimmäispituudeksi asetettiin 8
   merkkiä. Suljetussa betassa käytetään tarkoituksella Supabasen asetusta
   `No required characters`; vuotaneiden salasanojen maksullinen tarkistus on käsitelty
   erikseen alla. Palvelintesti 25.8.2026 hylkäsi 7-merkkisen salasanan ja tietokannasta
   vahvistettiin, ettei testikäyttäjiä jäänyt. Sovellus vaatii rekisteröinnissä ja
-  salasanan palautuksessa saman 8 merkkiä. Uusien tilien erillinen `Confirm email`
-  otettiin käyttöön 25.8.2026; tuotannon `/auth/v1/settings` palautti varmennuksessa
-  `mailer_autoconfirm: false` ja email-providerin aktiiviseksi.
+  salasanan palautuksessa saman 8 merkkiä.
+- **Sähköpostivahvistus (väliaikaisesti pois päältä 2.9.2026):** `Confirm email` otettiin
+  käyttöön 25.8.2026, mutta koska Resendin `krossi.app`-domain ei ollut vielä varmennettu,
+  vahvistusviestit eivät menneet perille muille kuin omaan osoitteeseen — uudet käyttäjät
+  (mm. pilottivalmentajat) jäivät jumiin vahvistusruutuun. Kytketty pois Dashboardista
+  2.9.2026 ennen ensimmäistä valmentajapuhelua: Authentication → Providers → Email →
+  `Confirm email` = pois. Uudet tilit aktivoituvat nyt ilman sähköpostivahvistusta.
+  **Kytke takaisin päälle heti kun Resendin domain on varmennettu**, ettei tuotanto jää
+  pysyvästi ilman vahvistusta.
 - **Vuotaneiden salasanojen esto (siirretty)**: ominaisuus kuuluu Supabasen Pro-tasoon,
   joten sitä ei oteta käyttöön Free-tasolla ajettavassa ensimmäisessä pilotissa. Jos
   organisaatio päivitetään myöhemmin Prohon, kytke Authentication → Policies →

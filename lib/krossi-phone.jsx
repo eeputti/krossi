@@ -190,7 +190,7 @@ function KPMessages({ onConvo, onReply }) {
 }
 
 function KPProfile({ liveOn, setLiveOn }) {
-  const cities = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio'];
+  const cities = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio', 'Rovaniemi', 'Mikkeli'];
   return (
     <div>
       <KPHeader title="Profiili" action={<span style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="2.6" stroke="#111" strokeWidth="1.5" /><path d="M8.5 1.2v2M8.5 13.8v2M1.2 8.5h2M13.8 8.5h2M3.3 3.3l1.4 1.4M12.3 12.3l1.4 1.4M3.3 13.7l1.4-1.4M12.3 4.7l1.4-1.4" stroke="#111" strokeWidth="1.4" strokeLinecap="round" /></svg></span>} />
@@ -304,7 +304,7 @@ function KPFilterSheet({ onClose }) {
               {['Kaupunki', 'Säde'].map((s) => <button key={s} onClick={() => setTab(s)} style={{ flex: 1, padding: '9px 0', borderRadius: 999, border: 'none', background: tab === s ? 'var(--lime)' : 'transparent', color: tab === s ? '#101a08' : '#6b665c', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{s}</button>)}
             </div>
             <div className="kp-scroll-x" style={{ display: 'flex', gap: 9, overflowX: 'auto' }}>
-              {['Kaikki', 'Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio'].map((c) => <Pill key={c} on={city === c} onClick={() => setCity(c)}>{c}</Pill>)}
+              {['Kaikki', 'Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio', 'Rovaniemi', 'Mikkeli'].map((c) => <Pill key={c} on={city === c} onClick={() => setCity(c)}>{c}</Pill>)}
             </div>
           </Group>
           <Group label="PELITASO">
