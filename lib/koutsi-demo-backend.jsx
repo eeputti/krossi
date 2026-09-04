@@ -112,7 +112,7 @@
       ],
       groups: [{
         id: GROUP, coachId: COACH, name: 'Aikuiset A', level: 'Keskitaso', day: 'Ti', time: '17:00', durationMinutes: 90,
-        memberIds: [S1, S2, S3],
+        memberIds: [S1, S2, S3], slots: [],
         themes: [{ id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' }],
         theme: { id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' },
         upcomingThemes: [],
@@ -475,13 +475,14 @@
   // way a live coach's would, instead of leaving a freshly created group with no sessions.
   const demoGenerateGroupTrainings = (s, groupId, coachId, day, time, durationMinutes, fromDate) => {
     const first = window.koutsiNextWeekday ? window.koutsiNextWeekday(fromDate, day) : null;
-    if (!first || !time) return;
+    if (!first || !time) return null;
     const dates = window.koutsiWeeklyDates(first, window.koutsiAddDays(first, 364));
     const seriesId = newId('ser');
     dates.forEach((d) => s.trainings.push({
       id: newId('tr'), date: d, time, type: 'Ryhmätreeni', durationMinutes: durationMinutes || null,
       studentId: null, groupId, coachId: coachId || COACH, seriesId, absences: [],
     }));
+    return seriesId;
   };
   window.koutsiCreateGroup = ({ coachId, name, level, day, time, durationMinutes, memberIds }) => {
     const s = load();
@@ -489,11 +490,38 @@
     const duration = durationMinutes || 60;
     s.groups.push({
       id, coachId: coachId || COACH, name, level, day, time, durationMinutes: duration,
-      memberIds: memberIds || [], themes: [], theme: null, upcomingThemes: [], annualPlan: null,
+      memberIds: memberIds || [], slots: [], themes: [], theme: null, upcomingThemes: [], annualPlan: null,
     });
     demoGenerateGroupTrainings(s, id, coachId, day, time, duration, window.koutsiTodayStr());
     save();
     return done(id);
+  };
+  window.koutsiAddGroupSlot = ({ groupId, coachId, day, time, durationMinutes }) => {
+    const s = load();
+    const group = s.groups.find((g) => g.id === groupId);
+    if (!group) return done();
+    const duration = window.koutsiRoundToQuarterHourMinutes(durationMinutes || 60);
+    const roundedTime = window.koutsiRoundTimeToQuarterHour(time);
+    const slotId = newId('slot');
+    const seriesId = demoGenerateGroupTrainings(s, groupId, coachId || group.coachId, day, roundedTime, duration, window.koutsiTodayStr());
+    (group.slots ||= []).push({ id: slotId, day, time: roundedTime, durationMinutes: duration, seriesId });
+    save();
+    return done(slotId);
+  };
+  window.koutsiDeleteGroupSlot = (slotId) => {
+    const s = load();
+    let seriesId = null;
+    s.groups.forEach((g) => {
+      const hit = (g.slots || []).find((slot) => slot.id === slotId);
+      if (hit) seriesId = hit.seriesId;
+      g.slots = (g.slots || []).filter((slot) => slot.id !== slotId);
+    });
+    if (seriesId) {
+      const today = window.koutsiTodayStr();
+      s.trainings = s.trainings.filter((t) => !(t.seriesId === seriesId && t.date >= today));
+    }
+    save();
+    return done();
   };
   window.koutsiUpdateGroup = (groupId, patch) => {
     const s = load();
@@ -711,7 +739,7 @@
         const duration = row.duration_minutes || 60;
         group = {
           id: newId('g'), coachId: COACH, name: row.name, level: row.level || 'Kaikki tasot',
-          day: row.day || 'Ma', time: row.time, durationMinutes: duration, memberIds: [], themes: [], theme: null,
+          day: row.day || 'Ma', time: row.time, durationMinutes: duration, memberIds: [], slots: [], themes: [], theme: null,
           upcomingThemes: [], annualPlan: null,
         };
         s.groups.push(group);

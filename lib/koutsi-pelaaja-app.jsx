@@ -413,6 +413,9 @@ function GroupCard({ group, state, student, onEditAttendance }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <GroupMetaItem icon={<GroupMetaIcon kind="clock" />}>{group.day} klo {group.time} viikoittain</GroupMetaItem>
+          {(group.slots || []).map((slot) => (
+            <GroupMetaItem key={slot.id} icon={<GroupMetaIcon kind="clock" />}>{slot.day} klo {slot.time} viikoittain</GroupMetaItem>
+          ))}
           {coach && <GroupMetaItem icon={<GroupMetaIcon kind="coach" />}>{coach.name}</GroupMetaItem>}
           <GroupMetaItem icon={<GroupMetaIcon kind="members" />}>{members.length} ryhmäläistä</GroupMetaItem>
         </div>
@@ -680,7 +683,7 @@ function AddSelfTrainingModal({ date, onClose, onSave, onSwitchToMatch }) {
             <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
               <div style={{ flex: 1 }}>
                 <div style={label}>Kellonaika</div>
-                <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} style={inputStyle} />
+                <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} onClick={(e) => e.currentTarget.showPicker?.()} style={inputStyle} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={label}>Kesto (min)</div>

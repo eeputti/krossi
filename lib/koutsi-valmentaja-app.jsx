@@ -560,7 +560,7 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Ryhmän nimi *</div><input value={g.name} onChange={(e) => updateGroup(g.key, { name: e.target.value })} placeholder="Esim. Tiistain aikuiset" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Taso</div><input value={g.level} onChange={(e) => updateGroup(g.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Päivä</div><select value={g.day} onChange={(e) => updateGroup(g.key, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
-                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={g.time} onChange={(e) => updateGroup(g.key, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} style={inputStyle} /></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={g.time} onChange={(e) => updateGroup(g.key, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} onClick={(e) => e.currentTarget.showPicker?.()} style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={g.duration || 60} onChange={(e) => updateGroup(g.key, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroup(g.key, { duration: window.koutsiRoundToQuarterHourMinutes(g.duration || 60) })} style={inputStyle} /></div>
                         </div>
                         {g.time && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 7 }}>Treenit ilmestyvät kalenteriin: {g.day} klo {window.koutsiTimeRangeLabel(g.time, g.duration || 60)} viikoittain</div>}
@@ -1860,6 +1860,7 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
             <div style={label}>Kellonaika</div>
             <input type="time" step={900} value={time}
               onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))}
+              onClick={(e) => e.currentTarget.showPicker?.()}
               style={inputStyle} />
           </div>
           <div style={{ flex: 1 }}>
@@ -1886,6 +1887,57 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
           <button onClick={() => ready && onSave({ name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time: time.trim(), durationMinutes: duration, memberIds })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</button>
         </div>
         {!isEdit && <p style={{ fontSize: 12, color: '#8a857a', marginTop: 12, lineHeight: 1.5 }}>Viikoittaiset treenit ilmestyvät kalenteriin automaattisesti vuodeksi eteenpäin. Voit kutsua uusia pelaajia liittymislinkillä ryhmän luomisen jälkeen.</p>}
+      </div>
+    </div>
+  );
+}
+
+// A second (or third) weekly training time for a group that already has its primary
+// slot — e.g. a group that meets both Tuesday and Thursday. Same day/time/duration inputs
+// as the group form's own schedule fields, just for one extra slot at a time.
+function GroupSlotModal({ onClose, onSave }) {
+  const [day, setDay] = React.useState('Ma');
+  const [time, setTime] = React.useState('');
+  const [duration, setDuration] = React.useState(60);
+  const [busy, setBusy] = React.useState(false);
+  const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+  const ready = time.trim();
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  const submit = async () => {
+    if (!ready) return;
+    setBusy(true);
+    await onSave({ day, time: time.trim(), durationMinutes: duration });
+  };
+  return (
+    <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Lisää harjoitusaika</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Toinen viikoittainen aika samalle ryhmälle — treenit ilmestyvät kalenteriin vuodeksi eteenpäin, kuten ryhmän pääaikakin.</p>
+        <div style={label}>Viikonpäivä</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+          {days.map((d) => (
+            <button key={d} onClick={() => setDay(d)} style={{ padding: '8px 13px', borderRadius: 999, border: day === d ? 'none' : '1px solid #d8d4ca', background: day === d ? 'var(--lime)' : '#fff', color: day === d ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{d}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Kellonaika</div>
+            <input type="time" step={900} value={time} onClick={(e) => e.currentTarget.showPicker?.()}
+              onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} style={inputStyle} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={label}>Kesto (min)</div>
+            <input type="number" inputMode="numeric" min={15} max={480} step={15} value={duration}
+              onChange={(e) => setDuration(e.target.value === '' ? '' : Number(e.target.value))}
+              onBlur={() => setDuration((d) => window.koutsiRoundToQuarterHourMinutes(d))}
+              style={inputStyle} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} disabled={!ready || busy} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: (ready && !busy) ? 1 : 0.45, cursor: (ready && !busy) ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : 'Lisää'}</button>
+        </div>
       </div>
     </div>
   );
@@ -2097,7 +2149,7 @@ function AnnualPlanCard({ group, onUploadPlan, onRemovePlan }) {
   );
 }
 
-function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStudent, onOpenAttendance, onEditTheme, onAddMembers, onUploadPlan, onRemovePlan, onEditGroup, onDeleteGroup, onRemoveMember }) {
+function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStudent, onOpenAttendance, onEditTheme, onAddMembers, onUploadPlan, onRemovePlan, onEditGroup, onDeleteGroup, onRemoveMember, onAddSlot, onDeleteSlot }) {
   const nowWeek = window.koutsiCurrentIsoWeek();
   const sortedTrainings = (trainings || []).slice().sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
   const thisWeekTrainings = sortedTrainings.filter((t) => {
@@ -2120,6 +2172,13 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
               <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>{group.name}</div>
               <div style={{ marginTop: 8 }}><LevelChip level={group.level} /></div>
               <div style={{ fontSize: 14, color: '#514c42', marginTop: 12 }}>Viikoittain: {group.day} klo {window.koutsiTimeRangeLabel(group.time, group.durationMinutes)}</div>
+              {(group.slots || []).map((slot) => (
+                <div key={slot.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                  <span style={{ fontSize: 14, color: '#514c42' }}>Lisäksi: {slot.day} klo {window.koutsiTimeRangeLabel(slot.time, slot.durationMinutes)}</span>
+                  <window.KoutsiRowActions onDelete={() => onDeleteSlot(slot)} deleteLabel="Poista harjoitusaika" />
+                </div>
+              ))}
+              <button onClick={onAddSlot} className="btn-outline btn-sm" style={{ marginTop: 10 }}>+ Toinen harjoitusaika</button>
             </div>
             <window.KoutsiRowActions onEdit={onEditGroup} editLabel="Muokkaa ryhmää" />
           </div>
@@ -2527,7 +2586,7 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Ajankohta</div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
-          <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} style={{ ...inputStyle, flex: 0.7 }} />
+          <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} onClick={(e) => e.currentTarget.showPicker?.()} style={{ ...inputStyle, flex: 0.7 }} />
         </div>
 
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Tyyppi</div>
@@ -3684,6 +3743,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   const [themeModalGroupId, setThemeModalGroupId] = React.useState(null);
   const [groupFormOpen, setGroupFormOpen] = React.useState(false);
   const [editingGroup, setEditingGroup] = React.useState(null);
+  const [slotFormOpen, setSlotFormOpen] = React.useState(false);
   const [addMembersGroupId, setAddMembersGroupId] = React.useState(null);
   const [eventOpen, setEventOpen] = React.useState(false);
   const [editingEvent, setEditingEvent] = React.useState(null);
@@ -3974,6 +4034,22 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     toast.success(`${name} luotu ja lisätty ryhmään.`);
   };
 
+  const addGroupSlot = async ({ day, time, durationMinutes }) => {
+    const ok = await toast.run(async () => {
+      await window.koutsiAddGroupSlot({ groupId: groupDetail.id, coachId, day, time, durationMinutes });
+      await reload();
+    }, 'Harjoitusaika lisätty.');
+    if (ok) setSlotFormOpen(false);
+  };
+  const deleteGroupSlot = async (slot) => {
+    const ok = await confirm({
+      title: 'Poista harjoitusaika?',
+      body: `${slot.day} klo ${window.koutsiTimeRangeLabel(slot.time, slot.durationMinutes)} ja sen tulevat treenit poistetaan.`,
+      confirmLabel: 'Poista', danger: true,
+    });
+    if (ok) await act(() => window.koutsiDeleteGroupSlot(slot.id), 'Harjoitusaika poistettu.')();
+  };
+
   const uploadAnnualPlan = async (groupId, file) => { await window.koutsiUploadAnnualPlan(groupId, file); await reload(); };
   const removeAnnualPlan = async (groupId, storagePath) => { await window.koutsiRemoveAnnualPlan(groupId, storagePath); await reload(); };
 
@@ -4056,8 +4132,10 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
           onEditTheme={() => setThemeModalGroupId(groupDetail.id)} onAddMembers={() => setAddMembersGroupId(groupDetail.id)}
           onUploadPlan={uploadAnnualPlan} onRemovePlan={removeAnnualPlan}
           onEditGroup={() => { setEditingGroup(groupDetail); setGroupFormOpen(true); }}
-          onDeleteGroup={deleteGroup} onRemoveMember={removeMember} />
+          onDeleteGroup={deleteGroup} onRemoveMember={removeMember}
+          onAddSlot={() => setSlotFormOpen(true)} onDeleteSlot={deleteGroupSlot} />
       )}
+      {slotFormOpen && <GroupSlotModal onClose={() => setSlotFormOpen(false)} onSave={addGroupSlot} />}
       {trainingOpen && (
         <TrainingModal
           students={state.students} groups={state.groups} defaultDate={trainingDefaultDate} editing={editingTraining}
