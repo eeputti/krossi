@@ -294,11 +294,12 @@ function AddPlayerModal({ onClose, onSave }) {
 function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   const now = window.koutsiCurrentIsoWeek();
   const groupSeq = React.useRef(2);
+  const slotSeq = React.useRef(1);
   const playerSeq = React.useRef(5);
   const themeSeq = React.useRef(1);
   const [step, setStep] = React.useState(0);
   const [newGroups, setNewGroups] = React.useState(() => groups.length ? [] : [
-    { key: 'new-1', name: '', level: '', day: 'Ma', time: '', duration: 60 },
+    { key: 'new-1', name: '', level: '', day: 'Ma', time: '', duration: 60, extraSlots: [] },
   ]);
   const [players, setPlayers] = React.useState(() => Array.from({ length: 4 }, (_, i) => ({
     key: `player-${i + 1}`, name: '', age: '', level: '', groupKey: '',
@@ -319,7 +320,7 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   const steps = ['Ryhmät', 'Pelaajat', 'Viikkoteemat', 'Tarkista'];
 
   const startedGroups = newGroups.filter((g) => g.name.trim() || g.level.trim() || g.time);
-  const incompleteGroup = startedGroups.some((g) => !g.name.trim() || !g.time);
+  const incompleteGroup = startedGroups.some((g) => !g.name.trim() || !g.time || (g.extraSlots || []).some((s) => !s.time));
   const filledPlayers = players.filter((p) => p.name.trim());
   const invalidPlayerAge = filledPlayers.some((p) => {
     if (!p.age) return false;
@@ -342,12 +343,23 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   const groupOptionByKey = new Map(groupOptions.map((g) => [g.key, g]));
 
   const updateGroup = (key, patch) => setNewGroups((prev) => prev.map((g) => g.key === key ? { ...g, ...patch } : g));
-  const addGroup = () => setNewGroups((prev) => [...prev, { key: `new-${groupSeq.current++}`, name: '', level: '', day: 'Ma', time: '', duration: 60 }]);
+  const addGroup = () => setNewGroups((prev) => [...prev, { key: `new-${groupSeq.current++}`, name: '', level: '', day: 'Ma', time: '', duration: 60, extraSlots: [] }]);
   const removeGroup = (key) => {
     setNewGroups((prev) => prev.filter((g) => g.key !== key));
     setPlayers((prev) => prev.map((p) => p.groupKey === key ? { ...p, groupKey: '' } : p));
     setThemeRows((prev) => prev.filter((r) => r.groupKey !== key));
   };
+  // A group in the wizard can already get a second (or third) weekly time here, instead
+  // of only through the group's own page after the fact.
+  const addGroupExtraSlot = (groupKey) => setNewGroups((prev) => prev.map((g) => g.key === groupKey
+    ? { ...g, extraSlots: [...(g.extraSlots || []), { id: `slot-${slotSeq.current++}`, day: 'Ma', time: '', duration: 60 }] }
+    : g));
+  const updateGroupExtraSlot = (groupKey, slotId, patch) => setNewGroups((prev) => prev.map((g) => g.key === groupKey
+    ? { ...g, extraSlots: (g.extraSlots || []).map((s) => s.id === slotId ? { ...s, ...patch } : s) }
+    : g));
+  const removeGroupExtraSlot = (groupKey, slotId) => setNewGroups((prev) => prev.map((g) => g.key === groupKey
+    ? { ...g, extraSlots: (g.extraSlots || []).filter((s) => s.id !== slotId) }
+    : g));
   const updatePlayer = (key, patch) => setPlayers((prev) => prev.map((p) => p.key === key ? { ...p, ...patch } : p));
   const addPlayerRow = (defaults = {}) => setPlayers((prev) => [...prev, {
     key: `player-${playerSeq.current++}`, name: '', age: '', level: '', groupKey: '', ...defaults,
@@ -448,6 +460,14 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
         group_ref: r.groupKey, year: r.year, week: r.week,
         title: r.title.trim(), lead: r.lead.trim() || null,
       })),
+      // Extra weekly times only apply to groups this wizard is creating (not reused
+      // existing ones) — attached client-side after the group exists, via its real id.
+      extraSlots: groupOptions
+        .filter((g) => used.has(g.key) && !g.existing && (g.group.extraSlots || []).some((s) => s.time))
+        .map((g) => ({
+          clientId: g.key,
+          slots: g.group.extraSlots.filter((s) => s.time).map((s) => ({ day: s.day, time: s.time, duration: s.duration || 60 })),
+        })),
     };
   }, [groupOptions, involvedGroupKeys, filledPlayers, filledThemes]);
 
@@ -564,6 +584,15 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={g.duration || 60} onChange={(e) => updateGroup(g.key, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroup(g.key, { duration: window.koutsiRoundToQuarterHourMinutes(g.duration || 60) })} style={inputStyle} /></div>
                         </div>
                         {g.time && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 7 }}>Treenit ilmestyvät kalenteriin: {g.day} klo {window.koutsiTimeRangeLabel(g.time, g.duration || 60)} viikoittain</div>}
+                        {(g.extraSlots || []).map((slot) => (
+                          <div key={slot.id} className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: '92px 112px 120px 60px', gap: 9, marginTop: 9, alignItems: 'end' }}>
+                            <div><div style={{ ...labelStyle, marginBottom: 6 }}>Lisäpäivä</div><select value={slot.day} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
+                            <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={slot.time} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} onClick={(e) => e.currentTarget.showPicker?.()} style={inputStyle} /></div>
+                            <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={slot.duration || 60} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroupExtraSlot(g.key, slot.id, { duration: window.koutsiRoundToQuarterHourMinutes(slot.duration || 60) })} style={inputStyle} /></div>
+                            <button onClick={() => removeGroupExtraSlot(g.key, slot.id)} aria-label="Poista lisäaika" style={{ border: 'none', background: 'transparent', color: '#8a857a', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '10px 0' }}>Poista</button>
+                          </div>
+                        ))}
+                        <button onClick={() => addGroupExtraSlot(g.key)} className="btn-outline btn-sm" style={{ marginTop: 9 }}>+ Toinen harjoitusaika</button>
                       </div>
                     ))}
                   </div>
@@ -3914,8 +3943,19 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   };
   // BulkSetupModal owns its validation and error state. On success it keeps the dialog
   // open for a useful summary while the underlying roster refreshes immediately.
-  const bulkSetup = async ({ groups, players, themes }) => {
+  const bulkSetup = async ({ groups, players, themes, extraSlots }) => {
     const result = await window.koutsiBulkSetup({ coachId, groups, players, themes });
+    // Extra weekly times a group got in the wizard: attached now that the group has a
+    // real id (result.group_ids maps the wizard's temporary client_id to it).
+    if (extraSlots?.length && result?.group_ids) {
+      for (const { clientId, slots } of extraSlots) {
+        const groupId = result.group_ids[clientId];
+        if (!groupId) continue;
+        for (const slot of slots) {
+          await window.koutsiAddGroupSlot({ groupId, coachId, day: slot.day, time: slot.time, durationMinutes: slot.duration });
+        }
+      }
+    }
     await reload();
     toast.success(`${result?.players_created || players.length} pelaajaa lisätty.`);
     return result;

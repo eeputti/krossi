@@ -772,6 +772,7 @@
     return done({
       players_created: created.length, groups_created: groupsCreated,
       groups_reused: groupsReused, themes_saved: themes.length, players: created,
+      group_ids: groupIds,
     });
   };
   // Henkilökohtainen linkki sisältää paikanvaraajan satunnaisen tunnisteen, joten
