@@ -683,7 +683,7 @@ function AddSelfTrainingModal({ date, onClose, onSave, onSwitchToMatch }) {
             <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
               <div style={{ flex: 1 }}>
                 <div style={label}>Kellonaika</div>
-                <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} onClick={(e) => e.currentTarget.showPicker?.()} style={inputStyle} />
+                <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }} style={inputStyle} />
               </div>
               <div style={{ flex: 1 }}>
                 <div style={label}>Kesto (min)</div>

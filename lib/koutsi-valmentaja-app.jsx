@@ -301,6 +301,10 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   const [newGroups, setNewGroups] = React.useState(() => groups.length ? [] : [
     { key: 'new-1', name: '', level: '', day: 'Ma', time: '', duration: 60, extraSlots: [] },
   ]);
+  // Shared across every group this run creates (and their extra slots) — one setting is
+  // enough here, so a bulk import of several groups doesn't flood the calendar with a
+  // year of sessions per group by default.
+  const [weeksAhead, setWeeksAhead] = React.useState(12);
   const [players, setPlayers] = React.useState(() => Array.from({ length: 4 }, (_, i) => ({
     key: `player-${i + 1}`, name: '', age: '', level: '', groupKey: '',
   })));
@@ -468,8 +472,9 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
           clientId: g.key,
           slots: g.group.extraSlots.filter((s) => s.time).map((s) => ({ day: s.day, time: s.time, duration: s.duration || 60 })),
         })),
+      weeksAhead,
     };
-  }, [groupOptions, involvedGroupKeys, filledPlayers, filledThemes]);
+  }, [groupOptions, involvedGroupKeys, filledPlayers, filledThemes, weeksAhead]);
 
   const next = () => {
     setError('');
@@ -569,6 +574,13 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                       </div>
                     </div>
                   )}
+                  <div className="k-card" style={{ padding: '14px 16px', marginBottom: 18 }}>
+                    <div style={{ ...labelStyle, marginBottom: 9 }}>Uusien ryhmien treenit kalenteriin, kuinka pitkäksi ajaksi?</div>
+                    <select value={weeksAhead} onChange={(e) => setWeeksAhead(Number(e.target.value))} style={{ ...inputStyle, maxWidth: 260 }}>
+                      {[4, 8, 12, 26, 52].map((w) => <option key={w} value={w}>{w} viikkoa{w >= 52 ? ' (koko kausi)' : ''}</option>)}
+                    </select>
+                    <p style={{ fontSize: 12, color: '#8a857a', marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>Koskee kaikkia tässä luotavia uusia ryhmiä ja niiden lisäharjoitusaikoja. Voit lisätä lisää viikkoja myöhemmin ryhmän omalta sivulta.</p>
+                  </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {newGroups.map((g, index) => (
                       <div key={g.key} className="k-card" style={{ padding: '13px 14px' }}>
@@ -580,14 +592,14 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Ryhmän nimi *</div><input value={g.name} onChange={(e) => updateGroup(g.key, { name: e.target.value })} placeholder="Esim. Tiistain aikuiset" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Taso</div><input value={g.level} onChange={(e) => updateGroup(g.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Päivä</div><select value={g.day} onChange={(e) => updateGroup(g.key, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
-                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={g.time} onChange={(e) => updateGroup(g.key, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} onClick={(e) => e.currentTarget.showPicker?.()} style={inputStyle} /></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={g.time} onChange={(e) => updateGroup(g.key, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }} style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={g.duration || 60} onChange={(e) => updateGroup(g.key, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroup(g.key, { duration: window.koutsiRoundToQuarterHourMinutes(g.duration || 60) })} style={inputStyle} /></div>
                         </div>
-                        {g.time && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 7 }}>Treenit ilmestyvät kalenteriin: {g.day} klo {window.koutsiTimeRangeLabel(g.time, g.duration || 60)} viikoittain</div>}
+                        {g.time && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 7 }}>Treenit ilmestyvät kalenteriin: {g.day} klo {window.koutsiTimeRangeLabel(g.time, g.duration || 60)} viikoittain, {weeksAhead} viikon ajan</div>}
                         {(g.extraSlots || []).map((slot) => (
                           <div key={slot.id} className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: '92px 112px 120px 60px', gap: 9, marginTop: 9, alignItems: 'end' }}>
                             <div><div style={{ ...labelStyle, marginBottom: 6 }}>Lisäpäivä</div><select value={slot.day} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
-                            <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={slot.time} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} onClick={(e) => e.currentTarget.showPicker?.()} style={inputStyle} /></div>
+                            <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={slot.time} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }} style={inputStyle} /></div>
                             <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={slot.duration || 60} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroupExtraSlot(g.key, slot.id, { duration: window.koutsiRoundToQuarterHourMinutes(slot.duration || 60) })} style={inputStyle} /></div>
                             <button onClick={() => removeGroupExtraSlot(g.key, slot.id)} aria-label="Poista lisäaika" style={{ border: 'none', background: 'transparent', color: '#8a857a', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '10px 0' }}>Poista</button>
                           </div>
@@ -1864,12 +1876,14 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
   const [day, setDay] = React.useState(() => (editing ? editing.day || 'Ma' : 'Ma'));
   const [time, setTime] = React.useState(() => (editing ? editing.time || '' : ''));
   const [duration, setDuration] = React.useState(() => (editing ? editing.durationMinutes || 60 : 60));
+  const [weeksAhead, setWeeksAhead] = React.useState(12);
   const [memberIds, setMemberIds] = React.useState([]);
   const toggleMember = (id) => setMemberIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   const ready = name.trim() && time.trim();
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+  const weeksAheadOptions = [4, 8, 12, 26, 52];
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
@@ -1889,7 +1903,7 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
             <div style={label}>Kellonaika</div>
             <input type="time" step={900} value={time}
               onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))}
-              onClick={(e) => e.currentTarget.showPicker?.()}
+              onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }}
               style={inputStyle} />
           </div>
           <div style={{ flex: 1 }}>
@@ -1900,8 +1914,12 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
               style={inputStyle} />
           </div>
         </div>
-        {time && <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 20 }}>{day} klo {window.koutsiTimeRangeLabel(time, duration)} viikoittain</div>}
-        {!time && <div style={{ marginBottom: 20 }} />}
+        {time && <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 14 }}>{day} klo {window.koutsiTimeRangeLabel(time, duration)} viikoittain</div>}
+        {!time && <div style={{ marginBottom: 14 }} />}
+        <div style={label}>Treenit kalenteriin, kuinka pitkäksi ajaksi?</div>
+        <select value={weeksAhead} onChange={(e) => setWeeksAhead(Number(e.target.value))} style={{ ...inputStyle, marginBottom: 20 }}>
+          {weeksAheadOptions.map((w) => <option key={w} value={w}>{w} viikkoa{w >= 52 ? ' (koko kausi)' : ''}</option>)}
+        </select>
         {!isEdit && <div style={label}>Pelaajat ({memberIds.length} valittu)</div>}
         <div style={{ display: isEdit ? 'none' : 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 220, overflowY: 'auto' }}>
           {students.map((s) => (
@@ -1913,9 +1931,9 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
           <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => ready && onSave({ name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time: time.trim(), durationMinutes: duration, memberIds })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</button>
+          <button onClick={() => ready && onSave({ name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time: time.trim(), durationMinutes: duration, memberIds, weeksAhead })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</button>
         </div>
-        {!isEdit && <p style={{ fontSize: 12, color: '#8a857a', marginTop: 12, lineHeight: 1.5 }}>Viikoittaiset treenit ilmestyvät kalenteriin automaattisesti vuodeksi eteenpäin. Voit kutsua uusia pelaajia liittymislinkillä ryhmän luomisen jälkeen.</p>}
+        {!isEdit && <p style={{ fontSize: 12, color: '#8a857a', marginTop: 12, lineHeight: 1.5 }}>Viikoittaiset treenit ilmestyvät kalenteriin automaattisesti valitsemasi ajan verran. Voit kutsua uusia pelaajia liittymislinkillä ryhmän luomisen jälkeen.</p>}
       </div>
     </div>
   );
@@ -1928,31 +1946,33 @@ function GroupSlotModal({ onClose, onSave }) {
   const [day, setDay] = React.useState('Ma');
   const [time, setTime] = React.useState('');
   const [duration, setDuration] = React.useState(60);
+  const [weeksAhead, setWeeksAhead] = React.useState(12);
   const [busy, setBusy] = React.useState(false);
   const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+  const weeksAheadOptions = [4, 8, 12, 26, 52];
   const ready = time.trim();
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const submit = async () => {
     if (!ready) return;
     setBusy(true);
-    await onSave({ day, time: time.trim(), durationMinutes: duration });
+    await onSave({ day, time: time.trim(), durationMinutes: duration, weeksAhead });
   };
   return (
     <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Lisää harjoitusaika</h3>
-        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Toinen viikoittainen aika samalle ryhmälle — treenit ilmestyvät kalenteriin vuodeksi eteenpäin, kuten ryhmän pääaikakin.</p>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Toinen viikoittainen aika samalle ryhmälle — treenit ilmestyvät kalenteriin valitsemasi ajan verran, kuten ryhmän pääaikakin.</p>
         <div style={label}>Viikonpäivä</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
           {days.map((d) => (
             <button key={d} onClick={() => setDay(d)} style={{ padding: '8px 13px', borderRadius: 999, border: day === d ? 'none' : '1px solid #d8d4ca', background: day === d ? 'var(--lime)' : '#fff', color: day === d ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{d}</button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <div style={{ flex: 1 }}>
             <div style={label}>Kellonaika</div>
-            <input type="time" step={900} value={time} onClick={(e) => e.currentTarget.showPicker?.()}
+            <input type="time" step={900} value={time} onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }}
               onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} style={inputStyle} />
           </div>
           <div style={{ flex: 1 }}>
@@ -1963,6 +1983,10 @@ function GroupSlotModal({ onClose, onSave }) {
               style={inputStyle} />
           </div>
         </div>
+        <div style={label}>Treenit kalenteriin, kuinka pitkäksi ajaksi?</div>
+        <select value={weeksAhead} onChange={(e) => setWeeksAhead(Number(e.target.value))} style={{ ...inputStyle, marginBottom: 20 }}>
+          {weeksAheadOptions.map((w) => <option key={w} value={w}>{w} viikkoa{w >= 52 ? ' (koko kausi)' : ''}</option>)}
+        </select>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
           <button onClick={submit} disabled={!ready || busy} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: (ready && !busy) ? 1 : 0.45, cursor: (ready && !busy) ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : 'Lisää'}</button>
@@ -2615,7 +2639,7 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Ajankohta</div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
-          <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} onClick={(e) => e.currentTarget.showPicker?.()} style={{ ...inputStyle, flex: 0.7 }} />
+          <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }} style={{ ...inputStyle, flex: 0.7 }} />
         </div>
 
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Tyyppi</div>
@@ -3943,8 +3967,8 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   };
   // BulkSetupModal owns its validation and error state. On success it keeps the dialog
   // open for a useful summary while the underlying roster refreshes immediately.
-  const bulkSetup = async ({ groups, players, themes, extraSlots }) => {
-    const result = await window.koutsiBulkSetup({ coachId, groups, players, themes });
+  const bulkSetup = async ({ groups, players, themes, extraSlots, weeksAhead }) => {
+    const result = await window.koutsiBulkSetup({ coachId, groups, players, themes, weeksAhead });
     // Extra weekly times a group got in the wizard: attached now that the group has a
     // real id (result.group_ids maps the wizard's temporary client_id to it).
     if (extraSlots?.length && result?.group_ids) {
@@ -3952,7 +3976,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
         const groupId = result.group_ids[clientId];
         if (!groupId) continue;
         for (const slot of slots) {
-          await window.koutsiAddGroupSlot({ groupId, coachId, day: slot.day, time: slot.time, durationMinutes: slot.duration });
+          await window.koutsiAddGroupSlot({ groupId, coachId, day: slot.day, time: slot.time, durationMinutes: slot.duration, weeksAhead });
         }
       }
     }
@@ -4017,10 +4041,10 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     }, rows.length === 1 ? 'Viikon teema tallennettu.' : `${rows.length} viikkoteemaa tallennettu.`);
     if (ok) setThemeModalGroupId(null);
   };
-  const saveGroup = async ({ name, level, day, time, durationMinutes, memberIds }) => {
+  const saveGroup = async ({ name, level, day, time, durationMinutes, memberIds, weeksAhead }) => {
     const ok = await toast.run(async () => {
-      if (editingGroup) await window.koutsiUpdateGroup(editingGroup.id, { name, level, day, time, durationMinutes });
-      else await window.koutsiCreateGroup({ coachId, name, level, day, time, durationMinutes, memberIds });
+      if (editingGroup) await window.koutsiUpdateGroup(editingGroup.id, { name, level, day, time, durationMinutes, weeksAhead });
+      else await window.koutsiCreateGroup({ coachId, name, level, day, time, durationMinutes, memberIds, weeksAhead });
       await reload();
     }, editingGroup ? 'Ryhmä päivitetty.' : 'Ryhmä luotu.');
     if (ok) { setGroupFormOpen(false); setEditingGroup(null); }
@@ -4074,9 +4098,9 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     toast.success(`${name} luotu ja lisätty ryhmään.`);
   };
 
-  const addGroupSlot = async ({ day, time, durationMinutes }) => {
+  const addGroupSlot = async ({ day, time, durationMinutes, weeksAhead }) => {
     const ok = await toast.run(async () => {
-      await window.koutsiAddGroupSlot({ groupId: groupDetail.id, coachId, day, time, durationMinutes });
+      await window.koutsiAddGroupSlot({ groupId: groupDetail.id, coachId, day, time, durationMinutes, weeksAhead });
       await reload();
     }, 'Harjoitusaika lisätty.');
     if (ok) setSlotFormOpen(false);

@@ -473,10 +473,11 @@
   // ── groups ────────────────────────────────────────────────────────────────
   // Mirrors koutsi-data.js's real generation so the demo's calendar fills in the same
   // way a live coach's would, instead of leaving a freshly created group with no sessions.
-  const demoGenerateGroupTrainings = (s, groupId, coachId, day, time, durationMinutes, fromDate) => {
+  const demoGenerateGroupTrainings = (s, groupId, coachId, day, time, durationMinutes, fromDate, weeksAhead) => {
     const first = window.koutsiNextWeekday ? window.koutsiNextWeekday(fromDate, day) : null;
     if (!first || !time) return null;
-    const dates = window.koutsiWeeklyDates(first, window.koutsiAddDays(first, 364));
+    const span = (window.koutsiClampGroupTrainingWeeks(weeksAhead ?? window.KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS) - 1) * 7;
+    const dates = window.koutsiWeeklyDates(first, window.koutsiAddDays(first, span));
     const seriesId = newId('ser');
     dates.forEach((d) => s.trainings.push({
       id: newId('tr'), date: d, time, type: 'Ryhmätreeni', durationMinutes: durationMinutes || null,
@@ -484,7 +485,7 @@
     }));
     return seriesId;
   };
-  window.koutsiCreateGroup = ({ coachId, name, level, day, time, durationMinutes, memberIds }) => {
+  window.koutsiCreateGroup = ({ coachId, name, level, day, time, durationMinutes, memberIds, weeksAhead }) => {
     const s = load();
     const id = newId('g');
     const duration = durationMinutes || 60;
@@ -492,18 +493,18 @@
       id, coachId: coachId || COACH, name, level, day, time, durationMinutes: duration,
       memberIds: memberIds || [], slots: [], themes: [], theme: null, upcomingThemes: [], annualPlan: null,
     });
-    demoGenerateGroupTrainings(s, id, coachId, day, time, duration, window.koutsiTodayStr());
+    demoGenerateGroupTrainings(s, id, coachId, day, time, duration, window.koutsiTodayStr(), weeksAhead);
     save();
     return done(id);
   };
-  window.koutsiAddGroupSlot = ({ groupId, coachId, day, time, durationMinutes }) => {
+  window.koutsiAddGroupSlot = ({ groupId, coachId, day, time, durationMinutes, weeksAhead }) => {
     const s = load();
     const group = s.groups.find((g) => g.id === groupId);
     if (!group) return done();
     const duration = window.koutsiRoundToQuarterHourMinutes(durationMinutes || 60);
     const roundedTime = window.koutsiRoundTimeToQuarterHour(time);
     const slotId = newId('slot');
-    const seriesId = demoGenerateGroupTrainings(s, groupId, coachId || group.coachId, day, roundedTime, duration, window.koutsiTodayStr());
+    const seriesId = demoGenerateGroupTrainings(s, groupId, coachId || group.coachId, day, roundedTime, duration, window.koutsiTodayStr(), weeksAhead);
     (group.slots ||= []).push({ id: slotId, day, time: roundedTime, durationMinutes: duration, seriesId });
     save();
     return done(slotId);
@@ -532,7 +533,7 @@
     if (scheduleChanged) {
       const today = window.koutsiTodayStr();
       s.trainings = s.trainings.filter((t) => !(t.groupId === groupId && t.date >= today));
-      demoGenerateGroupTrainings(s, groupId, existing.coachId, patch.day, patch.time, duration, today);
+      demoGenerateGroupTrainings(s, groupId, existing.coachId, patch.day, patch.time, duration, today, patch.weeksAhead);
     }
     save();
     return done();
@@ -725,7 +726,7 @@
     save();
     return done(id);
   };
-  window.koutsiBulkSetup = ({ groups = [], players = [], themes = [] }) => {
+  window.koutsiBulkSetup = ({ groups = [], players = [], themes = [], weeksAhead } = {}) => {
     if (players.some((player) => player.age != null && (!Number.isInteger(player.age) || player.age < 1 || player.age >= 120))) return Promise.reject(new Error('Jos annat pelaajan iän, sen pitää olla 1–119 vuotta.'));
     const s = load();
     const groupIds = {};
@@ -743,7 +744,7 @@
           upcomingThemes: [], annualPlan: null,
         };
         s.groups.push(group);
-        demoGenerateGroupTrainings(s, group.id, COACH, group.day, group.time, duration, window.koutsiTodayStr());
+        demoGenerateGroupTrainings(s, group.id, COACH, group.day, group.time, duration, window.koutsiTodayStr(), weeksAhead);
         groupsCreated += 1;
       } else groupsReused += 1;
       groupIds[row.client_id] = group.id;
