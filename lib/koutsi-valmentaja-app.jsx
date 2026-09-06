@@ -575,10 +575,14 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                     </div>
                   )}
                   <div className="k-card" style={{ padding: '14px 16px', marginBottom: 18 }}>
-                    <div style={{ ...labelStyle, marginBottom: 9 }}>Uusien ryhmien treenit kalenteriin, kuinka pitkäksi ajaksi?</div>
-                    <select value={weeksAhead} onChange={(e) => setWeeksAhead(Number(e.target.value))} style={{ ...inputStyle, maxWidth: 260 }}>
-                      {[4, 8, 12, 26, 52].map((w) => <option key={w} value={w}>{w} viikkoa{w >= 52 ? ' (koko kausi)' : ''}</option>)}
-                    </select>
+                    <div style={{ ...labelStyle, marginBottom: 9 }}>Uusien ryhmien treenit kalenteriin, kuinka monta viikkoa?</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="number" inputMode="numeric" min={1} max={52} value={weeksAhead}
+                        onChange={(e) => setWeeksAhead(e.target.value === '' ? '' : Number(e.target.value))}
+                        onBlur={() => setWeeksAhead((w) => Math.min(52, Math.max(1, Number(w) || 12)))}
+                        style={{ ...inputStyle, maxWidth: 100 }} />
+                      <span style={{ fontSize: 13.5, color: '#514c42' }}>viikkoa (1–52)</span>
+                    </div>
                     <p style={{ fontSize: 12, color: '#8a857a', marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>Koskee kaikkia tässä luotavia uusia ryhmiä ja niiden lisäharjoitusaikoja. Voit lisätä lisää viikkoja myöhemmin ryhmän omalta sivulta.</p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1883,7 +1887,6 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
-  const weeksAheadOptions = [4, 8, 12, 26, 52];
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
@@ -1916,10 +1919,14 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
         </div>
         {time && <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 14 }}>{day} klo {window.koutsiTimeRangeLabel(time, duration)} viikoittain</div>}
         {!time && <div style={{ marginBottom: 14 }} />}
-        <div style={label}>Treenit kalenteriin, kuinka pitkäksi ajaksi?</div>
-        <select value={weeksAhead} onChange={(e) => setWeeksAhead(Number(e.target.value))} style={{ ...inputStyle, marginBottom: 20 }}>
-          {weeksAheadOptions.map((w) => <option key={w} value={w}>{w} viikkoa{w >= 52 ? ' (koko kausi)' : ''}</option>)}
-        </select>
+        <div style={label}>Treenit kalenteriin, kuinka monta viikkoa?</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+          <input type="number" inputMode="numeric" min={1} max={52} value={weeksAhead}
+            onChange={(e) => setWeeksAhead(e.target.value === '' ? '' : Number(e.target.value))}
+            onBlur={() => setWeeksAhead((w) => Math.min(52, Math.max(1, Number(w) || 12)))}
+            style={{ ...inputStyle, maxWidth: 100 }} />
+          <span style={{ fontSize: 13.5, color: '#8a857a' }}>viikkoa (1–52)</span>
+        </div>
         {!isEdit && <div style={label}>Pelaajat ({memberIds.length} valittu)</div>}
         <div style={{ display: isEdit ? 'none' : 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 220, overflowY: 'auto' }}>
           {students.map((s) => (
@@ -1949,7 +1956,6 @@ function GroupSlotModal({ onClose, onSave }) {
   const [weeksAhead, setWeeksAhead] = React.useState(12);
   const [busy, setBusy] = React.useState(false);
   const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
-  const weeksAheadOptions = [4, 8, 12, 26, 52];
   const ready = time.trim();
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
@@ -1983,10 +1989,14 @@ function GroupSlotModal({ onClose, onSave }) {
               style={inputStyle} />
           </div>
         </div>
-        <div style={label}>Treenit kalenteriin, kuinka pitkäksi ajaksi?</div>
-        <select value={weeksAhead} onChange={(e) => setWeeksAhead(Number(e.target.value))} style={{ ...inputStyle, marginBottom: 20 }}>
-          {weeksAheadOptions.map((w) => <option key={w} value={w}>{w} viikkoa{w >= 52 ? ' (koko kausi)' : ''}</option>)}
-        </select>
+        <div style={label}>Treenit kalenteriin, kuinka monta viikkoa?</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+          <input type="number" inputMode="numeric" min={1} max={52} value={weeksAhead}
+            onChange={(e) => setWeeksAhead(e.target.value === '' ? '' : Number(e.target.value))}
+            onBlur={() => setWeeksAhead((w) => Math.min(52, Math.max(1, Number(w) || 12)))}
+            style={{ ...inputStyle, maxWidth: 100 }} />
+          <span style={{ fontSize: 13.5, color: '#8a857a' }}>viikkoa (1–52)</span>
+        </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
           <button onClick={submit} disabled={!ready || busy} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: (ready && !busy) ? 1 : 0.45, cursor: (ready && !busy) ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : 'Lisää'}</button>
