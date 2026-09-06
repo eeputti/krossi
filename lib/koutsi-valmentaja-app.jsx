@@ -592,18 +592,18 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                           <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--green-deep)' }}>Uusi ryhmä {index + 1}</div>
                           <button onClick={() => removeGroup(g.key)} aria-label="Poista ryhmärivi" style={{ border: 'none', background: 'transparent', color: '#8a857a', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Poista</button>
                         </div>
-                        <div className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.6fr) minmax(130px, 1fr) 92px 112px 120px', gap: 9 }}>
+                        <div className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.6fr) minmax(130px, 1fr) 92px 130px 120px', gap: 9 }}>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Ryhmän nimi *</div><input value={g.name} onChange={(e) => updateGroup(g.key, { name: e.target.value })} placeholder="Esim. Tiistain aikuiset" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Taso</div><input value={g.level} onChange={(e) => updateGroup(g.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Päivä</div><select value={g.day} onChange={(e) => updateGroup(g.key, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
-                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={g.time} onChange={(e) => updateGroup(g.key, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }} style={inputStyle} /></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><window.KoutsiTimeSelect value={g.time} onChange={(time) => updateGroup(g.key, { time: window.koutsiRoundTimeToQuarterHour(time) })} style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={g.duration || 60} onChange={(e) => updateGroup(g.key, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroup(g.key, { duration: window.koutsiRoundToQuarterHourMinutes(g.duration || 60) })} style={inputStyle} /></div>
                         </div>
                         {g.time && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 7 }}>Treenit ilmestyvät kalenteriin: {g.day} klo {window.koutsiTimeRangeLabel(g.time, g.duration || 60)} viikoittain, {weeksAhead} viikon ajan</div>}
                         {(g.extraSlots || []).map((slot) => (
-                          <div key={slot.id} className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: '92px 112px 120px 60px', gap: 9, marginTop: 9, alignItems: 'end' }}>
+                          <div key={slot.id} className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: '92px 130px 120px 60px', gap: 9, marginTop: 9, alignItems: 'end' }}>
                             <div><div style={{ ...labelStyle, marginBottom: 6 }}>Lisäpäivä</div><select value={slot.day} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
-                            <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><input type="time" step={900} value={slot.time} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { time: window.koutsiRoundTimeToQuarterHour(e.target.value) })} onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }} style={inputStyle} /></div>
+                            <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><window.KoutsiTimeSelect value={slot.time} onChange={(time) => updateGroupExtraSlot(g.key, slot.id, { time: window.koutsiRoundTimeToQuarterHour(time) })} style={inputStyle} /></div>
                             <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={slot.duration || 60} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroupExtraSlot(g.key, slot.id, { duration: window.koutsiRoundToQuarterHourMinutes(slot.duration || 60) })} style={inputStyle} /></div>
                             <button onClick={() => removeGroupExtraSlot(g.key, slot.id)} aria-label="Poista lisäaika" style={{ border: 'none', background: 'transparent', color: '#8a857a', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '10px 0' }}>Poista</button>
                           </div>
@@ -1904,10 +1904,7 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
         <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
           <div style={{ flex: 1 }}>
             <div style={label}>Kellonaika</div>
-            <input type="time" step={900} value={time}
-              onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))}
-              onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }}
-              style={inputStyle} />
+            <window.KoutsiTimeSelect value={time} onChange={(v) => setTime(window.koutsiRoundTimeToQuarterHour(v))} style={inputStyle} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={label}>Kesto (min)</div>
@@ -1978,8 +1975,7 @@ function GroupSlotModal({ onClose, onSave }) {
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <div style={{ flex: 1 }}>
             <div style={label}>Kellonaika</div>
-            <input type="time" step={900} value={time} onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }}
-              onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} style={inputStyle} />
+            <window.KoutsiTimeSelect value={time} onChange={(v) => setTime(window.koutsiRoundTimeToQuarterHour(v))} style={inputStyle} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={label}>Kesto (min)</div>
@@ -2649,7 +2645,7 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Ajankohta</div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
-          <input type="time" step={900} value={time} onChange={(e) => setTime(window.koutsiRoundTimeToQuarterHour(e.target.value))} onFocus={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* not a user gesture (e.g. programmatic focus) — ignore */ } }} style={{ ...inputStyle, flex: 0.7 }} />
+          <window.KoutsiTimeSelect value={time} onChange={(v) => setTime(window.koutsiRoundTimeToQuarterHour(v))} style={{ ...inputStyle, flex: 0.7 }} />
         </div>
 
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Tyyppi</div>

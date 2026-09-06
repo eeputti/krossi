@@ -156,6 +156,30 @@ function KoutsiRowActions({ onEdit, onDelete, editLabel = 'Muokkaa', deleteLabel
     </div>
   );
 }
+// Stands in for the native <input type="time"> picker everywhere a coach sets a session's
+// clock time. The native picker's UI varies wildly by browser/OS — on some it renders as a
+// bare scrollable "20/21/22/23" number wheel with no colon and no obvious hour/minute
+// split, which reads as broken rather than as a time picker. Every time-of-day value in
+// the app is already rounded to the quarter hour, so two plain selects (00-23, then
+// 00/15/30/45) lose no precision and can't be misread — they work identically everywhere.
+function KoutsiTimeSelect({ value, onChange, style, hourLabel = 'Tunti', minuteLabel = 'Minuutti', disabled }) {
+  const [h, m] = (value || '').split(':');
+  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+  const minutes = ['00', '15', '30', '45'];
+  const selectStyle = { ...style, minWidth: 0, flex: 1, cursor: disabled ? 'default' : 'pointer' };
+  return (
+    <div style={{ display: 'flex', gap: 6, minWidth: 0 }}>
+      <select aria-label={hourLabel} disabled={disabled} value={h || ''} onChange={(e) => onChange(`${e.target.value}:${m || '00'}`)} style={selectStyle}>
+        <option value="" disabled>--</option>
+        {hours.map((hh) => <option key={hh} value={hh}>{hh}</option>)}
+      </select>
+      <select aria-label={minuteLabel} disabled={disabled} value={m || ''} onChange={(e) => onChange(`${h || '00'}:${e.target.value}`)} style={selectStyle}>
+        <option value="" disabled>--</option>
+        {minutes.map((mm) => <option key={mm} value={mm}>{mm}</option>)}
+      </select>
+    </div>
+  );
+}
 
 // ── Attendance controls shared by coach and player ─────────────────────────
 const KOUTSI_ATTENDANCE_TONES = {
@@ -545,7 +569,7 @@ function useKoutsiTabRoute(slugs, fallback) {
 Object.assign(window, {
   KoutsiUIProvider, KoutsiToastProvider, KoutsiConfirmProvider,
   useKoutsiToast, useKoutsiConfirm,
-  KoutsiIconButton, KoutsiRowActions, KoutsiEditIcon, KoutsiTrashIcon,
+  KoutsiIconButton, KoutsiRowActions, KoutsiEditIcon, KoutsiTrashIcon, KoutsiTimeSelect,
   KoutsiAttendanceBadge, KoutsiAttendanceModal,
   KoutsiQrCode, KoutsiCopyButton, koutsiCopyText,
   KoutsiNotificationBell, KoutsiEmailPrefToggle,
