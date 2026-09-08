@@ -1274,7 +1274,55 @@ function PlaceholderNotice({ student, coach }) {
   );
 }
 
-function StudentDetail({ student, coach, state, trainings, group, groupCoach, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditAttendance, onSetLevel, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEditVideoAudience, onEndCoaching, onMergeStudents }) {
+// Only for a player who hasn't claimed an account yet — once claimed, name and age become
+// player-owned (see PlayerProfileEditModal), so editing them here wouldn't take effect.
+// Bio/health fields are deliberately left out; this pilot doesn't collect those at all.
+function EditPlaceholderStudentModal({ student, onClose, onSave }) {
+  const [name, setName] = React.useState(student.name || '');
+  const [age, setAge] = React.useState(student.age == null ? '' : String(student.age));
+  const [level, setLevel] = React.useState(student.level || '');
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const parsedAge = age ? Number(age) : null;
+  const ageValid = parsedAge == null || (Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120);
+  const ready = name.trim() && ageValid && !busy;
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  const submit = async () => {
+    if (!ready) return;
+    setBusy(true); setError('');
+    try {
+      await onSave({ name: name.trim(), age: parsedAge, level: level.trim() || null });
+    } catch (err) {
+      setError(window.koutsiErrorText(err, 'Tietojen tallennus epäonnistui'));
+      setBusy(false);
+    }
+  };
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Muokkaa perustietoja</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>
+          {student.name} ei ole vielä liittynyt Krossiin, joten voit muokata näitä tietoja hänen puolestaan. Älä kirjoita terveystietoja.
+        </p>
+        {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
+        <div style={label}>Nimi</div>
+        <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
+        <div style={label}>Ikä (valinnainen)</div>
+        <input value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="24" style={{ ...inputStyle, marginBottom: age && !ageValid ? 6 : 16, borderColor: age && !ageValid ? '#c2543f' : '#d8d4ca' }} />
+        {age && !ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Iän pitää olla väliltä 1–119 vuotta.</div>}
+        <div style={label}>Taso (valinnainen)</div>
+        <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Aloittelija" style={{ ...inputStyle, marginBottom: 20 }} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : 'Tallenna'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudentDetail({ student, coach, state, trainings, group, groupCoach, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditAttendance, onSetLevel, onEditPlayer, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEditVideoAudience, onEndCoaching, onMergeStudents }) {
   const [levelPickerOpen, setLevelPickerOpen] = React.useState(false);
   const [editingHomework, setEditingHomework] = React.useState(null); // homework id being renamed
   const [homeworkDraft, setHomeworkDraft] = React.useState('');
@@ -1299,7 +1347,10 @@ function StudentDetail({ student, coach, state, trainings, group, groupCoach, up
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'flex-end' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(10,15,10,0.35)', animation: 'kFadeIn .2s ease' }} />
       <div style={{ position: 'relative', width: 'min(480px, 100%)', height: '100%', background: '#fff', boxShadow: '-16px 0 40px -20px rgba(0,0,0,0.35)', overflowY: 'auto', animation: 'kSlideIn .25s ease' }}>
-        <div style={{ padding: '26px 28px 0', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ padding: '26px 28px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {student.isPlaceholder
+            ? <button onClick={onEditPlayer} className="btn-outline btn-sm">Muokkaa</button>
+            : <span />}
           <CloseButton onClick={onClose} />
         </div>
         <div style={{ padding: '10px 28px 120px' }}>
@@ -3983,6 +4034,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   const [groupDetailId, setGroupDetailId] = React.useState(null);
   const [entryOpen, setEntryOpen] = React.useState(false);
   const [editingEntry, setEditingEntry] = React.useState(null);
+  const [editPlayerOpen, setEditPlayerOpen] = React.useState(false);
   const [homeworkOpen, setHomeworkOpen] = React.useState(false);
   const [trainingOpen, setTrainingOpen] = React.useState(false);
   const [trainingDefaultDate, setTrainingDefaultDate] = React.useState(null);
@@ -4161,6 +4213,13 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   }, status === 'paikalla' ? 'Läsnäolo merkitty.' : `${window.KOUTSI_ATTENDANCE_STATUS_LABELS[status]} tallennettu.`);
 
   const setLevel = act((level) => window.koutsiSetStudentLevel(detailId, level));
+  // Ei act(): EditPlaceholderStudentModal näyttää virheen itse ja palauttaa nappinsa tilan.
+  const editPlayer = async ({ name, age, level }) => {
+    await window.koutsiUpdatePlaceholderStudent(detailId, { name, age, level });
+    await reload();
+    setEditPlayerOpen(false);
+    toast.success('Tiedot päivitetty.');
+  };
   // Ei act(): AddPlayerModal näyttää virheen itse ja palauttaa nappinsa tilan.
   const addPlayer = async ({ name, age, level }) => {
     await window.koutsiCreatePlayer(name, age, level, coachId);
@@ -4412,11 +4471,13 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
           onToggleHomework={toggleHomework} onOpenGroup={openGroupFromStudent} onAddHomework={() => setHomeworkOpen(true)}
           onAddVideo={() => setVideoOpen(true)}
           onEditAttendance={(training, studentId) => setAttendanceEdit({ trainingId: training.id, studentId })} onSetLevel={setLevel}
+          onEditPlayer={() => setEditPlayerOpen(true)}
           onEditEntry={(d) => { setEditingEntry(d); setEntryOpen(true); }} onDeleteEntry={deleteEntry}
           onEditHomework={editHomework} onDeleteHomework={deleteHomework}
           onDeleteVideo={deleteVideo} onEditVideoAudience={setAudienceVideo} onEndCoaching={endCoaching} onMergeStudents={mergeStudents} />
       )}
       {detail && entryOpen && <EntryModal student={detail} entry={editingEntry} onClose={() => { setEntryOpen(false); setEditingEntry(null); }} onSend={saveEntry} />}
+      {detail && editPlayerOpen && <EditPlaceholderStudentModal student={detail} onClose={() => setEditPlayerOpen(false)} onSave={editPlayer} />}
       {detail && homeworkOpen && <HomeworkModal student={detail} onClose={() => setHomeworkOpen(false)} onSend={saveHomework} />}
       {detail && videoOpen && <VideoModal students={state.students} groups={state.groups} initialStudentId={detailId} onClose={() => setVideoOpen(false)} onSave={addVideo} />}
       {audienceVideo && <VideoAudienceModal video={audienceVideo} students={state.students} onClose={() => setAudienceVideo(null)} onSave={saveVideoAudience} />}

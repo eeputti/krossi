@@ -338,6 +338,16 @@
     return done();
   };
   window.koutsiSetStudentLevel = (id, level) => setField(id, 'level', level);
+  window.koutsiUpdatePlaceholderStudent = (id, { name, age, level }) => {
+    const st = findStudent(id);
+    if (st) {
+      if (name !== undefined) { st.name = name; st.initial = initialOf(name); }
+      if (age !== undefined) { st.age = age; st.ageValue = age == null ? '' : String(age); st.ageLabel = age == null ? '' : `${age} v`; }
+      if (level !== undefined) st.level = level;
+      save();
+    }
+    return done();
+  };
   window.koutsiSaveGoal = (id, goal) => setField(id, 'goal', goal);
   window.koutsiSaveNote = (id, v) => setField(id, 'playerNote', v);
   window.koutsiSaveWish = (id, v) => setField(id, 'playerWish', v);
