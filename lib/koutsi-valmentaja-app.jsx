@@ -678,7 +678,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                     {newGroups.map((g, index) => (
                       <div key={g.key} className="k-card" style={{ padding: '13px 14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
-                          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--green-deep)' }}>Uusi ryhmä {index + 1}</div>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--green-deep)' }}>{g.name.trim() || `Uusi ryhmä ${index + 1}`}</div>
                           <button onClick={() => removeGroup(g.key)} aria-label="Poista ryhmärivi" style={{ border: 'none', background: 'transparent', color: '#8a857a', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Poista</button>
                         </div>
                         <div className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.6fr) minmax(130px, 1fr) 92px 130px 120px', gap: 9 }}>
@@ -1322,7 +1322,7 @@ function EditPlaceholderStudentModal({ student, onClose, onSave }) {
   );
 }
 
-function StudentDetail({ student, coach, state, trainings, group, groupCoach, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditAttendance, onSetLevel, onEditPlayer, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEditVideoAudience, onEndCoaching, onMergeStudents }) {
+function StudentDetail({ student, coach, state, trainings, groups, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditAttendance, onSetLevel, onEditPlayer, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEditVideoAudience, onEndCoaching, onMergeStudents }) {
   const [levelPickerOpen, setLevelPickerOpen] = React.useState(false);
   const [editingHomework, setEditingHomework] = React.useState(null); // homework id being renamed
   const [homeworkDraft, setHomeworkDraft] = React.useState('');
@@ -1414,16 +1414,26 @@ function StudentDetail({ student, coach, state, trainings, group, groupCoach, up
 
           <PlayerActivityCard state={state} student={student} />
 
-          {group && (
-            <Field label="Valmennusryhmä">
-              <button onClick={onOpenGroup} className="k-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 15px', width: '100%', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', marginBottom: group.theme ? 10 : 0 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{group.name}</div>
-                  <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{group.day} klo {group.time} viikoittain{groupCoach ? ` · ${groupCoach.name}` : ''}</div>
-                </div>
-                <ChevronRight />
-              </button>
-              <GroupThemeBanner theme={group.theme} />
+          {groups.length > 0 && (
+            <Field label={groups.length > 1 ? 'Valmennusryhmät' : 'Valmennusryhmä'}>
+              {groups.map((g) => {
+                const gCoach = window.koutsiCoachById(state, g.coachId);
+                const times = [{ id: 'primary', day: g.day, time: g.time }, ...(g.slots || [])];
+                return (
+                  <div key={g.id} style={{ marginBottom: 10 }}>
+                    <button onClick={() => onOpenGroup(g.id)} className="k-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '13px 15px', width: '100%', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', marginBottom: g.theme ? 10 : 0 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{g.name}</div>
+                        <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>
+                          {times.map((t) => `${t.day} klo ${t.time}`).join(' · ')} viikoittain{gCoach ? ` · ${gCoach.name}` : ''}
+                        </div>
+                      </div>
+                      <ChevronRight />
+                    </button>
+                    <GroupThemeBanner theme={g.theme} />
+                  </div>
+                );
+              })}
             </Field>
           )}
 
@@ -4095,8 +4105,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   if (!state) return <window.KoutsiAuthLoadingScreen />;
 
   const detail = detailId != null ? state.students.find((s) => s.id === detailId) : null;
-  const detailGroup = detail ? window.koutsiGroupForStudent(state, detail.id) : null;
-  const detailGroupCoach = detailGroup ? window.koutsiCoachById(state, detailGroup.coachId) : null;
+  const detailGroups = detail ? window.koutsiGroupsForStudent(state, detail.id) : [];
   const detailTrainings = detail ? window.koutsiTrainingsForStudent(state, detail.id) : [];
   const detailUpcoming = detail ? window.koutsiUpcomingTrainingsForStudent(state, detail.id) : [];
   const detailAttendance = detail ? window.koutsiAttendanceSummary(state, detail.id) : null;
@@ -4408,7 +4417,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   const removeAnnualPlan = async (groupId, storagePath) => { await window.koutsiRemoveAnnualPlan(groupId, storagePath); await reload(); };
 
   const openStudentFromGroup = (id) => { setGroupDetailId(null); setDetailId(id); };
-  const openGroupFromStudent = () => { if (detailGroup) { setDetailId(null); setGroupDetailId(detailGroup.id); } };
+  const openGroupFromStudent = (groupId) => { setDetailId(null); setGroupDetailId(groupId); };
   const saveClubEvent = async ({ title, date, endDate, kind }) => {
     const ok = await toast.run(async () => {
       if (editingEvent) await window.koutsiUpdateClubEvent(editingEvent.id, { title, date, endDate, kind });
@@ -4466,7 +4475,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
 
       {detail && (
         <StudentDetail
-          student={detail} coach={state.coach} state={state} trainings={detailTrainings} group={detailGroup} groupCoach={detailGroupCoach} upcoming={detailUpcoming} attendance={detailAttendance}
+          student={detail} coach={state.coach} state={state} trainings={detailTrainings} groups={detailGroups} upcoming={detailUpcoming} attendance={detailAttendance}
           onClose={() => { setDetailId(null); setHomeworkOpen(false); }} onAddEntry={() => { setEditingEntry(null); setEntryOpen(true); }}
           onToggleHomework={toggleHomework} onOpenGroup={openGroupFromStudent} onAddHomework={() => setHomeworkOpen(true)}
           onAddVideo={() => setVideoOpen(true)}
