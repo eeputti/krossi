@@ -800,6 +800,30 @@
     save();
     return done();
   };
+  // Mirrors koutsi_merge_students: the duplicate's groups, trainings and history move onto
+  // the kept student, then the duplicate is gone.
+  window.koutsiMergeStudents = (coachId, keepStudentId, removeStudentId) => {
+    const s = load();
+    const keep = findStudent(keepStudentId);
+    const remove = findStudent(removeStudentId);
+    if (!keep || !remove) throw new Error('Pelaajaa ei löytynyt');
+    s.groups.forEach((g) => {
+      if (!g.memberIds.includes(removeStudentId)) return;
+      g.memberIds = g.memberIds.filter((id) => id !== removeStudentId);
+      if (!g.memberIds.includes(keepStudentId)) g.memberIds.push(keepStudentId);
+    });
+    s.trainings.forEach((t) => {
+      if (t.studentId === removeStudentId) t.studentId = keepStudentId;
+      const absences = (t.absences || []).filter((a) => a.studentId !== removeStudentId || !t.absences.some((b) => b.studentId === keepStudentId));
+      t.absences = absences.map((a) => a.studentId === removeStudentId ? { ...a, studentId: keepStudentId } : a);
+    });
+    ['diary', 'homework', 'videos', 'moods', 'matchNotes'].forEach((key) => {
+      keep[key] = [...(keep[key] || []), ...(remove[key] || [])];
+    });
+    s.students = s.students.filter((x) => x.id !== removeStudentId);
+    save();
+    return done({ kept_id: keepStudentId, removed_id: removeStudentId });
+  };
 
   // ── profile / notifications / settings ────────────────────────────────────
   window.koutsiSaveCoachProfile = (coachId, patch) => {

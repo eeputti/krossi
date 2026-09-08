@@ -245,7 +245,7 @@ function InviteStudentModal({ coachId, coachName, onClose }) {
 // Pelaajan lisäys pelkällä nimellä: valmentaja pääsee heti töihin, eikä
 // pelaajan tarvitse luoda tiliä. Pelaaja voi myöhemmin lunastaa profiilin
 // valmentajan koodilla, jolloin kaikki kirjattu työ seuraa mukana.
-function AddPlayerModal({ onClose, onSave }) {
+function AddPlayerModal({ students, groups, onClose, onSave, onOpenExisting }) {
   const [name, setName] = React.useState('');
   const [age, setAge] = React.useState('');
   const [level, setLevel] = React.useState('');
@@ -254,6 +254,7 @@ function AddPlayerModal({ onClose, onSave }) {
   const parsedAge = age ? Number(age) : null;
   const ageValid = parsedAge == null || (Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120);
   const ready = name.trim() && ageValid && !busy;
+  const nameSuggestions = koutsiMatchStudents(students, name);
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const submit = async () => {
@@ -274,7 +275,13 @@ function AddPlayerModal({ onClose, onSave }) {
         </p>
         {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
         <div style={label}>Nimi</div>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. Onni Virtanen" style={{ ...inputStyle, marginBottom: 16 }} />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. Onni Virtanen" style={{ ...inputStyle, marginBottom: nameSuggestions.length ? 5 : 16 }} />
+        {nameSuggestions.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: '#8a5a12', marginBottom: 6 }}>Löytyykö hän jo listaltasi?</div>
+            <StudentSuggestions matches={nameSuggestions} groups={groups} onPick={(s) => onOpenExisting(s.id)} />
+          </div>
+        )}
         <div style={label}>Ikä (valinnainen)</div>
         <input value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="24" style={{ ...inputStyle, marginBottom: age && !ageValid ? 6 : 16, borderColor: age && !ageValid ? '#c2543f' : '#d8d4ca' }} />
         {age && !ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Iän pitää olla väliltä 1–119 vuotta.</div>}
@@ -289,9 +296,72 @@ function AddPlayerModal({ onClose, onSave }) {
   );
 }
 
+// Prefix match on typed-so-far, the way a coach expects a name search to narrow: "p" shows
+// every P, "pa" every Pa, and so on down to one player. Used everywhere a coach is about to
+// create a new player, so an existing one surfaces before a duplicate gets created.
+function koutsiMatchStudents(students, query, { excludeIds, limit = 6 } = {}) {
+  const q = query.trim().toLocaleLowerCase('fi');
+  if (!q) return [];
+  const excluded = excludeIds ? new Set(excludeIds) : null;
+  return (students || [])
+    .filter((s) => (!excluded || !excluded.has(s.id)) && s.name.trim().toLocaleLowerCase('fi').startsWith(q))
+    .slice(0, limit);
+}
+function koutsiGroupNamesForStudent(groups, studentId) {
+  return (groups || []).filter((g) => g.memberIds.includes(studentId)).map((g) => g.name);
+}
+// Compact suggestion dropdown shown under a "new player" name field: age/level/current
+// groups in small text, so a coach can tell two same-first-name players apart at a glance.
+function StudentSuggestions({ matches, groups, onPick }) {
+  if (!matches.length) return null;
+  return (
+    <div className="k-card" style={{ padding: 5, marginTop: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {matches.map((s) => {
+        const detail = [playerAgeLabel(s), s.level, koutsiGroupNamesForStudent(groups, s.id).join(', ')].filter(Boolean).join(' · ');
+        return (
+          <button key={s.id} type="button" onClick={() => onPick(s)}
+            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 8px', border: 'none', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+            <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={26} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 650, color: '#111' }}>{s.name}</div>
+              {detail && <div style={{ fontSize: 11, color: '#8a857a', marginTop: 1 }}>{detail}</div>}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// One side of the merge-two-players picker: a search box that resolves to a picked student
+// chip. Which slot a player ends up in doesn't matter for the outcome — both sides feed the
+// same merge — so this is deliberately the same component on both sides.
+function MergeStudentSlot({ label, student, students, excludeId, groups, onPick, onClear }) {
+  const [query, setQuery] = React.useState('');
+  const matches = query.trim() ? koutsiMatchStudents(students, query, { excludeIds: excludeId ? [excludeId] : [] }) : [];
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{label}</div>
+      {student ? (
+        <div className="k-card" style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={28} />
+          <span style={{ fontSize: 13.5, fontWeight: 650, color: '#111', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.name}</span>
+          <button type="button" onClick={onClear} style={{ border: 'none', background: 'none', color: 'var(--green-deep)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Vaihda</button>
+        </div>
+      ) : (
+        <div>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae nimellä…"
+            style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '9px 11px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' }} />
+          {matches.length > 0 && <StudentSuggestions matches={matches} groups={groups} onPick={(s) => { onPick(s); setQuery(''); }} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // The fast start keeps the coach's hand-entered players, groups and weekly themes in one
 // reviewed transaction. A shared workbook can be sent alongside them for admin review.
-function BulkSetupModal({ groups, coachId, onClose, onSave }) {
+function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
   const now = window.koutsiCurrentIsoWeek();
   const groupSeq = React.useRef(2);
   const slotSeq = React.useRef(1);
@@ -306,7 +376,7 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   // year of sessions per group by default.
   const [weeksAhead, setWeeksAhead] = React.useState(12);
   const [players, setPlayers] = React.useState(() => Array.from({ length: 4 }, (_, i) => ({
-    key: `player-${i + 1}`, name: '', age: '', level: '', groupKey: '',
+    key: `player-${i + 1}`, name: '', age: '', level: '', groupKey: '', existingId: null,
   })));
   const [themeRows, setThemeRows] = React.useState([]);
   const [pasteOpen, setPasteOpen] = React.useState(false);
@@ -325,7 +395,8 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
 
   const startedGroups = newGroups.filter((g) => g.name.trim() || g.level.trim() || g.time);
   const incompleteGroup = startedGroups.some((g) => !g.name.trim() || !g.time || (g.extraSlots || []).some((s) => !s.time));
-  const filledPlayers = players.filter((p) => p.name.trim());
+  const filledPlayers = players.filter((p) => !p.existingId && p.name.trim());
+  const existingPlayerPicks = players.filter((p) => p.existingId);
   const invalidPlayerAge = filledPlayers.some((p) => {
     if (!p.age) return false;
     const value = Number(p.age);
@@ -340,6 +411,16 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
       return false;
     });
   })();
+  // A player already on the coach's roster, typed here again (typically because they now
+  // train in a second group), would otherwise get a brand-new duplicate student row — this
+  // wizard only ever creates new players. Flag the name match so the coach can add the
+  // existing student to the group afterwards instead of creating a lookalike.
+  const existingNamesByKey = React.useMemo(() => {
+    const map = new Map();
+    (students || []).forEach((s) => map.set(s.name.trim().toLocaleLowerCase('fi'), s.name));
+    return map;
+  }, [students]);
+  const existingNameMatch = (name) => existingNamesByKey.get(name.trim().toLocaleLowerCase('fi'));
   const groupOptions = [
     ...groups.map((g) => ({ key: `existing:${g.id}`, name: g.name, existing: true, group: g })),
     ...startedGroups.filter((g) => g.name.trim() && g.time).map((g) => ({ key: g.key, name: g.name.trim(), existing: false, group: g })),
@@ -366,8 +447,9 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
     : g));
   const updatePlayer = (key, patch) => setPlayers((prev) => prev.map((p) => p.key === key ? { ...p, ...patch } : p));
   const addPlayerRow = (defaults = {}) => setPlayers((prev) => [...prev, {
-    key: `player-${playerSeq.current++}`, name: '', age: '', level: '', groupKey: '', ...defaults,
+    key: `player-${playerSeq.current++}`, name: '', age: '', level: '', groupKey: '', existingId: null, ...defaults,
   }]);
+  const pickExistingPlayer = (key, s) => updatePlayer(key, { existingId: s.id, name: s.name, age: '', level: '' });
   const removePlayer = (key) => setPlayers((prev) => prev.filter((p) => p.key !== key));
 
   const importNames = () => {
@@ -400,9 +482,10 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
   const involvedGroupKeys = React.useMemo(() => {
     const keys = new Set(startedGroups.filter((g) => g.name.trim() && g.time).map((g) => g.key));
     filledPlayers.forEach((p) => { if (p.groupKey && groupOptionByKey.has(p.groupKey)) keys.add(p.groupKey); });
+    existingPlayerPicks.forEach((p) => { if (p.groupKey && groupOptionByKey.has(p.groupKey)) keys.add(p.groupKey); });
     themeRows.forEach((r) => { if (r.title.trim() && groupOptionByKey.has(r.groupKey)) keys.add(r.groupKey); });
     return [...keys];
-  }, [startedGroups, filledPlayers, themeRows, groupOptions]);
+  }, [startedGroups, filledPlayers, existingPlayerPicks, themeRows, groupOptions]);
 
   const ensureThemeRows = () => {
     setThemeRows((prev) => {
@@ -472,14 +555,20 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
           clientId: g.key,
           slots: g.group.extraSlots.filter((s) => s.time).map((s) => ({ day: s.day, time: s.time, duration: s.duration || 60 })),
         })),
+      // Players picked from the existing roster instead of typed fresh: nothing to create,
+      // just add them to whichever group (new or existing) they were assigned here.
+      existingPlayers: existingPlayerPicks.map((p) => ({
+        studentId: p.existingId,
+        groupKey: p.groupKey && used.has(p.groupKey) ? p.groupKey : null,
+      })),
       weeksAhead,
     };
-  }, [groupOptions, involvedGroupKeys, filledPlayers, filledThemes, weeksAhead]);
+  }, [groupOptions, involvedGroupKeys, filledPlayers, existingPlayerPicks, filledThemes, weeksAhead]);
 
   const next = () => {
     setError('');
     if (step === 0 && incompleteGroup) { setError('Täytä uuden ryhmän nimi ja kellonaika tai poista keskeneräinen rivi.'); return; }
-    if (step === 1 && filledPlayers.length === 0 && groupOptions.length === 0) { setError('Lisää vähintään yksi pelaaja tai ryhmä.'); return; }
+    if (step === 1 && filledPlayers.length === 0 && groupOptions.length === 0 && existingPlayerPicks.length === 0) { setError('Lisää vähintään yksi pelaaja tai ryhmä.'); return; }
     if (step === 1 && invalidPlayerAge) { setError('Iän pitää olla väliltä 1–119 vuotta. Iän voi myös jättää tyhjäksi.'); return; }
     if (step === 1 && duplicatePlayerNames) { setError('Samanniminen pelaaja on listalla kahdesti. Tarkista nimet ennen jatkamista.'); return; }
     if (step === 1) ensureThemeRows();
@@ -643,21 +732,52 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                     {['Nimi *', 'Ikä', 'Taso', 'Ryhmä', ''].map((h, i) => <div key={`${h}-${i}`} style={labelStyle}>{h}</div>)}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {players.map((p, index) => (
-                      <div key={p.key} className="k-card kv-bulk-player-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.35fr) 76px minmax(120px, .9fr) minmax(160px, 1.15fr) 36px', gap: 8, padding: '10px 11px', alignItems: 'center' }}>
-                        <input aria-label={`Pelaajan ${index + 1} nimi`} value={p.name} onChange={(e) => updatePlayer(p.key, { name: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter' && index === players.length - 1) { e.preventDefault(); addPlayerRow({ groupKey: p.groupKey }); } }} placeholder="Pelaajan nimi" style={inputStyle} />
-                        <input aria-label={`Pelaajan ${index + 1} ikä`} value={p.age} onChange={(e) => updatePlayer(p.key, { age: e.target.value.replace(/[^0-9]/g, '').slice(0, 3) })} inputMode="numeric" placeholder="24" style={inputStyle} />
-                        <input aria-label={`Pelaajan ${index + 1} taso`} value={p.level} onChange={(e) => updatePlayer(p.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} />
-                        <select aria-label={`Pelaajan ${index + 1} ryhmä`} value={p.groupKey} onChange={(e) => updatePlayer(p.key, { groupKey: e.target.value })} style={inputStyle}>
-                          <option value="">Ei ryhmää vielä</option>
-                          {groupOptions.map((g) => <option key={g.key} value={g.key}>{g.name}{g.existing ? ' (nykyinen)' : ' (uusi)'}</option>)}
-                        </select>
-                        <button onClick={() => removePlayer(p.key)} aria-label={`Poista pelaaja ${index + 1}`} style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#f4f2ec', color: '#8a857a', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+                    {players.map((p, index) => {
+                      const existingMatch = !p.existingId && p.name.trim() ? existingNameMatch(p.name) : null;
+                      const pickedIds = players.map((x) => x.existingId).filter(Boolean);
+                      const suggestions = !p.existingId
+                        ? koutsiMatchStudents(students, p.name, { excludeIds: pickedIds })
+                        : [];
+                      return (
+                      <div key={p.key}>
+                        <div className="k-card kv-bulk-player-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.35fr) 76px minmax(120px, .9fr) minmax(160px, 1.15fr) 36px', gap: 8, padding: '10px 11px', alignItems: 'center' }}>
+                          {p.existingId ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                              <span style={{ fontSize: 13.5, fontWeight: 650, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                              <button type="button" onClick={() => updatePlayer(p.key, { existingId: null, name: '' })} style={{ border: 'none', background: 'none', color: 'var(--green-deep)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Vaihda</button>
+                            </div>
+                          ) : (
+                            <input aria-label={`Pelaajan ${index + 1} nimi`} value={p.name} onChange={(e) => updatePlayer(p.key, { name: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter' && index === players.length - 1) { e.preventDefault(); addPlayerRow({ groupKey: p.groupKey }); } }} placeholder="Pelaajan nimi" style={inputStyle} />
+                          )}
+                          <input aria-label={`Pelaajan ${index + 1} ikä`} value={p.age} disabled={Boolean(p.existingId)} onChange={(e) => updatePlayer(p.key, { age: e.target.value.replace(/[^0-9]/g, '').slice(0, 3) })} inputMode="numeric" placeholder={p.existingId ? '—' : '24'} style={{ ...inputStyle, opacity: p.existingId ? 0.5 : 1 }} />
+                          <input aria-label={`Pelaajan ${index + 1} taso`} value={p.level} disabled={Boolean(p.existingId)} onChange={(e) => updatePlayer(p.key, { level: e.target.value })} placeholder={p.existingId ? '—' : 'Keskitaso'} style={{ ...inputStyle, opacity: p.existingId ? 0.5 : 1 }} />
+                          <select aria-label={`Pelaajan ${index + 1} ryhmä`} value={p.groupKey} onChange={(e) => updatePlayer(p.key, { groupKey: e.target.value })} style={inputStyle}>
+                            <option value="">Ei ryhmää vielä</option>
+                            {groupOptions.map((g) => <option key={g.key} value={g.key}>{g.name}{g.existing ? ' (nykyinen)' : ' (uusi)'}</option>)}
+                          </select>
+                          <button onClick={() => removePlayer(p.key)} aria-label={`Poista pelaaja ${index + 1}`} style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#f4f2ec', color: '#8a857a', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+                        </div>
+                        {suggestions.length > 0 && (
+                          <StudentSuggestions matches={suggestions} groups={groups} onPick={(s) => pickExistingPlayer(p.key, s)} />
+                        )}
+                        {existingMatch && (
+                          <div style={{ fontSize: 12, color: '#8a5a12', padding: '5px 11px 0' }}>
+                            Sinulla on jo oppilas nimeltä {existingMatch}. Jos tämä on sama henkilö, valitse hänet yllä olevasta listasta — muuten hänelle syntyy kaksi profiilia.
+                          </div>
+                        )}
+                        {p.existingId && (
+                          <div style={{ fontSize: 12, color: '#8a857a', padding: '5px 11px 0' }}>Olemassa oleva oppilas — ei luoda uutta profiilia, lisätään vain valittuun ryhmään.</div>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <button onClick={() => addPlayerRow()} className="btn-outline btn-sm" style={{ marginTop: 12 }}>+ Lisää pelaajarivi</button>
-                  <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 10 }}>{filledPlayers.length} pelaajaa valmiina · Tyhjä ikä tallennetaan tuntemattomana</div>
+                  <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 10 }}>
+                    {existingPlayerPicks.length > 0
+                      ? `${filledPlayers.length} uutta pelaajaa, ${existingPlayerPicks.length} jo listalla valmiina`
+                      : `${filledPlayers.length} pelaajaa valmiina`} · Tyhjä ikä tallennetaan tuntemattomana
+                  </div>
                 </div>
               )}
 
@@ -716,7 +836,7 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                   <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55, marginBottom: 18 }}>Mitään kutsuja ei lähetetä. Pelaajat näkyvät oppilaslistassasi heti ja voivat liittyä omille tunnuksilleen myöhemmin.</p>
                   <div className="kv-bulk-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 18 }}>
                     {[
-                      ['Pelaajia', payload.players.length],
+                      ['Pelaajia', payload.players.length + payload.existingPlayers.length],
                       ['Uusia ryhmiä', payload.groups.filter((g) => !g.existing_id).length],
                       ['Viikkoteemoja', payload.themes.length],
                     ].map(([title, count]) => <div key={title} className="k-card" style={{ padding: '14px 15px' }}><div style={{ fontSize: 22, fontWeight: 800 }}>{count}</div><div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>{title}</div></div>)}
@@ -735,6 +855,19 @@ function BulkSetupModal({ groups, coachId, onClose, onSave }) {
                             </div>
                           </div>
                           <PlayerAppStatus isPlaceholder compact />
+                        </div>
+                      );
+                    })}
+                    {existingPlayerPicks.map((p) => {
+                      const assigned = p.groupKey ? groupOptionByKey.get(p.groupKey) : null;
+                      const existingStudent = (students || []).find((s) => s.id === p.existingId);
+                      return (
+                        <div key={p.key} className="k-card" style={{ padding: '12px 15px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <Avatar src={existingStudent?.avatarUrl} initial={p.name.charAt(0).toUpperCase()} hue={existingStudent?.hue ?? 200} size={36} />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 14.5, fontWeight: 750, color: '#111' }}>{p.name}</div>
+                            <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{assigned ? assigned.name : 'Ei uutta ryhmää'} · jo oppilaslistalla</div>
+                          </div>
                         </div>
                       );
                     })}
@@ -841,8 +974,8 @@ function StudentsView({ students, groups, state, coachId, coachName, onOpen, tra
         {students.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei vielä oppilaita — kutsu ensimmäinen yllä olevasta linkistä.</div>}
         {students.length > 0 && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei osumia{onlyInactive ? ' suodattimella' : search.trim() ? ` haulla "${search.trim()}"` : ''}.</div>}
       </div>
-      {addOpen && <AddPlayerModal onClose={() => setAddOpen(false)} onSave={async (data) => { await onAddPlayer(data); setAddOpen(false); }} />}
-      {bulkOpen && <BulkSetupModal groups={groups} coachId={coachId} onClose={() => setBulkOpen(false)} onSave={onBulkSetup} />}
+      {addOpen && <AddPlayerModal students={students} groups={groups} onClose={() => setAddOpen(false)} onSave={async (data) => { await onAddPlayer(data); setAddOpen(false); }} onOpenExisting={(id) => { setAddOpen(false); onOpen(id); }} />}
+      {bulkOpen && <BulkSetupModal groups={groups} students={students} coachId={coachId} onClose={() => setBulkOpen(false)} onSave={onBulkSetup} />}
       {inviteOpen && <InviteStudentModal coachId={coachId} coachName={coachName} onClose={() => setInviteOpen(false)} />}
     </div>
   );
@@ -1141,11 +1274,27 @@ function PlaceholderNotice({ student, coach }) {
   );
 }
 
-function StudentDetail({ student, coach, state, trainings, group, groupCoach, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditAttendance, onSetLevel, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEditVideoAudience, onEndCoaching }) {
+function StudentDetail({ student, coach, state, trainings, group, groupCoach, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditAttendance, onSetLevel, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEditVideoAudience, onEndCoaching, onMergeStudents }) {
   const [levelPickerOpen, setLevelPickerOpen] = React.useState(false);
   const [editingHomework, setEditingHomework] = React.useState(null); // homework id being renamed
   const [homeworkDraft, setHomeworkDraft] = React.useState('');
+  const [mergeOpen, setMergeOpen] = React.useState(false);
+  const [mergeLeftId, setMergeLeftId] = React.useState(student.id);
+  const [mergeRightId, setMergeRightId] = React.useState(null);
+  const [mergeError, setMergeError] = React.useState('');
   const levelOptions = ['Aloittelija', 'Keskitaso', 'Edistynyt', 'Kilpapelaaja'];
+  const mergeLeft = (state.students || []).find((s) => s.id === mergeLeftId) || null;
+  const mergeRight = (state.students || []).find((s) => s.id === mergeRightId) || null;
+  // Which side survives doesn't matter for the data (everything folds into one profile
+  // either way) — it only matters for who's *removable*: whichever side hasn't claimed
+  // their own account yet. If neither qualifies, there's nothing this can do automatically.
+  const submitMerge = () => {
+    setMergeError('');
+    if (!mergeLeft || !mergeRight) return;
+    if (mergeLeft.isPlaceholder) { onMergeStudents(mergeRight, mergeLeft); return; }
+    if (mergeRight.isPlaceholder) { onMergeStudents(mergeLeft, mergeRight); return; }
+    setMergeError(`Kumpikaan valituista ei ole enää "Ei vielä Krossissa" -tilassa, joten tietoja ei voi yhdistää automaattisesti.`);
+  };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', justifyContent: 'flex-end' }}>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(10,15,10,0.35)', animation: 'kFadeIn .2s ease' }} />
@@ -1300,7 +1449,32 @@ function StudentDetail({ student, coach, state, trainings, group, groupCoach, up
             <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5, marginBottom: 10 }}>
               Päättäminen poistaa pelaajan oppilaslistaltasi ja ryhmistäsi. Aiemmat merkinnät säilyvät pelaajan omassa näkymässä.
             </p>
-            <button onClick={onEndCoaching} className="btn-outline btn-sm" style={{ color: '#8f2f24', borderColor: '#e3c9c4' }}>Päätä valmennussuhde</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+              <button onClick={onEndCoaching} className="btn-outline btn-sm" style={{ color: '#8f2f24', borderColor: '#e3c9c4' }}>Päätä valmennussuhde</button>
+              {!mergeOpen && (
+                <button onClick={() => { setMergeOpen(true); setMergeLeftId(student.id); setMergeRightId(null); setMergeError(''); }} className="btn-outline btn-sm">Yhdistä pelaajan tiedot toiseen</button>
+              )}
+            </div>
+            {mergeOpen && (
+              <div className="k-card" style={{ padding: '14px 15px', marginTop: 10 }}>
+                <div style={{ fontWeight: 750, fontSize: 14, color: '#111', marginBottom: 3 }}>Yhdistä pelaajan tiedot toiseen</div>
+                <p style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.5, marginBottom: 12 }}>
+                  Valitse kaksi pelaajaa. Niistä jää jäljelle vain yksi, ja toisen ryhmät, treenit, päiväkirja ja muut merkinnät siirtyvät sille. Ei ole väliä kumman valitset kummalle puolelle.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 10, alignItems: 'end' }}>
+                  <MergeStudentSlot label="Pelaaja 1" student={mergeLeft} students={state.students} excludeId={mergeRightId} groups={state.groups}
+                    onPick={(s) => { setMergeLeftId(s.id); setMergeError(''); }} onClear={() => setMergeLeftId(null)} />
+                  <div style={{ fontSize: 18, color: '#8a857a', paddingBottom: 9 }}>→</div>
+                  <MergeStudentSlot label="Pelaaja 2" student={mergeRight} students={state.students} excludeId={mergeLeftId} groups={state.groups}
+                    onPick={(s) => { setMergeRightId(s.id); setMergeError(''); }} onClear={() => setMergeRightId(null)} />
+                </div>
+                {mergeError && <div style={{ fontSize: 12.5, color: '#a13b2f', marginTop: 10 }}>{mergeError}</div>}
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <button onClick={() => setMergeOpen(false)} className="btn-outline btn-sm">Peruuta</button>
+                  <button onClick={submitMerge} disabled={!mergeLeft || !mergeRight} className="btn-dark btn-sm" style={{ opacity: mergeLeft && mergeRight ? 1 : 0.45, cursor: mergeLeft && mergeRight ? 'pointer' : 'default' }}>Yhdistä</button>
+                </div>
+              </div>
+            )}
           </Field>
         </div>
         <div style={{ position: 'sticky', bottom: 0, left: 0, right: 0, padding: '18px 28px', background: 'linear-gradient(to top, #fff 60%, transparent)', display: 'flex', gap: 8 }}>
@@ -2002,7 +2176,7 @@ function GroupSlotModal({ onClose, onSave }) {
   );
 }
 
-function AddMembersModal({ coachId, coachName, group, allStudents, onClose, onSave, onCreatePlayer }) {
+function AddMembersModal({ coachId, coachName, group, allStudents, groups, onClose, onSave, onCreatePlayer }) {
   const available = allStudents.filter((s) => !group.memberIds.includes(s.id));
   const [selected, setSelected] = React.useState([]);
   const [quickCreateOpen, setQuickCreateOpen] = React.useState(false);
@@ -2016,6 +2190,18 @@ function AddMembersModal({ coachId, coachName, group, allStudents, onClose, onSa
   const parsedAge = age ? Number(age) : null;
   const ageValid = parsedAge == null || (Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120);
   const createReady = name.trim() && ageValid && !creating;
+  // "Luo uusi pelaaja" always inserts a brand-new student — if this name already exists on
+  // the roster, the coach probably means "add my existing student to this group too" and
+  // should use the picker below instead of ending up with two profiles for one player.
+  const existingMatch = name.trim()
+    ? allStudents.find((s) => s.name.trim().toLocaleLowerCase('fi') === name.trim().toLocaleLowerCase('fi'))
+    : null;
+  const nameSuggestions = koutsiMatchStudents(available, name);
+  const pickExisting = (s) => {
+    toggle(s.id);
+    setName(''); setAge(''); setLevel('');
+    window.setTimeout(() => nameInputRef.current?.focus(), 0);
+  };
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '11px 12px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const openQuickCreate = () => {
     setQuickCreateOpen(true);
@@ -2057,7 +2243,17 @@ function AddMembersModal({ coachId, coachName, group, allStudents, onClose, onSa
               <button type="button" onClick={() => { setQuickCreateOpen(false); setCreateError(''); }} disabled={creating} aria-label="Sulje uuden pelaajan luonti" style={{ width: 30, height: 30, border: 'none', borderRadius: '50%', background: '#f1eee5', color: '#514c42', cursor: creating ? 'default' : 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
             </div>
             {createError && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '9px 11px', borderRadius: 10, fontSize: 12.5, marginBottom: 10 }}>{createError}</div>}
-            <input ref={nameInputRef} aria-label="Uuden pelaajan nimi" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pelaajan nimi" maxLength={120} style={{ ...inputStyle, marginBottom: 8 }} />
+            <input ref={nameInputRef} aria-label="Uuden pelaajan nimi" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pelaajan nimi" maxLength={120} style={{ ...inputStyle, marginBottom: nameSuggestions.length || existingMatch ? 5 : 8 }} />
+            {nameSuggestions.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                <StudentSuggestions matches={nameSuggestions} groups={groups} onPick={pickExisting} />
+              </div>
+            )}
+            {existingMatch && (
+              <div style={{ fontSize: 12, color: '#8a5a12', marginBottom: 10 }}>
+                Sinulla on jo oppilas nimeltä {existingMatch.name}. Jos tämä on sama henkilö, valitse hänet yllä ehdotuksista tai alta listasta — muuten hänelle syntyy kaksi profiilia.
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '95px minmax(0, 1fr)', gap: 8, marginBottom: age && !ageValid ? 5 : 10 }}>
               <input aria-label="Uuden pelaajan ikä" value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="Ikä" style={{ ...inputStyle, borderColor: age && !ageValid ? '#c2543f' : '#d8d4ca' }} />
               <input aria-label="Uuden pelaajan taso" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Taso, esim. Aloittelija" maxLength={80} style={inputStyle} />
@@ -3973,7 +4169,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   };
   // BulkSetupModal owns its validation and error state. On success it keeps the dialog
   // open for a useful summary while the underlying roster refreshes immediately.
-  const bulkSetup = async ({ groups, players, themes, extraSlots, weeksAhead }) => {
+  const bulkSetup = async ({ groups, players, themes, extraSlots, existingPlayers, weeksAhead }) => {
     const result = await window.koutsiBulkSetup({ coachId, groups, players, themes, weeksAhead });
     // Extra weekly times a group got in the wizard: attached now that the group has a
     // real id (result.group_ids maps the wizard's temporary client_id to it).
@@ -3986,8 +4182,20 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
         }
       }
     }
+    // Players the coach picked from the existing roster instead of typing a new name —
+    // no new student to create, just add them to whichever group they were assigned here
+    // (possibly one this same run just created).
+    if (existingPlayers?.length) {
+      for (const { studentId, groupKey } of existingPlayers) {
+        const groupId = groupKey ? result?.group_ids?.[groupKey] : null;
+        if (groupId) await window.koutsiAddGroupMembers(groupId, [studentId]);
+      }
+    }
     await reload();
-    toast.success(`${result?.players_created || players.length} pelaajaa lisätty.`);
+    const existingCount = existingPlayers?.length || 0;
+    toast.success(existingCount
+      ? `${result?.players_created || players.length} uutta pelaajaa lisätty, ${existingCount} olemassa olevaa liitetty ryhmään.`
+      : `${result?.players_created || players.length} pelaajaa lisätty.`);
     return result;
   };
   const endCoaching = async () => {
@@ -3999,6 +4207,23 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     if (!ok) return;
     const done = await toast.run(async () => { await window.koutsiEndCoaching(coachId, detailId); await reload(); }, 'Valmennussuhde päättyi.');
     if (done) setDetailId(null);
+  };
+  // Collapses an accidental duplicate: `removeStudent` disappears and everything it had
+  // (groups, trainings, diary, homework, videos, moods, match notes) moves onto
+  // `keepStudent`. Either one picked in the UI can end up on either side of this call —
+  // the picker already resolved which side is actually removable.
+  const mergeStudents = async (keepStudent, removeStudent) => {
+    const ok = await confirm({
+      title: `Yhdistä ${removeStudent.name} pelaajaan ${keepStudent.name}?`,
+      body: `${removeStudent.name} poistuu oppilaslistaltasi. Hänen ryhmänsä, treeninsä, päiväkirjansa ja muut merkintänsä siirtyvät ${keepStudent.name}n profiiliin — mitään ei häviä.`,
+      confirmLabel: 'Yhdistä', danger: true,
+    });
+    if (!ok) return;
+    const done = await toast.run(async () => {
+      await window.koutsiMergeStudents(coachId, keepStudent.id, removeStudent.id);
+      await reload();
+    }, `${removeStudent.name} yhdistettiin pelaajaan ${keepStudent.name}.`);
+    if (done && removeStudent.id === detailId) setDetailId(null);
   };
 
   const saveExercise = async (data) => {
@@ -4189,7 +4414,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
           onEditAttendance={(training, studentId) => setAttendanceEdit({ trainingId: training.id, studentId })} onSetLevel={setLevel}
           onEditEntry={(d) => { setEditingEntry(d); setEntryOpen(true); }} onDeleteEntry={deleteEntry}
           onEditHomework={editHomework} onDeleteHomework={deleteHomework}
-          onDeleteVideo={deleteVideo} onEditVideoAudience={setAudienceVideo} onEndCoaching={endCoaching} />
+          onDeleteVideo={deleteVideo} onEditVideoAudience={setAudienceVideo} onEndCoaching={endCoaching} onMergeStudents={mergeStudents} />
       )}
       {detail && entryOpen && <EntryModal student={detail} entry={editingEntry} onClose={() => { setEntryOpen(false); setEditingEntry(null); }} onSend={saveEntry} />}
       {detail && homeworkOpen && <HomeworkModal student={detail} onClose={() => setHomeworkOpen(false)} onSend={saveHomework} />}
@@ -4234,7 +4459,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
       })()}
       {groupFormOpen && <GroupFormModal students={state.students} editing={editingGroup} onClose={() => { setGroupFormOpen(false); setEditingGroup(null); }} onSave={saveGroup} />}
       {eventOpen && <ClubEventModal editing={editingEvent} defaultDate={eventDefaultDate} onClose={() => { setEventOpen(false); setEditingEvent(null); }} onSave={saveClubEvent} />}
-      {addMembersGroupId != null && <AddMembersModal coachId={coachId} coachName={state.coach.name} group={state.groups.find((g) => g.id === addMembersGroupId)} allStudents={state.students} onClose={() => setAddMembersGroupId(null)} onSave={addMembers} onCreatePlayer={createPlayerInGroup} />}
+      {addMembersGroupId != null && <AddMembersModal coachId={coachId} coachName={state.coach.name} group={state.groups.find((g) => g.id === addMembersGroupId)} allStudents={state.students} groups={state.groups} onClose={() => setAddMembersGroupId(null)} onSave={addMembers} onCreatePlayer={createPlayerInGroup} />}
     </div>
   );
 }
