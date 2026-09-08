@@ -1033,15 +1033,123 @@ function AttendanceCard({ attendance }) {
 // coaching — no grid, just the numbers: how many self-directed sessions, how many hours,
 // broken down by kind, plus whether they've gone quiet. Reuses koutsiMonthlySummary
 // (built for the player's own Strava-style view in koutsi-pelaaja-app.jsx).
-function PlayerActivityCard({ state, student }) {
+// Coach individual = lime, coach group = green, player's own logged practice = blue,
+// a played match = red — same legend the player app's own calendar uses, so a coach who
+// also plays through a demo (or just remembers the colours) doesn't relearn them here.
+function koutsiCoachCalDotColor(t) {
+  if (t.loggedBy === 'player') return '#3a82d4';
+  return t.groupId != null ? 'var(--green-deep)' : 'var(--lime)';
+}
+const KOUTSI_CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+function PlayerActivityCalendarGrid({ state, studentId, matchDates, viewYear, viewMonth, selectedDate, todayStr, onSelect, onPrev, onNext }) {
+  const firstOfMonth = new Date(viewYear, viewMonth, 1);
+  const startWeekday = (firstOfMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const dateStrFor = (d) => `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  return (
+    <div className="k-card" style={{ padding: '15px 17px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <button onClick={onPrev} aria-label="Edellinen kuukausi" style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="6" height="11" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+        <div style={{ fontWeight: 800, fontSize: 14, color: '#111', textTransform: 'capitalize' }}>{window.KOUTSI_MONTHS[viewMonth]} {viewYear}</div>
+        <button onClick={onNext} aria-label="Seuraava kuukausi" style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="6" height="11" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3, marginBottom: 5 }}>
+        {KOUTSI_CAL_WEEKDAY_LABELS.map((d) => <div key={d} style={{ fontSize: 10, fontWeight: 700, color: '#a8a297', textAlign: 'center' }}>{d}</div>)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+        {cells.map((d, i) => {
+          if (d == null) return <div key={i} />;
+          const ds = dateStrFor(d);
+          const dayTrainings = window.koutsiTrainingsOnDateForStudent(state, ds, studentId);
+          const hasMatch = matchDates.has(ds);
+          const isToday = ds === todayStr;
+          const isSelected = ds === selectedDate;
+          return (
+            <button key={i} onClick={() => onSelect(ds)} style={{
+              aspectRatio: '1', borderRadius: 9, border: isSelected ? '2px solid var(--green-deep)' : '2px solid transparent',
+              background: isSelected ? 'rgba(14,59,44,0.06)' : isToday ? 'rgba(207,228,20,0.2)' : 'transparent',
+              cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, fontFamily: 'inherit',
+            }}>
+              <span style={{ fontSize: 12, fontWeight: isToday ? 800 : 600, color: '#111' }}>{d}</span>
+              {(dayTrainings.length > 0 || hasMatch) && (
+                <span style={{ display: 'flex', gap: 2 }}>
+                  {dayTrainings.slice(0, 3).map((t, ti) => <span key={ti} style={{ width: 4.5, height: 4.5, borderRadius: '50%', background: koutsiCoachCalDotColor(t) }} />)}
+                  {hasMatch && <span style={{ width: 4.5, height: 4.5, borderRadius: '50%', background: '#a13b2f' }} />}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 14, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)', flexWrap: 'wrap' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#8a857a' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--lime)' }} />Yksilö</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#8a857a' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green-deep)' }} />Ryhmä</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#8a857a' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3a82d4' }} />Oma merkintä</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#8a857a' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a13b2f' }} />Ottelu</span>
+      </div>
+    </div>
+  );
+}
+// Selected day's sessions, listed under the calendar: a coach-run training can be tapped
+// straight into the same attendance editor StudentAttendanceEditor uses above, so the
+// calendar isn't just a read-only picture — it's another way into the one attendance flow.
+function PlayerActivityDayDetail({ state, student, selectedDate, onEditAttendance }) {
+  const trainingsOnSelected = window.koutsiTrainingsOnDateForStudent(state, selectedDate, student.id);
+  const matchesOnSelected = (student.matchNotes || []).filter((n) => n.date === selectedDate);
+  return (
+    <div className="k-card" style={{ padding: '15px 17px', marginTop: 10 }}>
+      <div style={{ fontWeight: 800, fontSize: 13, color: '#111', marginBottom: 11, textTransform: 'capitalize' }}>{window.koutsiFmtLongDate(selectedDate)}</div>
+      {trainingsOnSelected.length === 0 && matchesOnSelected.length === 0 ? (
+        <div style={{ fontSize: 13, color: '#a8a294' }}>Ei merkintöjä tälle päivälle.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {trainingsOnSelected.map((t) => {
+            const party = window.koutsiTrainingParty(state, t);
+            const isSelf = t.loggedBy === 'player';
+            const entry = (t.absences || []).find((a) => a.studentId === student.id);
+            const label = party.kind === 'group' && party.group ? party.group.name : t.type;
+            return (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 44, fontSize: 12.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}{isSelf ? ' · Oma merkintä' : ''}</div>
+                  {isSelf && t.durationMinutes && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 1 }}>{window.koutsiFmtDuration(t.durationMinutes)}</div>}
+                </div>
+                {!isSelf && <window.KoutsiAttendanceBadge entry={entry} compact onClick={() => onEditAttendance(t, student.id)} />}
+              </div>
+            );
+          })}
+          {matchesOnSelected.map((n) => (
+            <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 12, background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#a13b2f', flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: '#7a2c22', fontWeight: 700 }}>
+                Ottelu: {n.format === 'nelinpeli' && n.opponent2Name ? `${n.opponentName} & ${n.opponent2Name}` : n.opponentName}{n.result ? ` — ${n.result === 'voitto' ? 'Voitto' : 'Tappio'}` : ''}{n.score ? ` (${n.score})` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+function PlayerActivityCard({ state, student, onEditAttendance }) {
   const todayStr = window.koutsiTodayStr();
   const todayDate = window.koutsiDateFromStr(todayStr);
   const [viewYear, setViewYear] = React.useState(todayDate.getFullYear());
   const [viewMonth, setViewMonth] = React.useState(todayDate.getMonth());
+  const [selectedDate, setSelectedDate] = React.useState(todayStr);
   const prevMonth = () => { if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); } else setViewMonth((m) => m - 1); };
   const nextMonth = () => { if (viewMonth === 11) { setViewYear((y) => y + 1); setViewMonth(0); } else setViewMonth((m) => m + 1); };
 
   const summary = React.useMemo(() => window.koutsiMonthlySummary(state, student.id, viewYear, viewMonth), [state, student.id, viewYear, viewMonth]);
+  const matchDates = React.useMemo(() => new Set((student.matchNotes || []).map((n) => n.date)), [student.matchNotes]);
   const lastSelf = window.koutsiTrainingsForStudent(state, student.id)
     .filter((t) => t.loggedBy === 'player' && t.date <= todayStr).sort((a, b) => b.date.localeCompare(a.date))[0] || null;
   const daysSince = lastSelf ? Math.round((window.koutsiDateFromStr(todayStr) - window.koutsiDateFromStr(lastSelf.date)) / 86400000) : null;
@@ -1056,21 +1164,15 @@ function PlayerActivityCard({ state, student }) {
           ? (daysSince === 0 ? 'Viimeisin omatoiminen merkintä tänään.' : `Viimeisin omatoiminen merkintä ${daysSince} pv sitten.`)
           : 'Ei vielä yhtään omatoimista merkintää.'}
       </div>
-      <div className="k-card" style={{ padding: '15px 17px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <button onClick={prevMonth} aria-label="Edellinen kuukausi" style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="6" height="11" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-          <div style={{ fontWeight: 800, fontSize: 14, color: '#111', textTransform: 'capitalize' }}>{window.KOUTSI_MONTHS[viewMonth]} {viewYear}</div>
-          <button onClick={nextMonth} aria-label="Seuraava kuukausi" style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="6" height="11" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-        </div>
+      <PlayerActivityCalendarGrid state={state} studentId={student.id} matchDates={matchDates} viewYear={viewYear} viewMonth={viewMonth} selectedDate={selectedDate} todayStr={todayStr}
+        onSelect={setSelectedDate} onPrev={prevMonth} onNext={nextMonth} />
+      <PlayerActivityDayDetail state={state} student={student} selectedDate={selectedDate} onEditAttendance={onEditAttendance} />
+      <div className="k-card" style={{ padding: '15px 17px', marginTop: 10 }}>
         {active.length === 0 ? (
           <div style={{ fontSize: 12.5, color: '#a8a294' }}>Ei merkintöjä tälle kuukaudelle.</div>
         ) : (
           <React.Fragment>
-            <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 10 }}>{summary.totalSessions} suoritusta{summary.totalMinutes ? ` · ${window.koutsiFmtDuration(summary.totalMinutes)}` : ''}</div>
+            <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 10 }}>{summary.totalSessions} suoritusta{summary.totalMinutes ? ` · ${window.koutsiFmtDuration(summary.totalMinutes)}` : ''} — {window.KOUTSI_MONTHS[viewMonth]}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               {active.map((c) => (
                 <div key={c.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: '#3c382f' }}>
@@ -1412,7 +1514,7 @@ function StudentDetail({ student, coach, state, trainings, groups, upcoming, att
 
           {attendance && attendance.total > 0 && <AttendanceCard attendance={attendance} />}
 
-          <PlayerActivityCard state={state} student={student} />
+          <PlayerActivityCard state={state} student={student} onEditAttendance={onEditAttendance} />
 
           {groups.length > 0 && (
             <Field label={groups.length > 1 ? 'Valmennusryhmät' : 'Valmennusryhmä'}>
