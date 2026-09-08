@@ -253,7 +253,8 @@ function AddPlayerModal({ students, groups, onClose, onSave, onOpenExisting }) {
   const [error, setError] = React.useState('');
   const parsedAge = age ? Number(age) : null;
   const ageValid = parsedAge == null || (Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120);
-  const ready = name.trim() && ageValid && !busy;
+  const exactMatch = koutsiExactNameMatch(students, name);
+  const ready = name.trim() && ageValid && !busy && !exactMatch;
   const nameSuggestions = koutsiMatchStudents(students, name);
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
@@ -278,8 +279,13 @@ function AddPlayerModal({ students, groups, onClose, onSave, onOpenExisting }) {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. Onni Virtanen" style={{ ...inputStyle, marginBottom: nameSuggestions.length ? 5 : 16 }} />
         {nameSuggestions.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, color: '#8a5a12', marginBottom: 6 }}>Löytyykö hän jo listaltasi?</div>
+            <div style={{ fontSize: 12, color: '#8a5a12', marginBottom: 6 }}>{exactMatch ? 'Tämä on jo listallasi:' : 'Löytyykö hän jo listaltasi?'}</div>
             <StudentSuggestions matches={nameSuggestions} groups={groups} onPick={(s) => onOpenExisting(s.id)} />
+            {exactMatch && (
+              <div style={{ fontSize: 12, color: '#8a5a12', marginTop: 6, lineHeight: 1.5 }}>
+                Sinulla on jo tismalleen tämän niminen oppilas. Avaa hänet yllä sen sijaan, ettei hänelle synny toista profiilia — jos tämä on eri henkilö, erota nimet toisistaan (esim. sukunimen alkukirjaimella).
+              </div>
+            )}
           </div>
         )}
         <div style={label}>Ikä (valinnainen)</div>
@@ -289,7 +295,7 @@ function AddPlayerModal({ students, groups, onClose, onSave, onOpenExisting }) {
         <input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Aloittelija" style={{ ...inputStyle, marginBottom: 20 }} />
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Lisätään…' : 'Lisää'}</button>
+          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }} title={exactMatch ? 'Samanniminen oppilas on jo listallasi' : undefined}>{busy ? 'Lisätään…' : 'Lisää'}</button>
         </div>
       </div>
     </div>
@@ -306,6 +312,17 @@ function koutsiMatchStudents(students, query, { excludeIds, limit = 6 } = {}) {
   return (students || [])
     .filter((s) => (!excluded || !excluded.has(s.id)) && s.name.trim().toLocaleLowerCase('fi').startsWith(q))
     .slice(0, limit);
+}
+// Exact (not prefix) match against the coach's current roster. A coach who types a name
+// that's already on the roster almost always means "this is the same player, now in a
+// second group" — every place that can create a brand-new student row checks this first
+// and refuses to proceed silently, since that's exactly how one real person ends up as two
+// `koutsi_students` rows (one per group), each only a member of its own group.
+function koutsiExactNameMatch(students, name, { excludeIds } = {}) {
+  const q = name.trim().toLocaleLowerCase('fi');
+  if (!q) return null;
+  const excluded = excludeIds ? new Set(excludeIds) : null;
+  return (students || []).find((s) => (!excluded || !excluded.has(s.id)) && s.name.trim().toLocaleLowerCase('fi') === q) || null;
 }
 function koutsiGroupNamesForStudent(groups, studentId) {
   return (groups || []).filter((g) => g.memberIds.includes(studentId)).map((g) => g.name);
@@ -421,6 +438,11 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
     return map;
   }, [students]);
   const existingNameMatch = (name) => existingNamesByKey.get(name.trim().toLocaleLowerCase('fi'));
+  // This wizard's player rows only ever insert brand-new students — a name that exactly
+  // matches someone already on the roster must go through "valitse olemassa oleva" (which
+  // sets existingId) instead, or the run creates a second koutsi_students row for the same
+  // person, one that's a member of only the new group. Hard block, matching duplicatePlayerNames.
+  const unresolvedExistingMatch = filledPlayers.some((p) => existingNameMatch(p.name));
   const groupOptions = [
     ...groups.map((g) => ({ key: `existing:${g.id}`, name: g.name, existing: true, group: g })),
     ...startedGroups.filter((g) => g.name.trim() && g.time).map((g) => ({ key: g.key, name: g.name.trim(), existing: false, group: g })),
@@ -571,6 +593,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
     if (step === 1 && filledPlayers.length === 0 && groupOptions.length === 0 && existingPlayerPicks.length === 0) { setError('Lisää vähintään yksi pelaaja tai ryhmä.'); return; }
     if (step === 1 && invalidPlayerAge) { setError('Iän pitää olla väliltä 1–119 vuotta. Iän voi myös jättää tyhjäksi.'); return; }
     if (step === 1 && duplicatePlayerNames) { setError('Samanniminen pelaaja on listalla kahdesti. Tarkista nimet ennen jatkamista.'); return; }
+    if (step === 1 && unresolvedExistingMatch) { setError('Yksi riveistä on samanniminen kuin olemassa oleva oppilas. Valitse hänet listalta rivin alta, ettei hänelle synny toista profiilia.'); return; }
     if (step === 1) ensureThemeRows();
     if (step === 2 && duplicateThemeWeeks) { setError('Samalle ryhmälle on kaksi teemaa samalla viikolla.'); return; }
     setStep((s) => Math.min(3, s + 1));
@@ -927,6 +950,22 @@ function StudentsView({ students, groups, state, coachId, coachName, onOpen, tra
   const [search, setSearch] = React.useState('');
   const [onlyInactive, setOnlyInactive] = React.useState(false);
   const q = search.trim().toLowerCase();
+  // Two active students with the exact same name are almost always one real person who
+  // ended up duplicated (typically once per group, from before this was blocked at
+  // creation time — see koutsiExactNameMatch). Surface it here instead of leaving the coach
+  // to notice the repeat on their own and, worse, "clean it up" with Päätä valmennussuhde —
+  // which ends the whole relationship (and every group membership) rather than collapsing
+  // the duplicate the way Yhdistä pelaajan tiedot toiseen does.
+  const duplicateGroups = React.useMemo(() => {
+    const byName = new Map();
+    students.forEach((s) => {
+      const key = s.name.trim().toLocaleLowerCase('fi');
+      if (!key) return;
+      if (!byName.has(key)) byName.set(key, []);
+      byName.get(key).push(s);
+    });
+    return [...byName.values()].filter((group) => group.length > 1);
+  }, [students]);
   const withActivity = students.map((s) => ({ s, daysSince: koutsiDaysSinceSelfLog(state, s.id) }));
   const shown = withActivity
     .filter(({ daysSince }) => !onlyInactive || daysSince == null || daysSince >= 7)
@@ -943,6 +982,27 @@ function StudentsView({ students, groups, state, coachId, coachName, onOpen, tra
       <GettingStarted
         studentCount={students.length} trainingCount={trainingCount}
         onBulkSetup={() => setBulkOpen(true)} onAddTraining={onAddTraining} />
+      {duplicateGroups.length > 0 && (
+        <div className="k-card" style={{ padding: '14px 16px', marginBottom: 18, background: 'rgba(214,140,44,0.08)', borderColor: 'rgba(214,140,44,0.3)' }}>
+          <div style={{ fontSize: 13.5, fontWeight: 800, color: '#8a5a12', marginBottom: 6 }}>Nämä saattavat olla sama pelaaja kahdesti</div>
+          <p style={{ fontSize: 12.5, color: '#6b5a3a', lineHeight: 1.5, marginBottom: 10 }}>
+            Yhdellä nimellä on useampi kortti — tyypillisesti sama pelaaja on päätynyt omaksi profiilikseen jokaisessa ryhmässä. Avaa jompikumpi ja käytä "Yhdistä pelaajan tiedot toiseen", ettei kumpikaan katoa ryhmästään vahingossa Päätä valmennussuhde -napista.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {duplicateGroups.map((group) => (
+              <div key={group[0].id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{group[0].name}</span>
+                <span style={{ fontSize: 12, color: '#8a5a12' }}>× {group.length}</span>
+                {group.map((s) => (
+                  <button key={s.id} onClick={() => onOpen(s.id)} className="btn-outline btn-sm" style={{ padding: '4px 10px', fontSize: 11.5 }}>
+                    Avaa {koutsiGroupNamesForStudent(groups, s.id).join(', ') || 'ei ryhmää'}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {students.length > 5 && (
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Hae oppilaan nimellä tai tavoitteella…"
           style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '12px 15px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 12 }} />
@@ -1379,7 +1439,7 @@ function PlaceholderNotice({ student, coach }) {
 // Only for a player who hasn't claimed an account yet — once claimed, name and age become
 // player-owned (see PlayerProfileEditModal), so editing them here wouldn't take effect.
 // Bio/health fields are deliberately left out; this pilot doesn't collect those at all.
-function EditPlaceholderStudentModal({ student, onClose, onSave }) {
+function EditPlaceholderStudentModal({ student, students, onClose, onSave }) {
   const [name, setName] = React.useState(student.name || '');
   const [age, setAge] = React.useState(student.age == null ? '' : String(student.age));
   const [level, setLevel] = React.useState(student.level || '');
@@ -1387,7 +1447,10 @@ function EditPlaceholderStudentModal({ student, onClose, onSave }) {
   const [error, setError] = React.useState('');
   const parsedAge = age ? Number(age) : null;
   const ageValid = parsedAge == null || (Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120);
-  const ready = name.trim() && ageValid && !busy;
+  // Renaming a placeholder to another active student's exact name is the same trap as
+  // creating one that way — it just does it after the fact. Block it here too.
+  const exactMatch = koutsiExactNameMatch(students, name, { excludeIds: [student.id] });
+  const ready = name.trim() && ageValid && !busy && !exactMatch;
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const submit = async () => {
@@ -1409,7 +1472,12 @@ function EditPlaceholderStudentModal({ student, onClose, onSave }) {
         </p>
         {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
         <div style={label}>Nimi</div>
-        <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
+        <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...inputStyle, marginBottom: exactMatch ? 5 : 16 }} />
+        {exactMatch && (
+          <div style={{ fontSize: 12, color: '#8a5a12', marginBottom: 16, lineHeight: 1.5 }}>
+            Sinulla on jo toinenkin oppilas nimeltä {exactMatch.name}. Tallennus on estetty, ettei näistä synny sama duplikaattitilanne kuin uutta pelaajaa luodessa — erota nimet toisistaan (esim. sukunimen alkukirjaimella).
+          </div>
+        )}
         <div style={label}>Ikä (valinnainen)</div>
         <input value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, ''))} inputMode="numeric" placeholder="24" style={{ ...inputStyle, marginBottom: age && !ageValid ? 6 : 16, borderColor: age && !ageValid ? '#c2543f' : '#d8d4ca' }} />
         {age && !ageValid && <div style={{ fontSize: 12, color: '#c2543f', marginBottom: 16 }}>Iän pitää olla väliltä 1–119 vuotta.</div>}
@@ -2352,13 +2420,13 @@ function AddMembersModal({ coachId, coachName, group, allStudents, groups, onClo
   const toggle = (id) => setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   const parsedAge = age ? Number(age) : null;
   const ageValid = parsedAge == null || (Number.isInteger(parsedAge) && parsedAge >= 1 && parsedAge < 120);
-  const createReady = name.trim() && ageValid && !creating;
   // "Luo uusi pelaaja" always inserts a brand-new student — if this name already exists on
   // the roster, the coach probably means "add my existing student to this group too" and
-  // should use the picker below instead of ending up with two profiles for one player.
-  const existingMatch = name.trim()
-    ? allStudents.find((s) => s.name.trim().toLocaleLowerCase('fi') === name.trim().toLocaleLowerCase('fi'))
-    : null;
+  // must use the picker below instead of ending up with two profiles for one player. This
+  // is exactly how a real player ends up duplicated once per group, so it's a hard block,
+  // not just a hint: creation only proceeds once the name no longer matches exactly.
+  const existingMatch = name.trim() ? koutsiExactNameMatch(allStudents, name) : null;
+  const createReady = name.trim() && ageValid && !creating && !existingMatch;
   const nameSuggestions = koutsiMatchStudents(available, name);
   const pickExisting = (s) => {
     toggle(s.id);
@@ -2413,8 +2481,10 @@ function AddMembersModal({ coachId, coachName, group, allStudents, groups, onClo
               </div>
             )}
             {existingMatch && (
-              <div style={{ fontSize: 12, color: '#8a5a12', marginBottom: 10 }}>
-                Sinulla on jo oppilas nimeltä {existingMatch.name}. Jos tämä on sama henkilö, valitse hänet yllä ehdotuksista tai alta listasta — muuten hänelle syntyy kaksi profiilia.
+              <div style={{ fontSize: 12, color: '#8a5a12', marginBottom: 10, lineHeight: 1.5 }}>
+                {group.memberIds.includes(existingMatch.id)
+                  ? `${existingMatch.name} on jo tässä ryhmässä — häntä ei tarvitse lisätä uudestaan.`
+                  : `Sinulla on jo oppilas nimeltä ${existingMatch.name}. Valitse hänet yllä ehdotuksista tai alta listasta lisätäksesi hänet tähän ryhmään — luominen on estetty, ettei hänelle synny toista profiilia.`}
               </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: '95px minmax(0, 1fr)', gap: 8, marginBottom: age && !ageValid ? 5 : 10 }}>
@@ -4369,9 +4439,18 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     return result;
   };
   const endCoaching = async () => {
+    // If another active student shares this exact name, this is very likely the same real
+    // player duplicated once per group (see koutsiExactNameMatch) rather than someone who
+    // actually wants to leave — ending the relationship would end every one of this row's
+    // group memberships too, which reads as "the player vanished from practice." Steer
+    // toward Yhdistä pelaajan tiedot toiseen instead, which is the one action that collapses
+    // the duplicate without losing anything.
+    const possibleDuplicate = detail ? koutsiExactNameMatch(state.students, detail.name, { excludeIds: [detail.id] }) : null;
     const ok = await confirm({
       title: `Päätä ${detail.name} valmennussuhde?`,
-      body: 'Pelaaja poistuu oppilaslistaltasi ja ryhmistäsi. Hänen omat tietonsa ja aiemmat merkinnät säilyvät hänen näkymässään.',
+      body: possibleDuplicate
+        ? `Pelaaja poistuu oppilaslistaltasi ja KAIKISTA ryhmistäsi. Sinulla on toinenkin oppilas nimeltä ${possibleDuplicate.name} — jos tämä on sama henkilö kahdesti, käytä sen sijaan "Yhdistä pelaajan tiedot toiseen" alla, niin kumpikaan ryhmä ei katoa.`
+        : 'Pelaaja poistuu oppilaslistaltasi ja ryhmistäsi. Hänen omat tietonsa ja aiemmat merkinnät säilyvät hänen näkymässään.',
       confirmLabel: 'Päätä valmennussuhde', danger: true,
     });
     if (!ok) return;
@@ -4588,7 +4667,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
           onDeleteVideo={deleteVideo} onEditVideoAudience={setAudienceVideo} onEndCoaching={endCoaching} onMergeStudents={mergeStudents} />
       )}
       {detail && entryOpen && <EntryModal student={detail} entry={editingEntry} onClose={() => { setEntryOpen(false); setEditingEntry(null); }} onSend={saveEntry} />}
-      {detail && editPlayerOpen && <EditPlaceholderStudentModal student={detail} onClose={() => setEditPlayerOpen(false)} onSave={editPlayer} />}
+      {detail && editPlayerOpen && <EditPlaceholderStudentModal student={detail} students={state.students} onClose={() => setEditPlayerOpen(false)} onSave={editPlayer} />}
       {detail && homeworkOpen && <HomeworkModal student={detail} onClose={() => setHomeworkOpen(false)} onSend={saveHomework} />}
       {detail && videoOpen && <VideoModal students={state.students} groups={state.groups} initialStudentId={detailId} onClose={() => setVideoOpen(false)} onSave={addVideo} />}
       {audienceVideo && <VideoAudienceModal video={audienceVideo} students={state.students} onClose={() => setAudienceVideo(null)} onSave={saveVideoAudience} />}
