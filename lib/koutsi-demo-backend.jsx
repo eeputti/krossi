@@ -359,9 +359,12 @@
     const resolvedShareId = shareId || newId('vs');
     const url = file ? URL.createObjectURL(file) : null;
     if (file && onProgress) onProgress(100);
+    // Mirrors the real koutsiShareVideo's retry guard: a retried call with the same shareId
+    // must not add a second copy for a recipient who already has one.
     (studentIds || []).forEach((sid) => {
       const st = findStudent(sid);
       if (!st) return;
+      if ((st.videos || []).some((v) => v.shareId === resolvedShareId)) return;
       st.videos.unshift({
         id: newId('v'), shareId: resolvedShareId, recipientIds: [...studentIds],
         at: new Date().toISOString(), title, date, tags: tags || [],
