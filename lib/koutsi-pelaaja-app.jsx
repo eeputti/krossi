@@ -90,14 +90,14 @@ function LevelChip({ level }) {
   const c = window.koutsiLevelColor(level);
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, lineHeight: 1, background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>{level}</span>;
 }
-function IdentityBlock({ student, group }) {
+function IdentityBlock({ student, groups }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 26, textAlign: 'center' }}>
       <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={76} ring />
       <div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>{student.name}</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
         <LevelChip level={student.level || 'Ei asetettu'} />
-        {group && <span className="k-chip">Ryhmä: {group.name} · {group.day} {group.time}</span>}
+        {(groups || []).map((g) => <span key={g.id} className="k-chip">Ryhmä: {g.name} · {g.day} {g.time}</span>)}
       </div>
     </div>
   );
@@ -106,7 +106,17 @@ function GoalCard({ student, onSave }) {
   const [editing, setEditing] = React.useState(false);
   const [value, setValue] = React.useState(student.goal);
   const [saved, setSaved] = React.useState(false);
-  React.useEffect(() => { setValue(student.goal); setEditing(false); }, [student.id]);
+  // Resyncs whenever the saved goal itself changes (e.g. a realtime reload after the same
+  // player edited it in another tab), not only when switching to a different student —
+  // otherwise a stale value already in this component could get saved right back over a
+  // newer one. Skipped while actively editing so an in-flight edit is never overwritten
+  // out from under the player.
+  React.useEffect(() => {
+    setEditing(false);
+  }, [student.id]);
+  React.useEffect(() => {
+    if (!editing) setValue(student.goal);
+  }, [student.id, student.goal, editing]);
   const save = () => {
     onSave(value.trim());
     setEditing(false);
@@ -325,13 +335,13 @@ function NoCoachCard({ onGoTab }) {
   );
 }
 
-function HomeView({ student, state, group, hasCoach, onSaveGoal, wish, setWish, wishSaved, onSaveWish, onToggleHomework, onGoTab }) {
+function HomeView({ student, state, groups, hasCoach, onSaveGoal, wish, setWish, wishSaved, onSaveWish, onToggleHomework, onGoTab }) {
   const latestEntry = student.diary[0];
   const todayStr = window.koutsiTodayStr();
   if (!hasCoach) {
     return (
       <div>
-        <IdentityBlock student={student} group={null} />
+        <IdentityBlock student={student} groups={[]} />
         <NoCoachCard onGoTab={onGoTab} />
         <GoalCard student={student} onSave={onSaveGoal} />
       </div>
@@ -339,21 +349,21 @@ function HomeView({ student, state, group, hasCoach, onSaveGoal, wish, setWish, 
   }
   return (
     <div>
-      <IdentityBlock student={student} group={group} />
+      <IdentityBlock student={student} groups={groups} />
 
       <NextTrainingCard state={state} student={student} todayStr={todayStr} />
 
       <HomeHomeworkCard student={student} onToggleHomework={onToggleHomework} />
 
-      {group && group.theme && (
-        <div className="k-card" style={{ padding: '17px 20px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', marginBottom: 22 }}>
+      {(groups || []).filter((g) => g.theme).map((g) => (
+        <div key={g.id} className="k-card" style={{ padding: '17px 20px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', marginBottom: 22 }}>
           <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>
-            Viikon teema · vko {group.theme.week} — {group.name}
+            Viikon teema · vko {g.theme.week} — {g.name}
           </div>
-          <div style={{ fontSize: 16.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{group.theme.title}</div>
-          {group.theme.lead && <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5 }}>{group.theme.lead}</div>}
+          <div style={{ fontSize: 16.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{g.theme.title}</div>
+          {g.theme.lead && <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5 }}>{g.theme.lead}</div>}
         </div>
-      )}
+      ))}
 
       <GoalCard student={student} onSave={onSaveGoal} />
 
@@ -627,26 +637,31 @@ const SELF_TRAINING_NOTE_HINTS = {
   'Muu liikunta': 'Esim. Juoksu 5 km.',
   Turnaus: 'Esim. Piirinmestaruuskisat, Lahti.',
 };
-function AddSelfTrainingModal({ date, onClose, onSave, onSwitchToMatch }) {
+function AddSelfTrainingModal({ date, coaches, onClose, onSave, onSwitchToMatch }) {
   const [type, setType] = React.useState('Omatoiminen harjoitus');
   const [time, setTime] = React.useState('12:00');
   const [durationMinutes, setDurationMinutes] = React.useState(60);
   const [endDate, setEndDate] = React.useState('');
   const [notes, setNotes] = React.useState('');
+  // A self-log has to land against one coach id. With exactly one coach (the common case)
+  // there's nothing to ask; with more than one, defaulting to coaches[0] used to attribute
+  // every self-log to whichever coach happened to be first, regardless of which one the
+  // player actually meant.
+  const [coachId, setCoachId] = React.useState(() => (coaches && coaches[0] ? coaches[0].id : null));
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const isMatch = type === 'Ottelu';
   const isTournament = type === 'Turnaus';
-  const ready = isMatch || isTournament || (time.trim() && Number(durationMinutes) > 0);
+  const ready = (isMatch || isTournament || (time.trim() && Number(durationMinutes) > 0)) && coachId != null;
   const submit = async () => {
     if (!ready) return;
     if (isMatch) { onSwitchToMatch(date); return; }
     setBusy(true); setError('');
     try {
       await onSave({
-        date, type, notes: notes.trim(),
+        date, type, notes: notes.trim(), coachId,
         time: isTournament ? '09:00' : time.trim(),
         durationMinutes: isTournament ? null : Number(durationMinutes),
         endDate: isTournament && endDate ? endDate : null,
@@ -660,6 +675,16 @@ function AddSelfTrainingModal({ date, onClose, onSave, onSwitchToMatch }) {
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Lisää oma merkintä</h3>
         <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>{window.koutsiFmtLongDate(date)}. Kirjaa omatoiminen harjoitus, fysiikkatreeni, muu liikunta tai turnaus — se näkyy sinulle ja valmentajallesi.</p>
         {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
+        {coaches && coaches.length > 1 && (
+          <React.Fragment>
+            <div style={label}>Kenelle valmentajalle tämä näkyy</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {coaches.map((c) => (
+                <button key={c.id} onClick={() => setCoachId(c.id)} style={{ padding: '9px 15px', borderRadius: 999, border: coachId === c.id ? 'none' : '1px solid #d8d4ca', background: coachId === c.id ? 'var(--lime)' : '#fff', color: coachId === c.id ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{c.name}</button>
+              ))}
+            </div>
+          </React.Fragment>
+        )}
         <div style={label}>Mitä teit</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {SELF_TRAINING_TYPES.map((t) => (
@@ -878,6 +903,7 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
       {addOpen && (
         <AddSelfTrainingModal
           date={selectedDate}
+          coaches={state.coaches}
           onClose={() => setAddOpen(false)}
           onSave={async (payload) => { await onAddSelfTraining(payload); setAddOpen(false); }}
           onSwitchToMatch={(date) => { setAddOpen(false); onSwitchToMatch(date); }}
@@ -1009,6 +1035,14 @@ function MoodModal({ onClose, onSave }) {
   const [score, setScore] = React.useState(null);
   const [note, setNote] = React.useState('');
   const [hidden, setHidden] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const busyRef = React.useRef(false); // see GroupFormModal's submit (coach app) for why a ref, not just state
+  const submit = async () => {
+    if (!score || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try { await onSave({ score, note: note.trim(), hiddenFromCoach: hidden }); } finally { busyRef.current = false; setBusy(false); }
+  };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
@@ -1033,8 +1067,8 @@ function MoodModal({ onClose, onSave }) {
           <span style={{ fontSize: 13, color: '#3c382f', lineHeight: 1.45 }}>Älä näytä tätä valmentajalle — vain omaan seurantaani</span>
         </label>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => score && onSave({ score, note: note.trim(), hiddenFromCoach: hidden })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: score ? 1 : 0.45, cursor: score ? 'pointer' : 'default' }}>Tallenna</button>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: (score && !busy) ? 1 : 0.45, cursor: (score && !busy) ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : 'Tallenna'}</button>
         </div>
       </div>
     </div>
@@ -1054,20 +1088,32 @@ function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
   const [score, setScore] = React.useState(() => (editing ? editing.score || '' : ''));
   const [note, setNote] = React.useState(() => (editing ? editing.note || '' : ''));
   const isDoubles = format === 'nelinpeli';
-  const ready = opponentName.trim() && date;
+  const [busy, setBusy] = React.useState(false);
+  const busyRef = React.useRef(false); // see GroupFormModal's submit (coach app) for why a ref, not just state
+  const ready = opponentName.trim() && date && !busy;
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const Pill = ({ on, children, onClick }) => (
     <button onClick={onClick} style={{ padding: '9px 15px', borderRadius: 999, border: on ? 'none' : '1px solid #d8d4ca', background: on ? 'var(--lime)' : '#fff', color: on ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{children}</button>
   );
-  const submit = () => ready && onSave({
-    opponentName: opponentName.trim(), date, note: note.trim(),
-    result: result || null, format: format || null,
-    durationMinutes: durationMinutes === '' ? null : Number(durationMinutes),
-    score: score.trim(),
-    partnerName: isDoubles ? partnerName.trim() : '',
-    opponent2Name: isDoubles ? opponent2Name.trim() : '',
-  });
+  const submit = async () => {
+    if (!ready || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await onSave({
+        opponentName: opponentName.trim(), date, note: note.trim(),
+        result: result || null, format: format || null,
+        durationMinutes: durationMinutes === '' ? null : Number(durationMinutes),
+        score: score.trim(),
+        partnerName: isDoubles ? partnerName.trim() : '',
+        opponent2Name: isDoubles ? opponent2Name.trim() : '',
+      });
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
@@ -1112,8 +1158,8 @@ function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={5} placeholder="Oliko taktiikkaa etukäteen? Piti/muuttuiko se? Mitä huomasit vastustajan syötöstä, lyönneistä, pelistä?"
           style={{ ...inputStyle, resize: 'none', marginBottom: 16 }} />
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>Tallenna</button>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : 'Tallenna'}</button>
         </div>
       </div>
     </div>
@@ -1257,20 +1303,20 @@ function ProfileRow({ label, value, hint }) {
   );
 }
 
-function ProfileView({ student, group, state, onSignOut, onReload }) {
+function ProfileView({ student, groups, state, onSignOut, onReload }) {
   const [editOpen, setEditOpen] = React.useState(false);
   const coaches = (state && state.coaches) || [];
   return (
     <div>
       <PageHeader title="Profiili" action={<button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>} />
-      <IdentityBlock student={student} group={group} />
+      <IdentityBlock student={student} groups={groups} />
 
       <SectionTitle>Omat tiedot</SectionTitle>
       <div className="k-card" style={{ padding: '4px 18px 14px', marginBottom: 26 }}>
         <ProfileRow label="Nimi" value={student.name} />
         <ProfileRow label="Ikä" value={playerAgeLabel(student)} hint="Ei asetettu" />
         <ProfileRow label="Taso" value={student.level} hint="Valmentaja asettaa" />
-        <ProfileRow label="Ryhmä" value={group ? `${group.name} · ${group.day} klo ${group.time}` : ''} hint="Ei ryhmää" />
+        <ProfileRow label="Ryhmä" value={(groups && groups.length) ? groups.map((g) => `${g.name} · ${g.day} klo ${g.time}`).join(' · ') : ''} hint="Ei ryhmää" />
         <ProfileRow label="Valmentaja" value={coaches.map((c) => c.name).join(', ')} hint="Ei valmentajaa" />
         <div style={{ paddingTop: 12, color: '#8a857a', fontSize: 12.5, lineHeight: 1.5 }}>
           Beta-pilotissa terveystietoja ei tallenneta Koutsiin.
@@ -1475,7 +1521,10 @@ function PlayerApp({ studentId, onSignOut }) {
   if (loadError && !state) return <window.KoutsiErrorScreen message="Tietojasi ei saatu ladattua. Tarkista verkkoyhteys ja yritä uudelleen." onRetry={initialLoad} onSignOut={onSignOut} />;
   if (!state || !student) return <window.KoutsiAuthLoadingScreen />;
 
-  const group = window.koutsiGroupForStudent(state, student.id);
+  // Plural: a player can be in more than one group (GroupView already handles this
+  // correctly), and Home/Profile were the only two views still using the singular lookup,
+  // silently showing just one group's schedule/theme when the player is in several.
+  const groups = window.koutsiGroupsForStudent(state, student.id);
   const hasCoach = (state.coaches || []).length > 0;
   const exercise = exerciseId != null ? state.exercises.find((e) => e.id === exerciseId) : null;
   const attendanceTraining = attendanceTrainingId != null ? state.trainings.find((t) => t.id === attendanceTrainingId) : null;
@@ -1547,8 +1596,11 @@ function PlayerApp({ studentId, onSignOut }) {
   };
 
   // Ei guarded: AddSelfTrainingModal näyttää virheen itse (sama malli kuin videon lisäys).
-  const addSelfTraining = async (payload) => {
-    const coachId = (state.coaches[0] || {}).id;
+  const addSelfTraining = async ({ coachId: pickedCoachId, ...payload }) => {
+    // The modal now lets the player choose which coach a self-log is for when they have
+    // more than one; falling back to coaches[0] only covers the single-coach case, where
+    // that's the only coach there is anyway.
+    const coachId = pickedCoachId ?? (state.coaches[0] || {}).id;
     await window.koutsiAddSelfTraining({ studentId, coachId, ...payload });
     await reload();
   };
@@ -1566,7 +1618,7 @@ function PlayerApp({ studentId, onSignOut }) {
       <MobileTopBar student={student} onProfile={() => setTab('profile')} onSignOut={onSignOut} />
       <div className="kv-main">
         <div key={tab} className="k-rise-in" style={{ maxWidth: 640, margin: '0 auto' }}>
-          {tab === 'home' && <HomeView student={student} state={state} group={group} hasCoach={hasCoach} onSaveGoal={saveGoal} wish={wish} setWish={setWish} wishSaved={wishSaved} onSaveWish={saveWish} onToggleHomework={toggleHomework} onGoTab={setTab} />}
+          {tab === 'home' && <HomeView student={student} state={state} groups={groups} hasCoach={hasCoach} onSaveGoal={saveGoal} wish={wish} setWish={setWish} wishSaved={wishSaved} onSaveWish={saveWish} onToggleHomework={toggleHomework} onGoTab={setTab} />}
           {tab === 'group' && <GroupView student={student} state={state} hasCoach={hasCoach} onJoined={reload} onEditAttendance={setAttendanceTrainingId} />}
           {tab === 'trainings' && (
             <TrainingsView
@@ -1587,7 +1639,7 @@ function PlayerApp({ studentId, onSignOut }) {
               onEditMatchNote={(n) => { setEditingMatchNote(n); setMatchNoteOpen(true); }}
               onDeleteMatchNote={deleteMatchNote} />
           )}
-          {tab === 'profile' && <ProfileView student={student} group={group} state={state} onSignOut={onSignOut} onReload={reload} />}
+          {tab === 'profile' && <ProfileView student={student} groups={groups} state={state} onSignOut={onSignOut} onReload={reload} />}
         </div>
       </div>
       <MobileBottomNav tab={tab} setTab={setTab} />

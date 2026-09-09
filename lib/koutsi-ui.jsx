@@ -69,16 +69,24 @@ function useKoutsiToast() { return React.useContext(KoutsiToastContext); }
 const KoutsiConfirmContext = React.createContext(null);
 
 function KoutsiConfirmProvider({ children }) {
-  const [dialog, setDialog] = React.useState(null);
+  // A queue, not a single slot: two confirm() calls can land before either is answered
+  // (two near-simultaneous delete clicks, a fast double action), and a single-slot dialog
+  // used to let the second call's setDialog(...) silently overwrite the first — orphaning
+  // its promise forever, since close() only ever resolved whatever dialog was current.
+  // Queuing means every confirm() is guaranteed to eventually resolve, one dialog at a time.
+  const [queue, setQueue] = React.useState([]);
   const [typed, setTyped] = React.useState('');
+  const dialog = queue[0] || null;
   const confirm = React.useCallback((opts) => new Promise((resolve) => {
-    setTyped('');
-    setDialog({ ...opts, resolve });
+    setQueue((prev) => [...prev, { ...opts, resolve }]);
   }), []);
 
   const close = (result) => {
-    if (dialog) dialog.resolve(result);
-    setDialog(null);
+    setQueue((prev) => {
+      const [current, ...rest] = prev;
+      if (current) current.resolve(result);
+      return rest;
+    });
     setTyped('');
   };
 

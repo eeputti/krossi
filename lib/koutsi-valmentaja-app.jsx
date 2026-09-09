@@ -1302,10 +1302,18 @@ function ClubEventModal({ editing, defaultDate, onClose, onSave }) {
   const [date, setDate] = React.useState(() => (editing ? editing.date : (defaultDate || window.koutsiTodayStr())));
   const [endDate, setEndDate] = React.useState(() => (editing ? editing.endDate || '' : ''));
   const [kind, setKind] = React.useState(() => (editing ? editing.kind || 'seura' : 'seura'));
+  const [busy, setBusy] = React.useState(false);
+  const busyRef = React.useRef(false); // see GroupFormModal's submit for why a ref, not just state
   const endDateValid = !endDate || endDate >= date;
-  const ready = title.trim() && date && endDateValid;
+  const ready = title.trim() && date && endDateValid && !busy;
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  const submit = async () => {
+    if (!ready || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try { await onSave({ title: title.trim(), date, endDate: endDate || null, kind }); } finally { busyRef.current = false; setBusy(false); }
+  };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(440px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
@@ -1331,8 +1339,8 @@ function ClubEventModal({ editing, defaultDate, onClose, onSave }) {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => ready && onSave({ title: title.trim(), date, endDate: endDate || null, kind })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{isEdit ? 'Tallenna' : 'Lisää'}</button>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : (isEdit ? 'Tallenna' : 'Lisää')}</button>
         </div>
       </div>
     </div>
@@ -2287,11 +2295,31 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
   const [duration, setDuration] = React.useState(() => (editing ? editing.durationMinutes || 60 : 60));
   const [weeksAhead, setWeeksAhead] = React.useState(12);
   const [memberIds, setMemberIds] = React.useState([]);
+  const [busy, setBusy] = React.useState(false);
+  // A plain useState guard isn't enough: two click events dispatched in the same tick (a
+  // fast real double-click, or two synthetic clicks) both run this closure before React
+  // re-renders, so both would read the same stale `busy=false` from the last render. A ref
+  // mutates immediately, so the second call sees what the first just set.
+  const busyRef = React.useRef(false);
   const toggleMember = (id) => setMemberIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  const ready = name.trim() && time.trim();
+  const ready = name.trim() && time.trim() && !busy;
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
   const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+  // onSave (saveGroup) awaits the actual insert before closing this modal — without this
+  // guard, a double-click fires two koutsiCreateGroup calls before the first one resolves
+  // and creates two identical groups, each with its own generated weekly training series.
+  const submit = async () => {
+    if (!ready || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await onSave({ name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time: time.trim(), durationMinutes: duration, memberIds, weeksAhead });
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
@@ -2339,8 +2367,8 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => ready && onSave({ name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time: time.trim(), durationMinutes: duration, memberIds, weeksAhead })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</button>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : (isEdit ? 'Tallenna' : 'Luo ryhmä')}</button>
         </div>
         {!isEdit && <p style={{ fontSize: 12, color: '#8a857a', marginTop: 12, lineHeight: 1.5 }}>Viikoittaiset treenit ilmestyvät kalenteriin automaattisesti valitsemasi ajan verran. Voit kutsua uusia pelaajia liittymislinkillä ryhmän luomisen jälkeen.</p>}
       </div>
@@ -2986,8 +3014,10 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
   // keeps the series useful for the foreseeable future while staying below its safety cap.
   const repeatUntil = repeat && date ? window.koutsiAddDays(date, 365) : null;
   const occurrences = repeatUntil ? window.koutsiWeeklyDates(date, repeatUntil).length : 1;
+  const [busy, setBusy] = React.useState(false);
+  const busyRef = React.useRef(false); // see GroupFormModal's submit for why a ref, not just state
   const ready = (targetType === 'student' ? studentId != null : groupId != null) && date && time.trim()
-    && trainingTypes.includes(type);
+    && trainingTypes.includes(type) && !busy;
   const inputStyle = { flex: 1, boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const Pill = ({ on, children, onClick }) => (
     <button onClick={onClick} style={{ padding: '9px 15px', borderRadius: 999, border: on ? 'none' : '1px solid #d8d4ca', background: on ? 'var(--lime)' : '#fff', color: on ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{children}</button>
@@ -3003,14 +3033,35 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
     setGroupId(newId);
   };
 
-  const save = () => {
-    if (!ready) return;
-    onSave({
-      studentId: targetType === 'student' ? studentId : null,
-      groupId: targetType === 'group' ? groupId : null,
-      date, time: time.trim(), type,
-      repeatUntil,
-    });
+  // onSave (saveTraining) awaits the actual insert before closing this modal — without a
+  // local busy flag, a double-click fires two koutsiAddTraining calls before the first
+  // resolves, doubling a single session or, worse, an entire year-long recurring series.
+  const save = async () => {
+    if (!ready || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await onSave({
+        studentId: targetType === 'student' ? studentId : null,
+        groupId: targetType === 'group' ? groupId : null,
+        date, time: time.trim(), type,
+        repeatUntil,
+      });
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+  const saveSeries = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await onSaveSeries({ time: time.trim(), type });
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   };
 
   return (
@@ -3099,14 +3150,14 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
         )}
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
           <button onClick={save} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>
-            {isEdit ? 'Tallenna' : (occurrences > 1 ? 'Lisää viikoittainen' : 'Lisää')}
+            {busy ? 'Tallennetaan…' : (isEdit ? 'Tallenna' : (occurrences > 1 ? 'Lisää viikoittainen' : 'Lisää'))}
           </button>
         </div>
         {isEdit && editing.seriesId && (
-          <button onClick={() => onSaveSeries({ time: time.trim(), type })} className="btn-outline btn-sm" style={{ width: '100%', marginTop: 10 }}>
-            Tallenna kellonaika ja tyyppi koko sarjaan
+          <button onClick={saveSeries} disabled={busy} className="btn-outline btn-sm" style={{ width: '100%', marginTop: 10, opacity: busy ? 0.6 : 1 }}>
+            {busy ? 'Tallennetaan…' : 'Tallenna kellonaika ja tyyppi koko sarjaan'}
           </button>
         )}
         {groupFormOpen && (
@@ -3315,9 +3366,17 @@ function ExerciseFormModal({ editing, onClose, onSave }) {
   const [level, setLevel] = React.useState(() => (editing ? editing.level || '' : ''));
   const [tags, setTags] = React.useState(() => (editing ? editing.tags || [] : []));
   const toggleTag = (t) => setTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
-  const ready = name.trim() && goal.trim() && players.trim() && duration.trim() && level.trim();
+  const [busy, setBusy] = React.useState(false);
+  const busyRef = React.useRef(false); // see GroupFormModal's submit for why a ref, not just state
+  const ready = name.trim() && goal.trim() && players.trim() && duration.trim() && level.trim() && !busy;
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+  const submit = async () => {
+    if (!ready || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try { await onSave({ name: name.trim(), goal: goal.trim(), players: players.trim(), playerCount, duration: duration.trim(), level: level.trim(), tags }); } finally { busyRef.current = false; setBusy(false); }
+  };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
@@ -3351,8 +3410,8 @@ function ExerciseFormModal({ editing, onClose, onSave }) {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => ready && onSave({ name: name.trim(), goal: goal.trim(), players: players.trim(), playerCount, duration: duration.trim(), level: level.trim(), tags })} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{isEdit ? 'Tallenna' : 'Lisää'}</button>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : (isEdit ? 'Tallenna' : 'Lisää')}</button>
         </div>
       </div>
     </div>
@@ -4356,8 +4415,12 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
       if (ok) await act(() => window.koutsiDeleteTraining(t.id), 'Treeni poistettu.')();
       return;
     }
+    // "Poista kaikki tulevat" must never reach into the past, even when the coach opened
+    // this dialog from an already-happened occurrence — otherwise "tulevat" (upcoming) ends
+    // up deleting sessions, and their attendance, that already took place.
+    const seriesFromDate = t.date < window.koutsiTodayStr() ? window.koutsiTodayStr() : t.date;
     let remaining = 0;
-    try { remaining = await window.koutsiCountSeriesRemaining(t.seriesId, t.date); } catch { /* fall back to the single-session wording */ }
+    try { remaining = await window.koutsiCountSeriesRemaining(t.seriesId, seriesFromDate); } catch { /* fall back to the single-session wording */ }
     const whole = await confirm({
       title: 'Poista koko sarja?',
       body: `${label} kuuluu viikoittaiseen sarjaan${remaining ? ` (${remaining} tulevaa kertaa)` : ''}. Poistetaanko kaikki tulevat kerrat vai vain tämä?`,
@@ -4365,7 +4428,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
       cancelLabel: 'Vain tämä kerta',
       danger: true,
     });
-    if (whole) await act(() => window.koutsiDeleteTrainingSeries(t.seriesId, t.date), 'Sarja poistettu.')();
+    if (whole) await act(() => window.koutsiDeleteTrainingSeries(t.seriesId, seriesFromDate), 'Sarja poistettu.')();
     else await act(() => window.koutsiDeleteTraining(t.id), 'Treeni poistettu.')();
   };
 
@@ -4411,27 +4474,36 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   // open for a useful summary while the underlying roster refreshes immediately.
   const bulkSetup = async ({ groups, players, themes, extraSlots, existingPlayers, weeksAhead }) => {
     const result = await window.koutsiBulkSetup({ coachId, groups, players, themes, weeksAhead });
-    // Extra weekly times a group got in the wizard: attached now that the group has a
-    // real id (result.group_ids maps the wizard's temporary client_id to it).
-    if (extraSlots?.length && result?.group_ids) {
-      for (const { clientId, slots } of extraSlots) {
-        const groupId = result.group_ids[clientId];
-        if (!groupId) continue;
-        for (const slot of slots) {
-          await window.koutsiAddGroupSlot({ groupId, coachId, day: slot.day, time: slot.time, durationMinutes: slot.duration, weeksAhead });
+    // The players/groups above are already committed the moment this call returns. Reload
+    // now, before the follow-up steps below, so the coach sees them right away even if one
+    // of those steps fails — an empty-looking list after a "failed" save is what invites a
+    // retry, and koutsiBulkSetup has no create-time dedup (same as every player-creation
+    // path), so a retry would recreate these same players as duplicates.
+    await reload();
+    try {
+      // Extra weekly times a group got in the wizard: attached now that the group has a
+      // real id (result.group_ids maps the wizard's temporary client_id to it).
+      if (extraSlots?.length && result?.group_ids) {
+        for (const { clientId, slots } of extraSlots) {
+          const groupId = result.group_ids[clientId];
+          if (!groupId) continue;
+          for (const slot of slots) {
+            await window.koutsiAddGroupSlot({ groupId, coachId, day: slot.day, time: slot.time, durationMinutes: slot.duration, weeksAhead });
+          }
         }
       }
-    }
-    // Players the coach picked from the existing roster instead of typing a new name —
-    // no new student to create, just add them to whichever group they were assigned here
-    // (possibly one this same run just created).
-    if (existingPlayers?.length) {
-      for (const { studentId, groupKey } of existingPlayers) {
-        const groupId = groupKey ? result?.group_ids?.[groupKey] : null;
-        if (groupId) await window.koutsiAddGroupMembers(groupId, [studentId]);
+      // Players the coach picked from the existing roster instead of typing a new name —
+      // no new student to create, just add them to whichever group they were assigned here
+      // (possibly one this same run just created).
+      if (existingPlayers?.length) {
+        for (const { studentId, groupKey } of existingPlayers) {
+          const groupId = groupKey ? result?.group_ids?.[groupKey] : null;
+          if (groupId) await window.koutsiAddGroupMembers(groupId, [studentId]);
+        }
       }
+    } finally {
+      await reload();
     }
-    await reload();
     const existingCount = existingPlayers?.length || 0;
     toast.success(existingCount
       ? `${result?.players_created || players.length} uutta pelaajaa lisätty, ${existingCount} olemassa olevaa liitetty ryhmään.`
@@ -4540,10 +4612,16 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     return ok ? newId : null;
   };
   const deleteGroup = async () => {
-    const upcomingCount = groupUpcoming.length;
+    // koutsi_trainings.group_id cascades on delete at the database level, so every training
+    // this group has ever had — not just the upcoming ones — is removed the moment the group
+    // row is, taking each one's attendance record with it. Say so plainly instead of only
+    // naming the upcoming count, which understated what actually disappears.
+    const totalCount = groupTrainings.length;
+    const pastCount = totalCount - groupUpcoming.length;
+    const historyNote = pastCount > 0 ? ` Mukana on ${pastCount} jo pidettyä treeniä, joiden läsnäolomerkinnät poistuvat pysyvästi eikä niitä voi palauttaa.` : '';
     const ok = await confirm({
       title: `Poista ryhmä ${groupDetail.name}?`,
-      body: `Ryhmä ja sen ${upcomingCount} tulevaa treeniä poistetaan. Pelaajat säilyvät oppilainasi ja saavat ilmoituksen peruuntuneista treeneistä.`,
+      body: `Ryhmä ja kaikki sen ${totalCount} treeniä poistetaan.${historyNote} Pelaajat säilyvät oppilainasi ja saavat ilmoituksen peruuntuneista treeneistä.`,
       confirmLabel: 'Poista ryhmä', danger: true,
     });
     if (!ok) return;
