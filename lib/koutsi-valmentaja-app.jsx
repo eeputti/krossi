@@ -1412,9 +1412,9 @@ function PlaceholderNotice({ student, coach }) {
   const [code, setCode] = React.useState(null);
   React.useEffect(() => {
     let alive = true;
-    window.koutsiMyJoinCode(coach.id).then((c) => { if (alive) setCode(c || null); }).catch(() => {});
+    window.koutsiPlaceholderJoinCode(student.id).then((c) => { if (alive) setCode(c || null); }).catch(() => {});
     return () => { alive = false; };
-  }, [coach.id]);
+  }, [student.id]);
   const firstName = (student.name || '').split(' ')[0] || 'Pelaaja';
   const link = code ? window.koutsiInviteLink(code, student.id) : '';
   const message = code ? window.koutsiInviteMessage(code, coach.name, null, student.id) : '';
@@ -1429,11 +1429,11 @@ function PlaceholderNotice({ student, coach }) {
       </div>
       <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55 }}>
         {firstName} ei ole vielä liittynyt Krossiin. Voit silti kirjata hänelle treenejä, päiväkirjamerkintöjä
-        ja läksyjä. Kun hän liittyy alla olevasta linkistä, kirjaukset siirtyvät hänen tililleen.
+        ja läksyjä. Kun hän liittyy alla olevalla koodilla tai linkillä, kirjaukset siirtyvät hänen tililleen.
       </div>
       {code && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(214,140,44,0.3)' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#8a5a12', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Liittymiskoodisi</div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#8a5a12', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{firstName}n oma liittymiskoodi</div>
           <div style={{ fontSize: 21, fontWeight: 800, letterSpacing: 3, color: '#111', marginBottom: 10 }}>{code}</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <window.KoutsiCopyButton text={message} label="Kopioi viesti" copiedLabel="Viesti kopioitu!" className="btn-dark btn-sm" />

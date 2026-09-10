@@ -1717,8 +1717,16 @@ function JoinCodeForm({ onJoined, autoFocus }) {
         finish(await window.koutsiClaimPlayer(normalized, targetStudentId));
       } else {
         const match = await window.koutsiMatchUnclaimedPlayer(normalized);
-        if (match) { setSuggestion(match); setPhase('suggestion'); setBusy(false); return; }
-        setPhase('ask'); setBusy(false);
+        if (match?.direct) {
+          // Code belongs to exactly one placeholder (a player's own code, not a shared
+          // coach/group one) — as unambiguous as a personal link, so claim it the same way,
+          // no "is this you?" needed.
+          finish(await window.koutsiClaimPlayer(normalized, match.id));
+        } else if (match) {
+          setSuggestion(match); setPhase('suggestion'); setBusy(false);
+        } else {
+          setPhase('ask'); setBusy(false);
+        }
       }
     } catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); setBusy(false); }
   };

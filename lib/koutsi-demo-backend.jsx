@@ -815,6 +815,11 @@
   window.koutsiUnclaimedPlayersForCode = () => done(
     load().students.filter((x) => x.isPlaceholder).map((s) => ({ id: s.id, name: s.name }))
   );
+  // Stable per-student demo code: derived from the id so it doesn't change between calls,
+  // same as the real lazily-generated-then-stored one would look from the UI's perspective.
+  window.koutsiPlaceholderJoinCode = (studentId) => done(
+    `DEMO${String(studentId).replace(/[^A-Z0-9]/gi, '').slice(-2).toUpperCase().padStart(2, '0')}`
+  );
   window.koutsiRedeemCoachKey = () => done({ ok: true });
   window.koutsiEndCoaching = (coachId, studentId) => {
     const s = load();
