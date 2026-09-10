@@ -4,13 +4,13 @@
 -- existing row stays valid; the note field remains the primary content.
 
 alter table public.koutsi_match_notes
-  add column duration_minutes integer
+  add column if not exists duration_minutes integer
     check (duration_minutes is null or (duration_minutes > 0 and duration_minutes <= 300)),
-  add column result text
+  add column if not exists result text
     check (result is null or result in ('voitto', 'tappio')),
-  add column format text
+  add column if not exists format text
     check (format is null or format in ('kaksinpeli', 'nelinpeli')),
-  add column score text;
+  add column if not exists score text;
 
 comment on column public.koutsi_match_notes.duration_minutes is 'Ottelun kesto minuutteina.';
 comment on column public.koutsi_match_notes.result is 'Ottelun lopputulos pelaajan kannalta: voitto tai tappio.';

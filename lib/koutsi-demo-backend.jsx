@@ -805,6 +805,16 @@
     return done({ coach_id: COACH, coach_name: s.coach.name, claimed: true });
   };
   window.koutsiRedeemInviteCode = () => done({ coach_id: COACH, coach_name: 'Anna Koskinen', group_id: GROUP, group_name: 'Aikuiset A' });
+  // Demossa ei ole oikeaa kirjautunutta pelaajaprofiilia jonka nimeä verrata paikanvaraajiin,
+  // joten mock näyttää "oletko sinä?" -kysymyksen aina kun listalla on tismalleen yksi vielä
+  // lunastamaton pelaaja — riittää demoamaan UI:n, ei todellista nimivertailua.
+  window.koutsiMatchUnclaimedPlayer = () => {
+    const placeholders = load().students.filter((x) => x.isPlaceholder);
+    return done(placeholders.length === 1 ? { id: placeholders[0].id, name: placeholders[0].name } : null);
+  };
+  window.koutsiUnclaimedPlayersForCode = () => done(
+    load().students.filter((x) => x.isPlaceholder).map((s) => ({ id: s.id, name: s.name }))
+  );
   window.koutsiRedeemCoachKey = () => done({ ok: true });
   window.koutsiEndCoaching = (coachId, studentId) => {
     const s = load();

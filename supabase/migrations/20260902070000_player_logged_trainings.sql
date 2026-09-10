@@ -13,15 +13,16 @@
 -- authorise a student reading their coach's events.
 
 alter table public.koutsi_trainings
-  add column logged_by text not null default 'coach'
+  add column if not exists logged_by text not null default 'coach'
     check (logged_by in ('coach', 'player')),
-  add column notes text;
+  add column if not exists notes text;
 
 comment on column public.koutsi_trainings.logged_by is
   'Who created this session: the coach (or an admin acting as one), or the player logging their own practice.';
 comment on column public.koutsi_trainings.notes is
   'Free-text note on a player-logged session, e.g. what they did or who they played with.';
 
+drop policy if exists "koutsi_trainings_player_insert" on public.koutsi_trainings;
 create policy "koutsi_trainings_player_insert" on public.koutsi_trainings
   for insert to authenticated
   with check (
@@ -31,6 +32,7 @@ create policy "koutsi_trainings_player_insert" on public.koutsi_trainings
     and public.koutsi_is_my_coach(coach_id)
   );
 
+drop policy if exists "koutsi_trainings_player_update" on public.koutsi_trainings;
 create policy "koutsi_trainings_player_update" on public.koutsi_trainings
   for update to authenticated
   using (logged_by = 'player' and student_id = (select auth.uid()))
@@ -41,6 +43,7 @@ create policy "koutsi_trainings_player_update" on public.koutsi_trainings
     and public.koutsi_is_my_coach(coach_id)
   );
 
+drop policy if exists "koutsi_trainings_player_delete" on public.koutsi_trainings;
 create policy "koutsi_trainings_player_delete" on public.koutsi_trainings
   for delete to authenticated
   using (logged_by = 'player' and student_id = (select auth.uid()));

@@ -6,7 +6,7 @@
 -- multi-day self-logged entry just needs an optional end date, same idea as
 -- koutsi_coach_events.end_date.
 alter table public.koutsi_trainings
-  add column end_date date
+  add column if not exists end_date date
     check (end_date is null or end_date >= date);
 
 comment on column public.koutsi_trainings.end_date is

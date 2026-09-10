@@ -234,7 +234,8 @@ function InviteStudentModal({ coachId, coachName, onClose }) {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(420px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Kutsu uusi oppilas</h3>
-        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Pelaaja voi liittyä tällä koodilla ilman ikätietoa. Henkilökohtainen linkki syntyy, kun lisäät pelaajan ensin nimellä oppilaslistaan.</p>
+        <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 16, lineHeight: 1.5 }}>Pelaaja voi liittyä tällä koodilla ilman ikätietoa. Sama koodi käy koko ryhmälle kerralla jaettuna: jos olet jo lisännyt pelaajan nimellä oppilaslistaan, sovellus tunnistaa hänet nimen perusteella ja kysyy varmistuksen ennen kuin liittää — henkilökohtaista linkkiä ei siis ole pakko lähettää jokaiselle erikseen.</p>
+        <p style={{ fontSize: 12.5, color: '#8a5a12', background: 'rgba(214,140,44,0.1)', border: '1px solid rgba(214,140,44,0.3)', borderRadius: 10, padding: '9px 12px', marginBottom: 16, lineHeight: 1.5 }}>Tämä koodi ei liitä ketään suoraan mihinkään treeniryhmään. Jos kutsut väkeä yhtä tiettyä ryhmää varten, hae koodi mieluummin sen ryhmän sivulta ("Lisää jäseniä") — silloin liittyjät päätyvät heti oikeaan ryhmään.</p>
         <InviteCodeBox coachId={coachId} coachName={coachName} groupId={null} groupName={null} />
         <button onClick={onClose} className="btn-outline" style={{ width: '100%', padding: '13px 0', marginTop: 16 }}>Sulje</button>
       </div>
@@ -1727,15 +1728,23 @@ function StudentDetail({ student, coach, state, trainings, groups, upcoming, att
 
 function HomeworkModal({ student, onClose, onSend }) {
   const [val, setVal] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const ready = val.trim() && !busy;
+  const submit = async () => {
+    if (!ready) return;
+    setBusy(true);
+    try { await onSend(val.trim()); } finally { setBusy(false); }
+  };
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Uusi kotiläksy — {student.name}</h3>
         <textarea autoFocus value={val} onChange={(e) => setVal(e.target.value)} placeholder="Esim. 20 rystylyöntiä seinää vasten…" rows={3}
-          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 16, background: '#fff' }} />
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 8, background: '#fff' }} />
+        <div style={{ fontSize: 11.5, color: '#8f2f24', lineHeight: 1.45, marginBottom: 16 }}>Älä kirjoita merkintään vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.</div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => val.trim() && onSend(val.trim())} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: val.trim() ? 1 : 0.45, cursor: val.trim() ? 'pointer' : 'default' }}>Tallenna</button>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} disabled={!ready} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : 'Tallenna'}</button>
         </div>
       </div>
     </div>
@@ -1744,16 +1753,23 @@ function HomeworkModal({ student, onClose, onSend }) {
 
 function EntryModal({ student, entry, onClose, onSend }) {
   const [val, setVal] = React.useState(() => (entry ? entry.text : ''));
+  const [busy, setBusy] = React.useState(false);
+  const ready = val.trim() && !busy;
+  const submit = async () => {
+    if (!ready) return;
+    setBusy(true);
+    try { await onSend(val.trim()); } finally { setBusy(false); }
+  };
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(460px, 100%)', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>{entry ? 'Muokkaa merkintää' : 'Päiväkirja'} — {student.name}</h3>
         <textarea autoFocus value={val} onChange={(e) => setVal(e.target.value)} placeholder="Esim. Hyvä nousu syötössä tällä viikolla…" rows={4}
           style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 8, background: '#fff' }} />
         <div style={{ fontSize: 11.5, color: '#8f2f24', lineHeight: 1.45, marginBottom: 16 }}>Älä kirjoita merkintään vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.</div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
-          <button onClick={() => val.trim() && onSend(val.trim())} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: val.trim() ? 1 : 0.45, cursor: val.trim() ? 'pointer' : 'default' }}>Tallenna</button>
+          <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} disabled={!ready} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : 'Tallenna'}</button>
         </div>
       </div>
     </div>
@@ -4299,9 +4315,14 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
 
   const [loadError, setLoadError] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(null); // null = the check is still out
+  // Concurrent reloads (two actions fired close together) can resolve out of order — this
+  // sequence number makes sure only the most recently *started* reload's result ever lands
+  // in state, so an older snapshot can't clobber a newer one.
+  const reloadSeq = React.useRef(0);
   const reload = React.useCallback(async () => {
+    const seq = ++reloadSeq.current;
     const next = await window.koutsiLoadCoachState(coachId);
-    setState(next);
+    if (seq === reloadSeq.current) setState(next);
   }, [coachId]);
   // Vain ensilataus voi jäädä tyhjän ruudun taakse; myöhemmät virheet raportoi toast.
   const initialLoad = React.useCallback(async () => {

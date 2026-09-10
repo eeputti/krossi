@@ -6,7 +6,7 @@
 -- weekly koutsi_trainings series exactly like the primary slot does, so every existing
 -- calendar view (coach, player, group detail) shows it with zero rendering changes: it's
 -- just more rows with the same group_id.
-create table public.koutsi_group_slots (
+create table if not exists public.koutsi_group_slots (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.koutsi_groups(id) on delete cascade,
   coach_id uuid not null references public.koutsi_coaches(id),
@@ -25,21 +25,25 @@ comment on table public.koutsi_group_slots is
 
 alter table public.koutsi_group_slots enable row level security;
 
+drop policy if exists "koutsi_group_slots_select" on public.koutsi_group_slots;
 create policy "koutsi_group_slots_select" on public.koutsi_group_slots
   for select to authenticated
   using (public.koutsi_acts_as(coach_id) or public.koutsi_is_group_member(group_id));
 
+drop policy if exists "koutsi_group_slots_insert" on public.koutsi_group_slots;
 create policy "koutsi_group_slots_insert" on public.koutsi_group_slots
   for insert to authenticated
   with check (public.koutsi_acts_as(coach_id));
 
+drop policy if exists "koutsi_group_slots_update" on public.koutsi_group_slots;
 create policy "koutsi_group_slots_update" on public.koutsi_group_slots
   for update to authenticated
   using (public.koutsi_acts_as(coach_id))
   with check (public.koutsi_acts_as(coach_id));
 
+drop policy if exists "koutsi_group_slots_delete" on public.koutsi_group_slots;
 create policy "koutsi_group_slots_delete" on public.koutsi_group_slots
   for delete to authenticated
   using (public.koutsi_acts_as(coach_id));
 
-create index koutsi_group_slots_group_id_idx on public.koutsi_group_slots (group_id);
+create index if not exists koutsi_group_slots_group_id_idx on public.koutsi_group_slots (group_id);

@@ -117,8 +117,15 @@ function GoalCard({ student, onSave }) {
   React.useEffect(() => {
     if (!editing) setValue(student.goal);
   }, [student.id, student.goal, editing]);
-  const save = () => {
-    onSave(value.trim());
+  const [busy, setBusy] = React.useState(false);
+  const save = async () => {
+    setBusy(true);
+    const ok = await onSave(value.trim());
+    setBusy(false);
+    // On failure, stay in edit mode with the typed value intact — the effect above only
+    // resets `value` back to student.goal once editing closes, so leaving it open here is
+    // what keeps a failed save from silently discarding what the player typed.
+    if (!ok) return;
     setEditing(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -132,8 +139,8 @@ function GoalCard({ student, onSave }) {
             <textarea autoFocus value={value} onChange={(e) => setValue(e.target.value)} rows={2} placeholder="Missä haluaisit kehittyä?"
               style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--line)', borderRadius: 12, padding: '11px 13px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 10, background: '#fff' }} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setEditing(false)} className="btn-outline btn-sm">Peruuta</button>
-              <button onClick={save} className="btn-dark btn-sm">Tallenna</button>
+              <button onClick={() => setEditing(false)} disabled={busy} className="btn-outline btn-sm">Peruuta</button>
+              <button onClick={save} disabled={busy} className="btn-dark btn-sm">{busy ? 'Tallennetaan…' : 'Tallenna'}</button>
             </div>
           </React.Fragment>
         ) : (
@@ -185,7 +192,7 @@ function VideoModal({ onClose, onSave }) {
         onProgress: setProgress,
       });
     }
-    catch (err) { setError(err.message || 'Videon tallennus epäonnistui'); setBusy(false); }
+    catch (err) { setError(window.koutsiErrorText(err, 'Videon tallennus epäonnistui')); setBusy(false); }
   };
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   return (
@@ -667,7 +674,7 @@ function AddSelfTrainingModal({ date, coaches, onClose, onSave, onSwitchToMatch 
         endDate: isTournament && endDate ? endDate : null,
       });
     }
-    catch (err) { setError(err.message || 'Tallennus epäonnistui'); setBusy(false); }
+    catch (err) { setError(window.koutsiErrorText(err, 'Tallennus epäonnistui')); setBusy(false); }
   };
   return (
     <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -1061,7 +1068,8 @@ function MoodModal({ onClose, onSave }) {
           ))}
         </div>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Miksi? (valinnainen)" rows={3}
-          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 14, background: '#fff' }} />
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 8, background: '#fff' }} />
+        <div style={{ fontSize: 11.5, color: '#8f2f24', lineHeight: 1.45, marginBottom: 16 }}>Älä kirjoita vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.</div>
         <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginBottom: 16, cursor: 'pointer' }}>
           <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} style={{ marginTop: 2, width: 16, height: 16, accentColor: 'var(--green-deep)', flexShrink: 0 }} />
           <span style={{ fontSize: 13, color: '#3c382f', lineHeight: 1.45 }}>Älä näytä tätä valmentajalle — vain omaan seurantaani</span>
@@ -1156,7 +1164,8 @@ function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
         </div>
         <div style={label}>Muistiinpano</div>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={5} placeholder="Oliko taktiikkaa etukäteen? Piti/muuttuiko se? Mitä huomasit vastustajan syötöstä, lyönneistä, pelistä?"
-          style={{ ...inputStyle, resize: 'none', marginBottom: 16 }} />
+          style={{ ...inputStyle, resize: 'none', marginBottom: 8 }} />
+        <div style={{ fontSize: 11.5, color: '#8f2f24', lineHeight: 1.45, marginBottom: 16 }}>Älä kirjoita vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.</div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onClose} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
           <button onClick={submit} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>{busy ? 'Tallennetaan…' : 'Tallenna'}</button>
@@ -1492,9 +1501,14 @@ function PlayerApp({ studentId, onSignOut }) {
   const notesInitialized = React.useRef(false);
 
   const [loadError, setLoadError] = React.useState(false);
+  // Concurrent reloads (two actions fired close together) can resolve out of order — this
+  // sequence number makes sure only the most recently *started* reload's result ever lands
+  // in state, so an older snapshot can't clobber a newer one.
+  const reloadSeq = React.useRef(0);
   const reload = React.useCallback(async () => {
+    const seq = ++reloadSeq.current;
     const next = await window.koutsiLoadStudentState(studentId);
-    setState(next);
+    if (seq === reloadSeq.current) setState(next);
   }, [studentId]);
   // Vain ensilataus voi jäädä tyhjän ruudun taakse; myöhemmät virheet raportoi toast.
   const initialLoad = React.useCallback(async () => {
@@ -1533,7 +1547,7 @@ function PlayerApp({ studentId, onSignOut }) {
 
   // Every write reports failures as Finnish toasts instead of a raw alert().
   const act = (fn, successMessage) => async (...args) => {
-    await toast.run(async () => { await fn(...args); await reload(); }, successMessage);
+    return toast.run(async () => { await fn(...args); await reload(); }, successMessage);
   };
 
   const toggleHomework = act(async (i) => {
@@ -1660,8 +1674,17 @@ function PlayerApp({ studentId, onSignOut }) {
 }
 
 // ── root gate: auth -> Krossi onboarding -> personal invite -> pilot acknowledgement -> app ──
-// Suljetussa pilotissa jokainen pelaaja tulee valmentajan koodilla. Linkin ?koodi=
-// tulee esitäytettynä, jottei koodia tarvitse sanella puhelimessa.
+// Suljetussa pilotissa pelaaja tulee valmentajan koodilla. Henkilökohtaisen linkin ?koodi=
+// ja ?oppilas= tulevat esitäytettynä, jottei koodia tarvitse sanella puhelimessa. Sama
+// koodi käy myös koko ryhmälle kerralla jaettuna (InviteCodeBox: "koko ryhmälle") — silloin
+// ?oppilas= puuttuu. Jos koodi täsmää nimen perusteella tismalleen yhteen valmentajan jo
+// lisäämään, vielä lunastamattomaan pelaajaan, kysytään ensin "oletko sinä?" sen sijaan
+// että luotaisiin suoraan uusi, tyhjä profiili hänen jo olemassa olevansa rinnalle. Nimen
+// täsmäytys ei voi koskaan olla täysin luotettava (lempinimet, kirjoitusasut) — siksi kun se
+// EI löydä yksiselitteistä osumaa, pelaajalta kysytään vielä erikseen "oletko jo listalla?",
+// ja vasta myöntävästä vastauksesta näytetään valmentajan (tai ryhmäkohtaisella koodilla
+// vain sen ryhmän) lunastamattomat nimet valittavaksi — kukaan ei voi hiljaa päätyä väärälle
+// polulle, koska viimeinen sana on aina pelaajalla itsellään, ei algoritmilla.
 function JoinCodeForm({ onJoined, autoFocus }) {
   const pageParams = new URLSearchParams(window.location.search);
   const [code, setCode] = React.useState(() => (pageParams.get('koodi') || '').trim().toUpperCase());
@@ -1669,26 +1692,102 @@ function JoinCodeForm({ onJoined, autoFocus }) {
   const [error, setError] = React.useState('');
   const [info, setInfo] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  // 'form' | 'suggestion' (automaattinen osuma, kysytään "oletko sinä?") |
+  // 'ask' (ei automaattista osumaa, kysytään "oletko silti jo listalla?") |
+  // 'roster' (näytetään lunastamattomat nimet valittavaksi)
+  const [phase, setPhase] = React.useState('form');
+  const [submittedCode, setSubmittedCode] = React.useState('');
+  const [suggestion, setSuggestion] = React.useState(null); // { id, name }
+  const [roster, setRoster] = React.useState(null);
+  const errorBoxStyle = { background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13 };
 
   const finish = (result) => {
     setInfo(`Liityit${result.group_name ? ` ryhmään ${result.group_name}` : ''}${result.coach_name ? ` — valmentaja ${result.coach_name}` : ''}!`);
     setTimeout(() => onJoined(), 1400);
   };
+  const joinAsNew = async (normalized) => finish(await window.koutsiRedeemInviteCode(normalized));
 
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setInfo(''); setBusy(true);
     const normalized = code.trim().toUpperCase();
+    setSubmittedCode(normalized);
     try {
-      const result = targetStudentId
-        ? await window.koutsiClaimPlayer(normalized, targetStudentId)
-        : await window.koutsiRedeemInviteCode(normalized);
-      finish(result);
-    } catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); } finally { setBusy(false); }
+      if (targetStudentId) {
+        finish(await window.koutsiClaimPlayer(normalized, targetStudentId));
+      } else {
+        const match = await window.koutsiMatchUnclaimedPlayer(normalized);
+        if (match) { setSuggestion(match); setPhase('suggestion'); setBusy(false); return; }
+        setPhase('ask'); setBusy(false);
+      }
+    } catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); setBusy(false); }
   };
+
+  const answerSuggestion = async (isMe) => {
+    setError(''); setBusy(true);
+    try {
+      finish(isMe ? await window.koutsiClaimPlayer(submittedCode, suggestion.id) : await joinAsNew(submittedCode));
+    } catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); setPhase('form'); } finally { setBusy(false); }
+  };
+
+  const showRoster = async () => {
+    setError(''); setBusy(true);
+    try { setRoster(await window.koutsiUnclaimedPlayersForCode(submittedCode)); setPhase('roster'); }
+    catch (err) { setError(window.koutsiErrorText(err, 'Listan haku epäonnistui')); } finally { setBusy(false); }
+  };
+
+  const pickFromRoster = async (studentId) => {
+    setError(''); setBusy(true);
+    try { finish(await window.koutsiClaimPlayer(submittedCode, studentId)); }
+    catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); setPhase('form'); } finally { setBusy(false); }
+  };
+  const joinAsNewFromAsk = async () => {
+    setError(''); setBusy(true);
+    try { await joinAsNew(submittedCode); }
+    catch (err) { setError(window.koutsiErrorText(err, 'Koodi ei kelvannut')); setPhase('form'); } finally { setBusy(false); }
+  };
+
+  if (phase === 'suggestion') {
+    return (
+      <div className="k-card" style={{ padding: 18, background: 'rgba(207,228,20,0.08)', borderColor: 'rgba(207,228,20,0.4)' }}>
+        <p style={{ fontSize: 14, color: '#111', lineHeight: 1.5, marginBottom: 14 }}>Valmentajasi listalla on jo pelaaja nimeltä <b>{suggestion.name}</b>. Oletko sinä?</p>
+        {error && <div style={{ ...errorBoxStyle, marginBottom: 14 }}>{error}</div>}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => answerSuggestion(false)} disabled={busy} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Ei, olen uusi</button>
+          <button onClick={() => answerSuggestion(true)} disabled={busy} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: busy ? 0.6 : 1 }}>{busy ? 'Liitytään...' : 'Kyllä, tämä olen minä'}</button>
+        </div>
+      </div>
+    );
+  }
+  if (phase === 'ask') {
+    return (
+      <div className="k-card" style={{ padding: 18 }}>
+        <p style={{ fontSize: 14, color: '#111', lineHeight: 1.5, marginBottom: 14 }}>Emme tunnistaneet sinua nimesi perusteella automaattisesti. Onko valmentajasi silti jo lisännyt sinut oppilaslistalle?</p>
+        {error && <div style={{ ...errorBoxStyle, marginBottom: 14 }}>{error}</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button onClick={showRoster} disabled={busy} className="btn-dark" style={{ padding: '13px 0', opacity: busy ? 0.6 : 1 }}>{busy ? 'Haetaan...' : 'Olen ehkä jo listalla — näytä nimet'}</button>
+          <button onClick={joinAsNewFromAsk} disabled={busy} className="btn-outline" style={{ padding: '13px 0' }}>En, olen uusi pelaaja</button>
+        </div>
+      </div>
+    );
+  }
+  if (phase === 'roster') {
+    return (
+      <div className="k-card" style={{ padding: 18 }}>
+        <p style={{ fontSize: 14, color: '#111', lineHeight: 1.5, marginBottom: 14 }}>{roster.length ? 'Valitse itsesi listalta:' : 'Valmentajallasi ei ole juuri nyt ketään odottamassa listalla.'}</p>
+        {error && <div style={{ ...errorBoxStyle, marginBottom: 14 }}>{error}</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: roster.length ? 14 : 0 }}>
+          {roster.map((s) => (
+            <button key={s.id} onClick={() => pickFromRoster(s.id)} disabled={busy} className="btn-outline" style={{ padding: '12px 14px', textAlign: 'left' }}>{s.name}</button>
+          ))}
+        </div>
+        <button onClick={joinAsNewFromAsk} disabled={busy} className="btn-dark" style={{ width: '100%', padding: '13px 0', opacity: busy ? 0.6 : 1 }}>{busy ? 'Liitytään...' : 'En löydy täältä — olen uusi pelaaja'}</button>
+      </div>
+    );
+  }
   return (
     <React.Fragment>
-      {error && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{error}</div>}
+      {error && <div style={{ ...errorBoxStyle, marginBottom: 14 }}>{error}</div>}
       {info && <div style={{ background: 'rgba(14,59,44,0.08)', border: '1px solid rgba(14,59,44,0.25)', color: 'var(--green-deep)', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 14 }}>{info}</div>}
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Esim. VHDC6P" autoFocus={autoFocus} style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 18, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'inherit', color: '#111', background: '#fff' }} />

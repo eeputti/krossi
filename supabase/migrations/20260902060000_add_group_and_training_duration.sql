@@ -5,12 +5,16 @@
 -- its original length even if the group's default duration changes later).
 
 alter table public.koutsi_groups
-  add column duration_minutes integer not null default 60,
+  add column if not exists duration_minutes integer not null default 60;
+alter table public.koutsi_groups drop constraint if exists koutsi_groups_duration_minutes_check;
+alter table public.koutsi_groups
   add constraint koutsi_groups_duration_minutes_check
     check (duration_minutes > 0 and duration_minutes <= 480 and duration_minutes % 15 = 0);
 
 alter table public.koutsi_trainings
-  add column duration_minutes integer,
+  add column if not exists duration_minutes integer;
+alter table public.koutsi_trainings drop constraint if exists koutsi_trainings_duration_minutes_check;
+alter table public.koutsi_trainings
   add constraint koutsi_trainings_duration_minutes_check
     check (duration_minutes is null or (duration_minutes > 0 and duration_minutes <= 480 and duration_minutes % 15 = 0));
 
