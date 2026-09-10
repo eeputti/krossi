@@ -30,14 +30,30 @@ Valmentaja tekee itse samalla kun opastaja seuraa:
 
 1. Luo tilin valmentaja-avaimella ja vahvista pilotin rajaukset.
 2. Luo yksi ryhmä ja lisää pelaajat. Nimi riittää; tarkka ikä on valinnainen.
-3. Avaa nimellä lisätyn pelaajan kortti ja lähetä siitä juuri hänen henkilökohtainen
-   liittymislinkkinsä.
+3. Avaa nimellä lisätyn pelaajan kortti ja lähetä siitä juuri hänen oma liittymiskoodinsa
+   tai linkkinsä (ks. [Miten pelaajat liittyvät](#miten-pelaajat-liittyvät) alla — koodi on
+   nyt jokaisella pelaajalla oma, ei enää sama kaikilla).
 5. Lisää yksi tuleva treeni.
 6. Kirjaa yksi kotiläksy tai palaute ja tarkista, että pelaaja näkee sen.
 7. Merkitse testitreenin läsnäoloksi vain **paikalla** tai **poissa**.
 
 Jos nämä onnistuvat, valmentaja osaa pilotin ydinkäytön. Muita ominaisuuksia ei tarvitse
 opettaa ensimmäisellä kerralla.
+
+## Miten pelaajat liittyvät
+
+Kaksi tapaa, valmentaja valitsee tilanteen mukaan:
+
+- **Yksi jo nimellä lisätty pelaaja:** avaa hänen korttinsa oppilaslistalla — siellä näkyy
+  hänen **oma, ainutlaatuinen koodinsa** (eri joka pelaajalla) sekä "Kopioi linkki"/"Kopioi
+  viesti" -napit. Tämä koodi tunnistaa aina juuri sen yhden pelaajan, eikä ketään muuta.
+- **Koko ryhmä kerralla:** ryhmän sivulta ("Lisää jäseniä") tai "Kutsu oppilas" -napista saa
+  yhden jaetun koodin/linkin, jonka voi liittää **yhteen viestiin koko ryhmän omaan
+  WhatsApp-ryhmään** — ei siis enää tarvitse lähettää jokaiselle omaa viestiä erikseen.
+  Kun pelaaja liittyy tällä jaetulla koodilla, sovellus tunnistaa hänet automaattisesti jos
+  hänet on jo lisätty nimellä; jos ei, se kysyy pelaajalta suoraan eikä koskaan arvaa väärin
+  hiljaa. Tämä koodi on tarkoitettu nimenomaan ryhmän omaan, suljettuun keskusteluun — ei
+  julkiseen tai vieraille avoimeen ryhmään.
 
 ## Säännöt, jotka valmentajan pitää tietää
 
@@ -47,8 +63,10 @@ opettaa ensimmäisellä kerralla.
 - Koutsiin ei kirjata vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.
 - Poissaolosta merkitään vain **poissa** ilman syytä.
 - Kirjaa vain valmennuksen kannalta tarpeellinen tieto ja vain omista pelaajistasi.
-- Henkilökohtainen liittymislinkki lähetetään vain oikealle pelaajalle tai huoltajalle, ei
-  avoimeen WhatsApp-ryhmään tai verkkoon.
+- Pelaajan oma, henkilökohtainen liittymiskoodi/linkki (pelaajan omalta kortilta) lähetetään
+  vain oikealle pelaajalle tai huoltajalle, ei avoimeen WhatsApp-ryhmään tai verkkoon. Ryhmän
+  jaettu koodi ("Lisää jäseniä" / "Kutsu oppilas") sen sijaan saa jakaa koko ryhmän omaan,
+  suljettuun WhatsApp-ryhmään — ei silti julkiseen tai vieraille avoimeen kanavaan.
 - Koutsissa luotu pelaajaprofiili ei ole julkinen eikä näy peliseuranhaussa.
 - Koutsi on beta ja valmennuksen työväline, ei sairaus-, hätätilanne- tai potilastietopalvelu.
 - Virheellinen henkilötieto, väärälle henkilölle mennyt kutsu tai epäilty tietovuoto ilmoitetaan
