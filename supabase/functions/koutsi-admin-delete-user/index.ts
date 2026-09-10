@@ -3,15 +3,26 @@
 // have both been checked. The requested target id is never accepted as authority.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-const CORS = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
-  'access-control-allow-methods': 'POST, OPTIONS',
-};
+// This is an admin-only account-deletion endpoint — no reason for it to be callable from
+// an arbitrary origin. Echo back the origin only when it's the real app (or local dev).
+const ALLOWED_ORIGINS = [
+  'https://koutsi.krossi.app',
+  'https://demo.koutsi.krossi.app',
+];
+function corsHeaders(req: Request) {
+  const origin = req.headers.get('Origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  return {
+    'access-control-allow-origin': allowed ? origin : ALLOWED_ORIGINS[0],
+    'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
+    'access-control-allow-methods': 'POST, OPTIONS',
+    vary: 'Origin',
+  };
+}
 
-const json = (body: Record<string, unknown>, status = 200) => new Response(
+const json = (req: Request, body: Record<string, unknown>, status = 200) => new Response(
   JSON.stringify(body),
-  { status, headers: { ...CORS, 'content-type': 'application/json' } },
+  { status, headers: { ...corsHeaders(req), 'content-type': 'application/json' } },
 );
 
 type ManifestFile = {
@@ -31,18 +42,18 @@ type DeletionManifest = {
 };
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-  if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders(req) });
+  if (req.method !== 'POST') return json(req, { error: 'method not allowed' }, 405);
 
   let targetUserId = '';
   try {
     const body = await req.json();
     targetUserId = typeof body?.user_id === 'string' ? body.user_id : '';
   } catch {
-    return json({ error: 'Virheellinen pyyntö.' }, 400);
+    return json(req, { error: 'Virheellinen pyyntö.' }, 400);
   }
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(targetUserId)) {
-    return json({ error: 'Käyttäjää ei löytynyt.' }, 400);
+    return json(req, { error: 'Käyttäjää ei löytynyt.' }, 400);
   }
 
   const authHeader = req.headers.get('Authorization') ?? '';
@@ -53,7 +64,7 @@ Deno.serve(async (req: Request) => {
   });
 
   const { data: callerData, error: callerError } = await asUser.auth.getUser();
-  if (callerError || !callerData?.user) return json({ error: 'Kirjaudu uudelleen sisään.' }, 401);
+  if (callerError || !callerData?.user) return json(req, { error: 'Kirjaudu uudelleen sisään.' }, 401);
 
   // This SECURITY DEFINER RPC verifies koutsi_admins membership, prevents self-deletion
   // and protects every administrator account before exposing any target details.
@@ -62,7 +73,7 @@ Deno.serve(async (req: Request) => {
     { target_user_id_input: targetUserId },
   );
   if (manifestError || !manifestData) {
-    return json({ error: manifestError?.message || 'Sinulla ei ole oikeutta tähän.' }, 403);
+    return json(req, { error: manifestError?.message || 'Sinulla ei ole oikeutta tähän.' }, 403);
   }
   const manifest = manifestData as DeletionManifest;
 
@@ -83,12 +94,12 @@ Deno.serve(async (req: Request) => {
   for (const [bucket, paths] of filesByBucket) {
     for (let index = 0; index < paths.length; index += 100) {
       const { error } = await admin.storage.from(bucket).remove(paths.slice(index, index + 100));
-      if (error) return json({ error: `Tiedostojen poisto epäonnistui: ${error.message}` }, 500);
+      if (error) return json(req, { error: `Tiedostojen poisto epäonnistui: ${error.message}` }, 500);
     }
   }
 
   const { error: deleteError } = await admin.auth.admin.deleteUser(targetUserId);
-  if (deleteError) return json({ error: deleteError.message }, 500);
+  if (deleteError) return json(req, { error: deleteError.message }, 500);
 
   const roles = [
     manifest.is_coach ? 'coach' : null,
@@ -105,5 +116,5 @@ Deno.serve(async (req: Request) => {
   });
   if (auditError) console.error('admin deletion audit failed', auditError.message);
 
-  return json({ ok: true });
+  return json(req, { ok: true });
 });

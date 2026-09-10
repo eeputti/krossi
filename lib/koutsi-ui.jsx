@@ -512,8 +512,9 @@ function KoutsiLegalLinks({ style }) {
 // a refresh dropped you back on the first tab, a link could not point at anything in
 // particular, and a phone's back button left the app instead of stepping back a view.
 // This maps each tab id to a path segment under the app's own base — /valmentaja/oppilaat,
-// /pelaaja/treenit — and keeps the two in step in both directions. Vercel serves the same
-// HTML for every segment (see vercel.json), so a deep link survives a cold load too.
+// /pelaaja/treenit — and keeps the two in step in both directions. The Cloudflare Worker
+// serves the same HTML for every segment (see src/worker.js), so a deep link survives a
+// cold load too.
 //
 // Opened any other way — the raw /koutsi-valmentaja.html during local development, say —
 // there is no base path to hang views off, so the hook quietly stays a plain useState and
