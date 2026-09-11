@@ -315,7 +315,7 @@
   };
   window.koutsiSetMoodHidden = (id, hidden) => patchById('moods', id, { hiddenFromCoach: !!hidden });
   window.koutsiDeleteMood = (id) => removeById('moods', id);
-  window.koutsiAddMatchNote = (studentId, { opponentName, date, note, durationMinutes, result, format, score, partnerName, opponent2Name }) => {
+  window.koutsiAddMatchNote = (studentId, { opponentName, date, note, durationMinutes, result, format, score, partnerName, opponent2Name, tournamentId }) => {
     const st = findStudent(studentId);
     if (st) {
       st.matchNotes.unshift({
@@ -323,6 +323,7 @@
         durationMinutes: durationMinutes || null, result: result || null, format: format || null, score: score || '',
         partnerName: format === 'nelinpeli' ? (partnerName || '') : '',
         opponent2Name: format === 'nelinpeli' ? (opponent2Name || '') : '',
+        tournamentId: tournamentId || null,
       });
       save();
     }

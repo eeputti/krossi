@@ -837,14 +837,18 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
           )}
           {matchesOnSelected.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-              {matchesOnSelected.map((n) => (
-                <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 14, background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)' }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#a13b2f', flexShrink: 0 }} />
-                  <span style={{ fontSize: 13.5, color: '#7a2c22', fontWeight: 700 }}>
-                    Ottelu: {n.format === 'nelinpeli' && n.opponent2Name ? `${n.opponentName} & ${n.opponent2Name}` : n.opponentName}{n.result ? ` — ${n.result === 'voitto' ? 'Voitto' : 'Tappio'}` : ''}{n.score ? ` (${n.score})` : ''}
-                  </span>
-                </div>
-              ))}
+              {matchesOnSelected.map((n) => {
+                const tournament = n.tournamentId ? window.koutsiTrainingsForStudent(state, student.id).find((t) => t.id === n.tournamentId) : null;
+                return (
+                  <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 15px', borderRadius: 14, background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)' }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#a13b2f', flexShrink: 0 }} />
+                    <span style={{ fontSize: 13.5, color: '#7a2c22', fontWeight: 700 }}>
+                      Ottelu: {n.format === 'nelinpeli' && n.opponent2Name ? `${n.opponentName} & ${n.opponent2Name}` : n.opponentName}{n.result ? ` — ${n.result === 'voitto' ? 'Voitto' : 'Tappio'}` : ''}{n.score ? ` (${n.score})` : ''}
+                      {tournament && <span style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#9a4a3c', marginTop: 1 }}>{window.koutsiTournamentLabel(tournament)}</span>}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
           {trainingsOnSelected.length === 0 ? (
@@ -869,6 +873,10 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
                       {coach && !isSelf && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
                       {isSelf && t.durationMinutes && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{window.koutsiFmtDuration(t.durationMinutes)}</div>}
                       {isSelf && t.endDate && t.endDate !== t.date && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{window.koutsiFmtShortDate(t.date)}–{window.koutsiFmtShortDate(t.endDate)}</div>}
+                      {isSelf && t.type === 'Turnaus' && (() => {
+                        const linked = (student.matchNotes || []).filter((n) => n.tournamentId === t.id);
+                        return linked.length > 0 && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{linked.length} {linked.length === 1 ? 'ottelu merkitty' : 'ottelua merkitty'}</div>;
+                      })()}
                     </div>
                     {isSelf
                       ? <window.KoutsiRowActions onDelete={() => onDeleteSelfTraining(t)} deleteLabel="Poista merkintä" />
@@ -1085,7 +1093,7 @@ function MoodModal({ onClose, onSave }) {
 
 const MATCH_RESULT_OPTIONS = [['voitto', 'Voitto'], ['tappio', 'Tappio']];
 const MATCH_FORMAT_OPTIONS = [['kaksinpeli', 'Kaksinpeli'], ['nelinpeli', 'Nelinpeli']];
-function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
+function MatchNoteModal({ editing, defaultDate, tournaments, onClose, onSave }) {
   const [opponentName, setOpponentName] = React.useState(() => (editing ? editing.opponentName : ''));
   const [opponent2Name, setOpponent2Name] = React.useState(() => (editing ? editing.opponent2Name || '' : ''));
   const [partnerName, setPartnerName] = React.useState(() => (editing ? editing.partnerName || '' : ''));
@@ -1095,6 +1103,14 @@ function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
   const [durationMinutes, setDurationMinutes] = React.useState(() => (editing ? editing.durationMinutes || '' : ''));
   const [score, setScore] = React.useState(() => (editing ? editing.score || '' : ''));
   const [note, setNote] = React.useState(() => (editing ? editing.note || '' : ''));
+  // Defaults to the tournament the match's day falls inside (e.g. started from "+ Lisää" →
+  // Ottelu on a tournament day), so a player playing three matches at the same tournament
+  // doesn't have to pick it three times over — they can still change or clear it.
+  const [tournamentId, setTournamentId] = React.useState(() => {
+    if (editing) return editing.tournamentId || null;
+    const auto = (tournaments || []).find((t) => date >= t.date && date <= (t.endDate || t.date));
+    return auto ? auto.id : null;
+  });
   const isDoubles = format === 'nelinpeli';
   const [busy, setBusy] = React.useState(false);
   const busyRef = React.useRef(false); // see GroupFormModal's submit (coach app) for why a ref, not just state
@@ -1116,6 +1132,7 @@ function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
         score: score.trim(),
         partnerName: isDoubles ? partnerName.trim() : '',
         opponent2Name: isDoubles ? opponent2Name.trim() : '',
+        tournamentId,
       });
     } finally {
       busyRef.current = false;
@@ -1129,6 +1146,17 @@ function MatchNoteModal({ editing, defaultDate, onClose, onSave }) {
         <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18, lineHeight: 1.5 }}>Kirjaa tulos ja taktiikkasi — löydät nämä helposti uudestaan, jos sama vastustaja tulee vastaan.</p>
         <div style={label}>Päivämäärä</div>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
+        {tournaments && tournaments.length > 0 && (
+          <React.Fragment>
+            <div style={label}>Turnaus (valinnainen)</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              <Pill on={tournamentId == null} onClick={() => setTournamentId(null)}>Ei turnausta</Pill>
+              {tournaments.map((t) => (
+                <Pill key={t.id} on={tournamentId === t.id} onClick={() => setTournamentId(t.id)}>{window.koutsiTournamentLabel(t)}</Pill>
+              ))}
+            </div>
+          </React.Fragment>
+        )}
         <div style={label}>Tulos</div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {MATCH_RESULT_OPTIONS.map(([key, l]) => <Pill key={key} on={result === key} onClick={() => setResult(result === key ? '' : key)}>{l}</Pill>)}
@@ -1595,9 +1623,9 @@ function PlayerApp({ studentId, onSignOut }) {
     if (ok) await act(() => window.koutsiDeleteMood(m.id), 'Fiilis poistettu.')();
   };
 
-  const saveMatchNote = async ({ opponentName, date, note: matchNote, result, format, durationMinutes, score, partnerName, opponent2Name }) => {
+  const saveMatchNote = async ({ opponentName, date, note: matchNote, result, format, durationMinutes, score, partnerName, opponent2Name, tournamentId }) => {
     const ok = await toast.run(async () => {
-      const payload = { opponentName, date, note: matchNote, result, format, durationMinutes, score, partnerName, opponent2Name };
+      const payload = { opponentName, date, note: matchNote, result, format, durationMinutes, score, partnerName, opponent2Name, tournamentId };
       if (editingMatchNote) await window.koutsiUpdateMatchNote(editingMatchNote.id, payload);
       else await window.koutsiAddMatchNote(studentId, payload);
       await reload();
@@ -1661,7 +1689,7 @@ function PlayerApp({ studentId, onSignOut }) {
       {videoOpen && <VideoModal onClose={() => setVideoOpen(false)} onSave={addVideo} />}
       {moodOpen && <MoodModal onClose={() => setMoodOpen(false)} onSave={addMood} />}
       {matchNoteOpen && (
-        <MatchNoteModal editing={editingMatchNote} defaultDate={matchNoteDefaultDate}
+        <MatchNoteModal editing={editingMatchNote} defaultDate={matchNoteDefaultDate} tournaments={window.koutsiTournamentsForStudent(state, student.id)}
           onClose={() => { setMatchNoteOpen(false); setEditingMatchNote(null); setMatchNoteDefaultDate(null); }} onSave={saveMatchNote} />
       )}
       {attendanceTraining && (

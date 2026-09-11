@@ -112,16 +112,19 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
   (student.matchNotes || []).forEach((n) => {
     const resultLabel = n.result === 'voitto' ? 'Voitto' : n.result === 'tappio' ? 'Tappio' : '';
     const opponents = n.format === 'nelinpeli' && n.opponent2Name ? `${n.opponentName} & ${n.opponent2Name}` : n.opponentName;
+    const tournament = n.tournamentId ? (trainings || []).find((t) => t.id === n.tournamentId) : null;
+    const tournamentLabel = tournament ? window.koutsiTournamentLabel(tournament) : '';
     const meta = [
       resultLabel, n.score,
       n.format === 'nelinpeli' ? 'Nelinpeli' : n.format === 'kaksinpeli' ? 'Kaksinpeli' : '',
       n.format === 'nelinpeli' && n.partnerName ? `Pari: ${n.partnerName}` : '',
+      tournamentLabel ? `Turnaus: ${tournamentLabel}` : '',
     ].filter(Boolean).join(' · ');
     push({
       id: `match-${n.id}`, kind: 'match', at: n.at || n.date, source: n,
       title: `Ottelu: ${opponents}${resultLabel ? ` — ${resultLabel}` : ''}`,
       body: [meta, n.note || ''].filter(Boolean).join('\n'),
-      search: `${opponents} ${n.partnerName || ''} ${n.note || ''} ${n.score || ''} ottelu vastustaja ${resultLabel}`,
+      search: `${opponents} ${n.partnerName || ''} ${n.note || ''} ${n.score || ''} ${tournamentLabel} ottelu vastustaja ${resultLabel}`,
     });
   });
 
@@ -154,10 +157,17 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
   (trainings || []).filter((t) => t.date <= today).forEach((t) => {
     const absence = (t.absences || []).find((a) => a.studentId === student.id);
     const reason = absence ? (window.KOUTSI_ABSENCE_REASON_LABELS[absence.reason] || 'Poissa') : '';
+    // A tournament entry's matches are logged as separate match notes linked back to it
+    // (MatchNoteModal's "Turnaus" picker) — surface the tally here so the tournament card
+    // itself answers "how did it go" without opening every linked match.
+    const tournamentMatches = t.type === 'Turnaus' ? (student.matchNotes || []).filter((n) => n.tournamentId === t.id) : [];
+    const tournamentSummary = tournamentMatches.length
+      ? `${tournamentMatches.length} ${tournamentMatches.length === 1 ? 'ottelu' : 'ottelua'} · ${tournamentMatches.filter((n) => n.result === 'voitto').length} voittoa, ${tournamentMatches.filter((n) => n.result === 'tappio').length} tappiota`
+      : '';
     push({
       id: `training-${t.id}`, kind: 'training', at: t.date,
       title: absence ? `${t.type} — ${reason}` : t.type,
-      body: [t.groupName || '', absence?.note || ''].filter(Boolean).join(' · '),
+      body: [t.groupName || '', absence?.note || '', tournamentSummary].filter(Boolean).join(' · '),
       time: t.time, absent: !!absence,
       search: `${t.type} ${t.groupName || ''} treeni ${reason} ${absence?.note || ''}`,
     });
