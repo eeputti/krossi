@@ -1,0 +1,11 @@
+-- Removes the single-use test coach key added in 20260911172738, its verification now
+-- complete (confirmed the full join-code flow works end to end: direct per-placeholder
+-- code, exact/first-name/ambiguous name matching, roster-browse manual pick, and a brand
+-- new player joining via a shared code). The test coach account and its one test player
+-- account were already deleted via their own self-service account deletion.
+--
+-- Note: the first round's temp key (E2EJOIN911, added in 20260911131408) is not deleted
+-- here because it no longer exists — a concurrent session cleaned up that round's test
+-- coach account mid-verification (recognizing it as leftover test data), which is also why
+-- a second round with a fresh key was needed to finish testing the last untested branch.
+delete from public.koutsi_coach_invite_codes where code = upper('e2ejoin912');
