@@ -1855,10 +1855,29 @@ function InviteCodeScreen({ onSignOut }) {
     </div>
   );
 }
+// A kutsulinkki (?koodi=/?oppilas=) opened on a device where someone else is already
+// signed in used to just silently land in that other person's account — no error, no
+// indication the invite never took effect. Shown once, then the params are stripped from
+// the URL so a page refresh or the same bookmark later doesn't keep re-showing it.
+function InviteMismatchBanner({ onSignOut, onDismiss }) {
+  return (
+    <div style={{ background: 'rgba(161,59,47,0.08)', borderBottom: '1px solid rgba(161,59,47,0.25)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 13, color: '#a13b2f', lineHeight: 1.5, flex: '1 1 240px' }}>
+        Avasit kutsulinkin, mutta olet jo kirjautuneena toisena käyttäjänä. Jos linkki ei ollut sinulle, kirjaudu ulos ennen kuin jatkat.
+      </span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onSignOut} className="btn-outline btn-sm" style={{ color: '#8f2f24', borderColor: '#e3c9c4' }}>Kirjaudu ulos</button>
+        <button onClick={onDismiss} style={{ background: 'none', border: 'none', color: '#a13b2f', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Sulje</button>
+      </div>
+    </div>
+  );
+}
+
 function KoutsiPelaajaRoot() {
   const auth = window.useKoutsiAuth();
   const [studentRow, setStudentRow] = React.useState(undefined); // undefined = checking, null = no coach yet
   const [checkFailed, setCheckFailed] = React.useState(false);
+  const [inviteMismatch, setInviteMismatch] = React.useState(false);
 
   // Rivin olemassaolo riittää. Suljetussa pilotissa uusi rivi syntyy vain valmentajan
   // koodia lunastaessa; aiemmin luodut koodittomat rivit saavat silti jatkaa.
@@ -1881,6 +1900,22 @@ function KoutsiPelaajaRoot() {
     checkStudent();
   }, [uid, auth.needsOnboarding, checkStudent]);
 
+  // If this account already has a student row, an invite param in the URL can only mean
+  // one of two things: this same link was opened again (harmless), or someone else's
+  // personal link/code was opened on a device where this account happens to be signed in
+  // (not harmless — it must not be silently swallowed). Can't tell those apart from here,
+  // so always surface it and let the person decide, rather than risk the second case going
+  // unnoticed. Stripped from the URL right after so a refresh or revisit doesn't re-show it.
+  React.useEffect(() => {
+    if (!studentRow) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get('koodi') && !params.get('oppilas')) return;
+    setInviteMismatch(true);
+    params.delete('koodi'); params.delete('oppilas');
+    const query = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : ''));
+  }, [studentRow]);
+
   if (auth.loading) return <window.KoutsiAuthLoadingScreen />;
   // a recovery link must lead to a new password, not straight into the app
   if (auth.recoveryMode && auth.session) return <window.KoutsiPasswordResetScreen />;
@@ -1892,7 +1927,12 @@ function KoutsiPelaajaRoot() {
   if (!studentRow) return <InviteCodeScreen onSignOut={auth.signOut} />;
   if (auth.pilotError) return <window.KoutsiErrorScreen message="Pilotin käyttörajausta ei saatu tarkistettua. Tarkista verkkoyhteys ja yritä uudelleen." onRetry={auth.retryPilot} onSignOut={auth.signOut} />;
   if (!auth.pilotAccepted) return <window.KoutsiPilotGate />;
-  return <PlayerApp studentId={auth.session.user.id} onSignOut={auth.signOut} />;
+  return (
+    <React.Fragment>
+      {inviteMismatch && <InviteMismatchBanner onSignOut={auth.signOut} onDismiss={() => setInviteMismatch(false)} />}
+      <PlayerApp studentId={auth.session.user.id} onSignOut={auth.signOut} />
+    </React.Fragment>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

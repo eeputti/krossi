@@ -719,6 +719,12 @@
 
   // ── invite codes / coaching link ──────────────────────────────────────────
   window.koutsiMyJoinCode = () => done(load().joinCode);
+  window.koutsiRotateJoinCode = () => {
+    const s = load();
+    s.joinCode = newId('K').slice(-6).toUpperCase();
+    save();
+    return done(s.joinCode);
+  };
   window.koutsiListInviteCodes = () => done(clone(load().inviteCodes));
   window.koutsiCreateInviteCode = (groupId, { expiresDays = 14, maxUses = 1 } = {}) => {
     const code = { code: newId('K').slice(-6).toUpperCase(), groupId: groupId || null,
@@ -852,6 +858,17 @@
     s.students = s.students.filter((x) => x.id !== removeStudentId);
     save();
     return done({ kept_id: keepStudentId, removed_id: removeStudentId });
+  };
+  // Mirrors koutsi_delete_placeholder_student: only ever a still-unclaimed placeholder,
+  // wiped from the roster and every group it was in.
+  window.koutsiDeletePlayer = (coachId, studentId) => {
+    const s = load();
+    const student = findStudent(studentId);
+    if (!student || !student.isPlaceholder) throw new Error('Tätä pelaajaa ei voi poistaa — hän on jo lunastanut oman tilinsä, tai ei ole oppilaslistallasi');
+    s.students = s.students.filter((x) => x.id !== studentId);
+    s.groups.forEach((g) => { g.memberIds = g.memberIds.filter((id) => id !== studentId); });
+    save();
+    return done();
   };
 
   // ── profile / notifications / settings ────────────────────────────────────

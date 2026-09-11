@@ -1410,9 +1410,14 @@ function GoalHistory({ history }) {
 // juuri se on ainoa asia, jolla valmentaja saa pelaajan liittymään.
 function PlaceholderNotice({ student, coach }) {
   const [code, setCode] = React.useState(null);
+  const [codeError, setCodeError] = React.useState('');
   React.useEffect(() => {
     let alive = true;
-    window.koutsiPlaceholderJoinCode(student.id).then((c) => { if (alive) setCode(c || null); }).catch(() => {});
+    window.koutsiPlaceholderJoinCode(student.id).then((c) => {
+      if (!alive) return;
+      if (c) { setCode(c); setCodeError(''); }
+      else setCodeError('Liittymiskoodia ei löytynyt. Päivitä sivu tai ota yhteyttä tukeen.');
+    }).catch((err) => { if (alive) setCodeError(window.koutsiErrorText(err, 'Liittymiskoodin haku epäonnistui.')); });
     return () => { alive = false; };
   }, [student.id]);
   const firstName = (student.name || '').split(' ')[0] || 'Pelaaja';
@@ -1439,6 +1444,11 @@ function PlaceholderNotice({ student, coach }) {
             <window.KoutsiCopyButton text={message} label="Kopioi viesti" copiedLabel="Viesti kopioitu!" className="btn-dark btn-sm" />
             <window.KoutsiCopyButton text={link} label="Kopioi linkki" />
           </div>
+        </div>
+      )}
+      {!code && codeError && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(214,140,44,0.3)', fontSize: 13, color: '#8f2f24', fontWeight: 600 }}>
+          {codeError}
         </div>
       )}
     </div>
@@ -1501,7 +1511,7 @@ function EditPlaceholderStudentModal({ student, students, onClose, onSave }) {
   );
 }
 
-function StudentDetail({ student, coach, state, trainings, groups, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditAttendance, onSetLevel, onEditPlayer, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEditVideoAudience, onEndCoaching, onMergeStudents }) {
+function StudentDetail({ student, coach, state, trainings, groups, upcoming, attendance, onClose, onAddEntry, onToggleHomework, onOpenGroup, onAddHomework, onAddVideo, onEditAttendance, onSetLevel, onEditPlayer, onEditEntry, onDeleteEntry, onEditHomework, onDeleteHomework, onDeleteVideo, onEditVideoAudience, onEndCoaching, onMergeStudents, onDeletePlayer }) {
   const [levelPickerOpen, setLevelPickerOpen] = React.useState(false);
   const [editingHomework, setEditingHomework] = React.useState(null); // homework id being renamed
   const [homeworkDraft, setHomeworkDraft] = React.useState('');
@@ -1698,7 +1708,15 @@ function StudentDetail({ student, coach, state, trainings, groups, upcoming, att
               {!mergeOpen && (
                 <button onClick={() => { setMergeOpen(true); setMergeLeftId(student.id); setMergeRightId(null); setMergeError(''); }} className="btn-outline btn-sm">Yhdistä pelaajan tiedot toiseen</button>
               )}
+              {student.isPlaceholder && (
+                <button onClick={() => onDeletePlayer(student)} className="btn-outline btn-sm" style={{ color: '#8f2f24', borderColor: '#e3c9c4' }}>Poista pelaaja kokonaan</button>
+              )}
             </div>
+            {student.isPlaceholder && (
+              <p style={{ fontSize: 12, color: '#8a857a', lineHeight: 1.5, marginTop: 6 }}>
+                Poistaminen pyyhkii {student.name}n koko tiedon — ryhmät, treenit, päiväkirjan, kotiläksyt ja videot — pysyvästi. Tämä onnistuu vain, koska {student.name} ei ole vielä lunastanut omaa tiliään.
+              </p>
+            )}
             {mergeOpen && (
               <div className="k-card" style={{ padding: '14px 15px', marginTop: 10 }}>
                 <div style={{ fontWeight: 750, fontSize: 14, color: '#111', marginBottom: 3 }}>Yhdistä pelaajan tiedot toiseen</div>
@@ -2222,6 +2240,18 @@ function InviteCodeBox({ coachId, coachName, groupId, groupName }) {
     await toast.run(async () => { await window.koutsiRevokeInviteCode(code); await loadCodes(); }, 'Koodi poistettu käytöstä.');
   };
 
+  // Pysyvä koodi ei muuten voi koskaan mitätöityä — jos se vuotaa, tämä on ainoa keino
+  // sulkea vanha pois. Vaihto astuu voimaan heti: vanha koodi lakkaa resolvoitumasta.
+  const rotatePermanent = async () => {
+    const ok = await confirm({
+      title: 'Vaihda liittymiskoodi?',
+      body: 'Nykyinen koodi lakkaa toimimasta heti. Jo liittyneet pelaajat pysyvät valmennuksessasi — vaihto koskee vain uusia liittymisiä.',
+      confirmLabel: 'Vaihda koodi', danger: true,
+    });
+    if (!ok) return;
+    await toast.run(async () => { setPermanentCode(await window.koutsiRotateJoinCode()); }, 'Koodi vaihdettu.');
+  };
+
   const active = isPermanent ? permanentCode : (issued ? issued.code : null);
 
   if (isPermanent && !active) {
@@ -2301,6 +2331,11 @@ function InviteCodeBox({ coachId, coachName, groupId, groupName }) {
       <p style={{ fontSize: 12, color: '#8f2f24', lineHeight: 1.5, marginTop: 8, fontWeight: 700 }}>
         Älä jaa koodia julkisesti. Alaikäiselle käytetään aina pelaajakortin henkilökohtaista linkkiä sekä tarvittavia vahvistuksia.
       </p>
+      {isPermanent && (
+        <button onClick={rotatePermanent} className="btn-outline btn-sm" style={{ marginTop: 10, color: '#8f2f24', borderColor: '#e3c9c4' }}>
+          Vaihda koodi
+        </button>
+      )}
       {!isPermanent && <button onClick={() => setIssued(null)} className="btn-outline btn-sm" style={{ marginTop: 10 }}>Valmis</button>}
     </div>
   );
@@ -4573,6 +4608,21 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     }, `${removeStudent.name} yhdistettiin pelaajaan ${keepStudent.name}.`);
     if (done && removeStudent.id === detailId) setDetailId(null);
   };
+  // Permanently erases a placeholder player and everything tied to them (groups, trainings,
+  // diary, homework, videos, moods, match notes, attendance) — unlike endCoaching, which
+  // only unlinks and keeps history. Server-side rejects this unless the player is still an
+  // unclaimed placeholder, so it can never reach a player with their own login.
+  const deletePlayer = async (player) => {
+    const ok = await confirm({
+      title: `Poista ${player.name} kokonaan?`,
+      body: `${player.name} ja kaikki hänen tietonsa — ryhmät, treenit, päiväkirja, kotiläksyt, videot — poistetaan pysyvästi. Toimintoa ei voi perua.`,
+      confirmLabel: 'Poista lopullisesti', danger: true,
+      typeToConfirm: player.name,
+    });
+    if (!ok) return;
+    const done = await toast.run(async () => { await window.koutsiDeletePlayer(coachId, player.id); await reload(); }, `${player.name} poistettiin.`);
+    if (done && player.id === detailId) setDetailId(null);
+  };
 
   const saveExercise = async (data) => {
     const ok = await toast.run(async () => {
@@ -4769,7 +4819,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
           onEditPlayer={() => setEditPlayerOpen(true)}
           onEditEntry={(d) => { setEditingEntry(d); setEntryOpen(true); }} onDeleteEntry={deleteEntry}
           onEditHomework={editHomework} onDeleteHomework={deleteHomework}
-          onDeleteVideo={deleteVideo} onEditVideoAudience={setAudienceVideo} onEndCoaching={endCoaching} onMergeStudents={mergeStudents} />
+          onDeleteVideo={deleteVideo} onEditVideoAudience={setAudienceVideo} onEndCoaching={endCoaching} onMergeStudents={mergeStudents} onDeletePlayer={deletePlayer} />
       )}
       {detail && entryOpen && <EntryModal student={detail} entry={editingEntry} onClose={() => { setEntryOpen(false); setEditingEntry(null); }} onSend={saveEntry} />}
       {detail && editPlayerOpen && <EditPlaceholderStudentModal student={detail} students={state.students} onClose={() => setEditPlayerOpen(false)} onSave={editPlayer} />}
