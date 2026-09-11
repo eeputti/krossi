@@ -30,7 +30,12 @@ videoita.
   tilitosite tallennettu samaan yksityiseen sopimusarkistoon 24.8.2026. Latauksen
   jälkeen varmistettu, että tiedoston näkyvyys on `not_shared`.
 
-## Vercel (poistuva hosti)
+## Vercel (poistettu, 2026-09-11)
+
+Vercel toimi väliaikaisena rollback-hostina Cloudflare-siirron ajan. Domainit
+(`krossi.app`, `koutsi.krossi.app`, `demo.koutsi.krossi.app`) on vahvistettu
+osoittavan yksinomaan Cloudflareen, ja Vercel-projekti sekä sen domain-liitokset on
+poistettu Vercelin hallintapaneelista 11.9.2026.
 
 - [x] Nykyiset [Vercelin DPA-ehdot](https://vercel.com/legal/dpa) ja
   [palveluehdot](https://vercel.com/legal/terms) tarkistettu. DPA on sisällytetty
@@ -39,13 +44,13 @@ videoita.
   Enterprise-palvelutasoilla. Vercelin Customer Dataan ei saa sisällyttää erityisiin
   henkilötietoryhmiin kuuluvia tietoja.
 - [x] Tuotantoprojektin palvelutasoksi vahvistettu **Hobby** 24.8.2026. Cloudflare on
-  24.8.2026 alkaen ensisijainen tuotantoalusta; Vercel säilytetään vain väliaikaisena
-  rollbackina eikä sitä päivitetä Prohon.
-- [ ] Viimeistele Vercel → Cloudflare -siirto ennen henkilötietopilottia ja varmista,
-  ettei tuotantoliikennettä tai lokitietoja enää käsitellä Vercelissä.
-- [ ] Varmista domainien siirron jälkeen, etteivät `krossi.app`, `koutsi.krossi.app` tai
-  `demo.koutsi.krossi.app` enää osoita Verceliin. Säilytä Vercel vain lyhyenä rollbackina
-  ja poista projekti sekä domain-liitokset hyväksytyn tuotantotestin jälkeen.
+  24.8.2026 alkaen ensisijainen tuotantoalusta.
+- [x] Vercel → Cloudflare -siirto viimeistelty: tuotantoliikenne ja lokitiedot eivät
+  enää kulje Vercelin kautta (vahvistettu 11.9.2026).
+- [x] Domainit `krossi.app`, `koutsi.krossi.app` ja `demo.koutsi.krossi.app` on
+  vahvistettu osoittavan Cloudflareen (vahvistettu 11.9.2026).
+- [x] Vercel-projekti ja domain-liitokset poistettu Vercelin hallintapaneelista
+  (11.9.2026).
 
 ## Cloudflare
 
@@ -88,8 +93,8 @@ jakelulokitietoja, kuten IP-osoitetta.
 ## Lopullinen hyväksyntä
 
 - [x] Supabasen asiakasnimi vahvistettu ja tosite tallennettu
-- [ ] Tuotantohostaus siirretty Cloudflareen ja Cloudflaren palvelutaso sekä DPA-tosite
-  tallennettu
+- [x] Tuotantohostaus siirretty Cloudflareen (11.9.2026); Cloudflaren palvelutaso sekä
+  DPA-tosite jäävät vielä tallennettavaksi (ks. Cloudflare-osio yllä)
 - [x] Resendin allekirjoitettu DPA tallennettu
 - [ ] Tietosuojaselosteen käsittelijä- ja sijaintitiedot tarkistettu tositteita vasten
 

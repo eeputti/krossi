@@ -1,5 +1,4 @@
 .DS_Store
-.vercel
 .wrangler
 cloudflare-dist
 node_modules

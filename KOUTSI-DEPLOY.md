@@ -22,8 +22,8 @@ edelleen selainkäännöstä. Se on niille tarkoituksella jätetty — ne eivät
 
 ## Cloudflare-hostaus
 
-Tuotanto ajetaan Cloudflare Workers Static Assets -palvelussa. Worker `krossi` säilyttää
-nykyiset domainit ja Vercelin reittikäytöksen:
+Tuotanto ajetaan Cloudflare Workers Static Assets -palvelussa. Worker `krossi` reitittää
+nykyiset domainit:
 
 - `krossi.app/` → Krossin etusivu ja `/pelaa` → selainversio
 - `koutsi.krossi.app/` → Koutsin etusivu sekä `/valmentaja/<näkymä>` ja
@@ -42,8 +42,7 @@ Cloudflare Workers Builds -asetukset:
 Ennen domainien siirtoa avaa Cloudflaren `workers.dev`-esikatselu ja tarkista ainakin
 etusivut, `/pelaa`, Koutsin kirjautuminen, salasanan palautus, pelaajan liittymislinkki,
 valmentajan ja pelaajan syvälinkit sekä demo. Liitä vasta sen jälkeen custom domainit
-`krossi.app`, `koutsi.krossi.app` ja `demo.koutsi.krossi.app`. Pidä Vercel-projekti
-rollbackia varten, kunnes kaikki tuotantoreitit on tarkistettu Cloudflaresta.
+`krossi.app`, `koutsi.krossi.app` ja `demo.koutsi.krossi.app`.
 
 ## Sähköposti-ilmoitukset
 

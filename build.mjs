@@ -6,8 +6,8 @@
 //
 //   npm run build
 //
-// Output goes to dist/ and IS committed, so Vercel keeps serving the repo as plain static
-// files with no build step. Re-run this after editing anything under lib/.
+// Output goes to dist/ and IS committed, so Cloudflare keeps serving the repo as plain
+// static files with no build step. Re-run this after editing anything under lib/.
 //
 // Each source file is wrapped in its own IIFE rather than concatenated flat: the files are
 // classic global scripts that already talk to each other through window.*, and separate

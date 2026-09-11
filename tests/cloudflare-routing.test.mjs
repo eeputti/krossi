@@ -22,7 +22,7 @@ const routes = [
   ['https://preview.example.workers.dev/', '/index.html'],
 ];
 
-test('maps the existing Vercel host and deep-link routes', () => {
+test('maps the existing host and deep-link routes', () => {
   for (const [url, expected] of routes) assert.equal(resolveAssetPath(url), expected, url);
 });
 
