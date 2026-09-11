@@ -4446,15 +4446,17 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
     const seriesFromDate = t.date < window.koutsiTodayStr() ? window.koutsiTodayStr() : t.date;
     let remaining = 0;
     try { remaining = await window.koutsiCountSeriesRemaining(t.seriesId, seriesFromDate); } catch { /* fall back to the single-session wording */ }
-    const whole = await confirm({
+    const choice = await confirm({
       title: 'Poista koko sarja?',
       body: `${label} kuuluu viikoittaiseen sarjaan${remaining ? ` (${remaining} tulevaa kertaa)` : ''}. Poistetaanko kaikki tulevat kerrat vai vain tämä?`,
       confirmLabel: remaining ? `Poista kaikki ${remaining}` : 'Poista kaikki tulevat',
-      cancelLabel: 'Vain tämä kerta',
+      secondaryLabel: 'Vain tämä kerta',
+      secondaryValue: 'once',
+      cancelLabel: 'Peruuta',
       danger: true,
     });
-    if (whole) await act(() => window.koutsiDeleteTrainingSeries(t.seriesId, seriesFromDate), 'Sarja poistettu.')();
-    else await act(() => window.koutsiDeleteTraining(t.id), 'Treeni poistettu.')();
+    if (choice === true) await act(() => window.koutsiDeleteTrainingSeries(t.seriesId, seriesFromDate), 'Sarja poistettu.')();
+    else if (choice === 'once') await act(() => window.koutsiDeleteTraining(t.id), 'Treeni poistettu.')();
   };
 
   // Not wrapped in `act`: VideoModal shows its own error and resets its button, otherwise

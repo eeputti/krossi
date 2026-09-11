@@ -115,16 +115,33 @@ function KoutsiConfirmProvider({ children }) {
                   style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '11px 13px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 20 }} />
               </React.Fragment>
             )}
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => close(false)} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>{dialog.cancelLabel || 'Peruuta'}</button>
-              <button onClick={() => canConfirm && close(true)} disabled={!canConfirm}
-                className="btn-dark"
-                style={{
-                  flex: 1, padding: '13px 0', border: 'none',
-                  background: dialog.danger ? '#8f2f24' : 'var(--green-deep)',
-                  opacity: canConfirm ? 1 : 0.45, cursor: canConfirm ? 'pointer' : 'default',
-                }}>{dialog.confirmLabel || 'Vahvista'}</button>
-            </div>
+            {dialog.secondaryLabel ? (
+              // A genuine three-way choice (e.g. delete the whole series vs. just this one
+              // occurrence vs. do nothing): both the confirm and secondary buttons are real
+              // actions, so cancel gets its own row instead of doubling as one of them.
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <button onClick={() => canConfirm && close(true)} disabled={!canConfirm}
+                  className="btn-dark"
+                  style={{
+                    padding: '13px 0', border: 'none',
+                    background: dialog.danger ? '#8f2f24' : 'var(--green-deep)',
+                    opacity: canConfirm ? 1 : 0.45, cursor: canConfirm ? 'pointer' : 'default',
+                  }}>{dialog.confirmLabel || 'Vahvista'}</button>
+                <button onClick={() => close(dialog.secondaryValue)} className="btn-outline" style={{ padding: '13px 0' }}>{dialog.secondaryLabel}</button>
+                <button onClick={() => close(false)} style={{ padding: '11px 0', border: 'none', background: 'none', color: '#6b665c', fontSize: 14, cursor: 'pointer' }}>{dialog.cancelLabel || 'Peruuta'}</button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => close(false)} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>{dialog.cancelLabel || 'Peruuta'}</button>
+                <button onClick={() => canConfirm && close(true)} disabled={!canConfirm}
+                  className="btn-dark"
+                  style={{
+                    flex: 1, padding: '13px 0', border: 'none',
+                    background: dialog.danger ? '#8f2f24' : 'var(--green-deep)',
+                    opacity: canConfirm ? 1 : 0.45, cursor: canConfirm ? 'pointer' : 'default',
+                  }}>{dialog.confirmLabel || 'Vahvista'}</button>
+              </div>
+            )}
           </div>
         </div>
       )}
