@@ -292,9 +292,32 @@ function mapProfile(d) {
     katisyys: d.tennis_preferences?.handedness || null,
     rysty: d.tennis_preferences?.backhand_type || null,
     playingThisWeek: d.playing_this_week || false, hiddenFromFeed: d.hidden_from_feed || false,
+    paidAt: d.paid_at || null,
   };
 }
-const PROFILE_SELECT = 'id, name, age, gender, area, bio, avatar_url, avatar_color, playing_this_week, hidden_from_feed, tennis_preferences(skill_level, play_style, handedness, backhand_type), availability(slot)';
+const PROFILE_SELECT = 'id, name, age, gender, area, bio, avatar_url, avatar_color, playing_this_week, hidden_from_feed, paid_at, tennis_preferences(skill_level, play_style, handedness, backhand_type), availability(slot)';
+
+// ── Maksumuuri (Stripe) ─────────────────────────────────
+async function startCheckout() {
+  try {
+    const { data, error } = await supabase.functions.invoke('stripe-checkout', { method: 'POST' });
+    if (error) throw error;
+    if (data?.url) { window.location.href = data.url; return; }
+    throw new Error(data?.error || 'Maksun aloitus epäonnistui.');
+  } catch (err) { alert(err.message || 'Maksun aloitus epäonnistui.'); }
+}
+function PaywallModal({ onClose }) {
+  const [starting, setStarting] = React.useState(false);
+  const pay = async () => { setStarting(true); await startCheckout(); setStarting(false); };
+  return <div className="modal-overlay">
+    <div className="modal-sheet" style={{ position:'relative', textAlign:'center' }}>
+      <button onClick={onClose} aria-label="Sulje" style={{ position:'absolute', top:16, right:16, background:'none', border:'none', fontSize:18, color:'var(--text-muted)', cursor:'pointer', lineHeight:1 }}>✕</button>
+      <h3 style={{ margin:'0 0 8px', fontSize:18, fontWeight:800, color:'var(--ink)' }}>Viimeistele profiilisi</h3>
+      <p style={{ margin:'0 0 20px', fontSize:13, color:'var(--text-muted)', lineHeight:1.5 }}>Kertamaksu 8,99 € avaa pelaajien profiilit sekä haasteisiin liittymisen ja niiden luomisen. Ei tilausta, ei toistuvaa laskutusta.</p>
+      <button className="btn btn-lime btn-lg btn-full" disabled={starting} onClick={pay}>{starting?'Avataan maksua...':'Maksa 8,99 €'}</button>
+    </div>
+  </div>;
+}
 
 // ── Tiny components ────────────────────────────────────
 function Avatar({ uri, name, color = 'blue', size = 44 }) {
@@ -874,6 +897,7 @@ function PlayersScreen({ onOpenPlayer }) {
   const [players, setPlayers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState({ skill:'', style:'' });
+  const [showPaywall, setShowPaywall] = React.useState(false);
   const load = React.useCallback(async () => {
     try {
       const uid = session?.user?.id;
@@ -904,8 +928,11 @@ function PlayersScreen({ onOpenPlayer }) {
         <button className={`filter-chip ${!filter.skill?'active':''}`} onClick={()=>setFilter({skill:''})}>Kaikki</button>
         {PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${filter.skill===l?'active':''}`} onClick={()=>setFilter(f=>({...f,skill:f.skill===l?'':l}))}>{titleCase(l)}</button>)}
       </div>
-      {loading ? <Spinner/> : filtered.length===0 ? <Empty title="Ei pelaajia vielä tässä kaupungissa."/> :
+      {loading ? <Spinner/> : !profile?.paidAt
+        ? <Empty title="Viimeistele profiilisi, niin näet ja löydät muut pelaajat." action="Maksa 8,99 €" onAction={()=>setShowPaywall(true)}/>
+        : filtered.length===0 ? <Empty title="Ei pelaajia vielä tässä kaupungissa."/> :
         filtered.map(p=><PlayerCard key={p.id} player={p} onClick={()=>onOpenPlayer(p)}/>)}
+      {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
     </div>
   );
 }
@@ -940,16 +967,29 @@ function ChallengeCard({ challenge, onClick }) {
 }
 
 // ── Challenge Detail ───────────────────────────────────
-function ChallengeDetail({ challenge, onBack, currentUserId }) {
+function ChallengeDetail({ challenge, onBack, onOpenChat, currentUserId }) {
+  const { profile } = useAuth();
   const [joining, setJoining] = React.useState(false);
   const [cancelling, setCancelling] = React.useState(false);
   const [toast, setToast] = React.useState('');
+  const [showPaywall, setShowPaywall] = React.useState(false);
   const join = async () => {
+    if (!profile?.paidAt) { setShowPaywall(true); return; }
     setJoining(true);
-    try { const {error}=await supabase.rpc('join_challenge',{challenge_id_input:challenge.id}); if(error) throw error;
+    try { const {data:convId,error}=await supabase.rpc('join_challenge',{challenge_id_input:challenge.id}); if(error) throw error;
       triggerPush({ type:'challenge_join', challengeId:challenge.id, challengeCreatorId:challenge.creatorId, joinerId:currentUserId });
-      setToast('Liityit haasteeseen!'); setTimeout(()=>setToast(''),2500);
-    } catch(err) { alert(err.message); } finally { setJoining(false); }
+      if (convId && onOpenChat) {
+        const isGroup = challenge.participants.length >= 1;
+        onOpenChat({
+          id: convId, isGroup,
+          otherUserId: challenge.creatorId, otherUserName: challenge.creatorName,
+          otherUserAvatarUrl: challenge.creatorAvatarUrl, otherUserAvatarColor: challenge.creatorAvatarColor,
+          displayName: isGroup ? 'Ryhmäkeskustelu' : challenge.creatorName,
+        });
+      } else {
+        setToast('Liityit haasteeseen!'); setTimeout(()=>setToast(''),2500);
+      }
+    } catch(err) { err.message==='Payment required'?setShowPaywall(true):alert(err.message); } finally { setJoining(false); }
   };
   const cancel = async () => {
     if (!window.confirm('Perutaanko haaste? Se poistuu avoimista haasteista eikä sitä voi palauttaa.')) return;
@@ -980,6 +1020,7 @@ function ChallengeDetail({ challenge, onBack, currentUserId }) {
         {isMine && challenge.status!=='cancelled' && <button className="btn btn-outline-d btn-md btn-full" style={{marginTop:20,color:'var(--danger)',borderColor:'var(--danger)'}} onClick={cancel} disabled={cancelling}>{cancelling?'Perutaan...':'Peruuta haaste'}</button>}
       </div>
       <Toast show={!!toast} text={toast}/>
+      {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
     </div>
   );
 }
@@ -1019,10 +1060,12 @@ function CreateChallengeScreen({ onBack, onCreated }) {
   const [form, setForm] = React.useState({matchType:'kaksinpeli',locationType:'sisätennis',location:'',scheduledAt:'',title:'',description:'',courtSurface:'',minSkillLevel:'',courtPrice:'',creatorCoversFull:false});
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [showPaywall, setShowPaywall] = React.useState(false);
   const set = (k,v)=>setForm(p=>({...p,[k]:v}));
   const homeCity = profile?.alue?.[0]||'Lahti';
   const venues = INDOOR_VENUES.filter(v=>v.city===homeCity);
   const create = async () => {
+    if (!profile?.paidAt) { setShowPaywall(true); return; }
     setError(''); setBusy(true);
     try {
       const scheduledAtDate = form.scheduledAt ? new Date(form.scheduledAt) : null;
@@ -1038,7 +1081,10 @@ function CreateChallengeScreen({ onBack, onCreated }) {
       if(error) throw error;
       if(created?.id) triggerPush({ type:'new_area_challenge', challengeId:created.id, creatorId:session.user.id, area:homeCity });
       onCreated();
-    } catch(err) { setError(err.message||'Virhe'); } finally { setBusy(false); }
+    } catch(err) {
+      if (/row-level security/i.test(err.message||'')) setShowPaywall(true);
+      else setError(err.message||'Virhe');
+    } finally { setBusy(false); }
   };
   return <div className="clay-bg" style={{minHeight:'100%',padding:'20px 24px'}}>
     <button className="back-btn" onClick={onBack}>← Takaisin</button>
@@ -1058,6 +1104,7 @@ function CreateChallengeScreen({ onBack, onCreated }) {
       <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.creatorCoversFull} onChange={e=>set('creatorCoversFull',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Tarjoan koko kenttävuoron</label></div>
       <button className="btn btn-dark btn-lg btn-full" onClick={create} disabled={busy}>{busy?'Luodaan...':'Julkaise haaste'}</button>
     </div>
+    {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
   </div>;
 }
 
@@ -1575,6 +1622,11 @@ function ProfileFullScreen({ onOpenBlocked }) {
       <h2 className="page-title">Profiili</h2>
       <button className="icon-btn" onClick={()=>setEditing(true)} title="Profiilin asetukset" aria-label="Profiilin asetukset"><GearIcon size={19}/></button>
     </div>
+    {!profile.paidAt && <div className="card" style={{marginBottom:16,padding:16,textAlign:'center'}}>
+      <div style={{fontWeight:700,color:'var(--ink)',marginBottom:4}}>Profiilisi ei ole vielä viimeistelty</div>
+      <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:12}}>Kertamaksu 8,99 € avaa pelaajien profiilit ja haasteet.</div>
+      <button className="btn btn-lime btn-md" onClick={startCheckout}>Maksa 8,99 €</button>
+    </div>}
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginBottom:24}}>
       <Avatar uri={profile.avatarUrl} name={profile.nimi} color={profile.avatarColor} size={76}/>
       <h3 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{profileNameWithAge(profile)}</h3>
@@ -1643,7 +1695,7 @@ function AppShell() {
   const showFullPage = screen.type !== 'tab';
 
   if (screen.type === 'playerDetail') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><PlayerDetail player={screen.player} onBack={back} currentUserId={session?.user?.id}/></div></div></div>;
-  if (screen.type === 'challengeDetail') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><ChallengeDetail challenge={screen.challenge} onBack={back} currentUserId={session?.user?.id}/></div></div></div>;
+  if (screen.type === 'challengeDetail') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><ChallengeDetail challenge={screen.challenge} onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })} currentUserId={session?.user?.id}/></div></div></div>;
   if (screen.type === 'createChallenge') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full"><CreateChallengeScreen onBack={back} onCreated={()=>{back();setTab('challenges');}}/></div></div></div>;
   if (screen.type === 'chat') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full" style={{display:'flex',flexDirection:'column'}}><ChatScreen conversation={screen.conversation} onBack={back}/></div></div></div>;
   if (screen.type === 'blocked') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><BlockedProfilesScreen onBack={back}/></div></div></div>;
@@ -1671,7 +1723,15 @@ function AppShell() {
 
 // ── Root ───────────────────────────────────────────────
 function KrossiWebApp() {
-  const { session, loading, needsOnboarding } = useAuth();
+  const { session, loading, needsOnboarding, refreshProfile } = useAuth();
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('stripe')) return;
+    if (params.get('stripe') === 'success') refreshProfile();
+    params.delete('stripe');
+    const qs = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
+  }, [refreshProfile]);
   if (loading) return <div className="auth-shell clay-bg"><span style={{fontSize:40,fontWeight:800,color:'var(--lime)',letterSpacing:-1.5}}>Krossi</span><div style={{marginTop:20}}><div className="spinner"/></div></div>;
   if (!session) return <AuthScreen />;
   if (needsOnboarding) return <OnboardingScreen />;
