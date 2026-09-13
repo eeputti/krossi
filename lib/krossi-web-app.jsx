@@ -303,8 +303,9 @@ async function startCheckout() {
     const { data, error } = await supabase.functions.invoke('stripe-checkout', { method: 'POST' });
     if (error) throw error;
     if (data?.url) { window.location.href = data.url; return; }
-    throw new Error(data?.error || 'Maksun aloitus epäonnistui.');
-  } catch (err) { alert(err.message || 'Maksun aloitus epäonnistui.'); }
+    if (data?.error) { alert(data.error); return; }
+    throw new Error('unexpected response');
+  } catch (err) { console.error('Maksun aloitus epäonnistui', err); alert('Maksun aloitus epäonnistui. Yritä hetken päästä uudelleen.'); }
 }
 function PaywallModal({ onClose }) {
   const [starting, setStarting] = React.useState(false);
@@ -312,9 +313,10 @@ function PaywallModal({ onClose }) {
   return <div className="modal-overlay">
     <div className="modal-sheet" style={{ position:'relative', textAlign:'center' }}>
       <button onClick={onClose} aria-label="Sulje" style={{ position:'absolute', top:16, right:16, background:'none', border:'none', fontSize:18, color:'var(--text-muted)', cursor:'pointer', lineHeight:1 }}>✕</button>
-      <h3 style={{ margin:'0 0 8px', fontSize:18, fontWeight:800, color:'var(--ink)' }}>Viimeistele profiilisi</h3>
-      <p style={{ margin:'0 0 20px', fontSize:13, color:'var(--text-muted)', lineHeight:1.5 }}>Kertamaksu 8,99 € avaa pelaajien profiilit sekä haasteisiin liittymisen ja niiden luomisen. Ei tilausta, ei toistuvaa laskutusta.</p>
-      <button className="btn btn-lime btn-lg btn-full" disabled={starting} onClick={pay}>{starting?'Avataan maksua...':'Maksa 8,99 €'}</button>
+      <div style={{ fontSize:32, marginBottom:8 }}>🎾</div>
+      <h3 style={{ margin:'0 0 8px', fontSize:19, fontWeight:800, color:'var(--ink)' }}>Kokeile Krossin täyttä versiota</h3>
+      <p style={{ margin:'0 0 20px', fontSize:13, color:'var(--text-muted)', lineHeight:1.5 }}>Näet muiden pelaajien profiilit, voit liittyä haasteisiin ja luoda omia. Maksa vain kerran — ei tilausta, ei toistuvaa laskutusta.</p>
+      <button className="btn btn-lime btn-lg btn-full" disabled={starting} onClick={pay}>{starting?'Avataan maksua...':'Maksa 8,99 € — pelit voi alkaa!'}</button>
     </div>
   </div>;
 }
@@ -989,7 +991,10 @@ function ChallengeDetail({ challenge, onBack, onOpenChat, currentUserId }) {
       } else {
         setToast('Liityit haasteeseen!'); setTimeout(()=>setToast(''),2500);
       }
-    } catch(err) { err.message==='Payment required'?setShowPaywall(true):alert(err.message); } finally { setJoining(false); }
+    } catch(err) {
+      if (err.message==='Payment required') setShowPaywall(true);
+      else { console.error('Haasteeseen liittyminen epäonnistui', err); alert('Haasteeseen liittyminen epäonnistui. Yritä hetken päästä uudelleen.'); }
+    } finally { setJoining(false); }
   };
   const cancel = async () => {
     if (!window.confirm('Perutaanko haaste? Se poistuu avoimista haasteista eikä sitä voi palauttaa.')) return;
@@ -1083,7 +1088,7 @@ function CreateChallengeScreen({ onBack, onCreated }) {
       onCreated();
     } catch(err) {
       if (/row-level security/i.test(err.message||'')) setShowPaywall(true);
-      else setError(err.message||'Virhe');
+      else { console.error('Haasteen luonti epäonnistui', err); setError('Haasteen luonti epäonnistui. Yritä hetken päästä uudelleen.'); }
     } finally { setBusy(false); }
   };
   return <div className="clay-bg" style={{minHeight:'100%',padding:'20px 24px'}}>
