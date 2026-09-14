@@ -160,6 +160,22 @@ async function deleteMatchResultWeb(id) {
   const { error } = await supabase.from('match_results').delete().eq('id', id);
   if (error) throw error;
 }
+// Hauskoja lisätilastoja profiiliin: voitot/häviöt pelihistoriasta, järkätyt
+// pelit (luodut haasteet) ja pelatut pelit (haasteet joiden lopputulos on 'played').
+async function fetchPlayerStatsWeb() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { wins: 0, losses: 0, organized: 0, played: 0 };
+  const uid = user.id;
+  const [{ count: wins }, { count: losses }, { count: organized }, { data: joinedRows }, { count: createdPlayed }] = await Promise.all([
+    supabase.from('match_results').select('id', { count: 'exact', head: true }).eq('created_by', uid).eq('won', true),
+    supabase.from('match_results').select('id', { count: 'exact', head: true }).eq('created_by', uid).eq('won', false),
+    supabase.from('challenges').select('id', { count: 'exact', head: true }).eq('creator_id', uid),
+    supabase.from('challenge_participants').select('challenge:challenges!challenge_participants_challenge_id_fkey(id,outcome)').eq('user_id', uid),
+    supabase.from('challenges').select('id', { count: 'exact', head: true }).eq('creator_id', uid).eq('outcome', 'played'),
+  ]);
+  const joinedPlayedIds = new Set((joinedRows || []).filter(r => r.challenge?.outcome === 'played').map(r => r.challenge.id));
+  return { wins: wins || 0, losses: losses || 0, organized: organized || 0, played: (createdPlayed || 0) + joinedPlayedIds.size };
+}
 // ── Push-ilmoitukset ───────────────────────────────────
 // Sama send-push-notification -edge function ja sama tapahtumamuoto kuin
 // mobiilisovelluksen triggerPushNotification (src/services/notifications.ts).
@@ -1410,6 +1426,31 @@ function MatchResultCard({ result, onEdit, onDelete }) {
   </div>;
 }
 
+function PlayerStatsSection() {
+  const [stats, setStats] = React.useState(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetchPlayerStatsWeb().then(s => { if (!cancelled) setStats(s); }).catch(() => { if (!cancelled) setStats({ wins:0, losses:0, organized:0, played:0 }); });
+    return () => { cancelled = true; };
+  }, []);
+  if (!stats) return null;
+  const tiles = [
+    { label: 'Voitot', value: stats.wins },
+    { label: 'Häviöt', value: stats.losses },
+    { label: 'Järkätyt pelit', value: stats.organized },
+    { label: 'Pelatut pelit', value: stats.played },
+  ];
+  return <>
+    <h3 style={{fontSize:13,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,margin:'20px 0 8px'}}>Tilastot</h3>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+      {tiles.map(t => <div key={t.label} className="card" style={{textAlign:'center'}}>
+        <div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>{t.label}</div>
+        <div style={{color:'var(--ink)',fontWeight:800,fontSize:22}}>{t.value}</div>
+      </div>)}
+    </div>
+  </>;
+}
+
 function MatchHistorySection() {
   const [results, setResults] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -1644,6 +1685,8 @@ function ProfileFullScreen({ onOpenBlocked }) {
     </div>
     {profile.saatavuus.length>0&&<div className="card" style={{marginBottom:14}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Ajankohdat</div>{profile.saatavuus.map(s=><div key={s} style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{slotLabel(s)}</div>)}</div>}
     {(profile.katisyys||profile.rysty)&&<div className="card" style={{marginBottom:14}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Tyyli</div>{profile.katisyys&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.katisyys)}</div>}{profile.rysty&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.rysty)} rysty</div>}</div>}
+
+    <PlayerStatsSection/>
 
     <MatchHistorySection/>
 
