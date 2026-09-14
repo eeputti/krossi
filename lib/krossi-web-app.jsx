@@ -1664,7 +1664,7 @@ function ProfileFullScreen({ onOpenBlocked }) {
 }
 
 // ── Top Nav ────────────────────────────────────────────
-function TopNav({ tab, setTab }) {
+function TopNav({ tab, onTabChange }) {
   const { profile } = useAuth();
   const links = [
     { id: 'players', label: 'Pelaajat', icon: 'assets/ball-tight.png' },
@@ -1676,13 +1676,13 @@ function TopNav({ tab, setTab }) {
       <a href="/" className="top-nav-logo">Krossi</a>
       <div className="top-nav-links">
         {links.map(l => (
-          <button key={l.id} className={`top-nav-link ${tab === l.id ? 'active' : ''}`} onClick={() => setTab(l.id)}>
+          <button key={l.id} className={`top-nav-link ${tab === l.id ? 'active' : ''}`} onClick={() => onTabChange(l.id)}>
             <img src={l.icon} alt="" />
             {l.label}
           </button>
         ))}
       </div>
-      <button className={`top-nav-profile ${tab === 'profile' ? 'active' : ''}`} onClick={() => setTab('profile')}>
+      <button className={`top-nav-profile ${tab === 'profile' ? 'active' : ''}`} onClick={() => onTabChange('profile')}>
         <Avatar uri={profile?.avatarUrl} name={profile?.nimi} color={profile?.avatarColor} size={30} />
         <span>{profile?.nimi || 'Profiili'}</span>
       </button>
@@ -1691,28 +1691,48 @@ function TopNav({ tab, setTab }) {
 }
 
 // ── App Shell ──────────────────────────────────────────
+const TAB_SLUGS = { players: 'pelaajat', challenges: 'avoimet', messages: 'viestit', profile: 'profiili' };
+const SLUG_TABS = { pelaajat: 'players', avoimet: 'challenges', viestit: 'messages', profiili: 'profile' };
+function tabFromPath(pathname) {
+  const slug = pathname.replace(/^\/pelaa\/?/, '').replace(/\/$/, '');
+  return SLUG_TABS[slug] || 'players';
+}
+
 function AppShell() {
   const { session, profile } = useAuth();
-  const [tab, setTab] = React.useState('players');
+  const [tab, setTab] = React.useState(() => tabFromPath(window.location.pathname));
   const [screen, setScreen] = React.useState({ type: 'tab' });
   const back = () => setScreen({ type: 'tab' });
+  const navigateTab = React.useCallback(t => {
+    setTab(t);
+    setScreen({ type: 'tab' });
+    const path = `/pelaa/${TAB_SLUGS[t]}`;
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  }, []);
+  React.useEffect(() => {
+    const path = window.location.pathname;
+    if (path === '/pelaa' || path === '/pelaa/') window.history.replaceState(null, '', `/pelaa/${TAB_SLUGS[tab]}`);
+    const onPopState = () => { setTab(tabFromPath(window.location.pathname)); setScreen({ type: 'tab' }); };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   const showSidebar = tab === 'players' || tab === 'challenges' || tab === 'messages';
   const showFullPage = screen.type !== 'tab';
 
-  if (screen.type === 'playerDetail') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><PlayerDetail player={screen.player} onBack={back} currentUserId={session?.user?.id}/></div></div></div>;
-  if (screen.type === 'challengeDetail') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><ChallengeDetail challenge={screen.challenge} onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })} currentUserId={session?.user?.id}/></div></div></div>;
-  if (screen.type === 'createChallenge') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full"><CreateChallengeScreen onBack={back} onCreated={()=>{back();setTab('challenges');}}/></div></div></div>;
-  if (screen.type === 'chat') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full" style={{display:'flex',flexDirection:'column'}}><ChatScreen conversation={screen.conversation} onBack={back}/></div></div></div>;
-  if (screen.type === 'blocked') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full clay-bg"><BlockedProfilesScreen onBack={back}/></div></div></div>;
-  if (screen.type === 'archive') return <div className="app-shell"><TopNav tab={tab} setTab={t=>{setTab(t);setScreen({type:'tab'});}}/><div className="app-body"><div className="app-full"><ArchivedConversationsScreen onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })}/></div></div></div>;
+  if (screen.type === 'playerDetail') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full clay-bg"><PlayerDetail player={screen.player} onBack={back} currentUserId={session?.user?.id}/></div></div></div>;
+  if (screen.type === 'challengeDetail') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full clay-bg"><ChallengeDetail challenge={screen.challenge} onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })} currentUserId={session?.user?.id}/></div></div></div>;
+  if (screen.type === 'createChallenge') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full"><CreateChallengeScreen onBack={back} onCreated={()=>navigateTab('challenges')}/></div></div></div>;
+  if (screen.type === 'chat') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full" style={{display:'flex',flexDirection:'column'}}><ChatScreen conversation={screen.conversation} onBack={back}/></div></div></div>;
+  if (screen.type === 'blocked') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full clay-bg"><BlockedProfilesScreen onBack={back}/></div></div></div>;
+  if (screen.type === 'archive') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full"><ArchivedConversationsScreen onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })}/></div></div></div>;
 
   return (
     <div className="app-shell">
-      <TopNav tab={tab} setTab={t => { setTab(t); setScreen({ type: 'tab' }); }} />
+      <TopNav tab={tab} onTabChange={navigateTab} />
       <div className="app-body clay-bg">
         {showSidebar && (
           <div className="app-sidebar">
-            <SidebarProfile onEdit={() => setTab('profile')} />
+            <SidebarProfile onEdit={() => navigateTab('profile')} />
           </div>
         )}
         <div className="app-main">

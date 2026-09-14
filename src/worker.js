@@ -24,7 +24,7 @@ export function resolveAssetPath(input) {
     if (pathname === '/kayttoehdot' || pathname === '/kayttoehdot/') return '/koutsi-kayttoehdot.html';
   }
 
-  if (pathname === '/pelaa' || pathname === '/pelaa/') return '/app.html';
+  if (matchesSingleSegment(pathname, '/pelaa')) return '/app.html';
   if (pathname === '/') return '/index.html';
 
   return null;

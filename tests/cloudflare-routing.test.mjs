@@ -9,6 +9,8 @@ const routes = [
   ['https://krossi.app/', '/index.html'],
   ['https://www.krossi.app/', '/index.html'],
   ['https://krossi.app/pelaa', '/app.html'],
+  ['https://krossi.app/pelaa/pelaajat', '/app.html'],
+  ['https://krossi.app/pelaa/avoimet/', '/app.html'],
   ['https://koutsi.krossi.app/', '/koutsi.html'],
   ['https://koutsi.krossi.app/valmentaja', '/koutsi-valmentaja.html'],
   ['https://koutsi.krossi.app/valmentaja/oppilaat?auth=login', '/koutsi-valmentaja.html'],
@@ -29,6 +31,7 @@ test('maps the existing host and deep-link routes', () => {
 test('does not turn unknown or overly deep paths into app pages', () => {
   assert.equal(resolveAssetPath('https://koutsi.krossi.app/tuntematon'), null);
   assert.equal(resolveAssetPath('https://koutsi.krossi.app/valmentaja/a/b'), null);
+  assert.equal(resolveAssetPath('https://krossi.app/pelaa/pelaajat/a'), null);
 });
 
 test('worker preserves query parameters while rewriting the asset path', async () => {
