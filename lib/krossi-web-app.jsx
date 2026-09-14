@@ -1155,7 +1155,7 @@ function MessagesScreen({ onOpenChat, onCreateChallenge, onOpenArchive }) {
   if (reqs.length===0 && activeConvos.length===0 && archivedIds.length===0) {
     return <div className="page">
       <div className="empty-hero">
-        <img src="assets/no-messages-yet.png" alt="" className="empty-hero-img" />
+        <img src="/assets/no-messages-yet.png" alt="" className="empty-hero-img" />
         <h2 className="empty-hero-title">Ei vielä viestejä.<br/>Muttei hätää!</h2>
         <p className="empty-hero-subtitle">Voit luoda oman haasteen, jonka muut pelaajat näkevät.</p>
         <button className="btn btn-lime btn-lg btn-full" onClick={onCreateChallenge}>Luo oma haaste</button>
@@ -1667,9 +1667,9 @@ function ProfileFullScreen({ onOpenBlocked }) {
 function TopNav({ tab, onTabChange }) {
   const { profile } = useAuth();
   const links = [
-    { id: 'players', label: 'Pelaajat', icon: 'assets/ball-tight.png' },
-    { id: 'challenges', label: 'Avoimet', icon: 'assets/avoimet-tight.png' },
-    { id: 'messages', label: 'Viestit', icon: 'assets/viestit-tight.png' },
+    { id: 'players', label: 'Pelaajat', icon: '/assets/ball-tight.png' },
+    { id: 'challenges', label: 'Avoimet', icon: '/assets/avoimet-tight.png' },
+    { id: 'messages', label: 'Viestit', icon: '/assets/viestit-tight.png' },
   ];
   return (
     <nav className="top-nav">
