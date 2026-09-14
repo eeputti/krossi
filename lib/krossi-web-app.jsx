@@ -1562,36 +1562,22 @@ function MatchResultCard({ result, onEdit, onDelete }) {
 
 function PlayerStatsSection() {
   const [stats, setStats] = React.useState(null);
-  const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
-    fetchPlayerStatsWeb().then(s => { if (!cancelled) setStats(s); }).catch(() => { if (!cancelled) setStats({ wins:0, losses:0, organized:0, played:0 }); });
+    fetchPlayerStatsWeb().then(s => { if (!cancelled) setStats(s); }).catch(() => { if (!cancelled) setStats({ organized:0, played:0 }); });
     return () => { cancelled = true; };
   }, []);
   if (!stats) return null;
   const tiles = [
-    { label: 'Voitot', value: stats.wins },
-    { label: 'Häviöt', value: stats.losses },
-    { label: 'Järkätyt pelit', value: stats.organized },
     { label: 'Pelatut pelit', value: stats.played },
+    { label: 'Järkätyt pelit', value: stats.organized },
   ];
-  return <>
-    <button className="card hover-lift" onClick={()=>setOpen(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',marginBottom:16,cursor:'pointer',fontFamily:'inherit',fontSize:14,fontWeight:700,color:'var(--ink)'}}>
-      <span style={{fontSize:16}}>🎾</span> Pelitilastot
-    </button>
-    {open && <div className="modal-overlay" onClick={()=>setOpen(false)}>
-      <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
-        <h3 style={{margin:'0 0 14px',fontSize:18,fontWeight:800,color:'var(--ink)'}}>Pelitilastot</h3>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-          {tiles.map(t => <div key={t.label} className="card" style={{textAlign:'center'}}>
-            <div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>{t.label}</div>
-            <div style={{color:'var(--ink)',fontWeight:800,fontSize:22}}>{t.value}</div>
-          </div>)}
-        </div>
-        <button className="btn btn-outline-d btn-md btn-full" style={{marginTop:16}} onClick={()=>setOpen(false)}>Sulje</button>
-      </div>
-    </div>}
-  </>;
+  return <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+    {tiles.map(t => <div key={t.label} className="card" style={{textAlign:'center'}}>
+      <div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>{t.label}</div>
+      <div style={{color:'var(--ink)',fontWeight:800,fontSize:22}}>{t.value}</div>
+    </div>)}
+  </div>;
 }
 
 function MatchHistorySection() {
@@ -1599,6 +1585,7 @@ function MatchHistorySection() {
   const [loading, setLoading] = React.useState(true);
   const [modalOpen, setModalOpen] = React.useState(false);
   const [editing, setEditing] = React.useState(null);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
   const load = React.useCallback(async () => {
     try { setResults(await fetchMatchResultsWeb()); } catch(e){ console.error('Pelihistorian lataus epäonnistui', e); } finally { setLoading(false); }
   }, []);
@@ -1611,16 +1598,26 @@ function MatchHistorySection() {
     catch(e){ alert(e.message||'Tulosta ei voitu poistaa.'); }
     finally { setRemoving(false); }
   };
+  const summary = loading ? 'Ladataan...' : results.length===0 ? 'Ei vielä pelihistoriaa' : `${results.length} ottelua`;
   return <>
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'20px 0 8px'}}>
-      <h3 style={{fontSize:13,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5}}>Pelihistoria</h3>
-      <button className="btn btn-outline-d btn-sm" onClick={()=>{setEditing(null);setModalOpen(true);}}>+ Lisää tulos</button>
-    </div>
-    {loading ? <Spinner/> : results.length===0
-      ? <div className="card" style={{marginBottom:14,color:'var(--text-muted)',fontSize:13}}>Pelihistoria tulee tähän, kun matseja pelataan.</div>
-      : <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:14}}>
-          {results.map(r => <MatchResultCard key={r.id} result={r} onEdit={()=>{setEditing(r);setModalOpen(true);}} onDelete={()=>setRemoveId(r.id)}/>)}
-        </div>}
+    <h3 style={{fontSize:13,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,margin:'20px 0 8px'}}>Pelihistoria</h3>
+    <button className="card hover-lift" onClick={()=>setHistoryOpen(true)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',marginBottom:14,cursor:'pointer',fontFamily:'inherit',fontSize:14,fontWeight:600,color:'var(--ink)'}}>
+      <span>{summary}</span><span style={{color:'var(--text-muted)'}}>→</span>
+    </button>
+    {historyOpen && <div className="modal-overlay" onClick={()=>setHistoryOpen(false)}>
+      <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+          <h3 style={{margin:0,fontSize:18,fontWeight:800,color:'var(--ink)'}}>Pelihistoria</h3>
+          <button className="btn btn-outline-d btn-sm" onClick={()=>{setEditing(null);setModalOpen(true);}}>+ Lisää tulos</button>
+        </div>
+        {results.length===0
+          ? <div className="card" style={{color:'var(--text-muted)',fontSize:13}}>Pelihistoria tulee tähän, kun matseja pelataan.</div>
+          : <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {results.map(r => <MatchResultCard key={r.id} result={r} onEdit={()=>{setEditing(r);setModalOpen(true);}} onDelete={()=>setRemoveId(r.id)}/>)}
+            </div>}
+        <button className="btn btn-outline-d btn-md btn-full" style={{marginTop:16}} onClick={()=>setHistoryOpen(false)}>Sulje</button>
+      </div>
+    </div>}
     {modalOpen && <MatchResultModal editingResult={editing} onClose={()=>setModalOpen(false)} onSaved={()=>{setModalOpen(false);load();}}/>}
     {removeId && <ConfirmModal
       title="Poistetaanko tulos?"
