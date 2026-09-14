@@ -942,19 +942,12 @@ function BlockedProfilesScreen({ onBack }) {
   </div>;
 }
 
-// ── Locked players preview (teaser shown before payment) ──
-const LOCKED_PREVIEW_PLAYERS = [
-  { nimi:'Aleksi', ika:'30-40', pelitaso:['keskitaso'], pelimuoto:['pallottelu','nelinpeli'], avatarColor:'blue', playingThisWeek:true },
-  { nimi:'Emilia', ika:'20-30', pelitaso:['edistynyt'], pelimuoto:['matsit'], avatarColor:'red', playingThisWeek:false },
-  { nimi:'Joonas', ika:'40-50', pelitaso:['aloittelija'], pelimuoto:['pallottelu'], avatarColor:'green', playingThisWeek:false },
-  { nimi:'Sofia', ika:'20-30', pelitaso:['kilpapelaaja'], pelimuoto:['kaksinpeli'], avatarColor:'yellow', playingThisWeek:true },
-  { nimi:'Miika', ika:'30-40', pelitaso:['keskitaso'], pelimuoto:['kaikki käy'], avatarColor:'blue', playingThisWeek:false },
-];
-function LockedPlayersPreview({ onUnlock }) {
+// ── Locked content preview (teaser shown before payment) ──
+function LockedContentPreview({ title, description, ctaLabel='Aloita pelit', onUnlock, children }) {
   return (
     <div style={{ position:'relative', overflow:'hidden', borderRadius:18 }}>
       <div aria-hidden="true" style={{ filter:'blur(7px)', pointerEvents:'none', userSelect:'none' }}>
-        {LOCKED_PREVIEW_PLAYERS.map((p,i) => <PlayerCard key={i} player={p} onClick={()=>{}}/>)}
+        {children}
       </div>
       <div style={{
         position:'absolute', inset:0, display:'flex', alignItems:'flex-end', justifyContent:'center',
@@ -967,12 +960,46 @@ function LockedPlayersPreview({ onUnlock }) {
           textAlign:'center', maxWidth:340, width:'100%',
         }}>
           <div style={{ fontSize:26, marginBottom:6 }}>🔒</div>
-          <p style={{ fontSize:15, fontWeight:700, color:'var(--ink)', margin:'0 0 4px' }}>Pelaajat ovat lukittuna</p>
-          <p style={{ fontSize:13, color:'var(--text-muted)', margin:'0 0 16px', lineHeight:1.5 }}>Maksa kertamaksu 8,99 € ja näet alueesi pelaajat profiileineen.</p>
-          <button className="btn btn-lime btn-md btn-full" onClick={onUnlock}>Maksa 8,99 €</button>
+          <p style={{ fontSize:15, fontWeight:700, color:'var(--ink)', margin:'0 0 4px' }}>{title}</p>
+          <p style={{ fontSize:13, color:'var(--text-muted)', margin:'0 0 16px', lineHeight:1.5 }}>{description}</p>
+          <button className="btn btn-lime btn-md btn-full" onClick={onUnlock}>{ctaLabel}</button>
         </div>
       </div>
     </div>
+  );
+}
+const LOCKED_PREVIEW_PLAYERS = [
+  { nimi:'Aleksi', ika:'30-40', pelitaso:['keskitaso'], pelimuoto:['pallottelu','nelinpeli'], avatarColor:'blue', playingThisWeek:true },
+  { nimi:'Emilia', ika:'20-30', pelitaso:['edistynyt'], pelimuoto:['matsit'], avatarColor:'red', playingThisWeek:false },
+  { nimi:'Joonas', ika:'40-50', pelitaso:['aloittelija'], pelimuoto:['pallottelu'], avatarColor:'green', playingThisWeek:false },
+  { nimi:'Sofia', ika:'20-30', pelitaso:['kilpapelaaja'], pelimuoto:['kaksinpeli'], avatarColor:'yellow', playingThisWeek:true },
+  { nimi:'Miika', ika:'30-40', pelitaso:['keskitaso'], pelimuoto:['kaikki käy'], avatarColor:'blue', playingThisWeek:false },
+];
+function LockedPlayersPreview({ onUnlock }) {
+  return (
+    <LockedContentPreview
+      title="Pelaajat ovat lukittuna"
+      description="Maksa kertamaksu 8,99 € ja näet alueesi pelaajat profiileineen. Saat koko Krossin käyttöön ja voit löytää pelit helpommin kuin koskaan ennen."
+      onUnlock={onUnlock}
+    >
+      {LOCKED_PREVIEW_PLAYERS.map((p,i) => <PlayerCard key={i} player={p} onClick={()=>{}}/>)}
+    </LockedContentPreview>
+  );
+}
+const LOCKED_PREVIEW_CHALLENGES = [
+  { scheduledAt:null, matchType:'kaksinpeli', creatorName:'Ville', creatorAvatarColor:'blue', location:'Kisapuisto', locationType:'ulkotennis', participants:[], title:'Rento pallottelu illalla' },
+  { scheduledAt:null, matchType:'nelinpeli', creatorName:'Noora', creatorAvatarColor:'yellow', location:'Tennishalli', locationType:'sisätennis', participants:[{userId:'p1',name:'Eero',avatarColor:'green'}], title:'' },
+  { scheduledAt:null, matchType:'pallottelu', creatorName:'Petri', creatorAvatarColor:'red', location:'Radiomäki', locationType:'ulkotennis', participants:[], title:'Etsin pallottelukaveria' },
+];
+function LockedChallengesPreview({ onUnlock }) {
+  return (
+    <LockedContentPreview
+      title="Haasteet ovat lukittuna"
+      description="Maksa kertamaksu 8,99 € ja näet alueesi avoimet haasteet. Saat koko Krossin käyttöön ja voit löytää pelit helpommin kuin koskaan ennen."
+      onUnlock={onUnlock}
+    >
+      {LOCKED_PREVIEW_CHALLENGES.map((c,i) => <ChallengeCard key={i} challenge={c} onClick={()=>{}}/>)}
+    </LockedContentPreview>
   );
 }
 
@@ -1137,10 +1164,12 @@ function ChallengeDetail({ challenge, onBack, onOpenChat, currentUserId }) {
 // ── Challenges Screen ──────────────────────────────────
 const SKILL_ORDER = ['aloittelija', 'keskitaso', 'edistynyt', 'kilpapelaaja'];
 function ChallengesScreen({ onOpenChallenge, onCreateChallenge, refreshKey }) {
+  const { profile } = useAuth();
   const [list, setList] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState({ matchType:'', locationType:'', courtSurface:'', minSkillLevel:'' });
   const [showFilterModal, setShowFilterModal] = React.useState(false);
+  const [showPaywall, setShowPaywall] = React.useState(false);
   React.useEffect(() => {
     (async () => {
       try {
@@ -1175,9 +1204,12 @@ function ChallengesScreen({ onOpenChallenge, onCreateChallenge, refreshKey }) {
         <FilterIcon/> Suodata{extraFilterCount>0 && <span className="filter-btn-badge">{extraFilterCount}</span>}
       </button>
     </div>
-    {loading?<Spinner/>:list.length===0?<Empty title="Ei avoimia haasteita." action="Luo ensimmäinen" onAction={onCreateChallenge}/>
+    {loading ? <Spinner/> : !profile?.paidAt
+      ? <LockedChallengesPreview onUnlock={()=>setShowPaywall(true)}/>
+      : list.length===0?<Empty title="Ei avoimia haasteita." action="Luo ensimmäinen" onAction={onCreateChallenge}/>
       :filtered.length===0?<Empty title="Ei haasteita näillä suodattimilla."/>
       :filtered.map(c=><ChallengeCard key={c.id} challenge={c} onClick={()=>onOpenChallenge(c)}/>)}
+    {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
     {showFilterModal && <FilterModal title="Suodata haasteita" onClose={()=>setShowFilterModal(false)} onClear={()=>setFilter({matchType:'',locationType:'',courtSurface:'',minSkillLevel:''})}>
       <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${filter.matchType===t?'active':''}`} onClick={()=>setF('matchType',t)}>{titleCase(t)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Sijainti</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{LOCATION_TYPES.map(t=><button key={t} className={`filter-chip ${filter.locationType===t?'active':''}`} onClick={()=>setF('locationType',t)}>{titleCase(t)}</button>)}</div></div>
