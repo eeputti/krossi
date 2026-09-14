@@ -240,12 +240,14 @@ window.krossiLoadPixel = function () {
 
   /* ── messages ── */
   .msg-row {
-    display: flex; align-items: center; gap: 6px; padding: 11px 0;
-    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 6px; padding: 12px 14px;
+    background: #fff; border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: 0 1px 3px rgba(20,15,5,0.05); margin-bottom: 10px;
+    transition: transform .15s ease, box-shadow .2s ease, border-color .15s;
   }
-  .msg-row:last-child { border-bottom: none; }
-  .msg-row-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; transition: opacity .12s; }
-  .msg-row-main:hover { opacity: 0.8; }
+  .msg-row:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -16px rgba(20,15,5,0.18); border-color: #c5c0b5; }
+  .msg-row:last-child { margin-bottom: 0; }
+  .msg-row-main { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; }
   .msg-row-actions { display: flex; gap: 2px; flex-shrink: 0; }
   .icon-btn {
     width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent;
@@ -253,6 +255,20 @@ window.krossiLoadPixel = function () {
     color: var(--text-muted); transition: background .15s, color .15s;
   }
   .icon-btn:hover { background: #f0ede6; color: var(--ink); }
+  .icon-btn-danger:hover { background: rgba(161,59,47,0.12); color: var(--danger); }
+  .filter-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 13px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    border: 1.5px solid var(--border); background: #fff; color: var(--ink);
+    cursor: pointer; font-family: inherit; transition: all .12s;
+  }
+  .filter-btn:hover { border-color: #c5c0b5; }
+  .filter-btn.has-filters { border-color: var(--green-deep); color: var(--green-deep); }
+  .filter-btn-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 17px; height: 17px; border-radius: 999px; padding: 0 4px;
+    background: var(--green-deep); color: #fff; font-size: 11px; font-weight: 800;
+  }
   .archive-link-btn {
     display: inline-flex; align-items: center; gap: 6px;
     background: transparent; border: none; color: var(--text-muted);
@@ -274,6 +290,8 @@ window.krossiLoadPixel = function () {
   .chat-bubble { max-width: 75%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-break: break-word; }
   .chat-mine { align-self: flex-end; background: var(--green-deep); color: #fff; border-bottom-right-radius: 4px; font-weight: 600; }
   .chat-theirs { align-self: flex-start; background: #f0ede6; color: var(--ink); border-bottom-left-radius: 4px; }
+  .chat-thumb { font-size: 44px; line-height: 1; padding: 2px 4px; animation: thumb-pop .25s cubic-bezier(.3,1.6,.5,1); filter: drop-shadow(0 2px 4px rgba(20,15,5,0.15)); }
+  @keyframes thumb-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
   /* ── back button ── */
   .back-btn {

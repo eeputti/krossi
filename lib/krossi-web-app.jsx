@@ -13,6 +13,8 @@ const VISIBLE_AREAS = AREA_OPTIONS;
 const PLAIN_SKILL_LEVELS = ['aloittelija', 'keskitaso', 'edistynyt', 'kilpapelaaja'];
 const PLAY_STYLES = ['pallottelu', 'treenit', 'matsit', 'kaksinpeli', 'nelinpeli', 'kaikki käy'];
 const MATCH_TYPES = ['kaksinpeli', 'nelinpeli', 'pallottelu'];
+const GENDERS = ['mies', 'nainen'];
+const COURT_SURFACES = ['kova', 'massa', 'nurmi', 'asfaltti'];
 const CHALLENGE_DURATION_HOURS = 3; // haaste vanhenee feedistä tämän jälkeen sovitusta ajankohdasta
 const OPEN_CHALLENGE_TTL_HOURS = 48; // "aika avoin" -haasteille, joilla ei ole kellonaikaa
 const LOCATION_TYPES = ['sisätennis', 'ulkotennis', 'missä vain'];
@@ -337,6 +339,34 @@ function PaywallModal({ onClose }) {
   </div>;
 }
 
+// ── Confirm modal (replaces window.confirm) ─────────────
+function ConfirmModal({ title, message, confirmLabel='Vahvista', cancelLabel='Peruuta', danger=false, busy=false, onConfirm, onCancel }) {
+  return <div className="modal-overlay" onClick={busy?undefined:onCancel}>
+    <div className="modal-sheet" style={{ maxWidth:380 }} onClick={e=>e.stopPropagation()}>
+      <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:800, color:'var(--ink)' }}>{title}</h3>
+      <p style={{ margin:'0 0 18px', fontSize:14, color:'var(--text-muted)', lineHeight:1.5 }}>{message}</p>
+      <div style={{ display:'flex', gap:8 }}>
+        <button className="btn btn-outline-d btn-md" style={{ flex:1 }} onClick={onCancel} disabled={busy}>{cancelLabel}</button>
+        <button className={`btn ${danger?'btn-danger':'btn-dark'} btn-md`} style={{ flex:1 }} onClick={onConfirm} disabled={busy}>{busy?'Hetki...':confirmLabel}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── Filter modal (shared shell for list filters) ────────
+function FilterModal({ title, onClose, onClear, children }) {
+  return <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+      <h3 style={{ margin:'0 0 14px', fontSize:17, fontWeight:800, color:'var(--ink)' }}>{title}</h3>
+      {children}
+      <div style={{ display:'flex', gap:8, marginTop:18 }}>
+        <button className="btn btn-outline-d btn-md" style={{ flex:1 }} onClick={onClear}>Tyhjennä</button>
+        <button className="btn btn-lime btn-md" style={{ flex:1 }} onClick={onClose}>Valmis</button>
+      </div>
+    </div>
+  </div>;
+}
+
 // ── Tiny components ────────────────────────────────────
 function Avatar({ uri, name, color = 'blue', size = 44 }) {
   if (uri) return <img src={storageUrl(uri)} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />;
@@ -353,6 +383,7 @@ function Empty({ title, action, onAction }) {
 function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13M10 11v6M14 11v6" /></svg>; }
 function ArchiveIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" /></svg>; }
 function UndoIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h11a5 5 0 0 1 0 10h-2M3 9l5-5M3 9l5 5" /></svg>; }
+function FilterIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16M7 12h10M11 19h2" /></svg>; }
 function Toggle({ on, onChange }) {
   return (
     <button type="button" onClick={() => onChange(!on)} style={{ width: 48, height: 28, borderRadius: 14, border: 'none', padding: 2, cursor: 'pointer', background: on ? 'var(--green-deep)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background .2s' }}>
@@ -810,11 +841,11 @@ function PlayerDetail({ player, onBack, currentUserId }) {
   const [showReport, setShowReport] = React.useState(false);
   const [reportText, setReportText] = React.useState('');
   const [busyAction, setBusyAction] = React.useState(false);
-  const block = async () => {
-    if (!window.confirm(`Estetäänkö ${player.nimi}? Hän katoaa pelaajalistaltasi. Voit purkaa eston profiilisi asetuksista.`)) return;
+  const [showBlockConfirm, setShowBlockConfirm] = React.useState(false);
+  const doBlock = async () => {
     setBusyAction(true);
     try { await blockProfile(currentUserId, player.id); onBack(); }
-    catch (err) { alert(err.message); setBusyAction(false); }
+    catch (err) { alert(err.message); setBusyAction(false); setShowBlockConfirm(false); }
   };
   const submitReport = async () => {
     setBusyAction(true);
@@ -834,28 +865,26 @@ function PlayerDetail({ player, onBack, currentUserId }) {
     } catch (err) { alert(err.message); } finally { setSending(false); }
   };
   return (
-    <div className="clay-bg" style={{ minHeight:'100%',padding:'20px 24px 100px' }}>
-      <button className="back-btn" onClick={onBack}>← Takaisin</button>
-      <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:8,margin:'24px auto',maxWidth:500 }}>
+    <div style={{ position:'relative' }}>
+      <button className="icon-btn" onClick={onBack} aria-label="Sulje" style={{ position:'absolute', top:-8, right:-8, fontSize:18 }}>✕</button>
+      <div style={{ display:'flex',flexDirection:'column',alignItems:'center',gap:8,margin:'4px auto 24px' }}>
         <Avatar uri={player.avatarUrl} name={player.nimi} color={player.avatarColor} size={84} />
         <h2 style={{ color:'var(--ink)',fontWeight:800,fontSize:22,margin:0 }}>{profileNameWithAge(player)}</h2>
         <p style={{ color:'var(--text-muted)',fontSize:14 }}>{player.alue.join(', ')}</p>
         {player.playingThisWeek && <span className="chip chip-active">Tällä viikolla</span>}
       </div>
-      <div style={{ maxWidth:500,margin:'0 auto' }}>
-        <div className="detail-field"><div className="detail-label">Pelitaso</div><div className="detail-value">{formatSkillLevels(player.pelitaso)}</div></div>
-        <div className="detail-field"><div className="detail-label">Pelimuoto</div><div className="detail-value">{player.pelimuoto.map(titleCase).join(', ')}</div></div>
-        {player.saatavuus?.length>0 && <div className="detail-field"><div className="detail-label">Saatavuus</div><div className="detail-value">{player.saatavuus.map(s=><div key={s}>{slotLabel(s)}</div>)}</div></div>}
-        {player.katisyys && <div className="detail-field"><div className="detail-label">Kätisyys</div><div className="detail-value">{titleCase(player.katisyys)}</div></div>}
-        {player.bio && <div className="detail-field"><div className="detail-label">Bio</div><div className="detail-value">{player.bio}</div></div>}
-        {currentUserId && currentUserId !== player.id && <button className="btn btn-lime btn-lg btn-full" style={{marginTop:20}} onClick={()=>{setReqText('Lähtisitkö pelaamaan?');setShowReq(true);}}>Pyydä pelaamaan</button>}
-        {currentUserId && currentUserId !== player.id && (
-          <div style={{display:'flex',gap:8,marginTop:10}}>
-            <button className="btn btn-outline-d btn-sm" style={{flex:1}} disabled={busyAction} onClick={()=>setShowReport(true)}>Ilmoita</button>
-            <button className="btn btn-outline-d btn-sm" style={{flex:1,color:'var(--danger)',borderColor:'var(--danger)'}} disabled={busyAction} onClick={block}>Estä</button>
-          </div>
-        )}
-      </div>
+      <div className="detail-field"><div className="detail-label">Pelitaso</div><div className="detail-value">{formatSkillLevels(player.pelitaso)}</div></div>
+      <div className="detail-field"><div className="detail-label">Pelimuoto</div><div className="detail-value">{player.pelimuoto.map(titleCase).join(', ')}</div></div>
+      {player.saatavuus?.length>0 && <div className="detail-field"><div className="detail-label">Saatavuus</div><div className="detail-value">{player.saatavuus.map(s=><div key={s}>{slotLabel(s)}</div>)}</div></div>}
+      {player.katisyys && <div className="detail-field"><div className="detail-label">Kätisyys</div><div className="detail-value">{titleCase(player.katisyys)}</div></div>}
+      {player.bio && <div className="detail-field"><div className="detail-label">Bio</div><div className="detail-value">{player.bio}</div></div>}
+      {currentUserId && currentUserId !== player.id && <button className="btn btn-lime btn-lg btn-full" style={{marginTop:20}} onClick={()=>{setReqText('Lähtisitkö pelaamaan?');setShowReq(true);}}>Pyydä pelaamaan</button>}
+      {currentUserId && currentUserId !== player.id && (
+        <div style={{display:'flex',gap:8,marginTop:10}}>
+          <button className="btn btn-outline-d btn-sm" style={{flex:1}} disabled={busyAction} onClick={()=>setShowReport(true)}>Ilmoita</button>
+          <button className="btn btn-outline-d btn-sm" style={{flex:1,color:'var(--danger)',borderColor:'var(--danger)'}} disabled={busyAction} onClick={()=>setShowBlockConfirm(true)}>Estä</button>
+        </div>
+      )}
       {showReq && <div className="modal-overlay" onClick={()=>setShowReq(false)}><div className="modal-sheet" onClick={e=>e.stopPropagation()}>
         <h3 style={{margin:'0 0 12px',fontSize:17,fontWeight:800}}>Pyyntö: {player.nimi}</h3>
         <textarea className="input" rows={3} value={reqText} onChange={e=>setReqText(e.target.value)}/>
@@ -870,6 +899,12 @@ function PlayerDetail({ player, onBack, currentUserId }) {
           <button className="btn btn-dark btn-lg" style={{flex:1}} onClick={submitReport} disabled={busyAction||!reportText.trim()}>{busyAction?'Lähetetään...':'Lähetä ilmoitus'}</button>
         </div>
       </div></div>}
+      {showBlockConfirm && <ConfirmModal
+        title={`Estetäänkö ${player.nimi}?`}
+        message="Hän katoaa pelaajalistaltasi. Voit purkaa eston profiilisi asetuksista."
+        confirmLabel="Estä" danger busy={busyAction}
+        onConfirm={doBlock} onCancel={()=>setShowBlockConfirm(false)}
+      />}
       <Toast show={!!toast} text={toast}/>
     </div>
   );
@@ -914,7 +949,8 @@ function PlayersScreen({ onOpenPlayer }) {
   const { session, profile } = useAuth();
   const [players, setPlayers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [filter, setFilter] = React.useState({ skill:'', style:'' });
+  const [filter, setFilter] = React.useState({ skill:'', playStyles:[], gender:'' });
+  const [showFilterModal, setShowFilterModal] = React.useState(false);
   const [showPaywall, setShowPaywall] = React.useState(false);
   const load = React.useCallback(async () => {
     try {
@@ -936,21 +972,37 @@ function PlayersScreen({ onOpenPlayer }) {
     return players.filter(p => {
       if (home && !p.alue.includes(home)) return false;
       if (filter.skill && !p.pelitaso.includes(filter.skill)) return false;
+      if (filter.playStyles.length>0 && !filter.playStyles.some(s=>p.pelimuoto.includes(s))) return false;
+      if (filter.gender && p.sukupuoli!==filter.gender) return false;
       return true;
     });
   }, [players,filter,profile]);
+  const extraFilterCount = (filter.playStyles.length>0?1:0) + (filter.gender?1:0);
+  const togglePlayStyle = s => setFilter(f=>({...f, playStyles: f.playStyles.includes(s)?f.playStyles.filter(x=>x!==s):[...f.playStyles,s]}));
   return (
     <div className="page">
       <div className="page-header"><h2 className="page-title">Pelaajat</h2></div>
-      <div className="filter-bar">
-        <button className={`filter-chip ${!filter.skill?'active':''}`} onClick={()=>setFilter({skill:''})}>Kaikki</button>
+      <div className="filter-bar" style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+        <button className={`filter-chip ${!filter.skill?'active':''}`} onClick={()=>setFilter(f=>({...f,skill:''}))}>Kaikki</button>
         {PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${filter.skill===l?'active':''}`} onClick={()=>setFilter(f=>({...f,skill:f.skill===l?'':l}))}>{titleCase(l)}</button>)}
+        <button className={`filter-btn ${extraFilterCount>0?'has-filters':''}`} style={{marginLeft:'auto'}} onClick={()=>setShowFilterModal(true)}>
+          <FilterIcon/> Suodata{extraFilterCount>0 && <span className="filter-btn-badge">{extraFilterCount}</span>}
+        </button>
       </div>
       {loading ? <Spinner/> : !profile?.paidAt
         ? <Empty title="Viimeistele profiilisi, niin näet ja löydät muut pelaajat." action="Maksa 8,99 €" onAction={()=>setShowPaywall(true)}/>
-        : filtered.length===0 ? <Empty title="Ei pelaajia vielä tässä kaupungissa."/> :
+        : filtered.length===0 ? <Empty title="Ei pelaajia näillä suodattimilla."/> :
         filtered.map(p=><PlayerCard key={p.id} player={p} onClick={()=>onOpenPlayer(p)}/>)}
       {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
+      {showFilterModal && <FilterModal title="Suodata pelaajia" onClose={()=>setShowFilterModal(false)} onClear={()=>setFilter(f=>({...f,playStyles:[],gender:''}))}>
+        <div className="field"><div className="detail-label">Pelityyli</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {PLAY_STYLES.map(s=><button key={s} className={`filter-chip ${filter.playStyles.includes(s)?'active':''}`} onClick={()=>togglePlayStyle(s)}>{titleCase(s)}</button>)}
+        </div></div>
+        <div className="field"><div className="detail-label">Sukupuoli</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          <button className={`filter-chip ${!filter.gender?'active':''}`} onClick={()=>setFilter(f=>({...f,gender:''}))}>Kaikki</button>
+          {GENDERS.map(g=><button key={g} className={`filter-chip ${filter.gender===g?'active':''}`} onClick={()=>setFilter(f=>({...f,gender:f.gender===g?'':g}))}>{titleCase(g)}</button>)}
+        </div></div>
+      </FilterModal>}
     </div>
   );
 }
@@ -991,6 +1043,7 @@ function ChallengeDetail({ challenge, onBack, onOpenChat, currentUserId }) {
   const [cancelling, setCancelling] = React.useState(false);
   const [toast, setToast] = React.useState('');
   const [showPaywall, setShowPaywall] = React.useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = React.useState(false);
   const join = async () => {
     if (!profile?.paidAt) { setShowPaywall(true); return; }
     setJoining(true);
@@ -1013,43 +1066,49 @@ function ChallengeDetail({ challenge, onBack, onOpenChat, currentUserId }) {
     } finally { setJoining(false); }
   };
   const cancel = async () => {
-    if (!window.confirm('Perutaanko haaste? Se poistuu avoimista haasteista eikä sitä voi palauttaa.')) return;
     setCancelling(true);
     try { const {error}=await supabase.from('challenges').update({ status:'cancelled' }).eq('id',challenge.id); if(error) throw error;
       triggerPush({ type:'challenge_cancelled', challengeId:challenge.id, creatorId:currentUserId });
       onBack();
-    } catch(err) { alert(err.message); setCancelling(false); }
+    } catch(err) { alert(err.message); setCancelling(false); setShowCancelConfirm(false); }
   };
   const isMine = challenge.creatorId===currentUserId;
   const joined = challenge.participants.some(p=>p.userId===currentUserId);
   const full = challenge.participants.length>=slotsNeeded(challenge.matchType);
   return (
-    <div className="clay-bg" style={{ minHeight:'100%',padding:'20px 24px 100px' }}>
-      <button className="back-btn" onClick={onBack}>← Takaisin</button>
-      <div style={{ maxWidth:500,margin:'24px auto 0' }}>
-        <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:18 }}>
-          <Avatar uri={challenge.creatorAvatarUrl} name={challenge.creatorName} color={challenge.creatorAvatarColor} size={48}/>
-          <div><h2 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{challenge.creatorName}</h2><p style={{color:'var(--text-muted)',fontSize:13,margin:0}}>{challenge.creatorArea?.join(', ')}</p></div>
-        </div>
-        {challenge.title && <p style={{color:'var(--ink)',fontSize:15,fontWeight:600,marginBottom:14}}>{challenge.title}</p>}
-        {challenge.description && <p style={{color:'#6b665c',fontSize:13,marginBottom:18,lineHeight:1.5}}>{challenge.description}</p>}
-        <div className="detail-field"><div className="detail-label">Aika</div><div className="detail-value">{challenge.scheduledAt?formatDate(challenge.scheduledAt):'Aika avoin'}</div></div>
-        <div className="detail-field"><div className="detail-label">Paikka</div><div className="detail-value">{challenge.location}</div></div>
-        <div className="detail-field"><div className="detail-label">Tyyppi</div><div className="detail-value">{titleCase(challenge.matchType)} · {titleCase(challenge.locationType)}</div></div>
-        {challenge.participants.length>0 && <div className="detail-field"><div className="detail-label">Osallistujat</div><div style={{display:'flex',gap:6,marginTop:4}}>{challenge.participants.map(p=><div key={p.userId} style={{display:'flex',alignItems:'center',gap:5}}><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={26}/><span style={{color:'#6b665c',fontSize:12}}>{p.name}</span></div>)}</div></div>}
-        {currentUserId && !isMine && !joined && !full && <button className="btn btn-lime btn-lg btn-full" style={{marginTop:20}} onClick={join} disabled={joining}>{joining?'Liitytään...':'Liity haasteeseen'}</button>}
-        {isMine && challenge.status!=='cancelled' && <button className="btn btn-outline-d btn-md btn-full" style={{marginTop:20,color:'var(--danger)',borderColor:'var(--danger)'}} onClick={cancel} disabled={cancelling}>{cancelling?'Perutaan...':'Peruuta haaste'}</button>}
+    <div style={{ position:'relative' }}>
+      <button className="icon-btn" onClick={onBack} aria-label="Sulje" style={{ position:'absolute', top:-8, right:-8, fontSize:18 }}>✕</button>
+      <div style={{ display:'flex',alignItems:'center',gap:12,marginBottom:18 }}>
+        <Avatar uri={challenge.creatorAvatarUrl} name={challenge.creatorName} color={challenge.creatorAvatarColor} size={48}/>
+        <div><h2 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{challenge.creatorName}</h2><p style={{color:'var(--text-muted)',fontSize:13,margin:0}}>{challenge.creatorArea?.join(', ')}</p></div>
       </div>
+      {challenge.title && <p style={{color:'var(--ink)',fontSize:15,fontWeight:600,marginBottom:14}}>{challenge.title}</p>}
+      {challenge.description && <p style={{color:'#6b665c',fontSize:13,marginBottom:18,lineHeight:1.5}}>{challenge.description}</p>}
+      <div className="detail-field"><div className="detail-label">Aika</div><div className="detail-value">{challenge.scheduledAt?formatDate(challenge.scheduledAt):'Aika avoin'}</div></div>
+      <div className="detail-field"><div className="detail-label">Paikka</div><div className="detail-value">{challenge.location}</div></div>
+      <div className="detail-field"><div className="detail-label">Tyyppi</div><div className="detail-value">{titleCase(challenge.matchType)} · {titleCase(challenge.locationType)}</div></div>
+      {challenge.participants.length>0 && <div className="detail-field"><div className="detail-label">Osallistujat</div><div style={{display:'flex',gap:6,marginTop:4}}>{challenge.participants.map(p=><div key={p.userId} style={{display:'flex',alignItems:'center',gap:5}}><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={26}/><span style={{color:'#6b665c',fontSize:12}}>{p.name}</span></div>)}</div></div>}
+      {currentUserId && !isMine && !joined && !full && <button className="btn btn-lime btn-lg btn-full" style={{marginTop:20}} onClick={join} disabled={joining}>{joining?'Liitytään...':'Liity haasteeseen'}</button>}
+      {isMine && challenge.status!=='cancelled' && <button className="btn btn-outline-d btn-md btn-full" style={{marginTop:20,color:'var(--danger)',borderColor:'var(--danger)'}} onClick={()=>setShowCancelConfirm(true)} disabled={cancelling}>{cancelling?'Perutaan...':'Peruuta haaste'}</button>}
       <Toast show={!!toast} text={toast}/>
       {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
+      {showCancelConfirm && <ConfirmModal
+        title="Perutaanko haaste?"
+        message="Se poistuu avoimista haasteista eikä sitä voi palauttaa."
+        cancelLabel="Älä peruuta" confirmLabel="Kyllä, peruuta" danger busy={cancelling}
+        onConfirm={cancel} onCancel={()=>setShowCancelConfirm(false)}
+      />}
     </div>
   );
 }
 
 // ── Challenges Screen ──────────────────────────────────
-function ChallengesScreen({ onOpenChallenge, onCreateChallenge }) {
+const SKILL_ORDER = ['aloittelija', 'keskitaso', 'edistynyt', 'kilpapelaaja'];
+function ChallengesScreen({ onOpenChallenge, onCreateChallenge, refreshKey }) {
   const [list, setList] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [filter, setFilter] = React.useState({ matchType:'', locationType:'', courtSurface:'', minSkillLevel:'' });
+  const [showFilterModal, setShowFilterModal] = React.useState(false);
   React.useEffect(() => {
     (async () => {
       try {
@@ -1064,20 +1123,41 @@ function ChallengesScreen({ onOpenChallenge, onCreateChallenge }) {
         const cm=new Map(); (cR||[]).forEach(c=>cm.set(c.id,c));
         const pm=new Map(); (pR||[]).forEach(p=>{const a=pm.get(p.challenge_id)||[];if(p.profile)a.push({userId:p.user_id,name:p.profile.name,avatarUrl:p.profile.avatar_url,avatarColor:p.profile.avatar_color||'blue',age:p.profile.age});pm.set(p.challenge_id,a);});
         setList(rows.map(r=>{const cr=cm.get(r.creator_id);const pf=Array.isArray(cr?.tennis_preferences)?cr.tennis_preferences[0]:cr?.tennis_preferences;
-          return {id:r.id,creatorId:r.creator_id,creatorName:cr?.name||'Pelaaja',creatorAvatarUrl:cr?.avatar_url,creatorAvatarColor:cr?.avatar_color||'blue',creatorArea:parseAreas(cr?.area||''),creatorSkillLevel:parseSkillLevels(pf?.skill_level),location:r.location,locationType:r.location_type,scheduledAt:r.scheduled_at,matchType:r.match_type,status:r.status,challengeType:r.challenge_type||'open',participants:pm.get(r.id)||[],title:r.title,description:r.description};}));
+          return {id:r.id,creatorId:r.creator_id,creatorName:cr?.name||'Pelaaja',creatorAvatarUrl:cr?.avatar_url,creatorAvatarColor:cr?.avatar_color||'blue',creatorArea:parseAreas(cr?.area||''),creatorSkillLevel:parseSkillLevels(pf?.skill_level),location:r.location,locationType:r.location_type,courtSurface:r.court_surface||'',minSkillLevel:r.min_skill_level||'',scheduledAt:r.scheduled_at,matchType:r.match_type,status:r.status,challengeType:r.challenge_type||'open',participants:pm.get(r.id)||[],title:r.title,description:r.description};}));
       } catch {} finally { setLoading(false); }
     })();
-  }, []);
+  }, [refreshKey]);
+  const filtered = React.useMemo(() => list.filter(c => {
+    if (filter.matchType && c.matchType!==filter.matchType) return false;
+    if (filter.locationType && c.locationType!==filter.locationType) return false;
+    if (filter.courtSurface && c.courtSurface!==filter.courtSurface) return false;
+    if (filter.minSkillLevel && c.minSkillLevel && SKILL_ORDER.indexOf(c.minSkillLevel) > SKILL_ORDER.indexOf(filter.minSkillLevel)) return false;
+    return true;
+  }), [list, filter]);
+  const extraFilterCount = Object.values(filter).filter(Boolean).length;
+  const setF = (k,v) => setFilter(f=>({...f,[k]:f[k]===v?'':v}));
   return <div className="page">
     <div className="page-header"><h2 className="page-title">Avoimet</h2><button className="btn btn-lime btn-sm" onClick={onCreateChallenge}>+ Luo haaste</button></div>
-    {loading?<Spinner/>:list.length===0?<Empty title="Ei avoimia haasteita." action="Luo ensimmäinen" onAction={onCreateChallenge}/>:list.map(c=><ChallengeCard key={c.id} challenge={c} onClick={()=>onOpenChallenge(c)}/>)}
+    <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}>
+      <button className={`filter-btn ${extraFilterCount>0?'has-filters':''}`} onClick={()=>setShowFilterModal(true)}>
+        <FilterIcon/> Suodata{extraFilterCount>0 && <span className="filter-btn-badge">{extraFilterCount}</span>}
+      </button>
+    </div>
+    {loading?<Spinner/>:list.length===0?<Empty title="Ei avoimia haasteita." action="Luo ensimmäinen" onAction={onCreateChallenge}/>
+      :filtered.length===0?<Empty title="Ei haasteita näillä suodattimilla."/>
+      :filtered.map(c=><ChallengeCard key={c.id} challenge={c} onClick={()=>onOpenChallenge(c)}/>)}
+    {showFilterModal && <FilterModal title="Suodata haasteita" onClose={()=>setShowFilterModal(false)} onClear={()=>setFilter({matchType:'',locationType:'',courtSurface:'',minSkillLevel:''})}>
+      <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${filter.matchType===t?'active':''}`} onClick={()=>setF('matchType',t)}>{titleCase(t)}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Sijainti</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{LOCATION_TYPES.map(t=><button key={t} className={`filter-chip ${filter.locationType===t?'active':''}`} onClick={()=>setF('locationType',t)}>{titleCase(t)}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Kenttäpinta</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{COURT_SURFACES.map(s=><button key={s} className={`filter-chip ${filter.courtSurface===s?'active':''}`} onClick={()=>setF('courtSurface',s)}>{titleCase(s)}</button>)}</div></div>
+      <div className="field"><div className="detail-label">Vastustajan enimmäistaso</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${filter.minSkillLevel===l?'active':''}`} onClick={()=>setF('minSkillLevel',l)}>{titleCase(l)}</button>)}</div></div>
+    </FilterModal>}
   </div>;
 }
 
 // ── Create Challenge ───────────────────────────────────
 function CreateChallengeScreen({ onBack, onCreated }) {
   const { session, profile } = useAuth();
-  const COURT_SURFACES = ['kova','massa','nurmi','asfaltti'];
   const [form, setForm] = React.useState({matchType:'kaksinpeli',locationType:'sisätennis',location:'',scheduledAt:'',title:'',description:'',courtSurface:'',minSkillLevel:'',courtPrice:'',creatorCoversFull:false});
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -1107,24 +1187,22 @@ function CreateChallengeScreen({ onBack, onCreated }) {
       else { console.error('Haasteen luonti epäonnistui', err); setError('Haasteen luonti epäonnistui. Yritä hetken päästä uudelleen.'); }
     } finally { setBusy(false); }
   };
-  return <div className="clay-bg" style={{minHeight:'100%',padding:'20px 24px'}}>
-    <button className="back-btn" onClick={onBack}>← Takaisin</button>
-    <div style={{maxWidth:480,margin:'24px auto 0'}}>
-      <h2 style={{color:'var(--ink)',fontWeight:800,fontSize:22,marginBottom:18}}>Luo haaste</h2>
-      {error && <div className="alert alert-error" style={{marginBottom:12}}>{error}</div>}
-      <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${form.matchType===t?'active':''}`} onClick={()=>set('matchType',t)}>{titleCase(t)}</button>)}</div></div>
-      <div className="field"><div className="detail-label">Sijainti</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{LOCATION_TYPES.map(t=><button key={t} className={`filter-chip ${form.locationType===t?'active':''}`} onClick={()=>set('locationType',t)}>{titleCase(t)}</button>)}</div></div>
-      {form.locationType==='sisätennis'&&venues.length>0 ? <div className="field"><div className="detail-label">Halli</div><select className="input input-dark" value={form.location} onChange={e=>set('location',e.target.value)}><option value="">Valitse</option>{venues.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></div>
-      : <div className="field"><div className="detail-label">Paikka</div><input className="input input-dark" placeholder="Esim. Mukkulan kentät" value={form.location} onChange={e=>set('location',e.target.value)}/></div>}
-      <div className="field"><div className="detail-label">Kenttäpinta</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{COURT_SURFACES.map(s=><button key={s} className={`filter-chip ${form.courtSurface===s?'active':''}`} onClick={()=>set('courtSurface',form.courtSurface===s?'':s)}>{titleCase(s)}</button>)}</div></div>
-      <div className="field"><div className="detail-label">Ajankohta</div><input className="input input-dark" type="datetime-local" value={form.scheduledAt} onChange={e=>set('scheduledAt',e.target.value)}/></div>
-      <div className="field"><div className="detail-label">Vastustajan minimitaso</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${form.minSkillLevel===l?'active':''}`} onClick={()=>set('minSkillLevel',form.minSkillLevel===l?'':l)}>{titleCase(l)}</button>)}</div></div>
-      <div className="field"><div className="detail-label">Otsikko</div><input className="input input-dark" placeholder="Vapaaehtoinen" value={form.title} onChange={e=>set('title',e.target.value)}/></div>
-      <div className="field"><div className="detail-label">Lisätietoja</div><textarea className="input input-dark" rows={3} placeholder="Vapaaehtoinen kuvaus" value={form.description} onChange={e=>set('description',e.target.value)}/></div>
-      <div className="field"><div className="detail-label">Kenttävuoron hinta (€)</div><input className="input input-dark" type="number" placeholder="Esim. 28" value={form.courtPrice} onChange={e=>set('courtPrice',e.target.value)}/></div>
-      <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.creatorCoversFull} onChange={e=>set('creatorCoversFull',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Tarjoan koko kenttävuoron</label></div>
-      <button className="btn btn-dark btn-lg btn-full" onClick={create} disabled={busy}>{busy?'Luodaan...':'Julkaise haaste'}</button>
-    </div>
+  return <div style={{position:'relative'}}>
+    <button className="icon-btn" onClick={onBack} aria-label="Sulje" style={{position:'absolute',top:-8,right:-8,fontSize:18}}>✕</button>
+    <h2 style={{color:'var(--ink)',fontWeight:800,fontSize:22,margin:'4px 0 18px'}}>Luo haaste</h2>
+    {error && <div className="alert alert-error" style={{marginBottom:12}}>{error}</div>}
+    <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${form.matchType===t?'active':''}`} onClick={()=>set('matchType',t)}>{titleCase(t)}</button>)}</div></div>
+    <div className="field"><div className="detail-label">Sijainti</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{LOCATION_TYPES.map(t=><button key={t} className={`filter-chip ${form.locationType===t?'active':''}`} onClick={()=>set('locationType',t)}>{titleCase(t)}</button>)}</div></div>
+    {form.locationType==='sisätennis'&&venues.length>0 ? <div className="field"><div className="detail-label">Halli</div><select className="input input-dark" value={form.location} onChange={e=>set('location',e.target.value)}><option value="">Valitse</option>{venues.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></div>
+    : <div className="field"><div className="detail-label">Paikka</div><input className="input input-dark" placeholder="Esim. Mukkulan kentät" value={form.location} onChange={e=>set('location',e.target.value)}/></div>}
+    <div className="field"><div className="detail-label">Kenttäpinta</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{COURT_SURFACES.map(s=><button key={s} className={`filter-chip ${form.courtSurface===s?'active':''}`} onClick={()=>set('courtSurface',form.courtSurface===s?'':s)}>{titleCase(s)}</button>)}</div></div>
+    <div className="field"><div className="detail-label">Ajankohta</div><input className="input input-dark" type="datetime-local" value={form.scheduledAt} onChange={e=>set('scheduledAt',e.target.value)}/></div>
+    <div className="field"><div className="detail-label">Vastustajan minimitaso</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${form.minSkillLevel===l?'active':''}`} onClick={()=>set('minSkillLevel',form.minSkillLevel===l?'':l)}>{titleCase(l)}</button>)}</div></div>
+    <div className="field"><div className="detail-label">Otsikko</div><input className="input input-dark" placeholder="Vapaaehtoinen" value={form.title} onChange={e=>set('title',e.target.value)}/></div>
+    <div className="field"><div className="detail-label">Lisätietoja</div><textarea className="input input-dark" rows={3} placeholder="Vapaaehtoinen kuvaus" value={form.description} onChange={e=>set('description',e.target.value)}/></div>
+    <div className="field"><div className="detail-label">Kenttävuoron hinta (€)</div><input className="input input-dark" type="number" placeholder="Esim. 28" value={form.courtPrice} onChange={e=>set('courtPrice',e.target.value)}/></div>
+    <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.creatorCoversFull} onChange={e=>set('creatorCoversFull',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Tarjoan koko kenttävuoron</label></div>
+    <button className="btn btn-dark btn-lg btn-full" onClick={create} disabled={busy}>{busy?'Luodaan...':'Julkaise haaste'}</button>
     {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
   </div>;
 }
@@ -1157,10 +1235,14 @@ function MessagesScreen({ onOpenChat, onCreateChallenge, onOpenArchive }) {
   }, [load,uid]);
   const accept = async id => { try{await supabase.rpc('accept_connection_request',{request_id_input:id});load();}catch(e){alert(e.message);} };
   const ignore = async id => { try{await supabase.rpc('ignore_connection_request',{request_id_input:id});load();}catch(e){alert(e.message);} };
-  const remove = async c => {
-    if(!window.confirm(`${c.displayName}-keskustelu poistuu kaikilta osapuolilta. Poistetaanko?`)) return;
-    try{ await supabase.rpc('delete_conversation_for_all',{conversation_id_input:c.id}); load(); }
+  const [removeTarget, setRemoveTarget] = React.useState(null);
+  const [removing, setRemoving] = React.useState(false);
+  const doRemove = async () => {
+    const c = removeTarget;
+    setRemoving(true);
+    try{ await supabase.rpc('delete_conversation_for_all',{conversation_id_input:c.id}); setRemoveTarget(null); load(); }
     catch(e){ alert(e.message||'Keskustelua ei voitu poistaa.'); }
+    finally { setRemoving(false); }
   };
   const archive = c => {
     const next=[...new Set([...archivedIds,c.id])];
@@ -1202,9 +1284,15 @@ function MessagesScreen({ onOpenChat, onCreateChallenge, onOpenArchive }) {
           </div>
           <div className="msg-row-actions">
             <button className="icon-btn" title="Arkistoi" onClick={()=>archive(c)}><ArchiveIcon/></button>
-            <button className="icon-btn" title="Poista" onClick={()=>remove(c)}><TrashIcon/></button>
+            <button className="icon-btn icon-btn-danger" title="Poista" onClick={()=>setRemoveTarget(c)}><TrashIcon/></button>
           </div>
         </div>)}
+    {removeTarget && <ConfirmModal
+      title="Poistetaanko keskustelu?"
+      message={`${removeTarget.displayName}-keskustelu poistuu kaikilta osapuolilta.`}
+      confirmLabel="Poista" danger busy={removing}
+      onConfirm={doRemove} onCancel={()=>setRemoveTarget(null)}
+    />}
   </div>;
 }
 
@@ -1227,18 +1315,24 @@ function ArchivedConversationsScreen({ onBack, onOpenChat }) {
     const next = getArchivedIds(uid).filter(id=>id!==c.id);
     saveArchivedIds(uid,next); setConvos(prev=>prev.filter(x=>x.id!==c.id));
   };
-  const remove = async c => {
-    if(!window.confirm(`${c.displayName}-keskustelu poistetaan pysyvästi. Jatketaanko?`)) return;
+  const [removeTarget, setRemoveTarget] = React.useState(null);
+  const [removing, setRemoving] = React.useState(false);
+  const doRemove = async () => {
+    const c = removeTarget;
+    setRemoving(true);
     try {
       await supabase.rpc('delete_conversation_for_all',{conversation_id_input:c.id});
       const next = getArchivedIds(uid).filter(id=>id!==c.id);
       saveArchivedIds(uid,next); setConvos(prev=>prev.filter(x=>x.id!==c.id));
+      setRemoveTarget(null);
     } catch(e) { alert(e.message||'Keskustelua ei voitu poistaa.'); }
+    finally { setRemoving(false); }
   };
   if (loading) return <div className="page"><Spinner/></div>;
   return <div className="page">
     <div style={{padding:'16px 0 4px'}}><button className="back-btn" onClick={onBack}>← Takaisin</button></div>
     <div className="page-header"><h2 className="page-title">Arkisto</h2></div>
+    {convos.length>0 && <p style={{color:'var(--text-muted)',fontSize:13,margin:'-8px 0 14px',lineHeight:1.5}}>Arkistoidut keskustelut. Voit palauttaa ne takaisin tai poistaa pysyvästi.</p>}
     {convos.length===0
       ? <Empty title="Arkisto on tyhjä."/>
       : convos.map(c=><div key={c.id} className="msg-row">
@@ -1248,9 +1342,15 @@ function ArchivedConversationsScreen({ onBack, onOpenChat }) {
           </div>
           <div className="msg-row-actions">
             <button className="icon-btn" title="Palauta" onClick={()=>unarchive(c)}><UndoIcon/></button>
-            <button className="icon-btn" title="Poista" onClick={()=>remove(c)}><TrashIcon/></button>
+            <button className="icon-btn icon-btn-danger" title="Poista" onClick={()=>setRemoveTarget(c)}><TrashIcon/></button>
           </div>
         </div>)}
+    {removeTarget && <ConfirmModal
+      title="Poistetaanko keskustelu pysyvästi?"
+      message={`${removeTarget.displayName}-keskustelu poistetaan pysyvästi eikä sitä voi palauttaa.`}
+      confirmLabel="Poista pysyvästi" danger busy={removing}
+      onConfirm={doRemove} onCancel={()=>setRemoveTarget(null)}
+    />}
   </div>;
 }
 
@@ -1299,11 +1399,13 @@ function ChatScreen({ conversation, onBack }) {
     <div style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:6}}>
       {loading?<Spinner/>:msgs.map(m=>{
         const mine=m.senderId===uid;
-        let dc=m.content;try{const p=JSON.parse(m.content);if(p.__type==='thumbs_up')dc='👍';if(p.__type==='challenge_join')dc=`${p.joinerName} liittyi peliin!`;}catch{}
+        let dc=m.content,isThumb=false;try{const p=JSON.parse(m.content);if(p.__type==='thumbs_up'){dc='👍';isThumb=true;}if(p.__type==='challenge_join')dc=`${p.joinerName} liittyi peliin!`;}catch{}
         return <div key={m.id} style={{alignSelf:mine?'flex-end':'flex-start'}}>
           {!mine&&conversation.isGroup&&<span style={{fontSize:10,color:'#aaa',marginLeft:4}}>{m.senderName}</span>}
           {m.imageUrl&&<img src={chatImgUrl(m.imageUrl)} alt="" style={{maxWidth:200,borderRadius:10}}/>}
-          {dc&&<div className={`chat-bubble ${mine?'chat-mine':'chat-theirs'}`}>{dc}</div>}
+          {dc&&(isThumb
+            ? <div className="chat-thumb" style={{textAlign:mine?'right':'left'}} aria-label="Peukku">👍</div>
+            : <div className={`chat-bubble ${mine?'chat-mine':'chat-theirs'}`}>{dc}</div>)}
         </div>;
       })}
       <div ref={btm}/>
@@ -1428,6 +1530,7 @@ function MatchResultCard({ result, onEdit, onDelete }) {
 
 function PlayerStatsSection() {
   const [stats, setStats] = React.useState(null);
+  const [open, setOpen] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
     fetchPlayerStatsWeb().then(s => { if (!cancelled) setStats(s); }).catch(() => { if (!cancelled) setStats({ wins:0, losses:0, organized:0, played:0 }); });
@@ -1441,13 +1544,21 @@ function PlayerStatsSection() {
     { label: 'Pelatut pelit', value: stats.played },
   ];
   return <>
-    <h3 style={{fontSize:13,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,margin:'20px 0 8px'}}>Tilastot</h3>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
-      {tiles.map(t => <div key={t.label} className="card" style={{textAlign:'center'}}>
-        <div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>{t.label}</div>
-        <div style={{color:'var(--ink)',fontWeight:800,fontSize:22}}>{t.value}</div>
-      </div>)}
-    </div>
+    <button className="card hover-lift" onClick={()=>setOpen(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',marginBottom:16,cursor:'pointer',fontFamily:'inherit',fontSize:14,fontWeight:700,color:'var(--ink)'}}>
+      <span style={{fontSize:16}}>🎾</span> Pelitilastot
+    </button>
+    {open && <div className="modal-overlay" onClick={()=>setOpen(false)}>
+      <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
+        <h3 style={{margin:'0 0 14px',fontSize:18,fontWeight:800,color:'var(--ink)'}}>Pelitilastot</h3>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          {tiles.map(t => <div key={t.label} className="card" style={{textAlign:'center'}}>
+            <div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>{t.label}</div>
+            <div style={{color:'var(--ink)',fontWeight:800,fontSize:22}}>{t.value}</div>
+          </div>)}
+        </div>
+        <button className="btn btn-outline-d btn-md btn-full" style={{marginTop:16}} onClick={()=>setOpen(false)}>Sulje</button>
+      </div>
+    </div>}
   </>;
 }
 
@@ -1460,9 +1571,13 @@ function MatchHistorySection() {
     try { setResults(await fetchMatchResultsWeb()); } catch(e){ console.error('Pelihistorian lataus epäonnistui', e); } finally { setLoading(false); }
   }, []);
   React.useEffect(()=>{ load(); }, [load]);
-  const remove = async (id) => {
-    if(!window.confirm('Haluatko poistaa tämän tuloksen?')) return;
-    try { await deleteMatchResultWeb(id); load(); } catch(e){ alert(e.message||'Tulosta ei voitu poistaa.'); }
+  const [removeId, setRemoveId] = React.useState(null);
+  const [removing, setRemoving] = React.useState(false);
+  const doRemove = async () => {
+    setRemoving(true);
+    try { await deleteMatchResultWeb(removeId); setRemoveId(null); load(); }
+    catch(e){ alert(e.message||'Tulosta ei voitu poistaa.'); }
+    finally { setRemoving(false); }
   };
   return <>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'20px 0 8px'}}>
@@ -1472,9 +1587,15 @@ function MatchHistorySection() {
     {loading ? <Spinner/> : results.length===0
       ? <div className="card" style={{marginBottom:14,color:'var(--text-muted)',fontSize:13}}>Pelihistoria tulee tähän, kun matseja pelataan.</div>
       : <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:14}}>
-          {results.map(r => <MatchResultCard key={r.id} result={r} onEdit={()=>{setEditing(r);setModalOpen(true);}} onDelete={()=>remove(r.id)}/>)}
+          {results.map(r => <MatchResultCard key={r.id} result={r} onEdit={()=>{setEditing(r);setModalOpen(true);}} onDelete={()=>setRemoveId(r.id)}/>)}
         </div>}
     {modalOpen && <MatchResultModal editingResult={editing} onClose={()=>setModalOpen(false)} onSaved={()=>{setModalOpen(false);load();}}/>}
+    {removeId && <ConfirmModal
+      title="Poistetaanko tulos?"
+      message="Ottelutulos poistetaan pelihistoriastasi eikä sitä voi palauttaa."
+      confirmLabel="Poista" danger busy={removing}
+      onConfirm={doRemove} onCancel={()=>setRemoveId(null)}
+    />}
   </>;
 }
 
@@ -1547,6 +1668,7 @@ function ProfileFullScreen({ onOpenBlocked }) {
   const [identities, setIdentities] = React.useState([]);
   const [legal, setLegal] = React.useState(null); // null | 'terms' | 'privacy'
   const [deleting, setDeleting] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
 
   React.useEffect(() => {
     if(profile&&!form) setForm({
@@ -1580,11 +1702,9 @@ function ProfileFullScreen({ onOpenBlocked }) {
 
   const signOut = ()=>supabase.auth.signOut();
   const deleteAccount = async () => {
-    if (!window.confirm('Poistetaanko tilisi pysyvästi?\n\nProfiilisi, haasteesi, viestisi ja ottelutuloksesi poistetaan lopullisesti. Tätä ei voi perua.')) return;
-    if (!window.confirm('Vahvista vielä: tilin poisto on lopullinen.')) return;
     setDeleting(true);
     try { await deleteOwnAccount(); }
-    catch (e) { alert(e.message || 'Tilin poisto epäonnistui'); setDeleting(false); }
+    catch (e) { alert(e.message || 'Tilin poisto epäonnistui'); setDeleting(false); setShowDeleteConfirm(false); }
   };
   if(!profile) return <div className="page"><Spinner/></div>;
   const set=(k,v)=>setForm(p=>({...p,[k]:v}));
@@ -1656,11 +1776,17 @@ function ProfileFullScreen({ onOpenBlocked }) {
     <button className="btn btn-outline-d btn-md btn-full" onClick={signOut} style={{marginTop:16}}>Kirjaudu ulos</button>
 
     <SectionTitle>Tili</SectionTitle>
-    <SettingsRow label={deleting?'Poistetaan tiliä...':'Poista tili pysyvästi'} danger onClick={deleting?undefined:deleteAccount}/>
+    <SettingsRow label={deleting?'Poistetaan tiliä...':'Poista tili pysyvästi'} danger onClick={deleting?undefined:()=>setShowDeleteConfirm(true)}/>
     <p style={{fontSize:12,color:'var(--text-muted)',lineHeight:1.55,margin:'2px 2px 0'}}>
       Poistaa profiilisi, haasteesi, viestisi ja ottelutuloksesi lopullisesti. Toimintoa ei voi perua.
     </p>
     {legalModal}
+    {showDeleteConfirm && <ConfirmModal
+      title="Poistetaanko tilisi pysyvästi?"
+      message="Profiilisi, haasteesi, viestisi ja ottelutuloksesi poistetaan lopullisesti. Tätä ei voi perua."
+      confirmLabel="Poista tili pysyvästi" danger busy={deleting}
+      onConfirm={deleteAccount} onCancel={()=>setShowDeleteConfirm(false)}
+    />}
   </div>;
 
   return <div className="page" style={{paddingBottom:40}}>
@@ -1678,6 +1804,7 @@ function ProfileFullScreen({ onOpenBlocked }) {
       <h3 style={{color:'var(--ink)',fontWeight:800,fontSize:20,margin:0}}>{profileNameWithAge(profile)}</h3>
       {profile.bio&&<p style={{color:'var(--text-muted)',fontSize:13,textAlign:'center'}}>{profile.bio}</p>}
     </div>
+    <PlayerStatsSection/>
     <div style={{display:'flex',gap:8,justifyContent:'center',marginBottom:16}}>{profile.alue.map(a=><span key={a} className="sidebar-area">{a}</span>)}</div>
     <div style={{display:'flex',gap:10,marginBottom:14}}>
       <div className="card" style={{flex:1,textAlign:'center'}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Pelitaso</div><div style={{color:'var(--ink)',fontWeight:700,fontSize:15}}>{formatSkillLevels(profile.pelitaso)}</div></div>
@@ -1685,8 +1812,6 @@ function ProfileFullScreen({ onOpenBlocked }) {
     </div>
     {profile.saatavuus.length>0&&<div className="card" style={{marginBottom:14}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Ajankohdat</div>{profile.saatavuus.map(s=><div key={s} style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{slotLabel(s)}</div>)}</div>}
     {(profile.katisyys||profile.rysty)&&<div className="card" style={{marginBottom:14}}><div style={{color:'var(--text-muted)',fontSize:10,fontWeight:700,textTransform:'uppercase',marginBottom:6}}>Tyyli</div>{profile.katisyys&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.katisyys)}</div>}{profile.rysty&&<div style={{color:'var(--ink)',fontSize:13,padding:'2px 0'}}>{titleCase(profile.rysty)} rysty</div>}</div>}
-
-    <PlayerStatsSection/>
 
     <MatchHistorySection/>
 
@@ -1741,10 +1866,12 @@ function tabFromPath(pathname) {
   return SLUG_TABS[slug] || 'players';
 }
 
+const POPUP_SCREEN_TYPES = ['playerDetail', 'challengeDetail', 'createChallenge'];
 function AppShell() {
   const { session, profile } = useAuth();
   const [tab, setTab] = React.useState(() => tabFromPath(window.location.pathname));
   const [screen, setScreen] = React.useState({ type: 'tab' });
+  const [challengesRefreshKey, setChallengesRefreshKey] = React.useState(0);
   const back = () => setScreen({ type: 'tab' });
   const navigateTab = React.useCallback(t => {
     setTab(t);
@@ -1760,11 +1887,8 @@ function AppShell() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
   const showSidebar = tab === 'players' || tab === 'challenges' || tab === 'messages';
-  const showFullPage = screen.type !== 'tab';
+  const popup = POPUP_SCREEN_TYPES.includes(screen.type) ? screen : null;
 
-  if (screen.type === 'playerDetail') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full clay-bg"><PlayerDetail player={screen.player} onBack={back} currentUserId={session?.user?.id}/></div></div></div>;
-  if (screen.type === 'challengeDetail') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full clay-bg"><ChallengeDetail challenge={screen.challenge} onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })} currentUserId={session?.user?.id}/></div></div></div>;
-  if (screen.type === 'createChallenge') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full"><CreateChallengeScreen onBack={back} onCreated={()=>navigateTab('challenges')}/></div></div></div>;
   if (screen.type === 'chat') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full" style={{display:'flex',flexDirection:'column'}}><ChatScreen conversation={screen.conversation} onBack={back}/></div></div></div>;
   if (screen.type === 'blocked') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full clay-bg"><BlockedProfilesScreen onBack={back}/></div></div></div>;
   if (screen.type === 'archive') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full"><ArchivedConversationsScreen onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })}/></div></div></div>;
@@ -1780,11 +1904,26 @@ function AppShell() {
         )}
         <div className="app-main">
           {tab === 'players' && <PlayersScreen onOpenPlayer={p => setScreen({ type: 'playerDetail', player: p })} />}
-          {tab === 'challenges' && <ChallengesScreen onOpenChallenge={c => setScreen({ type: 'challengeDetail', challenge: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} />}
+          {tab === 'challenges' && <ChallengesScreen refreshKey={challengesRefreshKey} onOpenChallenge={c => setScreen({ type: 'challengeDetail', challenge: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} />}
           {tab === 'messages' && <MessagesScreen onOpenChat={c => setScreen({ type: 'chat', conversation: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} onOpenArchive={() => setScreen({ type: 'archive' })} />}
           {tab === 'profile' && <ProfileFullScreen onOpenBlocked={() => setScreen({ type: 'blocked' })} />}
         </div>
       </div>
+      {popup?.type === 'playerDetail' && <div className="modal-overlay" onClick={back}>
+        <div className="modal-sheet" style={{ maxWidth:520 }} onClick={e=>e.stopPropagation()}>
+          <PlayerDetail player={popup.player} onBack={back} currentUserId={session?.user?.id}/>
+        </div>
+      </div>}
+      {popup?.type === 'challengeDetail' && <div className="modal-overlay" onClick={back}>
+        <div className="modal-sheet" style={{ maxWidth:520 }} onClick={e=>e.stopPropagation()}>
+          <ChallengeDetail challenge={popup.challenge} onBack={back} onOpenChat={c => setScreen({ type: 'chat', conversation: c })} currentUserId={session?.user?.id}/>
+        </div>
+      </div>}
+      {popup?.type === 'createChallenge' && <div className="modal-overlay" onClick={back}>
+        <div className="modal-sheet" style={{ maxWidth:520 }} onClick={e=>e.stopPropagation()}>
+          <CreateChallengeScreen onBack={back} onCreated={()=>{ back(); setChallengesRefreshKey(k=>k+1); }}/>
+        </div>
+      </div>}
     </div>
   );
 }
