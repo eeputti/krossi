@@ -166,17 +166,15 @@ async function deleteMatchResultWeb(id) {
 // pelit (luodut haasteet) ja pelatut pelit (haasteet joiden lopputulos on 'played').
 async function fetchPlayerStatsWeb() {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { wins: 0, losses: 0, organized: 0, played: 0 };
+  if (!user) return { organized: 0, played: 0 };
   const uid = user.id;
-  const [{ count: wins }, { count: losses }, { count: organized }, { data: joinedRows }, { count: createdPlayed }] = await Promise.all([
-    supabase.from('match_results').select('id', { count: 'exact', head: true }).eq('created_by', uid).eq('won', true),
-    supabase.from('match_results').select('id', { count: 'exact', head: true }).eq('created_by', uid).eq('won', false),
+  const [{ count: organized }, { data: joinedRows }, { count: createdPlayed }] = await Promise.all([
     supabase.from('challenges').select('id', { count: 'exact', head: true }).eq('creator_id', uid),
     supabase.from('challenge_participants').select('challenge:challenges!challenge_participants_challenge_id_fkey(id,outcome)').eq('user_id', uid),
     supabase.from('challenges').select('id', { count: 'exact', head: true }).eq('creator_id', uid).eq('outcome', 'played'),
   ]);
   const joinedPlayedIds = new Set((joinedRows || []).filter(r => r.challenge?.outcome === 'played').map(r => r.challenge.id));
-  return { wins: wins || 0, losses: losses || 0, organized: organized || 0, played: (createdPlayed || 0) + joinedPlayedIds.size };
+  return { organized: organized || 0, played: (createdPlayed || 0) + joinedPlayedIds.size };
 }
 // ── Push-ilmoitukset ───────────────────────────────────
 // Sama send-push-notification -edge function ja sama tapahtumamuoto kuin
@@ -944,6 +942,40 @@ function BlockedProfilesScreen({ onBack }) {
   </div>;
 }
 
+// ── Locked players preview (teaser shown before payment) ──
+const LOCKED_PREVIEW_PLAYERS = [
+  { nimi:'Aleksi', ika:'30-40', pelitaso:['keskitaso'], pelimuoto:['pallottelu','nelinpeli'], avatarColor:'blue', playingThisWeek:true },
+  { nimi:'Emilia', ika:'20-30', pelitaso:['edistynyt'], pelimuoto:['matsit'], avatarColor:'red', playingThisWeek:false },
+  { nimi:'Joonas', ika:'40-50', pelitaso:['aloittelija'], pelimuoto:['pallottelu'], avatarColor:'green', playingThisWeek:false },
+  { nimi:'Sofia', ika:'20-30', pelitaso:['kilpapelaaja'], pelimuoto:['kaksinpeli'], avatarColor:'yellow', playingThisWeek:true },
+  { nimi:'Miika', ika:'30-40', pelitaso:['keskitaso'], pelimuoto:['kaikki käy'], avatarColor:'blue', playingThisWeek:false },
+];
+function LockedPlayersPreview({ onUnlock }) {
+  return (
+    <div style={{ position:'relative', overflow:'hidden', borderRadius:18 }}>
+      <div aria-hidden="true" style={{ filter:'blur(7px)', pointerEvents:'none', userSelect:'none' }}>
+        {LOCKED_PREVIEW_PLAYERS.map((p,i) => <PlayerCard key={i} player={p} onClick={()=>{}}/>)}
+      </div>
+      <div style={{
+        position:'absolute', inset:0, display:'flex', alignItems:'flex-end', justifyContent:'center',
+        padding:'0 16px 16px',
+        background:'linear-gradient(180deg, rgba(247,245,239,0) 0%, rgba(247,245,239,0.75) 38%, var(--paper) 76%)',
+      }}>
+        <div style={{
+          background:'#fff', border:'1px solid var(--border)', borderRadius:18,
+          boxShadow:'0 14px 32px -12px rgba(20,15,5,0.18)', padding:'22px 24px',
+          textAlign:'center', maxWidth:340, width:'100%',
+        }}>
+          <div style={{ fontSize:26, marginBottom:6 }}>🔒</div>
+          <p style={{ fontSize:15, fontWeight:700, color:'var(--ink)', margin:'0 0 4px' }}>Pelaajat ovat lukittuna</p>
+          <p style={{ fontSize:13, color:'var(--text-muted)', margin:'0 0 16px', lineHeight:1.5 }}>Maksa kertamaksu 8,99 € ja näet alueesi pelaajat profiileineen.</p>
+          <button className="btn btn-lime btn-md btn-full" onClick={onUnlock}>Maksa 8,99 €</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Players Screen ─────────────────────────────────────
 function PlayersScreen({ onOpenPlayer }) {
   const { session, profile } = useAuth();
@@ -990,7 +1022,7 @@ function PlayersScreen({ onOpenPlayer }) {
         </button>
       </div>
       {loading ? <Spinner/> : !profile?.paidAt
-        ? <Empty title="Viimeistele profiilisi, niin näet ja löydät muut pelaajat." action="Maksa 8,99 €" onAction={()=>setShowPaywall(true)}/>
+        ? <LockedPlayersPreview onUnlock={()=>setShowPaywall(true)}/>
         : filtered.length===0 ? <Empty title="Ei pelaajia näillä suodattimilla."/> :
         filtered.map(p=><PlayerCard key={p.id} player={p} onClick={()=>onOpenPlayer(p)}/>)}
       {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
