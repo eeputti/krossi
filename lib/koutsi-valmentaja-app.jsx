@@ -181,22 +181,6 @@ function LevelChip({ level }) {
   const c = window.koutsiLevelColor(level);
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, lineHeight: 1, background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>{level}</span>;
 }
-function PlayerAppStatus({ isPlaceholder, compact = false }) {
-  const waiting = Boolean(isPlaceholder);
-  return (
-    <span title={waiting ? 'Pelaaja on tallennettu nimellä, mutta ei ole vielä lunastanut profiiliaan.' : 'Pelaaja on lunastanut profiilinsa ja käyttää pelaajasovellusta.'} style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content',
-      padding: compact ? '4px 8px' : '5px 10px', borderRadius: 999,
-      fontSize: compact ? 10.5 : 11.5, fontWeight: 700, lineHeight: 1.1,
-      color: waiting ? '#8a5a12' : '#2f7d54',
-      background: waiting ? 'rgba(214,140,44,0.12)' : 'rgba(47,125,84,0.10)',
-      border: `1px solid ${waiting ? 'rgba(214,140,44,0.30)' : 'rgba(47,125,84,0.24)'}`,
-    }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: waiting ? '#d68c2c' : '#46a66d', flexShrink: 0 }} />
-      {waiting ? 'Ei vielä kirjautunut' : 'Pelaajasovellus käytössä'}
-    </span>
-  );
-}
 // `label` distinguishes the theme running this week from one planned for a later week.
 function PlayerAppStatus({ isPlaceholder, compact = false }) {
   const waiting = Boolean(isPlaceholder);
@@ -779,7 +763,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                             <option value="">Ei ryhmää vielä</option>
                             {groupOptions.map((g) => <option key={g.key} value={g.key}>{g.name}{g.existing ? ' (nykyinen)' : ' (uusi)'}</option>)}
                           </select>
-                          <button onClick={() => removePlayer(p.key)} aria-label={`Poista pelaaja ${index + 1}`} style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#f4f2ec', color: '#8a857a', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+                          <button onClick={() => removePlayer(p.key)} aria-label={`Poista pelaaja ${index + 1}`} className="k-clickable-card" style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#f4f2ec', color: '#8a857a', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
                         </div>
                         {suggestions.length > 0 && (
                           <StudentSuggestions matches={suggestions} groups={groups} onPick={(s) => pickExistingPlayer(p.key, s)} />
@@ -843,7 +827,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                                 </select>
                                 <input value={r.title} onChange={(e) => updateTheme(r.key, { title: e.target.value })} placeholder="Viikon teema" style={inputStyle} aria-label="Viikon teema" />
                                 <input value={r.lead} onChange={(e) => updateTheme(r.key, { lead: e.target.value })} placeholder="Tarkennus (vapaaehtoinen)" style={inputStyle} aria-label="Teeman tarkennus" />
-                                <button onClick={() => removeTheme(r.key)} aria-label="Poista viikkoteema" style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#f4f2ec', color: '#8a857a', cursor: 'pointer', fontSize: 18 }}>×</button>
+                                <button onClick={() => removeTheme(r.key)} aria-label="Poista viikkoteema" className="k-clickable-card" style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', background: '#f4f2ec', color: '#8a857a', cursor: 'pointer', fontSize: 18 }}>×</button>
                               </div>
                             ))}
                           </div>
@@ -1010,8 +994,8 @@ function StudentsView({ students, groups, state, coachId, coachName, onOpen, tra
       )}
       {students.length > 1 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-          <button onClick={() => setOnlyInactive(false)} style={{ padding: '10px 18px', borderRadius: 999, border: onlyInactive ? '1px solid #d8d4ca' : 'none', background: onlyInactive ? '#fff' : 'var(--lime)', color: onlyInactive ? '#3c382f' : '#101a08', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Kaikki</button>
-          <button onClick={() => setOnlyInactive(true)} style={{ padding: '10px 18px', borderRadius: 999, border: onlyInactive ? 'none' : '1px solid #d8d4ca', background: onlyInactive ? 'var(--lime)' : '#fff', color: onlyInactive ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei omatoimista viikkoon</button>
+          <button onClick={() => setOnlyInactive(false)} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: onlyInactive ? '1px solid #d8d4ca' : 'none', background: onlyInactive ? '#fff' : 'var(--lime)', color: onlyInactive ? '#3c382f' : '#101a08', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Kaikki</button>
+          <button onClick={() => setOnlyInactive(true)} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: onlyInactive ? 'none' : '1px solid #d8d4ca', background: onlyInactive ? 'var(--lime)' : '#fff', color: onlyInactive ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei omatoimista viikkoon</button>
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
@@ -1113,11 +1097,11 @@ function PlayerActivityCalendarGrid({ state, studentId, matchDates, viewYear, vi
   return (
     <div className="k-card" style={{ padding: '15px 17px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <button onClick={onPrev} aria-label="Edellinen kuukausi" style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={onPrev} aria-label="Edellinen kuukausi" className="k-clickable-card" style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="6" height="11" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div style={{ fontWeight: 800, fontSize: 14, color: '#111', textTransform: 'capitalize' }}>{window.KOUTSI_MONTHS[viewMonth]} {viewYear}</div>
-        <button onClick={onNext} aria-label="Seuraava kuukausi" style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={onNext} aria-label="Seuraava kuukausi" className="k-clickable-card" style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="6" height="11" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
       </div>
@@ -1336,7 +1320,7 @@ function ClubEventModal({ editing, defaultDate, onClose, onSave }) {
         <div style={label}>Tyyppi</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
           {window.KOUTSI_EVENT_KINDS.map((k) => (
-            <button key={k.value} onClick={() => setKind(k.value)} style={{ padding: '10px 18px', borderRadius: 999, border: kind === k.value ? 'none' : '1px solid #d8d4ca', background: kind === k.value ? 'var(--lime)' : '#fff', color: kind === k.value ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{k.label}</button>
+            <button key={k.value} onClick={() => setKind(k.value)} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: kind === k.value ? 'none' : '1px solid #d8d4ca', background: kind === k.value ? 'var(--lime)' : '#fff', color: kind === k.value ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{k.label}</button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -1553,7 +1537,7 @@ function StudentDetail({ student, coach, state, trainings, groups, upcoming, att
             {levelPickerOpen && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 2 }}>
                 {levelOptions.map((lv) => (
-                  <button key={lv} onClick={() => { onSetLevel(lv); setLevelPickerOpen(false); }} style={{ padding: '6px 12px', borderRadius: 999, border: '1px solid #d8d4ca', background: student.level === lv ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>{lv}</button>
+                  <button key={lv} onClick={() => { onSetLevel(lv); setLevelPickerOpen(false); }} className="k-clickable-card" style={{ padding: '6px 12px', borderRadius: 999, border: '1px solid #d8d4ca', background: student.level === lv ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>{lv}</button>
                 ))}
               </div>
             )}
@@ -1882,7 +1866,7 @@ function VideoModal({ students, groups, initialStudentId, onClose, onSave }) {
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Aihe</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
           {window.KOUTSI_TAGS.map((t) => (
-            <button key={t} onClick={() => toggleTag(t)} disabled={busy} style={{ padding: '10px 18px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
+            <button key={t} onClick={() => toggleTag(t)} disabled={busy} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
@@ -1945,7 +1929,7 @@ function VideoAudienceModal({ video, students, onClose, onSave }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, maxHeight: 330, overflowY: 'auto' }}>
           {students.map((s) => (
-            <button key={s.id} onClick={() => toggleStudent(s.id)} disabled={busy} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: studentIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: studentIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+            <button key={s.id} onClick={() => toggleStudent(s.id)} disabled={busy} className="k-clickable-card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: studentIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: studentIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
               <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={30} />
               <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
               <span aria-hidden="true" style={{ color: studentIds.includes(s.id) ? 'var(--green-deep)' : '#c5c0b5', fontWeight: 800 }}>{studentIds.includes(s.id) ? '✓' : ''}</span>
@@ -2268,7 +2252,7 @@ function InviteCodeBox({ coachId, coachName, groupId, groupName }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           <span style={{ fontSize: 12.5, color: '#8a857a', fontWeight: 600 }}>Koodi kelpaa</span>
           {[[1, 'yhdelle'], [5, 'viidelle'], [20, 'koko ryhmälle']].map(([n, label]) => (
-            <button key={n} onClick={() => setMaxUses(n)} style={{
+            <button key={n} onClick={() => setMaxUses(n)} className="k-clickable-card" style={{
               padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
               border: maxUses === n ? 'none' : '1px solid #d8d4ca',
               background: maxUses === n ? 'var(--lime)' : '#fff', color: maxUses === n ? '#101a08' : '#3c382f',
@@ -2386,7 +2370,7 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
         <div style={label}>Viikonpäivä</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
           {days.map((d) => (
-            <button key={d} onClick={() => setDay(d)} style={{ padding: '8px 13px', borderRadius: 999, border: day === d ? 'none' : '1px solid #d8d4ca', background: day === d ? 'var(--lime)' : '#fff', color: day === d ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{d}</button>
+            <button key={d} onClick={() => setDay(d)} className="k-clickable-card" style={{ padding: '8px 13px', borderRadius: 999, border: day === d ? 'none' : '1px solid #d8d4ca', background: day === d ? 'var(--lime)' : '#fff', color: day === d ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{d}</button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 12, marginBottom: 6 }}>
@@ -2415,7 +2399,7 @@ function GroupFormModal({ students, editing, onClose, onSave, zIndex = 80 }) {
         {!isEdit && <div style={label}>Pelaajat ({memberIds.length} valittu)</div>}
         <div style={{ display: isEdit ? 'none' : 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 220, overflowY: 'auto' }}>
           {students.map((s) => (
-            <button key={s.id} onClick={() => toggleMember(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: memberIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: memberIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+            <button key={s.id} onClick={() => toggleMember(s.id)} className="k-clickable-card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: memberIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: memberIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
               <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={30} />
               <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
             </button>
@@ -2457,7 +2441,7 @@ function GroupSlotModal({ onClose, onSave }) {
         <div style={label}>Viikonpäivä</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
           {days.map((d) => (
-            <button key={d} onClick={() => setDay(d)} style={{ padding: '8px 13px', borderRadius: 999, border: day === d ? 'none' : '1px solid #d8d4ca', background: day === d ? 'var(--lime)' : '#fff', color: day === d ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{d}</button>
+            <button key={d} onClick={() => setDay(d)} className="k-clickable-card" style={{ padding: '8px 13px', borderRadius: 999, border: day === d ? 'none' : '1px solid #d8d4ca', background: day === d ? 'var(--lime)' : '#fff', color: day === d ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{d}</button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
@@ -2590,7 +2574,7 @@ function AddMembersModal({ coachId, coachName, group, allStudents, groups, onClo
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 260, overflowY: 'auto' }}>
           {available.map((s) => (
-            <button key={s.id} onClick={() => toggle(s.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: selected.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: selected.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+            <button key={s.id} onClick={() => toggle(s.id)} className="k-clickable-card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: selected.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: selected.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
               <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={30} />
               <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
             </button>
@@ -2829,7 +2813,7 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
             <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5, marginBottom: 12 }}>
               Ryhmä ja sen tulevat treenit poistetaan. Pelaajat säilyvät oppilainasi.
             </p>
-            <button onClick={onDeleteGroup} style={{
+            <button onClick={onDeleteGroup} className="k-clickable-card" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               border: '1px solid rgba(143,47,36,0.35)', background: '#fff', color: '#8f2f24',
               borderRadius: 999, padding: '11px 20px', fontSize: 14, fontWeight: 700,
@@ -2858,11 +2842,11 @@ function CalendarGrid({ state, viewYear, viewMonth, selectedDate, todayStr, onSe
   return (
     <div className="k-card" style={{ padding: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <button onClick={onPrev} aria-label="Edellinen kuukausi" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={onPrev} aria-label="Edellinen kuukausi" className="k-clickable-card" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="7" height="12" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div style={{ fontWeight: 800, fontSize: 15, color: '#111', textTransform: 'capitalize' }}>{window.KOUTSI_MONTHS[viewMonth]} {viewYear}</div>
-        <button onClick={onNext} aria-label="Seuraava kuukausi" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={onNext} aria-label="Seuraava kuukausi" className="k-clickable-card" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="7" height="12" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
       </div>
@@ -3077,7 +3061,7 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
     && trainingTypes.includes(type) && !busy;
   const inputStyle = { flex: 1, boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const Pill = ({ on, children, onClick }) => (
-    <button onClick={onClick} style={{ padding: '9px 15px', borderRadius: 999, border: on ? 'none' : '1px solid #d8d4ca', background: on ? 'var(--lime)' : '#fff', color: on ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{children}</button>
+    <button onClick={onClick} className="k-clickable-card" style={{ padding: '9px 15px', borderRadius: 999, border: on ? 'none' : '1px solid #d8d4ca', background: on ? 'var(--lime)' : '#fff', color: on ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>{children}</button>
   );
 
   // A coach booking their first ryhmatreeni has no group to pick yet. Sending them to the
@@ -3164,7 +3148,7 @@ function TrainingModal({ students, groups, defaultDate, editing, onClose, onSave
             <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Ryhmä</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
               {groups.map((g) => (
-                <button key={g.id} onClick={() => setGroupId(g.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', borderRadius: 14, border: groupId === g.id ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: groupId === g.id ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                <button key={g.id} onClick={() => setGroupId(g.id)} className="k-clickable-card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', borderRadius: 14, border: groupId === g.id ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: groupId === g.id ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
                   <span style={{ fontWeight: 700, fontSize: 14, color: '#111', flex: 1 }}>{g.name}</span>
                   <span style={{ fontSize: 12, color: '#8a857a' }}>{g.memberIds.length} pelaajaa</span>
                 </button>
@@ -3240,12 +3224,12 @@ function ExercisesView({ exercises, onOpen, onAdd, onRestoreStarters }) {
       <PageHeader title="Harjoitteet" sub="Oma harjoitepankki" action={<button onClick={onAdd} className="btn-dark btn-sm">+ Lisää harjoite</button>} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         {PLAYER_COUNT_FILTERS.map((f) => (
-          <button key={f.key} onClick={() => setActiveCount(f.key)} style={{ padding: '10px 18px', borderRadius: 999, border: activeCount === f.key ? 'none' : '1px solid var(--line)', background: activeCount === f.key ? 'var(--green-deep)' : '#fff', color: activeCount === f.key ? '#fff' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
+          <button key={f.key} onClick={() => setActiveCount(f.key)} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: activeCount === f.key ? 'none' : '1px solid var(--line)', background: activeCount === f.key ? 'var(--green-deep)' : '#fff', color: activeCount === f.key ? '#fff' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
         ))}
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {EXERCISE_TAGS.map((t) => (
-          <button key={t} onClick={() => setActiveTag(t)} style={{ padding: '10px 18px', borderRadius: 999, border: activeTag === t ? 'none' : '1px solid var(--line)', background: activeTag === t ? 'var(--lime)' : '#fff', color: activeTag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
+          <button key={t} onClick={() => setActiveTag(t)} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: activeTag === t ? 'none' : '1px solid var(--line)', background: activeTag === t ? 'var(--lime)' : '#fff', color: activeTag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
         ))}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
@@ -3304,7 +3288,7 @@ function ExerciseDetail({ exercise, onClose, onEdit, onDelete, onAddVideo, onRem
           {exercise.video ? (
             <React.Fragment>
               <div className="k-card" style={{ padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button onClick={() => setPlaying(true)} aria-label={`Katso video ${exercise.video.title}`} style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'var(--lime)', color: '#101a08', cursor: 'pointer', flexShrink: 0, fontSize: 14, paddingLeft: 8 }}>▶</button>
+                <button onClick={() => setPlaying(true)} aria-label={`Katso video ${exercise.video.title}`} className="k-clickable-card" style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'var(--lime)', color: '#101a08', cursor: 'pointer', flexShrink: 0, fontSize: 14, paddingLeft: 8 }}>▶</button>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ color: '#111', fontSize: 14, fontWeight: 700, lineHeight: 1.35 }}>{exercise.video.title}</div>
                   <div style={{ color: '#8a857a', fontSize: 11.5, marginTop: 3 }}>{exercise.video.externalUrl ? 'Videolinkki' : 'Videotiedosto'}</div>
@@ -3455,7 +3439,7 @@ function ExerciseFormModal({ editing, onClose, onSave }) {
         <div style={label}>Pelaajamäärä (suodatinta varten)</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {PLAYER_COUNT_FILTERS.filter((f) => f.key !== 'kaikki').map((f) => (
-            <button key={f.key} onClick={() => setPlayerCount(f.key)} style={{ padding: '10px 18px', borderRadius: 999, border: playerCount === f.key ? 'none' : '1px solid #d8d4ca', background: playerCount === f.key ? 'var(--lime)' : '#fff', color: playerCount === f.key ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
+            <button key={f.key} onClick={() => setPlayerCount(f.key)} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: playerCount === f.key ? 'none' : '1px solid #d8d4ca', background: playerCount === f.key ? 'var(--lime)' : '#fff', color: playerCount === f.key ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
           ))}
         </div>
         <div style={label}>Taso</div>
@@ -3463,7 +3447,7 @@ function ExerciseFormModal({ editing, onClose, onSave }) {
         <div style={label}>Aihe</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
           {window.KOUTSI_TAGS.map((t) => (
-            <button key={t} onClick={() => toggleTag(t)} style={{ padding: '10px 18px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
+            <button key={t} onClick={() => toggleTag(t)} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -3517,7 +3501,7 @@ function ProfileEditModal({ coach, onClose, onSaved }) {
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 18 }}>Muokkaa profiilia</h3>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-          <button onClick={() => avatarInputRef.current?.click()} style={{ position: 'relative', width: 84, height: 84, padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '50%' }}>
+          <button onClick={() => avatarInputRef.current?.click()} className="k-clickable-card" style={{ position: 'relative', width: 84, height: 84, padding: 0, border: 'none', background: 'none', cursor: 'pointer', borderRadius: '50%' }}>
             {avatarPreview
               ? <img src={avatarPreview} alt="" style={{ width: 84, height: 84, borderRadius: '50%', objectFit: 'cover' }} />
               : <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={84} />}
@@ -3812,18 +3796,23 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
             <div style={{ fontSize: 9.5, fontWeight: 700, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>Tallennustila</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{adminFormatBytes(user.storageBytes)}</div>
           </div>
-          {user.isCoach && [['Oppilaita', user.studentCount], ['Ryhmiä', user.groupCount], ['Treenejä', user.trainingCount]].map(([k, v]) => (
+          {user.isCoach && (
+            <div style={{ background: '#f7f5ef', borderRadius: 18, padding: '7px 11px', textAlign: 'center', minWidth: 76 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 700, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>Oppilaita</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{user.studentCount}</div>
+              {user.pendingStudents.length > 0 && (
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#8a5a12', marginTop: 1, whiteSpace: 'nowrap' }}>
+                  {user.pendingStudents.length} ei tiliä
+                </div>
+              )}
+            </div>
+          )}
+          {user.isCoach && [['Ryhmiä', user.groupCount], ['Treenejä', user.trainingCount]].map(([k, v]) => (
             <div key={k} style={{ background: '#f7f5ef', borderRadius: 18, padding: '7px 11px', textAlign: 'center', minWidth: 62 }}>
               <div style={{ fontSize: 9.5, fontWeight: 700, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>{k}</div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{v}</div>
             </div>
           ))}
-          {user.isCoach && (
-            <div style={{ background: user.pendingStudents.length ? 'rgba(214,140,44,0.12)' : '#f7f5ef', borderRadius: 18, padding: '7px 11px', textAlign: 'center', minWidth: 62 }}>
-              <div style={{ fontSize: 9.5, fontWeight: 700, color: user.pendingStudents.length ? '#8a5a12' : '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>Ei tiliä</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{user.pendingStudents.length}</div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -3869,12 +3858,17 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
       )}
 
       {showPending && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-          {user.pendingStudents.map((s) => (
-            <div key={s.id} style={{ padding: '8px 11px', borderRadius: 10, background: 'rgba(214,140,44,0.08)', border: '1px solid rgba(214,140,44,0.25)', fontSize: 13, color: '#514c42' }}>
-              {s.name} <span style={{ color: '#8a5a12', fontWeight: 700 }}>— ei vielä Krossi-tiliä</span>
-            </div>
-          ))}
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#8a5a12', marginBottom: 6 }}>
+            Lisätty nimellä, ei vielä liittynyt omalla Krossi-tilillä:
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {user.pendingStudents.map((s) => (
+              <span key={s.id} style={{ padding: '5px 10px', borderRadius: 999, background: 'rgba(214,140,44,0.10)', border: '1px solid rgba(214,140,44,0.3)', fontSize: 12.5, color: '#514c42', fontWeight: 600 }}>
+                {s.name}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -3944,9 +3938,9 @@ function AdminImportModal({ coach, onClose }) {
               <React.Fragment>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Liitä ryhmään (valinnainen)</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                  <button onClick={() => setGroupId(null)} style={{ padding: '10px 18px', borderRadius: 999, border: groupId === null ? 'none' : '1px solid #d8d4ca', background: groupId === null ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei ryhmää</button>
+                  <button onClick={() => setGroupId(null)} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: groupId === null ? 'none' : '1px solid #d8d4ca', background: groupId === null ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei ryhmää</button>
                   {groups.map((g) => (
-                    <button key={g.id} onClick={() => setGroupId(g.id)} style={{ padding: '10px 18px', borderRadius: 999, border: groupId === g.id ? 'none' : '1px solid #d8d4ca', background: groupId === g.id ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{g.name}</button>
+                    <button key={g.id} onClick={() => setGroupId(g.id)} className="k-clickable-card" style={{ padding: '10px 18px', borderRadius: 999, border: groupId === g.id ? 'none' : '1px solid #d8d4ca', background: groupId === g.id ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{g.name}</button>
                   ))}
                 </div>
               </React.Fragment>
@@ -4167,7 +4161,7 @@ function AdminView({ onActAs }) {
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }} aria-label="Suodata roolin mukaan">
           {filters.map((filter) => {
             const active = roleFilter === filter.id;
-            return <button key={filter.id} type="button" onClick={() => setRoleFilter(filter.id)} aria-pressed={active}
+            return <button key={filter.id} type="button" onClick={() => setRoleFilter(filter.id)} aria-pressed={active} className="k-clickable-card"
               style={{ border: active ? '1px solid var(--green-deep)' : '1px solid #d8d4ca', background: active ? 'var(--green-deep)' : '#fff', color: active ? '#fff' : '#514c42', borderRadius: 999, padding: '7px 11px', fontSize: 12, lineHeight: 1, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {filter.label} <span style={{ opacity: active ? 0.78 : 0.6 }}>{filter.count}</span>
             </button>;
@@ -4338,7 +4332,7 @@ function ActingBanner({ coachName, onExit }) {
       <span style={{ fontSize: 13.5, fontWeight: 600, flex: 1, minWidth: 180 }}>
         Toimit valmentajan <strong>{coachName}</strong> näkymässä. Kaikki mitä lisäät tallentuu hänen nimissään.
       </span>
-      <button onClick={onExit} style={{ background: '#fff', color: '#7a4c1e', border: 'none', borderRadius: 999, padding: '7px 15px', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+      <button onClick={onExit} className="k-clickable-card" style={{ background: '#fff', color: '#7a4c1e', border: 'none', borderRadius: 999, padding: '7px 15px', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
         Palaa omaan näkymään
       </button>
     </div>

@@ -566,11 +566,11 @@ function PlayerCalendarGrid({ state, studentId, matchDates, viewYear, viewMonth,
   return (
     <div className="k-card" style={{ padding: 20, marginBottom: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <button onClick={onPrev} aria-label="Edellinen kuukausi" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={onPrev} aria-label="Edellinen kuukausi" className="k-clickable-card" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="7" height="12" viewBox="0 0 8 14"><path d="M7 1L1 7l6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div style={{ fontWeight: 800, fontSize: 15, color: '#111', textTransform: 'capitalize' }}>{window.KOUTSI_MONTHS[viewMonth]} {viewYear}</div>
-        <button onClick={onNext} aria-label="Seuraava kuukausi" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={onNext} aria-label="Seuraava kuukausi" className="k-clickable-card" style={{ width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="7" height="12" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#111" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
       </div>
@@ -587,10 +587,10 @@ function PlayerCalendarGrid({ state, studentId, matchDates, viewYear, viewMonth,
           const isToday = ds === todayStr;
           const isSelected = ds === selectedDate;
           return (
-            <button key={i} onClick={() => onSelect(ds)} style={{
+            <button key={i} onClick={() => onSelect(ds)} className="k-clickable-card" style={{
               aspectRatio: '1', borderRadius: 10, border: isSelected ? '2px solid var(--green-deep)' : '2px solid transparent',
               background: isSelected ? 'rgba(14,59,44,0.06)' : isToday ? 'rgba(207,228,20,0.2)' : 'transparent',
-              cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, fontFamily: 'inherit',
             }}>
               <span style={{ fontSize: 13, fontWeight: isToday ? 800 : 600, color: '#111' }}>{d}</span>
               {(dayTrainings.length > 0 || dayClubEvents.length > 0 || hasMatch) && (
@@ -761,10 +761,10 @@ function MonthSummaryCard({ summary, monthLabel }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
         {active.map((c) => (
-          <div key={c.key} style={{ padding: '10px 12px', borderRadius: 12, background: '#f7f5ef' }}>
+          <div key={c.key} style={{ padding: '10px 12px', borderRadius: 18, background: '#f7f5ef' }}>
             <div style={{ fontSize: 19, fontWeight: 800, color: '#111', lineHeight: 1.1 }}>{c.count}</div>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#8a857a', marginTop: 3 }}>{c.label}</div>
-            {c.minutes > 0 && <div style={{ fontSize: 11, color: '#a8a294', marginTop: 1 }}>{window.koutsiFmtDuration(c.minutes)}</div>}
+            {c.minutes > 0 && <div style={{ fontSize: 11, color: '#a8a297', marginTop: 1 }}>{window.koutsiFmtDuration(c.minutes)}</div>}
           </div>
         ))}
       </div>
@@ -896,7 +896,7 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
       {doneHomework.length > 0 && (
         <div style={{ marginBottom: 26 }}>
           <SectionTitle>{`Tehdyt kotiläksyt (${doneHomework.length})`}</SectionTitle>
-          <div className="k-card" style={{ padding: '8px 18px', background: '#faf9f5' }}>
+          <div className="k-card" style={{ padding: '8px 18px', background: '#f7f5ef' }}>
             {doneHomework.map(({ h, i }, n) => (
               <div key={i} style={{ borderBottom: n === doneHomework.length - 1 ? 'none' : '1px solid var(--line)' }}>
                 <HomeworkRow item={h} done onToggle={() => onToggleHomework(i)} />
@@ -956,7 +956,7 @@ function MyVideoBank({ student, onAddVideo, onOpenVideo, onDeleteVideo }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {filtered.map((v) => (
-              <div key={v.id} className="k-card" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div key={v.id} className="k-card k-clickable-card" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button onClick={() => onOpenVideo(v)} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', fontFamily: 'inherit' }}>
                   <span style={{ width: 46, height: 36, borderRadius: 9, flexShrink: 0, position: 'relative', background: `radial-gradient(120% 120% at 30% 20%, hsl(${v.hue} 55% 45%), hsl(${v.hue + 24} 60% 22%))` }}>
                     <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1484,7 +1484,7 @@ function MobileTopBar({ student, onProfile, onSignOut }) {
           </button>
         )}
         <window.KoutsiNotificationBell userId={student.id} dark />
-        <button onClick={onProfile} aria-label="Avaa profiili" title="Profiili" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 2, borderRadius: '50%', border: '2px solid var(--lime)', background: 'transparent', cursor: 'pointer' }}>
+        <button onClick={onProfile} aria-label="Avaa profiili" title="Profiili" className="k-clickable-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 2, borderRadius: '50%', border: '2px solid var(--lime)', background: 'transparent' }}>
           <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={32} />
         </button>
       </div>

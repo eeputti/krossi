@@ -112,7 +112,7 @@ function KoutsiConfirmProvider({ children }) {
               <React.Fragment>
                 <p style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 8 }}>Kirjoita vahvistukseksi <b style={{ color: '#111' }}>{dialog.typeToConfirm}</b></p>
                 <input value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus
-                  style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '11px 13px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 20 }} />
+                  style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 20 }} />
               </React.Fragment>
             )}
             {dialog.secondaryLabel ? (
@@ -194,11 +194,11 @@ function KoutsiTimeSelect({ value, onChange, style, hourLabel = 'Tunti', minuteL
   const selectStyle = { ...style, minWidth: 0, flex: 1, cursor: disabled ? 'default' : 'pointer' };
   return (
     <div style={{ display: 'flex', gap: 6, minWidth: 0 }}>
-      <select aria-label={hourLabel} disabled={disabled} value={h || ''} onChange={(e) => onChange(`${e.target.value}:${m || '00'}`)} style={selectStyle}>
+      <select className="k-select" aria-label={hourLabel} disabled={disabled} value={h || ''} onChange={(e) => onChange(`${e.target.value}:${m || '00'}`)} style={selectStyle}>
         <option value="" disabled>--</option>
         {hours.map((hh) => <option key={hh} value={hh}>{hh}</option>)}
       </select>
-      <select aria-label={minuteLabel} disabled={disabled} value={m || ''} onChange={(e) => onChange(`${h || '00'}:${e.target.value}`)} style={selectStyle}>
+      <select className="k-select" aria-label={minuteLabel} disabled={disabled} value={m || ''} onChange={(e) => onChange(`${h || '00'}:${e.target.value}`)} style={selectStyle}>
         <option value="" disabled>--</option>
         {minutes.map((mm) => <option key={mm} value={mm}>{mm}</option>)}
       </select>
@@ -221,7 +221,7 @@ function KoutsiAttendanceBadge({ entry, onClick, compact = false }) {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
       minHeight: compact ? 30 : 34, padding: compact ? '6px 10px' : '7px 12px',
       borderRadius: 999, border: `1px solid ${tone.border}`, background: tone.bg,
-      color: tone.fg, fontWeight: 750, fontSize: compact ? 11.5 : 12.5,
+      color: tone.fg, fontWeight: 700, fontSize: compact ? 11.5 : 12.5,
       cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
     }}>
       <span style={{ width: 7, height: 7, borderRadius: '50%', background: tone.fg }} />
@@ -272,7 +272,7 @@ function KoutsiAttendanceModal({ studentName, training, eligibleTrainings, entry
                 minHeight: 44, padding: '9px 7px', borderRadius: 13,
                 border: `1.5px solid ${on ? tone.fg : '#d8d4ca'}`,
                 background: on ? tone.bg : '#fff', color: on ? tone.fg : '#514c42',
-                fontWeight: 750, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit',
+                fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit',
               }}>{option.label}</button>
             );
           })}
