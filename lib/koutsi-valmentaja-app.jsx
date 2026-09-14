@@ -57,7 +57,7 @@ function PageHeader({ title, sub, action }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22, gap: 16, flexWrap: 'wrap' }}>
       <div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, letterSpacing: -0.5, color: 'var(--green-deep)' }}>{title}</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5, color: 'var(--green-deep)' }}>{title}</h1>
         {sub && <p style={{ fontSize: 14.5, color: '#8a857a', marginTop: 4 }}>{sub}</p>}
       </div>
       {action}
@@ -169,7 +169,7 @@ function VideoRow({ videos, onDelete, onEditAudience }) {
 
 function CloseButton({ onClick }) {
   return (
-    <button onClick={onClick} aria-label="Sulje" style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <button onClick={onClick} aria-label="Sulje" className="k-clickable-card" style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid var(--line)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#111" strokeWidth="1.6" strokeLinecap="round" /></svg>
     </button>
   );
@@ -187,7 +187,7 @@ function PlayerAppStatus({ isPlaceholder, compact = false }) {
     <span title={waiting ? 'Pelaaja on tallennettu nimellä, mutta ei ole vielä lunastanut profiiliaan.' : 'Pelaaja on lunastanut profiilinsa ja käyttää pelaajasovellusta.'} style={{
       display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content',
       padding: compact ? '4px 8px' : '5px 10px', borderRadius: 999,
-      fontSize: compact ? 10.5 : 11.5, fontWeight: 750, lineHeight: 1.1,
+      fontSize: compact ? 10.5 : 11.5, fontWeight: 700, lineHeight: 1.1,
       color: waiting ? '#8a5a12' : '#2f7d54',
       background: waiting ? 'rgba(214,140,44,0.12)' : 'rgba(47,125,84,0.10)',
       border: `1px solid ${waiting ? 'rgba(214,140,44,0.30)' : 'rgba(47,125,84,0.24)'}`,
@@ -204,7 +204,7 @@ function PlayerAppStatus({ isPlaceholder, compact = false }) {
     <span title={waiting ? 'Pelaaja on tallennettu nimellä, mutta ei ole vielä lunastanut profiiliaan.' : 'Pelaaja on lunastanut profiilinsa ja käyttää pelaajasovellusta.'} style={{
       display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content',
       padding: compact ? '4px 8px' : '5px 10px', borderRadius: 999,
-      fontSize: compact ? 10.5 : 11.5, fontWeight: 750, lineHeight: 1.1,
+      fontSize: compact ? 10.5 : 11.5, fontWeight: 700, lineHeight: 1.1,
       color: waiting ? '#8a5a12' : '#2f7d54',
       background: waiting ? 'rgba(214,140,44,0.12)' : 'rgba(47,125,84,0.10)',
       border: `1px solid ${waiting ? 'rgba(214,140,44,0.30)' : 'rgba(47,125,84,0.24)'}`,
@@ -219,7 +219,7 @@ function GroupThemeBanner({ theme, label }) {
   if (!theme) return null;
   return (
     <div className="k-card" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)' }}>
-      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>
+      <div className="eyebrow" style={{ marginBottom: 5 }}>
         {label || 'Viikon teema'}{theme.week ? ` · vko ${theme.week}` : ''}
       </div>
       <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{theme.title}</div>
@@ -338,10 +338,10 @@ function StudentSuggestions({ matches, groups, onPick }) {
         const detail = [playerAgeLabel(s), s.level, koutsiGroupNamesForStudent(groups, s.id).join(', ')].filter(Boolean).join(' · ');
         return (
           <button key={s.id} type="button" onClick={() => onPick(s)}
-            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 8px', border: 'none', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 8px', border: 'none', borderRadius: 10, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
             <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={26} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 650, color: '#111' }}>{s.name}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#111' }}>{s.name}</div>
               {detail && <div style={{ fontSize: 11, color: '#8a857a', marginTop: 1 }}>{detail}</div>}
             </div>
           </button>
@@ -363,7 +363,7 @@ function MergeStudentSlot({ label, student, students, excludeId, groups, onPick,
       {student ? (
         <div className="k-card" style={{ padding: '9px 11px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={28} />
-          <span style={{ fontSize: 13.5, fontWeight: 650, color: '#111', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.name}</span>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: '#111', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.name}</span>
           <button type="button" onClick={onClear} style={{ border: 'none', background: 'none', color: 'var(--green-deep)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Vaihda</button>
         </div>
       ) : (
@@ -406,7 +406,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
   const [error, setError] = React.useState('');
   const [result, setResult] = React.useState(null);
 
-  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '10px 11px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const labelStyle = { fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5 };
   const days = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
   const steps = ['Ryhmät', 'Pelaajat', 'Viikkoteemat', 'Tarkista'];
@@ -618,7 +618,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
     <div style={{ padding: '22px 26px 16px', borderBottom: '1px solid var(--line)', background: '#fff' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>Nopea käyttöönotto</div>
+          <div className="eyebrow" style={{ marginBottom: 5 }}>Nopea käyttöönotto</div>
           <h2 style={{ fontSize: 21, fontWeight: 800, color: 'var(--green-deep)' }}>Lisää monta kerralla</h2>
         </div>
         <CloseButton onClick={onClose} />
@@ -627,8 +627,8 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
         <div className="kv-bulk-progress" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 18 }}>
           {steps.map((title, i) => (
             <div key={title} style={{ minWidth: 0 }}>
-              <div style={{ height: 4, borderRadius: 999, background: i <= step ? 'var(--green-deep)' : '#e8e4da', marginBottom: 7 }} />
-              <div style={{ fontSize: 11.5, fontWeight: i === step ? 800 : 650, color: i <= step ? 'var(--green-deep)' : '#a8a297' }}>{i + 1}. {title}</div>
+              <div style={{ height: 4, borderRadius: 999, background: i <= step ? 'var(--green-deep)' : 'var(--line)', marginBottom: 7 }} />
+              <div style={{ fontSize: 11.5, fontWeight: i === step ? 800 : 600, color: i <= step ? 'var(--green-deep)' : '#a8a297' }}>{i + 1}. {title}</div>
             </div>
           ))}
         </div>
@@ -672,7 +672,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
           </div>
         ) : (
           <React.Fragment>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px 26px 28px', background: '#fbfaf7' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px 26px 28px', background: '#f7f5ef' }}>
               {error && <div role="alert" style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '10px 14px', borderRadius: 12, fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
               {step === 0 && (
@@ -708,14 +708,14 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                         <div className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.6fr) minmax(130px, 1fr) 92px 130px 120px', gap: 9 }}>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Ryhmän nimi *</div><input value={g.name} onChange={(e) => updateGroup(g.key, { name: e.target.value })} placeholder="Esim. Tiistain aikuiset" style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Taso</div><input value={g.level} onChange={(e) => updateGroup(g.key, { level: e.target.value })} placeholder="Keskitaso" style={inputStyle} /></div>
-                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Päivä</div><select value={g.day} onChange={(e) => updateGroup(g.key, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
+                          <div><div style={{ ...labelStyle, marginBottom: 6 }}>Päivä</div><select className="k-select" value={g.day} onChange={(e) => updateGroup(g.key, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><window.KoutsiTimeSelect value={g.time} onChange={(time) => updateGroup(g.key, { time: window.koutsiRoundTimeToQuarterHour(time) })} style={inputStyle} /></div>
                           <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={g.duration || 60} onChange={(e) => updateGroup(g.key, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroup(g.key, { duration: window.koutsiRoundToQuarterHourMinutes(g.duration || 60) })} style={inputStyle} /></div>
                         </div>
                         {g.time && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 7 }}>Treenit ilmestyvät kalenteriin: {g.day} klo {window.koutsiTimeRangeLabel(g.time, g.duration || 60)} viikoittain, {weeksAhead} viikon ajan</div>}
                         {(g.extraSlots || []).map((slot) => (
                           <div key={slot.id} className="kv-bulk-group-row" style={{ display: 'grid', gridTemplateColumns: '92px 130px 120px 60px', gap: 9, marginTop: 9, alignItems: 'end' }}>
-                            <div><div style={{ ...labelStyle, marginBottom: 6 }}>Lisäpäivä</div><select value={slot.day} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
+                            <div><div style={{ ...labelStyle, marginBottom: 6 }}>Lisäpäivä</div><select className="k-select" value={slot.day} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { day: e.target.value })} style={inputStyle}>{days.map((d) => <option key={d}>{d}</option>)}</select></div>
                             <div><div style={{ ...labelStyle, marginBottom: 6 }}>Klo *</div><window.KoutsiTimeSelect value={slot.time} onChange={(time) => updateGroupExtraSlot(g.key, slot.id, { time: window.koutsiRoundTimeToQuarterHour(time) })} style={inputStyle} /></div>
                             <div><div style={{ ...labelStyle, marginBottom: 6 }}>Kesto (min)</div><input type="number" inputMode="numeric" min={15} max={480} step={15} value={slot.duration || 60} onChange={(e) => updateGroupExtraSlot(g.key, slot.id, { duration: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => updateGroupExtraSlot(g.key, slot.id, { duration: window.koutsiRoundToQuarterHourMinutes(slot.duration || 60) })} style={inputStyle} /></div>
                             <button onClick={() => removeGroupExtraSlot(g.key, slot.id)} aria-label="Poista lisäaika" style={{ border: 'none', background: 'transparent', color: '#8a857a', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '10px 0' }}>Poista</button>
@@ -744,7 +744,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                       <p style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.45, marginBottom: 10 }}>Voit kopioida nimet suoraan sähköpostista, Excelistä tai joukkueen listasta.</p>
                       <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={5} placeholder={'Onni Virtanen\nAino Laine\nLeevi Niemi'} style={{ ...inputStyle, resize: 'vertical', marginBottom: 9 }} autoFocus />
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-                        <select value={pasteGroupKey} onChange={(e) => setPasteGroupKey(e.target.value)} aria-label="Nimilistan ryhmä" style={{ ...inputStyle, width: 'min(280px, 100%)' }}>
+                        <select className="k-select" value={pasteGroupKey} onChange={(e) => setPasteGroupKey(e.target.value)} aria-label="Nimilistan ryhmä" style={{ ...inputStyle, width: 'min(280px, 100%)' }}>
                           <option value="">Ei ryhmää vielä</option>
                           {groupOptions.map((g) => <option key={g.key} value={g.key}>{g.name}</option>)}
                         </select>
@@ -767,7 +767,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                         <div className="k-card kv-bulk-player-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(170px, 1.35fr) 76px minmax(120px, .9fr) minmax(160px, 1.15fr) 36px', gap: 8, padding: '10px 11px', alignItems: 'center' }}>
                           {p.existingId ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                              <span style={{ fontSize: 13.5, fontWeight: 650, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                              <span style={{ fontSize: 13.5, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
                               <button type="button" onClick={() => updatePlayer(p.key, { existingId: null, name: '' })} style={{ border: 'none', background: 'none', color: 'var(--green-deep)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Vaihda</button>
                             </div>
                           ) : (
@@ -775,7 +775,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                           )}
                           <input aria-label={`Pelaajan ${index + 1} ikä`} value={p.age} disabled={Boolean(p.existingId)} onChange={(e) => updatePlayer(p.key, { age: e.target.value.replace(/[^0-9]/g, '').slice(0, 3) })} inputMode="numeric" placeholder={p.existingId ? '—' : '24'} style={{ ...inputStyle, opacity: p.existingId ? 0.5 : 1 }} />
                           <input aria-label={`Pelaajan ${index + 1} taso`} value={p.level} disabled={Boolean(p.existingId)} onChange={(e) => updatePlayer(p.key, { level: e.target.value })} placeholder={p.existingId ? '—' : 'Keskitaso'} style={{ ...inputStyle, opacity: p.existingId ? 0.5 : 1 }} />
-                          <select aria-label={`Pelaajan ${index + 1} ryhmä`} value={p.groupKey} onChange={(e) => updatePlayer(p.key, { groupKey: e.target.value })} style={inputStyle}>
+                          <select className="k-select" aria-label={`Pelaajan ${index + 1} ryhmä`} value={p.groupKey} onChange={(e) => updatePlayer(p.key, { groupKey: e.target.value })} style={inputStyle}>
                             <option value="">Ei ryhmää vielä</option>
                             {groupOptions.map((g) => <option key={g.key} value={g.key}>{g.name}{g.existing ? ' (nykyinen)' : ' (uusi)'}</option>)}
                           </select>
@@ -821,7 +821,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                           onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; sendSharedPlan(file); }} />
                       </label>
                     </div>
-                    {sharedPlanSent && <div style={{ marginTop: 9, fontSize: 12.5, color: '#0e5b42', fontWeight: 750 }}>{sharedPlanSent} lähetetty ylläpidolle.</div>}
+                    {sharedPlanSent && <div style={{ marginTop: 9, fontSize: 12.5, color: '#0e5b42', fontWeight: 600 }}>{sharedPlanSent} lähetetty ylläpidolle.</div>}
                   </div>
                   {involvedGroupKeys.length === 0 && <div className="k-card" style={{ padding: 18, color: '#8a857a', fontSize: 14 }}>Pelaajia ei ole liitetty ryhmiin, joten viikkoteemoja ei tarvitse lisätä.</div>}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -838,7 +838,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {rows.map((r) => (
                               <div key={r.key} className="kv-bulk-theme-row" style={{ display: 'grid', gridTemplateColumns: '175px minmax(180px, 1fr) minmax(180px, 1.2fr) 34px', gap: 8, alignItems: 'center' }}>
-                                <select value={window.koutsiIsoWeekKey(r)} onChange={(e) => { const w = weekOptions.find((o) => window.koutsiIsoWeekKey(o) === e.target.value); if (w) updateTheme(r.key, { year: w.year, week: w.week }); }} style={inputStyle} aria-label="Teeman viikko">
+                                <select className="k-select" value={window.koutsiIsoWeekKey(r)} onChange={(e) => { const w = weekOptions.find((o) => window.koutsiIsoWeekKey(o) === e.target.value); if (w) updateTheme(r.key, { year: w.year, week: w.week }); }} style={inputStyle} aria-label="Teeman viikko">
                                   {weekOptions.map((w) => <option key={window.koutsiIsoWeekKey(w)} value={window.koutsiIsoWeekKey(w)}>vko {w.week}/{w.year} · {window.koutsiIsoWeekRangeLabel(w.year, w.week)}{w.isNow ? ' (nyt)' : ''}</option>)}
                                 </select>
                                 <input value={r.title} onChange={(e) => updateTheme(r.key, { title: e.target.value })} placeholder="Viikon teema" style={inputStyle} aria-label="Viikon teema" />
@@ -873,7 +873,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                         <div key={`${p.name}-${index}`} className="k-card" style={{ padding: '12px 15px', display: 'flex', alignItems: 'center', gap: 12 }}>
                           <Avatar initial={p.name.charAt(0).toUpperCase()} hue={120 + index * 23} size={36} />
                           <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontSize: 14.5, fontWeight: 750, color: '#111' }}>{p.name}{p.age ? `, ${p.age}` : ''}</div>
+                            <div style={{ fontSize: 14.5, fontWeight: 700, color: '#111' }}>{p.name}{p.age ? `, ${p.age}` : ''}</div>
                             <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>
                               {assigned ? assigned.name : 'Ei ryhmää vielä'}{p.level ? ` · ${p.level}` : ''}
                             </div>
@@ -889,7 +889,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                         <div key={p.key} className="k-card" style={{ padding: '12px 15px', display: 'flex', alignItems: 'center', gap: 12 }}>
                           <Avatar src={existingStudent?.avatarUrl} initial={p.name.charAt(0).toUpperCase()} hue={existingStudent?.hue ?? 200} size={36} />
                           <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontSize: 14.5, fontWeight: 750, color: '#111' }}>{p.name}</div>
+                            <div style={{ fontSize: 14.5, fontWeight: 700, color: '#111' }}>{p.name}</div>
                             <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{assigned ? assigned.name : 'Ei uutta ryhmää'} · jo oppilaslistalla</div>
                           </div>
                         </div>
@@ -1010,8 +1010,8 @@ function StudentsView({ students, groups, state, coachId, coachName, onOpen, tra
       )}
       {students.length > 1 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-          <button onClick={() => setOnlyInactive(false)} style={{ padding: '8px 14px', borderRadius: 999, border: onlyInactive ? '1px solid #d8d4ca' : 'none', background: onlyInactive ? '#fff' : 'var(--lime)', color: onlyInactive ? '#3c382f' : '#101a08', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Kaikki</button>
-          <button onClick={() => setOnlyInactive(true)} style={{ padding: '8px 14px', borderRadius: 999, border: onlyInactive ? 'none' : '1px solid #d8d4ca', background: onlyInactive ? 'var(--lime)' : '#fff', color: onlyInactive ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei omatoimista viikkoon</button>
+          <button onClick={() => setOnlyInactive(false)} style={{ padding: '10px 18px', borderRadius: 999, border: onlyInactive ? '1px solid #d8d4ca' : 'none', background: onlyInactive ? '#fff' : 'var(--lime)', color: onlyInactive ? '#3c382f' : '#101a08', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Kaikki</button>
+          <button onClick={() => setOnlyInactive(true)} style={{ padding: '10px 18px', borderRadius: 999, border: onlyInactive ? 'none' : '1px solid #d8d4ca', background: onlyInactive ? 'var(--lime)' : '#fff', color: onlyInactive ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei omatoimista viikkoon</button>
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
@@ -1022,7 +1022,7 @@ function StudentsView({ students, groups, state, coachId, coachName, onOpen, tra
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <span style={{ color: '#111', fontWeight: 700, fontSize: 16.5 }}>{s.name}{playerAgeLabel(s) ? `, ${playerAgeLabel(s)}` : ''}</span>
-                  {s.diary.length > 0 && <span title="Uusi merkintä" style={{ width: 7, height: 7, borderRadius: '50%', background: '#46a66d', flexShrink: 0 }} />}
+                  {s.diary.length > 0 && <span title="Uusi merkintä" style={{ width: 9, height: 9, borderRadius: '50%', background: '#46a66d', boxShadow: '0 0 0 3px rgba(70,166,109,0.25)', flexShrink: 0 }} />}
                 </div>
                 <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}><LevelChip level={s.level || 'Ei asetettu'} /><PlayerAppStatus isPlaceholder={s.isPlaceholder} compact /></div>
               </div>
@@ -1056,7 +1056,7 @@ function AttendanceCard({ attendance }) {
           <span style={{ fontSize: 26, fontWeight: 800, color: tone, letterSpacing: -0.5 }}>{rate}%</span>
           <span style={{ fontSize: 13, color: '#8a857a' }}>{present}/{total} pidetystä treenistä</span>
         </div>
-        <div style={{ display: 'flex', height: 7, borderRadius: 999, overflow: 'hidden', background: '#f0ede5', marginBottom: 12 }}>
+        <div style={{ display: 'flex', height: 7, borderRadius: 999, overflow: 'hidden', background: '#f4f2ec', marginBottom: 12 }}>
           <span style={{ width: `${total ? (present / total) * 100 : 0}%`, background: '#2f7d54' }} />
           <span style={{ width: `${total ? (absent / total) * 100 : 0}%`, background: '#a8a297' }} />
         </div>
@@ -1134,7 +1134,7 @@ function PlayerActivityCalendarGrid({ state, studentId, matchDates, viewYear, vi
           const isSelected = ds === selectedDate;
           return (
             <button key={i} onClick={() => onSelect(ds)} style={{
-              aspectRatio: '1', borderRadius: 9, border: isSelected ? '2px solid var(--green-deep)' : '2px solid transparent',
+              aspectRatio: '1', borderRadius: 10, border: isSelected ? '2px solid var(--green-deep)' : '2px solid transparent',
               background: isSelected ? 'rgba(14,59,44,0.06)' : isToday ? 'rgba(207,228,20,0.2)' : 'transparent',
               cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, fontFamily: 'inherit',
             }}>
@@ -1168,7 +1168,7 @@ function PlayerActivityDayDetail({ state, student, selectedDate, onEditAttendanc
     <div className="k-card" style={{ padding: '15px 17px', marginTop: 10 }}>
       <div style={{ fontWeight: 800, fontSize: 13, color: '#111', marginBottom: 11, textTransform: 'capitalize' }}>{window.koutsiFmtLongDate(selectedDate)}</div>
       {trainingsOnSelected.length === 0 && matchesOnSelected.length === 0 ? (
-        <div style={{ fontSize: 13, color: '#a8a294' }}>Ei merkintöjä tälle päivälle.</div>
+        <div style={{ fontSize: 13, color: '#a8a297' }}>Ei merkintöjä tälle päivälle.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {trainingsOnSelected.map((t) => {
@@ -1230,7 +1230,7 @@ function PlayerActivityCard({ state, student, onEditAttendance }) {
       <PlayerActivityDayDetail state={state} student={student} selectedDate={selectedDate} onEditAttendance={onEditAttendance} />
       <div className="k-card" style={{ padding: '15px 17px', marginTop: 10 }}>
         {active.length === 0 ? (
-          <div style={{ fontSize: 12.5, color: '#a8a294' }}>Ei merkintöjä tälle kuukaudelle.</div>
+          <div style={{ fontSize: 12.5, color: '#a8a297' }}>Ei merkintöjä tälle kuukaudelle.</div>
         ) : (
           <React.Fragment>
             <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 10 }}>{summary.totalSessions} suoritusta{summary.totalMinutes ? ` · ${window.koutsiFmtDuration(summary.totalMinutes)}` : ''} — {window.KOUTSI_MONTHS[viewMonth]}</div>
@@ -1336,7 +1336,7 @@ function ClubEventModal({ editing, defaultDate, onClose, onSave }) {
         <div style={label}>Tyyppi</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
           {window.KOUTSI_EVENT_KINDS.map((k) => (
-            <button key={k.value} onClick={() => setKind(k.value)} style={{ padding: '8px 14px', borderRadius: 999, border: kind === k.value ? 'none' : '1px solid #d8d4ca', background: kind === k.value ? 'var(--lime)' : '#fff', color: kind === k.value ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{k.label}</button>
+            <button key={k.value} onClick={() => setKind(k.value)} style={{ padding: '10px 18px', borderRadius: 999, border: kind === k.value ? 'none' : '1px solid #d8d4ca', background: kind === k.value ? 'var(--lime)' : '#fff', color: kind === k.value ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{k.label}</button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -1369,7 +1369,7 @@ function MoodTrend({ moods }) {
             <div style={{ minWidth: 0, flex: 1, fontSize: 13.5, color: '#3c382f', lineHeight: 1.45 }}>
               <b style={{ color: '#111' }}>{labels[m.score]}</b>{m.note ? ` — ${m.note}` : ''}
             </div>
-            <span style={{ fontSize: 11.5, color: '#a8a294', flexShrink: 0 }}>{window.koutsiFmtEventDate(m.at)}</span>
+            <span style={{ fontSize: 11.5, color: '#a8a297', flexShrink: 0 }}>{window.koutsiFmtEventDate(m.at)}</span>
           </div>
         ))}
       </div>
@@ -1385,7 +1385,7 @@ function GoalHistory({ history }) {
   const past = (history || []).filter((h) => h.previousValue);
   if (past.length === 0) return null;
   return (
-    <div style={{ borderTop: '1px dashed #e3dfd4', paddingTop: 9 }}>
+    <div style={{ borderTop: '1px dashed var(--line)', paddingTop: 9 }}>
       <button onClick={() => setOpen((v) => !v)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--green-deep)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
         {open ? 'Piilota tavoitehistoria' : `Tavoite on muuttunut ${past.length} kertaa — näytä historia`}
       </button>
@@ -1393,7 +1393,7 @@ function GoalHistory({ history }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
           {past.map((h) => (
             <div key={h.id} style={{ fontSize: 13, lineHeight: 1.5 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: '#a8a294', textTransform: 'uppercase', letterSpacing: 0.5 }}>{window.koutsiFmtEventDate(h.at)}</div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#a8a297', textTransform: 'uppercase', letterSpacing: 0.5 }}>{window.koutsiFmtEventDate(h.at)}</div>
               <div style={{ color: '#111' }}>{h.value}</div>
               <div style={{ color: '#8a857a' }}>aiemmin: {h.previousValue}</div>
             </div>
@@ -1719,7 +1719,7 @@ function StudentDetail({ student, coach, state, trainings, groups, upcoming, att
             )}
             {mergeOpen && (
               <div className="k-card" style={{ padding: '14px 15px', marginTop: 10 }}>
-                <div style={{ fontWeight: 750, fontSize: 14, color: '#111', marginBottom: 3 }}>Yhdistä pelaajan tiedot toiseen</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 3 }}>Yhdistä pelaajan tiedot toiseen</div>
                 <p style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.5, marginBottom: 12 }}>
                   Valitse kaksi pelaajaa. Niistä jää jäljelle vain yksi, ja toisen ryhmät, treenit, päiväkirja ja muut merkinnät siirtyvät sille. Ei ole väliä kumman valitset kummalle puolelle.
                 </p>
@@ -1882,7 +1882,7 @@ function VideoModal({ students, groups, initialStudentId, onClose, onSave }) {
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Aihe</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
           {window.KOUTSI_TAGS.map((t) => (
-            <button key={t} onClick={() => toggleTag(t)} disabled={busy} style={{ padding: '8px 14px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
+            <button key={t} onClick={() => toggleTag(t)} disabled={busy} style={{ padding: '10px 18px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
@@ -1948,7 +1948,7 @@ function VideoAudienceModal({ video, students, onClose, onSave }) {
             <button key={s.id} onClick={() => toggleStudent(s.id)} disabled={busy} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 12, border: studentIds.includes(s.id) ? '2px solid var(--lime)' : '1px solid #d8d4ca', background: studentIds.includes(s.id) ? 'rgba(207,228,20,0.1)' : '#fff', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
               <Avatar src={s.avatarUrl} initial={s.initial} hue={s.hue} size={30} />
               <span style={{ fontWeight: 600, fontSize: 13.5, color: '#111', flex: 1 }}>{s.name}</span>
-              <span aria-hidden="true" style={{ color: studentIds.includes(s.id) ? 'var(--green-deep)' : '#c5c0b5', fontWeight: 900 }}>{studentIds.includes(s.id) ? '✓' : ''}</span>
+              <span aria-hidden="true" style={{ color: studentIds.includes(s.id) ? 'var(--green-deep)' : '#c5c0b5', fontWeight: 800 }}>{studentIds.includes(s.id) ? '✓' : ''}</span>
             </button>
           ))}
         </div>
@@ -2010,9 +2010,9 @@ function SharedAnnualPlanSubmissionCard({ coachId }) {
       {submissions && submissions.slice(0, 3).map((submission) => {
         const pending = submission.status === 'pending';
         return (
-          <div key={submission.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 11, padding: '10px 12px', borderRadius: 11, border: '1px solid var(--line)', background: '#fff', flexWrap: 'wrap' }}>
+          <div key={submission.id} className="k-card" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 11, padding: '10px 12px', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 210px', minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 750, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.filename}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.filename}</div>
               <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 2 }}>{new Date(submission.uploadedAt).toLocaleDateString('fi-FI')} · {adminFormatBytes(submission.sizeBytes)}</div>
             </div>
             <span style={{ borderRadius: 999, padding: '5px 9px', fontSize: 10.5, fontWeight: 800, color: pending ? '#7a4c1e' : '#0e5b42', background: pending ? 'rgba(199,123,46,0.12)' : 'rgba(47,125,84,0.11)', border: `1px solid ${pending ? 'rgba(199,123,46,0.3)' : 'rgba(47,125,84,0.25)'}` }}>
@@ -2062,11 +2062,11 @@ function GroupsView({ groups, students, coachId, acting, onOpen, onCreate }) {
 // every planned week at once, adds a whole run of empty weeks in one click, and saves the
 // lot with one Tallenna. It replaces the single-theme dialog that had to be retyped weekly.
 function WeeklyThemeRow({ row, weekOptions, onChange, onRemove }) {
-  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff' };
   return (
     <div className="k-card" style={{ padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <select value={window.koutsiIsoWeekKey(row)} onChange={(e) => {
+        <select className="k-select" value={window.koutsiIsoWeekKey(row)} onChange={(e) => {
           const opt = weekOptions.find((o) => window.koutsiIsoWeekKey(o) === e.target.value);
           if (opt) onChange({ ...row, year: opt.year, week: opt.week });
         }} style={{ ...inputStyle, width: 'auto', flex: 1, cursor: 'pointer', fontWeight: 700 }}>
@@ -2516,7 +2516,7 @@ function AddMembersModal({ coachId, coachName, group, allStudents, groups, onClo
     setName(''); setAge(''); setLevel('');
     window.setTimeout(() => nameInputRef.current?.focus(), 0);
   };
-  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '11px 12px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 13.5, fontFamily: 'inherit', color: '#111', background: '#fff' };
   const openQuickCreate = () => {
     setQuickCreateOpen(true);
     setCreateError('');
@@ -2554,7 +2554,9 @@ function AddMembersModal({ coachId, coachName, group, allStudents, groups, onClo
                 <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--green-deep)' }}>Uusi pelaaja tähän ryhmään</div>
                 <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 2 }}>Nimi riittää. Ikä ja taso ovat valinnaisia.</div>
               </div>
-              <button type="button" onClick={() => { setQuickCreateOpen(false); setCreateError(''); }} disabled={creating} aria-label="Sulje uuden pelaajan luonti" style={{ width: 30, height: 30, border: 'none', borderRadius: '50%', background: '#f1eee5', color: '#514c42', cursor: creating ? 'default' : 'pointer', fontSize: 18, lineHeight: 1 }}>×</button>
+              <button type="button" onClick={() => { setQuickCreateOpen(false); setCreateError(''); }} disabled={creating} aria-label="Sulje uuden pelaajan luonti" className="k-clickable-card" style={{ width: 36, height: 36, border: '1px solid var(--line)', borderRadius: '50%', background: '#fff', cursor: creating ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 1l12 12M13 1L1 13" stroke="#111" strokeWidth="1.6" strokeLinecap="round" /></svg>
+              </button>
             </div>
             {createError && <div style={{ background: 'rgba(161,59,47,0.08)', border: '1px solid rgba(161,59,47,0.25)', color: '#a13b2f', padding: '9px 11px', borderRadius: 10, fontSize: 12.5, marginBottom: 10 }}>{createError}</div>}
             <input ref={nameInputRef} aria-label="Uuden pelaajan nimi" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pelaajan nimi" maxLength={120} style={{ ...inputStyle, marginBottom: nameSuggestions.length || existingMatch ? 5 : 8 }} />
@@ -2582,9 +2584,9 @@ function AddMembersModal({ coachId, coachName, group, allStudents, groups, onClo
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <span style={{ height: 1, background: '#e3dfd5', flex: 1 }} />
+          <span style={{ height: 1, background: 'var(--line)', flex: 1 }} />
           <span style={{ fontSize: 10.5, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5 }}>Valitse nykyisistä oppilaista</span>
-          <span style={{ height: 1, background: '#e3dfd5', flex: 1 }} />
+          <span style={{ height: 1, background: 'var(--line)', flex: 1 }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10, maxHeight: 260, overflowY: 'auto' }}>
           {available.map((s) => (
@@ -2670,7 +2672,7 @@ function AnnualPlanCard({ group, onUploadPlan, onRemovePlan }) {
         <span style={{ fontSize: 12, color: '#a8a297' }}>PDF, CSV tai Excel, enintään 20 Mt.</span>
       </div>
       {selectedFile && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '10px 12px', borderRadius: 12, background: '#f7f6f2', border: '1px solid #e4e0d7' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '10px 12px', borderRadius: 12, background: '#f7f5ef', border: '1px solid var(--line)' }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 12, color: '#8a857a', marginBottom: 2 }}>Valittu tiedosto</div>
             <div style={{ fontWeight: 700, fontSize: 13.5, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedFile.name}</div>
@@ -2785,10 +2787,10 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
                 return (
                   <button key={t.id} onClick={() => onOpenAttendance(t.id)} className="k-card" style={{ width: '100%', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', textAlign: 'left' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, color: '#111', fontWeight: 750 }}>{window.koutsiFmtShortDate(t.date)} · {t.time}</div>
+                      <div style={{ fontSize: 13.5, color: '#111', fontWeight: 700 }}>{window.koutsiFmtShortDate(t.date)} · {t.time}</div>
                       <div style={{ fontSize: 12, color: missing ? '#8a5a12' : '#2f7d54', marginTop: 3 }}>{missing ? `${missing} poissa` : 'Kaikki merkitty paikalle'}</div>
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 750, color: 'var(--green-deep)' }}>Kirjaa →</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-deep)' }}>Kirjaa →</span>
                   </button>
                 );
               })}
@@ -2972,7 +2974,7 @@ function CalendarView({ state, onAdd, onPreSession, onEditTraining, onDeleteTrai
                       <div style={{ color: '#111', fontWeight: 700, fontSize: 15 }}>{party.kind === 'group' ? (party.group ? party.group.name : 'Ryhmä') : (party.student ? party.student.name : '—')}</div>
                       <div style={{ color: '#8a857a', fontSize: 12.5 }}>{t.type}{party.kind === 'group' ? ` · ${party.members.length} pelaajaa` : ''}{trainingCoach ? ` · ${trainingCoach.name}` : ''}</div>
                     </div>
-                    <span style={{ color: 'var(--green-deep)', fontSize: 12.5, fontWeight: 750, whiteSpace: 'nowrap' }}>Avaa →</span>
+                    <span style={{ color: 'var(--green-deep)', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>Avaa →</span>
                     <window.KoutsiRowActions onEdit={() => onEditTraining(t)} onDelete={() => onDeleteTraining(t)} editLabel="Muokkaa treeniä" deleteLabel="Poista treeni" />
                   </div>
                   {t.seriesId && (
@@ -3238,12 +3240,12 @@ function ExercisesView({ exercises, onOpen, onAdd, onRestoreStarters }) {
       <PageHeader title="Harjoitteet" sub="Oma harjoitepankki" action={<button onClick={onAdd} className="btn-dark btn-sm">+ Lisää harjoite</button>} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         {PLAYER_COUNT_FILTERS.map((f) => (
-          <button key={f.key} onClick={() => setActiveCount(f.key)} style={{ padding: '9px 16px', borderRadius: 999, border: activeCount === f.key ? 'none' : '1px solid var(--line)', background: activeCount === f.key ? 'var(--green-deep)' : '#fff', color: activeCount === f.key ? '#fff' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
+          <button key={f.key} onClick={() => setActiveCount(f.key)} style={{ padding: '10px 18px', borderRadius: 999, border: activeCount === f.key ? 'none' : '1px solid var(--line)', background: activeCount === f.key ? 'var(--green-deep)' : '#fff', color: activeCount === f.key ? '#fff' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
         ))}
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {EXERCISE_TAGS.map((t) => (
-          <button key={t} onClick={() => setActiveTag(t)} style={{ padding: '9px 16px', borderRadius: 999, border: activeTag === t ? 'none' : '1px solid var(--line)', background: activeTag === t ? 'var(--lime)' : '#fff', color: activeTag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
+          <button key={t} onClick={() => setActiveTag(t)} style={{ padding: '10px 18px', borderRadius: 999, border: activeTag === t ? 'none' : '1px solid var(--line)', background: activeTag === t ? 'var(--lime)' : '#fff', color: activeTag === t ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>{TAG_LABELS[t]}</button>
         ))}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
@@ -3453,7 +3455,7 @@ function ExerciseFormModal({ editing, onClose, onSave }) {
         <div style={label}>Pelaajamäärä (suodatinta varten)</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {PLAYER_COUNT_FILTERS.filter((f) => f.key !== 'kaikki').map((f) => (
-            <button key={f.key} onClick={() => setPlayerCount(f.key)} style={{ padding: '8px 14px', borderRadius: 999, border: playerCount === f.key ? 'none' : '1px solid #d8d4ca', background: playerCount === f.key ? 'var(--lime)' : '#fff', color: playerCount === f.key ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
+            <button key={f.key} onClick={() => setPlayerCount(f.key)} style={{ padding: '10px 18px', borderRadius: 999, border: playerCount === f.key ? 'none' : '1px solid #d8d4ca', background: playerCount === f.key ? 'var(--lime)' : '#fff', color: playerCount === f.key ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{f.label}</button>
           ))}
         </div>
         <div style={label}>Taso</div>
@@ -3461,7 +3463,7 @@ function ExerciseFormModal({ editing, onClose, onSave }) {
         <div style={label}>Aihe</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
           {window.KOUTSI_TAGS.map((t) => (
-            <button key={t} onClick={() => toggleTag(t)} style={{ padding: '8px 14px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
+            <button key={t} onClick={() => toggleTag(t)} style={{ padding: '10px 18px', borderRadius: 999, border: tags.includes(t) ? 'none' : '1px solid #d8d4ca', background: tags.includes(t) ? 'var(--lime)' : '#fff', color: tags.includes(t) ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{window.KOUTSI_TAG_LABELS[t]}</button>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -3764,6 +3766,7 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
   const toast = window.useKoutsiToast();
   const confirm = window.useKoutsiConfirm();
   const [showCodes, setShowCodes] = React.useState(false);
+  const [showPending, setShowPending] = React.useState(false);
   const [opening, setOpening] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const openView = async () => {
@@ -3790,7 +3793,7 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
     user.isCoach && { label: 'Valmentaja', fg: '#0e5b42', bg: 'rgba(94,189,139,0.12)', border: 'rgba(47,125,84,0.28)' },
     user.isPlayer && { label: 'Pelaaja', fg: '#315f8a', bg: 'rgba(75,137,189,0.11)', border: 'rgba(75,137,189,0.28)' },
   ].filter(Boolean);
-  if (!roles.length) roles.push({ label: 'Ei Koutsi-roolia', fg: '#6f695f', bg: '#f4f2ec', border: '#ded9cf' });
+  if (!roles.length) roles.push({ label: 'Ei Koutsi-roolia', fg: '#6f695f', bg: '#f4f2ec', border: 'var(--line)' });
   return (
     <div className="k-card" style={{ padding: '16px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
@@ -3805,16 +3808,22 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ background: '#f7f5ef', borderRadius: 11, padding: '7px 11px', textAlign: 'center', minWidth: 76 }}>
+          <div style={{ background: '#f7f5ef', borderRadius: 18, padding: '7px 11px', textAlign: 'center', minWidth: 76 }}>
             <div style={{ fontSize: 9.5, fontWeight: 700, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>Tallennustila</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{adminFormatBytes(user.storageBytes)}</div>
           </div>
           {user.isCoach && [['Oppilaita', user.studentCount], ['Ryhmiä', user.groupCount], ['Treenejä', user.trainingCount]].map(([k, v]) => (
-            <div key={k} style={{ background: '#f7f5ef', borderRadius: 11, padding: '7px 11px', textAlign: 'center', minWidth: 62 }}>
+            <div key={k} style={{ background: '#f7f5ef', borderRadius: 18, padding: '7px 11px', textAlign: 'center', minWidth: 62 }}>
               <div style={{ fontSize: 9.5, fontWeight: 700, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>{k}</div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{v}</div>
             </div>
           ))}
+          {user.isCoach && (
+            <div style={{ background: user.pendingStudents.length ? 'rgba(214,140,44,0.12)' : '#f7f5ef', borderRadius: 18, padding: '7px 11px', textAlign: 'center', minWidth: 62 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 700, color: user.pendingStudents.length ? '#8a5a12' : '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>Ei tiliä</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{user.pendingStudents.length}</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -3835,6 +3844,11 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
             {showCodes ? 'Piilota koodit' : `Kutsukoodit (${user.codes.length})`}
           </button>
         )}
+        {user.isCoach && user.pendingStudents.length > 0 && (
+          <button onClick={() => setShowPending((v) => !v)} className="btn-outline btn-sm" style={{ color: '#8a5a12', borderColor: 'rgba(214,140,44,0.4)' }}>
+            {showPending ? 'Piilota' : `Ei vielä tiliä (${user.pendingStudents.length})`}
+          </button>
+        )}
         {!user.isAdmin && <button onClick={remove} disabled={deleting} className="btn-outline btn-sm" style={{ marginLeft: 'auto', color: '#8f2f24', borderColor: '#e3c9c4', opacity: deleting ? 0.55 : 1 }}>
           {deleting ? 'Poistetaan…' : 'Poista tili'}
         </button>}
@@ -3849,6 +3863,16 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
                 {c.label || c.group_name || 'Ei ryhmää'} · {c.used}/{c.max_uses ?? '∞'}
               </span>
               <window.KoutsiCopyButton text={window.koutsiInviteLink(c.code)} label="Kopioi linkki" style={{ padding: '5px 10px', fontSize: 11.5 }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showPending && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+          {user.pendingStudents.map((s) => (
+            <div key={s.id} style={{ padding: '8px 11px', borderRadius: 10, background: 'rgba(214,140,44,0.08)', border: '1px solid rgba(214,140,44,0.25)', fontSize: 13, color: '#514c42' }}>
+              {s.name} <span style={{ color: '#8a5a12', fontWeight: 700 }}>— ei vielä Krossi-tiliä</span>
             </div>
           ))}
         </div>
@@ -3920,9 +3944,9 @@ function AdminImportModal({ coach, onClose }) {
               <React.Fragment>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 }}>Liitä ryhmään (valinnainen)</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                  <button onClick={() => setGroupId(null)} style={{ padding: '8px 14px', borderRadius: 999, border: groupId === null ? 'none' : '1px solid #d8d4ca', background: groupId === null ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei ryhmää</button>
+                  <button onClick={() => setGroupId(null)} style={{ padding: '10px 18px', borderRadius: 999, border: groupId === null ? 'none' : '1px solid #d8d4ca', background: groupId === null ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>Ei ryhmää</button>
                   {groups.map((g) => (
-                    <button key={g.id} onClick={() => setGroupId(g.id)} style={{ padding: '8px 14px', borderRadius: 999, border: groupId === g.id ? 'none' : '1px solid #d8d4ca', background: groupId === g.id ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{g.name}</button>
+                    <button key={g.id} onClick={() => setGroupId(g.id)} style={{ padding: '10px 18px', borderRadius: 999, border: groupId === g.id ? 'none' : '1px solid #d8d4ca', background: groupId === g.id ? 'var(--lime)' : '#fff', color: '#3c382f', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit' }}>{g.name}</button>
                   ))}
                 </div>
               </React.Fragment>
@@ -4039,7 +4063,7 @@ function AdminPlansModal({ coach, onClose, onChanged, onActAs }) {
             return (
               <div key={submission.id} className="k-card" style={{ padding: '13px 15px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: pending ? 'rgba(199,123,46,0.055)' : '#fff' }}>
                 <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 750, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.filename}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.filename}</div>
                   <div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>{new Date(submission.uploadedAt).toLocaleDateString('fi-FI')} · {adminFormatBytes(submission.sizeBytes)}</div>
                 </div>
                 <span style={{ borderRadius: 999, padding: '5px 9px', fontSize: 10.5, fontWeight: 800, color: pending ? '#7a4c1e' : '#0e5b42', background: pending ? 'rgba(199,123,46,0.12)' : 'rgba(47,125,84,0.11)', border: `1px solid ${pending ? 'rgba(199,123,46,0.3)' : 'rgba(47,125,84,0.25)'}` }}>
@@ -4144,7 +4168,7 @@ function AdminView({ onActAs }) {
           {filters.map((filter) => {
             const active = roleFilter === filter.id;
             return <button key={filter.id} type="button" onClick={() => setRoleFilter(filter.id)} aria-pressed={active}
-              style={{ border: active ? '1px solid var(--green-deep)' : '1px solid #d8d4ca', background: active ? 'var(--green-deep)' : '#fff', color: active ? '#fff' : '#514c42', borderRadius: 999, padding: '7px 11px', fontSize: 12, lineHeight: 1, fontWeight: 750, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ border: active ? '1px solid var(--green-deep)' : '1px solid #d8d4ca', background: active ? 'var(--green-deep)' : '#fff', color: active ? '#fff' : '#514c42', borderRadius: 999, padding: '7px 11px', fontSize: 12, lineHeight: 1, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               {filter.label} <span style={{ opacity: active ? 0.78 : 0.6 }}>{filter.count}</span>
             </button>;
           })}
