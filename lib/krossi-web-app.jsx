@@ -138,6 +138,20 @@ async function fetchWebConversations(uid) {
     return {id:r.conversation_id,otherUserId:o.userId,otherUserName:o.name,otherUserAvatarUrl:o.avatarUrl,otherUserAvatarColor:o.avatarColor,displayName:others.length>1?'Ryhmäkeskustelu':o.name,isGroup:others.length>1,participantProfiles:others,lastMessage:fmtLastMsg(r.conversation.last_message).text,updatedAt:r.conversation.updated_at,hasUnread:unread};
   }).filter(Boolean).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
 }
+// Muiden osallistujien profiilit tuoreena — kutsuja ei luota conversation-olion
+// mahdollisesti puuttuvaan/vanhaan participantProfiles-listaan.
+async function fetchConversationParticipants(conversationId, uid) {
+  const { data } = await supabase.from('conversation_participants')
+    .select('user_id,profile:profiles!conversation_participants_user_id_fkey(id,name,avatar_url,avatar_color)')
+    .eq('conversation_id', conversationId);
+  return (data||[]).filter(p=>p.user_id!==uid && p.profile)
+    .map(p=>({ userId:p.profile.id, name:p.profile.name, avatarUrl:p.profile.avatar_url, avatarColor:p.profile.avatar_color||'blue' }));
+}
+async function fetchPlayerProfile(id) {
+  const { data, error } = await supabase.from('profiles').select(PROFILE_SELECT).eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data ? mapProfile(data) : null;
+}
 function mapMatchResult(row) {
   return { id:row.id, createdAt:row.created_at, gameType:row.game_type, format:row.format, partnerName:row.partner_name, opponentName:row.opponent_name, oppPartnerName:row.opp_partner_name, sets:row.sets||[], won:row.won };
 }
@@ -382,6 +396,9 @@ function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fi
 function ArchiveIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" /></svg>; }
 function UndoIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h11a5 5 0 0 1 0 10h-2M3 9l5-5M3 9l5 5" /></svg>; }
 function FilterIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16M7 12h10M11 19h2" /></svg>; }
+function BackArrowIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>; }
+function ChevronRightIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>; }
+function UsersIcon({ size = 12 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>; }
 function Toggle({ on, onChange }) {
   return (
     <button type="button" onClick={() => onChange(!on)} style={{ width: 48, height: 28, borderRadius: 14, border: 'none', padding: 2, cursor: 'pointer', background: on ? 'var(--green-deep)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background .2s' }}>
@@ -1425,8 +1442,35 @@ function ChatScreen({ conversation, onBack }) {
   const [text, setText] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [sending, setSending] = React.useState(false);
+  const [participants, setParticipants] = React.useState(null);
+  const [loadingParticipants, setLoadingParticipants] = React.useState(false);
+  const [showParticipants, setShowParticipants] = React.useState(false);
+  const [viewProfile, setViewProfile] = React.useState(null);
+  const [loadingProfile, setLoadingProfile] = React.useState(false);
   const btm = React.useRef(null);
   const uid = session?.user?.id;
+  const isGroup = conversation.isGroup;
+  React.useEffect(() => {
+    if (!isGroup) return;
+    let cancelled = false;
+    setLoadingParticipants(true);
+    fetchConversationParticipants(conversation.id, uid)
+      .then(list => { if (!cancelled) setParticipants(list); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingParticipants(false); });
+    return () => { cancelled = true; };
+  }, [conversation.id, isGroup, uid]);
+  const openProfile = async (id) => {
+    setLoadingProfile(true);
+    try {
+      const p = await fetchPlayerProfile(id);
+      if (p) setViewProfile(p); else alert('Profiilia ei löytynyt.');
+    } catch (e) { alert(e.message); } finally { setLoadingProfile(false); }
+  };
+  const openHeaderProfile = () => {
+    if (!isGroup) { openProfile(conversation.otherUserId); return; }
+    setShowParticipants(true);
+  };
   const load = React.useCallback(async () => {
     try {
       const { data } = await supabase.from('messages').select('id,sender_id,content,image_url,created_at,profile:profiles!messages_sender_id_fkey(name,avatar_url,avatar_color)').eq('conversation_id',conversation.id).order('created_at',{ascending:true});
@@ -1454,22 +1498,49 @@ function ChatScreen({ conversation, onBack }) {
       triggerPush({type:'new_message',conversationId:conversation.id,senderId:uid,hasImage:false,isThumbsUp:true});
     }catch(e){alert(e.message);}finally{setSending(false);}
   };
+  const extraCount = isGroup ? Math.max((participants||[]).length - 2, 0) : 0;
   return <div className="clay-bg" style={{display:'flex',flexDirection:'column',height:'100%'}}>
-    <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',borderBottom:'1px solid var(--border)',flexShrink:0}}>
-      <button className="icon-btn" onClick={onBack} aria-label="Takaisin" style={{color:'var(--ink)',fontSize:18}}>←</button>
-      <Avatar uri={conversation.otherUserAvatarUrl} name={conversation.otherUserName} color={conversation.otherUserAvatarColor} size={36}/>
-      <span style={{color:'var(--ink)',fontWeight:700,fontSize:15}}>{conversation.displayName}</span>
+    <div className="chat-header" style={{display:'flex',alignItems:'center',gap:8,padding:'10px 16px'}}>
+      <button className="chat-back-btn" onClick={onBack} aria-label="Takaisin"><BackArrowIcon/></button>
+      <button className="chat-header-id" onClick={openHeaderProfile} disabled={loadingParticipants||loadingProfile}
+        aria-label={isGroup?'Näytä osallistujat':'Näytä profiili'}>
+        {isGroup ? (
+          <div className="avatar-stack">
+            {(participants||[]).slice(0,2).map(p=><div key={p.userId} className="avatar-ring"><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={36}/></div>)}
+            {(participants===null)&&<div className="avatar-ring"><Avatar name="?" color="blue" size={36}/></div>}
+            {extraCount>0&&<span className="group-badge">+{extraCount}</span>}
+          </div>
+        ) : <div className="avatar-ring"><Avatar uri={conversation.otherUserAvatarUrl} name={conversation.otherUserName} color={conversation.otherUserAvatarColor} size={36}/></div>}
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:'var(--ink)',fontWeight:700,fontSize:15,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{conversation.displayName}</div>
+          {isGroup && <div style={{color:'var(--text-muted)',fontSize:11,display:'flex',alignItems:'center',gap:4}}><UsersIcon size={11}/>{participants?`${participants.length+1} pelaajaa`:'Ladataan...'}</div>}
+        </div>
+        {(loadingParticipants||loadingProfile)?<div className="spinner" style={{width:14,height:14,borderWidth:2,flexShrink:0}}/>:<span className="chat-header-chevron"><ChevronRightIcon/></span>}
+      </button>
     </div>
-    <div style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:6}}>
+    <div style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:8}}>
       {loading?<Spinner/>:msgs.map(m=>{
         const mine=m.senderId===uid;
         let dc=m.content,isThumb=false;try{const p=JSON.parse(m.content);if(p.__type==='thumbs_up'){dc='👍';isThumb=true;}if(p.__type==='challenge_join')dc=`${p.joinerName} liittyi peliin!`;}catch{}
-        return <div key={m.id} style={{alignSelf:mine?'flex-end':'flex-start'}}>
-          {!mine&&conversation.isGroup&&<span style={{fontSize:10,color:'#aaa',marginLeft:4}}>{m.senderName}</span>}
-          {m.imageUrl&&<img src={chatImgUrl(m.imageUrl)} alt="" style={{maxWidth:200,borderRadius:10}}/>}
-          {dc&&(isThumb
-            ? <div className="chat-thumb" style={{textAlign:mine?'right':'left'}} aria-label="Peukku">👍</div>
-            : <div className={`chat-bubble ${mine?'chat-mine':'chat-theirs'}`}>{dc}</div>)}
+        const showSender = !mine && isGroup;
+        return <div key={m.id} style={{alignSelf:mine?'flex-end':'flex-start',maxWidth:'80%'}}>
+          {showSender
+            ? <div className="chat-sender-row">
+                <div className="avatar-ring"><Avatar uri={m.senderAvatarUrl} name={m.senderName} color={m.senderAvatarColor} size={22}/></div>
+                <div>
+                  <div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',marginBottom:2}}>{m.senderName}</div>
+                  {m.imageUrl&&<img src={chatImgUrl(m.imageUrl)} alt="" style={{maxWidth:200,borderRadius:10,display:'block',marginBottom:dc?4:0}}/>}
+                  {dc&&(isThumb
+                    ? <div className="chat-thumb" aria-label="Peukku">👍</div>
+                    : <div className="chat-bubble chat-theirs">{dc}</div>)}
+                </div>
+              </div>
+            : <>
+                {m.imageUrl&&<img src={chatImgUrl(m.imageUrl)} alt="" style={{maxWidth:200,borderRadius:10}}/>}
+                {dc&&(isThumb
+                  ? <div className="chat-thumb" style={{textAlign:mine?'right':'left'}} aria-label="Peukku">👍</div>
+                  : <div className={`chat-bubble ${mine?'chat-mine':'chat-theirs'}`}>{dc}</div>)}
+              </>}
         </div>;
       })}
       <div ref={btm}/>
@@ -1479,6 +1550,27 @@ function ChatScreen({ conversation, onBack }) {
       {text.trim()?<button className="btn btn-lime" onClick={send} disabled={sending} style={{width:38,height:38,borderRadius:'50%',padding:0}}><svg width="18" height="18" viewBox="0 0 22 22"><path d="M20 2L2 9.5l7 2.5 2.5 7L20 2z" fill="none" stroke="#101a08" strokeWidth="1.8" strokeLinejoin="round"/></svg></button>
       :<button className="btn" onClick={thumbs} disabled={sending} style={{width:38,height:38,borderRadius:'50%',padding:0,fontSize:20,background:'#f4f2ec',border:'1px solid var(--border)'}}>👍</button>}
     </div>
+    {showParticipants&&<div className="modal-overlay" onClick={()=>setShowParticipants(false)}>
+      <div className="modal-sheet" style={{maxWidth:380,position:'relative'}} onClick={e=>e.stopPropagation()}>
+        <button className="icon-btn" onClick={()=>setShowParticipants(false)} aria-label="Sulje" style={{position:'absolute',top:16,right:16}}>✕</button>
+        <h3 style={{margin:'0 2px 2px',fontSize:17,fontWeight:800,color:'var(--ink)'}}>Osallistujat</h3>
+        <p style={{margin:'0 2px 16px',fontSize:13,color:'var(--text-muted)'}}>{participants?`${participants.length+1} pelaajaa ryhmässä`:'Ladataan...'}</p>
+        {loadingParticipants && !participants ? <Spinner/> : (participants||[]).length===0
+          ? <p style={{color:'var(--text-muted)',fontSize:14}}>Ei muita osallistujia.</p>
+          : <div>
+              {participants.map(p=><button key={p.userId} className="participant-row" onClick={()=>{setShowParticipants(false);openProfile(p.userId);}}>
+                <div className="avatar-ring"><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={38}/></div>
+                <span style={{color:'var(--ink)',fontWeight:700,fontSize:14}}>{p.name}</span>
+                <span className="participant-row-chevron"><ChevronRightIcon/></span>
+              </button>)}
+            </div>}
+      </div>
+    </div>}
+    {viewProfile&&<div className="modal-overlay" onClick={()=>setViewProfile(null)}>
+      <div className="modal-sheet" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
+        <PlayerDetail player={viewProfile} onBack={()=>setViewProfile(null)} currentUserId={uid}/>
+      </div>
+    </div>}
   </div>;
 }
 
