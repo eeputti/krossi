@@ -312,7 +312,7 @@ function PaywallModal({ onClose }) {
   const pay = async () => { setStarting(true); await startCheckout(); setStarting(false); };
   return <div className="modal-overlay">
     <div className="modal-sheet" style={{ position:'relative', textAlign:'center' }}>
-      <button onClick={onClose} aria-label="Sulje" style={{ position:'absolute', top:16, right:16, background:'none', border:'none', fontSize:18, color:'var(--text-muted)', cursor:'pointer', lineHeight:1 }}>✕</button>
+      <button className="icon-btn" onClick={onClose} aria-label="Sulje" style={{ position:'absolute', top:16, right:16, fontSize:18 }}>✕</button>
       <div style={{ fontSize:32, marginBottom:8 }}>🎾</div>
       <h3 style={{ margin:'0 0 8px', fontSize:19, fontWeight:800, color:'var(--ink)' }}>Kokeile Krossin täyttä versiota</h3>
       <p style={{ margin:'0 0 20px', fontSize:13, color:'var(--text-muted)', lineHeight:1.5 }}>Näet muiden pelaajien profiilit, voit liittyä haasteisiin ja luoda omia. Maksa vain kerran — ei tilausta, ei toistuvaa laskutusta.</p>
@@ -339,7 +339,7 @@ function ArchiveIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" 
 function UndoIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h11a5 5 0 0 1 0 10h-2M3 9l5-5M3 9l5 5" /></svg>; }
 function Toggle({ on, onChange }) {
   return (
-    <button type="button" onClick={() => onChange(!on)} style={{ width: 48, height: 28, borderRadius: 14, border: 'none', padding: 2, cursor: 'pointer', background: on ? 'var(--green-deep)' : '#ccc', position: 'relative', flexShrink: 0, transition: 'background .2s' }}>
+    <button type="button" onClick={() => onChange(!on)} style={{ width: 48, height: 28, borderRadius: 14, border: 'none', padding: 2, cursor: 'pointer', background: on ? 'var(--green-deep)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background .2s' }}>
       <span style={{ display: 'block', width: 24, height: 24, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.2)', transition: 'transform .2s', transform: on ? 'translateX(20px)' : 'translateX(0)' }} />
     </button>
   );
@@ -348,7 +348,7 @@ function AvatarPicker({ preview, onPick }) {
   const inputRef = React.useRef(null);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-      <div onClick={() => inputRef.current?.click()} style={{ position: 'relative', cursor: 'pointer', width: 88, height: 88 }}>
+      <div className="hover-lift" onClick={() => inputRef.current?.click()} style={{ position: 'relative', cursor: 'pointer', width: 88, height: 88, borderRadius: '50%' }}>
         {preview
           ? <img src={preview} alt="" style={{ width: 88, height: 88, borderRadius: '50%', objectFit: 'cover' }} />
           : <div className="avatar avatar-blue" style={{ width: 88, height: 88, fontSize: 30 }}>+</div>}
@@ -450,7 +450,7 @@ function AuthScreen() {
 
   const oauthBtnStyle = {
     display:'flex', alignItems:'center', justifyContent:'center', gap:10,
-    width:'100%', padding:'12px 16px', borderRadius:12, border:'1px solid #e0ddd6',
+    width:'100%', padding:'12px 16px', borderRadius:12, border:'1px solid var(--border)',
     background:'#fff', cursor:'pointer', fontFamily:'inherit', fontSize:14, fontWeight:600,
     color:'var(--ink)', transition:'background .15s, border-color .15s',
   };
@@ -478,11 +478,11 @@ function AuthScreen() {
 
         {mode !== 'reset' && (
           <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
-            <button style={oauthBtnStyle} onClick={signInWithGoogle} disabled={busy}>
+            <button className="hover-lift" style={oauthBtnStyle} onClick={signInWithGoogle} disabled={busy}>
               <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1 0-9.18l-7.98-6.19a24.0 24.0 0 0 0 0 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
               Jatka Googlella
             </button>
-            <button style={oauthBtnStyle} onClick={signInWithApple} disabled={busy}>
+            <button className="hover-lift" style={oauthBtnStyle} onClick={signInWithApple} disabled={busy}>
               <svg width="16" height="20" viewBox="0 0 20 24" fill="#111"><path d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.7-3-2-3.7-2-1.6-.2-3 .9-3.8.9s-2-.9-3.3-.9c-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.3-.8s2 .8 3.3.8c1.4 0 2.2-1.2 3.1-2.5.7-1 1-2 1-2-.1 0-2-.8-2-3.3zM13.9 3.5c.7-.9 1.2-2.1 1-3.3-1 0-2.3.7-3 1.5-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3.1-1.4z"/></svg>
               Jatka Applella
             </button>
@@ -491,9 +491,9 @@ function AuthScreen() {
 
         {mode !== 'reset' && (
           <div style={{ display:'flex', alignItems:'center', gap:12, margin:'0 0 14px' }}>
-            <div style={{ flex:1, height:1, background:'#e0ddd6' }} />
+            <div style={{ flex:1, height:1, background:'var(--border)' }} />
             <span style={{ fontSize:12, color:'#999', fontWeight:500 }}>tai sähköpostilla</span>
-            <div style={{ flex:1, height:1, background:'#e0ddd6' }} />
+            <div style={{ flex:1, height:1, background:'var(--border)' }} />
           </div>
         )}
 
@@ -671,7 +671,7 @@ function OnboardingScreen() {
             <div className="field-label">Pelitaso</div>
             <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
               {SKILL_LEVEL_INFO.map(s => (
-                <button key={s.value} type="button" onClick={()=>set('pelitaso',s.value)} style={{
+                <button key={s.value} type="button" className="hover-lift" onClick={()=>set('pelitaso',s.value)} style={{
                   textAlign:'left', padding:'10px 14px', borderRadius:12, cursor:'pointer', fontFamily:'inherit',
                   border: form.pelitaso===s.value ? '1.5px solid var(--green-deep)' : '1.5px solid var(--border)',
                   background: form.pelitaso===s.value ? 'rgba(14,59,44,0.06)' : '#fff',
@@ -1276,7 +1276,7 @@ function ChatScreen({ conversation, onBack }) {
   };
   return <div className="clay-bg" style={{display:'flex',flexDirection:'column',height:'100%'}}>
     <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',borderBottom:'1px solid var(--border)',flexShrink:0}}>
-      <button onClick={onBack} style={{background:'none',border:'none',color:'var(--ink)',cursor:'pointer',fontSize:18,padding:0}}>←</button>
+      <button className="icon-btn" onClick={onBack} aria-label="Takaisin" style={{color:'var(--ink)',fontSize:18}}>←</button>
       <Avatar uri={conversation.otherUserAvatarUrl} name={conversation.otherUserName} color={conversation.otherUserAvatarColor} size={36}/>
       <span style={{color:'var(--ink)',fontWeight:700,fontSize:15}}>{conversation.displayName}</span>
     </div>
@@ -1339,7 +1339,7 @@ function MatchResultModal({ editingResult, prefill, title, onClose, onSaved }) {
 
   return <div className="modal-overlay" onClick={onClose}>
     <div className="modal-sheet" style={{position:'relative'}} onClick={e=>e.stopPropagation()}>
-      <button onClick={onClose} aria-label="Sulje" style={{position:'absolute',top:16,right:16,background:'none',border:'none',fontSize:18,color:'var(--text-muted)',cursor:'pointer',lineHeight:1}}>✕</button>
+      <button className="icon-btn" onClick={onClose} aria-label="Sulje" style={{position:'absolute',top:16,right:16,fontSize:18}}>✕</button>
       <h3 style={{margin:'0 16px 16px 0',fontSize:18,fontWeight:800,color:'var(--ink)'}}>{title || (editingResult?'Muokkaa tulosta':'Lisää tulos')}</h3>
       {error && <div className="alert alert-error" style={{marginBottom:12}}>{error}</div>}
       <div className="field"><div className="detail-label">Pelimuoto</div><div style={{display:'flex',gap:6}}>
@@ -1451,7 +1451,7 @@ function ChallengeOutcomeModal({ challenge, onAnswer, onDismiss }) {
   };
   return <div className="modal-overlay">
     <div className="modal-sheet" style={{ position:'relative', textAlign:'center' }}>
-      <button onClick={onDismiss} aria-label="Sulje" style={{ position:'absolute', top:16, right:16, background:'none', border:'none', fontSize:18, color:'var(--text-muted)', cursor:'pointer', lineHeight:1 }}>✕</button>
+      <button className="icon-btn" onClick={onDismiss} aria-label="Sulje" style={{ position:'absolute', top:16, right:16, fontSize:18 }}>✕</button>
       <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}>
         {people.map((p,i) => <div key={p.userId||i} style={{ marginLeft: i>0?-12:0, border:'2px solid var(--paper)', borderRadius:'50%' }}><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={44}/></div>)}
       </div>
@@ -1551,7 +1551,7 @@ function ProfileFullScreen({ onOpenBlocked }) {
 
   const SectionTitle = ({children})=><h3 style={{fontSize:13,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:0.5,margin:'20px 0 8px'}}>{children}</h3>;
   const SettingsRow = ({label,value,onClick,danger,valueColor})=>(
-    <button onClick={onClick} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',padding:'12px 16px',background:'#fff',border:'1px solid var(--border)',borderRadius:12,cursor:'pointer',fontFamily:'inherit',fontSize:14,color:danger?'var(--danger)':'var(--ink)',fontWeight:500,marginBottom:6,textAlign:'left'}}>
+    <button className="hover-lift" onClick={onClick} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',padding:'12px 16px',background:'#fff',border:'1px solid var(--border)',borderRadius:12,cursor:'pointer',fontFamily:'inherit',fontSize:14,color:danger?'var(--danger)':'var(--ink)',fontWeight:500,marginBottom:6,textAlign:'left'}}>
       <span>{label}</span>
       <span style={{color:valueColor||'var(--text-muted)',fontSize:13,fontWeight:valueColor?700:400}}>{value||'→'}</span>
     </button>
@@ -1580,7 +1580,7 @@ function ProfileFullScreen({ onOpenBlocked }) {
       <div className="field"><div className="detail-label">Kätisyys</div><div style={{display:'flex',gap:6}}>{HANDEDNESS.map(h=><button key={h} className={`filter-chip ${form.katisyys===h?'active':''}`} onClick={()=>set('katisyys',form.katisyys===h?'':h)}>{titleCase(h)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Rysty</div><div style={{display:'flex',gap:6}}>{BACKHAND_TYPES.map(b=><button key={b} className={`filter-chip ${form.rysty===b?'active':''}`} onClick={()=>set('rysty',form.rysty===b?'':b)}>{titleCase(b)}</button>)}</div></div>
       <div className="field"><div className="detail-label">Sopivat ajankohdat</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{AVAILABILITY_SLOTS.map(s=><button key={s.value} className={`filter-chip ${form.saatavuus.includes(s.value)?'active':''}`} onClick={()=>tog('saatavuus',s.value)}>{s.label}</button>)}</div></div>
-      <div className="field"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><span style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>Piilota profiilini pelaajasyötteestä</span><button onClick={()=>set('hiddenFromFeed',!form.hiddenFromFeed)} style={{width:48,height:28,borderRadius:14,border:'none',padding:2,cursor:'pointer',background:form.hiddenFromFeed?'var(--green-deep)':'#ccc',transition:'background .2s',position:'relative',flexShrink:0}}><span style={{display:'block',width:24,height:24,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,.2)',transition:'transform .2s',transform:form.hiddenFromFeed?'translateX(20px)':'translateX(0)'}}/></button></div></div>
+      <div className="field"><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><span style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>Piilota profiilini pelaajasyötteestä</span><button onClick={()=>set('hiddenFromFeed',!form.hiddenFromFeed)} style={{width:48,height:28,borderRadius:14,border:'none',padding:2,cursor:'pointer',background:form.hiddenFromFeed?'var(--green-deep)':'var(--border)',transition:'background .2s',position:'relative',flexShrink:0}}><span style={{display:'block',width:24,height:24,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,.2)',transition:'transform .2s',transform:form.hiddenFromFeed?'translateX(20px)':'translateX(0)'}}/></button></div></div>
       <button className="btn btn-dark btn-lg btn-full" onClick={save} disabled={busy}>{busy?'Tallennetaan...':'Tallenna muutokset'}</button>
     </div>
 
@@ -1652,7 +1652,7 @@ function ProfileFullScreen({ onOpenBlocked }) {
         <div style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>Näkyvyys pelaajasyötteessä</div>
         <div style={{fontSize:12,color:'var(--text-muted)',marginTop:2}}>{profile.hiddenFromFeed?'Profiilisi on piilotettu muilta.':'Profiilisi näkyy muille pelaajille.'}</div>
       </div>
-      <span style={{fontSize:13,fontWeight:700,color:profile.hiddenFromFeed?'#c0392b':'#2d7a4d',whiteSpace:'nowrap'}}>{profile.hiddenFromFeed?'Piilotettu':'Näkyvissä'}</span>
+      <span style={{fontSize:13,fontWeight:700,color:profile.hiddenFromFeed?'var(--danger)':'#2d7a4d',whiteSpace:'nowrap'}}>{profile.hiddenFromFeed?'Piilotettu':'Näkyvissä'}</span>
     </div>
     <button className="btn btn-outline-d btn-md btn-full" onClick={()=>setEditing(true)} style={{marginTop:10,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
       <GearIcon size={16}/>

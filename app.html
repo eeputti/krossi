@@ -127,7 +127,9 @@ window.krossiLoadPixel = function () {
     font-family: inherit; font-weight: 700; font-size: 13px; transition: all .15s;
   }
   .sidebar-live.on { background: rgba(70,166,109,0.08); border: 1px solid rgba(70,166,109,0.3); color: #2d7a4d; }
+  .sidebar-live.on:hover { background: rgba(70,166,109,0.14); border-color: rgba(70,166,109,0.45); }
   .sidebar-live.off { background: #f7f5ef; border: 1px solid var(--border); color: var(--text-muted); }
+  .sidebar-live.off:hover { background: #f0ede6; border-color: #c5c0b5; }
   .sidebar-dot { width: 7px; height: 7px; border-radius: 50%; }
   .sidebar-areas { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
   .sidebar-area {
@@ -152,11 +154,16 @@ window.krossiLoadPixel = function () {
 
   /* ── cards ── */
   .card {
-    background: #fff; border: 1px solid var(--border);
-    border-radius: 16px; padding: 14px 16px; transition: background .15s, border-color .15s;
+    background: #fff; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(20,15,5,0.05);
+    border-radius: 18px; padding: 14px 16px; transition: background .15s, border-color .15s;
   }
   .card:hover { background: #faf9f5; border-color: #c5c0b5; }
-  .card-light { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; }
+  .card-light { background: #fff; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(20,15,5,0.05); border-radius: 18px; padding: 14px 16px; }
+
+  /* ── generic hover-lift for one-off clickables with inline colors ── */
+  .hover-lift { transition: transform .15s ease, box-shadow .2s ease; }
+  .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -16px rgba(20,15,5,0.18); }
+  .hover-lift:active { transform: translateY(0); box-shadow: 0 4px 10px -6px rgba(20,15,5,0.15); }
 
   /* ── avatar ── */
   .avatar {
@@ -197,7 +204,7 @@ window.krossiLoadPixel = function () {
 
   /* ── inputs ── */
   .input {
-    width: 100%; padding: 12px 14px; border-radius: 12px;
+    width: 100%; padding: 13px 14px; border-radius: 14px;
     border: 1px solid var(--border); background: #fff;
     font-size: 14px; font-family: inherit; color: var(--ink); outline: none; transition: border-color .2s;
   }
@@ -206,6 +213,11 @@ window.krossiLoadPixel = function () {
   .input-dark:focus { border-color: var(--green-deep); }
   .input-dark::placeholder { color: #aaa; }
   textarea.input { resize: none; min-height: 70px; }
+  select.input {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b665c' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; padding-right: 34px;
+  }
 
   /* ── filter bar ── */
   .filter-bar { display: flex; gap: 6px; padding: 0 0 14px; overflow-x: auto; scrollbar-width: none; }
@@ -215,6 +227,7 @@ window.krossiLoadPixel = function () {
     background: #fff; color: var(--text-muted); font-size: 13px; font-weight: 600;
     white-space: nowrap; cursor: pointer; flex-shrink: 0; font-family: inherit; transition: all .15s;
   }
+  .filter-chip:not(.active):hover { border-color: #c5c0b5; color: var(--ink); }
   .filter-chip.active { background: var(--green-deep); color: #fff; border-color: var(--green-deep); }
 
   /* ── auth ── */
@@ -267,8 +280,9 @@ window.krossiLoadPixel = function () {
     display: inline-flex; align-items: center; gap: 5px;
     background: #f0ede6; border: 1px solid var(--border); color: var(--ink);
     font-size: 13px; font-weight: 600; padding: 7px 14px;
-    border-radius: 999px; cursor: pointer; font-family: inherit;
+    border-radius: 999px; cursor: pointer; font-family: inherit; transition: background .15s, border-color .15s;
   }
+  .back-btn:hover { background: #ece8de; border-color: #c5c0b5; }
 
   /* ── toast ── */
   .toast {
@@ -294,6 +308,7 @@ window.krossiLoadPixel = function () {
     border: 1.5px solid var(--border); background: #fff; color: var(--ink);
     cursor: pointer; font-family: inherit; transition: all .12s;
   }
+  .select-chip:not(.selected):hover { border-color: #c5c0b5; }
   .select-chip.selected { background: var(--green-deep); color: #fff; border-color: var(--green-deep); }
 
   /* ── modal ── */
@@ -314,6 +329,9 @@ window.krossiLoadPixel = function () {
   .detail-field { margin-bottom: 16px; }
   .detail-label { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 3px; }
   .detail-value { font-size: 14px; color: var(--text-muted); line-height: 1.45; }
+
+  /* ── focus ring (keyboard nav), matches koutsi's lime ring ── */
+  :focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(207,228,20,0.45); }
 
   /* ── responsive: mobile ── */
   @media (max-width: 860px) {
