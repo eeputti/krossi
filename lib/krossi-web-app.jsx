@@ -1003,23 +1003,6 @@ function LockedPlayersPreview({ onUnlock }) {
     </LockedContentPreview>
   );
 }
-const LOCKED_PREVIEW_CHALLENGES = [
-  { scheduledAt:null, matchType:'kaksinpeli', creatorName:'Ville', creatorAvatarColor:'blue', location:'Kisapuisto', locationType:'ulkotennis', participants:[], title:'Rento pallottelu illalla' },
-  { scheduledAt:null, matchType:'nelinpeli', creatorName:'Noora', creatorAvatarColor:'yellow', location:'Tennishalli', locationType:'sisätennis', participants:[{userId:'p1',name:'Eero',avatarColor:'green'}], title:'' },
-  { scheduledAt:null, matchType:'pallottelu', creatorName:'Petri', creatorAvatarColor:'red', location:'Radiomäki', locationType:'ulkotennis', participants:[], title:'Etsin pallottelukaveria' },
-];
-function LockedChallengesPreview({ onUnlock }) {
-  return (
-    <LockedContentPreview
-      title="Haasteet ovat lukittuna"
-      description="Maksa kertamaksu 8,99 € ja näet alueesi avoimet haasteet. Saat koko Krossin käyttöön ja voit löytää pelit helpommin kuin koskaan ennen."
-      onUnlock={onUnlock}
-    >
-      {LOCKED_PREVIEW_CHALLENGES.map((c,i) => <ChallengeCard key={i} challenge={c} onClick={()=>{}}/>)}
-    </LockedContentPreview>
-  );
-}
-
 // ── Players Screen ─────────────────────────────────────
 function PlayersScreen({ onOpenPlayer }) {
   const { session, profile } = useAuth();
@@ -1084,12 +1067,13 @@ function PlayersScreen({ onOpenPlayer }) {
 }
 
 // ── Challenge Card ─────────────────────────────────────
-function ChallengeCard({ challenge, onClick }) {
+function ChallengeCard({ challenge, onClick, locked }) {
   const need = slotsNeeded(challenge.matchType);
   const joined = challenge.participants.slice(0, need);
   const openSlots = Math.max(0, need - joined.length);
   return (
-    <button onClick={onClick} className="card" style={{ display:'block',width:'100%',textAlign:'left',cursor:'pointer',marginBottom:10 }}>
+    <button onClick={onClick} className="card" style={{ position:'relative', display:'block',width:'100%',textAlign:'left',cursor:'pointer',marginBottom:10 }}>
+      {locked && <span aria-hidden="true" style={{ position:'absolute', top:10, right:10, fontSize:14 }}>🔒</span>}
       <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
         <span style={{ color:'var(--ink)',fontWeight:700,fontSize:13 }}>{challenge.scheduledAt?formatDate(challenge.scheduledAt):'Aika avoin'}</span>
         <span className="chip chip-outline">{titleCase(challenge.matchType)}</span>
@@ -1221,11 +1205,10 @@ function ChallengesScreen({ onOpenChallenge, onCreateChallenge, refreshKey }) {
         <FilterIcon/> Suodata{extraFilterCount>0 && <span className="filter-btn-badge">{extraFilterCount}</span>}
       </button>
     </div>
-    {loading ? <Spinner/> : !profile?.paidAt
-      ? <LockedChallengesPreview onUnlock={()=>setShowPaywall(true)}/>
+    {loading ? <Spinner/>
       : list.length===0?<Empty title="Ei avoimia haasteita." action="Luo ensimmäinen" onAction={onCreateChallenge}/>
       :filtered.length===0?<Empty title="Ei haasteita näillä suodattimilla."/>
-      :filtered.map(c=><ChallengeCard key={c.id} challenge={c} onClick={()=>onOpenChallenge(c)}/>)}
+      :filtered.map(c=><ChallengeCard key={c.id} challenge={c} locked={!profile?.paidAt} onClick={()=>profile?.paidAt?onOpenChallenge(c):setShowPaywall(true)}/>)}
     {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
     {showFilterModal && <FilterModal title="Suodata haasteita" onClose={()=>setShowFilterModal(false)} onClear={()=>setFilter({matchType:'',locationType:'',courtSurface:'',minSkillLevel:''})}>
       <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${filter.matchType===t?'active':''}`} onClick={()=>setF('matchType',t)}>{titleCase(t)}</button>)}</div></div>
