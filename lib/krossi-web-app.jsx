@@ -30,15 +30,52 @@ const AVAILABILITY_SLOTS = [
   { value: 'viikonloppuillat', label: 'Viikonloppuillat', time: '19-22' },
   { value: 'joustavasti', label: 'Joustavasti', time: '' },
 ];
+// Kaupunkien keskipisteet: kartan oletuskeskitys ja geolokaation varakoordinaatti,
+// kun selain ei anna tarkkaa sijaintia.
+const CITY_CENTERS = {
+  Lahti: [60.982628, 25.661342], Turku: [60.451593, 22.266999], Helsinki: [60.166620, 24.943541],
+  Tampere: [61.497799, 23.761634], Oulu: [65.011791, 25.470197], Jyväskylä: [62.241672, 25.749581],
+  Pori: [61.486613, 21.797207], Kuopio: [62.892463, 27.678360], Rovaniemi: [66.502554, 25.730391],
+  Mikkeli: [61.687782, 27.273192],
+};
 const INDOOR_VENUES = [
-  { name: 'Janus Areena', city: 'Lahti' }, { name: 'Kispi Areena', city: 'Lahti' },
-  { name: 'Jarkko Nieminen Areena', city: 'Turku' }, { name: 'Bo Arena', city: 'Turku' },
-  { name: 'Kerttulantenniskeskus', city: 'Turku' }, { name: 'Smash Center', city: 'Helsinki' },
-  { name: 'Talin Tenniskeskus', city: 'Helsinki' }, { name: 'Tennis Tower Helsinki', city: 'Helsinki' },
-  { name: 'Tampereen Tenniskeskus', city: 'Tampere' }, { name: 'Oulun Tenniskeskus', city: 'Oulu' },
-  { name: 'Jyväskylän Tenniskeskus', city: 'Jyväskylä' }, { name: 'Porin Tenniskeskus', city: 'Pori' },
-  { name: 'Kuopion Tenniskeskus', city: 'Kuopio' },
+  { name: 'Janus Areena', city: 'Lahti', lat: 61.0015881, lng: 25.6970796 },
+  { name: 'Kispi Areena', city: 'Lahti', lat: 60.9891361, lng: 25.6520164 },
+  { name: 'Jarkko Nieminen Areena', city: 'Turku', lat: 60.4804130, lng: 22.2625180 },
+  { name: 'Bo Arena', city: 'Turku', lat: 60.4136855, lng: 22.3554531 },
+  // TODO: tarkista oikea osoite — ei löytynyt OpenStreetMapista, käytetään toistaiseksi kaupungin keskipistettä
+  { name: 'Kerttulantenniskeskus', city: 'Turku', lat: CITY_CENTERS.Turku[0], lng: CITY_CENTERS.Turku[1] },
+  { name: 'Smash Center', city: 'Helsinki', lat: 60.2097326, lng: 25.0680185 },
+  { name: 'Talin Tenniskeskus', city: 'Helsinki', lat: 60.2124736, lng: 24.8743292 },
+  // TODO: tarkista oikea osoite — ei löytynyt OpenStreetMapista, käytetään toistaiseksi kaupungin keskipistettä
+  { name: 'Tennis Tower Helsinki', city: 'Helsinki', lat: CITY_CENTERS.Helsinki[0], lng: CITY_CENTERS.Helsinki[1] },
+  { name: 'Tampereen Tenniskeskus', city: 'Tampere', lat: 61.5088389, lng: 23.8447696 },
+  // TODO: tarkista oikea osoite — ei löytynyt OpenStreetMapista, käytetään toistaiseksi kaupungin keskipistettä
+  { name: 'Oulun Tenniskeskus', city: 'Oulu', lat: CITY_CENTERS.Oulu[0], lng: CITY_CENTERS.Oulu[1] },
+  { name: 'Jyväskylän Tenniskeskus', city: 'Jyväskylä', lat: 62.2469898, lng: 25.6805365 },
+  // TODO: tarkista oikea osoite — ei löytynyt OpenStreetMapista, käytetään toistaiseksi kaupungin keskipistettä
+  { name: 'Porin Tenniskeskus', city: 'Pori', lat: CITY_CENTERS.Pori[0], lng: CITY_CENTERS.Pori[1] },
+  { name: 'Kuopion Tenniskeskus', city: 'Kuopio', lat: 62.8675381, lng: 27.6371164 },
 ];
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function useGeolocation() {
+  const [state, setState] = React.useState({ coords: null, status: 'loading' });
+  React.useEffect(() => {
+    if (!navigator.geolocation) { setState({ coords: null, status: 'unsupported' }); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => setState({ coords: [pos.coords.latitude, pos.coords.longitude], status: 'granted' }),
+      () => setState({ coords: null, status: 'denied' }),
+      { timeout: 8000 },
+    );
+  }, []);
+  return state;
+}
 const SKILL_LEVEL_INFO = [
   { value: 'aloittelija', label: 'Aloittelija', desc: 'Olet juuri aloittamassa tai pelannut vasta muutaman kerran.' },
   { value: 'keskitaso', label: 'Keskitaso', desc: 'Hallitset perusliikkeet ja pystyt pitämään pisteen yllä.' },
@@ -92,6 +129,12 @@ function formatDate(dateStr) {
   return `${'SuMaTiKeToToLa'.match(/../g)[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}. klo ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function slotsNeeded(mt) { return mt === 'nelinpeli' ? 3 : 1; }
+// Sama kaava kuin join_challenge-RPC:ssä: max_players nostaa kapasiteettia
+// (esim. tapahtumat), muuten kapasiteetti tulee pelityypistä.
+function challengeCapacity(c) {
+  const base = slotsNeeded(c.matchType);
+  return (c.maxPlayers && c.maxPlayers > 1) ? Math.max(base, c.maxPlayers - 1) : base;
+}
 function storageUrl(path) { return path ? (path.startsWith('http') ? path : `${SUPABASE_URL}/storage/v1/object/public/profile-avatars/${path}`) : null; }
 function chatImgUrl(path) { return path ? (path.startsWith('http') ? path : `${SUPABASE_URL}/storage/v1/object/public/chat-images/${path}`) : null; }
 function fmtLastMsg(raw) {
@@ -257,6 +300,52 @@ async function deleteOwnAccount() {
   await supabase.auth.signOut();
 }
 
+// ── Ylläpito ────────────────────────────────────────────
+// Näkyy vain koutsi_admins-taulussa oleville tileille (sama ylläpitorooli
+// kuin Koutsi-sovelluksessa, koska molemmat jakavat saman Supabase-projektin).
+async function krossiIsAdmin() {
+  const { data, error } = await supabase.rpc('krossi_is_admin');
+  if (error) return false;
+  return Boolean(data);
+}
+async function krossiAdminStats() {
+  const { data, error } = await supabase.rpc('krossi_admin_stats');
+  if (error) throw error;
+  return data || {};
+}
+async function krossiAdminUsers() {
+  const { data, error } = await supabase.rpc('krossi_admin_users');
+  if (error) throw error;
+  return (data || []).map(r => ({
+    id: r.user_id, name: r.display_name, email: r.email, joinedAt: r.joined_at,
+    isAdmin: Boolean(r.is_admin), area: r.area, hiddenFromFeed: Boolean(r.hidden_from_feed),
+    paidAt: r.paid_at, challengesCreated: r.challenges_created, matchesRecorded: r.matches_recorded,
+    adminCities: r.admin_cities || [],
+  }));
+}
+// Kaupungit joissa nykyinen käyttäjä (esim. valmentaja) saa luoda tapahtumia.
+// Superadmin saa kaikki kaupungit AREA_OPTIONS-listasta suoraan käyttöliittymässä.
+async function krossiMyAdminCities() {
+  const { data, error } = await supabase.rpc('krossi_my_admin_cities');
+  if (error) return [];
+  return data || [];
+}
+async function krossiAdminSetCityAdmin(userId, cities) {
+  const { error } = await supabase.rpc('krossi_admin_set_city_admin', { target_user_id_input: userId, cities_input: cities });
+  if (error) throw error;
+}
+async function krossiAdminDeleteUser(userId) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/krossi-admin-delete-user`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify({ user_id: userId }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || 'Tilin poisto epäonnistui.');
+  return body;
+}
+
 async function recordChallengeOutcome(challengeId, outcome) {
   // Suora UPDATE ei mene läpi: challenges-taulun UPDATE-policy vaatii status = 'cancelled'.
   // record_challenge_outcome on SECURITY DEFINER -RPC, joka sallii vastauksen sekä
@@ -396,6 +485,7 @@ function TrashIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fi
 function ArchiveIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="5" rx="1" /><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4" /></svg>; }
 function UndoIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h11a5 5 0 0 1 0 10h-2M3 9l5-5M3 9l5 5" /></svg>; }
 function FilterIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16M7 12h10M11 19h2" /></svg>; }
+function MapPinIcon({ size = 14 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>; }
 function BackArrowIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>; }
 function ChevronRightIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>; }
 function UsersIcon({ size = 12 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>; }
@@ -430,6 +520,8 @@ function AuthProvider({ children }) {
   const [session, setSession] = React.useState(null);
   const [profile, setProfile] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  const [isAdmin, setIsAdmin] = React.useState(null); // null = tarkistus kesken
+  const [adminCities, setAdminCities] = React.useState([]); // kaupungit joissa saa luoda tapahtumia
   const loadProfile = React.useCallback(async (uid) => {
     if (!uid) { setProfile(null); return; }
     try {
@@ -452,11 +544,22 @@ function AuthProvider({ children }) {
     });
     return () => subscription.unsubscribe();
   }, [loadProfile]);
+  React.useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) { setIsAdmin(false); setAdminCities([]); return; }
+    setIsAdmin(null);
+    krossiIsAdmin().then(setIsAdmin).catch(() => setIsAdmin(false));
+    krossiMyAdminCities().then(setAdminCities).catch(() => setAdminCities([]));
+  }, [session?.user?.id]);
   const refreshProfile = React.useCallback(async () => { if (session?.user?.id) await loadProfile(session.user.id); }, [session, loadProfile]);
+  // Kaupungit joissa käyttäjä saa luoda tapahtumia: superadmin saa kaikki kaupungit,
+  // kaupunkikohtainen admin vain krossi_city_admins-taulussa määritetyt.
+  const eventCities = isAdmin ? AREA_OPTIONS : adminCities;
+  const canCreateEvents = Boolean(isAdmin) || adminCities.length > 0;
   const value = React.useMemo(() => ({
-    session, profile, loading,
+    session, profile, loading, isAdmin, adminCities, eventCities, canCreateEvents,
     needsOnboarding: Boolean(session?.user && !profile && !loading), refreshProfile,
-  }), [session, profile, loading, refreshProfile]);
+  }), [session, profile, loading, isAdmin, adminCities, eventCities, canCreateEvents, refreshProfile]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 function useAuth() { return React.useContext(AuthContext); }
@@ -1066,9 +1169,13 @@ function PlayersScreen({ onOpenPlayer }) {
   );
 }
 
+function formatDistanceKm(km) {
+  return `${km < 10 ? km.toFixed(1).replace('.', ',') : Math.round(km)} km`;
+}
 // ── Challenge Card ─────────────────────────────────────
 function ChallengeCard({ challenge, onClick, locked }) {
-  const need = slotsNeeded(challenge.matchType);
+  const isEvent = challenge.challengeType === 'event';
+  const need = challengeCapacity(challenge);
   const joined = challenge.participants.slice(0, need);
   const openSlots = Math.max(0, need - joined.length);
   return (
@@ -1076,13 +1183,18 @@ function ChallengeCard({ challenge, onClick, locked }) {
       {locked && <span aria-hidden="true" style={{ position:'absolute', top:10, right:10, fontSize:14 }}>🔒</span>}
       <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8 }}>
         <span style={{ color:'var(--ink)',fontWeight:700,fontSize:13 }}>{challenge.scheduledAt?formatDate(challenge.scheduledAt):'Aika avoin'}</span>
-        <span className="chip chip-outline">{titleCase(challenge.matchType)}</span>
+        {isEvent
+          ? <span className="chip" style={{background:'rgba(207,228,20,0.35)',color:'#0E3B2C',fontWeight:700}}>Tapahtuma</span>
+          : <span className="chip chip-outline">{titleCase(challenge.matchType)}</span>}
       </div>
       <div style={{ display:'flex',alignItems:'center',gap:10 }}>
         <Avatar uri={challenge.creatorAvatarUrl} name={challenge.creatorName} color={challenge.creatorAvatarColor} size={40}/>
         <div style={{ flex:1,minWidth:0 }}>
           <div style={{ color:'var(--ink)',fontWeight:700,fontSize:15 }}>{challenge.creatorName}</div>
-          <div style={{ color:'var(--text-muted)',fontSize:12 }}>{challenge.location} · {titleCase(challenge.locationType)}</div>
+          <div style={{ color:'var(--text-muted)',fontSize:12 }}>
+            {challenge.location} · {titleCase(challenge.locationType)}
+            {challenge.distanceKm!=null && <span className="chip chip-outline" style={{marginLeft:6,padding:'2px 8px',fontSize:11}}><MapPinIcon size={10}/> {formatDistanceKm(challenge.distanceKm)}</span>}
+          </div>
         </div>
         <div style={{ display:'flex',gap:3 }}>
           {joined.map(p => <Avatar key={p.userId} uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={20}/>)}
@@ -1092,6 +1204,9 @@ function ChallengeCard({ challenge, onClick, locked }) {
         </div>
       </div>
       {challenge.title && <p style={{ color:'var(--text-muted)',fontSize:12,marginTop:6 }}>{challenge.title}</p>}
+      {isEvent && <p style={{ color:'var(--text-muted)',fontSize:12,marginTop:4 }}>
+        {challenge.participants.length}/{need+1} paikkaa täynnä{challenge.courtPrice ? ` · ${challenge.courtPrice}€ / pelaaja` : ' · Maksuton'}
+      </p>}
     </button>
   );
 }
@@ -1134,7 +1249,8 @@ function ChallengeDetail({ challenge, onBack, onOpenChat, currentUserId }) {
   };
   const isMine = challenge.creatorId===currentUserId;
   const joined = challenge.participants.some(p=>p.userId===currentUserId);
-  const full = challenge.participants.length>=slotsNeeded(challenge.matchType);
+  const isEvent = challenge.challengeType === 'event';
+  const full = challenge.participants.length>=challengeCapacity(challenge);
   return (
     <div style={{ position:'relative' }}>
       <button className="icon-btn" onClick={onBack} aria-label="Sulje" style={{ position:'absolute', top:-8, right:-8, fontSize:18 }}>✕</button>
@@ -1146,7 +1262,9 @@ function ChallengeDetail({ challenge, onBack, onOpenChat, currentUserId }) {
       {challenge.description && <p style={{color:'#6b665c',fontSize:13,marginBottom:18,lineHeight:1.5}}>{challenge.description}</p>}
       <div className="detail-field"><div className="detail-label">Aika</div><div className="detail-value">{challenge.scheduledAt?formatDate(challenge.scheduledAt):'Aika avoin'}</div></div>
       <div className="detail-field"><div className="detail-label">Paikka</div><div className="detail-value">{challenge.location}</div></div>
-      <div className="detail-field"><div className="detail-label">Tyyppi</div><div className="detail-value">{titleCase(challenge.matchType)} · {titleCase(challenge.locationType)}</div></div>
+      <div className="detail-field"><div className="detail-label">Tyyppi</div><div className="detail-value">{isEvent ? 'Tapahtuma' : titleCase(challenge.matchType)} · {titleCase(challenge.locationType)}</div></div>
+      {isEvent && <div className="detail-field"><div className="detail-label">Osallistumismaksu</div><div className="detail-value">{challenge.courtPrice ? `${challenge.courtPrice}€ / pelaaja` : 'Maksuton'}</div></div>}
+      {isEvent && <div className="detail-field"><div className="detail-label">Paikkoja</div><div className="detail-value">{challenge.participants.length}/{challengeCapacity(challenge)+1} varattu</div></div>}
       {challenge.participants.length>0 && <div className="detail-field"><div className="detail-label">Osallistujat</div><div style={{display:'flex',gap:6,marginTop:4}}>{challenge.participants.map(p=><div key={p.userId} style={{display:'flex',alignItems:'center',gap:5}}><Avatar uri={p.avatarUrl} name={p.name} color={p.avatarColor} size={26}/><span style={{color:'#6b665c',fontSize:12}}>{p.name}</span></div>)}</div></div>}
       {currentUserId && !isMine && !joined && !full && <button className="btn btn-lime btn-lg btn-full" style={{marginTop:20}} onClick={join} disabled={joining}>{joining?'Liitytään...':'Liity haasteeseen'}</button>}
       {isMine && challenge.status!=='cancelled' && <button className="btn btn-outline-d btn-md btn-full" style={{marginTop:20,color:'var(--danger)',borderColor:'var(--danger)'}} onClick={()=>setShowCancelConfirm(true)} disabled={cancelling}>{cancelling?'Perutaan...':'Peruuta haaste'}</button>}
@@ -1162,20 +1280,69 @@ function ChallengeDetail({ challenge, onBack, onOpenChat, currentUserId }) {
   );
 }
 
+// ── Map components (MapLibre GL JS + OpenFreeMap) ──────
+const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+function ChallengeMapView({ challenges, userPos, homeCity, onOpenChallenge }) {
+  const containerRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!containerRef.current || !window.maplibregl) return;
+    const pinned = challenges.filter(c => c.lat != null && c.lng != null);
+    const center = userPos || (pinned[0] ? [pinned[0].lat, pinned[0].lng] : CITY_CENTERS[homeCity] || CITY_CENTERS.Lahti);
+    const map = new window.maplibregl.Map({ container: containerRef.current, style: OPENFREEMAP_STYLE, center: [center[1], center[0]], zoom: 12 });
+    map.addControl(new window.maplibregl.NavigationControl(), 'top-right');
+    const markers = pinned.map(c => {
+      const el = document.createElement('button');
+      el.setAttribute('aria-label', c.location);
+      el.style.cssText = 'width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--green-deep);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);cursor:pointer;padding:0;';
+      el.onclick = () => onOpenChallenge(c);
+      return new window.maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([c.lng, c.lat]).addTo(map);
+    });
+    if (userPos) {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#3F7DFF;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);';
+      markers.push(new window.maplibregl.Marker({ element: el }).setLngLat([userPos[1], userPos[0]]).addTo(map));
+    }
+    return () => { markers.forEach(m => m.remove()); map.remove(); };
+  }, [challenges, userPos, homeCity, onOpenChallenge]);
+  return <div ref={containerRef} style={{ width:'100%', height:420, borderRadius:18, overflow:'hidden', border:'1px solid var(--border)' }} />;
+}
+function LocationPickerMap({ lat, lng, center, onPick }) {
+  const containerRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!containerRef.current || !window.maplibregl) return;
+    const start = (lat != null && lng != null) ? [lat, lng] : center;
+    const map = new window.maplibregl.Map({ container: containerRef.current, style: OPENFREEMAP_STYLE, center: [start[1], start[0]], zoom: 12 });
+    let marker = (lat != null && lng != null) ? new window.maplibregl.Marker({ color: '#0E3B2C' }).setLngLat([lng, lat]).addTo(map) : null;
+    map.on('click', e => {
+      const { lng: clng, lat: clat } = e.lngLat;
+      if (marker) marker.setLngLat([clng, clat]);
+      else marker = new window.maplibregl.Marker({ color: '#0E3B2C' }).setLngLat([clng, clat]).addTo(map);
+      onPick(clat, clng);
+    });
+    return () => map.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <div ref={containerRef} style={{ width:'100%', height:200, borderRadius:14, overflow:'hidden', border:'1px solid var(--border)' }} />;
+}
+
 // ── Challenges Screen ──────────────────────────────────
 const SKILL_ORDER = ['aloittelija', 'keskitaso', 'edistynyt', 'kilpapelaaja'];
-function ChallengesScreen({ onOpenChallenge, onCreateChallenge, refreshKey }) {
-  const { profile } = useAuth();
+function ChallengesScreen({ onOpenChallenge, onCreateChallenge, onCreateEvent, refreshKey }) {
+  const { profile, canCreateEvents } = useAuth();
   const [list, setList] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState({ matchType:'', locationType:'', courtSurface:'', minSkillLevel:'' });
   const [showFilterModal, setShowFilterModal] = React.useState(false);
   const [showPaywall, setShowPaywall] = React.useState(false);
+  const [view, setView] = React.useState('list');
+  const [sortByDistance, setSortByDistance] = React.useState(false);
+  const { coords: userPos } = useGeolocation();
+  const homeCity = profile?.alue?.[0] || 'Lahti';
   React.useEffect(() => {
     (async () => {
       try {
-        const cols = 'id, creator_id, location, location_type, court_surface, city, scheduled_at, expires_at, match_type, status, challenge_type, title, description, min_skill_level, time_slots';
-        const { data: rows } = await supabase.from('challenges').select(cols).in('status',['open','filled']).eq('challenge_type','open').or('expires_at.is.null,expires_at.gt.now()').order('scheduled_at',{ascending:true});
+        const cols = 'id, creator_id, location, location_type, court_surface, city, latitude, longitude, scheduled_at, expires_at, match_type, status, challenge_type, title, description, min_skill_level, time_slots, court_price, max_players';
+        const { data: rows } = await supabase.from('challenges').select(cols).in('status',['open','filled']).in('challenge_type',['open','event']).or('expires_at.is.null,expires_at.gt.now()').order('scheduled_at',{ascending:true});
         if (!rows?.length) { setList([]); setLoading(false); return; }
         const ids = rows.map(r=>r.id); const cids = [...new Set(rows.map(r=>r.creator_id))];
         const [{data:pR},{data:cR}] = await Promise.all([
@@ -1185,22 +1352,44 @@ function ChallengesScreen({ onOpenChallenge, onCreateChallenge, refreshKey }) {
         const cm=new Map(); (cR||[]).forEach(c=>cm.set(c.id,c));
         const pm=new Map(); (pR||[]).forEach(p=>{const a=pm.get(p.challenge_id)||[];if(p.profile)a.push({userId:p.user_id,name:p.profile.name,avatarUrl:p.profile.avatar_url,avatarColor:p.profile.avatar_color||'blue',age:p.profile.age});pm.set(p.challenge_id,a);});
         setList(rows.map(r=>{const cr=cm.get(r.creator_id);const pf=Array.isArray(cr?.tennis_preferences)?cr.tennis_preferences[0]:cr?.tennis_preferences;
-          return {id:r.id,creatorId:r.creator_id,creatorName:cr?.name||'Pelaaja',creatorAvatarUrl:cr?.avatar_url,creatorAvatarColor:cr?.avatar_color||'blue',creatorArea:parseAreas(cr?.area||''),creatorSkillLevel:parseSkillLevels(pf?.skill_level),location:r.location,locationType:r.location_type,courtSurface:r.court_surface||'',minSkillLevel:r.min_skill_level||'',scheduledAt:r.scheduled_at,matchType:r.match_type,status:r.status,challengeType:r.challenge_type||'open',participants:pm.get(r.id)||[],title:r.title,description:r.description};}));
+          return {id:r.id,creatorId:r.creator_id,creatorName:cr?.name||'Pelaaja',creatorAvatarUrl:cr?.avatar_url,creatorAvatarColor:cr?.avatar_color||'blue',creatorArea:parseAreas(cr?.area||''),creatorSkillLevel:parseSkillLevels(pf?.skill_level),location:r.location,locationType:r.location_type,courtSurface:r.court_surface||'',minSkillLevel:r.min_skill_level||'',lat:r.latitude,lng:r.longitude,scheduledAt:r.scheduled_at,matchType:r.match_type,status:r.status,challengeType:r.challenge_type||'open',participants:pm.get(r.id)||[],title:r.title,description:r.description,courtPrice:r.court_price,maxPlayers:r.max_players};}));
       } catch {} finally { setLoading(false); }
     })();
   }, [refreshKey]);
-  const filtered = React.useMemo(() => list.filter(c => {
-    if (filter.matchType && c.matchType!==filter.matchType) return false;
-    if (filter.locationType && c.locationType!==filter.locationType) return false;
-    if (filter.courtSurface && c.courtSurface!==filter.courtSurface) return false;
-    if (filter.minSkillLevel && c.minSkillLevel && SKILL_ORDER.indexOf(c.minSkillLevel) > SKILL_ORDER.indexOf(filter.minSkillLevel)) return false;
-    return true;
-  }), [list, filter]);
+  const withDistance = React.useMemo(() => {
+    const origin = userPos || CITY_CENTERS[homeCity];
+    return list.map(c => ({ ...c, distanceKm: (origin && c.lat!=null && c.lng!=null) ? haversineKm(origin[0], origin[1], c.lat, c.lng) : null }));
+  }, [list, userPos, homeCity]);
+  const filtered = React.useMemo(() => {
+    const rows = withDistance.filter(c => {
+      if (c.challengeType!=='event' && filter.matchType && c.matchType!==filter.matchType) return false;
+      if (filter.locationType && c.locationType!==filter.locationType) return false;
+      if (filter.courtSurface && c.courtSurface!==filter.courtSurface) return false;
+      if (filter.minSkillLevel && c.minSkillLevel && SKILL_ORDER.indexOf(c.minSkillLevel) > SKILL_ORDER.indexOf(filter.minSkillLevel)) return false;
+      return true;
+    });
+    if (!sortByDistance) return rows;
+    return [...rows].sort((a,b) => {
+      if (a.distanceKm==null && b.distanceKm==null) return 0;
+      if (a.distanceKm==null) return 1;
+      if (b.distanceKm==null) return -1;
+      return a.distanceKm - b.distanceKm;
+    });
+  }, [withDistance, filter, sortByDistance]);
   const extraFilterCount = Object.values(filter).filter(Boolean).length;
   const setF = (k,v) => setFilter(f=>({...f,[k]:f[k]===v?'':v}));
+  const openChallenge = c => profile?.paidAt ? onOpenChallenge(c) : setShowPaywall(true);
   return <div className="page">
-    <div className="page-header"><h2 className="page-title">Avoimet</h2><button className="btn btn-lime btn-sm" onClick={onCreateChallenge}>+ Luo haaste</button></div>
-    <div style={{display:'flex',justifyContent:'flex-end',marginBottom:12}}>
+    <div className="page-header"><h2 className="page-title">Avoimet</h2><div style={{display:'flex',gap:8}}>
+      {canCreateEvents && <button className="btn btn-outline-d btn-sm" onClick={onCreateEvent}>+ Luo tapahtuma</button>}
+      <button className="btn btn-lime btn-sm" onClick={onCreateChallenge}>+ Luo haaste</button>
+    </div></div>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:6,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:6}}>
+        <button className={`filter-chip ${view==='list'?'active':''}`} onClick={()=>setView('list')}>Lista</button>
+        <button className={`filter-chip ${view==='map'?'active':''}`} onClick={()=>setView('map')}><MapPinIcon size={12}/> Kartta</button>
+        <button className={`filter-chip ${sortByDistance?'active':''}`} onClick={()=>setSortByDistance(v=>!v)}>Lähin ensin</button>
+      </div>
       <button className={`filter-btn ${extraFilterCount>0?'has-filters':''}`} onClick={()=>setShowFilterModal(true)}>
         <FilterIcon/> Suodata{extraFilterCount>0 && <span className="filter-btn-badge">{extraFilterCount}</span>}
       </button>
@@ -1208,7 +1397,8 @@ function ChallengesScreen({ onOpenChallenge, onCreateChallenge, refreshKey }) {
     {loading ? <Spinner/>
       : list.length===0?<Empty title="Ei avoimia haasteita." action="Luo ensimmäinen" onAction={onCreateChallenge}/>
       :filtered.length===0?<Empty title="Ei haasteita näillä suodattimilla."/>
-      :filtered.map(c=><ChallengeCard key={c.id} challenge={c} locked={!profile?.paidAt} onClick={()=>profile?.paidAt?onOpenChallenge(c):setShowPaywall(true)}/>)}
+      :view==='map'?<ChallengeMapView challenges={filtered} userPos={userPos} homeCity={homeCity} onOpenChallenge={openChallenge}/>
+      :filtered.map(c=><ChallengeCard key={c.id} challenge={c} locked={!profile?.paidAt} onClick={()=>openChallenge(c)}/>)}
     {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
     {showFilterModal && <FilterModal title="Suodata haasteita" onClose={()=>setShowFilterModal(false)} onClear={()=>setFilter({matchType:'',locationType:'',courtSurface:'',minSkillLevel:''})}>
       <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${filter.matchType===t?'active':''}`} onClick={()=>setF('matchType',t)}>{titleCase(t)}</button>)}</div></div>
@@ -1219,54 +1409,71 @@ function ChallengesScreen({ onOpenChallenge, onCreateChallenge, refreshKey }) {
   </div>;
 }
 
-// ── Create Challenge ───────────────────────────────────
-function CreateChallengeScreen({ onBack, onCreated }) {
-  const { session, profile } = useAuth();
-  const [form, setForm] = React.useState({matchType:'kaksinpeli',locationType:'sisätennis',location:'',scheduledAt:'',title:'',description:'',courtSurface:'',minSkillLevel:'',courtPrice:'',creatorCoversFull:false});
+// ── Create Challenge / Event ───────────────────────────
+function CreateChallengeScreen({ onBack, onCreated, mode='open' }) {
+  const { session, profile, eventCities } = useAuth();
+  const isEvent = mode === 'event';
+  const homeCity = profile?.alue?.[0]||'Lahti';
+  const [form, setForm] = React.useState({matchType:'kaksinpeli',locationType:'sisätennis',location:'',lat:null,lng:null,scheduledAt:'',title:'',description:'',courtSurface:'',minSkillLevel:'',courtPrice:'',creatorCoversFull:false,maxPlayers:8,eventCity:(eventCities&&eventCities[0])||homeCity});
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [showPaywall, setShowPaywall] = React.useState(false);
   const set = (k,v)=>setForm(p=>({...p,[k]:v}));
-  const homeCity = profile?.alue?.[0]||'Lahti';
-  const venues = INDOOR_VENUES.filter(v=>v.city===homeCity);
+  const city = isEvent ? form.eventCity : homeCity;
+  const venues = INDOOR_VENUES.filter(v=>v.city===city);
+  const pickVenue = name => {
+    const venue = venues.find(v=>v.name===name);
+    setForm(p=>({...p, location:name, lat:venue?venue.lat:null, lng:venue?venue.lng:null}));
+  };
   const create = async () => {
-    if (!profile?.paidAt) { setShowPaywall(true); return; }
+    if (!isEvent && !profile?.paidAt) { setShowPaywall(true); return; }
+    if (isEvent && !form.title.trim()) { setError('Anna tapahtumalle nimi.'); return; }
+    if (isEvent && (!form.maxPlayers || Number(form.maxPlayers) < 2)) { setError('Pelaajakaton pitää olla vähintään 2.'); return; }
     setError(''); setBusy(true);
     try {
       const scheduledAtDate = form.scheduledAt ? new Date(form.scheduledAt) : null;
       const expiresAt = scheduledAtDate
         ? new Date(scheduledAtDate.getTime() + CHALLENGE_DURATION_HOURS*60*60*1000)
         : new Date(Date.now() + OPEN_CHALLENGE_TTL_HOURS*60*60*1000);
-      const payload = {creator_id:session.user.id,location:form.location||'Avoin',location_type:form.locationType,city:homeCity,scheduled_at:scheduledAtDate?scheduledAtDate.toISOString():null,expires_at:expiresAt.toISOString(),match_type:form.matchType,challenge_type:'open',title:form.title.trim()||null,description:form.description.trim()||null};
+      const payload = {creator_id:session.user.id,location:form.location||'Avoin',location_type:form.locationType,city,scheduled_at:scheduledAtDate?scheduledAtDate.toISOString():null,expires_at:expiresAt.toISOString(),match_type:form.matchType,challenge_type:isEvent?'event':'open',title:form.title.trim()||null,description:form.description.trim()||null};
+      if (form.lat!=null && form.lng!=null) { payload.latitude = form.lat; payload.longitude = form.lng; }
       if (form.courtSurface) payload.court_surface = form.courtSurface;
-      if (form.minSkillLevel) payload.min_skill_level = form.minSkillLevel;
+      if (!isEvent && form.minSkillLevel) payload.min_skill_level = form.minSkillLevel;
       if (form.courtPrice) payload.court_price = Number(form.courtPrice);
-      if (form.creatorCoversFull) payload.creator_covers_full = true;
+      if (!isEvent && form.creatorCoversFull) payload.creator_covers_full = true;
+      if (isEvent) payload.max_players = Number(form.maxPlayers);
       const {data:created,error}=await supabase.from('challenges').insert(payload).select('id').single();
       if(error) throw error;
-      if(created?.id) triggerPush({ type:'new_area_challenge', challengeId:created.id, creatorId:session.user.id, area:homeCity });
+      if(created?.id) triggerPush({ type: isEvent?'new_area_event':'new_area_challenge', challengeId:created.id, creatorId:session.user.id, area:city });
       onCreated();
     } catch(err) {
-      if (/row-level security/i.test(err.message||'')) setShowPaywall(true);
-      else { console.error('Haasteen luonti epäonnistui', err); setError('Haasteen luonti epäonnistui. Yritä hetken päästä uudelleen.'); }
+      if (!isEvent && /row-level security/i.test(err.message||'')) setShowPaywall(true);
+      else { console.error(isEvent?'Tapahtuman luonti epäonnistui':'Haasteen luonti epäonnistui', err); setError(isEvent?'Tapahtuman luonti epäonnistui. Yritä hetken päästä uudelleen.':'Haasteen luonti epäonnistui. Yritä hetken päästä uudelleen.'); }
     } finally { setBusy(false); }
   };
   return <div style={{position:'relative'}}>
     <button className="icon-btn" onClick={onBack} aria-label="Sulje" style={{position:'absolute',top:-8,right:-8,fontSize:18}}>✕</button>
-    <h2 style={{color:'var(--ink)',fontWeight:800,fontSize:22,margin:'4px 0 18px'}}>Luo haaste</h2>
+    <h2 style={{color:'var(--ink)',fontWeight:800,fontSize:22,margin:'4px 0 18px'}}>{isEvent?'Luo tapahtuma':'Luo haaste'}</h2>
     {error && <div className="alert alert-error" style={{marginBottom:12}}>{error}</div>}
-    <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${form.matchType===t?'active':''}`} onClick={()=>set('matchType',t)}>{titleCase(t)}</button>)}</div></div>
+    {isEvent && eventCities.length>1 && <div className="field"><div className="detail-label">Kaupunki</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{eventCities.map(c=><button key={c} className={`filter-chip ${form.eventCity===c?'active':''}`} onClick={()=>set('eventCity',c)}>{c}</button>)}</div></div>}
+    {!isEvent && <div className="field"><div className="detail-label">Pelityyppi</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{MATCH_TYPES.map(t=><button key={t} className={`filter-chip ${form.matchType===t?'active':''}`} onClick={()=>set('matchType',t)}>{titleCase(t)}</button>)}</div></div>}
     <div className="field"><div className="detail-label">Sijainti</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{LOCATION_TYPES.map(t=><button key={t} className={`filter-chip ${form.locationType===t?'active':''}`} onClick={()=>set('locationType',t)}>{titleCase(t)}</button>)}</div></div>
-    {form.locationType==='sisätennis'&&venues.length>0 ? <div className="field"><div className="detail-label">Halli</div><select className="input input-dark" value={form.location} onChange={e=>set('location',e.target.value)}><option value="">Valitse</option>{venues.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></div>
-    : <div className="field"><div className="detail-label">Paikka</div><input className="input input-dark" placeholder="Esim. Mukkulan kentät" value={form.location} onChange={e=>set('location',e.target.value)}/></div>}
+    {form.locationType==='sisätennis'&&venues.length>0 ? <div className="field"><div className="detail-label">Halli</div><select className="input input-dark" value={form.location} onChange={e=>pickVenue(e.target.value)}><option value="">Valitse</option>{venues.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</select></div>
+    : <div className="field">
+        <div className="detail-label">Paikka</div>
+        <input className="input input-dark" placeholder="Esim. Mukkulan kentät" value={form.location} onChange={e=>set('location',e.target.value)}/>
+        <div style={{fontSize:12,color:'var(--text-muted)',margin:'6px 0'}}>Napauta kartalta tarkka sijainti (valinnainen, näyttää haasteen kartalla ja etäisyyden muille)</div>
+        <LocationPickerMap lat={form.lat} lng={form.lng} center={CITY_CENTERS[city]||CITY_CENTERS.Lahti} onPick={(lat,lng)=>setForm(p=>({...p,lat,lng}))}/>
+      </div>}
     <div className="field"><div className="detail-label">Kenttäpinta</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{COURT_SURFACES.map(s=><button key={s} className={`filter-chip ${form.courtSurface===s?'active':''}`} onClick={()=>set('courtSurface',form.courtSurface===s?'':s)}>{titleCase(s)}</button>)}</div></div>
     <div className="field"><div className="detail-label">Ajankohta</div><input className="input input-dark" type="datetime-local" value={form.scheduledAt} onChange={e=>set('scheduledAt',e.target.value)}/></div>
-    <div className="field"><div className="detail-label">Vastustajan minimitaso</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${form.minSkillLevel===l?'active':''}`} onClick={()=>set('minSkillLevel',form.minSkillLevel===l?'':l)}>{titleCase(l)}</button>)}</div></div>
-    <div className="field"><div className="detail-label">Otsikko</div><input className="input input-dark" placeholder="Vapaaehtoinen" value={form.title} onChange={e=>set('title',e.target.value)}/></div>
+    {!isEvent && <div className="field"><div className="detail-label">Vastustajan minimitaso</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${form.minSkillLevel===l?'active':''}`} onClick={()=>set('minSkillLevel',form.minSkillLevel===l?'':l)}>{titleCase(l)}</button>)}</div></div>}
+    <div className="field"><div className="detail-label">{isEvent?'Tapahtuman nimi':'Otsikko'}</div><input className="input input-dark" placeholder={isEvent?'Esim. Friday Afternoon Club':'Vapaaehtoinen'} value={form.title} onChange={e=>set('title',e.target.value)}/></div>
     <div className="field"><div className="detail-label">Lisätietoja</div><textarea className="input input-dark" rows={3} placeholder="Vapaaehtoinen kuvaus" value={form.description} onChange={e=>set('description',e.target.value)}/></div>
-    <div className="field"><div className="detail-label">Kenttävuoron hinta (€)</div><input className="input input-dark" type="number" placeholder="Esim. 28" value={form.courtPrice} onChange={e=>set('courtPrice',e.target.value)}/></div>
-    <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.creatorCoversFull} onChange={e=>set('creatorCoversFull',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Tarjoan koko kenttävuoron</label></div>
-    <button className="btn btn-dark btn-lg btn-full" onClick={create} disabled={busy}>{busy?'Luodaan...':'Julkaise haaste'}</button>
+    {isEvent && <div className="field"><div className="detail-label">Osallistujia enintään</div><input className="input input-dark" type="number" min={2} value={form.maxPlayers} onChange={e=>set('maxPlayers',e.target.value)}/></div>}
+    <div className="field"><div className="detail-label">{isEvent?'Osallistumismaksu (€) / pelaaja':'Kenttävuoron hinta (€)'}</div><input className="input input-dark" type="number" placeholder={isEvent?'Esim. 15':'Esim. 28'} value={form.courtPrice} onChange={e=>set('courtPrice',e.target.value)}/></div>
+    {!isEvent && <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}><input type="checkbox" checked={form.creatorCoversFull} onChange={e=>set('creatorCoversFull',e.target.checked)} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>Tarjoan koko kenttävuoron</label></div>}
+    <button className="btn btn-dark btn-lg btn-full" onClick={create} disabled={busy}>{busy?'Luodaan...':(isEvent?'Julkaise tapahtuma':'Julkaise haaste')}</button>
     {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
   </div>;
 }
@@ -1967,21 +2174,124 @@ function ProfileFullScreen({ onOpenBlocked }) {
   </div>;
 }
 
+// ── Ylläpito ────────────────────────────────────────────
+function AdminStat({ label, value }) {
+  return <div className="card-light" style={{ padding: '14px 16px' }}>
+    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)' }}>{value}</div>
+    <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
+  </div>;
+}
+function formatAdminDate(value) {
+  if (!value) return '–';
+  return new Date(value).toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric', year: 'numeric' });
+}
+function AdminUserRow({ user, onDelete, onSetCities }) {
+  const [deleting, setDeleting] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [showCities, setShowCities] = React.useState(false);
+  const [citiesBusy, setCitiesBusy] = React.useState(false);
+  const remove = async () => {
+    setDeleting(true); setError('');
+    try { await onDelete(user.id); setConfirming(false); }
+    catch (err) { setError(err.message || 'Poisto epäonnistui.'); }
+    finally { setDeleting(false); }
+  };
+  const toggleCity = async (city) => {
+    const next = user.adminCities.includes(city) ? user.adminCities.filter(c => c !== city) : [...user.adminCities, city];
+    setCitiesBusy(true); setError('');
+    try { await onSetCities(user.id, next); }
+    catch (err) { setError(err.message || 'Kaupunkien tallennus epäonnistui.'); }
+    finally { setCitiesBusy(false); }
+  };
+  return <div className="card-light" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ fontWeight: 700, color: 'var(--ink)' }}>{user.name}</div>
+      {user.isAdmin && <span style={{ fontSize: 11, fontWeight: 700, color: '#0E3B2C', background: 'rgba(207,228,20,0.35)', borderRadius: 999, padding: '2px 8px' }}>Ylläpitäjä</span>}
+      {user.adminCities.length > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#0E3B2C', background: 'rgba(207,228,20,0.2)', borderRadius: 999, padding: '2px 8px' }}>Tapahtuma-admin: {user.adminCities.join(', ')}</span>}
+      {user.hiddenFromFeed && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', background: '#eee', borderRadius: 999, padding: '2px 8px' }}>Piilotettu</span>}
+      {user.paidAt && <span style={{ fontSize: 11, fontWeight: 700, color: '#0E3B2C', background: 'rgba(207,228,20,0.35)', borderRadius: 999, padding: '2px 8px' }}>Maksanut</span>}
+    </div>
+    <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{user.email || 'ei sähköpostia'}{user.area ? ` · ${user.area}` : ''}</div>
+    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+      Liittyi {formatAdminDate(user.joinedAt)} · {user.challengesCreated} haastetta · {user.matchesRecorded} ottelua
+    </div>
+    {error && <div style={{ fontSize: 12, color: 'var(--danger)' }}>{error}</div>}
+    {!user.isAdmin && <button className="btn btn-outline-d btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setShowCities(v => !v)}>
+      {showCities ? 'Sulje kaupunkivalinta' : 'Muokkaa tapahtuma-oikeuksia'}
+    </button>}
+    {showCities && <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', opacity: citiesBusy ? 0.6 : 1 }}>
+      {AREA_OPTIONS.map(c => <button key={c} type="button" disabled={citiesBusy} className={`filter-chip ${user.adminCities.includes(c) ? 'active' : ''}`} onClick={() => toggleCity(c)}>{c}</button>)}
+    </div>}
+    {!user.isAdmin && !confirming && <button className="btn btn-outline-d btn-sm" style={{ alignSelf: 'flex-start', color: 'var(--danger)', borderColor: '#e3c9c4' }} onClick={() => setConfirming(true)}>Poista tili</button>}
+    {confirming && <div style={{ display: 'flex', gap: 8 }}>
+      <button className="btn btn-danger btn-sm" disabled={deleting} onClick={remove}>{deleting ? 'Poistetaan…' : 'Vahvista poisto'}</button>
+      <button className="btn btn-outline-d btn-sm" disabled={deleting} onClick={() => setConfirming(false)}>Peruuta</button>
+    </div>}
+  </div>;
+}
+function AdminScreen() {
+  const [stats, setStats] = React.useState(null);
+  const [users, setUsers] = React.useState(null);
+  const [error, setError] = React.useState('');
+  const load = React.useCallback(() => {
+    setError('');
+    Promise.all([krossiAdminStats(), krossiAdminUsers()])
+      .then(([s, u]) => { setStats(s); setUsers(u); })
+      .catch(err => setError(err.message || 'Tietojen lataus epäonnistui.'));
+  }, []);
+  React.useEffect(load, [load]);
+  const removeUser = async (userId) => {
+    await krossiAdminDeleteUser(userId);
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    setStats(prev => prev ? { ...prev, total_players: (prev.total_players || 1) - 1 } : prev);
+  };
+  const setCities = async (userId, cities) => {
+    await krossiAdminSetCityAdmin(userId, cities);
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, adminCities: cities } : u));
+  };
+  return <div style={{ padding: '20px 24px 60px', maxWidth: 900, margin: '0 auto' }}>
+    <div className="page-header"><h2 className="page-title">Ylläpito</h2></div>
+    {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</div>}
+    {!stats && !error && <div style={{ color: 'var(--text-muted)' }}>Ladataan…</div>}
+    {stats && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 24 }}>
+      <AdminStat label="Pelaajia yhteensä" value={stats.total_players ?? '–'} />
+      <AdminStat label="Uusia (7 pv)" value={stats.new_players_7d ?? '–'} />
+      <AdminStat label="Uusia (30 pv)" value={stats.new_players_30d ?? '–'} />
+      <AdminStat label="Maksaneita" value={stats.paid_players ?? '–'} />
+      <AdminStat label="Haasteita yhteensä" value={stats.challenges_total ?? '–'} />
+      <AdminStat label="Avoimia haasteita" value={stats.challenges_open ?? '–'} />
+      <AdminStat label="Pelattuja haasteita" value={stats.challenges_played ?? '–'} />
+      <AdminStat label="Otteluita kirjattu" value={stats.matches_recorded ?? '–'} />
+      <AdminStat label="Keskusteluja" value={stats.conversations_total ?? '–'} />
+      <AdminStat label="Viestejä" value={stats.messages_total ?? '–'} />
+      <AdminStat label="Avoimia ilmoituksia" value={stats.reports_open ?? '–'} />
+    </div>}
+    {users && <React.Fragment>
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 10px' }}>Käyttäjät ({users.length})</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {users.map(u => <AdminUserRow key={u.id} user={u} onDelete={removeUser} onSetCities={setCities} />)}
+      </div>
+    </React.Fragment>}
+  </div>;
+}
+
 // ── Top Nav ────────────────────────────────────────────
 function TopNav({ tab, onTabChange }) {
-  const { profile } = useAuth();
+  const { profile, isAdmin } = useAuth();
   const links = [
     { id: 'players', label: 'Pelaajat', icon: '/assets/ball-tight.png' },
     { id: 'challenges', label: 'Avoimet', icon: '/assets/avoimet-tight.png' },
     { id: 'messages', label: 'Viestit', icon: '/assets/viestit-tight.png' },
   ];
+  if (isAdmin) links.push({ id: 'admin', label: 'Ylläpito', icon: null });
   return (
     <nav className="top-nav">
       <a href="/" className="top-nav-logo">Krossi</a>
       <div className="top-nav-links">
         {links.map(l => (
           <button key={l.id} className={`top-nav-link ${tab === l.id ? 'active' : ''}`} onClick={() => onTabChange(l.id)}>
-            <img src={l.icon} alt="" />
+            {l.icon && <img src={l.icon} alt="" />}
             {l.label}
           </button>
         ))}
@@ -1995,8 +2305,8 @@ function TopNav({ tab, onTabChange }) {
 }
 
 // ── App Shell ──────────────────────────────────────────
-const TAB_SLUGS = { players: 'pelaajat', challenges: 'avoimet', messages: 'viestit', profile: 'profiili' };
-const SLUG_TABS = { pelaajat: 'players', avoimet: 'challenges', viestit: 'messages', profiili: 'profile' };
+const TAB_SLUGS = { players: 'pelaajat', challenges: 'avoimet', messages: 'viestit', profile: 'profiili', admin: 'yllapito' };
+const SLUG_TABS = { pelaajat: 'players', avoimet: 'challenges', viestit: 'messages', profiili: 'profile', yllapito: 'admin' };
 function tabFromPath(pathname) {
   const slug = pathname.replace(/^\/pelaa\/?/, '').replace(/\/$/, '');
   return SLUG_TABS[slug] || 'players';
@@ -2004,7 +2314,7 @@ function tabFromPath(pathname) {
 
 const POPUP_SCREEN_TYPES = ['playerDetail', 'challengeDetail', 'createChallenge'];
 function AppShell() {
-  const { session, profile } = useAuth();
+  const { session, profile, isAdmin } = useAuth();
   const [tab, setTab] = React.useState(() => tabFromPath(window.location.pathname));
   const [screen, setScreen] = React.useState({ type: 'tab' });
   const [challengesRefreshKey, setChallengesRefreshKey] = React.useState(0);
@@ -2022,6 +2332,11 @@ function AppShell() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+  // isAdmin === null tarkoittaa "tarkistus kesken" — odota se ennen kuin
+  // potkaistaan pois Ylläpito-välilehdeltä, ettei aidon adminin syväliinkki katkea.
+  React.useEffect(() => {
+    if (isAdmin === false && tab === 'admin') navigateTab('players');
+  }, [isAdmin, tab, navigateTab]);
   const showSidebar = tab === 'players' || tab === 'challenges' || tab === 'messages';
   const popup = POPUP_SCREEN_TYPES.includes(screen.type) ? screen : null;
 
@@ -2040,9 +2355,10 @@ function AppShell() {
         )}
         <div className="app-main">
           {tab === 'players' && <PlayersScreen onOpenPlayer={p => setScreen({ type: 'playerDetail', player: p })} />}
-          {tab === 'challenges' && <ChallengesScreen refreshKey={challengesRefreshKey} onOpenChallenge={c => setScreen({ type: 'challengeDetail', challenge: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} />}
+          {tab === 'challenges' && <ChallengesScreen refreshKey={challengesRefreshKey} onOpenChallenge={c => setScreen({ type: 'challengeDetail', challenge: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge', mode: 'open' })} onCreateEvent={() => setScreen({ type: 'createChallenge', mode: 'event' })} />}
           {tab === 'messages' && <MessagesScreen onOpenChat={c => setScreen({ type: 'chat', conversation: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} onOpenArchive={() => setScreen({ type: 'archive' })} />}
           {tab === 'profile' && <ProfileFullScreen onOpenBlocked={() => setScreen({ type: 'blocked' })} />}
+          {tab === 'admin' && isAdmin && <AdminScreen />}
         </div>
       </div>
       {popup?.type === 'playerDetail' && <div className="modal-overlay" onClick={back}>
@@ -2057,7 +2373,7 @@ function AppShell() {
       </div>}
       {popup?.type === 'createChallenge' && <div className="modal-overlay" onClick={back}>
         <div className="modal-sheet" style={{ maxWidth:520 }} onClick={e=>e.stopPropagation()}>
-          <CreateChallengeScreen onBack={back} onCreated={()=>{ back(); setChallengesRefreshKey(k=>k+1); }}/>
+          <CreateChallengeScreen mode={popup.mode||'open'} onBack={back} onCreated={()=>{ back(); setChallengesRefreshKey(k=>k+1); }}/>
         </div>
       </div>}
     </div>
