@@ -1332,27 +1332,19 @@ function PlayerProfileEditModal({ student, onClose, onSaved }) {
 function WelcomeModal({ onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(10,15,10,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div className="k-card" style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', overflow: 'hidden', animation: 'kFadeIn .2s ease' }}>
-        <div style={{ background: 'var(--green-deep)', padding: '28px 26px 24px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, marginBottom: 14 }}>
-            <span style={{ fontWeight: 800, fontSize: 22, color: 'var(--lime)', letterSpacing: -0.5 }}>Krossi</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
-          </div>
-          <h3 style={{ fontSize: 21, fontWeight: 800, color: '#fff', lineHeight: 1.25 }}>Tervetuloa Krossi Koutsiin!</h3>
-        </div>
-        <div style={{ padding: '24px 26px 26px' }}>
-          <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
-            Kiva, että lähdit testaamaan – kyseessä on vielä täysin testiversio, joten palautteesi on meille todella arvokasta.
-          </p>
-          <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
-            Valtava kiitos testaajille! Jos mieleen tulee mitä tahansa parannusehdotuksia, palautenappi löytyy Profiilista –
-            sen kautta voit nopeasti heittää palautetta, niin merkitsen ne ylös ja korjailen tai parantelen.
-          </p>
-          <p style={{ fontSize: 13, lineHeight: 1.55, color: '#8a857a', marginBottom: 22 }}>
-            Kiitos, että olet mukana kehittämässä parempaa tennistä!
-          </p>
-          <button onClick={onClose} className="btn-lime btn-lg" style={{ width: '100%' }}>Olen valmis!</button>
-        </div>
+      <div style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: 'var(--sand)', border: '1px solid var(--line)', borderRadius: 18, padding: '28px 26px 26px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 21, fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1.25, marginBottom: 18 }}>Tervetuloa Krossi Koutsiin!</h3>
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
+          Valtava kiitos, että lähdit testaamaan! Kyseessä on vielä testiversio, joten kaikenlainen palaute olisi todella arvokasta.
+        </p>
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
+          Jos mieleen tulee mitä tahansa ehdotuksia, löydät palautenapin Profiilinäkymästäsi (oikea yläkulma). Sen avulla
+          tiedän, mitä kannattaa korjata ja parannella!
+        </p>
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 22, fontWeight: 700 }}>
+          Parempaa tennistä pelaamaan!
+        </p>
+        <button onClick={onClose} className="btn-lime btn-lg" style={{ width: '100%' }}>Aloita tenniskehitys!</button>
       </div>
     </div>
   );
@@ -1435,7 +1427,7 @@ function ProfileView({ student, groups, state, onSignOut, onReload }) {
     <div>
       <PageHeader title="Profiili" action={(
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button onClick={() => setFeedbackOpen(true)} className="btn-outline btn-sm">Anna palautetta</button>
+          <button onClick={() => setFeedbackOpen(true)} className="btn-outline btn-sm" style={{ color: '#8f2f24', borderColor: '#e3c9c4' }}>Anna palautetta</button>
           <button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>
         </div>
       )} />
