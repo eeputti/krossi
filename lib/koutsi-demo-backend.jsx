@@ -331,17 +331,26 @@
   };
   window.koutsiUpdateMatchNote = (id, patch) => patchById('matchNotes', id, patch);
   window.koutsiDeleteMatchNote = (id) => removeById('matchNotes', id);
-  window.koutsiSubmitFeedback = (studentId, { category, message }) => {
-    const st = findStudent(studentId);
-    if (st) {
-      (st.feedback || (st.feedback = [])).unshift({ id: newId('f'), at: new Date().toISOString(), category, message });
-      save();
+  window.koutsiSubmitFeedback = (userId, { category, message }) => {
+    const s = load();
+    const entry = { id: newId('f'), at: new Date().toISOString(), category, message };
+    if (userId === COACH) {
+      (s.coach.feedback || (s.coach.feedback = [])).unshift(entry);
+    } else {
+      const st = findStudent(userId);
+      if (st) (st.feedback || (st.feedback = [])).unshift(entry);
     }
+    save();
     return done();
   };
   window.koutsiMarkWelcomeSeen = (studentId) => {
     const st = findStudent(studentId);
     if (st) { st.welcomeSeenAt = new Date().toISOString(); save(); }
+    return done();
+  };
+  window.koutsiMarkCoachWelcomeSeen = (coachId) => {
+    const s = load();
+    if (coachId === COACH) { s.coach.welcomeSeenAt = new Date().toISOString(); save(); }
     return done();
   };
 

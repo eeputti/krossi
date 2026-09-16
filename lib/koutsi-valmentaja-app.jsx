@@ -5,6 +5,10 @@
 // very file — lib/koutsi-demo-backend.jsx swaps an in-memory store in underneath
 // koutsi-data.js.
 
+// Read by koutsi-auth.jsx's app-open tracking to tell this bundle apart from
+// koutsi-pelaaja-app.jsx — both load the same koutsi-auth.jsx file.
+window.KOUTSI_APP_NAME = 'koutsi_valmentaja';
+
 const TAG_LABELS = { kaikki: 'Kaikki', syotto: 'Syöttö', liikkuminen: 'Liikkuminen', pistepeli: 'Pistepeli', verkkopeli: 'Verkkopeli', tekniikka: 'Tekniikka', lammittely: 'Lämmittely', fysiikka: 'Fysiikka', drilli: 'Drilli' };
 const EXERCISE_TAGS = ['kaikki', 'syotto', 'liikkuminen', 'pistepeli', 'verkkopeli', 'tekniikka', 'lammittely', 'fysiikka', 'drilli'];
 const CAL_WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
@@ -3616,10 +3620,16 @@ function DataExportButton({ userId, role, name }) {
 // kortti: nimi, kuva, ilmoitusasetukset ja tili ovat valmentajan omia, ei ylläpidettäviä.
 function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload, acting }) {
   const [editOpen, setEditOpen] = React.useState(false);
+  const [feedbackOpen, setFeedbackOpen] = React.useState(false);
   const specialties = coach.specialties || [];
   return (
     <div>
-      <PageHeader title="Profiili" action={acting ? null : <button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>} />
+      <PageHeader title="Profiili" action={acting ? null : (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button onClick={() => setFeedbackOpen(true)} className="btn-outline btn-sm" style={{ color: '#8f2f24', borderColor: '#e3c9c4' }}>Anna palautetta</button>
+          <button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>
+        </div>
+      )} />
       <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
         <div className="k-card" style={{ padding: 26, flex: '0 0 260px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
           <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={84} ring />
@@ -3681,6 +3691,7 @@ function ProfileView({ coach, studentCount, groupCount, onSignOut, onReload, act
         </div>
       </div>
       {editOpen && !acting && <ProfileEditModal coach={coach} onClose={() => setEditOpen(false)} onSaved={onReload} />}
+      {feedbackOpen && !acting && <window.KoutsiFeedbackModal userId={coach.id} onClose={() => setFeedbackOpen(false)} />}
     </div>
   );
 }
@@ -3746,6 +3757,22 @@ function adminFormatAccountDate(value) {
   return date.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric', year: 'numeric' });
 }
 
+// Relative for recent activity (more useful at a glance than a bare date when scanning
+// for dormant accounts), falling back to an absolute date once it's not recent anymore.
+function adminFormatRelativeDate(value) {
+  if (!value) return 'Ei koskaan';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Ei koskaan';
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (minutes < 1) return 'Juuri äsken';
+  if (minutes < 60) return `${minutes} min sitten`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h sitten`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} pv sitten`;
+  return adminFormatAccountDate(value);
+}
+
 function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
   const toast = window.useKoutsiToast();
   const confirm = window.useKoutsiConfirm();
@@ -3785,6 +3812,7 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
           <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111' }}>{user.name}</div>
           <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2, wordBreak: 'break-all' }}>{user.email || 'Ei sähköpostia'}</div>
           <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 4 }}>Tili luotu {adminFormatAccountDate(user.joinedAt)}</div>
+          <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 2 }}>Viimeksi kirjautunut {adminFormatRelativeDate(user.lastSignInAt)}</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
             {roles.map((role) => (
               <span key={role.label} style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '4px 9px', fontSize: 10.5, fontWeight: 800, color: role.fg, background: role.bg, border: `1px solid ${role.border}` }}>{role.label}</span>
@@ -3795,6 +3823,13 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
           <div style={{ background: '#f7f5ef', borderRadius: 18, padding: '7px 11px', textAlign: 'center', minWidth: 76 }}>
             <div style={{ fontSize: 9.5, fontWeight: 700, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>Tallennustila</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{adminFormatBytes(user.storageBytes)}</div>
+          </div>
+          <div style={{ background: '#f7f5ef', borderRadius: 18, padding: '7px 11px', textAlign: 'center', minWidth: 76 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.4 }}>Avattu</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{user.appOpenCount}×</div>
+            {user.appOpenCount > 0 && (
+              <div style={{ fontSize: 10, color: '#8a857a', marginTop: 1, whiteSpace: 'nowrap' }}>{adminFormatRelativeDate(user.lastAppOpenAt)}</div>
+            )}
           </div>
           {user.isCoach && (
             <div style={{ background: '#f7f5ef', borderRadius: 18, padding: '7px 11px', textAlign: 'center', minWidth: 76 }}>
@@ -4123,6 +4158,7 @@ function AdminView({ onActAs }) {
     || (roleFilter === 'admin' && user.isAdmin)
     || (roleFilter === 'other' && !user.isCoach && !user.isPlayer);
   const shown = (users || []).filter((user) => matchesRole(user) && (!q || `${user.name} ${user.email}`.toLowerCase().includes(q)));
+  const activeSince30d = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const totals = (users || []).reduce((acc, user) => ({
     coaches: acc.coaches + (user.isCoach ? 1 : 0),
     players: acc.players + (user.isPlayer ? 1 : 0),
@@ -4131,7 +4167,8 @@ function AdminView({ onActAs }) {
     groups: acc.groups + user.groupCount,
     pending: acc.pending + user.pendingPlans,
     storage: acc.storage + user.storageBytes,
-  }), { coaches: 0, players: 0, admins: 0, others: 0, groups: 0, pending: 0, storage: 0 });
+    active30d: acc.active30d + (user.lastSignInAt && new Date(user.lastSignInAt).getTime() > activeSince30d ? 1 : 0),
+  }), { coaches: 0, players: 0, admins: 0, others: 0, groups: 0, pending: 0, storage: 0, active30d: 0 });
   const filters = [
     { id: 'all', label: 'Kaikki', count: (users || []).length },
     { id: 'coach', label: 'Valmentajat', count: totals.coaches },
@@ -4148,7 +4185,7 @@ function AdminView({ onActAs }) {
 
   return (
     <div>
-      <PageHeader title="Ylläpito" sub={users ? `${users.length} käyttäjää · ${totals.coaches} valmentajaa · ${totals.players} pelaajaa · ${adminFormatBytes(totals.storage)}` : 'Ladataan…'} />
+      <PageHeader title="Ylläpito" sub={users ? `${users.length} käyttäjää · ${totals.coaches} valmentajaa · ${totals.players} pelaajaa · ${totals.active30d} aktiivista (30 pv) · ${adminFormatBytes(totals.storage)}` : 'Ladataan…'} />
       {totals.pending > 0 && (
         <div className="k-card" style={{ padding: '14px 17px', marginBottom: 18, background: 'rgba(199,123,46,0.1)', borderColor: 'rgba(199,123,46,0.35)', fontSize: 14, color: '#7a4c1e', fontWeight: 700 }}>
           {totals.pending} vuosisuunnitelmaa odottaa käsittelyä.
@@ -4438,6 +4475,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   const act = (fn, successMessage) => async (...args) => {
     await toast.run(async () => { await fn(...args); await reload(); }, successMessage);
   };
+  const dismissWelcome = act(() => window.koutsiMarkCoachWelcomeSeen(coachId));
 
   const saveEntry = async (text) => {
     const ok = await toast.run(async () => {
@@ -4884,6 +4922,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
       {groupFormOpen && <GroupFormModal students={state.students} editing={editingGroup} onClose={() => { setGroupFormOpen(false); setEditingGroup(null); }} onSave={saveGroup} />}
       {eventOpen && <ClubEventModal editing={editingEvent} defaultDate={eventDefaultDate} onClose={() => { setEventOpen(false); setEditingEvent(null); }} onSave={saveClubEvent} />}
       {addMembersGroupId != null && <AddMembersModal coachId={coachId} coachName={state.coach.name} group={state.groups.find((g) => g.id === addMembersGroupId)} allStudents={state.students} groups={state.groups} onClose={() => setAddMembersGroupId(null)} onSave={addMembers} onCreatePlayer={createPlayerInGroup} />}
+      {!actingCoach && !state.coach.welcomeSeenAt && <window.KoutsiWelcomeModal onClose={dismissWelcome} />}
     </div>
   );
 }

@@ -592,6 +592,93 @@ function useKoutsiTabRoute(slugs, fallback) {
   return [tab, setTab];
 }
 
+// One-time onboarding popup + the quick pilot-feedback form, shared by both the
+// player and coach apps (each has its own dismiss handler and its own "own row"
+// to submit feedback under — koutsi_students or koutsi_coaches).
+function KoutsiWelcomeModal({ onClose }) {
+  const feedbackChip = { display: 'inline-flex', alignItems: 'center', padding: '3px 11px', borderRadius: 999, fontWeight: 700, fontSize: 13, color: '#8f2f24', border: '1.6px solid #e3c9c4', background: 'transparent', verticalAlign: 'middle' };
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(10,15,10,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: 'var(--sand)', border: '1px solid var(--line)', borderRadius: 18, padding: '28px 26px 26px', animation: 'kFadeIn .2s ease' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, marginBottom: 16 }}>
+          <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--green-deep)', letterSpacing: -0.5 }}>Krossi</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
+        </div>
+        <h3 style={{ fontSize: 21, fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1.25, marginBottom: 18 }}>Tervetuloa Krossi Koutsiin!</h3>
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
+          Valtava kiitos, että oot mukana testaamassa! 🎾
+        </p>
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 22 }}>
+          Jos jokin <strong>ei toimi, tuntuu epäselvältä tai voisi mielestäsi toimia paremmin</strong>, kerro siitä matalalla
+          kynnyksellä. Löydät <span style={feedbackChip}>Anna palautetta</span> -napin Profiilin oikeasta yläkulmasta.
+        </p>
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 22, fontWeight: 700 }}>
+          Kiitos, että oot mukana kehittämässä parempaa tennistä!
+        </p>
+        <button onClick={onClose} className="btn-lime btn-lg" style={{ width: '100%' }}>Aloitetaan!</button>
+      </div>
+    </div>
+  );
+}
+
+const KOUTSI_FEEDBACK_CATEGORIES = [
+  { id: 'ei_toimi', label: 'Jokin ei toimi' },
+  { id: 'ei_tasmaa', label: 'Jokin ei täsmää' },
+  { id: 'hankala_kayttaa', label: 'Jokin on hankala käyttää' },
+  { id: 'toimii_hyvin', label: 'Jokin toimii tosi hyvin' },
+  { id: 'muu', label: 'Muu' },
+];
+function KoutsiFeedbackModal({ userId, onClose }) {
+  const toast = useKoutsiToast();
+  const [category, setCategory] = React.useState(KOUTSI_FEEDBACK_CATEGORIES[0].id);
+  const [message, setMessage] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const ready = message.trim().length > 0;
+
+  const submit = async () => {
+    if (!ready) return;
+    setBusy(true);
+    const ok = await toast.run(async () => {
+      await window.koutsiSubmitFeedback(userId, { category, message: message.trim() });
+    }, 'Kiitos palautteesta!');
+    setBusy(false);
+    if (ok) onClose();
+  };
+
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Anna palautetta</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5, marginBottom: 18 }}>
+          Koutsi on kehitteillä oleva versio. Kerro lyhyesti, jos jokin ei toimi, ei täsmää tai on hankala käyttää —
+          tai jos jokin toimii tosi hyvin!
+        </p>
+
+        <div style={label}>Mistä on kyse?</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {KOUTSI_FEEDBACK_CATEGORIES.map((c) => (
+            <button key={c.id} type="button" onClick={() => setCategory(c.id)}
+              className={category === c.id ? 'btn-dark btn-sm' : 'btn-outline btn-sm'}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={label}>Kerro tarkemmin</div>
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Mitä huomasit?"
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff', resize: 'vertical', marginBottom: 20 }} />
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} disabled={busy || !ready} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: (busy || !ready) ? 0.45 : 1 }}>{busy ? 'Lähetetään…' : 'Lähetä'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 Object.assign(window, {
   KoutsiUIProvider, KoutsiToastProvider, KoutsiConfirmProvider,
   useKoutsiToast, useKoutsiConfirm,
@@ -601,4 +688,5 @@ Object.assign(window, {
   KoutsiNotificationBell, KoutsiEmailPrefToggle,
   KoutsiDeleteAccountButton, KoutsiLegalLinks,
   useKoutsiTabRoute,
+  KoutsiWelcomeModal, KoutsiFeedbackModal,
 });

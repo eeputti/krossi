@@ -319,6 +319,7 @@ async function krossiAdminUsers() {
   if (error) throw error;
   return (data || []).map(r => ({
     id: r.user_id, name: r.display_name, email: r.email, joinedAt: r.joined_at,
+    lastSignInAt: r.last_sign_in_at, appOpenCount: r.app_open_count || 0, lastAppOpenAt: r.last_app_open_at,
     isAdmin: Boolean(r.is_admin), area: r.area, hiddenFromFeed: Boolean(r.hidden_from_feed),
     paidAt: r.paid_at, challengesCreated: r.challenges_created, matchesRecorded: r.matches_recorded,
     adminCities: r.admin_cities || [],
@@ -537,20 +538,29 @@ function AuthProvider({ children }) {
       setProfile(data ? mapProfile(data) : null);
     } catch { setProfile(null); }
   }, []);
+  // Counts one app open per person actually landing here with a session, not per
+  // tab-refocus SIGNED_IN (which fires with the same uid every time) — mirrors the
+  // appliedUid guard in koutsi-auth.jsx's KoutsiAuthProvider.
+  const appOpenTrackedUid = React.useRef(null);
+  const trackAppOpen = React.useCallback((uid) => {
+    if (!uid || appOpenTrackedUid.current === uid) return;
+    appOpenTrackedUid.current = uid;
+    supabase.rpc('koutsi_record_app_open', { app_input: 'krossi_web' }).catch(() => {});
+  }, []);
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
-      if (s?.user?.id) loadProfile(s.user.id).finally(() => setLoading(false));
+      if (s?.user?.id) { trackAppOpen(s.user.id); loadProfile(s.user.id).finally(() => setLoading(false)); }
       else setLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((ev, s) => {
       setSession(s);
       if (ev === 'TOKEN_REFRESHED' || ev === 'USER_UPDATED') return;
-      if (s?.user?.id) { setLoading(true); loadProfile(s.user.id).finally(() => setLoading(false)); }
+      if (s?.user?.id) { trackAppOpen(s.user.id); setLoading(true); loadProfile(s.user.id).finally(() => setLoading(false)); }
       else { setProfile(null); setLoading(false); }
     });
     return () => subscription.unsubscribe();
-  }, [loadProfile]);
+  }, [loadProfile, trackAppOpen]);
   React.useEffect(() => {
     const uid = session?.user?.id;
     if (!uid) { setIsAdmin(false); setAdminCities([]); return; }
@@ -2208,6 +2218,21 @@ function formatAdminDate(value) {
   if (!value) return '–';
   return new Date(value).toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric', year: 'numeric' });
 }
+// Relative for recent activity (more useful at a glance than a bare date when scanning
+// for dormant accounts), falling back to an absolute date once it's not recent anymore.
+function formatAdminRelativeDate(value) {
+  if (!value) return 'Ei koskaan';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Ei koskaan';
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (minutes < 1) return 'Juuri äsken';
+  if (minutes < 60) return `${minutes} min sitten`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h sitten`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} pv sitten`;
+  return formatAdminDate(value);
+}
 function AdminUserRow({ user, onDelete, onSetCities }) {
   const [deleting, setDeleting] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
@@ -2239,6 +2264,9 @@ function AdminUserRow({ user, onDelete, onSetCities }) {
     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
       Liittyi {formatAdminDate(user.joinedAt)} · {user.challengesCreated} haastetta · {user.matchesRecorded} ottelua
     </div>
+    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+      Kirjautunut {formatAdminRelativeDate(user.lastSignInAt)} · Avattu {user.appOpenCount}× {user.appOpenCount > 0 ? `(${formatAdminRelativeDate(user.lastAppOpenAt)})` : ''}
+    </div>
     {error && <div style={{ fontSize: 12, color: 'var(--danger)' }}>{error}</div>}
     {!user.isAdmin && <button className="btn btn-outline-d btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setShowCities(v => !v)}>
       {showCities ? 'Sulje kaupunkivalinta' : 'Muokkaa tapahtuma-oikeuksia'}
@@ -2264,6 +2292,8 @@ function AdminScreen() {
       .catch(err => setError(err.message || 'Tietojen lataus epäonnistui.'));
   }, []);
   React.useEffect(load, [load]);
+  const activeSince30d = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const active30d = (users || []).filter(u => u.lastSignInAt && new Date(u.lastSignInAt).getTime() > activeSince30d).length;
   const removeUser = async (userId) => {
     await krossiAdminDeleteUser(userId);
     setUsers(prev => prev.filter(u => u.id !== userId));
@@ -2282,6 +2312,7 @@ function AdminScreen() {
       <AdminStat label="Uusia (7 pv)" value={stats.new_players_7d ?? '–'} />
       <AdminStat label="Uusia (30 pv)" value={stats.new_players_30d ?? '–'} />
       <AdminStat label="Maksaneita" value={stats.paid_players ?? '–'} />
+      <AdminStat label="Aktiivisia (30 pv)" value={users ? active30d : '–'} />
       <AdminStat label="Haasteita yhteensä" value={stats.challenges_total ?? '–'} />
       <AdminStat label="Avoimia haasteita" value={stats.challenges_open ?? '–'} />
       <AdminStat label="Pelattuja haasteita" value={stats.challenges_played ?? '–'} />

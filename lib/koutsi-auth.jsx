@@ -118,6 +118,11 @@ function KoutsiAuthProvider({ children }) {
     if (uid) {
       setLoading(true);
       Promise.all([loadProfile(uid), loadPilotAcknowledgement(uid)]).finally(() => setLoading(false));
+      // Fire-and-forget: counts one real app open per person picking this tab back up,
+      // not per tab-refocus (those never reach here — see the appliedUid guard above).
+      // window.KOUTSI_APP_NAME is set by the app file (koutsi-valmentaja-app.jsx /
+      // koutsi-pelaaja-app.jsx) before this effect runs.
+      koutsiSupabase.rpc('koutsi_record_app_open', { app_input: window.KOUTSI_APP_NAME || 'koutsi_unknown' }).catch(() => {});
     } else {
       setProfile(null);
       setPilotAccepted(false);
