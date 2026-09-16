@@ -1329,10 +1329,40 @@ function PlayerProfileEditModal({ student, onClose, onSaved }) {
   );
 }
 
+function WelcomeModal({ onClose }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(10,15,10,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div className="k-card" style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', overflow: 'hidden', animation: 'kFadeIn .2s ease' }}>
+        <div style={{ background: 'var(--green-deep)', padding: '28px 26px 24px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, marginBottom: 14 }}>
+            <span style={{ fontWeight: 800, fontSize: 22, color: 'var(--lime)', letterSpacing: -0.5 }}>Krossi</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
+          </div>
+          <h3 style={{ fontSize: 21, fontWeight: 800, color: '#fff', lineHeight: 1.25 }}>Tervetuloa Krossi Koutsiin!</h3>
+        </div>
+        <div style={{ padding: '24px 26px 26px' }}>
+          <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
+            Kiva, että lähdit testaamaan – kyseessä on vielä täysin testiversio, joten palautteesi on meille todella arvokasta.
+          </p>
+          <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
+            Valtava kiitos testaajille! Jos mieleen tulee mitä tahansa parannusehdotuksia, palautenappi löytyy Profiilista –
+            sen kautta voit nopeasti heittää palautetta, niin merkitsen ne ylös ja korjailen tai parantelen.
+          </p>
+          <p style={{ fontSize: 13, lineHeight: 1.55, color: '#8a857a', marginBottom: 22 }}>
+            Kiitos, että olet mukana kehittämässä parempaa tennistä!
+          </p>
+          <button onClick={onClose} className="btn-lime btn-lg" style={{ width: '100%' }}>Olen valmis!</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const FEEDBACK_CATEGORIES = [
   { id: 'ei_toimi', label: 'Jokin ei toimi' },
   { id: 'ei_tasmaa', label: 'Jokin ei täsmää' },
   { id: 'hankala_kayttaa', label: 'Jokin on hankala käyttää' },
+  { id: 'toimii_hyvin', label: 'Jokin toimii tosi hyvin' },
   { id: 'muu', label: 'Muu' },
 ];
 function FeedbackModal({ student, onClose }) {
@@ -1359,7 +1389,8 @@ function FeedbackModal({ student, onClose }) {
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Anna palautetta</h3>
         <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5, marginBottom: 18 }}>
-          Koutsi on kehitteillä oleva versio. Kerro lyhyesti, jos jokin ei toimi, ei täsmää tai on hankala käyttää.
+          Koutsi on kehitteillä oleva versio. Kerro lyhyesti, jos jokin ei toimi, ei täsmää tai on hankala käyttää —
+          tai jos jokin toimii tosi hyvin!
         </p>
 
         <div style={label}>Mistä on kyse?</div>
@@ -1402,7 +1433,12 @@ function ProfileView({ student, groups, state, onSignOut, onReload }) {
   const coaches = (state && state.coaches) || [];
   return (
     <div>
-      <PageHeader title="Profiili" action={<button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>} />
+      <PageHeader title="Profiili" action={(
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button onClick={() => setFeedbackOpen(true)} className="btn-outline btn-sm">Anna palautetta</button>
+          <button onClick={() => setEditOpen(true)} className="btn-dark btn-sm">Muokkaa profiilia</button>
+        </div>
+      )} />
       <IdentityBlock student={student} groups={groups} />
 
       <SectionTitle>Omat tiedot</SectionTitle>
@@ -1426,14 +1462,6 @@ function ProfileView({ student, groups, state, onSignOut, onReload }) {
           <a href="https://koutsi.krossi.app" className="btn-outline btn-sm">← Etusivulle</a>
           <button onClick={onSignOut} className="btn-outline btn-sm">Kirjaudu ulos</button>
         </div>
-      </div>
-
-      <div style={{ marginTop: 26 }}>
-        <SectionTitle>Palaute</SectionTitle>
-        <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.55, marginBottom: 10 }}>
-          Koutsi on kehitteillä oleva versio. Jos jokin ei toimi, ei täsmää tai on hankala käyttää, kerro siitä.
-        </p>
-        <button onClick={() => setFeedbackOpen(true)} className="btn-outline btn-sm">Anna palautetta</button>
       </div>
 
       <div style={{ marginTop: 26 }}>
@@ -1688,6 +1716,7 @@ function PlayerApp({ studentId, onSignOut }) {
     const ok = await confirm({ title: 'Poista fiilis?', body: `${m.date} — ${MOOD_LABELS[m.score]}`, confirmLabel: 'Poista', danger: true });
     if (ok) await act(() => window.koutsiDeleteMood(m.id), 'Fiilis poistettu.')();
   };
+  const dismissWelcome = act(() => window.koutsiMarkWelcomeSeen(studentId));
 
   const saveMatchNote = async ({ opponentName, date, note: matchNote, result, format, durationMinutes, score, partnerName, opponent2Name, tournamentId }) => {
     const ok = await toast.run(async () => {
@@ -1763,6 +1792,7 @@ function PlayerApp({ studentId, onSignOut }) {
           studentName={student.name} training={attendanceTraining} eligibleTrainings={attendanceEligibleTrainings}
           entry={attendanceEntry} viewerRole="player" onClose={() => setAttendanceTrainingId(null)} onSave={saveAttendance} />
       )}
+      {!student.welcomeSeenAt && <WelcomeModal onClose={dismissWelcome} />}
     </div>
   );
 }

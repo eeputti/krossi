@@ -339,6 +339,11 @@
     }
     return done();
   };
+  window.koutsiMarkWelcomeSeen = (studentId) => {
+    const st = findStudent(studentId);
+    if (st) { st.welcomeSeenAt = new Date().toISOString(); save(); }
+    return done();
+  };
 
   // ── student fields ────────────────────────────────────────────────────────
   const setField = (studentId, key, value) => {
