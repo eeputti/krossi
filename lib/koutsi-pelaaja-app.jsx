@@ -1330,21 +1330,22 @@ function PlayerProfileEditModal({ student, onClose, onSaved }) {
 }
 
 function WelcomeModal({ onClose }) {
+  const feedbackChip = { display: 'inline-flex', alignItems: 'center', padding: '3px 11px', borderRadius: 999, fontWeight: 700, fontSize: 13, color: '#8f2f24', border: '1.6px solid #e3c9c4', background: 'transparent', verticalAlign: 'middle' };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(10,15,10,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: 'var(--sand)', border: '1px solid var(--line)', borderRadius: 18, padding: '28px 26px 26px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 21, fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1.25, marginBottom: 18 }}>Tervetuloa Krossi Koutsiin!</h3>
         <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
-          Valtava kiitos, että lähdit testaamaan! Kyseessä on vielä testiversio, joten kaikenlainen palaute olisi todella arvokasta.
+          Valtava kiitos, että oot mukana testaamassa! 🎾
         </p>
-        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
-          Jos mieleen tulee mitä tahansa ehdotuksia, löydät palautenapin Profiilinäkymästäsi (oikea yläkulma). Sen avulla
-          tiedän, mitä kannattaa korjata ja parannella!
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 22 }}>
+          Jos jokin <strong>ei toimi, tuntuu epäselvältä tai voisi mielestäsi toimia paremmin</strong>, kerro siitä matalalla
+          kynnyksellä. Löydät <span style={feedbackChip}>Anna palautetta</span> -napin Profiilin oikeasta yläkulmasta.
         </p>
         <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 22, fontWeight: 700 }}>
-          Parempaa tennistä pelaamaan!
+          Kiitos, että oot mukana kehittämässä parempaa tennistä!
         </p>
-        <button onClick={onClose} className="btn-lime btn-lg" style={{ width: '100%' }}>Aloita tenniskehitys!</button>
+        <button onClick={onClose} className="btn-lime btn-lg" style={{ width: '100%' }}>Aloitetaan!</button>
       </div>
     </div>
   );
