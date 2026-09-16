@@ -1329,6 +1329,62 @@ function PlayerProfileEditModal({ student, onClose, onSaved }) {
   );
 }
 
+const FEEDBACK_CATEGORIES = [
+  { id: 'ei_toimi', label: 'Jokin ei toimi' },
+  { id: 'ei_tasmaa', label: 'Jokin ei täsmää' },
+  { id: 'hankala_kayttaa', label: 'Jokin on hankala käyttää' },
+  { id: 'muu', label: 'Muu' },
+];
+function FeedbackModal({ student, onClose }) {
+  const toast = window.useKoutsiToast();
+  const [category, setCategory] = React.useState(FEEDBACK_CATEGORIES[0].id);
+  const [message, setMessage] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const ready = message.trim().length > 0;
+
+  const submit = async () => {
+    if (!ready) return;
+    setBusy(true);
+    const ok = await toast.run(async () => {
+      await window.koutsiSubmitFeedback(student.id, { category, message: message.trim() });
+    }, 'Kiitos palautteesta!');
+    setBusy(false);
+    if (ok) onClose();
+  };
+
+  const label = { fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 9 };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(480px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
+        <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Anna palautetta</h3>
+        <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5, marginBottom: 18 }}>
+          Koutsi on kehitteillä oleva versio. Kerro lyhyesti, jos jokin ei toimi, ei täsmää tai on hankala käyttää.
+        </p>
+
+        <div style={label}>Mistä on kyse?</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {FEEDBACK_CATEGORIES.map((c) => (
+            <button key={c.id} type="button" onClick={() => setCategory(c.id)}
+              className={category === c.id ? 'btn-dark btn-sm' : 'btn-outline btn-sm'}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={label}>Kerro tarkemmin</div>
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Mitä huomasit?"
+          style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff', resize: 'vertical', marginBottom: 20 }} />
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
+          <button onClick={submit} disabled={busy || !ready} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: (busy || !ready) ? 0.45 : 1 }}>{busy ? 'Lähetetään…' : 'Lähetä'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProfileRow({ label, value, hint }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, padding: '11px 0', borderBottom: '1px solid var(--line)' }}>
@@ -1342,6 +1398,7 @@ function ProfileRow({ label, value, hint }) {
 
 function ProfileView({ student, groups, state, onSignOut, onReload }) {
   const [editOpen, setEditOpen] = React.useState(false);
+  const [feedbackOpen, setFeedbackOpen] = React.useState(false);
   const coaches = (state && state.coaches) || [];
   return (
     <div>
@@ -1372,6 +1429,14 @@ function ProfileView({ student, groups, state, onSignOut, onReload }) {
       </div>
 
       <div style={{ marginTop: 26 }}>
+        <SectionTitle>Palaute</SectionTitle>
+        <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.55, marginBottom: 10 }}>
+          Koutsi on kehitteillä oleva versio. Jos jokin ei toimi, ei täsmää tai on hankala käyttää, kerro siitä.
+        </p>
+        <button onClick={() => setFeedbackOpen(true)} className="btn-outline btn-sm">Anna palautetta</button>
+      </div>
+
+      <div style={{ marginTop: 26 }}>
         <SectionTitle>Tili ja tiedot</SectionTitle>
         <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.55, marginBottom: 10 }}>
           Voit ladata kaikki tietosi yhtenä tiedostona. Tilin poisto tyhjentää pysyvästi profiilisi,
@@ -1385,6 +1450,7 @@ function ProfileView({ student, groups, state, onSignOut, onReload }) {
       </div>
 
       {editOpen && <PlayerProfileEditModal student={student} onClose={() => setEditOpen(false)} onSaved={onReload} />}
+      {feedbackOpen && <FeedbackModal student={student} onClose={() => setFeedbackOpen(false)} />}
     </div>
   );
 }

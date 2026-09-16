@@ -331,6 +331,14 @@
   };
   window.koutsiUpdateMatchNote = (id, patch) => patchById('matchNotes', id, patch);
   window.koutsiDeleteMatchNote = (id) => removeById('matchNotes', id);
+  window.koutsiSubmitFeedback = (studentId, { category, message }) => {
+    const st = findStudent(studentId);
+    if (st) {
+      (st.feedback || (st.feedback = [])).unshift({ id: newId('f'), at: new Date().toISOString(), category, message });
+      save();
+    }
+    return done();
+  };
 
   // ── student fields ────────────────────────────────────────────────────────
   const setField = (studentId, key, value) => {
