@@ -963,6 +963,7 @@
   window.koutsiIsAdmin = () => done(false);
   window.koutsiAdminCoaches = () => done([]);
   window.koutsiAdminUsers = () => done([]);
+  window.koutsiAdminFeedback = () => done([]);
   window.koutsiAdminDeleteUser = () => Promise.reject(new Error('not allowed'));
   window.koutsiAdminActAs = () => Promise.reject(new Error('not allowed'));
   window.koutsiAdminGroups = () => done([]);

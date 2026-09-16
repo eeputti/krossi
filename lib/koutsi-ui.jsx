@@ -686,6 +686,7 @@ function KoutsiFeedbackModal({ userId, onClose }) {
 Object.assign(window, {
   KoutsiUIProvider, KoutsiToastProvider, KoutsiConfirmProvider,
   useKoutsiToast, useKoutsiConfirm,
+  KOUTSI_FEEDBACK_CATEGORIES,
   KoutsiIconButton, KoutsiRowActions, KoutsiEditIcon, KoutsiTrashIcon, KoutsiTimeSelect,
   KoutsiAttendanceBadge, KoutsiAttendanceModal,
   KoutsiQrCode, KoutsiCopyButton, koutsiCopyText,

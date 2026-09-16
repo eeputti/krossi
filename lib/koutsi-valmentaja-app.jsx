@@ -4132,6 +4132,79 @@ function AdminPlansModal({ coach, onClose, onChanged, onActAs }) {
   );
 }
 
+// Category id -> accent color, for the badge in the feedback feed. Keyed off the same
+// ids as KOUTSI_FEEDBACK_CATEGORIES (koutsi-ui.jsx) so labels never drift apart.
+const ADMIN_FEEDBACK_COLORS = {
+  ei_toimi: { fg: '#8f2f24', bg: 'rgba(191,68,52,0.1)', border: 'rgba(191,68,52,0.3)' },
+  ei_tasmaa: { fg: '#7a4c1e', bg: 'rgba(199,123,46,0.12)', border: 'rgba(199,123,46,0.3)' },
+  hankala_kayttaa: { fg: '#7a4c1e', bg: 'rgba(199,123,46,0.12)', border: 'rgba(199,123,46,0.3)' },
+  toimii_hyvin: { fg: '#0e5b42', bg: 'rgba(94,189,139,0.12)', border: 'rgba(47,125,84,0.28)' },
+  muu: { fg: '#514c42', bg: '#f4f2ec', border: 'var(--line)' },
+};
+function AdminFeedbackCard({ item }) {
+  const label = (window.KOUTSI_FEEDBACK_CATEGORIES.find((c) => c.id === item.category) || {}).label || item.category;
+  const color = ADMIN_FEEDBACK_COLORS[item.category] || ADMIN_FEEDBACK_COLORS.muu;
+  return (
+    <div className="k-card" style={{ padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '4px 9px', fontSize: 11, fontWeight: 800, color: color.fg, background: color.bg, border: `1px solid ${color.border}` }}>{label}</span>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: '#111' }}>{item.senderName}</span>
+        <span style={{ fontSize: 11.5, color: '#8a857a' }}>{item.isCoach ? 'Valmentaja' : item.isPlayer ? 'Pelaaja' : ''}{item.email ? ` · ${item.email}` : ''}</span>
+        <span style={{ fontSize: 11.5, color: '#8a857a', marginLeft: 'auto' }}>{adminFormatRelativeDate(item.createdAt)}</span>
+      </div>
+      <div style={{ fontSize: 14, color: '#111', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{item.message}</div>
+    </div>
+  );
+}
+function AdminFeedbackSection() {
+  const [feedback, setFeedback] = React.useState(null);
+  const [loadError, setLoadError] = React.useState(false);
+  const [categoryFilter, setCategoryFilter] = React.useState('all');
+  const load = React.useCallback(async () => {
+    try {
+      setFeedback(await window.koutsiAdminFeedback());
+      setLoadError(false);
+    } catch {
+      setFeedback([]);
+      setLoadError(true);
+    }
+  }, []);
+  React.useEffect(() => { load(); }, [load]);
+
+  const shown = (feedback || []).filter((item) => categoryFilter === 'all' || item.category === categoryFilter);
+  const filters = [
+    { id: 'all', label: 'Kaikki' },
+    ...window.KOUTSI_FEEDBACK_CATEGORIES,
+  ];
+
+  return (
+    <div style={{ marginBottom: 26 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: 16.5, fontWeight: 800, color: 'var(--green-deep)' }}>Palaute</h2>
+        {feedback && <span style={{ fontSize: 12.5, fontWeight: 700, color: '#8a857a' }}>{feedback.length} kpl</span>}
+      </div>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
+        {filters.map((filter) => {
+          const active = categoryFilter === filter.id;
+          return <button key={filter.id} type="button" onClick={() => setCategoryFilter(filter.id)} aria-pressed={active} className="k-clickable-card"
+            style={{ border: active ? '1px solid var(--green-deep)' : '1px solid #d8d4ca', background: active ? 'var(--green-deep)' : '#fff', color: active ? '#fff' : '#514c42', borderRadius: 999, padding: '7px 11px', fontSize: 12, lineHeight: 1, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            {filter.label}
+          </button>;
+        })}
+      </div>
+      {loadError && (
+        <div className="k-card" style={{ padding: '16px 17px', marginBottom: 12, color: '#8f2f24', fontSize: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ flex: 1 }}>Palautteita ei saatu ladattua.</span>
+          <button type="button" onClick={load} className="btn-outline btn-sm">Yritä uudelleen</button>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {shown.map((item) => <AdminFeedbackCard key={item.id} item={item} />)}
+        {feedback && !loadError && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei palautteita.</div>}
+      </div>
+    </div>
+  );
+}
 function AdminView({ onActAs }) {
   const [users, setUsers] = React.useState(null);
   const [loadError, setLoadError] = React.useState(false);
@@ -4191,6 +4264,8 @@ function AdminView({ onActAs }) {
           {totals.pending} vuosisuunnitelmaa odottaa käsittelyä.
         </div>
       )}
+
+      <AdminFeedbackSection />
 
       <div className="k-card" style={{ padding: 14, marginBottom: 18 }}>
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Hae nimellä tai sähköpostilla…" aria-label="Hae käyttäjiä"
