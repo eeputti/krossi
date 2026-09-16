@@ -121,8 +121,16 @@ function KoutsiAuthProvider({ children }) {
       // Fire-and-forget: counts one real app open per person picking this tab back up,
       // not per tab-refocus (those never reach here — see the appliedUid guard above).
       // window.KOUTSI_APP_NAME is set by the app file (koutsi-valmentaja-app.jsx /
-      // koutsi-pelaaja-app.jsx) before this effect runs.
-      koutsiSupabase.rpc('koutsi_record_app_open', { app_input: window.KOUTSI_APP_NAME || 'koutsi_unknown' }).catch(() => {});
+      // koutsi-pelaaja-app.jsx) before this effect runs. Deferred via setTimeout, run in a
+      // fresh macrotask on its own stack: applySession executes inside getSession().then(...),
+      // so anything thrown here *synchronously*, in the same tick, would otherwise propagate
+      // out to that chain's .catch() and flip loading back to false early — while the real
+      // profile/pilot fetch above is still in flight — flashing the pilot-gate/onboarding
+      // screens with their still-default values. This call must never be able to touch auth
+      // loading state, so it can't run in the same tick as the rest of this function at all.
+      setTimeout(() => {
+        try { koutsiSupabase.rpc('koutsi_record_app_open', { app_input: window.KOUTSI_APP_NAME || 'koutsi_unknown' }).catch(() => {}); } catch { /* never let this affect auth state */ }
+      }, 0);
     } else {
       setProfile(null);
       setPilotAccepted(false);
