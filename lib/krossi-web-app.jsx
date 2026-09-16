@@ -43,18 +43,19 @@ const INDOOR_VENUES = [
   { name: 'Kispi Areena', city: 'Lahti', lat: 60.9891361, lng: 25.6520164 },
   { name: 'Jarkko Nieminen Areena', city: 'Turku', lat: 60.4804130, lng: 22.2625180 },
   { name: 'Bo Arena', city: 'Turku', lat: 60.4136855, lng: 22.3554531 },
-  // TODO: tarkista oikea osoite — ei löytynyt OpenStreetMapista, käytetään toistaiseksi kaupungin keskipistettä
-  { name: 'Kerttulantenniskeskus', city: 'Turku', lat: CITY_CENTERS.Turku[0], lng: CITY_CENTERS.Turku[1] },
+  // Osoite Kisakatu 2, Raisio (Kerttulan kaupunginosa) — venue-nimi tulee tästä
+  { name: 'Kerttulantenniskeskus', city: 'Turku', lat: 60.4935085, lng: 22.1581324 },
   { name: 'Smash Center', city: 'Helsinki', lat: 60.2097326, lng: 25.0680185 },
   { name: 'Talin Tenniskeskus', city: 'Helsinki', lat: 60.2124736, lng: 24.8743292 },
-  // TODO: tarkista oikea osoite — ei löytynyt OpenStreetMapista, käytetään toistaiseksi kaupungin keskipistettä
-  { name: 'Tennis Tower Helsinki', city: 'Helsinki', lat: CITY_CENTERS.Helsinki[0], lng: CITY_CENTERS.Helsinki[1] },
+  // Ei virallista osoitetta vielä julkisesti saatavilla (avautuu Jätkäsaareen) — tarkennettu
+  // kaupunginosan tasolle kaupungin keskipisteen sijaan, päivitä kun tarkka osoite tiedossa
+  { name: 'Tennis Tower Helsinki', city: 'Helsinki', lat: 60.1570639, lng: 24.9116552 },
   { name: 'Tampereen Tenniskeskus', city: 'Tampere', lat: 61.5088389, lng: 23.8447696 },
-  // TODO: tarkista oikea osoite — ei löytynyt OpenStreetMapista, käytetään toistaiseksi kaupungin keskipistettä
-  { name: 'Oulun Tenniskeskus', city: 'Oulu', lat: CITY_CENTERS.Oulu[0], lng: CITY_CENTERS.Oulu[1] },
+  // Liikuntakeskus Hukka, Isokatu 99, Oulu (tenniskeskus toimii samassa rakennuksessa)
+  { name: 'Oulun Tenniskeskus', city: 'Oulu', lat: 65.0005813, lng: 25.4576478 },
   { name: 'Jyväskylän Tenniskeskus', city: 'Jyväskylä', lat: 62.2469898, lng: 25.6805365 },
-  // TODO: tarkista oikea osoite — ei löytynyt OpenStreetMapista, käytetään toistaiseksi kaupungin keskipistettä
-  { name: 'Porin Tenniskeskus', city: 'Pori', lat: CITY_CENTERS.Pori[0], lng: CITY_CENTERS.Pori[1] },
+  // Porin Tennishalli, Metsämiehenkatu 6, Pori
+  { name: 'Porin Tenniskeskus', city: 'Pori', lat: 61.4737694, lng: 21.7710034 },
   { name: 'Kuopion Tenniskeskus', city: 'Kuopio', lat: 62.8675381, lng: 27.6371164 },
 ];
 function haversineKm(lat1, lng1, lat2, lng2) {
