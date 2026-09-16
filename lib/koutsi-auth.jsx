@@ -130,11 +130,19 @@ function KoutsiAuthProvider({ children }) {
       setLoading(false);
     }
   }, [loadProfile, loadPilotAcknowledgement]);
+  // Supabase can fire onAuthStateChange once on its own, before getSession() below has had
+  // a chance to hydrate the persisted session — sometimes with a transient null session — and
+  // that stray event used to reach applySession() just like a real one, flashing the signed-
+  // out/onboarding gates for a frame on every hard refresh. getSession() is the single source
+  // of truth for the first render; only once it has settled do later auth events (real sign-in,
+  // sign-out, a recovery link) get applied.
+  const initialSessionChecked = React.useRef(false);
   React.useEffect(() => {
     koutsiSupabase.auth.getSession()
-      .then(({ data: { session: s } }) => applySession(s))
-      .catch(() => setLoading(false)); // no session beats an eternal spinner
+      .then(({ data: { session: s } }) => { initialSessionChecked.current = true; applySession(s); })
+      .catch(() => { initialSessionChecked.current = true; setLoading(false); }); // no session beats an eternal spinner
     const { data: { subscription } } = koutsiSupabase.auth.onAuthStateChange((ev, s) => {
+      if (!initialSessionChecked.current) return;
       if (ev === 'PASSWORD_RECOVERY') { setSession(s); setRecoveryMode(true); setLoading(false); return; }
       if (ev === 'TOKEN_REFRESHED' || ev === 'USER_UPDATED') { setSession(s); return; }
       applySession(s);

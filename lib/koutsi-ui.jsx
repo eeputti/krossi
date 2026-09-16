@@ -596,23 +596,23 @@ function useKoutsiTabRoute(slugs, fallback) {
 // player and coach apps (each has its own dismiss handler and its own "own row"
 // to submit feedback under — koutsi_students or koutsi_coaches).
 function KoutsiWelcomeModal({ onClose }) {
-  const feedbackChip = { display: 'inline-flex', alignItems: 'center', padding: '3px 11px', borderRadius: 999, fontWeight: 700, fontSize: 13, color: '#8f2f24', border: '1.6px solid #e3c9c4', background: 'transparent', verticalAlign: 'middle' };
+  const feedbackChip = { display: 'inline-flex', alignItems: 'center', padding: '3px 11px', borderRadius: 999, fontWeight: 700, fontSize: 13, color: '#fff', border: '1.6px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.12)', verticalAlign: 'middle' };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(10,15,10,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: 'var(--sand)', border: '1px solid var(--line)', borderRadius: 18, padding: '28px 26px 26px', animation: 'kFadeIn .2s ease' }}>
+      <div style={{ width: 'min(440px, 100%)', maxHeight: '90vh', overflowY: 'auto', background: 'var(--green-deep)', borderRadius: 18, padding: '28px 26px 26px', animation: 'kFadeIn .2s ease', boxShadow: '0 24px 64px -20px rgba(0,0,0,0.6)' }}>
         <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, marginBottom: 16 }}>
-          <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--green-deep)', letterSpacing: -0.5 }}>Krossi</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#8a857a' }}>Koutsi</span>
+          <span style={{ fontWeight: 800, fontSize: 20, color: 'var(--lime)', letterSpacing: -0.5 }}>Krossi</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#b7b2a5' }}>Koutsi</span>
         </div>
-        <h3 style={{ fontSize: 21, fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1.25, marginBottom: 18 }}>Tervetuloa Krossi Koutsiin!</h3>
-        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
+        <h3 style={{ fontSize: 21, fontWeight: 800, color: '#fff', lineHeight: 1.25, marginBottom: 18 }}>Tervetuloa Krossi Koutsiin!</h3>
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#e9e6dd', marginBottom: 14 }}>
           Valtava kiitos, että oot mukana testaamassa! 🎾
         </p>
-        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 22 }}>
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#e9e6dd', marginBottom: 22 }}>
           Jos jokin <strong>ei toimi, tuntuu epäselvältä tai voisi mielestäsi toimia paremmin</strong>, kerro siitä matalalla
-          kynnyksellä. Löydät <span style={feedbackChip}>Anna palautetta</span> -napin Profiilin oikeasta yläkulmasta.
+          kynnyksellä. Löydät <span style={feedbackChip}>Anna palautetta</span> -napin Profiili-välilehdeltä.
         </p>
-        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 22, fontWeight: 700 }}>
+        <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#e9e6dd', marginBottom: 22, fontWeight: 700 }}>
           Kiitos, että oot mukana kehittämässä parempaa tennistä!
         </p>
         <button onClick={onClose} className="btn-lime btn-lg" style={{ width: '100%' }}>Aloitetaan!</button>
