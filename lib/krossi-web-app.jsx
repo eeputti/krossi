@@ -323,6 +323,12 @@ async function krossiAdminUsers() {
     adminCities: r.admin_cities || [],
   }));
 }
+// Antaa ylläpitäjän vaihtaa oman tilinsä maksullisen/maksuttoman version
+// välillä ilman Stripeä — ks. krossi_set_own_paid_status-migraatio.
+async function krossiSetOwnPaidStatus(paid) {
+  const { error } = await supabase.rpc('krossi_set_own_paid_status', { p_paid: paid });
+  if (error) throw error;
+}
 // Kaupungit joissa nykyinen käyttäjä (esim. valmentaja) saa luoda tapahtumia.
 // Superadmin saa kaikki kaupungit AREA_OPTIONS-listasta suoraan käyttöliittymässä.
 async function krossiMyAdminCities() {
@@ -2003,7 +2009,7 @@ const HANDEDNESS = ['oikeakätinen','vasenkätinen'];
 const BACKHAND_TYPES = ['yhden käden','kahden käden'];
 
 function ProfileFullScreen({ onOpenBlocked }) {
-  const { session, profile, refreshProfile } = useAuth();
+  const { session, profile, refreshProfile, isAdmin } = useAuth();
   const [editing, setEditing] = React.useState(false);
   const [form, setForm] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
@@ -2012,6 +2018,13 @@ function ProfileFullScreen({ onOpenBlocked }) {
   const [legal, setLegal] = React.useState(null); // null | 'terms' | 'privacy'
   const [deleting, setDeleting] = React.useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [togglingPaid, setTogglingPaid] = React.useState(false);
+  const togglePaid = async () => {
+    setTogglingPaid(true);
+    try { await krossiSetOwnPaidStatus(!profile.paidAt); await refreshProfile(); }
+    catch (e) { alert(e.message || 'Tilan vaihto epäonnistui.'); }
+    finally { setTogglingPaid(false); }
+  };
 
   React.useEffect(() => {
     if(profile&&!form) setForm({
@@ -2141,6 +2154,15 @@ function ProfileFullScreen({ onOpenBlocked }) {
       <div style={{fontWeight:700,color:'var(--ink)',marginBottom:4}}>Profiilisi ei ole vielä viimeistelty</div>
       <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:12}}>Kertamaksu 8,99 € avaa pelaajien profiilit ja haasteet.</div>
       <button className="btn btn-lime btn-md" onClick={startCheckout}>Maksa 8,99 €</button>
+    </div>}
+    {isAdmin && <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16,padding:'12px 16px',background:'#fff',border:'1px solid var(--border)',borderRadius:12}}>
+      <div>
+        <div style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>Maksullinen versio (ylläpito)</div>
+        <div style={{fontSize:12,color:'var(--text-muted)',marginTop:2}}>Vaihda oma tilisi maksullisen ja maksuttoman version välillä ilman maksua.</div>
+      </div>
+      <button onClick={togglePaid} disabled={togglingPaid} aria-label="Vaihda maksullinen/maksuton" style={{width:48,height:28,borderRadius:14,border:'none',padding:2,cursor:'pointer',background:profile.paidAt?'var(--green-deep)':'var(--border)',transition:'background .2s',position:'relative',flexShrink:0,opacity:togglingPaid?0.6:1}}>
+        <span style={{display:'block',width:24,height:24,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,.2)',transition:'transform .2s',transform:profile.paidAt?'translateX(20px)':'translateX(0)'}}/>
+      </button>
     </div>}
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,marginBottom:24}}>
       <Avatar uri={profile.avatarUrl} name={profile.nimi} color={profile.avatarColor} size={76}/>
