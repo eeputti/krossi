@@ -545,7 +545,10 @@ function AuthProvider({ children }) {
   const trackAppOpen = React.useCallback((uid) => {
     if (!uid || appOpenTrackedUid.current === uid) return;
     appOpenTrackedUid.current = uid;
-    supabase.rpc('koutsi_record_app_open', { app_input: 'krossi_web' }).catch(() => {});
+    // supabase.rpc(...) returns a lazy "thenable" (has .then, no .catch) — calling .catch()
+    // on it directly throws synchronously before .then() ever runs the request, so it never
+    // actually fires. Promise.resolve(...) adopts the thenable into a real Promise first.
+    Promise.resolve(supabase.rpc('koutsi_record_app_open', { app_input: 'krossi_web' })).catch(() => {});
   }, []);
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {

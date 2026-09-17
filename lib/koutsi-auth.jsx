@@ -129,7 +129,11 @@ function KoutsiAuthProvider({ children }) {
       // screens with their still-default values. This call must never be able to touch auth
       // loading state, so it can't run in the same tick as the rest of this function at all.
       setTimeout(() => {
-        try { koutsiSupabase.rpc('koutsi_record_app_open', { app_input: window.KOUTSI_APP_NAME || 'koutsi_unknown' }).catch(() => {}); } catch { /* never let this affect auth state */ }
+        // koutsiSupabase.rpc(...) returns a lazy "thenable" (has .then, no .catch/.finally) —
+        // calling .catch() on it directly throws synchronously ("not a function") *before*
+        // .then() ever runs, so the request never fires and the throw is swallowed silently
+        // below. Promise.resolve(...) adopts the thenable into a real Promise first.
+        try { Promise.resolve(koutsiSupabase.rpc('koutsi_record_app_open', { app_input: window.KOUTSI_APP_NAME || 'koutsi_unknown' })).catch(() => {}); } catch { /* never let this affect auth state */ }
       }, 0);
     } else {
       setProfile(null);
