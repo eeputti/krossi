@@ -63,3 +63,35 @@ test('deployment output excludes secrets and backend implementation files', asyn
   await assert.rejects(access(join(output, 'supabase')));
   await assert.rejects(access(join(output, 'KOUTSI-DPA-CHECKLIST.md')));
 });
+
+test('robots.txt disallows auth-gated app views and points to the host sitemap', async () => {
+  const env = { ASSETS: { fetch: async () => new Response('unused') } };
+  const krossi = await worker.fetch(new Request('https://krossi.app/robots.txt'), env);
+  const krossiBody = await krossi.text();
+  assert.match(krossiBody, /Disallow: \/pelaa/);
+  assert.match(krossiBody, /Sitemap: https:\/\/krossi\.app\/sitemap\.xml/);
+
+  const koutsi = await worker.fetch(new Request('https://koutsi.krossi.app/robots.txt'), env);
+  const koutsiBody = await koutsi.text();
+  assert.match(koutsiBody, /Disallow: \/valmentaja/);
+  assert.match(koutsiBody, /Disallow: \/pelaaja/);
+  assert.match(koutsiBody, /Sitemap: https:\/\/koutsi\.krossi\.app\/sitemap\.xml/);
+
+  const demo = await worker.fetch(new Request('https://demo.koutsi.krossi.app/robots.txt'), env);
+  assert.match(await demo.text(), /Disallow: \/\s*$/m);
+});
+
+test('sitemap.xml lists only public marketing/legal pages per host', async () => {
+  const env = { ASSETS: { fetch: async () => new Response('unused') } };
+  const krossi = await worker.fetch(new Request('https://www.krossi.app/sitemap.xml'), env);
+  const krossiBody = await krossi.text();
+  assert.match(krossiBody, /<loc>https:\/\/krossi\.app\/<\/loc>/);
+  assert.doesNotMatch(krossiBody, /pelaa/);
+
+  const koutsi = await worker.fetch(new Request('https://koutsi.krossi.app/sitemap.xml'), env);
+  const koutsiBody = await koutsi.text();
+  assert.match(koutsiBody, /<loc>https:\/\/koutsi\.krossi\.app\/<\/loc>/);
+  assert.match(koutsiBody, /<loc>https:\/\/koutsi\.krossi\.app\/tietosuoja<\/loc>/);
+  assert.match(koutsiBody, /<loc>https:\/\/koutsi\.krossi\.app\/kayttoehdot<\/loc>/);
+  assert.doesNotMatch(koutsiBody, /valmentaja|pelaaja/);
+});
