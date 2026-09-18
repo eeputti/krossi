@@ -50,7 +50,7 @@ function Hero() {
             <div className="phone-pair-item phone-pair-front"><CoachPhone width={210} /></div>
           </div>
         </div>
-        <a href="https://demo.koutsi.krossi.app" className="hero-demo-link">Kokeile demoa →</a>
+        <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-sm hero-demo-btn">Kokeile demoa →</a>
       </div>
     </section>
   );
@@ -100,7 +100,7 @@ function ClosingCTA() {
     <section className="closing" id="liity">
       <div className="closing-inner">
         <h2>Rakennetaan tätä yhdessä.</h2>
-        <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-lg">Avaa demo →</a>
+        <a href="https://koutsi.krossi.app/valmentaja" className="btn-lime btn-lg">Aloita treenaaminen →</a>
       </div>
     </section>
   );

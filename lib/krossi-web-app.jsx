@@ -642,6 +642,9 @@ function AuthScreen() {
 
   return (
     <div className="auth-shell" style={{ background: 'var(--paper)' }}>
+      <div className="koutsi-banner">
+        Etsitkö Krossi Koutsia?<a href="https://koutsi.krossi.app">Siirry Krossi Koutsiin →</a>
+      </div>
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
         <span style={{ fontSize: 72, fontWeight: 800, color: 'var(--lime)', letterSpacing: -2.5 }}>Krossi</span>
         <p style={{ color: 'var(--text-muted)', marginTop: 6, fontSize: 14 }}>Löydä pelikavereita tennikseen</p>

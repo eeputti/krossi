@@ -91,7 +91,7 @@ function CoachBanner() {
   if (dismissed) return null;
   return (
     <div className="coach-banner">
-      <span>Oletko valmentaja tai valmennettava? <a href="https://koutsi.krossi.app">Krossi Koutsi on tehty teille →</a></span>
+      <span>Oletko valmentaja tai valmennettava?<br /><a href="https://koutsi.krossi.app">Siirry Krossi Koutsiin →</a></span>
       <button type="button" className="coach-banner-close" onClick={() => setDismissed(true)} aria-label="Sulje ilmoitus">×</button>
     </div>
   );
