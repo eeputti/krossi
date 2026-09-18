@@ -86,6 +86,17 @@ function NewsMedia() {
 }
 
 // ── sections ────────────────────────────────────────────
+function CoachBanner() {
+  const [dismissed, setDismissed] = React.useState(false);
+  if (dismissed) return null;
+  return (
+    <div className="coach-banner">
+      <span>Oletko valmentaja tai valmennettava? <a href="https://koutsi.krossi.app">Krossi Koutsi on tehty teille →</a></span>
+      <button type="button" className="coach-banner-close" onClick={() => setDismissed(true)} aria-label="Sulje ilmoitus">×</button>
+    </div>
+  );
+}
+
 function Nav() {
   return (
     <div className="nav-wrap">
@@ -94,6 +105,7 @@ function Nav() {
         <nav className="nav-links">
           <a href="#ominaisuudet">Ominaisuudet</a>
           <a href="#halleille">Halleille</a>
+          <a href="https://koutsi.krossi.app">Valmentajille</a>
         </nav>
         <a href="/pelaa" className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Aloita pelit</a>
       </header>
@@ -347,6 +359,7 @@ function App() {
   };
   return (
     <div className="krossi-root" id="top" data-court={t.courtLines ? 'on' : 'off'} style={rootStyle}>
+      <CoachBanner />
       <Nav />
       <Hero t={t} />
       <UpcomingMatches />
