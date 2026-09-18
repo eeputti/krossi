@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "build:cloudflare": "npm run build && node scripts/build-cloudflare.mjs",
+    "build:cloudflare": "npm run build && node scripts/build-cloudflare.mjs && node scripts/prerender.mjs",
     "dev:cloudflare": "npm run build:cloudflare && CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false wrangler dev",
     "test:cloudflare": "npm run build:cloudflare && node --test tests/cloudflare-routing.test.mjs",
     "smoke:cloudflare": "node scripts/smoke-cloudflare.mjs",
@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.25.9",
+    "puppeteer-core": "^25.11.0",
     "wrangler": "^4.125.0"
   },
   "dependencies": {

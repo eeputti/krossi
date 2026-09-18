@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 
@@ -62,6 +62,15 @@ test('deployment output excludes secrets and backend implementation files', asyn
   await assert.rejects(access(join(output, '.env.local')));
   await assert.rejects(access(join(output, 'supabase')));
   await assert.rejects(access(join(output, 'KOUTSI-DPA-CHECKLIST.md')));
+});
+
+test('landing pages ship prerendered content instead of an empty #root', async () => {
+  const output = join(import.meta.dirname, '..', 'cloudflare-dist');
+  for (const file of ['index.html', 'koutsi.html']) {
+    const html = await readFile(join(output, file), 'utf8');
+    assert.doesNotMatch(html, /<div id="root">\s*<\/div>/, file);
+    assert.match(html, /<div id="root">.{200,}/s, file);
+  }
 });
 
 test('robots.txt disallows auth-gated app views and points to the host sitemap', async () => {
