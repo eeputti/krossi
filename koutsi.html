@@ -123,8 +123,14 @@ window.krossiLoadPixel = function () {
   .hl { background: var(--lime); padding: 0 0.08em; line-height: 0.72; border-radius: 0; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
   .hero-sub { margin: 0; font-size: clamp(1.02rem, 2.1vw, 1.2rem); line-height: 1.5; color: #514c42; max-width: 42ch; }
   .hero-cta { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-  .hero-visual { position: relative; display: flex; justify-content: center; align-items: center; isolation: isolate; }
+  .hero-visual { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; isolation: isolate; }
   .hero-stage { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; padding: 0 30px; }
+  .hero-demo-link {
+    position: relative; z-index: 1; margin-top: 6px;
+    font-size: 14px; font-weight: 700; color: var(--green-deep);
+    text-decoration: none; border-bottom: 1.5px solid var(--lime); padding-bottom: 1px;
+  }
+  .hero-demo-link:hover { color: #0a2c20; }
   .phone-glow { position: absolute; inset: -8% -8%; z-index: 0; background: radial-gradient(circle at 50% 44%, rgba(14,59,44,0.16), transparent 64%); filter: blur(30px); }
   .phone-pair { position: relative; z-index: 3; display: flex; align-items: center; }
   .phone-pair-item { position: relative; }

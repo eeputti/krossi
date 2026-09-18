@@ -39,8 +39,7 @@ function Hero() {
           Kaikki löytyy täältä.
         </p>
         <div className="hero-cta">
-          <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-lg">Avaa demo →</a>
-          <a href="https://koutsi.krossi.app/valmentaja" className="btn-dark btn-lg">Luo tili →</a>
+          <a href="https://koutsi.krossi.app/valmentaja" className="btn-lime btn-lg">Aloita treenaaminen →</a>
         </div>
       </div>
       <div className="hero-visual">
@@ -51,6 +50,7 @@ function Hero() {
             <div className="phone-pair-item phone-pair-front"><CoachPhone width={210} /></div>
           </div>
         </div>
+        <a href="https://demo.koutsi.krossi.app" className="hero-demo-link">Kokeile demoa →</a>
       </div>
     </section>
   );
