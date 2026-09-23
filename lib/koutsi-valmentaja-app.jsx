@@ -4141,9 +4141,26 @@ const ADMIN_FEEDBACK_COLORS = {
   toimii_hyvin: { fg: '#0e5b42', bg: 'rgba(94,189,139,0.12)', border: 'rgba(47,125,84,0.28)' },
   muu: { fg: '#514c42', bg: '#f4f2ec', border: 'var(--line)' },
 };
-function AdminFeedbackCard({ item }) {
+function AdminFeedbackCard({ item, onDelete }) {
+  const toast = window.useKoutsiToast();
+  const confirm = window.useKoutsiConfirm();
+  const [deleting, setDeleting] = React.useState(false);
   const label = (window.KOUTSI_FEEDBACK_CATEGORIES.find((c) => c.id === item.category) || {}).label || item.category;
   const color = ADMIN_FEEDBACK_COLORS[item.category] || ADMIN_FEEDBACK_COLORS.muu;
+  const remove = async () => {
+    const preview = item.message.length > 80 ? `${item.message.slice(0, 80)}…` : item.message;
+    const ok = await confirm({
+      title: 'Poista palaute?',
+      body: `${item.senderName}: "${preview}". Toimintoa ei voi perua.`,
+      confirmLabel: 'Poista',
+      cancelLabel: 'Peruuta',
+      danger: true,
+    });
+    if (!ok) return;
+    setDeleting(true);
+    const deleted = await toast.run(() => onDelete(item), 'Palaute poistettu.');
+    if (!deleted) setDeleting(false);
+  };
   return (
     <div className="k-card" style={{ padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
@@ -4153,6 +4170,11 @@ function AdminFeedbackCard({ item }) {
         <span style={{ fontSize: 11.5, color: '#8a857a', marginLeft: 'auto' }}>{adminFormatRelativeDate(item.createdAt)}</span>
       </div>
       <div style={{ fontSize: 14, color: '#111', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{item.message}</div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+        <button type="button" onClick={remove} disabled={deleting} className="btn-outline btn-sm" style={{ color: '#8f2f24', borderColor: '#e3c9c4', opacity: deleting ? 0.55 : 1 }}>
+          {deleting ? 'Poistetaan…' : 'Poista'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -4170,6 +4192,11 @@ function AdminFeedbackSection() {
     }
   }, []);
   React.useEffect(() => { load(); }, [load]);
+
+  const removeFeedback = async (item) => {
+    await window.koutsiAdminDeleteFeedback(item.id);
+    setFeedback((prev) => (prev || []).filter((f) => f.id !== item.id));
+  };
 
   const shown = (feedback || []).filter((item) => categoryFilter === 'all' || item.category === categoryFilter);
   const filters = [
@@ -4199,12 +4226,26 @@ function AdminFeedbackSection() {
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {shown.map((item) => <AdminFeedbackCard key={item.id} item={item} />)}
+        {shown.map((item) => <AdminFeedbackCard key={item.id} item={item} onDelete={removeFeedback} />)}
         {feedback && !loadError && shown.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei palautteita.</div>}
       </div>
     </div>
   );
 }
+// Never-signed-in users sort as if their last sign-in were the epoch, so they surface
+// first under "pisimpään poissa" alongside genuinely dormant accounts, not last.
+const ADMIN_USER_SORTS = {
+  name: (a, b) => a.name.localeCompare(b.name, 'fi'),
+  'signin-desc': (a, b) => new Date(b.lastSignInAt || 0) - new Date(a.lastSignInAt || 0),
+  'signin-asc': (a, b) => new Date(a.lastSignInAt || 0) - new Date(b.lastSignInAt || 0),
+  'joined-desc': (a, b) => new Date(b.joinedAt || 0) - new Date(a.joinedAt || 0),
+};
+const ADMIN_USER_SORT_OPTIONS = [
+  { id: 'name', label: 'Nimi (A-Ö)' },
+  { id: 'signin-desc', label: 'Viimeksi kirjautunut ensin' },
+  { id: 'signin-asc', label: 'Pisimpään poissa ensin' },
+  { id: 'joined-desc', label: 'Uusin tili ensin' },
+];
 function AdminView({ onActAs }) {
   const [users, setUsers] = React.useState(null);
   const [loadError, setLoadError] = React.useState(false);
@@ -4212,6 +4253,7 @@ function AdminView({ onActAs }) {
   const [plansCoach, setPlansCoach] = React.useState(null);
   const [search, setSearch] = React.useState('');
   const [roleFilter, setRoleFilter] = React.useState('all');
+  const [sortBy, setSortBy] = React.useState('name');
 
   const load = React.useCallback(async () => {
     try {
@@ -4230,7 +4272,8 @@ function AdminView({ onActAs }) {
     || (roleFilter === 'player' && user.isPlayer)
     || (roleFilter === 'admin' && user.isAdmin)
     || (roleFilter === 'other' && !user.isCoach && !user.isPlayer);
-  const shown = (users || []).filter((user) => matchesRole(user) && (!q || `${user.name} ${user.email}`.toLowerCase().includes(q)));
+  const filtered = (users || []).filter((user) => matchesRole(user) && (!q || `${user.name} ${user.email}`.toLowerCase().includes(q)));
+  const shown = [...filtered].sort(ADMIN_USER_SORTS[sortBy] || ADMIN_USER_SORTS.name);
   const activeSince30d = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const totals = (users || []).reduce((acc, user) => ({
     coaches: acc.coaches + (user.isCoach ? 1 : 0),
@@ -4270,7 +4313,7 @@ function AdminView({ onActAs }) {
       <div className="k-card" style={{ padding: 14, marginBottom: 18 }}>
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Hae nimellä tai sähköpostilla…" aria-label="Hae käyttäjiä"
           style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 12, padding: '11px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', background: '#fff', marginBottom: 11 }} />
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }} aria-label="Suodata roolin mukaan">
+        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 11 }} aria-label="Suodata roolin mukaan">
           {filters.map((filter) => {
             const active = roleFilter === filter.id;
             return <button key={filter.id} type="button" onClick={() => setRoleFilter(filter.id)} aria-pressed={active} className="k-clickable-card"
@@ -4278,6 +4321,13 @@ function AdminView({ onActAs }) {
               {filter.label} <span style={{ opacity: active ? 0.78 : 0.6 }}>{filter.count}</span>
             </button>;
           })}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <label htmlFor="admin-sort" style={{ fontSize: 12, fontWeight: 700, color: '#8a857a' }}>Järjestys</label>
+          <select id="admin-sort" className="k-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+            style={{ border: '1px solid #d8d4ca', borderRadius: 10, padding: '7px 10px', fontSize: 12.5, fontFamily: 'inherit', color: '#111', background: '#fff' }}>
+            {ADMIN_USER_SORT_OPTIONS.map((opt) => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+          </select>
         </div>
       </div>
 

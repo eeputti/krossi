@@ -964,6 +964,7 @@
   window.koutsiAdminCoaches = () => done([]);
   window.koutsiAdminUsers = () => done([]);
   window.koutsiAdminFeedback = () => done([]);
+  window.koutsiAdminDeleteFeedback = () => Promise.reject(new Error('not allowed'));
   window.koutsiAdminDeleteUser = () => Promise.reject(new Error('not allowed'));
   window.koutsiAdminActAs = () => Promise.reject(new Error('not allowed'));
   window.koutsiAdminGroups = () => done([]);
