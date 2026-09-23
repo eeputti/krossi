@@ -1134,7 +1134,7 @@ function PlayersScreen({ onOpenPlayer }) {
   const { session, profile } = useAuth();
   const [players, setPlayers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [filter, setFilter] = React.useState({ skill:'', playStyles:[], gender:'' });
+  const [filter, setFilter] = React.useState({ skill:'', playStyles:[], gender:'', name:'', ageRanges:[], allCities:false });
   const [showFilterModal, setShowFilterModal] = React.useState(false);
   const [showPaywall, setShowPaywall] = React.useState(false);
   const load = React.useCallback(async () => {
@@ -1154,19 +1154,26 @@ function PlayersScreen({ onOpenPlayer }) {
   }, [load]);
   const filtered = React.useMemo(() => {
     const home = profile?.alue?.[0];
+    const nameQuery = filter.name.trim().toLowerCase();
     return players.filter(p => {
-      if (home && !p.alue.includes(home)) return false;
+      if (!filter.allCities && home && !p.alue.includes(home)) return false;
       if (filter.skill && !p.pelitaso.includes(filter.skill)) return false;
       if (filter.playStyles.length>0 && !filter.playStyles.some(s=>p.pelimuoto.includes(s))) return false;
       if (filter.gender && p.sukupuoli!==filter.gender) return false;
+      if (filter.ageRanges.length>0 && !filter.ageRanges.includes(p.ika)) return false;
+      if (nameQuery && !p.nimi.toLowerCase().includes(nameQuery)) return false;
       return true;
     });
   }, [players,filter,profile]);
-  const extraFilterCount = (filter.playStyles.length>0?1:0) + (filter.gender?1:0);
+  const extraFilterCount = (filter.playStyles.length>0?1:0) + (filter.gender?1:0) + (filter.ageRanges.length>0?1:0) + (filter.name.trim()?1:0) + (filter.allCities?1:0);
   const togglePlayStyle = s => setFilter(f=>({...f, playStyles: f.playStyles.includes(s)?f.playStyles.filter(x=>x!==s):[...f.playStyles,s]}));
+  const toggleAgeRange = v => setFilter(f=>({...f, ageRanges: f.ageRanges.includes(v)?f.ageRanges.filter(x=>x!==v):[...f.ageRanges,v]}));
   return (
     <div className="page">
       <div className="page-header"><h2 className="page-title">Pelaajat</h2></div>
+      <div className="field" style={{marginBottom:10}}>
+        <input className="input" placeholder="Hae nimellä" value={filter.name} onChange={e=>setFilter(f=>({...f,name:e.target.value}))}/>
+      </div>
       <div className="filter-bar" style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
         <button className={`filter-chip ${!filter.skill?'active':''}`} onClick={()=>setFilter(f=>({...f,skill:''}))}>Kaikki</button>
         {PLAIN_SKILL_LEVELS.map(l=><button key={l} className={`filter-chip ${filter.skill===l?'active':''}`} onClick={()=>setFilter(f=>({...f,skill:f.skill===l?'':l}))}>{titleCase(l)}</button>)}
@@ -1179,7 +1186,7 @@ function PlayersScreen({ onOpenPlayer }) {
         : filtered.length===0 ? <Empty title="Ei pelaajia näillä suodattimilla."/> :
         filtered.map(p=><PlayerCard key={p.id} player={p} onClick={()=>onOpenPlayer(p)}/>)}
       {showPaywall && <PaywallModal onClose={()=>setShowPaywall(false)}/>}
-      {showFilterModal && <FilterModal title="Suodata pelaajia" onClose={()=>setShowFilterModal(false)} onClear={()=>setFilter(f=>({...f,playStyles:[],gender:''}))}>
+      {showFilterModal && <FilterModal title="Suodata pelaajia" onClose={()=>setShowFilterModal(false)} onClear={()=>setFilter(f=>({...f,playStyles:[],gender:'',ageRanges:[],allCities:false}))}>
         <div className="field"><div className="detail-label">Pelityyli</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
           {PLAY_STYLES.map(s=><button key={s} className={`filter-chip ${filter.playStyles.includes(s)?'active':''}`} onClick={()=>togglePlayStyle(s)}>{titleCase(s)}</button>)}
         </div></div>
@@ -1187,6 +1194,13 @@ function PlayersScreen({ onOpenPlayer }) {
           <button className={`filter-chip ${!filter.gender?'active':''}`} onClick={()=>setFilter(f=>({...f,gender:''}))}>Kaikki</button>
           {GENDERS.map(g=><button key={g} className={`filter-chip ${filter.gender===g?'active':''}`} onClick={()=>setFilter(f=>({...f,gender:f.gender===g?'':g}))}>{titleCase(g)}</button>)}
         </div></div>
+        <div className="field"><div className="detail-label">Ikä</div><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {AGE_RANGES.map(r=><button key={r.value} className={`filter-chip ${filter.ageRanges.includes(r.value)?'active':''}`} onClick={()=>toggleAgeRange(r.value)}>{r.label}</button>)}
+        </div></div>
+        <div className="field"><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14,color:'var(--ink)'}}>
+          <input type="checkbox" checked={filter.allCities} onChange={e=>setFilter(f=>({...f,allCities:e.target.checked}))} style={{width:18,height:18,accentColor:'var(--green-deep)'}}/>
+          Näytä pelaajat myös muista kaupungeista
+        </label></div>
       </FilterModal>}
     </div>
   );
@@ -2707,7 +2721,7 @@ function AppShell() {
   React.useEffect(() => {
     if (isAdmin === false && tab === 'admin') navigateTab('players');
   }, [isAdmin, tab, navigateTab]);
-  const showSidebar = tab === 'players' || tab === 'challenges' || tab === 'messages';
+  const showSidebar = tab === 'players' || tab === 'challenges' || tab === 'messages' || tab === 'league';
   const popup = POPUP_SCREEN_TYPES.includes(screen.type) ? screen : null;
 
   if (screen.type === 'chat') return <div className="app-shell"><TopNav tab={tab} onTabChange={navigateTab}/><div className="app-body"><div className="app-full" style={{display:'flex',flexDirection:'column'}}><ChatScreen conversation={screen.conversation} onBack={back}/></div></div></div>;
