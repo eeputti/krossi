@@ -1501,6 +1501,315 @@ function CreateChallengeScreen({ onBack, onCreated, mode='open' }) {
   </div>;
 }
 
+// ── League ──────────────────────────────────────────────
+const MIN_LEAGUE_PLAYERS = 4;
+
+function computeLeagueStandings(members, fixtures) {
+  const rows = new Map();
+  members.forEach(m => rows.set(m.userId, { userId: m.userId, name: m.name, avatarUrl: m.avatarUrl, avatarColor: m.avatarColor, wins: 0, losses: 0, setsWon: 0, setsLost: 0, gamesWon: 0, gamesLost: 0 }));
+  fixtures.forEach(f => {
+    if (!f.result || !f.result.confirmedBy) return;
+    const a = rows.get(f.playerAId), b = rows.get(f.playerBId);
+    if (!a || !b) return;
+    let aSets = 0, bSets = 0, aGames = 0, bGames = 0;
+    f.result.sets.forEach(s => { aGames += s.my; bGames += s.opp; if (s.my > s.opp) aSets++; else if (s.opp > s.my) bSets++; });
+    a.setsWon += aSets; a.setsLost += bSets; a.gamesWon += aGames; a.gamesLost += bGames;
+    b.setsWon += bSets; b.setsLost += aSets; b.gamesWon += bGames; b.gamesLost += aGames;
+    if (f.result.winnerId === a.userId) { a.wins++; b.losses++; } else { b.wins++; a.losses++; }
+  });
+  return [...rows.values()].sort((l, r) => {
+    if (r.wins !== l.wins) return r.wins - l.wins;
+    const ld = l.setsWon - l.setsLost, rd = r.setsWon - r.setsLost;
+    if (rd !== ld) return rd - ld;
+    return (r.gamesWon - r.gamesLost) - (l.gamesWon - l.gamesLost);
+  });
+}
+
+function LeagueResultModal({ myName, myAvatarUrl, myAvatarColor, opponentName, opponentAvatarUrl, opponentAvatarColor, onClose, onSubmit, loading }) {
+  const [sets, setSets] = React.useState([{ my: 0, opp: 0 }]);
+  const updateSet = (i, field, v) => {
+    const n = Math.max(0, Math.min(99, parseInt(v, 10) || 0));
+    setSets(s => s.map((row, idx) => idx === i ? { ...row, [field]: n } : row));
+  };
+  const validSets = sets.filter(s => s.my > 0 || s.opp > 0);
+  const submit = () => {
+    if (validSets.length === 0) return;
+    const won = validSets.filter(s => s.my > s.opp).length, lost = validSets.filter(s => s.opp > s.my).length;
+    onSubmit(validSets, won > lost);
+  };
+  return <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-sheet" style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+      <button className="icon-btn" onClick={onClose} aria-label="Sulje" style={{ position: 'absolute', top: 16, right: 16, fontSize: 18 }}>✕</button>
+      <h3 style={{ margin: '0 16px 16px 0', fontSize: 18, fontWeight: 800, color: 'var(--ink)' }}>Merkitse tulos</h3>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, maxWidth: 140 }}><Avatar uri={myAvatarUrl} name={myName} color={myAvatarColor} size={32} /><span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{myName}</span></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, maxWidth: 140 }}><Avatar uri={opponentAvatarUrl} name={opponentName} color={opponentAvatarColor} size={32} /><span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opponentName}</span></div>
+      </div>
+      <div className="field">
+        <div className="detail-label">Erien tulokset</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {sets.map((s, i) =>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 54, fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>{`Erä ${i + 1}`}</span>
+              <input className="input" type="number" min="0" max="99" style={{ width: 60, textAlign: 'center' }} value={s.my || ''} placeholder="0" onChange={e => updateSet(i, 'my', e.target.value)} />
+              <span style={{ color: 'var(--text-muted)' }}>–</span>
+              <input className="input" type="number" min="0" max="99" style={{ width: 60, textAlign: 'center' }} value={s.opp || ''} placeholder="0" onChange={e => updateSet(i, 'opp', e.target.value)} />
+              {sets.length > 1 && <button onClick={() => setSets(s => s.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}>✕</button>}
+            </div>)}
+        </div>
+        {sets.length < 5 && <button className="btn btn-outline-d btn-sm" style={{ marginTop: 8 }} onClick={() => setSets(s => [...s, { my: 0, opp: 0 }])}>+ Lisää erä</button>}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <button className="btn btn-outline-d btn-md" onClick={onClose}>Peruuta</button>
+        <button className="btn btn-dark btn-lg" style={{ flex: 1 }} onClick={submit} disabled={loading || validSets.length === 0}>{loading ? 'Tallennetaan...' : 'Tallenna tulos'}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+function LeagueScreen({ onOpenChat }) {
+  const { session, profile } = useAuth();
+  const userId = session?.user?.id;
+  const homeCity = profile?.alue?.[0] || null;
+  const [loading, setLoading] = React.useState(true);
+  const [myLeague, setMyLeague] = React.useState(null);
+  const [openLeagues, setOpenLeagues] = React.useState([]);
+  const [busyLeagueId, setBusyLeagueId] = React.useState(null);
+  const [starting, setStarting] = React.useState(false);
+  const [creating, setCreating] = React.useState(false);
+  const [showCreateForm, setShowCreateForm] = React.useState(false);
+  const [seasonLabel, setSeasonLabel] = React.useState('');
+  const [skillLevel, setSkillLevel] = React.useState('');
+  const [resultFixture, setResultFixture] = React.useState(null);
+  const [savingResult, setSavingResult] = React.useState(false);
+  const [fixtureBusyId, setFixtureBusyId] = React.useState(null);
+  const [error, setError] = React.useState('');
+
+  const load = React.useCallback(async () => {
+    if (!userId) { setLoading(false); return; }
+    try {
+      const { data: memberRows, error: mErr } = await supabase.from('league_members').select('league_id, joined_at, league:leagues(*)').eq('user_id', userId).order('joined_at', { ascending: false });
+      if (mErr) throw mErr;
+      const rows = (memberRows || []).filter(r => r.league && r.league.status !== 'completed');
+      if (rows.length === 0) {
+        setMyLeague(null);
+        if (homeCity) {
+          const { data: leagueRows, error: lErr } = await supabase.from('leagues').select('*').eq('city', homeCity).eq('status', 'signup').order('created_at', { ascending: false });
+          if (lErr) throw lErr;
+          const lr = leagueRows || [];
+          const counts = new Map();
+          if (lr.length) {
+            const { data: mc } = await supabase.from('league_members').select('league_id').in('league_id', lr.map(r => r.id));
+            (mc || []).forEach(r => counts.set(r.league_id, (counts.get(r.league_id) || 0) + 1));
+          }
+          setOpenLeagues(lr.map(r => ({ ...r, memberCount: counts.get(r.id) || 0 })));
+        } else {
+          setOpenLeagues([]);
+        }
+      } else {
+        const leagueRow = rows[0].league;
+        const [{ data: memberRows2, error: mE2 }, { data: fixtureRows, error: fE2 }] = await Promise.all([
+          supabase.from('league_members').select('user_id, group_number, joined_at, profile:profiles!league_members_user_id_fkey(name,avatar_url,avatar_color)').eq('league_id', leagueRow.id),
+          supabase.from('league_fixtures').select('id, group_number, player_a_id, player_b_id, player_a:profiles!league_fixtures_player_a_id_fkey(name,avatar_url,avatar_color), player_b:profiles!league_fixtures_player_b_id_fkey(name,avatar_url,avatar_color)').eq('league_id', leagueRow.id),
+        ]);
+        if (mE2) throw mE2;
+        if (fE2) throw fE2;
+        const members = (memberRows2 || []).map(r => ({ userId: r.user_id, name: r.profile?.name || 'Pelaaja', avatarUrl: r.profile?.avatar_url || null, avatarColor: r.profile?.avatar_color || 'blue', groupNumber: r.group_number ?? null }));
+        const myMember = members.find(m => m.userId === userId) || null;
+        const myGroupNumber = myMember?.groupNumber ?? null;
+        const fixtureRowsAll = fixtureRows || [];
+        const fixtureIds = fixtureRowsAll.map(r => r.id);
+        const resultsByFixture = new Map();
+        if (fixtureIds.length) {
+          const { data: resultRows, error: rErr } = await supabase.from('league_fixture_results').select('*').in('fixture_id', fixtureIds);
+          if (rErr) throw rErr;
+          (resultRows || []).forEach(r => resultsByFixture.set(r.fixture_id, r));
+        }
+        const fixtures = fixtureRowsAll.filter(r => myGroupNumber == null || r.group_number === myGroupNumber).map(r => {
+          const res = resultsByFixture.get(r.id);
+          return {
+            id: r.id, groupNumber: r.group_number, playerAId: r.player_a_id, playerBId: r.player_b_id,
+            playerAName: r.player_a?.name || 'Pelaaja', playerAAvatarUrl: r.player_a?.avatar_url || null, playerAAvatarColor: r.player_a?.avatar_color || 'blue',
+            playerBName: r.player_b?.name || 'Pelaaja', playerBAvatarUrl: r.player_b?.avatar_url || null, playerBAvatarColor: r.player_b?.avatar_color || 'blue',
+            result: res ? { id: res.id, sets: res.sets, winnerId: res.winner_id, reportedBy: res.reported_by, confirmedBy: res.confirmed_by || null } : null,
+          };
+        });
+        const groupMembers = members.filter(m => myGroupNumber == null || m.groupNumber === myGroupNumber);
+        setMyLeague({ league: leagueRow, myGroupNumber, members, fixtures, standings: computeLeagueStandings(groupMembers, fixtures) });
+      }
+    } catch (err) {
+      console.error('Liigan haku epäonnistui', err);
+      setError('Liigatietoja ei voitu hakea.');
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, homeCity]);
+
+  React.useEffect(() => { setLoading(true); load(); }, [load]);
+
+  const join = async (leagueId) => {
+    setBusyLeagueId(leagueId);
+    try { const { error } = await supabase.rpc('join_league', { league_id_input: leagueId }); if (error) throw error; await load(); }
+    catch (err) { alert(err.message || 'Liigaan ei voitu liittyä.'); }
+    finally { setBusyLeagueId(null); }
+  };
+
+  const create = async () => {
+    if (!homeCity) { setError('Lisää kotikaupunki profiiliisi ennen liigan perustamista.'); return; }
+    if (!skillLevel) { setError('Valitse liigan pelitaso.'); return; }
+    if (!seasonLabel.trim()) { setError('Anna kaudelle nimi, esim. "Syksy 2026".'); return; }
+    setError(''); setCreating(true);
+    try {
+      const { error } = await supabase.rpc('create_league', { city_input: homeCity, skill_level_input: skillLevel, season_label_input: seasonLabel.trim() });
+      if (error) throw error;
+      setShowCreateForm(false); setSeasonLabel(''); setSkillLevel('');
+      await load();
+    } catch (err) { setError(err.message || 'Liigaa ei voitu perustaa.'); }
+    finally { setCreating(false); }
+  };
+
+  const start = async () => {
+    if (!myLeague) return;
+    setStarting(true);
+    try { const { error } = await supabase.rpc('start_league', { league_id_input: myLeague.league.id }); if (error) throw error; await load(); }
+    catch (err) { alert(err.message || 'Kautta ei voitu aloittaa.'); }
+    finally { setStarting(false); }
+  };
+
+  const openFixtureChat = async (fixture) => {
+    setFixtureBusyId(fixture.id);
+    try {
+      const { data: conversationId, error } = await supabase.rpc('start_league_fixture_conversation', { fixture_id_input: fixture.id });
+      if (error) throw error;
+      const isA = fixture.playerAId === userId;
+      onOpenChat({
+        id: conversationId,
+        isGroup: false,
+        otherUserId: isA ? fixture.playerBId : fixture.playerAId,
+        otherUserName: isA ? fixture.playerBName : fixture.playerAName,
+        otherUserAvatarUrl: isA ? fixture.playerBAvatarUrl : fixture.playerAAvatarUrl,
+        otherUserAvatarColor: isA ? fixture.playerBAvatarColor : fixture.playerAAvatarColor,
+        displayName: isA ? fixture.playerBName : fixture.playerAName,
+      });
+    } catch (err) { alert(err.message || 'Keskustelua ei voitu avata.'); }
+    finally { setFixtureBusyId(null); }
+  };
+
+  const submitResult = async (sets, iWon) => {
+    if (!resultFixture || !userId) return;
+    const opponentId = resultFixture.playerAId === userId ? resultFixture.playerBId : resultFixture.playerAId;
+    const winnerId = iWon ? userId : opponentId;
+    setSavingResult(true);
+    try {
+      const { error } = await supabase.rpc('report_league_fixture_result', { fixture_id_input: resultFixture.id, sets_input: sets, winner_id_input: winnerId });
+      if (error) throw error;
+      setResultFixture(null); await load();
+    } catch (err) { alert(err.message || 'Tulosta ei voitu tallentaa.'); }
+    finally { setSavingResult(false); }
+  };
+
+  const confirmResult = async (fixture) => {
+    setFixtureBusyId(fixture.id);
+    try { const { error } = await supabase.rpc('confirm_league_fixture_result', { fixture_id_input: fixture.id }); if (error) throw error; await load(); }
+    catch (err) { alert(err.message || 'Tulosta ei voitu vahvistaa.'); }
+    finally { setFixtureBusyId(null); }
+  };
+
+  if (loading) return <div className="page"><Spinner /></div>;
+
+  if (!myLeague) {
+    return <div className="page">
+      <div className="page-header"><h2 className="page-title">Liiga</h2></div>
+      {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+      {openLeagues.length === 0
+        ? <Empty title="Ei avoimia liigoja kaupungissasi vielä. Perusta oma!" />
+        : openLeagues.map(l => (
+          <div key={l.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div><div style={{ fontWeight: 700, color: 'var(--ink)' }}>{l.season_label}</div><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{l.skill_level} · {l.city} · {l.memberCount} ilmoittautunutta</div></div>
+            <button className="btn btn-lime btn-sm" onClick={() => join(l.id)} disabled={busyLeagueId === l.id}>{busyLeagueId === l.id ? 'Liitytään...' : 'Liity'}</button>
+          </div>
+        ))}
+      {showCreateForm ? <div className="card" style={{ marginTop: 12 }}>
+        <div className="field"><div className="detail-label">Taso</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{PLAIN_SKILL_LEVELS.map(l => <button key={l} className={`filter-chip ${skillLevel === l ? 'active' : ''}`} onClick={() => setSkillLevel(l)}>{titleCase(l)}</button>)}</div></div>
+        <div className="field"><div className="detail-label">Kauden nimi</div><input className="input" placeholder="Esim. Syksy 2026" value={seasonLabel} onChange={e => setSeasonLabel(e.target.value)} maxLength={60} /></div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-outline-d btn-md" onClick={() => setShowCreateForm(false)}>Peruuta</button>
+          <button className="btn btn-dark btn-lg" style={{ flex: 1 }} onClick={create} disabled={creating}>{creating ? 'Perustetaan...' : 'Perusta liiga'}</button>
+        </div>
+      </div> : <button className="btn btn-outline-d btn-md" style={{ marginTop: 12 }} onClick={() => setShowCreateForm(true)}>+ Perusta uusi liiga</button>}
+    </div>;
+  }
+
+  if (myLeague.league.status === 'signup') {
+    const isCreator = myLeague.league.created_by === userId;
+    const canStart = myLeague.members.length >= MIN_LEAGUE_PLAYERS;
+    return <div className="page">
+      <div className="page-header"><h2 className="page-title">Liiga</h2></div>
+      <h3 style={{ margin: '0 0 4px', color: 'var(--ink)' }}>{myLeague.league.season_label}</h3>
+      <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-muted)' }}>{myLeague.league.skill_level} · {myLeague.league.city} · Odotetaan ilmoittautumisia</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        {myLeague.members.map(m => <div key={m.userId} className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}><Avatar uri={m.avatarUrl} name={m.name} color={m.avatarColor} size={32} /><span style={{ fontWeight: 600, color: 'var(--ink)' }}>{m.name}</span></div>)}
+      </div>
+      {isCreator ? <>
+        <button className="btn btn-dark btn-lg btn-full" onClick={start} disabled={!canStart || starting}>{starting ? 'Aloitetaan...' : `Aloita kausi (${myLeague.members.length}/${MIN_LEAGUE_PLAYERS}+)`}</button>
+        {!canStart && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>Tarvitaan vähintään {MIN_LEAGUE_PLAYERS} pelaajaa ennen aloitusta.</p>}
+      </> : <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Liigan perustaja aloittaa kauden, kun tarpeeksi pelaajia on ilmoittautunut.</p>}
+    </div>;
+  }
+
+  const myFixtures = myLeague.fixtures.filter(f => f.playerAId === userId || f.playerBId === userId);
+  return <div className="page">
+    <div className="page-header"><h2 className="page-title">Liiga</h2></div>
+    <h3 style={{ margin: '0 0 4px', color: 'var(--ink)' }}>{myLeague.league.season_label}</h3>
+    <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)' }}>{myLeague.league.skill_level} · Lohko {myLeague.myGroupNumber}</p>
+    <h4 style={{ margin: '0 0 8px', color: 'var(--ink)' }}>Sarjataulukko</h4>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+      {myLeague.standings.map((row, i) => (
+        <div key={row.userId} className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', border: row.userId === userId ? '2px solid var(--lime)' : undefined }}>
+          <span style={{ width: 20, textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: 13 }}>{i + 1}</span>
+          <Avatar uri={row.avatarUrl} name={row.name} color={row.avatarColor} size={28} />
+          <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</span>
+          <span style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 13, minWidth: 36, textAlign: 'right' }}>{row.wins}-{row.losses}</span>
+          <span style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, minWidth: 36, textAlign: 'right' }}>{row.setsWon}-{row.setsLost}</span>
+        </div>
+      ))}
+    </div>
+    <h4 style={{ margin: '0 0 8px', color: 'var(--ink)' }}>Omat ottelut</h4>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {myFixtures.map(f => {
+        const isA = f.playerAId === userId;
+        const opponentName = isA ? f.playerBName : f.playerAName;
+        const opponentAvatarUrl = isA ? f.playerBAvatarUrl : f.playerAAvatarUrl;
+        const opponentAvatarColor = isA ? f.playerBAvatarColor : f.playerAAvatarColor;
+        const result = f.result;
+        const busy = fixtureBusyId === f.id;
+        return <div key={f.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <Avatar uri={opponentAvatarUrl} name={opponentName} color={opponentAvatarColor} size={32} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opponentName}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{result ? `${result.sets.map(s => `${s.my}-${s.opp}`).join(', ')}${result.confirmedBy ? ' · Vahvistettu' : ' · Odottaa vahvistusta'}` : 'Ei vielä sovittu'}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {!result ? <>
+              <button className="btn btn-outline-d btn-sm" onClick={() => openFixtureChat(f)} disabled={busy}>Sovi peli</button>
+              <button className="btn btn-lime btn-sm" onClick={() => setResultFixture(f)}>Merkitse tulos</button>
+            </> : (!result.confirmedBy && result.reportedBy !== userId) ? <button className="btn btn-lime btn-sm" onClick={() => confirmResult(f)} disabled={busy}>Vahvista tulos</button> : null}
+          </div>
+        </div>;
+      })}
+    </div>
+    {resultFixture && <LeagueResultModal
+      myName={profile?.nimi || 'Sinä'} myAvatarUrl={profile?.avatarUrl || null} myAvatarColor={profile?.avatarColor || 'blue'}
+      opponentName={resultFixture.playerAId === userId ? resultFixture.playerBName : resultFixture.playerAName}
+      opponentAvatarUrl={resultFixture.playerAId === userId ? resultFixture.playerBAvatarUrl : resultFixture.playerAAvatarUrl}
+      opponentAvatarColor={resultFixture.playerAId === userId ? resultFixture.playerBAvatarColor : resultFixture.playerAAvatarColor}
+      loading={savingResult} onClose={() => setResultFixture(null)} onSubmit={submitResult}
+    />}
+  </div>;
+}
+
 // ── Messages Screen ────────────────────────────────────
 function MessagesScreen({ onOpenChat, onCreateChallenge, onOpenArchive }) {
   const { session } = useAuth();
@@ -2343,6 +2652,7 @@ function TopNav({ tab, onTabChange }) {
     { id: 'players', label: 'Pelaajat', icon: '/assets/ball-tight.png' },
     { id: 'challenges', label: 'Avoimet', icon: '/assets/avoimet-tight.png' },
     { id: 'messages', label: 'Viestit', icon: '/assets/viestit-tight.png' },
+    { id: 'league', label: '🏆 Liiga', icon: null },
   ];
   if (isAdmin) links.push({ id: 'admin', label: 'Ylläpito', icon: null });
   return (
@@ -2365,8 +2675,8 @@ function TopNav({ tab, onTabChange }) {
 }
 
 // ── App Shell ──────────────────────────────────────────
-const TAB_SLUGS = { players: 'pelaajat', challenges: 'avoimet', messages: 'viestit', profile: 'profiili', admin: 'yllapito' };
-const SLUG_TABS = { pelaajat: 'players', avoimet: 'challenges', viestit: 'messages', profiili: 'profile', yllapito: 'admin' };
+const TAB_SLUGS = { players: 'pelaajat', challenges: 'avoimet', messages: 'viestit', league: 'liiga', profile: 'profiili', admin: 'yllapito' };
+const SLUG_TABS = { pelaajat: 'players', avoimet: 'challenges', viestit: 'messages', liiga: 'league', profiili: 'profile', yllapito: 'admin' };
 function tabFromPath(pathname) {
   const slug = pathname.replace(/^\/pelaa\/?/, '').replace(/\/$/, '');
   return SLUG_TABS[slug] || 'players';
@@ -2417,6 +2727,7 @@ function AppShell() {
           {tab === 'players' && <PlayersScreen onOpenPlayer={p => setScreen({ type: 'playerDetail', player: p })} />}
           {tab === 'challenges' && <ChallengesScreen refreshKey={challengesRefreshKey} onOpenChallenge={c => setScreen({ type: 'challengeDetail', challenge: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge', mode: 'open' })} onCreateEvent={() => setScreen({ type: 'createChallenge', mode: 'event' })} />}
           {tab === 'messages' && <MessagesScreen onOpenChat={c => setScreen({ type: 'chat', conversation: c })} onCreateChallenge={() => setScreen({ type: 'createChallenge' })} onOpenArchive={() => setScreen({ type: 'archive' })} />}
+          {tab === 'league' && <LeagueScreen onOpenChat={c => setScreen({ type: 'chat', conversation: c })} />}
           {tab === 'profile' && <ProfileFullScreen onOpenBlocked={() => setScreen({ type: 'blocked' })} />}
           {tab === 'admin' && isAdmin && <AdminScreen />}
         </div>
