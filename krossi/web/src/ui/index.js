@@ -9,5 +9,6 @@ export { Spinner, Skeleton, SkeletonList, EmptyState, ErrorState } from './feedb
 export { TopBar, Page, PageHeader, Disclosure } from './layout.jsx';
 export { ProgressBar, ProgressRing, CountUp, BadgeMedal } from './progress.jsx';
 export { Illustration, ILLUSTRATION_NAMES } from './illustrations.jsx';
+export { TennisBall } from './TennisBall.jsx';
 export { confetti, share, copyText } from './effects.js';
 export { useShare } from './useShare.js';

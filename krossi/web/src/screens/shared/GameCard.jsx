@@ -11,7 +11,7 @@ import { AvatarStack, Card, Chip, Icon } from '../../ui/index.js';
 import { dateTile, dayDiff, firstName, formatTime, formatGameTime } from '../../lib/format.js';
 import { formatDistance } from '../../lib/geo.js';
 import {
-  countdownLabel, gameTitle, isFull, levelLabel, locationShort, placeLine, priceLabel, spotsLabel, surfaceLabel,
+  countdownLabel, gameTitle, isFull, levelLabel, levelShort, locationShort, placeLine, priceLabel, spotsLabel, surfaceLabel,
 } from '../games/gameUtils.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -52,7 +52,7 @@ function TagChips({ game, showDistance, tone = 'neutral' }) {
       {game.kind === 'event' && <Chip tone="lime" size="sm" icon="flag">Tapahtuma{price ? ` · ${price}` : ''}</Chip>}
       {loc && <Chip tone={tone} size="sm">{loc}</Chip>}
       {surface && <Chip tone={tone} size="sm">{surface}</Chip>}
-      {game.minSkillLevel && <Chip tone={tone} size="sm">Taso {levelLabel(game.minSkillLevel).toLowerCase()}+</Chip>}
+      {game.minSkillLevel && <Chip tone={tone} size="sm">Taso {levelShort(game.minSkillLevel)}+</Chip>}
       {showDistance && game.distanceKm != null && <Chip tone="outline" size="sm" icon="pin">{formatDistance(game.distanceKm)}</Chip>}
     </span>
   );

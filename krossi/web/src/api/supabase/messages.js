@@ -131,30 +131,40 @@ export async function markRead(conversationId) {
 
 export async function unreadCount() {
   const uid = await requireUid();
-  const [conversations, requests, archived] = await Promise.all([
+  const [conversations, requests, archived, blocked] = await Promise.all([
     loadConversations(uid),
-    db().from('connection_requests').select('id', { count: 'exact', head: true }).eq('receiver_id', uid).eq('status', 'pending'),
+    db().from('connection_requests').select('sender_id').eq('receiver_id', uid).eq('status', 'pending'),
     getArchived(),
+    blockedSenderIds(uid),
   ]);
   if (requests.error) throw toApiError(requests.error, LOAD_FAIL);
   const hidden = new Set(archived);
-  return conversations.filter((c) => c.unread && !hidden.has(c.id)).length + (requests.count || 0);
+  const openRequests = (requests.data || []).filter((r) => !blocked.has(r.sender_id)).length;
+  return conversations.filter((c) => c.unread && !hidden.has(c.id)).length + openRequests;
 }
 
 // ── Play requests ────────────────────────────────────────────────────────────
 
+// Nothing in the database stops a blocked player from sending requests, so hide them here.
+async function blockedSenderIds(uid) {
+  const { data, error } = await db().from('blocked_profiles').select('blocked_id').eq('blocker_id', uid);
+  if (error) console.warn('Estettyjen haku epäonnistui', error);
+  return new Set((data || []).map((r) => r.blocked_id));
+}
+
 export async function listRequests() {
   const uid = await requireUid();
-  const rows = unwrap(
-    await db()
+  const [result, blocked] = await Promise.all([
+    db()
       .from('connection_requests')
       .select(`id, sender_id, message, created_at, sender:profiles!connection_requests_sender_id_fkey(${PERSON_COLUMNS})`)
       .eq('receiver_id', uid)
       .eq('status', 'pending')
       .order('created_at', { ascending: false }),
-    'Pelipyyntöjä ei voitu ladata.',
-  );
-  return (rows || []).map((r) => ({
+    blockedSenderIds(uid),
+  ]);
+  const rows = unwrap(result, 'Pelipyyntöjä ei voitu ladata.');
+  return (rows || []).filter((r) => !blocked.has(r.sender_id)).map((r) => ({
     id: r.id,
     from: mapPerson(r.sender, r.sender_id),
     message: r.message || '',

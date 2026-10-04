@@ -257,7 +257,7 @@
 .profile-score-row { display: flex; align-items: center; gap: 8px; min-height: 40px; }
 .profile-score-row + .profile-score-row { border-top: 1px solid rgba(255, 255, 255, 0.1); }
 .profile-score-serve { width: 10px; display: grid; place-items: center; flex-shrink: 0; }
-.profile-score-ball { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 3px rgba(207, 228, 20, 0.2); }
+.profile-score-ball .tball-svg { filter: none; }
 .profile-score-name { flex: 1; font-size: 14.5px; font-weight: 600; color: var(--on-dark-muted); }
 .profile-score-row.is-winner .profile-score-name { color: var(--on-dark); font-weight: 800; }
 .profile-score-sets { display: flex; gap: 4px; flex-shrink: 0; }

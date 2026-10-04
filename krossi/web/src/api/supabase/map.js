@@ -189,7 +189,8 @@ export function mapGame(row, ctx) {
     expiresAt: row.expires_at ?? null,
     title: trimmedOrNull(row.title),
     description: trimmedOrNull(row.description),
-    minSkillLevel: PLAIN_SKILLS.has(row.min_skill_level) ? row.min_skill_level : null,
+    // The mobile app may store a competition class (A1–E3) instead of a plain level.
+    minSkillLevel: PLAIN_SKILLS.has(row.min_skill_level) || COMPETITION_CLASS_RE.test(row.min_skill_level || '') ? row.min_skill_level : null,
     courtPrice: row.court_price != null ? Number(row.court_price) : null,
     creatorCoversFull: Boolean(row.creator_covers_full),
     maxPlayers: row.max_players ?? null,
@@ -329,7 +330,7 @@ export function mapLeagueSummary(row, { memberIds = [], uid = null } = {}) {
   return {
     id: row.id,
     city: row.city,
-    skillLevel: PLAIN_SKILLS.has(row.skill_level) ? row.skill_level : 'keskitaso',
+    skillLevel: PLAIN_SKILLS.has(row.skill_level) || COMPETITION_CLASS_RE.test(row.skill_level || '') ? row.skill_level : 'keskitaso',
     seasonLabel: row.season_label,
     groupSize: row.group_size,
     status: LEAGUE_STATUS[row.status] || 'signup',

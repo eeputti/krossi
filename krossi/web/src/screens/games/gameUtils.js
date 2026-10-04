@@ -8,8 +8,15 @@ import { dayDiff, formatDayMonth, formatEuro, formatTime, WEEKDAYS_SHORT } from 
 export const matchLabel = (type) => labelOf(MATCH_TYPES, type) || 'Tennis';
 export const matchDesc = (type) => MATCH_TYPES.find((m) => m.value === type)?.desc || '';
 export const gameTitle = (game) => game?.title || matchLabel(game?.matchType);
-export const surfaceLabel = (v) => labelOf(COURT_SURFACES, v);
+// Mobile-created games may list several surfaces: 'kova,massa' -> 'Kova / Massa'.
+export const surfaceList = (v) => String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
+export const surfaceLabel = (v) => surfaceList(v).map((s) => labelOf(COURT_SURFACES, s)).join(' / ');
 export const levelLabel = (v) => labelOf(SKILL_LEVELS, v);
+const isCompetitionClass = (v) => /^[A-E][1-3]$/.test(v || '');
+/** Chip text: 'keskitaso' | 'B2' (competition classes keep their case). */
+export const levelShort = (v) => (isCompetitionClass(v) ? v : levelLabel(v).toLowerCase());
+/** Position on the level ladder; a competition class counts as kilpapelaaja. */
+const levelRank = (v) => (isCompetitionClass(v) ? SKILL_ORDER.indexOf('kilpapelaaja') : SKILL_ORDER.indexOf(v));
 
 /** 'Kispi Areena' — or null when the place is still open ('Avoin' / empty). */
 export function venueName(game) {
@@ -141,8 +148,8 @@ export function applyFilters(games, f) {
   return games.filter((g) => {
     if (f?.matchTypes?.length && !f.matchTypes.includes(g.matchType)) return false;
     if (f?.locationTypes?.length && g.locationType !== 'missä vain' && !f.locationTypes.includes(g.locationType)) return false;
-    if (f?.surfaces?.length && !f.surfaces.includes(g.courtSurface)) return false;
-    if (lvl >= 0 && g.minSkillLevel && SKILL_ORDER.indexOf(g.minSkillLevel) > lvl) return false;
+    if (f?.surfaces?.length && !surfaceList(g.courtSurface).some((s) => f.surfaces.includes(s))) return false;
+    if (lvl >= 0 && g.minSkillLevel && levelRank(g.minSkillLevel) > lvl) return false;
     return true;
   });
 }

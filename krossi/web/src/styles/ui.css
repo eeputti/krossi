@@ -391,3 +391,20 @@ button.medal:hover { transform: translateY(-2px) rotate(-3deg); }
 .medal.is-locked .medal-label { color: var(--muted); }
 
 .confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 500; }
+
+/* ── tennis ball (ui/TennisBall.jsx) ─────────────────────── */
+.tball { position: relative; display: inline-flex; flex-direction: column; align-items: center; flex-shrink: 0; line-height: 0; }
+.tball-svg { display: block; filter: drop-shadow(0 calc(var(--tball-size) * 0.06) calc(var(--tball-size) * 0.1) rgba(10, 30, 20, 0.28)); }
+.tball-shadow { display: block; width: calc(var(--tball-size) * 0.86); height: calc(var(--tball-size) * 0.17); margin-top: calc(var(--tball-size) * 0.3); border-radius: 50%; background: rgba(0, 0, 0, 0.22); }
+.tball-bounce .tball-svg { animation: tball-bounce 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite alternate; }
+.tball-bounce .tball-shadow { animation: tball-shadow 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite alternate; }
+.tball-spin .tball-svg { animation: k-spin 1.1s linear infinite; }
+.tball-float .tball-svg { animation: tball-float 4.2s var(--ease-in-out) infinite; }
+@keyframes tball-bounce {
+  from { transform: translateY(calc(var(--tball-size) * -0.62)) rotate(-20deg); }
+  92% { transform: translateY(0) rotate(40deg) scale(1, 1); }
+  to { transform: translateY(0) rotate(45deg) scale(1.06, 0.92); }
+}
+@keyframes tball-shadow { from { transform: scale(0.55); opacity: 0.45; } to { transform: scale(1); opacity: 1; } }
+@keyframes tball-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-6px) rotate(18deg); } }
+@media (prefers-reduced-motion: reduce) { .tball .tball-svg, .tball .tball-shadow { animation: none; } }

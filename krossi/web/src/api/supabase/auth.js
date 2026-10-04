@@ -77,3 +77,9 @@ export async function getIdentities() {
   if (error) throw toApiError(error, 'Kirjautumistapoja ei voitu ladata.');
   return [...new Set((data.user?.identities || []).map((i) => i.provider))];
 }
+
+export async function updatePassword(newPassword) {
+  if (!newPassword || newPassword.length < 8) throw new ApiError('Salasanan pitää olla vähintään 8 merkkiä.', { code: 'invalid' });
+  const { error } = await db().auth.updateUser({ password: newPassword });
+  if (error) throw toApiError(error, 'Salasanan vaihto epäonnistui. Pyydä uusi palautuslinkki.');
+}

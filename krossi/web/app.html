@@ -43,15 +43,15 @@ window.krossiLoadPixel = function () {
   /* Instant splash before the bundle runs — replaced by React's own splash on mount. */
   html, body { margin: 0; background: #F7F5EF; }
   .boot { position: fixed; inset: 0; display: grid; place-items: center; background: #0E3B2C; }
-  .boot-ball { width: 46px; height: 46px; border-radius: 50%; background: #CFE414; animation: boot-bounce .9s cubic-bezier(.5,0,.5,1) infinite alternate; box-shadow: inset -6px -8px 0 rgba(0,0,0,.08); }
-  .boot-shadow { width: 40px; height: 8px; margin: 14px auto 0; border-radius: 50%; background: rgba(0,0,0,.25); animation: boot-shadow .9s cubic-bezier(.5,0,.5,1) infinite alternate; }
-  @keyframes boot-bounce { from { transform: translateY(-28px); } to { transform: translateY(0); } }
+  .boot-ball { display: block; animation: boot-bounce .9s cubic-bezier(.5,0,.5,1) infinite alternate; filter: drop-shadow(0 4px 6px rgba(0,0,0,.25)); }
+  .boot-shadow { width: 44px; height: 8px; margin: 14px auto 0; border-radius: 50%; background: rgba(0,0,0,.25); animation: boot-shadow .9s cubic-bezier(.5,0,.5,1) infinite alternate; }
+  @keyframes boot-bounce { from { transform: translateY(-30px) rotate(-20deg); } to { transform: translateY(0) rotate(45deg); } }
   @keyframes boot-shadow { from { transform: scale(.55); opacity: .5; } to { transform: scale(1); opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .boot-ball, .boot-shadow { animation: none; } }
 </style>
 </head>
 <body>
-  <div id="root"><div class="boot" aria-label="Ladataan Krossia"><div><div class="boot-ball"></div><div class="boot-shadow"></div></div></div></div>
+  <div id="root"><div class="boot" aria-label="Ladataan Krossia"><div><svg class="boot-ball" width="52" height="52" viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="bootg" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#E4F25A"/><stop offset=".7" stop-color="#CFE414"/><stop offset="1" stop-color="#B9CC0E"/></radialGradient><clipPath id="bootc"><circle cx="50" cy="50" r="46"/></clipPath></defs><circle cx="50" cy="50" r="46" fill="url(#bootg)"/><g clip-path="url(#bootc)" fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round"><path d="M10 30c18-6 40-4 56 8s22 22 28 32"/><path d="M30 80c14 7 34 6 50-6"/></g></svg><div class="boot-shadow"></div></div></div></div>
   <noscript>Krossi tarvitsee JavaScriptin toimiakseen.</noscript>
   <script src="/krossi/app.js" defer></script>
   <script src="/lib/cookie-consent.js" defer></script>

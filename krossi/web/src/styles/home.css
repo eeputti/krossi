@@ -26,18 +26,6 @@
 }
 .has-demo-banner .home-hero { padding-top: 14px; }
 
-.home-hero-ball {
-  position: absolute; z-index: -1; top: calc(var(--safe-top) + 64px); right: 14px; width: 58px; height: 58px;
-  filter: drop-shadow(0 10px 16px color-mix(in srgb, var(--green-900) 70%, transparent));
-  animation: home-float 4.2s var(--ease-in-out) infinite;
-}
-.has-demo-banner .home-hero-ball { top: 64px; }
-.home-hero-ball-fill { fill: var(--lime); }
-.home-hero-ball-seam { fill: none; stroke: var(--on-dark); stroke-width: 3; stroke-linecap: round; opacity: 0.92; }
-@keyframes home-float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-7px) rotate(14deg); }
-}
 
 .home-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
 .home-hero-me { border-radius: 50%; transition: transform var(--dur-2) var(--ease-spring); }
@@ -103,7 +91,6 @@
   .home-hero-title { font-size: 40px; padding-right: 0; margin-top: 10px; }
   .home-hero-actions { grid-area: actions; align-self: end; margin-top: 0; grid-template-columns: 1fr; }
   .home-hero-panel { grid-area: panel; margin-top: 18px; max-width: 460px; }
-  .home-hero-ball, .has-demo-banner .home-hero-ball { top: 22px; right: 34px; width: 66px; height: 66px; }
 }
 
 /* ── unlock (unpaid) ─────────────────────────────────────── */

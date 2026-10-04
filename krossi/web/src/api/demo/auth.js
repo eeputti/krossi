@@ -47,3 +47,7 @@ export async function signOut() {
 export async function getIdentities() {
   return run(() => ['email']);
 }
+
+export async function updatePassword() {
+  return run(() => undefined);
+}

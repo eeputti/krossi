@@ -1,6 +1,6 @@
 // ResultCard — a logged match as a little scoreboard (profile + history sheet).
 //   <ResultCard result={MatchResult} onClick={fn} actions={node} />
-import { Chip, Icon } from '../../ui/index.js';
+import { Chip, Icon, TennisBall } from '../../ui/index.js';
 import { formatDate } from '../../lib/format.js';
 import { OUTCOME_LABEL, OUTCOME_TONE, labelOfFormat, labelOfGameType, resultOutcome, sideNames } from './matchResult.js';
 
@@ -16,7 +16,7 @@ export function ResultCard({ result, onClick, actions, className, style }) {
     const winner = outcome !== 'draw' && (mine ? outcome === 'win' : outcome === 'loss');
     return (
       <div className={cx('profile-score-row', winner && 'is-winner')}>
-        <span className="profile-score-serve" aria-hidden="true">{winner && <span className="profile-score-ball" />}</span>
+        <span className="profile-score-serve" aria-hidden="true">{winner && <TennisBall size={11} className="profile-score-ball" />}</span>
         <span className="profile-score-name truncate">{mine ? names.mine : names.theirs}</span>
         <span className="profile-score-sets">
           {sets.map((s, i) => {

@@ -2,12 +2,13 @@
 import { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { api } from '../api/index.js';
-import { ConfirmProvider, ErrorState, ToastProvider, confetti, useToast } from '../ui/index.js';
+import { ConfirmProvider, ErrorState, TennisBall, ToastProvider, confetti, useToast } from '../ui/index.js';
 import { AuthScreen } from '../screens/auth/AuthScreen.jsx';
 import { OnboardingScreen } from '../screens/auth/OnboardingScreen.jsx';
 import { InviteScreen } from '../screens/auth/InviteScreen.jsx';
 import { PublicGameScreen } from '../screens/games/PublicGameScreen.jsx';
 import { PendingOutcomeCheck } from '../screens/home/PendingOutcomeCheck.jsx';
+import { SetPasswordSheet } from '../screens/auth/SetPasswordSheet.jsx';
 import { AppShell } from './AppShell.jsx';
 import { PaywallProvider } from './paywall.jsx';
 import { configureRouter, navigate, useRoute } from './router.js';
@@ -17,6 +18,8 @@ import { SessionProvider, useSession } from './session.jsx';
 export const AFTER_AUTH_KEY = 'krossi_after_auth';
 // Invite code from /pelaa/kutsu/<code>, claimed once the new player has a profile.
 export const INVITE_CODE_KEY = 'krossi_invite_code';
+// Where the player was when they started Stripe Checkout (Checkout always returns to /pelaa).
+export const AFTER_PAYMENT_KEY = 'krossi_after_payment';
 
 const store = {
   get: (k) => { try { return sessionStorage.getItem(k) || localStorage.getItem(k); } catch { return null; } },
@@ -28,8 +31,7 @@ export { store as authStore };
 export function Splash() {
   return (
     <div className="splash" aria-label="Ladataan Krossia">
-      <div className="splash-ball" />
-      <div className="splash-shadow" />
+      <TennisBall size={52} motion="bounce" shadow />
       <div className="splash-word">Krossi</div>
     </div>
   );
@@ -61,7 +63,9 @@ function useStripeReturn() {
     } else if (status === 'cancel') {
       toast('Maksu peruttiin — mitään ei veloitettu.', { tone: 'info' });
     }
-    navigate(clean, { replace: true });
+    const back = store.get(AFTER_PAYMENT_KEY);
+    store.remove(AFTER_PAYMENT_KEY);
+    navigate(back && back.startsWith('/pelaa') ? back : clean, { replace: true });
   }, [route.query.stripe, route.path, user, refreshProfile, toast]);
 }
 
@@ -105,6 +109,7 @@ function Gate() {
     <>
       <AppShell />
       <PendingOutcomeCheck />
+      <SetPasswordSheet />
     </>
   );
 }

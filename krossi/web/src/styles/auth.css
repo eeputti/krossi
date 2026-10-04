@@ -47,8 +47,7 @@
 .auth-wordmark-lg { font-size: 68px; }
 .auth-wordmark-sm { font-size: 30px; letter-spacing: -0.045em; }
 .auth-wordmark-ball {
-  width: 0.34em; height: 0.34em; margin: 0 0 0.1em 0.07em; object-fit: contain;
-  filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+  display: inline-flex; margin: 0 0 0.1em 0.07em; line-height: 0;
   animation: auth-ball 2.8s var(--ease-in-out) 700ms infinite;
 }
 @keyframes auth-ball {

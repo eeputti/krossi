@@ -15,7 +15,7 @@ import { dayLabel, firstName, formatTime } from '../../lib/format.js';
 import { downloadIcs } from '../../lib/ics.js';
 import { SKILL_LEVELS, labelOf } from '../../lib/constants.js';
 import {
-  countdownRelative, gameTitle, isFull, isOver, levelLabel, locationShort, mapsUrl, matchDesc, matchLabel,
+  countdownRelative, gameTitle, isFull, isOver, levelLabel, levelShort, locationShort, mapsUrl, matchDesc, matchLabel,
   notifyGamesChanged, placeLine, playersIn, priceLabel, shareText, spotsLabel, surfaceLabel, totalPlayers, venueName,
 } from './gameUtils.js';
 import { InviteToGameSheet } from './InviteToGameSheet.jsx';
@@ -72,7 +72,7 @@ function Hero({ game, now, popJoined }) {
         <div className="games-hero-chips">
           {loc && <Chip tone="on-dark" size="sm">{loc}</Chip>}
           {surface && <Chip tone="on-dark" size="sm">{surface}</Chip>}
-          {game.minSkillLevel && <Chip tone="on-dark" size="sm">Taso {levelLabel(game.minSkillLevel).toLowerCase()}+</Chip>}
+          {game.minSkillLevel && <Chip tone="on-dark" size="sm">Taso {levelShort(game.minSkillLevel)}+</Chip>}
         </div>
         <div className="games-hero-foot">
           {countdown && <span className="games-hero-countdown"><span className="gcard-countdown-dot" aria-hidden="true" />{countdown}</span>}
@@ -237,9 +237,10 @@ export function GameScreen({ params }) {
   else if (over) primary = <Button variant="soft" size="lg" block disabled>Peli on päättynyt</Button>;
   else if (game.isMine) primary = <Button variant="lime" size="lg" block icon="users" onClick={() => setInviteOpen(true)}>Kutsu pelikavereita</Button>;
   else if (game.iJoined) primary = <Button variant="lime" size="lg" block icon="chat" onClick={openChat}>Avaa chat</Button>;
-  else if (game.onWaitlist) primary = <Button variant="outline" size="lg" block loading={busy} onClick={waitlist}>Poistu jonosta</Button>;
+  // A queued player whose spot opened up joins directly (join() also clears the queue row).
+  else if (game.onWaitlist && full) primary = <Button variant="outline" size="lg" block loading={busy} onClick={waitlist}>Poistu jonosta</Button>;
   else if (full) primary = <Button variant="dark" size="lg" block icon="clock" loading={busy} onClick={waitlist}>Liity jonoon</Button>;
-  else primary = <Button variant="lime" size="lg" block icon="plus" loading={busy} onClick={join}>Liity peliin</Button>;
+  else primary = <Button variant="lime" size="lg" block icon="plus" loading={busy} onClick={join}>{game.onWaitlist ? 'Paikka vapautui — liity!' : 'Liity peliin'}</Button>;
 
   const emptySlots = Math.max(0, game.spotsLeft || 0);
   const shownSlots = Math.min(emptySlots, 4);

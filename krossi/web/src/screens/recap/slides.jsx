@@ -3,7 +3,7 @@
 // Every slide component receives the same props:
 //   { recap, words, onShare, sharing, onClose, onPlay, onSeason }
 // `bg` picks the slide background (see recap.css): 'green' | 'deep' | 'lime' | 'clay' | 'sand'.
-import { Avatar, BadgeMedal, Button, CountUp, Icon, Illustration, ProgressRing } from '../../ui/index.js';
+import { Avatar, BadgeMedal, Button, CountUp, Icon, Illustration, ProgressRing, TennisBall } from '../../ui/index.js';
 import { capitalize } from '../../lib/format.js';
 import { TIME_ICON, deltaText, gamesLine, streakLine, unit, winsLine } from './copy.js';
 
@@ -23,7 +23,7 @@ function Body({ className, children }) {
 function IntroSlide({ recap, words }) {
   return (
     <Body className="recap-intro">
-      <div className="recap-intro-ball" aria-hidden="true"><span /></div>
+      <div className="recap-intro-ball" aria-hidden="true"><TennisBall size={74} motion="bounce" shadow /></div>
       <In className="recap-eyebrow">Krossi-kooste</In>
       <In d={1} as="h1" className="recap-title recap-title-xl">{words.name}</In>
       <In d={2} className="recap-lead">Sun {words.unit} kentällä</In>

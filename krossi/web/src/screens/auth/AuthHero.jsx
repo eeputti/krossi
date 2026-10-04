@@ -2,10 +2,9 @@
 //   <AuthLayout hero={<…/>} pitch>{panel content}</AuthLayout>
 // Phones: photo on the top ~45 % with the panel rising over it as a rounded sheet.
 // Desktop (≥ 900 px): split layout — photo + pitch on the left, panel on the right.
-import { Icon } from '../../ui/index.js';
+import { Icon, TennisBall } from '../../ui/index.js';
 
 const COURT_IMG = '/krossi/static/clay-court.jpg';
-const BALL_IMG = '/krossi/static/ball.png';
 
 export const VALUE_PROPS = [
   { icon: 'users', title: 'Löydä tasoisesi pelikaveri', text: 'Näet kotikaupunkisi pelaajat tason ja aikataulun mukaan.' },
@@ -18,7 +17,7 @@ export function Wordmark({ size = 'lg' }) {
   return (
     <span className={`auth-wordmark auth-wordmark-${size}`} aria-label="Krossi">
       <span aria-hidden="true">Krossi</span>
-      <img className="auth-wordmark-ball" src={BALL_IMG} alt="" aria-hidden="true" />
+      <span className="auth-wordmark-ball"><TennisBall size={size === 'lg' ? 24 : 12} /></span>
     </span>
   );
 }

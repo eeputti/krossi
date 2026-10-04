@@ -42,15 +42,6 @@ const openPath = (id) => `/pelaa/peli/${id}`;
 
 // ── hero ─────────────────────────────────────────────────────────────────────
 
-function HeroBall() {
-  return (
-    <svg className="home-hero-ball" viewBox="0 0 64 64" aria-hidden="true">
-      <circle cx="32" cy="32" r="30" className="home-hero-ball-fill" />
-      <path d="M9 13c9 6 13 13 13 19s-4 13-13 19" className="home-hero-ball-seam" />
-      <path d="M55 13c-9 6-13 13-13 19s4 13 13 19" className="home-hero-ball-seam" />
-    </svg>
-  );
-}
 
 function contextLine({ city, loading, count }) {
   if (loading) return `Katsotaan, mitä ${cityIn(city, { midSentence: true })} pelataan…`;
@@ -98,7 +89,7 @@ function HomeHero({ openThisWeek, openLoading }) {
 
   return (
     <section className="home-hero on-dark court-lines" aria-labelledby="home-hero-title">
-      <HeroBall />
+      
       <div className="home-hero-top">
         <span className="eyebrow">{dateLabel}{city ? ` · ${city}` : ''}</span>
         <Link to="/pelaa/profiili" className="home-hero-me hide-desktop" aria-label="Oma profiili">

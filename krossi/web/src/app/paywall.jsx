@@ -35,6 +35,8 @@ export function PaywallProvider({ children }) {
   const pay = async () => {
     setStarting(true);
     try {
+      // Checkout returns to /pelaa?stripe=…; remember this page so the Gate can bring them back.
+      try { sessionStorage.setItem('krossi_after_payment', window.location.pathname + window.location.search); } catch { /* private mode */ }
       await api.payments.startCheckout();
       if (isDemo) { toast('Demossa kaikki on jo auki 😉', { icon: 'sparkles' }); setOpen(false); }
     } catch (err) {

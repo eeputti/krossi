@@ -13,6 +13,7 @@ export function SessionProvider({ children }) {
   const [profileError, setProfileError] = useState(null);
   const [isAdmin, setIsAdmin] = useState(null); // null = still checking
   const [eventCities, setEventCities] = useState([]);
+  const [recovery, setRecovery] = useState(false); // opened a password-reset link
   const trackedUid = useRef(null);
   const loadedUid = useRef(null);
 
@@ -56,7 +57,8 @@ export function SessionProvider({ children }) {
       .catch(() => { if (alive) { setSession(null); setLoading(false); } });
     const unsubscribe = api.auth.onChange((event, s) => {
       if (!alive) return;
-      if (event === 'SIGNED_OUT') { applySession(null); return; }
+      if (event === 'SIGNED_OUT') { setRecovery(false); applySession(null); return; }
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
       applySession(s);
     });
     return () => { alive = false; unsubscribe?.(); };
@@ -75,8 +77,10 @@ export function SessionProvider({ children }) {
       needsOnboarding: Boolean(user && !profile && !loading && !profileError),
       refreshProfile,
       setProfile,
+      recovery,
+      endRecovery: () => setRecovery(false),
     };
-  }, [session, profile, loading, profileError, isAdmin, eventCities, refreshProfile]);
+  }, [session, profile, loading, profileError, isAdmin, eventCities, refreshProfile, recovery]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

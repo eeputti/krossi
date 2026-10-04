@@ -4,7 +4,7 @@
 import { api } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
 import { navigate } from '../../app/router.js';
-import { Avatar, Button, Chip, ErrorState, Icon, Illustration, Skeleton } from '../../ui/index.js';
+import { Avatar, Button, Chip, ErrorState, Icon, Illustration, Skeleton, TennisBall } from '../../ui/index.js';
 import { dateTile, dayDiff, formatGameTime } from '../../lib/format.js';
 import { gameTitle, isFull, locationShort, matchDesc, matchLabel, placeLine, spotsLabel } from './gameUtils.js';
 
@@ -87,7 +87,7 @@ export function PublicGameScreen({ params }) {
         <div className="games-public-intro rise">
           <span className="games-public-avatar">
             <Avatar name={data.creatorName} color={data.creatorAvatarColor} size={64} ring />
-            <span className="games-public-avatar-ball" aria-hidden="true" />
+            <span className="games-public-avatar-ball"><TennisBall size={24} /></span>
           </span>
           <div className="eyebrow">{data.kind === 'event' ? 'Kutsu tapahtumaan' : 'Kutsu peliin'}</div>
           <h1 className="games-public-title">{headline(data)}</h1>

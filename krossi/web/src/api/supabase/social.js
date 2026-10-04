@@ -23,6 +23,10 @@ export async function block(userId) {
   const { error } = await db().from('blocked_profiles').insert({ blocker_id: uid, blocked_id: userId });
   // Unique (blocker, blocked): blocking twice is not an error for the user.
   if (error && !isDuplicate(error)) throw toApiError(error, 'Esto epäonnistui.');
+  // Their pending play requests to me go away too (receivers may set status 'ignored').
+  const { error: ignoreError } = await db().from('connection_requests')
+    .update({ status: 'ignored' }).eq('receiver_id', uid).eq('sender_id', userId).eq('status', 'pending');
+  if (ignoreError) console.warn('Estetyn pelaajan pyyntöjen ohitus epäonnistui', ignoreError);
 }
 
 export async function unblock(rowId) {

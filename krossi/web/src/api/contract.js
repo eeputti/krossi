@@ -237,6 +237,7 @@ export const API_CONTRACT = {
     'signInWithOAuth',     // ('google'|'apple') -> void   (redirects back to /pelaa)
     'signOut',             // () -> void
     'getIdentities',       // () -> string[]   e.g. ['email','google']
+    'updatePassword',      // (newPassword) -> void   used after a password-reset link (auth event 'PASSWORD_RECOVERY')
   ],
   profile: [
     'getMine',             // (uid) -> Profile|null
