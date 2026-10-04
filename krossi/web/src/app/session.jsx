@@ -74,7 +74,8 @@ export function SessionProvider({ children }) {
       isAdmin,
       eventCities,
       canCreateEvents: Boolean(isAdmin) || eventCities.length > 0,
-      needsOnboarding: Boolean(user && !profile && !loading && !profileError),
+      // No profile yet, or a profile Krossi Koutsi created (shared table) without Krossi player data.
+      needsOnboarding: Boolean(user && !loading && !profileError && (!profile || profile.isKrossiPlayer === false)),
       refreshProfile,
       setProfile,
       recovery,

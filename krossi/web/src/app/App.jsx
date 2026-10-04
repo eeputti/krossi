@@ -82,14 +82,15 @@ function Gate() {
   }, [session.user, route.name, route.path, route.params.code]);
 
   useEffect(() => {
-    if (!session.user || !session.profile) return;
+    // Wait for a Krossi player profile: krossi_claim_invite needs tennis_preferences.
+    if (!session.user || !session.profile || session.needsOnboarding) return;
     const code = store.get(INVITE_CODE_KEY);
     if (code) { store.remove(INVITE_CODE_KEY); api.invites.claim(code).catch(() => {}); }
     const next = store.get(AFTER_AUTH_KEY);
     if (next) { store.remove(AFTER_AUTH_KEY); if (next !== route.path) navigate(next, { replace: true }); }
     else if (route.name === 'invite') navigate('/pelaa/koti', { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.user, session.profile]);
+  }, [session.user, session.profile, session.needsOnboarding]);
 
   if (session.loading) return <Splash />;
   if (!session.user) {

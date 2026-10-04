@@ -100,12 +100,13 @@ export function mapPerson(row, id = row?.id) {
 
 export const PROFILE_COLUMNS =
   'id, name, age, gender, area, bio, avatar_url, avatar_color, playing_this_week, playing_now_until, ' +
-  'playing_now_note, hidden_from_feed, paid_at, created_at, updated_at, ' +
+  'playing_now_note, hidden_from_feed, is_discoverable, paid_at, created_at, updated_at, ' +
   'tennis_preferences(skill_level, play_style, handedness, backhand_type), availability(slot)';
 
 export function mapProfile(row) {
   if (!row) return null;
-  const prefs = one(row.tennis_preferences) || {};
+  const prefsRow = one(row.tennis_preferences);
+  const prefs = prefsRow || {};
   const areas = parseAreas(row.area);
   const { skillLevel, competitionClasses } = parseSkill(prefs.skill_level);
   return {
@@ -128,6 +129,10 @@ export function mapProfile(row) {
     playingNowUntil: row.playing_now_until || null,
     playingNowNote: row.playing_now_note || null,
     hiddenFromFeed: Boolean(row.hidden_from_feed),
+    // A Krossi player profile has a tennis_preferences row; a profile without one was
+    // created by Krossi Koutsi (shared table) and still needs Krossi onboarding.
+    isKrossiPlayer: Boolean(prefsRow),
+    isDiscoverable: row.is_discoverable !== false,
     paidAt: row.paid_at || null,
     createdAt: row.created_at || null,
   };

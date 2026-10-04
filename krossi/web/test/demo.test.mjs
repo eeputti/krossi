@@ -35,7 +35,7 @@ const LEAGUE_SUMMARY_KEYS = ['id', 'city', 'skillLevel', 'seasonLabel', 'groupSi
 const PROFILE_KEYS = [
   'id', 'name', 'ageRange', 'gender', 'city', 'areas', 'bio', 'avatarUrl', 'avatarColor', 'skillLevel',
   'competitionClasses', 'playStyles', 'availability', 'handedness', 'backhand', 'playingThisWeek',
-  'playingNowUntil', 'playingNowNote', 'hiddenFromFeed', 'paidAt', 'createdAt',
+  'playingNowUntil', 'playingNowNote', 'hiddenFromFeed', 'isKrossiPlayer', 'isDiscoverable', 'paidAt', 'createdAt',
 ];
 
 const sortedKeys = (obj) => Object.keys(obj).sort();

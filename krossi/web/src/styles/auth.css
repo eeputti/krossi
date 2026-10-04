@@ -391,3 +391,6 @@
 .auth-invite-badge-title { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
 .auth-invite-badge-sub { font-size: 13px; line-height: 1.45; color: var(--ink-2); }
 .auth-invite-badge-progress { display: block; margin-top: 6px; }
+
+/* Koutsi junior notice (OnboardingScreen) */
+.auth-onb-junior-actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }

@@ -32,6 +32,8 @@ export function toProfile(row) {
     playingNowUntil: row.playingNowUntil ?? null,
     playingNowNote: row.playingNowNote ?? null,
     hiddenFromFeed: Boolean(row.hiddenFromFeed),
+    isKrossiPlayer: true,
+    isDiscoverable: true,
     paidAt: row.paidAt ?? null,
     createdAt: row.createdAt ?? null,
   };

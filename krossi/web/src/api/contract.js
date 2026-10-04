@@ -49,6 +49,8 @@
 // @property {string|null} playingNowUntil    ISO; "Pelaan nyt" active while in the future
 // @property {string|null} playingNowNote
 // @property {boolean} hiddenFromFeed
+// @property {boolean} isKrossiPlayer        false = account created by Krossi Koutsi, needs Krossi onboarding
+// @property {boolean} isDiscoverable        false = private Koutsi profile (only an explicit opt-in changes it)
 // @property {string|null} paidAt
 // @property {string|null} createdAt
 //
@@ -67,6 +69,7 @@
 // @property {boolean} hiddenFromFeed
 // @property {boolean} [playingThisWeek]
 // @property {string|null} [avatarPath]      storage path returned by profile.uploadAvatar
+// @property {boolean} [discoverable]         true = opt a private Koutsi profile into Krossi player search
 //
 // @typedef {Object} Game                    a row in `challenges` ("haaste" / "tapahtuma")
 // @property {string} id
@@ -249,6 +252,7 @@ export const API_CONTRACT = {
     'recordAppOpen',       // () -> void   (fire and forget)
     'isAdmin',             // () -> boolean
     'myEventCities',       // () -> string[]   cities where I may create events (admin = all)
+    'getKoutsiAgeGroup',   // () -> 'adult'|'junior_13_17'|'child_under_13'|null   (Koutsi pilot age group of a shared account)
     'deleteAccount',       // () -> void   (also signs out)
   ],
   players: [

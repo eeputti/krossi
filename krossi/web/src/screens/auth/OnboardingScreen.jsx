@@ -1,4 +1,6 @@
-// OnboardingScreen — shown after the first sign-in until a profile exists. One progressive scroll:
+// OnboardingScreen — shown after the first sign-in until a Krossi player profile exists (also for
+// accounts Krossi Koutsi created: they share the profiles row but have no Krossi player data).
+// One progressive scroll:
 // photo + name, age, home city, level (+ competition classes), play styles. The rest is filled
 // later from the profile. Sticky "Aloitetaan! 🎾" saves, celebrates and drops the player in the app.
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -8,7 +10,7 @@ import { useBusy, useIsDesktop } from '../../app/hooks.js';
 import { useSession } from '../../app/session.jsx';
 import { AGE_RANGES, CITIES, COMPETITION_CLASSES, PLAY_STYLES, SKILL_LEVELS } from '../../lib/constants.js';
 import { firstName } from '../../lib/format.js';
-import { Avatar, Button, ChipSelect, Icon, Input, ProgressBar, Spinner, confetti, useToast } from '../../ui/index.js';
+import { Avatar, Button, ChipSelect, Icon, Input, ProgressBar, Spinner, Toggle, confetti, useToast } from '../../ui/index.js';
 import { useInviter } from './useInviter.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -25,6 +27,38 @@ const REQUIRED = [
 function prefillName(user) {
   const meta = user?.user_metadata || user?.userMetadata || {};
   return String(meta.full_name || meta.name || user?.name || '').trim();
+}
+
+const AGE_VALUES = new Set(AGE_RANGES.map((a) => a.value));
+// Krossi is for 16+; Koutsi keeps its junior accounts private, and so do we.
+const KOUTSI_JUNIOR_GROUPS = new Set(['junior_13_17', 'child_under_13']);
+const isUnder16 = (age) => /^\d{1,3}$/.test(String(age || '')) && Number(age) < 16;
+
+/** Koutsi junior accounts can't join Krossi's player search — explain kindly, nothing is changed. */
+function KoutsiJuniorNotice({ onSignOut, signingOut }) {
+  return (
+    <div className="auth-onb">
+      <header className="auth-onb-hero court-lines on-dark">
+        <div className="auth-onb-hero-inner">
+          <div className="auth-onb-topbar">
+            <span className="auth-onb-logo">Krossi</span>
+            <button type="button" className="auth-onb-signout" onClick={onSignOut} disabled={signingOut}>
+              {signingOut ? <Spinner size={14} /> : <Icon name="logout" size={15} />}
+              Kirjaudu ulos
+            </button>
+          </div>
+          <h1 className="auth-onb-title">Krossi on 16 vuotta täyttäneille</h1>
+          <p className="auth-onb-lead">
+            Tilisi on Krossi Koutsin junioritili. Juniorien profiilit pysyvät yksityisinä, joten Krossin
+            pelaajahaku ei ole vielä käytössäsi. Koutsissa kaikki toimii kuten ennenkin.
+          </p>
+          <div className="auth-onb-junior-actions">
+            <Button as="a" href="https://koutsi.krossi.app/pelaaja" variant="lime" size="lg" iconRight="arrow-right">Takaisin Krossi Koutsiin</Button>
+          </div>
+        </div>
+      </header>
+    </div>
+  );
 }
 
 function Step({ n, title, hint, done, optional, flagged, stepRef, children }) {
@@ -48,18 +82,23 @@ function Step({ n, title, hint, done, optional, flagged, stepRef, children }) {
 }
 
 export function OnboardingScreen() {
-  const { user, setProfile, refreshProfile } = useSession();
+  const { user, profile: existing, setProfile, refreshProfile } = useSession();
+  // `existing` = a profile Krossi Koutsi created; prefill from it and keep its private flag
+  // unless the player explicitly opts in to the Krossi player search.
+  const fromKoutsi = Boolean(existing);
+  const [ageGroup, setAgeGroup] = useState(fromKoutsi ? undefined : null);
+  const [visible, setVisible] = useState(true);
   const toast = useToast();
   const [busy, run] = useBusy();
   const isDesktop = useIsDesktop();
   const [signingOut, setSigningOut] = useState(false);
-  const [name, setName] = useState(() => prefillName(user));
-  const [age, setAge] = useState('');
-  const [city, setCity] = useState('');
+  const [name, setName] = useState(() => (existing?.name && existing.name !== 'Pelaaja' ? existing.name : prefillName(user)));
+  const [age, setAge] = useState(() => existing?.ageRange || '');
+  const [city, setCity] = useState(() => (CITIES.includes(existing?.city) ? existing.city : ''));
   const [skill, setSkill] = useState('');
   const [classes, setClasses] = useState([]);
   const [styles, setStyles] = useState([]);
-  const [avatar, setAvatar] = useState({ path: null, preview: null, uploading: false });
+  const [avatar, setAvatar] = useState({ path: null, preview: existing?.avatarUrl || null, uploading: false });
   const [flagged, setFlagged] = useState(() => new Set());
   const fileInput = useRef(null);
   const previewUrl = useRef(null);
@@ -68,6 +107,16 @@ export function OnboardingScreen() {
   const { inviterName } = useInviter(authStore.get(INVITE_CODE_KEY));
 
   useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current); }, []);
+
+  useEffect(() => {
+    if (!fromKoutsi) return undefined;
+    let alive = true;
+    api.profile.getKoutsiAgeGroup().then((g) => alive && setAgeGroup(g)).catch(() => alive && setAgeGroup(null));
+    return () => { alive = false; };
+  }, [fromKoutsi]);
+
+  // An exact age (Koutsi stores years) isn't one of our ranges: keep it as is and hide the picker.
+  const exactAge = age && !AGE_VALUES.has(age);
 
   const valid = { name: name.trim().length > 0, city: Boolean(city), skill: Boolean(skill) };
   const missing = REQUIRED.filter((r) => !valid[r.key]);
@@ -86,10 +135,11 @@ export function OnboardingScreen() {
     availability: [],
     handedness: null,
     backhand: null,
-    hiddenFromFeed: false,
+    hiddenFromFeed: fromKoutsi ? !visible : false,
     playingThisWeek: true,
     avatarPath: avatar.path,
-  }), [name, age, city, skill, classes, styles, avatar.path]);
+    ...(fromKoutsi && visible && existing?.isDiscoverable === false ? { discoverable: true } : {}),
+  }), [name, age, city, skill, classes, styles, avatar.path, fromKoutsi, visible, existing?.isDiscoverable]);
 
   const pickPhoto = async (e) => {
     const file = e.target.files?.[0];
@@ -144,6 +194,13 @@ export function OnboardingScreen() {
     }
   };
 
+  if (fromKoutsi && ageGroup === undefined) {
+    return <div className="gate-error"><Spinner size={28} /></div>;
+  }
+  if (fromKoutsi && (KOUTSI_JUNIOR_GROUPS.has(ageGroup) || isUnder16(existing?.ageRange))) {
+    return <KoutsiJuniorNotice onSignOut={signOut} signingOut={signingOut} />;
+  }
+
   return (
     <div className="auth-onb">
       <header className="auth-onb-hero court-lines on-dark">
@@ -161,8 +218,12 @@ export function OnboardingScreen() {
               <span><strong>{inviterName}</strong> kutsui sinut Krossiin 🎾</span>
             </div>
           )}
-          <h1 className="auth-onb-title">Tervetuloa Krossiin!</h1>
-          <p className="auth-onb-lead">Pari valintaa, niin löydät tasoisesi pelikaverit. Loput voit täyttää myöhemmin.</p>
+          <h1 className="auth-onb-title">{fromKoutsi ? 'Täydennä Krossi-profiilisi' : 'Tervetuloa Krossiin!'}</h1>
+          <p className="auth-onb-lead">
+            {fromKoutsi
+              ? 'Sinulla on jo Krossi Koutsi -tili, joten osa tiedoista on valmiina. Nimi, kaupunki ja kuva ovat yhteiset Koutsin kanssa.'
+              : 'Pari valintaa, niin löydät tasoisesi pelikaverit. Loput voit täyttää myöhemmin.'}
+          </p>
           <div className="auth-onb-progress">
             <ProgressBar value={doneCount / REQUIRED.length} tone="lime" label="Profiilin valmius" />
             <span className="auth-onb-progress-label t-num">{doneCount}/{REQUIRED.length} valmiina</span>
@@ -207,9 +268,11 @@ export function OnboardingScreen() {
           </div>
         </Step>
 
-        <Step n={2} title="Ikäryhmä" optional done={Boolean(age)}>
-          <ChipSelect options={AGE_RANGES} value={age} onChange={setAge} allowEmpty layout="grid" columns={3} ariaLabel="Ikäryhmä" />
-        </Step>
+        {!exactAge && (
+          <Step n={2} title="Ikäryhmä" optional done={Boolean(age)}>
+            <ChipSelect options={AGE_RANGES} value={age} onChange={setAge} allowEmpty layout="grid" columns={3} ariaLabel="Ikäryhmä" />
+          </Step>
+        )}
 
         <Step
           n={3}
@@ -236,7 +299,21 @@ export function OnboardingScreen() {
           <ChipSelect options={PLAY_STYLES} value={styles} onChange={setStyles} multiple ariaLabel="Pelimuodot" />
         </Step>
 
-        <p className="auth-onb-later" style={{ '--i': 6 }}>
+        {fromKoutsi && (
+          <Step n={6} title="Näkyvyys" hint="Koutsi-profiilisi on tähän asti ollut yksityinen." done>
+            <Toggle
+              checked={visible}
+              onChange={setVisible}
+              icon="eye"
+              label="Näy muille Krossi-pelaajille"
+              hint={visible
+                ? 'Muut pelaajat näkevät profiilisi ja voivat pyytää sinua pelaamaan.'
+                : 'Pysyt piilossa pelaajalistalta, mutta voit silti liittyä peleihin ja luoda omia.'}
+            />
+          </Step>
+        )}
+
+        <p className="auth-onb-later" style={{ '--i': 7 }}>
           <Icon name="sparkles" size={16} />
           <span>Pelivuorot, kätisyyden ja esittelyn voit lisätä myöhemmin profiilista — ei kiirettä.</span>
         </p>

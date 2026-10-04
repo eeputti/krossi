@@ -26,9 +26,10 @@ export async function saveMine(uid, input) {
   const name = input.name.trim();
 
   const existing = unwrap(
-    await db().from('profiles').select('id').eq('id', id).maybeSingle(),
+    await db().from('profiles').select('id, tennis_preferences(user_id)').eq('id', id).maybeSingle(),
     'Profiilin tallennus epäonnistui.',
   );
+  const wasKrossiPlayer = Boolean(existing && (Array.isArray(existing.tennis_preferences) ? existing.tennis_preferences.length : existing.tennis_preferences));
 
   // Only columns the `authenticated` role may UPDATE (see the profiles column grants);
   // an upsert that names any other column is rejected as a whole.
@@ -44,6 +45,9 @@ export async function saveMine(uid, input) {
   // Stored as a full public URL: the mobile app renders avatar_url as-is.
   if (input.avatarPath) profileRow.avatar_url = avatarUrl(input.avatarPath);
   if (typeof input.playingThisWeek === 'boolean') profileRow.playing_this_week = input.playingThisWeek;
+  // Only an explicit opt-in (Koutsi account completing Krossi onboarding) makes a private
+  // Koutsi profile discoverable; otherwise the Koutsi-owned flag is never written.
+  if (input.discoverable === true) profileRow.is_discoverable = true;
 
   const fail = 'Profiilin tallennus epäonnistui. Yritä uudelleen.';
   unwrap(await db().from('profiles').upsert(profileRow), fail);
@@ -64,7 +68,7 @@ export async function saveMine(uid, input) {
   const { error: metaError } = await db().auth.updateUser({ data: { display_name: name, full_name: name } });
   if (metaError) console.warn('Käyttäjän nimen päivitys kirjautumistietoihin epäonnistui', metaError);
 
-  if (!existing) trackPixel('CompleteRegistration');
+  if (!wasKrossiPlayer) trackPixel('CompleteRegistration');
   const saved = await getMine(id);
   if (!saved) throw new ApiError(fail);
   return saved;
@@ -160,6 +164,17 @@ export async function myEventCities() {
     return [];
   }
   return Array.isArray(data) ? data : [];
+}
+
+// Krossi Koutsi records an age group for its pilot users (own row readable under RLS).
+// Juniors stay private there, so Krossi onboarding uses this to keep them out of the
+// player search. Any failure reads as "no Koutsi age group".
+export async function getKoutsiAgeGroup() {
+  const uid = await currentUid();
+  if (!uid) return null;
+  const { data, error } = await db().from('koutsi_pilot_acknowledgements').select('age_group').eq('user_id', uid).maybeSingle();
+  if (error) return null;
+  return data?.age_group || null;
 }
 
 export async function deleteAccount() {

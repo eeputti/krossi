@@ -148,3 +148,7 @@ export async function deleteAccount() {
   await run(() => undefined);
   leaveDemo();
 }
+
+export async function getKoutsiAgeGroup() {
+  return run(() => null);
+}
