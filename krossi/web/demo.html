@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Kokeile Krossia — demo</title>
+<meta name="description" content="Kokeile Krossia ilman tiliä: selaa pelaajia, liity peleihin ja katso miten pelin sopiminen toimii." />
+<meta name="robots" content="noindex" />
+<meta name="theme-color" content="#0E3B2C" />
+<meta property="og:title" content="Kokeile Krossia — demo" />
+<meta property="og:description" content="Näe miten tennispelin sopiminen Krossissa toimii — ilman tiliä." />
+<meta property="og:image" content="https://krossi.app/krossi/static/og-image.png" />
+<link rel="icon" type="image/png" href="/krossi/static/favicon.png" />
+<link rel="apple-touch-icon" href="/krossi/static/icon-180.png" />
+<link rel="stylesheet" href="/krossi/app.css" />
+<style>
+  html, body { margin: 0; background: #F7F5EF; }
+  .boot { position: fixed; inset: 0; display: grid; place-items: center; background: #0E3B2C; }
+  .boot-ball { width: 46px; height: 46px; border-radius: 50%; background: #CFE414; animation: boot-bounce .9s cubic-bezier(.5,0,.5,1) infinite alternate; box-shadow: inset -6px -8px 0 rgba(0,0,0,.08); }
+  .boot-shadow { width: 40px; height: 8px; margin: 14px auto 0; border-radius: 50%; background: rgba(0,0,0,.25); animation: boot-shadow .9s cubic-bezier(.5,0,.5,1) infinite alternate; }
+  @keyframes boot-bounce { from { transform: translateY(-28px); } to { transform: translateY(0); } }
+  @keyframes boot-shadow { from { transform: scale(.55); opacity: .5; } to { transform: scale(1); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .boot-ball, .boot-shadow { animation: none; } }
+</style>
+</head>
+<body>
+  <div id="root"><div class="boot" aria-label="Ladataan Krossin demoa"><div><div class="boot-ball"></div><div class="boot-shadow"></div></div></div></div>
+  <noscript>Krossi tarvitsee JavaScriptin toimiakseen.</noscript>
+  <script src="/krossi/demo.js" defer></script>
+</body>
+</html>

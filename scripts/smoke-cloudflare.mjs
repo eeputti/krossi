@@ -23,6 +23,11 @@ function request(host, path) {
 const pages = [
   ['krossi.app', '/', 'Krossi — Löydä uusia pelikavereita'],
   ['krossi.app', '/pelaa', 'Krossi — Selainversio'],
+  // An id that doesn't exist: the Open Graph lookup finds nothing and the shell is served as is.
+  ['krossi.app', '/pelaa/peli/00000000-0000-4000-8000-000000000000', 'Krossi — Selainversio'],
+  ['krossi.app', '/pelaa/viestit/x', 'Krossi — Selainversio'],
+  ['krossi.app', '/demo', 'Kokeile Krossia — demo'],
+  ['krossi.app', '/demo/pelit', 'Kokeile Krossia — demo'],
   ['koutsi.krossi.app', '/', 'Krossi Koutsi — Valmennus ja kehitys. Samassa paikassa.'],
   ['koutsi.krossi.app', '/valmentaja/oppilaat?auth=login', 'Valmentajan näkymä — Krossi Koutsi'],
   ['koutsi.krossi.app', '/pelaaja/treenit?koodi=ABC', 'Pelaajan näkymä — Krossi Koutsi'],

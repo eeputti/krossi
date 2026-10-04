@@ -12,6 +12,12 @@
         "."
       ],
       "port": 4321
+    },
+    {
+      "name": "krossi-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["krossi/web/dev.mjs"],
+      "port": 4400
     }
   ]
 }

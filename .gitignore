@@ -8,3 +8,6 @@ supabase/.temp/
 .dev.vars*
 .env*
 !.env.example
+
+# Krossi web build output (rebuilt by npm run build:krossi / build:cloudflare)
+krossi/web/dist

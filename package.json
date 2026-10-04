@@ -4,12 +4,15 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "build:cloudflare": "npm run build && node scripts/build-cloudflare.mjs && node scripts/prerender.mjs",
+    "build:cloudflare": "npm run build && npm run build:krossi && node scripts/build-cloudflare.mjs && node scripts/prerender.mjs",
     "dev:cloudflare": "npm run build:cloudflare && CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false wrangler dev",
     "test:cloudflare": "npm run build:cloudflare && node --test tests/cloudflare-routing.test.mjs",
     "smoke:cloudflare": "node scripts/smoke-cloudflare.mjs",
     "deploy:cloudflare": "npm run build:cloudflare && wrangler deploy",
-    "send:test-email": "node --env-file=.env.local scripts/send-test-email.mjs"
+    "send:test-email": "node --env-file=.env.local scripts/send-test-email.mjs",
+    "build:krossi": "node krossi/web/build.mjs",
+    "dev:krossi": "node krossi/web/dev.mjs",
+    "test:krossi": "node --test \"krossi/web/test/*.test.mjs\""
   },
   "devDependencies": {
     "esbuild": "^0.25.9",
@@ -17,6 +20,9 @@
     "wrangler": "^4.125.0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "resend": "^6.22.0",
     "tus-js-client": "4.3.1"
   }

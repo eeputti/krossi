@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<!-- Meta Pixel Code (ladataan vasta evästesuostumuksella, ks. lib/cookie-consent.js) -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];}(window);
+window.krossiLoadPixel = function () {
+  if (window._krossiPixelLoaded) return;
+  window._krossiPixelLoaded = true;
+  !function(b,e,v){var t=b.createElement(e);t.async=!0;t.src=v;
+  var s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s);}
+  (document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '1775096637011051');
+  fbq('track', 'PageView');
+};
+</script>
+<!-- End Meta Pixel Code -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Krossi — Selainversio</title>
+<meta name="description" content="Krossi selainversio — löydä pelikavereita, sovi pelit ja pysy mukana." />
+<meta name="theme-color" content="#0E3B2C" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Krossi" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Krossi" />
+<meta property="og:locale" content="fi_FI" />
+<meta property="og:title" content="Krossi — Löydä pelikavereita tennikseen" />
+<meta property="og:description" content="Sovi tennispeli tällä viikolla. Löydä oman tasoisesi pelikaveri ja liity avoimiin peleihin." />
+<meta property="og:image" content="https://krossi.app/krossi/static/og-image.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" type="image/png" href="/krossi/static/favicon.png" />
+<link rel="apple-touch-icon" href="/krossi/static/icon-180.png" />
+<link rel="manifest" href="/krossi.webmanifest" />
+<link rel="preconnect" href="https://hhybjpgrvlbazbqiaaao.supabase.co" crossorigin />
+<link rel="stylesheet" href="/krossi/app.css" />
+<style>
+  /* Instant splash before the bundle runs — replaced by React's own splash on mount. */
+  html, body { margin: 0; background: #F7F5EF; }
+  .boot { position: fixed; inset: 0; display: grid; place-items: center; background: #0E3B2C; }
+  .boot-ball { width: 46px; height: 46px; border-radius: 50%; background: #CFE414; animation: boot-bounce .9s cubic-bezier(.5,0,.5,1) infinite alternate; box-shadow: inset -6px -8px 0 rgba(0,0,0,.08); }
+  .boot-shadow { width: 40px; height: 8px; margin: 14px auto 0; border-radius: 50%; background: rgba(0,0,0,.25); animation: boot-shadow .9s cubic-bezier(.5,0,.5,1) infinite alternate; }
+  @keyframes boot-bounce { from { transform: translateY(-28px); } to { transform: translateY(0); } }
+  @keyframes boot-shadow { from { transform: scale(.55); opacity: .5; } to { transform: scale(1); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .boot-ball, .boot-shadow { animation: none; } }
+</style>
+</head>
+<body>
+  <div id="root"><div class="boot" aria-label="Ladataan Krossia"><div><div class="boot-ball"></div><div class="boot-shadow"></div></div></div></div>
+  <noscript>Krossi tarvitsee JavaScriptin toimiakseen.</noscript>
+  <script src="/krossi/app.js" defer></script>
+  <script src="/lib/cookie-consent.js" defer></script>
+</body>
+</html>

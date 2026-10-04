@@ -1,0 +1,275 @@
+/* illustrations.css — layout and idle motion for ui/illustrations.jsx.
+ *
+ * Each illustration runs exactly one slow, looping animation (a shadow that follows its
+ * object counts as part of the same motion). Classes are applied to SVG groups that never
+ * carry a transform attribute, so the CSS transform here can't clobber positioning.
+ *
+ * transform-box: fill-box makes percentages and `center` refer to the element itself;
+ * the swing and the wave instead pivot on fixed points of the 200×160 canvas (view-box).
+ */
+
+.ill {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* ---- ball: bounce with squash on contact, shadow tightens while the ball is up ---------- */
+
+.ill-bounce,
+.ill-squash {
+  animation: ill-bounce 1.9s infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.ill-squash {
+  animation-name: ill-squash;
+  transform-origin: 50% 50%;
+}
+
+@keyframes ill-bounce {
+  0%, 100% { transform: translateY(0); animation-timing-function: cubic-bezier(.45, 0, .85, .4); }
+  44%      { transform: translateY(26px); animation-timing-function: linear; }
+  50%      { transform: translateY(26px) scale(1.1, .86); animation-timing-function: linear; }
+  56%      { transform: translateY(26px); animation-timing-function: cubic-bezier(.15, .6, .55, 1); }
+}
+
+@keyframes ill-squash {
+  0%, 100% { transform: scale(.55); opacity: .45; animation-timing-function: cubic-bezier(.45, 0, .85, .4); }
+  44%, 56% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.12, 1); opacity: 1; }
+}
+
+/* ---- court: the resting ball gives a small hop now and then ----------------------------- */
+
+.ill-hop {
+  animation: ill-hop 3.4s infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+@keyframes ill-hop {
+  0%, 62%, 100% { transform: translateY(0); animation-timing-function: cubic-bezier(.15, .6, .55, 1); }
+  72%           { transform: translateY(-8px); animation-timing-function: cubic-bezier(.45, 0, .85, .4); }
+  81%           { transform: translateY(0) scale(1.1, .88); }
+  88%           { transform: translateY(0) scale(1); }
+}
+
+/* ---- players, map: gentle float (the map pin's shadow breathes with it) ----------------- */
+
+.ill-bob,
+.ill-bob-shadow {
+  animation: ill-bob 2.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.ill-bob-shadow { animation-name: ill-bob-shadow; }
+
+@keyframes ill-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+
+@keyframes ill-bob-shadow {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(.72); opacity: .6; }
+}
+
+/* ---- chat: typing dots ------------------------------------------------------------------ */
+
+.ill-typing > * {
+  animation: ill-typing 1.3s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.ill-typing > :nth-child(2) { animation-delay: .18s; }
+.ill-typing > :nth-child(3) { animation-delay: .36s; }
+
+@keyframes ill-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: .3; }
+  30%           { transform: translateY(-3px); opacity: 1; }
+}
+
+/* ---- calendar: a ring pings out from the booked date ------------------------------------ */
+
+.ill-ping {
+  animation: ill-ping 2.6s var(--ease-out) infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+@keyframes ill-ping {
+  0%       { transform: scale(.8); opacity: 0; }
+  15%      { opacity: 1; }
+  70%, 100% { transform: scale(1.55); opacity: 0; }
+}
+
+/* ---- trophy: sparkles twinkle out of step ----------------------------------------------- */
+
+.ill-twinkle > * {
+  animation: ill-twinkle 2.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.ill-twinkle > :nth-child(2) { animation-delay: -.95s; }
+.ill-twinkle > :nth-child(3) { animation-delay: -1.9s; }
+
+@keyframes ill-twinkle {
+  0%, 100% { transform: scale(1) rotate(0); opacity: 1; }
+  50%      { transform: scale(.55) rotate(30deg); opacity: .55; }
+}
+
+/* ---- league: pennant flutters on its pole ----------------------------------------------- */
+
+.ill-flag {
+  animation: ill-flag 2.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+}
+
+@keyframes ill-flag {
+  0%, 100% { transform: scaleX(1) skewY(0); }
+  50%      { transform: scaleX(.84) skewY(6deg); }
+}
+
+/* ---- search: the magnifier drifts over the court ---------------------------------------- */
+
+.ill-scan {
+  animation: ill-scan 5s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+@keyframes ill-scan {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  33%      { transform: translate(-9px, 3px) rotate(-4deg); }
+  66%      { transform: translate(-3px, -4px) rotate(2deg); }
+}
+
+/* ---- lock: a short rattle, then a long rest --------------------------------------------- */
+
+.ill-jiggle {
+  animation: ill-jiggle 3.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+@keyframes ill-jiggle {
+  0%, 70%, 100% { transform: rotate(0); }
+  76%           { transform: rotate(-5deg); }
+  82%           { transform: rotate(4deg); }
+  88%           { transform: rotate(-2deg); }
+  94%           { transform: rotate(1deg); }
+}
+
+/* ---- mail: the envelope floats ---------------------------------------------------------- */
+
+.ill-float {
+  animation: ill-float 3.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+@keyframes ill-float {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50%      { transform: translateY(-5px) rotate(-2deg); }
+}
+
+/* ---- celebrate: confetti pops in and out ------------------------------------------------ */
+
+.ill-confetti > * {
+  animation: ill-pop 2.4s var(--ease-spring) infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.ill-confetti > :nth-child(odd) { animation-delay: -1.2s; }
+.ill-confetti > :nth-child(3n)  { animation-delay: -.6s; }
+
+@keyframes ill-pop {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(.45); opacity: .35; }
+}
+
+/* ---- racket: wind-up and swing, pivoting on the butt of the grip ------------------------ */
+
+.ill-swing {
+  animation: ill-swing 3s ease-in-out infinite;
+  transform-box: view-box;
+  transform-origin: 61px 134px;
+}
+
+@keyframes ill-swing {
+  0%, 100% { transform: rotate(0); }
+  40%      { transform: rotate(-9deg); animation-timing-function: cubic-bezier(.5, 0, .2, 1); }
+  58%      { transform: rotate(5deg); }
+  76%      { transform: rotate(0); }
+}
+
+/* ---- wave: a couple of waves from the wrist, then a pause ------------------------------- */
+
+.ill-hand {
+  animation: ill-hand 2.6s ease-in-out infinite;
+  transform-box: view-box;
+  transform-origin: 100px 124px;
+}
+
+@keyframes ill-hand {
+  0%, 50%, 100% { transform: rotate(0); }
+  10%           { transform: rotate(14deg); }
+  20%           { transform: rotate(-8deg); }
+  30%           { transform: rotate(14deg); }
+  40%           { transform: rotate(-4deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ill,
+  .ill * {
+    animation: none !important;
+  }
+}
+
+/* ---- QA gallery (IllustrationGallery) --------------------------------------------------- */
+
+.ill-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s4, 16px);
+}
+
+.ill-gallery-item {
+  margin: 0;
+  padding: var(--s4, 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s2, 8px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg, 18px);
+}
+
+.ill-gallery-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--fs-small, 13px);
+  color: var(--muted);
+  text-align: center;
+}
+
+.ill-gallery-label code {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ---- on dark surfaces (paywall, heroes): the sand backdrop becomes a faint light halo ---- */
+.on-dark .ill {
+  --sand: rgba(255, 255, 255, 0.08);
+}
