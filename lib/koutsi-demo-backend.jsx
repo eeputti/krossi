@@ -15,7 +15,8 @@
 // data layer unchanged, which is the point.
 
 (function () {
-  const STORE_KEY = 'koutsi_demo_state_v1';
+  // v2: seed gained adult and junior groups for the weekly theme planner
+  const STORE_KEY = 'koutsi_demo_state_v2';
 
   // ── demo identities ───────────────────────────────────────────────────────
   const COACH = 'demo-coach';
@@ -24,6 +25,11 @@
   const S2 = 'demo-student-2';
   const S3 = 'demo-student-3';
   const GROUP = 'demo-group-1';
+  const GROUP_B = 'demo-group-2';
+  const JUNIORS_A = 'demo-group-3';
+  const JUNIORS_B = 'demo-group-4';
+  const J1 = 'demo-student-4';
+  const J2 = 'demo-student-5';
 
   // Which person the demo is "logged in as" — the player page overrides this before
   // this file runs, so one backend serves both demos.
@@ -60,7 +66,9 @@
   // stays the same; only the shape changed to match the real app's state.
   function seed() {
     const now = window.koutsiCurrentIsoWeek();
-    return {
+    const lastWeek = window.koutsiAddIsoWeeks(now, -1);
+    const twoWeeksAgo = window.koutsiAddIsoWeeks(now, -2);
+    const s = {
       coach: person(COACH, 'Anna Koskinen', {
         tagline: 'Tennisvalmentaja · Lahti',
         bio: 'Valmennan aikuispelaajia. Erikoisalana lyöntitekniikka ja kilpapelaajien fysiikka.',
@@ -109,6 +117,8 @@
           homework: [],
           videos: [],
         }),
+        student(J1, 'Eetu J.', 13, 'Aloittelija', { isPlaceholder: true }),
+        student(J2, 'Ilona P.', 15, 'Keskitaso', { isPlaceholder: true }),
       ],
       groups: [{
         id: GROUP, coachId: COACH, name: 'Aikuiset A', level: 'Keskitaso', day: 'Ti', time: '17:00', durationMinutes: 90,
@@ -118,6 +128,26 @@
           { id: 't2', ...window.koutsiAddIsoWeeks(now, -1), title: 'Verkolle tulo', lead: 'Lähestymislyönti linjaan ja split step ennen volleytä.' },
           { id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' },
         ],
+        annualPlan: null,
+      }, {
+        // Same weekday-and-cohort naming real coaches use, so the planner's
+        // "aikuiset"/"juniorit" chips and "Jatka edellisillä teemoilla" have something to do.
+        id: GROUP_B, coachId: COACH, name: 'Aikuiset B', level: 'Edistynyt', day: 'To', time: '18:00', durationMinutes: 60,
+        memberIds: [S2, S3], slots: [],
+        themes: [
+          { id: 't3', ...twoWeeksAgo, title: 'Kämmenen pelitila', lead: 'Korkea pallo takakenttään ja aikaa palata keskelle.' },
+          { id: 't4', ...lastWeek, title: 'Verkolle tulo', lead: 'Lähestymislyönti linjaan ja split step ennen volleytä.' },
+        ],
+        annualPlan: null,
+      }, {
+        id: JUNIORS_A, coachId: COACH, name: 'Juniorit A', level: 'Aloittelija', day: 'Ma', time: '16:00', durationMinutes: 60,
+        memberIds: [J1], slots: [],
+        themes: [{ id: 't5', ...lastWeek, title: 'Syötön heitto', lead: 'Heitto samaan kohtaan joka kerta, maila valmiiksi selän takana.' }],
+        annualPlan: null,
+      }, {
+        id: JUNIORS_B, coachId: COACH, name: 'Juniorit B', level: 'Keskitaso', day: 'Ke', time: '16:30', durationMinutes: 60,
+        memberIds: [J2], slots: [],
+        themes: [{ id: 't6', ...lastWeek, title: 'Syötön heitto', lead: 'Heitto samaan kohtaan joka kerta, maila valmiiksi selän takana.' }],
         annualPlan: null,
       }],
       trainings: [
@@ -147,6 +177,10 @@
       joinCode: 'DEMO24',
       emailPref: true,
     };
+    // the extra groups' calendars start this Monday, so they train in the week on screen
+    const monday = window.koutsiAddDays(window.koutsiTodayStr(), -((new Date().getDay() + 6) % 7));
+    s.groups.slice(1).forEach((g) => demoGenerateGroupTrainings(s, g.id, COACH, g.day, g.time, g.durationMinutes, monday, 8));
+    return s;
   }
 
   function student(id, name, age, level, extra) {
@@ -597,19 +631,27 @@
   };
 
   // ── weekly themes ─────────────────────────────────────────────────────────
-  window.koutsiSaveThemes = (groupId, rows) => {
-    const g = load().groups.find((x) => x.id === groupId);
-    if (!g) return done(0);
+  window.koutsiSaveGroupThemes = (rows, { onlyNew = false } = {}) => {
+    const s = load();
     const clean = (rows || []).filter((r) => r.title && r.title.trim());
+    if (clean.some((r) => r.title.trim().length > window.KOUTSI_THEME_TITLE_MAX || (r.lead || '').trim().length > window.KOUTSI_THEME_LEAD_MAX)) {
+      return Promise.reject(new Error(`Viikkoteeman teksti on liian pitkä: teema enintään ${window.KOUTSI_THEME_TITLE_MAX} ja tarkennus enintään ${window.KOUTSI_THEME_LEAD_MAX} merkkiä.`));
+    }
+    let written = 0;
     clean.forEach((r) => {
+      const g = s.groups.find((x) => x.id === r.groupId);
+      if (!g) return;
       const hit = g.themes.find((t) => t.year === r.year && t.week === r.week);
+      if (hit && onlyNew) return;
       if (hit) { hit.title = r.title.trim(); hit.lead = (r.lead || '').trim(); }
       else g.themes.push({ id: newId('t'), year: r.year, week: r.week, title: r.title.trim(), lead: (r.lead || '').trim() });
+      written += 1;
+      refreshThemes(g);
     });
-    refreshThemes(g);
     save();
-    return done(clean.length);
+    return done(written);
   };
+  window.koutsiSaveThemes = (groupId, rows) => window.koutsiSaveGroupThemes((rows || []).map((r) => ({ ...r, groupId })));
   window.koutsiDeleteThemes = (themeIds) => {
     const ids = new Set(themeIds || []);
     load().groups.forEach((g) => { g.themes = g.themes.filter((t) => !ids.has(t.id)); refreshThemes(g); });

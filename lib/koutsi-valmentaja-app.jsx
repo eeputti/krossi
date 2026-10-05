@@ -2014,11 +2014,16 @@ function SharedAnnualPlanSubmissionCard({ coachId }) {
   );
 }
 
-function GroupsView({ groups, students, coachId, acting, onOpen, onCreate }) {
+function GroupsView({ groups, students, coachId, acting, onOpen, onCreate, onPlanThemes }) {
   const nowWeek = window.koutsiCurrentIsoWeek();
   return (
     <div>
-      <PageHeader title="Ryhmät" sub={`${groups.length} valmennusryhmää`} action={<button onClick={onCreate} className="btn-dark btn-sm">+ Uusi ryhmä</button>} />
+      <PageHeader title="Ryhmät" sub={`${groups.length} valmennusryhmää`} action={(
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {groups.length > 0 && <button onClick={onPlanThemes} className="btn-outline btn-sm">Viikon teemat</button>}
+          <button onClick={onCreate} className="btn-dark btn-sm">+ Uusi ryhmä</button>
+        </div>
+      )} />
       {!acting && <SharedAnnualPlanSubmissionCard coachId={coachId} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
         {window.koutsiSortGroupsBySchedule(groups).map((g) => {
@@ -2097,8 +2102,8 @@ function WeeklyThemeRow({ row, weekOptions, takenWeeks, nowWeek, onChange, onRem
         )}
         <window.KoutsiRowActions onDelete={onRemove} deleteLabel="Poista tämän viikon teema" />
       </div>
-      <input value={row.title} onChange={(e) => onChange({ ...row, title: e.target.value })} placeholder="Teema, esim. Kämmenen pelitila" aria-label="Viikon teema" style={inputStyle} />
-      <textarea value={row.lead} onChange={(e) => onChange({ ...row, lead: e.target.value })} rows={2} placeholder="Mihin tällä viikolla keskitytään? (vapaaehtoinen)" aria-label="Teeman tarkennus" style={{ ...inputStyle, resize: 'none' }} />
+      <input value={row.title} onChange={(e) => onChange({ ...row, title: e.target.value })} maxLength={window.KOUTSI_THEME_TITLE_MAX} placeholder="Teema, esim. Kämmenen pelitila" aria-label="Viikon teema" style={inputStyle} />
+      <textarea value={row.lead} onChange={(e) => onChange({ ...row, lead: e.target.value })} rows={2} maxLength={window.KOUTSI_THEME_LEAD_MAX} placeholder="Mihin tällä viikolla keskitytään? (vapaaehtoinen)" aria-label="Teeman tarkennus" style={{ ...inputStyle, resize: 'none' }} />
     </div>
   );
 }
@@ -2232,6 +2237,326 @@ function WeeklyThemesModal({ group, onClose, onSave }) {
           </div>
           <div style={{ fontSize: 12, color: '#a8a297', marginTop: 9, textAlign: 'center' }}>Uudet rivit ilman teemaa jätetään tallentamatta.</div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Viikon teemat: one week, every group ─────────────────
+// The per-group editor had a coach with 19 groups retype one topic eight times, one modal
+// each. Here the week is the unit: write a theme once, pick its groups with a chip
+// ("aikuiset", "Ti", "Ilman teemaa"), save once. Each group still gets its own row, so a
+// later edit never rewrites what players saw in an earlier week.
+const PLANNER_DAY_NAMES = { Ma: 'Maanantai', Ti: 'Tiistai', Ke: 'Keskiviikko', To: 'Torstai', Pe: 'Perjantai', La: 'Lauantai', Su: 'Sunnuntai' };
+
+function plannerDefaultWeek() {
+  const now = window.koutsiCurrentIsoWeek();
+  const day = new Date().getDay();
+  // planning at the weekend is planning the coming week
+  return day === 6 || day === 0 ? window.koutsiAddIsoWeeks(now, 1) : now;
+}
+
+function PlannerChip({ active, onClick, children }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active} className="k-clickable-card"
+      style={{ border: active ? '1px solid var(--green-deep)' : '1px solid #d8d4ca', background: active ? 'var(--green-deep)' : '#fff', color: active ? '#fff' : '#514c42', borderRadius: 999, padding: '7px 11px', fontSize: 12, lineHeight: 1, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+      {children}
+    </button>
+  );
+}
+
+function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete, onEditGroup }) {
+  const confirm = window.useKoutsiConfirm();
+  const toast = window.useKoutsiToast();
+  const now = window.koutsiCurrentIsoWeek();
+  const cmp = window.koutsiCompareIsoWeeks;
+  const keyOf = window.koutsiThemeKey;
+  const [week, setWeek] = React.useState(plannerDefaultWeek);
+  const [title, setTitle] = React.useState('');
+  const [lead, setLead] = React.useState('');
+  // key of the theme being edited: its own groups don't count as being overwritten
+  const [editingKey, setEditingKey] = React.useState(null);
+  // null = the default pick (groups still without a theme); a Set once the coach chooses
+  const [picked, setPicked] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const composerRef = React.useRef(null);
+
+  const isPast = cmp(week, now) < 0;
+  const rows = window.koutsiSortGroupsBySchedule(groups).map((group) => ({
+    group,
+    theme: window.koutsiGroupThemeForWeek(group, week),
+    skips: window.koutsiGroupSkipsWeek(trainings, group.id, week),
+  }));
+  // a group on a break that week (holiday) doesn't count towards coverage or defaults
+  const counts = (r) => !r.skips;
+  const pool = rows.filter(counts);
+  const covered = pool.filter((r) => r.theme).length;
+  const withoutTheme = pool.filter((r) => !r.theme).map((r) => r.group.id);
+  const selected = picked || new Set(withoutTheme);
+
+  const clusters = window.koutsiThemeClusters(groups, week);
+  const library = window.koutsiThemeLibrary(groups).filter((t) => !clusters.some((c) => c.key === t.key));
+  const editingCluster = editingKey ? clusters.find((c) => c.key === editingKey) || null : null;
+  const carry = isPast ? [] : pool.filter((r) => !r.theme)
+    .map((r) => ({ group: r.group, from: window.koutsiLatestThemeBefore(r.group, week, 4) }))
+    .filter((x) => x.from);
+
+  const presets = [
+    { id: 'none-yet', label: `Ilman teemaa (${withoutTheme.length})`, ids: withoutTheme },
+    { id: 'all', label: `Kaikki (${rows.length})`, ids: rows.map((r) => r.group.id) },
+    ...window.koutsiGroupNameChips(groups).map((c) => ({ id: `word-${c.word}`, label: `${c.word} (${c.groupIds.length})`, ids: c.groupIds })),
+    ...Object.keys(PLANNER_DAY_NAMES)
+      .map((day) => ({ id: `day-${day}`, label: day, ids: rows.filter((r) => r.group.day === day).map((r) => r.group.id) }))
+      .filter((p) => p.ids.length > 0)
+      .map((p) => ({ ...p, label: `${p.label} (${p.ids.length})` })),
+  ].filter((p) => p.ids.length > 0);
+  const sameSet = (ids) => ids.length === selected.size && ids.every((id) => selected.has(id));
+
+  const goWeek = (n) => { setWeek((w) => window.koutsiAddIsoWeeks(w, n)); setPicked(null); setEditingKey(null); };
+  const toggle = (id) => setPicked(() => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const focusComposer = () => setTimeout(() => composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);
+  const resetComposer = () => { setTitle(''); setLead(''); setEditingKey(null); setPicked(null); };
+
+  const editCluster = (c) => {
+    setTitle(c.title); setLead(c.lead); setEditingKey(c.key);
+    setPicked(new Set(c.groups.map((g) => g.id)));
+    focusComposer();
+  };
+  const reuseThisWeek = (c) => {
+    setWeek(now); setTitle(c.title); setLead(c.lead); setEditingKey(null);
+    setPicked(new Set(c.groups.map((g) => g.id)));
+    focusComposer();
+  };
+  const removeCluster = async (c) => {
+    const ok = await confirm({
+      title: 'Poista teema tältä viikolta?',
+      body: `"${c.title}" poistetaan ${c.groups.length === 1 ? '1 ryhmältä' : `${c.groups.length} ryhmältä`} viikolta ${week.week}. Muiden viikkojen teemat säilyvät.`,
+      confirmLabel: 'Poista', danger: true,
+    });
+    if (!ok) return;
+    const deleted = await onDelete(c.themes.map((t) => t.id), c.groups.length === 1 ? 'Teema poistettu viikolta.' : `Teema poistettu ${c.groups.length} ryhmältä.`);
+    if (deleted && editingKey === c.key) resetComposer();
+  };
+  const continueThemes = async () => {
+    const titles = [...new Set(carry.map((x) => x.from.title))];
+    const ok = await confirm({
+      title: `Jatketaanko ${carry.length === 1 ? '1 ryhmän' : `${carry.length} ryhmän`} teemaa?`,
+      body: `Ryhmät ilman teemaa viikolla ${week.week} saavat oman edellisen teemansa: ${titles.slice(0, 3).join(', ')}${titles.length > 3 ? ` ja ${titles.length - 3} muuta` : ''}. Jo asetettuja teemoja ei muuteta.`,
+      confirmLabel: 'Jatka teemoja',
+    });
+    if (!ok) return;
+    setBusy(true);
+    const written = await onSave({
+      fresh: carry.map((x) => ({ groupId: x.group.id, year: week.year, week: week.week, title: x.from.title, lead: x.from.lead })),
+    });
+    setBusy(false);
+    if (written == null) return;
+    if (written === 0) { toast.info('Ryhmillä oli jo teema, eikä sitä muutettu.'); return; }
+    const kept = carry.length - written;
+    toast.success(`${written === 1 ? 'Teema jatkuu 1 ryhmällä' : `Teemat jatkuvat ${written} ryhmällä`}.${kept > 0 ? ` ${kept === 1 ? '1 ryhmällä' : `${kept} ryhmällä`} oli jo teema, jota ei muutettu.` : ''}`);
+  };
+
+  const cleanTitle = title.trim();
+  const cleanLead = lead.trim();
+  const targets = rows.filter((r) => selected.has(r.group.id));
+  const editingIds = new Set((editingCluster?.groups || []).map((g) => g.id));
+  const canSave = !busy && !isPast && cleanTitle.length > 0 && targets.length > 0;
+
+  const save = async () => {
+    if (!canSave) return;
+    const key = keyOf(cleanTitle);
+    // Outside the theme being edited, a group's own theme is replaced only with consent,
+    // and a different tarkennus counts. Left empty, the tarkennus isn't a change: a group
+    // that already has this title keeps its own.
+    const sameTitle = (r) => r.theme && keyOf(r.theme.title) === key;
+    const keepsOwn = (r) => !editingIds.has(r.group.id) && sameTitle(r) && !cleanLead;
+    const conflicts = targets.filter((r) => r.theme && !editingIds.has(r.group.id) && !keepsOwn(r)
+      && (!sameTitle(r) || (r.theme.lead || '') !== cleanLead));
+    let list = targets.filter((r) => !keepsOwn(r));
+    if (conflicts.length > 0) {
+      const names = conflicts.slice(0, 3).map((r) => `${r.group.day} ${r.group.time} ${r.group.name}: ${r.theme.title}${sameTitle(r) ? ' (eri tarkennus)' : ''}`);
+      const choice = await confirm({
+        title: `${conflicts.length === 1 ? '1 ryhmällä' : `${conflicts.length} ryhmällä`} on jo oma teema viikolla ${week.week}`,
+        body: `${names.join(' · ')}${conflicts.length > 3 ? ` · ja ${conflicts.length - 3} muuta` : ''}`,
+        confirmLabel: 'Korvaa nekin', secondaryLabel: 'Tallenna vain muille', secondaryValue: 'skip', cancelLabel: 'Peruuta',
+      });
+      if (!choice) return;
+      if (choice === 'skip') list = list.filter((r) => !conflicts.includes(r));
+    }
+    // a group that already has exactly this theme needs no write
+    const changes = list.filter((r) => !(r.theme && r.theme.title === cleanTitle && (r.theme.lead || '') === cleanLead));
+    if (changes.length === 0) {
+      toast.info(list.length === 0 && conflicts.length > 0 ? 'Kaikilla valituilla ryhmillä on jo oma teema, joten mitään ei tallennettu.' : 'Valituilla ryhmillä on jo tämä teema.');
+      return;
+    }
+    const toRow = (r) => ({ groupId: r.group.id, year: week.year, week: week.week, title: cleanTitle, lead: cleanLead });
+    setBusy(true);
+    // a group that looked empty is insert-only, in case its theme was set elsewhere meanwhile
+    const written = await onSave({ fresh: changes.filter((r) => !r.theme).map(toRow), replace: changes.filter((r) => r.theme).map(toRow) });
+    setBusy(false);
+    if (written == null) return;
+    if (written === 0) { toast.info('Valituilla ryhmillä oli jo teema, eikä sitä muutettu.'); return; }
+    const kept = changes.length - written;
+    toast.success(`Teema tallennettu ${written === 1 ? '1 ryhmälle' : `${written} ryhmälle`}.${kept > 0 ? ` ${kept === 1 ? '1 ryhmällä' : `${kept} ryhmällä`} oli jo teema, jota ei muutettu.` : ''}`);
+    resetComposer();
+  };
+
+  const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '12px 14px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const sectionLabel = { fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 };
+  const stepStyle = { width: 38, height: 38, borderRadius: '50%', border: '1px solid #d8d4ca', background: '#fff', cursor: 'pointer', fontSize: 18, color: '#3c382f', fontFamily: 'inherit', flexShrink: 0 };
+  const byDay = [];
+  rows.forEach((r) => {
+    const day = PLANNER_DAY_NAMES[r.group.day] ? r.group.day : '';
+    let bucket = byDay.find((b) => b.day === day);
+    if (!bucket) { bucket = { day, rows: [] }; byDay.push(bucket); }
+    bucket.rows.push(r);
+  });
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="k-card" role="dialog" aria-label="Viikon teemat" style={{ width: 'min(600px, 100%)', maxHeight: 'calc(100vh - 40px)', padding: 0, display: 'flex', flexDirection: 'column', animation: 'kFadeIn .2s ease' }}>
+        <div style={{ padding: '20px 22px 14px', borderBottom: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+            <h3 style={{ fontSize: 19, fontWeight: 800 }}>Viikon teemat</h3>
+            <CloseButton onClick={onClose} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button type="button" onClick={() => goWeek(-1)} aria-label="Edellinen viikko" style={stepStyle}>‹</button>
+            <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{themeWeekLabel(week, now)}</div>
+              <div style={{ fontSize: 12.5, color: covered === pool.length && pool.length > 0 ? '#2f7d54' : '#8a857a', marginTop: 3, fontWeight: 600 }}>
+                {covered}/{pool.length} ryhmällä on teema{pool.length < rows.length ? ` · ${rows.length - pool.length} ilman treeniä viikolla ${week.week}` : ''}
+              </div>
+            </div>
+            <button type="button" onClick={() => goWeek(1)} aria-label="Seuraava viikko" style={stepStyle}>›</button>
+          </div>
+          {cmp(week, now) !== 0 && (
+            <div style={{ textAlign: 'center', marginTop: 8 }}>
+              <button type="button" onClick={() => { setWeek(now); setPicked(null); setEditingKey(null); }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: 'var(--green-deep)', textDecoration: 'underline' }}>Takaisin tähän viikkoon</button>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '16px 22px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {isPast && (
+            <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5, background: 'rgba(14,59,44,0.05)', borderRadius: 12, padding: '10px 12px' }}>
+              Mennyt viikko. Teemat säilyvät ryhmien teemahistoriana. Voit ottaa teeman uudelleen käyttöön tällä viikolla tai korjata yksittäisen ryhmän tekstiä ✎-napista.
+            </div>
+          )}
+
+          {carry.length > 0 && (
+            <div className="k-card" style={{ padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: 'rgba(207,228,20,0.12)', borderColor: 'rgba(14,59,44,0.14)' }}>
+              <div style={{ flex: '1 1 220px', fontSize: 13, color: '#3c382f', lineHeight: 1.45 }}>
+                <b>{carry.length === 1 ? '1 ryhmältä' : `${carry.length} ryhmältä`} puuttuu teema.</b> {carry.length === 1 ? 'Se voi jatkaa omalla edellisellä teemallaan.' : 'Ne voivat jatkaa omalla edellisellä teemallaan.'}
+              </div>
+              <button type="button" onClick={continueThemes} disabled={busy} className="btn-dark btn-sm">Jatka edellisillä teemoilla</button>
+            </div>
+          )}
+
+          <div>
+            <div style={sectionLabel}>{cmp(week, now) === 0 ? 'Tämän viikon teemat' : `Viikon ${week.week} teemat`}</div>
+            {clusters.length === 0 && <div style={{ fontSize: 13.5, color: '#8a857a' }}>Viikolle {week.week} ei ole vielä teemoja.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {clusters.map((c) => (
+                <div key={c.key} className="k-card" style={{ padding: '12px 14px', ...(editingKey === c.key ? { borderColor: 'var(--green-deep)' } : null) }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 800, color: '#111' }}>{c.title}</div>
+                  {c.lead && <div style={{ fontSize: 12.5, color: '#514c42', lineHeight: 1.45, marginTop: 3 }}>{c.lead}</div>}
+                  <div style={{ fontSize: 12, color: '#8a857a', marginTop: 6, lineHeight: 1.45 }}>
+                    {c.groups.length === 1 ? '1 ryhmä' : `${c.groups.length} ryhmää`}: {c.groups.map((g) => `${g.day} ${g.time}`).join(', ')}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 9, flexWrap: 'wrap' }}>
+                    {isPast
+                      ? <button type="button" onClick={() => reuseThisWeek(c)} className="btn-outline btn-sm" style={{ padding: '7px 12px', fontSize: 12.5 }}>Käytä tällä viikolla</button>
+                      : (
+                        <React.Fragment>
+                          <button type="button" onClick={() => editCluster(c)} className="btn-outline btn-sm" style={{ padding: '7px 12px', fontSize: 12.5 }}>Muokkaa</button>
+                          <button type="button" onClick={() => removeCluster(c)} className="btn-outline btn-sm" style={{ padding: '7px 12px', fontSize: 12.5 }}>Poista tältä viikolta</button>
+                        </React.Fragment>
+                      )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {!isPast && (
+            <div ref={composerRef}>
+              <div style={sectionLabel}>{editingCluster ? 'Muokkaa teemaa' : 'Uusi teema'}</div>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} list="koutsi-theme-library" maxLength={window.KOUTSI_THEME_TITLE_MAX}
+                placeholder="Teema, esim. Syöttö / smash" aria-label="Teema" style={{ ...inputStyle, fontWeight: 700 }} />
+              <datalist id="koutsi-theme-library">
+                {library.map((t) => <option key={t.key} value={t.title} />)}
+              </datalist>
+              {!editingCluster && library.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+                  <span style={{ fontSize: 12, color: '#8a857a', fontWeight: 600 }}>Aiemmat:</span>
+                  {library.slice(0, 6).map((t) => (
+                    <PlannerChip key={t.key} active={keyOf(title) === t.key} onClick={() => { setTitle(t.title); setLead(t.lead); }}>{t.title}</PlannerChip>
+                  ))}
+                </div>
+              )}
+              <textarea value={lead} onChange={(e) => setLead(e.target.value)} rows={2} maxLength={window.KOUTSI_THEME_LEAD_MAX}
+                placeholder="Mihin keskitytään? (vapaaehtoinen)" aria-label="Teeman tarkennus" style={{ ...inputStyle, resize: 'none', marginTop: 8 }} />
+              {editingCluster && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+                  {editingCluster.mixedLead && <span style={{ fontSize: 12, color: '#8f5a1e' }}>Ryhmillä on eri tarkennukset — tallennus korvaa ne tällä.</span>}
+                  <button type="button" onClick={resetComposer} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#8a857a', textDecoration: 'underline' }}>Peruuta muokkaus</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
+            <div style={sectionLabel}>{isPast ? 'Ryhmät' : `Ryhmät (${selected.size} valittu)`}</div>
+            {!isPast && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                {presets.map((p) => <PlannerChip key={p.id} active={sameSet(p.ids)} onClick={() => setPicked(new Set(p.ids))}>{p.label}</PlannerChip>)}
+                <PlannerChip active={selected.size === 0} onClick={() => setPicked(new Set())}>Ei mitään</PlannerChip>
+              </div>
+            )}
+            {byDay.map((bucket) => (
+              <div key={bucket.day || 'muut'} style={{ marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--green-deep)', margin: '8px 0 2px' }}>{PLANNER_DAY_NAMES[bucket.day] || 'Muut'}</div>
+                {bucket.rows.map((r) => {
+                  const same = r.theme && cleanTitle && keyOf(r.theme.title) === keyOf(cleanTitle);
+                  return (
+                    <div key={r.group.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 2px', borderTop: '1px solid var(--line)', opacity: counts(r) ? 1 : 0.6 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, cursor: isPast ? 'default' : 'pointer' }}>
+                        {!isPast && <input type="checkbox" checked={selected.has(r.group.id)} onChange={() => toggle(r.group.id)} style={{ width: 18, height: 18, accentColor: 'var(--green-deep)', flexShrink: 0 }} />}
+                        <span style={{ minWidth: 0 }}>
+                          <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: '#111' }}>
+                            {r.group.time} · {r.group.name}{r.group.level ? <span style={{ fontWeight: 500, color: '#8a857a' }}> · {r.group.level}</span> : null}
+                            <span style={{ fontWeight: 500, color: '#a8a297' }}> · {r.group.memberIds.length} pel.</span>
+                          </span>
+                          <span style={{ display: 'block', fontSize: 12.5, marginTop: 2, color: r.theme ? (same ? '#2f7d54' : '#514c42') : '#a8a297' }}>
+                            {r.theme ? `${same ? '✓ ' : 'Nyt: '}${r.theme.title}` : counts(r) ? 'Ei teemaa' : `Ei treeniä viikolla ${week.week}`}
+                          </span>
+                        </span>
+                      </label>
+                      <button type="button" onClick={() => onEditGroup(r.group.id)} aria-label={`Muokkaa ryhmän ${r.group.name} viikkoteemoja`} title="Ryhmän kaikki viikot"
+                        style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', background: '#f4f2ec', color: '#6b665c', cursor: 'pointer', fontSize: 14, flexShrink: 0 }}>✎</button>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {!isPast && (
+          <div style={{ padding: '14px 22px 18px', borderTop: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" onClick={onClose} className="btn-outline" style={{ flex: '0 0 auto', padding: '13px 18px' }}>Sulje</button>
+              <button type="button" onClick={save} disabled={!canSave} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: canSave ? 1 : 0.45, cursor: canSave ? 'pointer' : 'default' }}>
+                {busy ? 'Tallennetaan…' : !cleanTitle ? 'Kirjoita teema' : targets.length === 0 ? 'Valitse ryhmät' : `Tallenna teema ${targets.length} ryhmälle`}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2776,7 +3101,7 @@ function AnnualPlanCard({ group, onUploadPlan, onRemovePlan }) {
   );
 }
 
-function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStudent, onOpenAttendance, onEditTheme, onAddMembers, onUploadPlan, onRemovePlan, onEditGroup, onDeleteGroup, onRemoveMember, onAddSlot, onDeleteSlot }) {
+function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStudent, onOpenAttendance, onEditTheme, onPlanThemes, onAddMembers, onUploadPlan, onRemovePlan, onEditGroup, onDeleteGroup, onRemoveMember, onAddSlot, onDeleteSlot }) {
   const nowWeek = window.koutsiCurrentIsoWeek();
   const pastThemes = group.pastThemes || [];
   const [showPastThemes, setShowPastThemes] = React.useState(false);
@@ -2827,6 +3152,9 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
             )}
             <button onClick={onEditTheme} className={group.theme || (group.themes || []).length === 0 ? 'btn-outline btn-sm' : 'btn-dark btn-sm'} style={{ marginTop: 10 }}>
               {group.theme ? 'Muokkaa viikkoteemoja' : (group.themes || []).length > 0 ? 'Aseta tämän viikon teema' : '+ Suunnittele viikkoteemat'}
+            </button>
+            <button type="button" onClick={onPlanThemes} style={{ display: 'block', background: 'none', border: 'none', padding: 0, marginTop: 9, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: 'var(--green-deep)', textDecoration: 'underline' }}>
+              Aseta teema usealle ryhmälle kerralla →
             </button>
             {(group.upcomingThemes || []).length > 0 && (
               <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -4617,6 +4945,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   const [presessionTrainingId, setPresessionTrainingId] = React.useState(null);
   const [attendanceEdit, setAttendanceEdit] = React.useState(null);
   const [themeModalGroupId, setThemeModalGroupId] = React.useState(null);
+  const [weekPlannerOpen, setWeekPlannerOpen] = React.useState(false);
   const [groupFormOpen, setGroupFormOpen] = React.useState(false);
   const [editingGroup, setEditingGroup] = React.useState(null);
   const [slotFormOpen, setSlotFormOpen] = React.useState(false);
@@ -4946,6 +5275,22 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
       : rows.length === 1 ? 'Viikon teema tallennettu.' : `${rows.length} viikkoteemaa tallennettu.`);
     if (ok) setThemeModalGroupId(null);
   };
+  // The week planner stays open after a save: the next theme (say, the juniors' version)
+  // is usually written straight after the first. `fresh` rows are insert-only and
+  // `replace` rows were confirmed by the coach; resolves to rows written, null on failure.
+  const saveWeekThemes = async ({ fresh = [], replace = [] }) => {
+    let written = 0;
+    const ok = await toast.run(async () => {
+      if (fresh.length) written += await window.koutsiSaveGroupThemes(fresh, { onlyNew: true });
+      if (replace.length) written += await window.koutsiSaveGroupThemes(replace);
+      await reload();
+    });
+    return ok ? written : null;
+  };
+  const deleteWeekThemes = (themeIds, message) => toast.run(async () => {
+    await window.koutsiDeleteThemes(themeIds);
+    await reload();
+  }, message);
   const saveGroup = async ({ name, level, day, time, durationMinutes, memberIds, weeksAhead }) => {
     const ok = await toast.run(async () => {
       if (editingGroup) await window.koutsiUpdateGroup(editingGroup.id, { name, level, day, time, durationMinutes, weeksAhead });
@@ -5069,7 +5414,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
               onAddTraining={() => { setTab('trainings'); openNewTraining(null); }}
               onAddPlayer={addPlayer} onBulkSetup={bulkSetup} />
           )}
-          {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} coachId={coachId} acting={Boolean(actingCoach)} onOpen={setGroupDetailId} onCreate={() => { setEditingGroup(null); setGroupFormOpen(true); }} />}
+          {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} coachId={coachId} acting={Boolean(actingCoach)} onOpen={setGroupDetailId} onCreate={() => { setEditingGroup(null); setGroupFormOpen(true); }} onPlanThemes={() => setWeekPlannerOpen(true)} />}
           {tab === 'trainings' && (
             <CalendarView
               state={state} onAdd={openNewTraining} onPreSession={setPresessionTrainingId}
@@ -5106,7 +5451,7 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
         <GroupDetail
           group={groupDetail} members={groupMembers} trainings={groupTrainings} upcoming={groupUpcoming}
           onClose={() => setGroupDetailId(null)} onOpenStudent={openStudentFromGroup} onOpenAttendance={setPresessionTrainingId}
-          onEditTheme={() => setThemeModalGroupId(groupDetail.id)} onAddMembers={() => setAddMembersGroupId(groupDetail.id)}
+          onEditTheme={() => setThemeModalGroupId(groupDetail.id)} onPlanThemes={() => setWeekPlannerOpen(true)} onAddMembers={() => setAddMembersGroupId(groupDetail.id)}
           onUploadPlan={uploadAnnualPlan} onRemovePlan={removeAnnualPlan}
           onEditGroup={() => { setEditingGroup(groupDetail); setGroupFormOpen(true); }}
           onDeleteGroup={deleteGroup} onRemoveMember={removeMember}
@@ -5134,6 +5479,11 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
         <window.KoutsiAttendanceModal
           studentName={attendanceStudent.name} training={attendanceTraining} eligibleTrainings={attendanceEligibleTrainings}
           entry={attendanceEntry} viewerRole="coach" onClose={() => setAttendanceEdit(null)} onSave={saveAttendance} />
+      )}
+      {weekPlannerOpen && (
+        <WeekThemePlanner groups={state.groups} trainings={state.trainings}
+          onClose={() => setWeekPlannerOpen(false)} onSave={saveWeekThemes} onDelete={deleteWeekThemes}
+          onEditGroup={setThemeModalGroupId} />
       )}
       {themeModalGroupId != null && (() => {
         const themeGroup = state.groups.find((g) => g.id === themeModalGroupId);
