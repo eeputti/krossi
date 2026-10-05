@@ -2276,9 +2276,13 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete, onEdit
   const [lead, setLead] = React.useState('');
   // key of the theme being edited: its own groups don't count as being overwritten
   const [editingKey, setEditingKey] = React.useState(null);
-  // null = the default pick (groups still without a theme); a Set once the coach chooses
-  const [picked, setPicked] = React.useState(null);
+  // Nothing is picked up front: which groups get a theme is always the coach's own choice.
+  const [selected, setSelected] = React.useState(() => new Set());
   const [busy, setBusy] = React.useState(false);
+  const [showHistory, setShowHistory] = React.useState(false);
+  const [showAllHistory, setShowAllHistory] = React.useState(false);
+  // "✓ saved for 4 groups — add the next one": a week often gets several themes in a row
+  const [lastSaved, setLastSaved] = React.useState(null);
   const composerRef = React.useRef(null);
 
   const isPast = cmp(week, now) < 0;
@@ -2292,10 +2296,10 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete, onEdit
   const pool = rows.filter(counts);
   const covered = pool.filter((r) => r.theme).length;
   const withoutTheme = pool.filter((r) => !r.theme).map((r) => r.group.id);
-  const selected = picked || new Set(withoutTheme);
 
   const clusters = window.koutsiThemeClusters(groups, week);
   const library = window.koutsiThemeLibrary(groups).filter((t) => !clusters.some((c) => c.key === t.key));
+  const history = window.koutsiThemeHistory(groups, week);
   const editingCluster = editingKey ? clusters.find((c) => c.key === editingKey) || null : null;
   const carry = isPast ? [] : pool.filter((r) => !r.theme)
     .map((r) => ({ group: r.group, from: window.koutsiLatestThemeBefore(r.group, week, 4) }))
@@ -2310,25 +2314,37 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete, onEdit
       .filter((p) => p.ids.length > 0)
       .map((p) => ({ ...p, label: `${p.label} (${p.ids.length})` })),
   ].filter((p) => p.ids.length > 0);
-  const sameSet = (ids) => ids.length === selected.size && ids.every((id) => selected.has(id));
-
-  const goWeek = (n) => { setWeek((w) => window.koutsiAddIsoWeeks(w, n)); setPicked(null); setEditingKey(null); };
-  const toggle = (id) => setPicked(() => {
+  // Chips add up: Ma + Ti picks every Monday and Tuesday group. A chip whose groups are
+  // all picked already takes them back out.
+  const chipOn = (ids) => ids.length > 0 && ids.every((id) => selected.has(id));
+  const toggleChip = (ids) => {
+    const next = new Set(selected);
+    if (chipOn(ids)) ids.forEach((id) => next.delete(id)); else ids.forEach((id) => next.add(id));
+    setSelected(next);
+  };
+  const toggle = (id) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+    setSelected(next);
+  };
+  const changeWeek = (w) => { setWeek(w); setSelected(new Set()); setEditingKey(null); setLastSaved(null); };
+  const goWeek = (n) => changeWeek(window.koutsiAddIsoWeeks(week, n));
   const focusComposer = () => setTimeout(() => composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);
-  const resetComposer = () => { setTitle(''); setLead(''); setEditingKey(null); setPicked(null); };
+  const resetComposer = () => { setTitle(''); setLead(''); setEditingKey(null); setSelected(new Set()); };
+  const typeTitle = (value) => { setTitle(value); setLastSaved(null); };
 
   const editCluster = (c) => {
-    setTitle(c.title); setLead(c.lead); setEditingKey(c.key);
-    setPicked(new Set(c.groups.map((g) => g.id)));
+    setTitle(c.title); setLead(c.lead); setEditingKey(c.key); setLastSaved(null);
+    setSelected(new Set(c.groups.map((g) => g.id)));
     focusComposer();
   };
   const reuseThisWeek = (c) => {
-    setWeek(now); setTitle(c.title); setLead(c.lead); setEditingKey(null);
-    setPicked(new Set(c.groups.map((g) => g.id)));
+    setWeek(now); setTitle(c.title); setLead(c.lead); setEditingKey(null); setLastSaved(null);
+    setSelected(new Set(c.groups.map((g) => g.id)));
+    focusComposer();
+  };
+  const pickFromHistory = (c) => {
+    setTitle(c.title); setLead(c.lead); setLastSaved(null); setShowHistory(false);
     focusComposer();
   };
   const removeCluster = async (c) => {
@@ -2403,6 +2419,7 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete, onEdit
     const kept = changes.length - written;
     toast.success(`Teema tallennettu ${written === 1 ? '1 ryhmälle' : `${written} ryhmälle`}.${kept > 0 ? ` ${kept === 1 ? '1 ryhmällä' : `${kept} ryhmällä`} oli jo teema, jota ei muutettu.` : ''}`);
     resetComposer();
+    setLastSaved({ title: cleanTitle, count: written });
   };
 
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '12px 14px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff' };
@@ -2436,7 +2453,7 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete, onEdit
           </div>
           {cmp(week, now) !== 0 && (
             <div style={{ textAlign: 'center', marginTop: 8 }}>
-              <button type="button" onClick={() => { setWeek(now); setPicked(null); setEditingKey(null); }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: 'var(--green-deep)', textDecoration: 'underline' }}>Takaisin tähän viikkoon</button>
+              <button type="button" onClick={() => changeWeek(now)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: 'var(--green-deep)', textDecoration: 'underline' }}>Takaisin tähän viikkoon</button>
             </div>
           )}
         </div>
@@ -2484,23 +2501,67 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete, onEdit
           </div>
 
           {!isPast && (
-            <div ref={composerRef}>
-              <div style={sectionLabel}>{editingCluster ? 'Muokkaa teemaa' : 'Uusi teema'}</div>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} list="koutsi-theme-library" maxLength={window.KOUTSI_THEME_TITLE_MAX}
-                placeholder="Teema, esim. Syöttö / smash" aria-label="Teema" style={{ ...inputStyle, fontWeight: 700 }} />
+            <div ref={composerRef} style={{ borderTop: '1px solid var(--line)', paddingTop: 16 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111', marginBottom: 3 }}>{editingCluster ? 'Muokkaa teemaa' : 'Lisää teema'}</div>
+              {!editingCluster && <div style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.45, marginBottom: 12 }}>Kirjoita teema, valitse sille ryhmät ja tallenna. Samalle viikolle voi lisätä useita teemoja eri ryhmille.</div>}
+              {lastSaved && (
+                <div style={{ fontSize: 13, color: '#1f5e3f', background: 'rgba(47,125,84,0.09)', border: '1px solid rgba(47,125,84,0.22)', borderRadius: 12, padding: '9px 12px', marginBottom: 12, lineHeight: 1.45 }}>
+                  ✓ <b>{lastSaved.title}</b> tallennettu {lastSaved.count === 1 ? '1 ryhmälle' : `${lastSaved.count} ryhmälle`}. Lisää seuraava teema muille ryhmille tai sulje ikkuna.
+                </div>
+              )}
+              <div style={{ ...sectionLabel, marginTop: editingCluster ? 10 : 0 }}>1 · Kirjoita teema</div>
+              <input value={title} onChange={(e) => typeTitle(e.target.value)} list="koutsi-theme-library" maxLength={window.KOUTSI_THEME_TITLE_MAX}
+                placeholder="Esim. Syöttö / smash" aria-label="Teema" style={{ ...inputStyle, fontWeight: 700 }} />
               <datalist id="koutsi-theme-library">
                 {library.map((t) => <option key={t.key} value={t.title} />)}
               </datalist>
-              {!editingCluster && library.length > 0 && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
-                  <span style={{ fontSize: 12, color: '#8a857a', fontWeight: 600 }}>Aiemmat:</span>
-                  {library.slice(0, 6).map((t) => (
-                    <PlannerChip key={t.key} active={keyOf(title) === t.key} onClick={() => { setTitle(t.title); setLead(t.lead); }}>{t.title}</PlannerChip>
-                  ))}
+              {!editingCluster && history.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <button type="button" onClick={() => setShowHistory((v) => !v)} aria-expanded={showHistory}
+                    style={{ background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700, color: 'var(--green-deep)' }}>
+                    {showHistory ? '▾' : '▸'} Aiemmat teemat ({history.length === 1 ? '1 viikko' : `${history.length} viikkoa`})
+                  </button>
+                  {showHistory && (
+                    <div className="k-card" style={{ marginTop: 6, padding: '4px 12px 8px', maxHeight: 300, overflowY: 'auto' }}>
+                      {(showAllHistory ? history : history.slice(0, 6)).map((w, i) => (
+                        <div key={window.koutsiIsoWeekKey(w)} style={{ padding: '9px 0 4px', borderTop: i ? '1px solid var(--line)' : 'none' }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a' }}>{themeWeekLabel(w, now)}</div>
+                          {w.clusters.map((c) => (
+                            <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#111' }}>{c.title}</div>
+                                <div style={{ fontSize: 12, color: '#8a857a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {c.groups.length === 1 ? '1 ryhmä' : `${c.groups.length} ryhmää`}{c.lead ? ` · ${c.lead}` : ''}
+                                </div>
+                              </div>
+                              <button type="button" onClick={() => pickFromHistory(c)} className="btn-outline btn-sm" style={{ padding: '6px 11px', fontSize: 12, flexShrink: 0 }}>Käytä</button>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                      {history.length > 6 && (
+                        <button type="button" onClick={() => setShowAllHistory((v) => !v)} style={{ background: 'none', border: 'none', padding: '8px 0 2px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: 'var(--green-deep)', textDecoration: 'underline' }}>
+                          {showAllHistory ? 'Näytä vähemmän' : `Näytä kaikki ${history.length} viikkoa`}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#3c382f', marginTop: 12 }}>Tarkennus pelaajille <span style={{ fontWeight: 500, color: '#8a857a' }}>(vapaaehtoinen)</span></div>
+              <div style={{ fontSize: 12, color: '#8a857a', lineHeight: 1.45, margin: '2px 0 6px' }}>Näkyy pelaajan sovelluksessa teeman alla. Kerro lyhyesti, mitä harjoitellaan.</div>
               <textarea value={lead} onChange={(e) => setLead(e.target.value)} rows={2} maxLength={window.KOUTSI_THEME_LEAD_MAX}
-                placeholder="Mihin keskitytään? (vapaaehtoinen)" aria-label="Teeman tarkennus" style={{ ...inputStyle, resize: 'none', marginTop: 8 }} />
+                placeholder="Esim. Pallon heitto samaan kohtaan ja iskulyönti liikkeestä." aria-label="Tarkennus pelaajille" style={{ ...inputStyle, resize: 'none' }} />
+              {cleanTitle && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 12, color: '#8a857a', marginBottom: 5 }}>Näin pelaaja näkee teeman:</div>
+                  <div className="k-card" style={{ padding: '12px 14px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>Viikon teema · vko {week.week}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{cleanTitle}</div>
+                    {cleanLead && <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5, marginTop: 3 }}>{cleanLead}</div>}
+                  </div>
+                </div>
+              )}
               {editingCluster && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
                   {editingCluster.mixedLead && <span style={{ fontSize: 12, color: '#8f5a1e' }}>Ryhmillä on eri tarkennukset — tallennus korvaa ne tällä.</span>}
@@ -2511,12 +2572,17 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete, onEdit
           )}
 
           <div>
-            <div style={sectionLabel}>{isPast ? 'Ryhmät' : `Ryhmät (${selected.size} valittu)`}</div>
+            <div style={sectionLabel}>{isPast ? 'Ryhmät' : `2 · Valitse ryhmät${selected.size ? ` (${selected.size} valittu)` : ''}`}</div>
             {!isPast && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-                {presets.map((p) => <PlannerChip key={p.id} active={sameSet(p.ids)} onClick={() => setPicked(new Set(p.ids))}>{p.label}</PlannerChip>)}
-                <PlannerChip active={selected.size === 0} onClick={() => setPicked(new Set())}>Ei mitään</PlannerChip>
-              </div>
+              <React.Fragment>
+                <div style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.45, marginBottom: 8 }}>Napauta yhtä tai useampaa, esim. Ma ja Ti. Voit myös rastia ryhmiä yksitellen.</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+                  {presets.map((p) => <PlannerChip key={p.id} active={chipOn(p.ids)} onClick={() => toggleChip(p.ids)}>{p.label}</PlannerChip>)}
+                  {selected.size > 0 && (
+                    <button type="button" onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', padding: '4px 2px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#8a857a', textDecoration: 'underline' }}>Tyhjennä valinta</button>
+                  )}
+                </div>
+              </React.Fragment>
             )}
             {byDay.map((bucket) => (
               <div key={bucket.day || 'muut'} style={{ marginBottom: 6 }}>
