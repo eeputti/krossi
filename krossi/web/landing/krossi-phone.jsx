@@ -29,7 +29,7 @@ const KP_AGE_RANGES = ['Alle 20', '20–30', '30–40', '40–50', '50–60', '6
 
 const KP_PLAYERS = [
   { id: 0, initial: 'E', hue: 150, name: 'Eero', age: '30–40', loc: 'Lahti · Hennala', active: true, level: 'Keskitaso', forms: 'Treenit · Matsit', avail: ['Arkiaamut 9–12', 'Arki-illat 18–21'], style: 'Oikeakätinen · Yhden käden rysty', bio: 'Pelaillaan rennosti, taso ei niin väliä — pääasia että pallo pysyy kentällä.' },
-  { id: 1, initial: 'S', hue: 18, name: 'Saana', age: '20–30', loc: 'Lahti · Keskusta', active: true, level: 'Edistynyt', forms: 'Pallottelu · Matsit', avail: ['Arki-illat 17–20', 'Viikonloput 10–14'], style: 'Vasenkätinen', bio: 'Etsin tasaista vastusta arki-iltoihin. Tykkään kovasta temposta.' },
+  { id: 1, initial: 'S', hue: 18, name: 'Saana', age: '20–30', loc: 'Lahti · Keskusta', active: true, now: true, level: 'Edistynyt', forms: 'Pallottelu · Matsit', avail: ['Arki-illat 17–20', 'Viikonloput 10–14'], style: 'Vasenkätinen', bio: 'Etsin tasaista vastusta arki-iltoihin. Tykkään kovasta temposta.' },
   { id: 2, initial: 'M', hue: 265, name: 'Mikko', age: '40–50', loc: 'Lahti · Laune', active: false, level: 'Kilpapelaaja', forms: 'Matsit', avail: ['Arkiaamut 7–9', 'Lauantai 9–12'], style: 'Oikeakätinen · Kahden käden rysty', bio: 'Sarjapelaaja, mutta lähden mielelläni myös rentoon pallotteluun.' },
   { id: 3, initial: 'L', hue: 330, name: 'Lotta', age: '20–30', loc: 'Lahti · Mukkula', active: true, level: 'Aloittelija', forms: 'Treenit', avail: ['Arki-illat 18–21'], style: 'Oikeakätinen', bio: 'Aloittelin viime vuonna ja haluan oppia lisää. Kärsivällinen pelikaveri plussaa!' },
 ];
@@ -84,7 +84,7 @@ function KPPlayers({ onOpen, onFilter }) {
       <KPFilters onFilter={onFilter} />
       <div style={{ margin: '0 18px 14px', padding: '13px 16px', borderRadius: 16, border: '1.5px solid var(--lime)', background: 'rgba(207,228,20,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <span style={{ color: '#111', fontSize: 14.5, fontWeight: 600 }}>Etsitään peliä tänään?</span>
-        <span style={{ background: 'var(--lime)', color: '#101a08', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>Luo haaste</span>
+        <span style={{ background: 'var(--lime)', color: '#101a08', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>Pelataanko?</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
         {KP_PLAYERS.map((p) => (
@@ -98,7 +98,7 @@ function KPPlayers({ onOpen, onFilter }) {
               <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#c5c0b5" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-              {p.active && <KP.Chip variant="active">Tällä viikolla</KP.Chip>}
+              {p.now ? <KP.Chip variant="lime">⚡ Pelaa nyt</KP.Chip> : p.active && <KP.Chip variant="active">Tällä viikolla</KP.Chip>}
               <KP.Chip>{p.level}</KP.Chip>
               <KP.Chip>{p.forms}</KP.Chip>
             </div>
@@ -112,7 +112,7 @@ function KPPlayers({ onOpen, onFilter }) {
 function KPGames({ onFilter }) {
   return (
     <div>
-      <KPHeader title="Avoimet" action={<span style={{ background: 'var(--lime)', color: '#101a08', fontSize: 13, fontWeight: 700, padding: '8px 14px', borderRadius: 999 }}>+ Luo haaste</span>} />
+      <KPHeader title="Pelit" action={<span style={{ background: 'var(--lime)', color: '#101a08', fontSize: 13, fontWeight: 700, padding: '8px 14px', borderRadius: 999 }}>+ Uusi peli</span>} />
       <KPFilters onFilter={onFilter} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
         {KP_GAMES.map((g, i) => {
@@ -361,7 +361,7 @@ function KPToast({ show, text }) {
 }
 
 // ── tab bar ─────────────────────────────────────────────
-const KP_TABS = [{ id: 'players', label: 'Pelaajat' }, { id: 'games', label: 'Avoimet' }, { id: 'messages', label: 'Viestit' }, { id: 'profile', label: 'Profiili' }];
+const KP_TABS = [{ id: 'players', label: 'Pelaajat' }, { id: 'games', label: 'Pelit' }, { id: 'messages', label: 'Viestit' }, { id: 'profile', label: 'Profiili' }];
 const KP_TAB_ICON = { players: 'assets/ball-tight.png', games: 'assets/avoimet-tight.png', messages: 'assets/viestit-tight.png' };
 function KPTabIcon({ id, on }) {
   if (id === 'profile') {
