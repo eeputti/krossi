@@ -17,8 +17,9 @@ const server = createServer(async (req, res) => {
   const p = normalize(req.url.split('?')[0]);
   const file = /^\/demo(\/.*)?$/.test(p) ? join(site, 'krossi-demo.html')
     : p.startsWith('/krossi/') ? join(site, p.slice(8)) : p.startsWith('/assets/') ? join(repo, p) : null;
-  try { res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' }).end(await readFile(file)); }
-  catch { res.writeHead(404).end(); }
+  let body;
+  try { body = await readFile(file); } catch { res.writeHead(404).end(); return; }
+  res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' }).end(body);
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}`;
