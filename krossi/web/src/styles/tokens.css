@@ -88,6 +88,14 @@
   --content-w: 720px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Full viewport height for calc()s that also use var(): a 100vh/100dvh declaration pair does
+     not fall back there (a var() declaration always wins at parse time and then computes to
+     the initial value on browsers without dvh), so the unit is picked once here instead. */
+  --dvh: 100vh;
+}
+
+@supports (height: 100dvh) {
+  :root { --dvh: 100dvh; }
 }
 
 @media (min-width: 900px) {

@@ -11,7 +11,7 @@ import { api } from '../../api/index.js';
 import { useRoute } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
 import { formatGameTime, firstName } from '../../lib/format.js';
-import { AvatarStack, Button, Icon, Sheet, confetti, useToast } from '../../ui/index.js';
+import { AvatarStack, Button, Icon, Sheet, confetti, isAnySheetOpen, useToast } from '../../ui/index.js';
 import { gameTitle, notifyGamesChanged, placeLine } from '../games/gameUtils.js';
 import { MatchResultSheet } from '../shared/MatchResultSheet.jsx';
 
@@ -53,7 +53,8 @@ export function PendingOutcomeCheck() {
   const route = useRoute();
   const toast = useToast();
   const uid = user?.id || null;
-  const blocked = BLOCKING_ROUTE_TYPES.has(route.route?.type);
+  // Only ask on Koti: popping a question over whatever the player is doing feels like a freeze.
+  const blocked = route.name !== 'home' || BLOCKING_ROUTE_TYPES.has(route.route?.type);
 
   const [queue, setQueue] = useState([]);
   const [game, setGame] = useState(null); // the game being asked about (kept through exit animations)
@@ -87,7 +88,7 @@ export function PendingOutcomeCheck() {
     if (game || blocked || queue.length === 0) return undefined;
     const t = setTimeout(() => {
       // Another sheet (e.g. Pelaan nyt, paywall) is open — try again a bit later.
-      if (document.body.classList.contains('sheet-open')) { setRetry((n) => n + 1); return; }
+      if (isAnySheetOpen() || document.body.classList.contains('sheet-open')) { setRetry((n) => n + 1); return; }
       askedOnce.current = true;
       setRetry(0);
       setBusy(null);

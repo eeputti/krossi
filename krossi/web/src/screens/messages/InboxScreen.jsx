@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
 import { openCreateGame } from '../../app/AppShell.jsx';
-import { useAsync, useNow } from '../../app/hooks.js';
+import { useAsync, useNow, useResync } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
 import { Link, navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
@@ -133,6 +133,7 @@ export function InboxScreen() {
   const { leaving, collapse, archive, remove } = useConversationActions({ setData });
 
   useEffect(() => api.messages.subscribeInbox(() => reload({ silent: true })), [reload]);
+  useResync(() => reload({ silent: true }));
 
   // Tapping anywhere outside an open (swiped) row closes it.
   useEffect(() => {

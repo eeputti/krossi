@@ -3,7 +3,7 @@ export { Icon, ICON_NAMES, GoogleMark, AppleMark } from './Icon.jsx';
 export { Button, IconButton, Chip, Card, Section, ListRow, StatTile, Divider } from './primitives.jsx';
 export { Avatar, AvatarStack } from './Avatar.jsx';
 export { Field, Input, Textarea, Select, Switch, Toggle, ChipSelect, Segmented, Stepper } from './forms.jsx';
-export { Sheet, ConfirmProvider, useConfirm } from './Sheet.jsx';
+export { Sheet, ConfirmProvider, useConfirm, isAnySheetOpen } from './Sheet.jsx';
 export { ToastProvider, useToast } from './Toast.jsx';
 export { Spinner, Skeleton, SkeletonList, EmptyState, ErrorState } from './feedback.jsx';
 export { TopBar, Page, PageHeader, Disclosure } from './layout.jsx';

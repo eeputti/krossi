@@ -130,10 +130,10 @@
 .msg-note svg { margin-top: 2px; }
 
 /* ── chat: frame ─────────────────────────────────────────── */
-.shell-page:has(> .chat) { min-height: 0; padding-bottom: 0; }
+.shell-page-chat { min-height: 0; padding-bottom: 0; }
 .chat {
   position: relative; display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
-  height: calc(var(--chat-vh, 100dvh) - var(--chat-top, 0px));
+  height: calc(var(--chat-vh, var(--dvh)) - var(--chat-top, 0px));
 }
 .chat-head {
   position: relative; z-index: 5; flex-shrink: 0; padding-top: var(--safe-top);
@@ -322,10 +322,10 @@ button.chat-who:active { transform: scale(0.98); }
 
 /* ── chat: desktop card ──────────────────────────────────── */
 @media (min-width: 900px) {
-  .shell-page:has(> .chat) { padding: 24px var(--gutter); }
+  .shell-page-chat { padding: 24px var(--gutter); }
   .chat {
     max-width: 800px; margin: 0 auto; border-radius: var(--r-2xl); border: 1px solid var(--line); box-shadow: var(--shadow-2);
-    height: calc(var(--chat-vh, 100dvh) - var(--chat-top, 0px) - 48px); background: var(--surface-2);
+    height: calc(var(--chat-vh, var(--dvh)) - var(--chat-top, 0px) - 48px); background: var(--surface-2);
   }
   .chat-head { padding-top: 0; background: var(--surface); }
   .chat-head-bar { height: 72px; padding: 0 14px 0 10px; }

@@ -58,7 +58,9 @@ export function navigate(to, { replace = false, state = {}, overlay = false } = 
   const current = snapshot || read();
   const url = new URL(to, window.location.origin);
   if (scrollPositions.size > 60) scrollPositions.clear();
-  scrollPositions.set(current.key, window.scrollY);
+  // While a sheet is open the body is position:fixed and window.scrollY reads 0.
+  const sheetY = document.body.classList.contains('sheet-open') ? Number(document.body.dataset.scrollY || 0) : null;
+  scrollPositions.set(current.key, sheetY ?? window.scrollY);
   const idx = (window.history.state?.idx ?? 0) + (replace ? 0 : 1);
   const bg = overlay ? (current.state.bg || `${current.path}${current.search}`) : undefined;
   const next = { ...state, key: newKey(), idx, ...(bg ? { bg } : {}) };
@@ -105,6 +107,12 @@ export function Link({ to, replace, overlay, state, onClick, children, ...rest }
       onClick?.(e);
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
+      // Tapping the tab you're already on scrolls to the top instead of stacking history.
+      const here = snapshot || read();
+      if (!overlay && `${here.path}${here.search}` === to) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
       navigate(to, { replace, overlay, state });
     },
     ...rest,

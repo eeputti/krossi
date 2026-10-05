@@ -46,7 +46,11 @@ export function matchRoute(path) {
     const m = re.exec(path);
     if (m) {
       const params = {};
-      keys.forEach((k, i) => { params[k] = decodeURIComponent(m[i + 1]); });
+      try {
+        keys.forEach((k, i) => { params[k] = decodeURIComponent(m[i + 1]); });
+      } catch {
+        return null; // malformed %-escape -> not found instead of a crash before React mounts
+      }
       return { name: route.name, route, params };
     }
   }

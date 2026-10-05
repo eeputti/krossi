@@ -121,3 +121,35 @@ export function mergeMessage(list, msg, meId, tmpId = null) {
   if (firstLocal < 0) return [...list, msg];
   return [...list.slice(0, firstLocal), msg, ...list.slice(firstLocal)];
 }
+
+const at = (m) => Date.parse(m.createdAt) || 0;
+
+/**
+ * Folds a fresh server snapshot (the resync after the tab slept or went offline) into the list
+ * on screen instead of replacing it:
+ *   - known messages take the server's version but keep their React key (a sent bubble keeps
+ *     its tmp key: no re-mount, no replayed slide-in animation);
+ *   - messages the screen got after the snapshot was read (realtime, or a send that just
+ *     finished) stay;
+ *   - missed messages are added, and one that is the server copy of a still-pending bubble of
+ *     mine replaces that bubble (via mergeMessage), so it never shows twice.
+ * Server messages end up oldest first; pending/failed bubbles stay at the bottom.
+ */
+export function mergeSnapshot(list, fresh, meId) {
+  const byId = new Map(fresh.map((m) => [m.id, m]));
+  let out = list.map((m) => {
+    const f = byId.get(m.id);
+    if (!f) return m;
+    return m.key && m.key !== f.id ? { ...f, key: m.key } : f;
+  });
+  const known = new Set(list.map((m) => m.id));
+  for (const f of fresh) if (!known.has(f.id)) out = mergeMessage(out, f, meId);
+  // More than a page arrived while away: what was on screen no longer connects to the
+  // snapshot, so drop it rather than leave a silent gap in the thread.
+  if (fresh.length && !list.some((m) => !m.local && byId.has(m.id))) {
+    const oldest = at(fresh[0]);
+    out = out.filter((m) => m.local || at(m) >= oldest);
+  }
+  const sent = out.filter((m) => !m.local).sort((a, b) => at(a) - at(b)); // stable: ties keep their order
+  return [...sent, ...out.filter((m) => m.local)];
+}

@@ -43,7 +43,8 @@ function resolve(pathname) {
 }
 
 createServer(async (req, res) => {
-  const pathname = normalize(decodeURIComponent(req.url.split('?')[0]));
+  let pathname;
+  try { pathname = normalize(decodeURIComponent(req.url.split('?')[0])); } catch { pathname = normalize(req.url.split('?')[0]); }
   const file = resolve(pathname);
   if (!file || !file.startsWith(repo)) { res.writeHead(404).end('Not found'); return; }
   try {

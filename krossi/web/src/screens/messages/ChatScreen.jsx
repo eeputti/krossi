@@ -4,7 +4,7 @@
 // composer pinned to the bottom of a visual-viewport-sized column (keyboard friendly).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
-import { useAsync } from '../../app/hooks.js';
+import { useAsync, useResync } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
 import { goBack, navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
@@ -13,7 +13,7 @@ import {
   Avatar, AvatarStack, Button, Chip, EmptyState, ErrorState, Icon, IconButton, ListRow, Sheet, Skeleton, useConfirm, useToast,
 } from '../../ui/index.js';
 import { levelText } from '../players/playerInfo.js';
-import { buildTimeline, mergeMessage } from './chatUtils.js';
+import { buildTimeline, mergeMessage, mergeSnapshot } from './chatUtils.js';
 import { ChatSkeleton, Composer, DaySeparator, MessageGroup, PinnedGame, SystemPill } from './ChatParts.jsx';
 
 let tmpSeq = 0;
@@ -106,6 +106,17 @@ export function ChatScreen({ params }) {
       if (msg.senderId !== meId) markRead();
     });
   }, [id, meId, load, markRead]);
+
+  // Back from the background / offline: fetch what realtime missed and merge it into what is on
+  // screen (keys, unsent bubbles and anything that arrived during the fetch are kept).
+  useResync(useCallback(async () => {
+    if (!loaded.current) return;
+    try {
+      const fresh = await api.messages.listMessages(id);
+      setMessages((curr) => mergeSnapshot(curr || [], fresh, meId));
+      markRead();
+    } catch { /* keep what we have; the next resync tries again */ }
+  }, [id, meId, markRead]));
 
   // ── sending (optimistic, in order) ────────────────────────────────────────
   const queue = useRef(Promise.resolve());

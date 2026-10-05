@@ -58,7 +58,8 @@ function resolve(p) {
   return null;
 }
 const server = createServer(async (req, res) => {
-  const p = normalize(decodeURIComponent(req.url.split('?')[0]));
+  let p;
+  try { p = normalize(decodeURIComponent(req.url.split('?')[0])); } catch { p = normalize(req.url.split('?')[0]); }
   const file = resolve(p);
   if (!file) { res.writeHead(404).end(); return; }
   try { res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' }).end(await readFile(file)); }

@@ -82,3 +82,28 @@ export function useBusy() {
   }, []);
   return [busy, run];
 }
+
+/**
+ * useResync(fn) — calls fn when the tab becomes visible again or the device comes back online.
+ * Realtime doesn't replay changes missed while the socket slept, so live views refetch here.
+ */
+export function useResync(fn) {
+  const ref = useRef(fn);
+  ref.current = fn;
+  useEffect(() => {
+    let last = 0;
+    const fire = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - last < 2000) return; // visibilitychange + online often arrive together
+      last = now;
+      ref.current?.();
+    };
+    document.addEventListener('visibilitychange', fire);
+    window.addEventListener('online', fire);
+    return () => {
+      document.removeEventListener('visibilitychange', fire);
+      window.removeEventListener('online', fire);
+    };
+  }, []);
+}

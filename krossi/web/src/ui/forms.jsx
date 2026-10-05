@@ -49,9 +49,10 @@ export function Select({ options, placeholder, className, ...rest }) {
 }
 
 /** Switch — bare on/off switch. */
-export function Switch({ checked, onChange, disabled, label, size = 'md' }) {
+export function Switch({ checked, onChange, disabled, label, size = 'md', id }) {
   return (
     <button
+      id={id}
       type="button"
       role="switch"
       aria-checked={!!checked}
@@ -75,7 +76,7 @@ export function Toggle({ checked, onChange, label, hint, disabled, icon, tone = 
         <span className="toggle-row-label">{label}</span>
         {hint && <span className="toggle-row-hint">{hint}</span>}
       </label>
-      <span id={id}><Switch checked={checked} onChange={onChange} disabled={disabled} label={label} /></span>
+      <Switch id={id} checked={checked} onChange={onChange} disabled={disabled} label={label} />
     </div>
   );
 }

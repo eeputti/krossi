@@ -85,7 +85,7 @@ export function Disclosure({ title, summary, icon = 'sliders', defaultOpen = fal
         {!open && summary && <span className="disclosure-summary truncate">{summary}</span>}
         <Icon name="chevron-down" size={18} className="disclosure-chevron" />
       </button>
-      <div id={id} ref={body} className="disclosure-body" style={{ height }} aria-hidden={!open}>
+      <div id={id} ref={body} className="disclosure-body" style={{ height }} aria-hidden={!open} inert={open ? undefined : ''}>
         <div className="disclosure-content">{children}</div>
       </div>
     </div>

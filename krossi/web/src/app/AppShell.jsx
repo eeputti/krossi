@@ -2,7 +2,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { api, isDemo } from '../api/index.js';
 import { Avatar, Button, Icon } from '../ui/index.js';
-import { useIsDesktop } from './hooks.js';
+import { useIsDesktop, useResync } from './hooks.js';
 import { Link, navigate, navigationType, savedScroll, useRoute } from './router.js';
 import { matchRoute, TABS, tabRoot } from './routes.js';
 import { SCREENS, NotFoundScreen } from './screens.js';
@@ -22,6 +22,7 @@ function useUnread(routeName) {
     window.addEventListener('focus', onFocus);
     return () => { alive = false; unsubscribe?.(); window.removeEventListener('focus', onFocus); };
   }, []);
+  useResync(() => api.messages.unreadCount().then(setCount).catch(() => {}));
   useEffect(() => {
     if (routeName === 'inbox' || routeName === 'chat') return undefined;
     const t = setTimeout(() => api.messages.unreadCount().then(setCount).catch(() => {}), 400);
@@ -132,7 +133,7 @@ export function AppShell() {
       {isDemo && <DemoBanner />}
       {isDesktop && <SideNav active={activeTab} unread={unread} />}
       <div className="shell-main">
-        <div key={pageKey} className={cx('shell-page', transition)}>
+        <div key={pageKey} className={cx('shell-page', pageMatch?.name && `shell-page-${pageMatch.name}`, transition)}>
           {renderScreen(pageMatch, { query: pageQuery })}
         </div>
       </div>

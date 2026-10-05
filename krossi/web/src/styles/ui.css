@@ -274,20 +274,23 @@
 /* ── sheet ───────────────────────────────────────────────── */
 body.sheet-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 .sheet-root { position: fixed; inset: 0; z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
-.sheet-backdrop { position: absolute; inset: 0; background: var(--scrim); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); animation: k-fade-in var(--dur-3) var(--ease-out) both; }
+.sheet-backdrop { position: absolute; inset: 0; background: var(--scrim); animation: k-fade-in var(--dur-3) var(--ease-out) both; }
+/* The blur is costly on phones while the sheet animates; desktop only. */
+@media (min-width: 900px) { .sheet-backdrop { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); } }
 .sheet {
-  position: relative; width: 100%; max-height: calc(100dvh - 24px - var(--safe-top)); display: flex; flex-direction: column;
+  position: relative; width: 100%; max-height: calc(var(--dvh) - 24px - var(--safe-top)); display: flex; flex-direction: column;
   background: var(--bg); border-radius: var(--r-2xl) var(--r-2xl) 0 0; box-shadow: var(--shadow-3); outline: none;
   animation: k-sheet-up 420ms var(--ease-out) both; transition: transform var(--dur-3) var(--ease-out);
 }
 .sheet.is-dragging { transition: none; }
-.sheet-full { height: calc(100dvh - 12px - var(--safe-top)); }
+.sheet:not(.is-dragging) { transition: transform 260ms var(--ease-out); }
+.sheet-full { height: calc(var(--dvh) - 12px - var(--safe-top)); }
 .sheet-tone-dark { background: var(--green-800); color: #fff; }
 @keyframes k-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes k-sheet-down { to { transform: translateY(100%); } }
 .sheet-root.is-closing .sheet { animation: k-sheet-down 240ms var(--ease-in-out) both; }
 .sheet-root.is-closing .sheet-backdrop { animation: k-fade-in 240ms reverse both; }
-.sheet-grab-zone { touch-action: none; flex-shrink: 0; }
+.sheet-grab-zone { touch-action: none; flex-shrink: 0; min-height: 24px; }
 .sheet-grabber { display: block; width: 40px; height: 5px; border-radius: 999px; background: var(--line-strong); margin: 9px auto 0; }
 .sheet-tone-dark .sheet-grabber { background: rgba(255, 255, 255, 0.25); }
 .sheet-header { display: flex; align-items: flex-start; gap: 12px; padding: 12px 20px 6px; }
@@ -304,11 +307,11 @@ body.sheet-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 .sheet-actions > * { flex: 1; }
 @media (min-width: 900px) {
   .sheet-root { align-items: center; padding: 24px; }
-  .sheet { border-radius: var(--r-2xl); max-height: min(860px, calc(100dvh - 48px)); animation: k-dialog-in 320ms var(--ease-out) both; }
+  .sheet { border-radius: var(--r-2xl); max-height: min(860px, calc(100vh - 48px)); max-height: min(860px, calc(100dvh - 48px)); animation: k-dialog-in 320ms var(--ease-out) both; }
   .sheet-sm { max-width: 420px; }
   .sheet-md { max-width: 540px; }
   .sheet-lg { max-width: 720px; }
-  .sheet-full { max-width: 760px; height: min(900px, calc(100dvh - 48px)); }
+  .sheet-full { max-width: 760px; height: min(900px, calc(100vh - 48px)); height: min(900px, calc(100dvh - 48px)); }
   .sheet-grabber { display: none; }
   .sheet-header { padding-top: 22px; }
   .sheet-footer { border-radius: 0 0 var(--r-2xl) var(--r-2xl); padding-bottom: 16px; }

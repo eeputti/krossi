@@ -1,5 +1,5 @@
 // App.jsx — providers + the top-level gate: splash → auth → onboarding → app.
-import { useEffect, useRef } from 'react';
+import { Component, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { api } from '../api/index.js';
 import { ConfirmProvider, ErrorState, TennisBall, ToastProvider, confetti, useToast } from '../ui/index.js';
@@ -27,6 +27,58 @@ const store = {
   remove: (k) => { try { sessionStorage.removeItem(k); localStorage.removeItem(k); } catch { /* ignore */ } },
 };
 export { store as authStore };
+
+// A remembered destination only counts for a while: a stale one would otherwise fire much later
+// for whoever signs in next in this browser. Stored as "<ms>|<path>".
+const AFTER_AUTH_TTL_MS = 2 * 60 * 60 * 1000;
+function rememberAfterAuth(path) { store.set(AFTER_AUTH_KEY, `${Date.now()}|${path}`); }
+/** The remembered destination if it's still fresh (doesn't consume it). */
+export function peekAfterAuth() {
+  const [at, path] = String(store.get(AFTER_AUTH_KEY) || '').split('|');
+  return path && Date.now() - Number(at) < AFTER_AUTH_TTL_MS ? path : null;
+}
+function takeAfterAuth() {
+  const path = peekAfterAuth();
+  store.remove(AFTER_AUTH_KEY);
+  return path;
+}
+
+// Supabase sends failed email links (expired, already used — mail scanners prefetch them) back
+// as /pelaa#error=…&error_code=otp_expired. Explain instead of silently showing the login.
+const AUTH_LINK_ERRORS = {
+  otp_expired: 'Linkki on vanhentunut tai jo käytetty. Pyydä uusi linkki ja avaa se heti.',
+  access_denied: 'Linkki ei enää kelpaa. Pyydä uusi linkki.',
+};
+function useAuthLinkError() {
+  const toast = useToast();
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!/(^|&)error(_code|_description)?=/.test(hash)) return;
+    const params = new URLSearchParams(hash);
+    const code = params.get('error_code') || params.get('error');
+    toast(AUTH_LINK_ERRORS[code] || 'Kirjautumislinkki ei toiminut. Yritä uudelleen.', { tone: 'error', duration: 7000 });
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+  }, [toast]);
+}
+
+/** Last line of defence: a render error shows a friendly page instead of a blank screen. */
+class AppErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('Krossi crashed', error, info?.componentStack); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="gate-error">
+        <ErrorState
+          title="Hups, jokin meni rikki"
+          error={{ userMessage: 'Sivu kaatui odottamattomasti. Lataa sivu uudelleen — tietosi ovat tallessa.' }}
+          onRetry={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
+}
 
 export function Splash() {
   return (
@@ -73,11 +125,12 @@ function Gate() {
   const session = useSession();
   const route = useRoute();
   useStripeReturn();
+  useAuthLinkError();
 
   // Remember shared-link destinations for after sign-in, and invite codes for after onboarding.
   useEffect(() => {
     if (session.user) return;
-    if (route.name === 'game') store.set(AFTER_AUTH_KEY, route.path);
+    if (route.name === 'game') rememberAfterAuth(route.path);
     if (route.name === 'invite') store.set(INVITE_CODE_KEY, route.params.code);
   }, [session.user, route.name, route.path, route.params.code]);
 
@@ -86,8 +139,8 @@ function Gate() {
     if (!session.user || !session.profile || session.needsOnboarding) return;
     const code = store.get(INVITE_CODE_KEY);
     if (code) { store.remove(INVITE_CODE_KEY); api.invites.claim(code).catch(() => {}); }
-    const next = store.get(AFTER_AUTH_KEY);
-    if (next) { store.remove(AFTER_AUTH_KEY); if (next !== route.path) navigate(next, { replace: true }); }
+    const next = takeAfterAuth();
+    if (next) { if (next !== route.path) navigate(next, { replace: true }); }
     else if (route.name === 'invite') navigate('/pelaa/koti', { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.user, session.profile, session.needsOnboarding]);
@@ -118,6 +171,7 @@ function Gate() {
 export function mountApp({ demo = false } = {}) {
   configureRouter({ demo });
   createRoot(document.getElementById('root')).render(
+    <AppErrorBoundary>
     <ToastProvider>
       <ConfirmProvider>
         <SessionProvider>
@@ -126,6 +180,7 @@ export function mountApp({ demo = false } = {}) {
           </PaywallProvider>
         </SessionProvider>
       </ConfirmProvider>
-    </ToastProvider>,
+    </ToastProvider>
+    </AppErrorBoundary>,
   );
 }

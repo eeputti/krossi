@@ -145,10 +145,10 @@
 .games-fab:active { transform: scale(0.92); }
 
 /* ── map ─────────────────────────────────────────────────── */
-.games-map-skel { height: clamp(380px, calc(100dvh - 330px), 680px); }
+.games-map-skel { height: clamp(380px, calc(100vh - 330px), 680px); height: clamp(380px, calc(100dvh - 330px), 680px); }
 .games-map-skel .skeleton { height: 100%; }
 .games-map {
-  position: relative; isolation: isolate; height: clamp(380px, calc(100dvh - 330px), 680px); overflow: hidden;
+  position: relative; isolation: isolate; height: clamp(380px, calc(100vh - 330px), 680px); height: clamp(380px, calc(100dvh - 330px), 680px); overflow: hidden;
   border-radius: var(--r-xl); border: 1px solid var(--line); background: var(--sand); box-shadow: var(--shadow-1);
 }
 .games-map-canvas { width: 100%; height: 100%; }

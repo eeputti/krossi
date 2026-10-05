@@ -2,7 +2,7 @@
 // (email + Google / Apple). Remember-me is automatic (the session persists).
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
-import { AFTER_AUTH_KEY, INVITE_CODE_KEY, authStore } from '../../app/App.jsx';
+import { INVITE_CODE_KEY, authStore, peekAfterAuth } from '../../app/App.jsx';
 import { useRoute } from '../../app/router.js';
 import { AppleMark, Avatar, Button, Field, GoogleMark, Icon, Illustration, Input, Segmented } from '../../ui/index.js';
 import { LegalSheet } from '../shared/LegalSheet.jsx';
@@ -50,7 +50,7 @@ export function AuthScreen() {
 
   const inviteCode = authStore.get(INVITE_CODE_KEY);
   const { inviterName } = useInviter(inviteCode);
-  const headingToGame = String(authStore.get(AFTER_AUTH_KEY) || '').startsWith('/pelaa/peli/');
+  const headingToGame = String(peekAfterAuth() || '').startsWith('/pelaa/peli/');
 
   useEffect(() => () => clearTimeout(oauthTimer.current), []);
 

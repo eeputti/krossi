@@ -7,7 +7,7 @@
 .auth-hero {
   position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0;
   display: flex; flex-direction: column; justify-content: space-between; gap: var(--s4);
-  min-height: clamp(330px, 46dvh, 460px);
+  min-height: clamp(330px, 46vh, 460px); min-height: clamp(330px, 46dvh, 460px);
   padding: calc(14px + var(--safe-top)) var(--s5) 52px;
   background: var(--green-900); color: var(--on-dark);
 }
