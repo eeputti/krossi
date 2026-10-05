@@ -113,9 +113,11 @@
       groups: [{
         id: GROUP, coachId: COACH, name: 'Aikuiset A', level: 'Keskitaso', day: 'Ti', time: '17:00', durationMinutes: 90,
         memberIds: [S1, S2, S3], slots: [],
-        themes: [{ id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' }],
-        theme: { id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' },
-        upcomingThemes: [],
+        themes: [
+          { id: 't0', ...window.koutsiAddIsoWeeks(now, -2), title: 'Kämmenen pelitila', lead: 'Korkea pallo takakenttään ja aikaa palata keskelle.' },
+          { id: 't2', ...window.koutsiAddIsoWeeks(now, -1), title: 'Verkolle tulo', lead: 'Lähestymislyönti linjaan ja split step ennen volleytä.' },
+          { id: 't1', year: now.year, week: now.week, title: 'Syötön rytmi', lead: 'Tasainen heitto ja sama rytmi joka syötössä.' },
+        ],
         annualPlan: null,
       }],
       trainings: [
@@ -257,6 +259,7 @@
   // ── loaders ───────────────────────────────────────────────────────────────
   function coachState() {
     const s = clone(load());
+    s.groups.forEach(refreshThemes);
     return {
       coach: s.coach, coaches: s.coaches, students: s.students, groups: s.groups,
       trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents,
@@ -265,6 +268,7 @@
   window.koutsiLoadCoachState = () => done(coachState());
   window.koutsiLoadStudentState = (studentId) => {
     const s = clone(load());
+    s.groups.forEach(refreshThemes);
     const me = s.students.find((x) => x.id === studentId) || s.students[0];
     const groups = s.groups.filter((g) => g.memberIds.includes(me.id));
     const rosterIds = new Set(groups.flatMap((g) => g.memberIds));
@@ -527,7 +531,7 @@
     const duration = durationMinutes || 60;
     s.groups.push({
       id, coachId: coachId || COACH, name, level, day, time, durationMinutes: duration,
-      memberIds: memberIds || [], slots: [], themes: [], theme: null, upcomingThemes: [], annualPlan: null,
+      memberIds: memberIds || [], slots: [], themes: [], theme: null, upcomingThemes: [], pastThemes: [], annualPlan: null,
     });
     demoGenerateGroupTrainings(s, id, coachId, day, time, duration, window.koutsiTodayStr(), weeksAhead);
     save();
@@ -612,11 +616,10 @@
     save();
     return done();
   };
+  // Same split as the real loader. Run on every read too, because a demo saved in an
+  // earlier week would otherwise still show that week's theme as the current one.
   function refreshThemes(g) {
-    g.themes.sort(window.koutsiCompareIsoWeeks);
-    const now = window.koutsiCurrentIsoWeek();
-    g.theme = g.themes.find((t) => t.year === now.year && t.week === now.week) || null;
-    g.upcomingThemes = g.themes.filter((t) => window.koutsiCompareIsoWeeks(t, now) > 0);
+    Object.assign(g, window.koutsiSplitThemes(g.themes || []));
   }
 
   // ── annual plan ───────────────────────────────────────────────────────────
@@ -783,7 +786,7 @@
         group = {
           id: newId('g'), coachId: COACH, name: row.name, level: row.level || 'Kaikki tasot',
           day: row.day || 'Ma', time: row.time, durationMinutes: duration, memberIds: [], slots: [], themes: [], theme: null,
-          upcomingThemes: [], annualPlan: null,
+          upcomingThemes: [], pastThemes: [], annualPlan: null,
         };
         s.groups.push(group);
         demoGenerateGroupTrainings(s, group.id, COACH, group.day, group.time, duration, window.koutsiTodayStr(), weeksAhead);

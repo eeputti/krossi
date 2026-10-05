@@ -2015,13 +2015,16 @@ function SharedAnnualPlanSubmissionCard({ coachId }) {
 }
 
 function GroupsView({ groups, students, coachId, acting, onOpen, onCreate }) {
+  const nowWeek = window.koutsiCurrentIsoWeek();
   return (
     <div>
       <PageHeader title="Ryhmät" sub={`${groups.length} valmennusryhmää`} action={<button onClick={onCreate} className="btn-dark btn-sm">+ Uusi ryhmä</button>} />
       {!acting && <SharedAnnualPlanSubmissionCard coachId={coachId} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
-        {groups.map((g) => {
+        {window.koutsiSortGroupsBySchedule(groups).map((g) => {
           const members = g.memberIds.map((id) => students.find((s) => s.id === id)).filter(Boolean);
+          const nextTheme = (g.upcomingThemes || [])[0];
+          const lastTheme = (g.pastThemes || [])[0];
           return (
             <button key={g.id} onClick={() => onOpen(g.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
@@ -2031,9 +2034,14 @@ function GroupsView({ groups, students, coachId, acting, onOpen, onCreate }) {
               <div style={{ fontSize: 13, color: '#8a857a' }}>{g.day} klo {window.koutsiTimeRangeLabel(g.time, g.durationMinutes)} viikoittain</div>
               {g.theme
                 ? <div style={{ fontSize: 12.5, color: '#3c382f' }}><b style={{ color: 'var(--green-deep)' }}>Viikon teema:</b> {g.theme.title}</div>
-                : (g.upcomingThemes || []).length > 0
-                  ? <div style={{ fontSize: 12.5, color: '#8a857a' }}><b style={{ color: 'var(--green-deep)' }}>Vko {g.upcomingThemes[0].week}:</b> {g.upcomingThemes[0].title}</div>
-                  : <div style={{ fontSize: 12.5, color: '#a8a297' }}>Ei viikon teemaa</div>}
+                : nextTheme || lastTheme
+                  ? (
+                    <div style={{ fontSize: 12.5, color: '#8a857a' }}>
+                      <b style={{ color: '#8f5a1e' }}>Vko {nowWeek.week} ilman teemaa</b>
+                      {nextTheme ? ` · seuraava ${themeWeekShort(nextTheme, nowWeek)}: ${nextTheme.title}` : ` · edellinen ${themeWeekShort(lastTheme, nowWeek)}: ${lastTheme.title}`}
+                    </div>
+                  )
+                  : <div style={{ fontSize: 12.5, color: '#a8a297' }}>Ei viikkoteemoja</div>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <AvatarStack members={members} size={32} />
                 <span style={{ fontSize: 12.5, color: '#8a857a', fontWeight: 600 }}>{members.length} pelaajaa</span>
@@ -2049,57 +2057,89 @@ function GroupsView({ groups, students, coachId, acting, onOpen, onCreate }) {
 // A theme belongs to a week, and a coach plans a term, not a Monday: this editor holds
 // every planned week at once, adds a whole run of empty weeks in one click, and saves the
 // lot with one Tallenna. It replaces the single-theme dialog that had to be retyped weekly.
-function WeeklyThemeRow({ row, weekOptions, onChange, onRemove }) {
+// A saved row's week is fixed: the upsert is keyed by week, so re-dating a saved row would
+// save a copy and leave the original behind. Moving a theme is remove + add instead.
+// "vko 48", or "vko 48/2025" once the week is in another year than this one
+function themeWeekShort(w, now) {
+  return `vko ${w.week}${w.year !== now.year ? `/${w.year}` : ''}`;
+}
+function themeWeekLabel(w, now) {
+  const same = (a, b) => a.year === b.year && a.week === b.week;
+  const note = same(w, now) ? ' (tämä viikko)'
+    : same(w, window.koutsiAddIsoWeeks(now, 1)) ? ' (ensi viikko)'
+      : same(w, window.koutsiAddIsoWeeks(now, -1)) ? ' (viime viikko)' : '';
+  return `${themeWeekShort(w, now)} · ${window.koutsiIsoWeekRangeLabel(w.year, w.week)}${note}`;
+}
+
+function WeeklyThemeRow({ row, weekOptions, takenWeeks, nowWeek, onChange, onRemove }) {
   const inputStyle = { width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14, fontFamily: 'inherit', color: '#111', background: '#fff' };
+  const rowKey = window.koutsiIsoWeekKey(row);
+  // Only weeks no other row holds: last week's saved theme sits folded under "Aiemmat
+  // viikot", and a clash with a row the coach can't see is not one they can fix.
+  const free = weekOptions.filter((o) => window.koutsiIsoWeekKey(o) === rowKey || !takenWeeks.has(window.koutsiIsoWeekKey(o)));
+  // a select whose value is missing from its options silently shows the first option
+  const options = free.some((o) => window.koutsiIsoWeekKey(o) === rowKey) ? free : [{ year: row.year, week: row.week }, ...free];
+  const isNow = row.year === nowWeek.year && row.week === nowWeek.week;
   return (
-    <div className="k-card" style={{ padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+    <div className="k-card" style={{ padding: '13px 14px', display: 'flex', flexDirection: 'column', gap: 9, ...(isNow ? { borderColor: 'rgba(14,59,44,0.38)' } : null) }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <select className="k-select" value={window.koutsiIsoWeekKey(row)} onChange={(e) => {
-          const opt = weekOptions.find((o) => window.koutsiIsoWeekKey(o) === e.target.value);
-          if (opt) onChange({ ...row, year: opt.year, week: opt.week });
-        }} style={{ ...inputStyle, width: 'auto', flex: 1, cursor: 'pointer', fontWeight: 700 }}>
-          {weekOptions.map((o) => (
-            <option key={window.koutsiIsoWeekKey(o)} value={window.koutsiIsoWeekKey(o)}>
-              vko {o.week} · {window.koutsiIsoWeekRangeLabel(o.year, o.week)}{o.isNow ? ' (tämä viikko)' : ''}
-            </option>
-          ))}
-        </select>
+        {row.id ? (
+          <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: '#111', padding: '6px 2px' }}>{themeWeekLabel(row, nowWeek)}</div>
+        ) : (
+          <select className="k-select" value={rowKey} aria-label="Teeman viikko" onChange={(e) => {
+            const opt = options.find((o) => window.koutsiIsoWeekKey(o) === e.target.value);
+            if (opt) onChange({ ...row, year: opt.year, week: opt.week });
+          }} style={{ ...inputStyle, width: 'auto', flex: 1, minWidth: 0, cursor: 'pointer', fontWeight: 700 }}>
+            {options.map((o) => (
+              <option key={window.koutsiIsoWeekKey(o)} value={window.koutsiIsoWeekKey(o)}>{themeWeekLabel(o, nowWeek)}</option>
+            ))}
+          </select>
+        )}
         <window.KoutsiRowActions onDelete={onRemove} deleteLabel="Poista tämän viikon teema" />
       </div>
-      <input value={row.title} onChange={(e) => onChange({ ...row, title: e.target.value })} placeholder="Teema, esim. Kämmenen pelitila" style={inputStyle} />
-      <textarea value={row.lead} onChange={(e) => onChange({ ...row, lead: e.target.value })} rows={2} placeholder="Mihin tällä viikolla keskitytään? (vapaaehtoinen)" style={{ ...inputStyle, resize: 'none' }} />
+      <input value={row.title} onChange={(e) => onChange({ ...row, title: e.target.value })} placeholder="Teema, esim. Kämmenen pelitila" aria-label="Viikon teema" style={inputStyle} />
+      <textarea value={row.lead} onChange={(e) => onChange({ ...row, lead: e.target.value })} rows={2} placeholder="Mihin tällä viikolla keskitytään? (vapaaehtoinen)" aria-label="Teeman tarkennus" style={{ ...inputStyle, resize: 'none' }} />
     </div>
   );
 }
 
 function WeeklyThemesModal({ group, onClose, onSave }) {
-  const toast = window.useKoutsiToast();
   const now = window.koutsiCurrentIsoWeek();
+  const cmp = window.koutsiCompareIsoWeeks;
+  const weekKey = window.koutsiIsoWeekKey;
   const [rows, setRows] = React.useState(() => {
-    const existing = (group.themes || []).map((t) => ({ key: t.id, id: t.id, year: t.year, week: t.week, title: t.title, lead: t.lead }));
-    return existing.length ? existing : [{ key: 'uusi-0', id: null, year: now.year, week: now.week, title: '', lead: '' }];
+    const existing = (group.themes || []).map((t) => ({
+      key: t.id, id: t.id, year: t.year, week: t.week, title: t.title, lead: t.lead || '',
+      saved: { title: t.title, lead: t.lead || '' },
+    }));
+    // this week always has a row to type into, even when other weeks are already planned
+    return existing.some((r) => r.year === now.year && r.week === now.week)
+      ? existing
+      : [...existing, { key: 'uusi-0', id: null, year: now.year, week: now.week, title: '', lead: '' }];
   });
-  const [removedIds, setRemovedIds] = React.useState([]);
+  const [removed, setRemoved] = React.useState([]);
   const [addCount, setAddCount] = React.useState(4);
   const [busy, setBusy] = React.useState(false);
+  const [showPast, setShowPast] = React.useState(false);
   const nextKey = React.useRef(1);
 
   // one year forward, one week back — enough to plan a season, short enough to scan
   const weekOptions = React.useMemo(() => {
     const out = [];
-    for (let i = -1; i <= 52; i++) {
-      const w = window.koutsiAddIsoWeeks(now, i);
-      out.push({ ...w, isNow: i === 0 });
-    }
+    for (let i = -1; i <= 52; i++) out.push(window.koutsiAddIsoWeeks(now, i));
     return out;
   }, [now.year, now.week]);
 
-  const sorted = rows.slice().sort(window.koutsiCompareIsoWeeks);
-  const lastWeek = sorted.length ? sorted[sorted.length - 1] : window.koutsiAddIsoWeeks(now, -1);
+  // Saved weeks that have ended are the group's theme history: folded away, newest first.
+  const isHistory = (r) => r.id && cmp(r, now) < 0;
+  const pastRows = rows.filter(isHistory).sort((a, b) => cmp(b, a));
+  const activeRows = rows.filter((r) => !isHistory(r)).sort(cmp);
 
   const addWeeks = (count) => {
+    // continue after the last planned week, but never into a week that has already ended
+    const last = rows.length ? rows.slice().sort(cmp)[rows.length - 1] : null;
+    let cursor = last && cmp(last, now) >= 0 ? last : window.koutsiAddIsoWeeks(now, -1);
     const added = [];
-    let cursor = rows.length ? lastWeek : window.koutsiAddIsoWeeks(now, -1);
     for (let i = 0; i < count; i++) {
       cursor = window.koutsiAddIsoWeeks(cursor, 1);
       added.push({ key: `uusi-${nextKey.current++}`, id: null, year: cursor.year, week: cursor.week, title: '', lead: '' });
@@ -2108,43 +2148,68 @@ function WeeklyThemesModal({ group, onClose, onSave }) {
   };
   const updateRow = (key, next) => setRows((prev) => prev.map((r) => (r.key === key ? next : r)));
   const removeRow = (row) => {
-    if (row.id) setRemovedIds((prev) => [...prev, row.id]);
+    if (row.id) setRemoved((prev) => [...prev, { id: row.id, year: row.year, week: row.week }]);
     setRows((prev) => prev.filter((r) => r.key !== row.key));
   };
 
-  const filled = rows.filter((r) => r.title.trim());
+  // Only what actually changed is sent: re-saving untouched weeks would bump updated_at
+  // on the whole history every time one week is edited.
+  const changed = rows.filter((r) => r.title.trim()
+    && (!r.saved || r.title.trim() !== r.saved.title || r.lead.trim() !== r.saved.lead));
+  // a removed week that gets a new theme in the same save is overwritten in place instead
+  const changedWeeks = new Set(changed.map(weekKey));
+  const deleteIds = removed.filter((r) => !changedWeeks.has(weekKey(r))).map((r) => r.id);
+  const emptied = rows.filter((r) => r.id && !r.title.trim()).sort(cmp);
   const duplicate = (() => {
     const seen = new Set();
-    return filled.some((r) => {
-      const k = window.koutsiIsoWeekKey(r);
+    return rows.filter((r) => r.title.trim()).some((r) => {
+      const k = weekKey(r);
       if (seen.has(k)) return true;
       seen.add(k);
       return false;
     });
   })();
-  const ready = !busy && (filled.length > 0 || removedIds.length > 0) && !duplicate;
+  const changeCount = changed.length + deleteIds.length;
+  const ready = !busy && changeCount > 0 && !duplicate && emptied.length === 0;
 
   const save = async () => {
-    if (duplicate) { toast.error('Kahdella rivillä on sama viikko. Valitse eri viikot.'); return; }
     setBusy(true);
-    await onSave({ rows: filled, removedIds });
+    await onSave({ rows: changed, removedIds: deleteIds });
     setBusy(false);
   };
+
+  const takenWeeks = new Set(rows.map(weekKey));
+  const rowProps = (row) => ({
+    row, weekOptions, takenWeeks, nowWeek: now,
+    onChange: (next) => updateRow(row.key, next), onRemove: () => removeRow(row),
+  });
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(520px, 100%)', maxHeight: 'calc(100vh - 40px)', padding: 0, display: 'flex', flexDirection: 'column', animation: 'kFadeIn .2s ease' }}>
         <div style={{ padding: '24px 26px 14px', borderBottom: '1px solid var(--line)' }}>
           <h3 style={{ fontSize: 19, fontWeight: 800, marginBottom: 5 }}>Viikon teemat</h3>
-          <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5 }}>{group.name} — jokaiselle viikolle oma teema. Pelaajat näkevät aina kuluvan viikon teeman.</p>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: '#3c382f', marginBottom: 4 }}>{window.koutsiGroupScheduleLabel(group)}</div>
+          <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5 }}>Jokaiselle viikolle oma teema. Pelaajat näkevät aina kuluvan viikon teeman.</p>
         </div>
 
         <div style={{ padding: '16px 26px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {sorted.map((row) => (
-            <WeeklyThemeRow key={row.key} row={row} weekOptions={weekOptions}
-              onChange={(next) => updateRow(row.key, next)} onRemove={() => removeRow(row)} />
-          ))}
-          {rows.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei yhtään viikkoa. Lisää alta.</div>}
+          {activeRows.map((row) => <WeeklyThemeRow key={row.key} {...rowProps(row)} />)}
+          {activeRows.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei tulevia viikkoja. Lisää alta.</div>}
+          {pastRows.length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              <button type="button" onClick={() => setShowPast((v) => !v)} aria-expanded={showPast}
+                style={{ background: 'none', border: 'none', padding: '6px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)' }}>
+                {showPast ? '▾' : '▸'} Aiemmat viikot ({pastRows.length})
+              </button>
+              {showPast && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 6 }}>
+                  <div style={{ fontSize: 12.5, color: '#8a857a', lineHeight: 1.45 }}>Menneet viikot säilyvät ryhmän teemahistoriana. Tekstin voi korjata, viikko pysyy samana.</div>
+                  {pastRows.map((row) => <WeeklyThemeRow key={row.key} {...rowProps(row)} />)}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ padding: '14px 26px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -2157,14 +2222,15 @@ function WeeklyThemesModal({ group, onClose, onSave }) {
         </div>
 
         <div style={{ padding: '14px 26px 22px', borderTop: '1px solid var(--line)' }}>
-          {duplicate && <div style={{ fontSize: 12.5, color: '#8f2f24', marginBottom: 10, fontWeight: 600 }}>Kahdella rivillä on sama viikko.</div>}
+          {duplicate && <div style={{ fontSize: 12.5, color: '#8f2f24', marginBottom: 10, fontWeight: 600 }}>Kahdella rivillä on sama viikko. Valitse eri viikot.</div>}
+          {emptied.length > 0 && <div style={{ fontSize: 12.5, color: '#8f2f24', marginBottom: 10, fontWeight: 600 }}>Vko {emptied[0].week}: teema on tyhjä. Kirjoita teema tai poista rivi.</div>}
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} className="btn-outline" style={{ flex: 1, padding: '13px 0' }}>Peruuta</button>
             <button onClick={() => ready && save()} className="btn-dark" style={{ flex: 1, padding: '13px 0', opacity: ready ? 1 : 0.45, cursor: ready ? 'pointer' : 'default' }}>
-              {busy ? 'Tallennetaan…' : `Tallenna ${filled.length} viikkoa`}
+              {busy ? 'Tallennetaan…' : changeCount === 0 ? 'Ei muutoksia' : changeCount === 1 ? 'Tallenna 1 muutos' : `Tallenna ${changeCount} muutosta`}
             </button>
           </div>
-          <div style={{ fontSize: 12, color: '#a8a297', marginTop: 9, textAlign: 'center' }}>Rivit ilman teemaa jätetään tallentamatta.</div>
+          <div style={{ fontSize: 12, color: '#a8a297', marginTop: 9, textAlign: 'center' }}>Uudet rivit ilman teemaa jätetään tallentamatta.</div>
         </div>
       </div>
     </div>
@@ -2712,6 +2778,8 @@ function AnnualPlanCard({ group, onUploadPlan, onRemovePlan }) {
 
 function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStudent, onOpenAttendance, onEditTheme, onAddMembers, onUploadPlan, onRemovePlan, onEditGroup, onDeleteGroup, onRemoveMember, onAddSlot, onDeleteSlot }) {
   const nowWeek = window.koutsiCurrentIsoWeek();
+  const pastThemes = group.pastThemes || [];
+  const [showPastThemes, setShowPastThemes] = React.useState(false);
   const sortedTrainings = (trainings || []).slice().sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
   const thisWeekTrainings = sortedTrainings.filter((t) => {
     const w = window.koutsiIsoWeekOfDateStr(t.date);
@@ -2746,21 +2814,46 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
           <div style={{ marginBottom: 22 }}>
             {group.theme
               ? <GroupThemeBanner theme={group.theme} label="Tämän viikon teema" />
-              : (group.upcomingThemes || []).length > 0
-                ? <GroupThemeBanner theme={group.upcomingThemes[0]} label="Seuraava suunniteltu teema" />
-                : <div style={{ fontSize: 14, color: '#8a857a' }}>Ei vielä viikkoteemoja. Voit suunnitella useamman viikon kerralla.</div>}
-            <button onClick={onEditTheme} className="btn-outline btn-sm" style={{ marginTop: 10 }}>
-              {(group.themes || []).length > 0 ? `Muokkaa viikkoteemoja (${group.themes.length})` : '+ Suunnittele viikkoteemat'}
+              : (group.themes || []).length === 0
+                ? <div style={{ fontSize: 14, color: '#8a857a' }}>Ei vielä viikkoteemoja. Voit suunnitella useamman viikon kerralla.</div>
+                : (
+                  <div style={{ fontSize: 14, color: '#514c42', lineHeight: 1.5 }}>
+                    <b style={{ color: '#111' }}>Tälle viikolle (vko {nowWeek.week}) ei ole vielä teemaa.</b>
+                    {pastThemes.length > 0 && <div style={{ fontSize: 13, color: '#8a857a', marginTop: 3 }}>Edellinen: {themeWeekShort(pastThemes[0], nowWeek)} — {pastThemes[0].title}</div>}
+                  </div>
+                )}
+            {!group.theme && (group.upcomingThemes || []).length > 0 && (
+              <div style={{ marginTop: 10 }}><GroupThemeBanner theme={group.upcomingThemes[0]} label="Seuraava suunniteltu teema" /></div>
+            )}
+            <button onClick={onEditTheme} className={group.theme || (group.themes || []).length === 0 ? 'btn-outline btn-sm' : 'btn-dark btn-sm'} style={{ marginTop: 10 }}>
+              {group.theme ? 'Muokkaa viikkoteemoja' : (group.themes || []).length > 0 ? 'Aseta tämän viikon teema' : '+ Suunnittele viikkoteemat'}
             </button>
             {(group.upcomingThemes || []).length > 0 && (
               <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tulevat viikot</div>
                 {group.upcomingThemes.slice(0, 5).map((t) => (
                   <div key={t.id} style={{ fontSize: 13.5, color: '#3c382f' }}>
-                    <b style={{ color: 'var(--green-deep)' }}>vko {t.week}</b> · {window.koutsiIsoWeekRangeLabel(t.year, t.week)} — {t.title}
+                    <b style={{ color: 'var(--green-deep)' }}>{themeWeekShort(t, nowWeek)}</b> · {window.koutsiIsoWeekRangeLabel(t.year, t.week)} — {t.title}
                   </div>
                 ))}
                 {group.upcomingThemes.length > 5 && <div style={{ fontSize: 12.5, color: '#a8a297' }}>+{group.upcomingThemes.length - 5} viikkoa lisää</div>}
+              </div>
+            )}
+            {pastThemes.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <button type="button" onClick={() => setShowPastThemes((v) => !v)} aria-expanded={showPastThemes}
+                  style={{ background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  {showPastThemes ? '▾' : '▸'} Aiemmat teemat ({pastThemes.length})
+                </button>
+                {showPastThemes && (
+                  <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {pastThemes.map((t) => (
+                      <div key={t.id} style={{ fontSize: 13.5, color: '#514c42' }}>
+                        <b style={{ color: '#3c382f' }}>{themeWeekShort(t, nowWeek)}</b> · {window.koutsiIsoWeekRangeLabel(t.year, t.week)} — {t.title}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -4848,7 +4941,9 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
       await window.koutsiDeleteThemes(removedIds);
       await window.koutsiSaveThemes(themeModalGroupId, rows);
       await reload();
-    }, rows.length === 1 ? 'Viikon teema tallennettu.' : `${rows.length} viikkoteemaa tallennettu.`);
+    }, rows.length === 0
+      ? (removedIds.length === 1 ? 'Viikkoteema poistettu.' : `${removedIds.length} viikkoteemaa poistettu.`)
+      : rows.length === 1 ? 'Viikon teema tallennettu.' : `${rows.length} viikkoteemaa tallennettu.`);
     if (ok) setThemeModalGroupId(null);
   };
   const saveGroup = async ({ name, level, day, time, durationMinutes, memberIds, weeksAhead }) => {
