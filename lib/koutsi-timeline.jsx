@@ -167,9 +167,9 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
     push({
       id: `training-${t.id}`, kind: 'training', at: t.date,
       title: absence ? `${t.type} — ${reason}` : t.type,
-      body: [t.groupName || '', absence?.note || '', tournamentSummary].filter(Boolean).join(' · '),
+      body: [t.groupName || '', t.themeTitle ? `Teema: ${t.themeTitle}` : '', absence?.note || '', tournamentSummary].filter(Boolean).join(' · '),
       time: t.time, absent: !!absence,
-      search: `${t.type} ${t.groupName || ''} treeni ${reason} ${absence?.note || ''}`,
+      search: `${t.type} ${t.groupName || ''} treeni ${reason} ${absence?.note || ''} ${t.themeTitle || ''}`,
     });
   });
 
@@ -352,7 +352,7 @@ function KoutsiTimeline({ student, trainings, clubEvents, onOpenVideo, actions, 
       {filtered.length === 0 ? (
         <div className="k-card" style={{ padding: 22, color: '#8a857a', fontSize: 14.5, lineHeight: 1.55 }}>
           {all.length === 0
-            ? 'Aikajanasi on vielä tyhjä. Se täyttyy itsestään: valmentajan huomiot, tavoitteesi, treenit, fiilikset, videot ja ottelumuistiinpanot päätyvät kaikki tänne.'
+            ? 'Aikajanasi on vielä tyhjä. Tänne kertyy kehityksesi viikko viikolta: ryhmäsi teemat, treenit, valmentajan huomiot, tavoitteet, fiilikset, ottelut ja videot.'
             : 'Ei osumia — kokeile toista hakusanaa tai suodatinta.'}
         </div>
       ) : (

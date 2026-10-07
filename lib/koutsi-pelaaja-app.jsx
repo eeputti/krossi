@@ -266,6 +266,8 @@ function NextTrainingCard({ state, student, todayStr }) {
   const party = window.koutsiTrainingParty(state, next);
   const coach = window.koutsiCoachById(state, next.coachId);
   const groupName = party.kind === 'group' && party.group ? party.group.name : null;
+  // the theme of the week this session falls in, so "what are we working on" sits next to "when"
+  const theme = party.kind === 'group' ? window.koutsiThemeForDate(party.group, next.date) : null;
   const isToday = next.date === todayStr;
   return (
     <div className="k-card" style={{ padding: 0, overflow: 'hidden', marginBottom: 22 }}>
@@ -280,6 +282,7 @@ function NextTrainingCard({ state, student, todayStr }) {
           <span style={{ fontSize: 14.5, color: '#3c382f' }}>{next.type}{groupName ? ` — ${groupName}` : ''}</span>
         </div>
         {coach && <div style={{ fontSize: 13, color: '#6b665c' }}>{coach.name}</div>}
+        {theme && <div style={{ fontSize: 13.5, color: '#3c382f', marginTop: 6 }}><b style={{ color: 'var(--green-deep)' }}>Teema:</b> {theme.title}</div>}
       </div>
       {rest.length > 0 && (
         <div style={{ padding: '11px 20px 12px', borderTop: '1px solid var(--line)' }}>
@@ -346,6 +349,74 @@ function NoCoachCard({ onGoTab }) {
   );
 }
 
+// Players who joined before the welcome popup said what Koutsi is for took it for a
+// video box. This one-off card tells them once; dismissing it, or seeing the new
+// welcome popup, marks it seen on this device.
+function koutsiPurposeSeenKey(studentId) { return `koutsi_purpose_seen_${studentId}`; }
+function koutsiPurposeSeen(studentId) {
+  try { return localStorage.getItem(koutsiPurposeSeenKey(studentId)) === '1'; } catch { return true; }
+}
+function koutsiMarkPurposeSeen(studentId) {
+  try { localStorage.setItem(koutsiPurposeSeenKey(studentId), '1'); } catch { /* private mode */ }
+}
+function PurposeCard({ student, onGoTab }) {
+  const [hidden, setHidden] = React.useState(() => koutsiPurposeSeen(student.id));
+  if (hidden || !student.welcomeSeenAt) return null;
+  const close = () => { koutsiMarkPurposeSeen(student.id); setHidden(true); };
+  return (
+    <div className="k-card" style={{ padding: '17px 20px', marginBottom: 22, borderColor: 'rgba(14,59,44,0.2)', position: 'relative' }}>
+      <button type="button" onClick={close} aria-label="Sulje" style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: '50%', border: 'none', background: '#f4f2ec', color: '#8a857a', cursor: 'pointer', fontSize: 16 }}>×</button>
+      <div style={{ fontSize: 16, fontWeight: 800, color: '#111', marginBottom: 5, paddingRight: 34 }}>Koutsi seuraa tenniskehitystäsi — ei vain videoita</div>
+      <p style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.55, marginBottom: 12 }}>
+        Täältä näet ryhmäsi viikon teeman ja kaiken, mitä olette harjoitelleet. Kehitys-välilehdelle kertyvät treenit, teemat, valmentajan huomiot, tavoitteet ja ottelut viikko viikolta.
+      </p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => { close(); onGoTab('progress'); }} className="btn-dark btn-sm">Katso kehityksesi →</button>
+        {!student.goal && (
+          <button type="button" onClick={() => { close(); document.getElementById('koutsi-goal-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="btn-outline btn-sm">Aseta tavoite</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// "vko 40", or "vko 52/2025" once the week is in another year than this one
+function playerWeekShort(t) {
+  return `vko ${t.week}${t.year !== window.koutsiCurrentIsoWeek().year ? `/${t.year}` : ''}`;
+}
+
+// The theme cards on Koti: each group's theme for this week, or, until the coach sets
+// one, its latest from the past two weeks, so Monday morning isn't a blank screen.
+// Groups with the same theme share one card.
+function homeThemeCards(groups) {
+  const now = window.koutsiCurrentIsoWeek();
+  const floor = window.koutsiAddIsoWeeks(now, -2);
+  const cards = new Map();
+  (groups || []).forEach((g) => {
+    const theme = g.theme || (g.pastThemes || []).find((t) => window.koutsiCompareIsoWeeks(t, floor) >= 0) || null;
+    if (!theme) return;
+    const current = Boolean(g.theme);
+    const key = `${current ? 'now' : window.koutsiIsoWeekKey(theme)}|${window.koutsiThemeKey(theme.title)}`;
+    if (!cards.has(key)) cards.set(key, { key, theme, current, groups: [] });
+    cards.get(key).groups.push(g);
+  });
+  return [...cards.values()].sort((a, b) => Number(b.current) - Number(a.current));
+}
+
+function HomeThemeCard({ card }) {
+  const names = [...new Set(card.groups.map((g) => g.name))].join(', ');
+  return (
+    <div className="k-card" style={{ padding: '17px 20px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', marginBottom: 22 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>
+        {card.current ? 'Viikon teema' : 'Viimeisin teema'} · {playerWeekShort(card.theme)} — {names}
+      </div>
+      <div style={{ fontSize: 16.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{card.theme.title}</div>
+      {card.theme.lead && <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5 }}>{card.theme.lead}</div>}
+      {!card.current && <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 8 }}>Valmentaja ei ole vielä lisännyt tämän viikon teemaa.</div>}
+    </div>
+  );
+}
+
 function HomeView({ student, state, groups, hasCoach, onSaveGoal, wish, setWish, wishSaved, onSaveWish, onToggleHomework, onGoTab }) {
   const latestEntry = student.diary[0];
   const todayStr = window.koutsiTodayStr();
@@ -362,21 +433,15 @@ function HomeView({ student, state, groups, hasCoach, onSaveGoal, wish, setWish,
     <div>
       <IdentityBlock student={student} groups={groups} />
 
+      <PurposeCard student={student} onGoTab={onGoTab} />
+
       <NextTrainingCard state={state} student={student} todayStr={todayStr} />
 
       <HomeHomeworkCard student={student} onToggleHomework={onToggleHomework} />
 
-      {(groups || []).filter((g) => g.theme).map((g) => (
-        <div key={g.id} className="k-card" style={{ padding: '17px 20px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', marginBottom: 22 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>
-            Viikon teema · vko {g.theme.week} — {g.name}
-          </div>
-          <div style={{ fontSize: 16.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{g.theme.title}</div>
-          {g.theme.lead && <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5 }}>{g.theme.lead}</div>}
-        </div>
-      ))}
+      {homeThemeCards(groups).map((card) => <HomeThemeCard key={card.key} card={card} />)}
 
-      <GoalCard student={student} onSave={onSaveGoal} />
+      <div id="koutsi-goal-card"><GoalCard student={student} onSave={onSaveGoal} /></div>
 
       {latestEntry && (
         <div style={{ marginBottom: 26 }}>
@@ -420,6 +485,40 @@ function GroupMetaIcon({ kind }) {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.6" cy="5.8" r="2.2" stroke={c} strokeWidth="1.4" /><circle cx="11" cy="5.8" r="2.2" stroke={c} strokeWidth="1.4" /><path d="M1.4 13.4c0-2.2 1.9-3.5 4.2-3.5s4.2 1.3 4.2 3.5M7.6 13.4c0-2.2 1.9-3.5 4.2-3.5s2.8 1.3 2.8 3.5" stroke={c} strokeWidth="1.4" strokeLinecap="round" /></svg>;
 }
 
+// "Mitä olemme harjoitelleet": the group's past themes, newest first — the record of what
+// the player has worked on, which is what makes Koutsi a development log and not a video box.
+function GroupThemeHistory({ themes }) {
+  const [open, setOpen] = React.useState(false);
+  const [all, setAll] = React.useState(false);
+  if (!themes || themes.length === 0) return null;
+  const shown = all ? themes : themes.slice(0, 8);
+  return (
+    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--line)' }}>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)' }}>
+        {open ? '▾' : '▸'} Mitä olemme harjoitelleet ({themes.length})
+      </button>
+      {open && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column' }}>
+          {shown.map((t, i) => (
+            <div key={t.id} style={{ padding: '8px 0', borderTop: i ? '1px solid rgba(216,212,202,0.6)' : 'none' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#8a857a' }}>{playerWeekShort(t)} · {window.koutsiIsoWeekRangeLabel(t.year, t.week)}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginTop: 2 }}>{t.title}</div>
+              {t.lead && <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.45, marginTop: 2 }}>{t.lead}</div>}
+            </div>
+          ))}
+          {themes.length > 8 && (
+            <button type="button" onClick={() => setAll((v) => !v)}
+              style={{ background: 'none', border: 'none', padding: '6px 0 0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: 'var(--green-deep)', textDecoration: 'underline', textAlign: 'left' }}>
+              {all ? 'Näytä vähemmän' : `Näytä kaikki ${themes.length}`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GroupCard({ group, state, student, onEditAttendance }) {
   const coach = window.koutsiCoachById(state, group.coachId);
   const members = group.memberIds.map((id) => window.koutsiStudentById(state, id)).filter(Boolean);
@@ -442,7 +541,7 @@ function GroupCard({ group, state, student, onEditAttendance }) {
         </div>
       </div>
 
-      {(group.theme || (group.upcomingThemes || []).length > 0) && (
+      {(group.themes || []).length > 0 && (
         <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--line)' }}>
           {group.theme ? (
             <React.Fragment>
@@ -453,7 +552,10 @@ function GroupCard({ group, state, student, onEditAttendance }) {
           ) : (
             <React.Fragment>
               <GroupCardLabel>Viikon teema</GroupCardLabel>
-              <div style={{ fontSize: 13.5, color: '#8a857a' }}>Tälle viikolle ei ole teemaa.</div>
+              <div style={{ fontSize: 13.5, color: '#8a857a', lineHeight: 1.5 }}>
+                Tämän viikon teema puuttuu vielä.
+                {(group.pastThemes || [])[0] && <React.Fragment> Viimeksi harjoittelimme: <b style={{ color: '#3c382f' }}>{group.pastThemes[0].title}</b> ({playerWeekShort(group.pastThemes[0])}).</React.Fragment>}
+              </div>
             </React.Fragment>
           )}
           {(group.upcomingThemes || []).length > 0 && (
@@ -461,11 +563,12 @@ function GroupCard({ group, state, student, onEditAttendance }) {
               <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Tulossa</div>
               {group.upcomingThemes.slice(0, 3).map((t) => (
                 <div key={t.id} style={{ fontSize: 13, color: '#514c42', padding: '2px 0' }}>
-                  <b style={{ color: 'var(--green-deep)' }}>vko {t.week}</b> · {t.title}
+                  <b style={{ color: 'var(--green-deep)' }}>{playerWeekShort(t)}</b> · {t.title}
                 </div>
               ))}
             </div>
           )}
+          <GroupThemeHistory themes={group.pastThemes} />
         </div>
       )}
 
@@ -944,7 +1047,7 @@ function MyVideoBank({ student, onAddVideo, onOpenVideo, onDeleteVideo }) {
     <div style={{ marginBottom: 34 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
         <SectionTitle>{`Omat videot (${myVideos.length})`}</SectionTitle>
-        <button onClick={onAddVideo} className="btn-dark btn-sm">+ Lisää oma video</button>
+        <button onClick={onAddVideo} className="btn-outline btn-sm">+ Lisää oma video</button>
       </div>
       <p style={{ fontSize: 13, color: '#8a857a', lineHeight: 1.5, marginBottom: 14 }}>
         Tallenna tänne hyviä tennisvideoita, tekniikkaklippejä tai muita linkkejä — löydät ne täältä helposti myöhemmin.
@@ -994,10 +1097,8 @@ function ExercisesView({ exercises, hasCoach, onOpen, student, onAddVideo, onDel
     .filter((e) => activeCount === 'kaikki' || (activeCount === 4 ? e.playerCount >= 4 : e.playerCount === activeCount));
   return (
     <div>
-      <PageHeader title="Harjoitteet" sub="Omat videot ja valmentajan harjoitepankki" />
+      <PageHeader title="Harjoitteet" sub="Valmentajan harjoitteet ja omat linkit" />
       {playing && <VideoPlayerModal video={playing} onClose={() => setPlaying(null)} />}
-
-      <MyVideoBank student={student} onAddVideo={onAddVideo} onOpenVideo={setPlaying} onDeleteVideo={onDeleteVideo} />
 
       <SectionTitle>{`Valmentajan harjoitepankki (${exercises.length})`}</SectionTitle>
       {exercises.length === 0 ? (
@@ -1027,6 +1128,10 @@ function ExercisesView({ exercises, hasCoach, onOpen, student, onAddVideo, onDel
           </div>
         </React.Fragment>
       )}
+
+      <div style={{ marginTop: 34 }}>
+        <MyVideoBank student={student} onAddVideo={onAddVideo} onOpenVideo={setPlaying} onDeleteVideo={onDeleteVideo} />
+      </div>
     </div>
   );
 }
@@ -1213,9 +1318,10 @@ function MatchNoteModal({ editing, defaultDate, tournaments, onClose, onSave }) 
 // player owns keep their edit/delete controls, now hung off the timeline card itself.
 function ProgressView({ student, state, hasCoach, onAddVideo, onAddMood, onAddMatchNote, onDeleteMood, onToggleMoodHidden, onEditMatchNote, onDeleteMatchNote, onDeleteVideo }) {
   const [playing, setPlaying] = React.useState(null);
-  const trainings = React.useMemo(() => window.koutsiTrainingsForStudent(state, student.id).map((t) => ({
-    ...t, groupName: t.groupId != null ? (window.koutsiGroupById(state, t.groupId)?.name || '') : '',
-  })), [state, student.id]);
+  const trainings = React.useMemo(() => window.koutsiTrainingsForStudent(state, student.id).map((t) => {
+    const group = t.groupId != null ? window.koutsiGroupById(state, t.groupId) : null;
+    return { ...t, groupName: group?.name || '', themeTitle: group ? window.koutsiThemeForDate(group, t.date)?.title || '' : '' };
+  }), [state, student.id]);
 
   const rowActions = (event) => {
     if (event.kind === 'mood') return (
@@ -1237,7 +1343,7 @@ function ProgressView({ student, state, hasCoach, onAddVideo, onAddMood, onAddMa
   return (
     <div>
       <PageHeader title="Kehitys" sub={hasCoach
-        ? 'Koko historiasi yhtenä aikajanana — tavoitteet, valmentajan huomiot, treenit, fiilikset, videot ja ottelut.'
+        ? 'Kehityksesi viikko viikolta — mitä olemme harjoitelleet, valmentajan huomiot, treenit, tavoitteet, fiilikset, ottelut ja videot.'
         : 'Koko historiasi yhtenä aikajanana. Valmentajan huomiot ilmestyvät tänne, kun liityt ryhmään.'} />
       {playing && <VideoPlayerModal video={playing} onClose={() => setPlaying(null)} />}
       <window.KoutsiTimeline
@@ -1558,9 +1664,12 @@ function PlayerApp({ studentId, onSignOut }) {
   React.useEffect(() => { initialLoad(); }, [initialLoad]);
 
   React.useEffect(() => {
-    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes', 'koutsi_player_history'];
-    const channel = tables.reduce((ch, table) => ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => reload()), window.koutsiSupabase.channel(`koutsi-player-${studentId}`)).subscribe();
-    return () => window.koutsiSupabase.removeChannel(channel);
+    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_group_themes', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes', 'koutsi_player_history'];
+    // one save can touch many rows (a week's themes for every group): reload once per burst
+    let timer = null;
+    const refresh = () => { clearTimeout(timer); timer = setTimeout(reload, 400); };
+    const channel = tables.reduce((ch, table) => ch.on('postgres_changes', { event: '*', schema: 'public', table }, refresh), window.koutsiSupabase.channel(`koutsi-player-${studentId}`)).subscribe();
+    return () => { clearTimeout(timer); window.koutsiSupabase.removeChannel(channel); };
   }, [studentId, reload]);
 
   const student = state ? state.students[0] : null;
@@ -1633,7 +1742,9 @@ function PlayerApp({ studentId, onSignOut }) {
     const ok = await confirm({ title: 'Poista fiilis?', body: `${m.date} — ${MOOD_LABELS[m.score]}`, confirmLabel: 'Poista', danger: true });
     if (ok) await act(() => window.koutsiDeleteMood(m.id), 'Fiilis poistettu.')();
   };
-  const dismissWelcome = act(() => window.koutsiMarkWelcomeSeen(studentId));
+  const markWelcomeSeen = act(() => window.koutsiMarkWelcomeSeen(studentId));
+  // the new welcome already says what Koutsi is for, so the one-off purpose card isn't needed
+  const dismissWelcome = () => { koutsiMarkPurposeSeen(studentId); return markWelcomeSeen(); };
 
   const saveMatchNote = async ({ opponentName, date, note: matchNote, result, format, durationMinutes, score, partnerName, opponent2Name, tournamentId }) => {
     const ok = await toast.run(async () => {
@@ -1709,7 +1820,7 @@ function PlayerApp({ studentId, onSignOut }) {
           studentName={student.name} training={attendanceTraining} eligibleTrainings={attendanceEligibleTrainings}
           entry={attendanceEntry} viewerRole="player" onClose={() => setAttendanceTrainingId(null)} onSave={saveAttendance} />
       )}
-      {!student.welcomeSeenAt && <window.KoutsiWelcomeModal onClose={dismissWelcome} />}
+      {!student.welcomeSeenAt && <window.KoutsiWelcomeModal role="player" onClose={dismissWelcome} />}
     </div>
   );
 }

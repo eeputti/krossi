@@ -594,8 +594,9 @@ function useKoutsiTabRoute(slugs, fallback) {
 
 // One-time onboarding popup + the quick pilot-feedback form, shared by both the
 // player and coach apps (each has its own dismiss handler and its own "own row"
-// to submit feedback under — koutsi_students or koutsi_coaches).
-function KoutsiWelcomeModal({ onClose }) {
+// to submit feedback under — koutsi_students or koutsi_coaches). Players get the
+// "what is this for" version: pilot players took Koutsi for video storage.
+function KoutsiWelcomeModal({ onClose, role = 'coach' }) {
   const feedbackChip = { display: 'inline-flex', alignItems: 'center', padding: '3px 11px', borderRadius: 999, fontWeight: 700, fontSize: 13, color: '#8f2f24', border: '1.6px solid #e3c9c4', background: 'transparent', verticalAlign: 'middle' };
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(10,15,10,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -606,6 +607,26 @@ function KoutsiWelcomeModal({ onClose }) {
             <span style={{ fontSize: 12, fontWeight: 700, color: '#b7b2a5' }}>Koutsi</span>
           </div>
         </div>
+        {role === 'player' ? (
+          <div style={{ padding: '26px 26px 26px' }}>
+            <h3 style={{ fontSize: 21, fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1.25, marginBottom: 8 }}>Koutsi on sinun tenniskehityksesi seuranta</h3>
+            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 16 }}>Täältä näet, mitä harjoitellaan, ja näet oman kehityksesi viikko viikolta.</p>
+            {[
+              ['Viikon teema', 'Mitä ryhmässäsi harjoitellaan nyt ja mitä on harjoiteltu aiemmin.'],
+              ['Kehitys', 'Treenit, teemat, valmentajan huomiot, tavoitteet ja ottelut yhdellä aikajanalla.'],
+              ['Videot ja linkit', 'Tallenna omia klippejä ja hyviä videoita vertailuun. Ne ovat yksi osa Koutsia.'],
+            ].map(([title, body]) => (
+              <div key={title} style={{ display: 'flex', gap: 11, marginBottom: 12 }}>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--lime)', boxShadow: '0 0 0 3px rgba(207,228,20,0.25)', flexShrink: 0, marginTop: 6 }} />
+                <div style={{ fontSize: 14, lineHeight: 1.5, color: '#3c382f' }}><b style={{ color: '#111' }}>{title}</b> — {body}</div>
+              </div>
+            ))}
+            <p style={{ fontSize: 13, lineHeight: 1.55, color: '#6b665c', margin: '8px 0 20px' }}>
+              Jos jokin ei toimi tai tuntuu epäselvältä, kerro siitä <span style={feedbackChip}>Anna palautetta</span> -napilla Profiili-välilehdellä.
+            </p>
+            <button onClick={onClose} className="btn-lime btn-lg" style={{ width: '100%' }}>Aloitetaan!</button>
+          </div>
+        ) : (
         <div style={{ padding: '26px 26px 26px' }}>
           <h3 style={{ fontSize: 21, fontWeight: 800, color: 'var(--green-deep)', lineHeight: 1.25, marginBottom: 18 }}>Tervetuloa Krossi Koutsiin!</h3>
           <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#3c382f', marginBottom: 14 }}>
@@ -620,6 +641,7 @@ function KoutsiWelcomeModal({ onClose }) {
           </p>
           <button onClick={onClose} className="btn-lime btn-lg" style={{ width: '100%' }}>Aloitetaan!</button>
         </div>
+        )}
       </div>
     </div>
   );

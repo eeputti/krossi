@@ -2744,6 +2744,10 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete }) {
                 {saved.kept === 0 ? `: ${saved.groups.slice(0, 6).map((g) => `${g.day} ${g.time} ${g.name}`).join(', ')}${saved.groups.length > 6 ? ` ja ${saved.groups.length - 6} muuta` : ''}` : `. ${saved.kept === 1 ? '1 ryhmällä' : `${saved.kept} ryhmällä`} oli jo teema, jota ei muutettu.`}
               </div>
               {playerCard(saved.title, saved.lead, saved.week)}
+              <div style={{ marginTop: 12 }}>
+                <window.KoutsiCopyButton text={window.koutsiThemeShareMessage({ title: saved.title, lead: saved.lead, week: saved.week.week })}
+                  label="Kopioi viesti pelaajille" copiedLabel="Kopioitu — liitä ryhmän WhatsAppiin" />
+              </div>
               <div style={{ ...helper, marginTop: 14 }}>
                 {withoutTheme.length > 0
                   ? `${covered}/${pool.length} ryhmällä on nyt teema. ${withoutTheme.length === 1 ? '1 ryhmältä' : `${withoutTheme.length} ryhmältä`} puuttuu vielä teema.`
@@ -3359,7 +3363,15 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
           </div>
           <div style={{ marginBottom: 22 }}>
             {group.theme
-              ? <GroupThemeBanner theme={group.theme} label="Tämän viikon teema" />
+              ? (
+                <React.Fragment>
+                  <GroupThemeBanner theme={group.theme} label="Tämän viikon teema" />
+                  <div style={{ marginTop: 8 }}>
+                    <window.KoutsiCopyButton text={window.koutsiThemeShareMessage(group.theme)}
+                      label="Kopioi viesti pelaajille" copiedLabel="Kopioitu — liitä ryhmän WhatsAppiin" />
+                  </div>
+                </React.Fragment>
+              )
               : (group.themes || []).length === 0
                 ? <div style={{ fontSize: 14, color: '#8a857a' }}>Ei vielä viikkoteemoja. Voit suunnitella useamman viikon kerralla.</div>
                 : (
@@ -5210,9 +5222,12 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
   // Live sync: any change to the tables this coach can see (their own students,
   // groups, trainings, etc.) — made from this device or the player's — refreshes state.
   React.useEffect(() => {
-    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes', 'koutsi_player_history'];
-    const channel = tables.reduce((ch, table) => ch.on('postgres_changes', { event: '*', schema: 'public', table }, () => reload()), window.koutsiSupabase.channel(`koutsi-coach-${coachId}`)).subscribe();
-    return () => window.koutsiSupabase.removeChannel(channel);
+    const tables = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members', 'koutsi_group_themes', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events', 'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes', 'koutsi_player_history'];
+    // one save can touch many rows (a week's themes for every group): reload once per burst
+    let timer = null;
+    const refresh = () => { clearTimeout(timer); timer = setTimeout(reload, 400); };
+    const channel = tables.reduce((ch, table) => ch.on('postgres_changes', { event: '*', schema: 'public', table }, refresh), window.koutsiSupabase.channel(`koutsi-coach-${coachId}`)).subscribe();
+    return () => { clearTimeout(timer); window.koutsiSupabase.removeChannel(channel); };
   }, [coachId, reload]);
 
   if (loadError && !state) return <window.KoutsiErrorScreen message="Valmennustietojasi ei saatu ladattua. Tarkista verkkoyhteys ja yritä uudelleen." onRetry={initialLoad} onSignOut={onSignOut} />;
