@@ -931,7 +931,7 @@ function ActivityBadge({ daysSince }) {
     </span>
   );
 }
-function StudentsView({ students, groups, state, coachId, coachName, onOpen, trainingCount, onAddTraining, onAddPlayer, onBulkSetup }) {
+function StudentsView({ students, groups, state, coachId, coachName, onOpen, trainingCount, onAddTraining, onAddPlayer, onBulkSetup, onPlanThemes, onSaveThemes }) {
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [addOpen, setAddOpen] = React.useState(false);
   const [bulkOpen, setBulkOpen] = React.useState(false);
@@ -968,6 +968,7 @@ function StudentsView({ students, groups, state, coachId, coachName, onOpen, tra
           <button onClick={() => setBulkOpen(true)} className="btn-dark btn-sm">+ Lisää monta</button>
         </div>
       } />
+      <ThemeWeekNudge coachId={coachId} groups={groups} trainings={state.trainings} onOpenPlanner={onPlanThemes} onSaveThemes={onSaveThemes} />
       <GettingStarted
         studentCount={students.length} trainingCount={trainingCount}
         onBulkSetup={() => setBulkOpen(true)} onAddTraining={onAddTraining} />
@@ -2014,7 +2015,7 @@ function SharedAnnualPlanSubmissionCard({ coachId }) {
   );
 }
 
-function GroupsView({ groups, students, coachId, acting, onOpen, onCreate, onPlanThemes }) {
+function GroupsView({ groups, students, trainings, coachId, acting, onOpen, onCreate, onPlanThemes, onSaveThemes }) {
   const nowWeek = window.koutsiCurrentIsoWeek();
   return (
     <div>
@@ -2024,6 +2025,7 @@ function GroupsView({ groups, students, coachId, acting, onOpen, onCreate, onPla
           <button onClick={onCreate} className="btn-dark btn-sm">+ Uusi ryhmä</button>
         </div>
       )} />
+      <ThemeWeekNudge coachId={coachId} groups={groups} trainings={trainings} onOpenPlanner={onPlanThemes} onSaveThemes={onSaveThemes} />
       {!acting && <SharedAnnualPlanSubmissionCard coachId={coachId} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 18 }}>
         {window.koutsiSortGroupsBySchedule(groups).map((g) => {
@@ -2265,6 +2267,99 @@ function PlannerChip({ active, onClick, children }) {
   );
 }
 
+// "Jatka edellisillä teemoilla", shared by the planner and the reminder card: each group
+// still without a theme gets its own latest one. Insert-only, so a theme set elsewhere in
+// the meantime is never replaced. Resolves to the rows written (null if cancelled/failed).
+function useContinueThemes(onSave) {
+  const confirm = window.useKoutsiConfirm();
+  const toast = window.useKoutsiToast();
+  return async (carry, week) => {
+    const titles = [...new Set(carry.map((x) => x.from.title))];
+    const ok = await confirm({
+      title: `Jatketaanko ${carry.length === 1 ? '1 ryhmän' : `${carry.length} ryhmän`} teemaa?`,
+      body: `Ryhmät ilman teemaa viikolla ${week.week} saavat oman edellisen teemansa: ${titles.slice(0, 3).join(', ')}${titles.length > 3 ? ` ja ${titles.length - 3} muuta` : ''}. Jo asetettuja teemoja ei muuteta.`,
+      confirmLabel: 'Jatka teemoja',
+    });
+    if (!ok) return null;
+    const written = await onSave({
+      fresh: carry.map((x) => ({ groupId: x.group.id, year: week.year, week: week.week, title: x.from.title, lead: x.from.lead })),
+    });
+    if (written == null) return null;
+    if (written === 0) { toast.info('Ryhmillä oli jo teema, eikä sitä muutettu.'); return 0; }
+    const kept = carry.length - written;
+    toast.success(`${written === 1 ? 'Teema jatkuu 1 ryhmällä' : `Teemat jatkuvat ${written} ryhmällä`}.${kept > 0 ? ` ${kept === 1 ? '1 ryhmällä' : `${kept} ryhmällä`} oli jo teema, jota ei muutettu.` : ''}`);
+    return written;
+  };
+}
+
+// The coach opens Koutsi once a week to start it. This card answers the first question
+// of that visit — does every group training this week have its theme? — and offers the
+// one- or two-tap fix. It only shows while a group still has a session ahead this week
+// without a theme (at the weekend: next week), so it never nags about sessions that are
+// already over. "Ei tällä viikolla" hides it on this device until Monday comes round.
+// Where storage is blocked the hide still lasts the visit: the tab views remount on every
+// switch, so it can't live in the card's own state.
+const themeNudgeHiddenThisVisit = new Set();
+function themeNudgeHidden(key) {
+  if (themeNudgeHiddenThisVisit.has(key)) return true;
+  try { return localStorage.getItem(key) === '1'; } catch { return false; }
+}
+function ThemeWeekNudge({ coachId, groups, trainings, onOpenPlanner, onSaveThemes }) {
+  const continueWith = useContinueThemes(onSaveThemes);
+  const [hiddenKey, setHiddenKey] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const week = plannerDefaultWeek();
+  const now = window.koutsiCurrentIsoWeek();
+  // keyed on the calendar week, so a weekend "not now" is over by Monday's visit
+  const storageKey = `koutsi_theme_nudge_${coachId}_${window.koutsiIsoWeekKey(now)}`;
+  if (!groups.length || hiddenKey === storageKey || themeNudgeHidden(storageKey)) return null;
+  const status = window.koutsiWeekThemeStatus(groups, trainings, week);
+  const pendingIds = new Set(status.upcoming.map((t) => t.groupId));
+  if (pendingIds.size === 0) return null;
+  // only the groups this card is about: carrying a theme into a session that's already
+  // over wouldn't change anything the card says
+  const carry = status.carry.filter((x) => pendingIds.has(x.group.id));
+
+  const next = status.upcoming[0];
+  const nextGroup = groups.find((g) => g.id === next.groupId);
+  const today = window.koutsiTodayStr();
+  const when = next.date === today ? 'tänään' : next.date === window.koutsiAddDays(today, 1) ? 'huomenna' : window.koutsiFmtShortDate(next.date);
+  const isNow = window.koutsiCompareIsoWeeks(week, now) === 0;
+  const hide = () => {
+    themeNudgeHiddenThisVisit.add(storageKey);
+    try { localStorage.setItem(storageKey, '1'); } catch { /* storage blocked: hidden for this visit only */ }
+    setHiddenKey(storageKey);
+  };
+  const continueThemes = async () => {
+    setBusy(true);
+    await continueWith(carry, week);
+    setBusy(false);
+  };
+
+  return (
+    <div className="k-card" style={{ padding: '15px 17px', marginBottom: 18, background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.04))', borderColor: 'rgba(14,59,44,0.16)' }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>
+        {isNow ? `Viikko ${week.week}` : `Ensi viikko · vko ${week.week}`}
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: '#111', marginBottom: 4 }}>
+        {status.covered}/{status.pool.length} ryhmällä on viikon teema
+      </div>
+      <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5, marginBottom: 12 }}>
+        {pendingIds.size === 1 ? '1 ryhmä treenaa' : `${pendingIds.size} ryhmää treenaa`} {isNow ? 'vielä ' : ''}ilman teemaa. {isNow ? 'Seuraava' : 'Ensimmäinen'}: {when} klo {next.time}{nextGroup ? ` · ${nextGroup.name}` : ''}.
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {carry.length > 0 && (
+          <button type="button" onClick={continueThemes} disabled={busy} className="btn-dark btn-sm" style={{ opacity: busy ? 0.6 : 1 }}>
+            Jatka edellisillä teemoilla
+          </button>
+        )}
+        <button type="button" onClick={onOpenPlanner} className={carry.length > 0 ? 'btn-outline btn-sm' : 'btn-dark btn-sm'}>Aseta viikon teemat</button>
+        <button type="button" onClick={hide} style={{ background: 'none', border: 'none', padding: '4px 2px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#8a857a', textDecoration: 'underline' }}>Ei tällä viikolla</button>
+      </div>
+    </div>
+  );
+}
+
 // Three steps, one at a time: 1 write the theme (and see it as a player will), 2 pick
 // its groups, 3 done. A week with different themes for different groups is just the
 // loop run again from "Lisää toinen teema".
@@ -2293,6 +2388,7 @@ function PlannerSteps({ step }) {
 function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete }) {
   const confirm = window.useKoutsiConfirm();
   const toast = window.useKoutsiToast();
+  const continueWith = useContinueThemes(onSave);
   const now = window.koutsiCurrentIsoWeek();
   const cmp = window.koutsiCompareIsoWeeks;
   const keyOf = window.koutsiThemeKey;
@@ -2313,24 +2409,17 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete }) {
   const bodyRef = React.useRef(null);
 
   const isPast = cmp(week, now) < 0;
-  const rows = window.koutsiSortGroupsBySchedule(groups).map((group) => ({
-    group,
-    theme: window.koutsiGroupThemeForWeek(group, week),
-    skips: window.koutsiGroupSkipsWeek(trainings, group.id, week),
-  }));
+  const status = window.koutsiWeekThemeStatus(groups, trainings, week);
+  const { rows, pool, covered } = status;
   // a group on a break that week (holiday) doesn't count towards coverage or defaults
   const counts = (r) => !r.skips;
-  const pool = rows.filter(counts);
-  const covered = pool.filter((r) => r.theme).length;
-  const withoutTheme = pool.filter((r) => !r.theme).map((r) => r.group.id);
+  const withoutTheme = status.missing.map((g) => g.id);
 
   const clusters = window.koutsiThemeClusters(groups, week);
   const library = window.koutsiThemeLibrary(groups).filter((t) => !clusters.some((c) => c.key === t.key));
   const history = window.koutsiThemeHistory(groups, week);
   const editingCluster = editingKey ? clusters.find((c) => c.key === editingKey) || null : null;
-  const carry = isPast ? [] : pool.filter((r) => !r.theme)
-    .map((r) => ({ group: r.group, from: window.koutsiLatestThemeBefore(r.group, week, 4) }))
-    .filter((x) => x.from);
+  const carry = isPast ? [] : status.carry;
 
   const presets = [
     { id: 'none-yet', label: `Ilman teemaa (${withoutTheme.length})`, ids: withoutTheme },
@@ -2387,22 +2476,9 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete }) {
     if (deleted && editingKey === c.key) resetComposer();
   };
   const continueThemes = async () => {
-    const titles = [...new Set(carry.map((x) => x.from.title))];
-    const ok = await confirm({
-      title: `Jatketaanko ${carry.length === 1 ? '1 ryhmän' : `${carry.length} ryhmän`} teemaa?`,
-      body: `Ryhmät ilman teemaa viikolla ${week.week} saavat oman edellisen teemansa: ${titles.slice(0, 3).join(', ')}${titles.length > 3 ? ` ja ${titles.length - 3} muuta` : ''}. Jo asetettuja teemoja ei muuteta.`,
-      confirmLabel: 'Jatka teemoja',
-    });
-    if (!ok) return;
     setBusy(true);
-    const written = await onSave({
-      fresh: carry.map((x) => ({ groupId: x.group.id, year: week.year, week: week.week, title: x.from.title, lead: x.from.lead })),
-    });
+    await continueWith(carry, week);
     setBusy(false);
-    if (written == null) return;
-    if (written === 0) { toast.info('Ryhmillä oli jo teema, eikä sitä muutettu.'); return; }
-    const kept = carry.length - written;
-    toast.success(`${written === 1 ? 'Teema jatkuu 1 ryhmällä' : `Teemat jatkuvat ${written} ryhmällä`}.${kept > 0 ? ` ${kept === 1 ? '1 ryhmällä' : `${kept} ryhmällä`} oli jo teema, jota ei muutettu.` : ''}`);
   };
 
   const cleanTitle = title.trim();
@@ -5557,9 +5633,10 @@ function CoachApp({ coachId, onSignOut, actingCoach, onExitActing, onActAs }) {
               students={state.students} groups={state.groups} state={state} coachId={coachId} coachName={state.coach.name} onOpen={setDetailId}
               trainingCount={state.trainings.filter((t) => t.loggedBy !== 'player').length}
               onAddTraining={() => { setTab('trainings'); openNewTraining(null); }}
-              onAddPlayer={addPlayer} onBulkSetup={bulkSetup} />
+              onAddPlayer={addPlayer} onBulkSetup={bulkSetup}
+              onPlanThemes={() => setWeekPlannerOpen(true)} onSaveThemes={saveWeekThemes} />
           )}
-          {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} coachId={coachId} acting={Boolean(actingCoach)} onOpen={setGroupDetailId} onCreate={() => { setEditingGroup(null); setGroupFormOpen(true); }} onPlanThemes={() => setWeekPlannerOpen(true)} />}
+          {tab === 'groups' && <GroupsView groups={state.groups} students={state.students} trainings={state.trainings} coachId={coachId} acting={Boolean(actingCoach)} onOpen={setGroupDetailId} onCreate={() => { setEditingGroup(null); setGroupFormOpen(true); }} onPlanThemes={() => setWeekPlannerOpen(true)} onSaveThemes={saveWeekThemes} />}
           {tab === 'trainings' && (
             <CalendarView
               state={state} onAdd={openNewTraining} onPreSession={setPresessionTrainingId}
