@@ -41,6 +41,22 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   httpClient: Stripe.createFetchHttpClient(),
 });
 
+/**
+ * STRIPE_PUBLISHABLE_KEY if it looks real and is from the same mode as the secret key, else null
+ * (-> hosted Checkout). A placeholder or a test key next to a live secret would otherwise leave
+ * players with a checkout that can't load or can't confirm.
+ */
+function usablePublishableKey() {
+  const publishable = (Deno.env.get('STRIPE_PUBLISHABLE_KEY') || '').trim();
+  const mode = /^pk_(test|live)_[A-Za-z0-9]{20,}$/.exec(publishable)?.[1];
+  const secretMode = /^[sr]k_(test|live)_/.exec(Deno.env.get('STRIPE_SECRET_KEY') || '')?.[1];
+  if (!mode || mode !== secretMode) {
+    if (publishable) console.error(`STRIPE_PUBLISHABLE_KEY ignored: ${mode ? `${mode} key next to a ${secretMode} secret key` : 'not a pk_test_/pk_live_ key'}`);
+    return null;
+  }
+  return publishable;
+}
+
 // The price lives in Stripe (STRIPE_PRICE_ID) so the amount is never trusted from the client.
 let pricePromise: Promise<{ amount: number; currency: string }> | null = null;
 function getPrice() {
@@ -152,7 +168,7 @@ Deno.serve(async (req: Request) => {
   try {
     if (body.action === 'config') {
       if (profile.paid_at) return json(req, { paid: true });
-      const publishableKey = Deno.env.get('STRIPE_PUBLISHABLE_KEY');
+      const publishableKey = usablePublishableKey();
       if (!publishableKey) return json(req, { hosted: true });
       // @ts-ignore EdgeRuntime is the Supabase runtime global
       EdgeRuntime.waitUntil(ensurePaymentDomains());
