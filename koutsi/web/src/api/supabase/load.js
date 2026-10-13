@@ -1,0 +1,141 @@
+// load.js — the coach's and the player's state snapshots.
+//
+// Same tables and the same nested shape as the old koutsiLoadCoachState /
+// koutsiLoadStudentState, with three fixes that matter for a live pilot:
+//   1. every sub-query's error is thrown — a failed absences query used to read as
+//      "everyone was present", a failed members query as "empty group";
+//   2. trainings are read page by page, so a coach past PostgREST's 1000-row cap does not
+//      silently lose sessions;
+//   3. `.in()` id lists are chunked so a long season cannot outgrow the request URL.
+
+import { db, must, selectAll, selectIn } from './client.js';
+import { mapClubEvent, mapCoach, mapExercise, mapGroup, mapRosterStub, mapStudent, mapTraining, groupBy } from './map.js';
+
+const fromTable = (table) => db().from(table);
+
+async function loadAbsences(trainingIds) {
+  const rows = await selectIn(trainingIds, (ids) => fromTable('koutsi_training_absences').select('*').in('training_id', ids));
+  return groupBy(rows, 'training_id');
+}
+
+export async function loadCoachState(coachId) {
+  const [coachRow, profileRow] = await Promise.all([
+    fromTable('koutsi_coaches').select('id, tagline, bio, experience, specialties, welcome_seen_at').eq('id', coachId).single().then(must),
+    fromTable('profiles').select('id, name, avatar_url, avatar_color').eq('id', coachId).maybeSingle().then(must),
+  ]);
+
+  const links = must(await fromTable('koutsi_coach_students').select('student_id').eq('coach_id', coachId).is('ended_at', null)) || [];
+  const studentIds = links.map((l) => l.student_id);
+  const byStudent = (table, order) => selectIn(studentIds, (ids) => {
+    let q = fromTable(table).select('*').in('student_id', ids);
+    if (order) q = q.order(order, { ascending: false });
+    return q;
+  });
+
+  const [
+    studentRows, studentProfiles, groupRows, exerciseRows, eventRows, trainingRows,
+    diary, homework, videos, moods, matchNotes, history,
+  ] = await Promise.all([
+    selectIn(studentIds, (ids) => fromTable('koutsi_students').select('*').in('id', ids)),
+    selectIn(studentIds, (ids) => fromTable('profiles').select('id, name, avatar_url, age').in('id', ids)),
+    fromTable('koutsi_groups').select('*').eq('coach_id', coachId).then(must),
+    fromTable('koutsi_exercises').select('*').eq('coach_id', coachId).then(must),
+    fromTable('koutsi_coach_events').select('*').eq('coach_id', coachId).then(must),
+    selectAll(() => fromTable('koutsi_trainings').select('*').eq('coach_id', coachId).order('date').order('id')),
+    byStudent('koutsi_diary_entries', 'created_at'),
+    byStudent('koutsi_homework', 'created_at'),
+    byStudent('koutsi_videos', 'created_at'),
+    // RLS withholds moods a player hid from their coach; nothing to filter here.
+    byStudent('koutsi_moods', 'created_at'),
+    byStudent('koutsi_match_notes', 'date'),
+    byStudent('koutsi_player_history', 'created_at'),
+  ]);
+
+  const groupIds = (groupRows || []).map((g) => g.id);
+  const [memberRows, themeRows, slotRows, absencesByTraining] = await Promise.all([
+    selectIn(groupIds, (ids) => fromTable('koutsi_group_members').select('group_id, student_id').in('group_id', ids).is('ended_at', null)),
+    selectIn(groupIds, (ids) => fromTable('koutsi_group_themes').select('*').in('group_id', ids)),
+    selectIn(groupIds, (ids) => fromTable('koutsi_group_slots').select('*').in('group_id', ids)),
+    loadAbsences(trainingRows.map((t) => t.id)),
+  ]);
+
+  const profileById = new Map((studentProfiles || []).map((p) => [p.id, p]));
+  const rows = { diary, homework, videos, moods, matchNotes, history };
+  const membersByGroup = groupBy(memberRows, 'group_id');
+  const coach = mapCoach(coachRow, profileRow);
+  return {
+    coach,
+    coaches: [coach],
+    students: (studentRows || []).map((s) => mapStudent(s, profileById.get(s.id), rows)),
+    groups: (groupRows || []).map((g) => mapGroup(g, (membersByGroup.get(g.id) || []).map((m) => m.student_id), themeRows, slotRows)),
+    trainings: trainingRows.map((t) => mapTraining(t, absencesByTraining)),
+    exercises: (exerciseRows || []).map(mapExercise),
+    clubEvents: (eventRows || []).map(mapClubEvent),
+  };
+}
+
+export async function loadPlayerState(studentId) {
+  const [studentRow, profileRow] = await Promise.all([
+    fromTable('koutsi_students').select('*').eq('id', studentId).single().then(must),
+    fromTable('profiles').select('id, name, avatar_url, avatar_color, age').eq('id', studentId).maybeSingle().then(must),
+  ]);
+
+  const [coachLinks, memberRows] = await Promise.all([
+    fromTable('koutsi_coach_students').select('coach_id').eq('student_id', studentId).is('ended_at', null).then(must),
+    fromTable('koutsi_group_members').select('group_id').eq('student_id', studentId).is('ended_at', null).then(must),
+  ]);
+  const coachIds = (coachLinks || []).map((l) => l.coach_id);
+  const groupIds = (memberRows || []).map((m) => m.group_id);
+  const own = (table, order) => {
+    let q = fromTable(table).select('*').eq('student_id', studentId);
+    if (order) q = q.order(order, { ascending: false });
+    return q.then(must);
+  };
+
+  const [
+    coachRows, coachProfiles, groupRows, rosterRows, themeRows, slotRows, exerciseRows, eventRows,
+    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history,
+  ] = await Promise.all([
+    selectIn(coachIds, (ids) => fromTable('koutsi_coaches').select('*').in('id', ids)),
+    selectIn(coachIds, (ids) => fromTable('profiles').select('id, name, avatar_url').in('id', ids)),
+    selectIn(groupIds, (ids) => fromTable('koutsi_groups').select('*').in('id', ids)),
+    groupIds.length ? db().rpc('koutsi_player_group_roster').then(must) : [],
+    selectIn(groupIds, (ids) => fromTable('koutsi_group_themes').select('*').in('group_id', ids)),
+    selectIn(groupIds, (ids) => fromTable('koutsi_group_slots').select('*').in('group_id', ids)),
+    selectIn(coachIds, (ids) => fromTable('koutsi_exercises').select('*').in('coach_id', ids)),
+    selectIn(coachIds, (ids) => fromTable('koutsi_coach_events').select('*').in('coach_id', ids)),
+    selectAll(() => fromTable('koutsi_trainings').select('*').eq('student_id', studentId).order('date').order('id')),
+    groupIds.length ? selectAll(() => fromTable('koutsi_trainings').select('*').in('group_id', groupIds).order('date').order('id')) : [],
+    own('koutsi_diary_entries', 'created_at'),
+    own('koutsi_homework', 'created_at'),
+    own('koutsi_videos', 'created_at'),
+    own('koutsi_moods', 'created_at'),
+    own('koutsi_match_notes', 'date'),
+    own('koutsi_player_history', 'created_at'),
+  ]);
+
+  const trainingRows = [...ownTrainings, ...groupTrainings.filter((t) => !ownTrainings.some((o) => o.id === t.id))];
+  const absencesByTraining = await loadAbsences(trainingRows.map((t) => t.id));
+
+  const coachProfileById = new Map((coachProfiles || []).map((p) => [p.id, p]));
+  const coaches = (coachRows || []).map((c) => mapCoach(c, coachProfileById.get(c.id)));
+  const rosterByGroup = groupBy(rosterRows || [], 'group_id');
+  const me = mapStudent(studentRow, profileRow, { diary, homework, videos, moods, matchNotes, history });
+
+  // Roster rows are intentionally sparse: the RPC never returns goals, notes or moods.
+  const rosterById = new Map();
+  for (const row of (rosterRows || [])) {
+    if (row.student_id === studentId || rosterById.has(row.student_id)) continue;
+    rosterById.set(row.student_id, mapRosterStub(row));
+  }
+
+  return {
+    coach: coaches[0] || null,
+    coaches,
+    students: [me, ...rosterById.values()],
+    groups: (groupRows || []).map((g) => mapGroup(g, (rosterByGroup.get(g.id) || []).map((m) => m.student_id), themeRows, slotRows)),
+    trainings: trainingRows.map((t) => mapTraining(t, absencesByTraining)),
+    exercises: (exerciseRows || []).map(mapExercise),
+    clubEvents: (eventRows || []).map(mapClubEvent),
+  };
+}

@@ -47,6 +47,17 @@ const krossiFiles = [
   [`${KROSSI_WEB_DIST}/app.css`, 'krossi/app.css'],
 ];
 
+// The renewed Koutsi (koutsi/web, opt-in beta behind ?uusi=1 — see src/worker.js): its build
+// output already mirrors the published layout, four HTML shells at the top level and
+// everything else under koutsi-uusi/.
+const KOUTSI_WEB_DIST = 'koutsi/web/dist';
+const koutsiWebShells = [
+  'koutsi-uusi-valmentaja.html',
+  'koutsi-uusi-pelaaja.html',
+  'koutsi-uusi-valmentaja-demo.html',
+  'koutsi-uusi-pelaaja-demo.html',
+];
+
 async function listFiles(directory, prefix = '') {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
@@ -80,6 +91,19 @@ if (missingBuildOutputs.length) {
   );
   process.exit(1);
 }
+const requiredKoutsiOutputs = [
+  ...koutsiWebShells.map((file) => `${KOUTSI_WEB_DIST}/${file}`),
+  ...['valmentaja.js', 'pelaaja.js', 'valmentaja-demo.js', 'pelaaja-demo.js', 'koutsi.css'].map((file) => `${KOUTSI_WEB_DIST}/koutsi-uusi/${file}`),
+];
+const missingKoutsiOutputs = requiredKoutsiOutputs.filter((path) => !existsSync(join(root, path)));
+if (missingKoutsiOutputs.length) {
+  console.error(
+    `Uuden Koutsin build puuttuu tai on keskeneräinen (${KOUTSI_WEB_DIST}).\n` +
+      `Puuttuu: ${missingKoutsiOutputs.join(', ')}\n` +
+      'Aja ensin: npm run build:koutsi',
+  );
+  process.exit(1);
+}
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
@@ -87,12 +111,18 @@ await mkdir(output, { recursive: true });
 const assetFiles = (await listFiles(join(root, 'assets'), 'assets')).sort();
 const krossiStatic = (await listFiles(join(root, KROSSI_WEB_DIST, 'static'))).sort()
   .map((file) => [join(KROSSI_WEB_DIST, 'static', file), join('krossi/static', file)]);
+const koutsiWebFiles = [
+  ...koutsiWebShells.map((file) => [join(KOUTSI_WEB_DIST, file), file]),
+  ...(await listFiles(join(root, KOUTSI_WEB_DIST, 'koutsi-uusi'))).sort()
+    .map((file) => [join(KOUTSI_WEB_DIST, 'koutsi-uusi', file), join('koutsi-uusi', file)]),
+];
 
 const files = [
   ...publicFiles.map((file) => [file, file]),
   ...assetFiles.map((file) => [file, file]),
   ...krossiFiles,
   ...krossiStatic,
+  ...koutsiWebFiles,
 ];
 for (const [source, published] of files) await copy(source, published);
 

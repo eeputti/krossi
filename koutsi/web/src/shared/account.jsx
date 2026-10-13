@@ -1,0 +1,111 @@
+// account.jsx — settings both roles share: email notifications, feedback, data export, account
+// deletion, legal links, going back to the old Koutsi, signing out.
+import { useEffect, useState } from 'react';
+import { api, isDemo } from '../api/index.js';
+import { useSession } from '../app/session.jsx';
+import { Button, ChipSelect, Field, ListRow, Sheet, Textarea, Toggle, useConfirm, useToast } from '../ui/index.js';
+import { FEEDBACK_CATEGORIES, SUPPORT_EMAIL } from '../lib/constants.js';
+
+export function EmailPrefToggle({ uid }) {
+  const toast = useToast();
+  const [enabled, setEnabled] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api.notifications.getEmailPref(uid).then((v) => alive && setEnabled(v)).catch(() => alive && setEnabled(true));
+    return () => { alive = false; };
+  }, [uid]);
+  if (enabled === null) return null;
+  const toggle = async (next) => {
+    setEnabled(next);
+    try { await api.notifications.setEmailPref(uid, next); } catch (err) { setEnabled(!next); toast(err); }
+  };
+  return <Toggle icon="mail" checked={enabled} onChange={toggle} label="Sähköposti-ilmoitukset" hint="Uusista huomioista, kotiläksyistä ja treenimuutoksista." />;
+}
+
+export function FeedbackSheet({ open, onClose, uid }) {
+  const toast = useToast();
+  const [category, setCategory] = useState(FEEDBACK_CATEGORIES[0].id);
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) { setCategory(FEEDBACK_CATEGORIES[0].id); setMessage(''); } }, [open]);
+  const send = async () => {
+    if (!message.trim() || busy) return;
+    setBusy(true);
+    try {
+      await api.account.submitFeedback(uid, { category, message: message.trim() });
+      toast('Kiitos palautteesta!');
+      onClose();
+    } catch (err) { toast(err); } finally { setBusy(false); }
+  };
+  return (
+    <Sheet open={open} onClose={() => !busy && onClose()} title="Anna palautetta" subtitle="Kerro lyhyesti, jos jokin ei toimi, ei täsmää tai on hankala — tai jos jokin toimii tosi hyvin!" size="md" dismissible={!busy && !message.trim()}
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!message.trim()} loading={busy} onClick={send}>Lähetä</Button></div>}>
+      <div className="stack-4">
+        <Field label="Mistä on kyse?"><ChipSelect size="sm" options={FEEDBACK_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} value={category} onChange={(v) => v && setCategory(v)} ariaLabel="Aihe" /></Field>
+        <Field label="Kerro tarkemmin" htmlFor="fb-msg"><Textarea id="fb-msg" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Mitä huomasit?" maxLength={4000} /></Field>
+      </div>
+    </Sheet>
+  );
+}
+
+function downloadJson(payload, filename) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/**
+ * The bottom of a profile page: feedback, export, legal, back to the old app, sign out, delete.
+ * `role` is 'coach' | 'player'.
+ */
+export function AccountSection({ role, uid, profileName }) {
+  const { signOut } = useSession();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const base = role === 'coach' ? '/valmentaja' : '/pelaaja';
+
+  const exportData = async () => {
+    setExporting(true);
+    try {
+      const payload = await api.account.exportMyData(uid, role);
+      downloadJson(payload, `koutsi-tiedot-${new Date().toISOString().slice(0, 10)}.json`);
+      toast('Tietosi ladattiin JSON-tiedostona.');
+    } catch (err) { toast(err); } finally { setExporting(false); }
+  };
+  const deleteAccount = async () => {
+    const ok = await confirm({
+      title: 'Poista tili ja kaikki tiedot',
+      message: 'Tämä poistaa pysyvästi tilisi, profiilisi sekä kaikki Koutsiin tallennetut merkinnät, läksyt, videot ja ryhmätiedot. Sama tunnus on käytössä myös Krossissa, joten myös Krossi-tilisi poistuu. Toimintoa ei voi perua.',
+      confirmLabel: 'Poista lopullisesti', danger: true, typeToConfirm: profileName || 'POISTA',
+    });
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await api.account.deleteAccount();
+      window.location.href = 'https://koutsi.krossi.app';
+    } catch (err) { toast(err); setDeleting(false); }
+  };
+  return (
+    <div className="stack-5">
+      <div className="list-group">
+        <ListRow icon="chat" title="Anna palautetta" subtitle="Kerro, mikä toimii ja mikä ei" onClick={() => setFeedbackOpen(true)} />
+        <ListRow icon="download" title={exporting ? 'Valmistellaan…' : 'Lataa tietoni'} subtitle="Kaikki näkemäsi tiedot JSON-tiedostona" onClick={exporting ? undefined : exportData} />
+        <ListRow icon="shield" title="Tietosuojaseloste" href="/tietosuoja" />
+        <ListRow icon="list" title="Käyttöehdot" href="/kayttoehdot" />
+        <ListRow icon="mail" title="Ota yhteyttä" subtitle={SUPPORT_EMAIL} href={`mailto:${SUPPORT_EMAIL}?subject=Krossi%20Koutsi`} />
+      </div>
+      <div className="list-group">
+        {!isDemo && <ListRow icon="undo" title="Palaa vanhaan Koutsiin" subtitle="Voit palata uuteen milloin tahansa linkillä ?uusi=1" href={`${base}?uusi=0`} />}
+        <ListRow icon="logout" title="Kirjaudu ulos" onClick={signOut} />
+        <ListRow icon="trash" tone="danger" title={deleting ? 'Poistetaan…' : 'Poista tili ja tiedot'} onClick={deleting ? undefined : deleteAccount} />
+      </div>
+      <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} uid={uid} />
+    </div>
+  );
+}

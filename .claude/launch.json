@@ -16,8 +16,26 @@
     {
       "name": "krossi-web",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["krossi/web/dev.mjs"],
+      "runtimeArgs": [
+        "krossi/web/dev.mjs"
+      ],
       "port": 4400
+    },
+    {
+      "name": "koutsi-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "koutsi/web/dev.mjs"
+      ],
+      "port": 4500
+    },
+    {
+      "name": "koutsi-prod-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "koutsi/web/scripts/preview-prod.mjs"
+      ],
+      "port": 8790
     }
   ]
 }

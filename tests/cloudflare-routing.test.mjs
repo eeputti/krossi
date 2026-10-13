@@ -9,6 +9,7 @@ import worker, {
   injectShareMeta,
   inviteShareMeta,
   resolveAssetPath,
+  resolveNewKoutsiPath,
   shareTargetFor,
 } from '../src/worker.js';
 // Byte-for-byte copy of src/worker.js from before the Krossi web rebuild
@@ -151,6 +152,96 @@ test('worker preserves query parameters while rewriting the asset path', async (
 
   const demo = await worker.fetch(new Request('https://krossi.app/demo/pelit?suodatin=sisa'), env);
   assert.equal(await demo.text(), 'https://krossi.app/krossi-demo.html?suodatin=sisa');
+});
+
+// ── renewed Koutsi, opt-in with ?uusi=1 ──────────────────────────────────────
+
+const echoAsset = { ASSETS: { fetch: async (request) => new Response(new URL(request.url).pathname, { headers: { 'content-type': 'text/html', etag: '"abc"' } }) } };
+const koutsiRequest = (url, cookie) => new Request(url, cookie ? { headers: { cookie } } : undefined);
+
+test('?uusi=1 opens the renewed Koutsi and remembers the choice in a cookie', async () => {
+  for (const [url, shell] of [
+    ['https://koutsi.krossi.app/valmentaja?uusi=1', '/koutsi-uusi-valmentaja.html'],
+    ['https://koutsi.krossi.app/pelaaja?uusi=1&koodi=ABC', '/koutsi-uusi-pelaaja.html'],
+    ['https://demo.koutsi.krossi.app/valmentaja?uusi=1', '/koutsi-uusi-valmentaja-demo.html'],
+    ['https://demo.koutsi.krossi.app/pelaaja/koti?uusi=1', '/koutsi-uusi-pelaaja-demo.html'],
+  ]) {
+    const response = await worker.fetch(koutsiRequest(url), echoAsset);
+    assert.equal(await response.text(), shell, url);
+    assert.match(response.headers.get('set-cookie'), /^koutsi_uusi=1; Max-Age=31536000; Path=\/; Secure; SameSite=Lax$/, url);
+    assert.equal(response.headers.get('cache-control'), 'private, no-cache', url);
+    assert.match(response.headers.get('vary'), /Cookie/, url);
+    assert.equal(response.headers.get('etag'), null, url);
+  }
+});
+
+test('with the cookie, every app address of the renewed Koutsi opens it, two levels deep', async () => {
+  const cookie = 'theme=dark; koutsi_uusi=1';
+  for (const [url, shell] of [
+    ['https://koutsi.krossi.app/valmentaja', '/koutsi-uusi-valmentaja.html'],
+    ['https://koutsi.krossi.app/valmentaja/viikko', '/koutsi-uusi-valmentaja.html'],
+    ['https://koutsi.krossi.app/valmentaja/ryhma/5c1e0d4e-0000-4000-8000-000000000001', '/koutsi-uusi-valmentaja.html'],
+    ['https://koutsi.krossi.app/valmentaja/pelaaja/abc/', '/koutsi-uusi-valmentaja.html'],
+    ['https://koutsi.krossi.app/pelaaja/kehitys', '/koutsi-uusi-pelaaja.html'],
+    ['https://demo.koutsi.krossi.app/valmentaja/treeni/x', '/koutsi-uusi-valmentaja-demo.html'],
+  ]) {
+    const response = await worker.fetch(koutsiRequest(url, cookie), echoAsset);
+    assert.equal(await response.text(), shell, url);
+    assert.equal(response.headers.get('set-cookie'), null, url);
+  }
+  // Pages outside the apps stay what they were, and junk depths are still not app pages.
+  for (const [url, path] of [
+    ['https://koutsi.krossi.app/', '/koutsi.html'],
+    ['https://koutsi.krossi.app/tietosuoja', '/koutsi-tietosuoja.html'],
+    ['https://demo.koutsi.krossi.app/', '/koutsi-demo.html'],
+    ['https://koutsi.krossi.app/valmentaja/a/b/c/d', '/valmentaja/a/b/c/d'],
+  ]) {
+    const response = await worker.fetch(koutsiRequest(url, cookie), echoAsset);
+    assert.equal(await response.text(), path, url);
+  }
+});
+
+test('?uusi=0 returns to the old Koutsi and clears the cookie', async () => {
+  const response = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/valmentaja?uusi=0', 'koutsi_uusi=1'), echoAsset);
+  assert.equal(await response.text(), '/koutsi-valmentaja.html');
+  assert.match(response.headers.get('set-cookie'), /^koutsi_uusi=; Max-Age=0; Path=\/; Secure; SameSite=Lax$/);
+  const without = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/pelaaja/treenit?uusi=0'), echoAsset);
+  assert.equal(await without.text(), '/koutsi-pelaaja.html');
+});
+
+test('only the exact cookie opts in, and only on the Koutsi hosts', async () => {
+  for (const cookie of ['koutsi_uusi=0', 'koutsi_uusi=10', 'xkoutsi_uusi=1', 'koutsi_uusi', '']) {
+    const response = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/valmentaja', cookie), echoAsset);
+    assert.equal(await response.text(), '/koutsi-valmentaja.html', cookie);
+    assert.equal(response.headers.get('etag'), '"abc"', `untouched response for "${cookie}"`);
+  }
+  await withFetch(refuseNetwork, async () => {
+    const krossi = await worker.fetch(koutsiRequest('https://krossi.app/pelaa?uusi=1', 'koutsi_uusi=1'), echoAsset);
+    assert.equal(await krossi.text(), '/app.html');
+    assert.equal(krossi.headers.get('set-cookie'), null);
+    const valmentaja = await worker.fetch(koutsiRequest('https://krossi.app/valmentaja', 'koutsi_uusi=1'), echoAsset);
+    assert.equal(await valmentaja.text(), '/valmentaja');
+  });
+  assert.equal(resolveNewKoutsiPath('https://krossi.app/valmentaja'), null);
+});
+
+test('the renewed Koutsi is staged next to the old one', async () => {
+  const output = join(import.meta.dirname, '..', 'cloudflare-dist');
+  for (const file of [
+    'koutsi-uusi-valmentaja.html', 'koutsi-uusi-pelaaja.html', 'koutsi-uusi-valmentaja-demo.html', 'koutsi-uusi-pelaaja-demo.html',
+    'koutsi-uusi/valmentaja.js', 'koutsi-uusi/pelaaja.js', 'koutsi-uusi/valmentaja-demo.js', 'koutsi-uusi/pelaaja-demo.js',
+    'koutsi-uusi/koutsi.css', 'koutsi-uusi/valmentaja.webmanifest', 'koutsi-uusi/pelaaja.webmanifest',
+    // the old app is still there, untouched
+    'koutsi-valmentaja.html', 'dist/koutsi-valmentaja.js', 'dist/koutsi-pelaaja.js',
+  ]) {
+    await access(join(output, file));
+  }
+  const shell = await readFile(join(output, 'koutsi-uusi-valmentaja.html'), 'utf8');
+  assert.match(shell, /<script src="\/koutsi-uusi\/valmentaja\.js" defer><\/script>/);
+  assert.match(shell, /<link rel="stylesheet" href="\/koutsi-uusi\/koutsi\.css" \/>/);
+  const demo = await readFile(join(output, 'koutsi-uusi-valmentaja-demo.html'), 'utf8');
+  assert.match(demo, /<script src="\/koutsi-uusi\/valmentaja-demo\.js" defer><\/script>/);
+  assert.doesNotMatch(demo, /cookie-consent/);
 });
 
 test('every routed HTML file exists in the staged deployment', async () => {

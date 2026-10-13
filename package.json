@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "build:cloudflare": "npm run build && npm run build:krossi && node scripts/build-cloudflare.mjs && node scripts/prerender.mjs",
+    "build:cloudflare": "npm run build && npm run build:krossi && npm run build:koutsi && node scripts/build-cloudflare.mjs && node scripts/prerender.mjs",
     "dev:cloudflare": "npm run build:cloudflare && CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false wrangler dev",
     "test:cloudflare": "npm run build:cloudflare && node --test tests/cloudflare-routing.test.mjs",
     "smoke:cloudflare": "node scripts/smoke-cloudflare.mjs",
@@ -13,7 +13,10 @@
     "stripe:setup": "node scripts/stripe-setup.mjs",
     "build:krossi": "node krossi/web/build.mjs",
     "dev:krossi": "node krossi/web/dev.mjs",
-    "test:krossi": "node --test \"krossi/web/test/*.test.mjs\""
+    "test:krossi": "node --test \"krossi/web/test/*.test.mjs\"",
+    "build:koutsi": "node koutsi/web/build.mjs",
+    "dev:koutsi": "node koutsi/web/dev.mjs",
+    "test:koutsi": "node --test \"koutsi/web/test/*.test.mjs\""
   },
   "devDependencies": {
     "esbuild": "^0.25.9",

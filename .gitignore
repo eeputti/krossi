@@ -11,3 +11,6 @@ supabase/.temp/
 
 # Krossi web build output (rebuilt by npm run build:krossi / build:cloudflare)
 krossi/web/dist
+
+# Renewed Koutsi build output (rebuilt by npm run build:koutsi / build:cloudflare)
+koutsi/web/dist

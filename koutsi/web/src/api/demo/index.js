@@ -1,0 +1,555 @@
+// index.js — the in-memory demo backend. Implements api/contract.js over one state object
+// built by seed.js; nothing is persisted and nothing reaches Supabase. Semantics mirror the
+// real backend (and the old demo) closely enough that every screen behaves the same: themes
+// are one per group per week and `onlyNew` never overwrites, series deletes never touch the
+// past, only placeholders can be deleted or merged away, and so on.
+
+import { seed, refreshThemes, weeklySessions, newId, COACH, PLAYER, STARTER_EXERCISES } from './seed.js';
+import { ApiError } from '../errors.js';
+import {
+  koutsiTodayStr, koutsiWeeklyDates, koutsiFmtShortDate, koutsiInitialOf, koutsiHueFromId,
+  koutsiRoundTimeToQuarterHour, koutsiRoundToQuarterHourMinutes, koutsiClampGroupTrainingWeeks,
+  KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX, koutsiAddDays,
+} from '../../domain/core.js';
+
+let role = 'coach';
+let state = null;
+let latencyMs = 140;
+
+/** configureDemo({ role: 'coach' | 'player', latency }) — called by the demo entry files. */
+export function configureDemo(opts = {}) {
+  if (opts.role) role = opts.role;
+  if (opts.latency != null) latencyMs = opts.latency;
+  state = null;
+}
+
+const uid = () => (role === 'player' ? PLAYER : COACH);
+const S = () => { if (!state) state = seed(); return state; };
+const clone = (v) => JSON.parse(JSON.stringify(v));
+const wait = () => new Promise((r) => setTimeout(r, latencyMs));
+const nowIso = () => new Date().toISOString();
+const findStudent = (id) => S().students.find((s) => s.id === id);
+const findGroup = (id) => S().groups.find((g) => g.id === id);
+const notAllowed = () => { throw new ApiError('Tätä ei voi tehdä demossa.', { code: 'demo' }); };
+
+// Sub-records live inside their student; edits look them up by id across all of them.
+function eachList(key, fn) { S().students.forEach((s) => { s[key] = fn(s[key] || [], s); }); }
+const removeById = (key, id) => eachList(key, (list) => list.filter((x) => x.id !== id));
+const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+
+function coachState() {
+  const s = clone(S());
+  s.groups.forEach(refreshThemes);
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents };
+}
+
+function playerState(studentId) {
+  const s = clone(S());
+  s.groups.forEach(refreshThemes);
+  const me = s.students.find((x) => x.id === studentId) || s.students[0];
+  const groups = s.groups.filter((g) => g.memberIds.includes(me.id));
+  const rosterIds = new Set(groups.flatMap((g) => g.memberIds));
+  const roster = s.students.filter((x) => x.id !== me.id && rosterIds.has(x.id))
+    .map((x) => ({ id: x.id, initial: x.initial, hue: x.hue, avatarUrl: x.avatarUrl || '', name: x.name, level: x.level || null, rosterOnly: true }));
+  const groupIds = new Set(groups.map((g) => g.id));
+  // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
+  const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents };
+}
+
+function hideHiddenMoods(snapshot) {
+  snapshot.students.forEach((st) => { st.moods = (st.moods || []).filter((m) => !m.hiddenFromCoach); });
+  return snapshot;
+}
+
+function student(id, name, { age = null, level = null, placeholder = true } = {}) {
+  return {
+    id, name, initial: koutsiInitialOf(name), hue: koutsiHueFromId(id), avatarUrl: '', isPlaceholder: placeholder,
+    age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
+    level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', joinedAt: null, welcomeSeenAt: null,
+    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [],
+  };
+}
+
+function addHistory(st, field, value) {
+  const key = { goal: 'goalHistory', wish: 'wishHistory', note: 'noteHistory' }[field];
+  const column = { goal: 'goal', wish: 'playerWish', note: 'playerNote' }[field];
+  const previous = st[column] || '';
+  if (previous === value) return;
+  st[column] = value;
+  st[key] = [{ id: newId('hist'), at: nowIso(), field, value, previousValue: previous, byPlayer: true }, ...(st[key] || [])];
+}
+
+const validAge = (age) => age == null || (Number.isInteger(age) && age >= 1 && age < 120);
+
+const SIGNUP = () => (role === 'player' ? 'https://koutsi.krossi.app/pelaaja' : 'https://koutsi.krossi.app/valmentaja');
+
+export const backend = {
+  auth: {
+    async getSession() { return { user: { id: uid(), email: 'demo@krossi.app' } }; },
+    onChange() { return () => {}; },
+    signInWithPassword: notAllowed,
+    signUp: notAllowed,
+    signInWithOAuth: notAllowed,
+    resetPassword: notAllowed,
+    resendConfirmation: notAllowed,
+    updatePassword: notAllowed,
+    // "Kirjaudu ulos" in the demo ends the tour and opens the real service.
+    async signOut() { window.location.href = SIGNUP(); },
+  },
+
+  account: {
+    async getProfile(id) { return { id, name: S().profileName[id] || 'Demo', avatarUrl: '' }; },
+    async getPilotAcknowledgement() { return true; },
+    async acceptPilot() {},
+    createProfile: notAllowed,
+    async saveDisplayName(id, name) {
+      await wait();
+      if (id === COACH) Object.assign(S().coach, { name, initial: koutsiInitialOf(name) });
+      const st = findStudent(id);
+      if (st) Object.assign(st, { name, initial: koutsiInitialOf(name) });
+      S().profileName[id] = name;
+    },
+    async uploadAvatar(id, file) {
+      const url = URL.createObjectURL(file);
+      if (id === COACH) S().coach.avatarUrl = url;
+      const st = findStudent(id);
+      if (st) st.avatarUrl = url;
+      return url;
+    },
+    async recordAppOpen() {},
+    async isAdmin() { return false; },
+    async submitFeedback() { await wait(); },
+    async exportMyData() { return clone(S()); },
+    async deleteAccount() { window.location.href = SIGNUP(); },
+  },
+
+  coach: {
+    async fetchRow(id) { return id === COACH ? { id } : null; },
+    async load() { await wait(); return hideHiddenMoods(coachState()); },
+    async redeemKey() { return { ok: true }; },
+    async markWelcomeSeen() { S().coach.welcomeSeenAt = nowIso(); },
+    async saveProfile(coachId, patch) { await wait(); Object.assign(S().coach, patch); },
+    subscribe() { return () => {}; },
+  },
+
+  player: {
+    async fetchRow(id) { return findStudent(id) ? { id } : null; },
+    async load(studentId) { await wait(); return playerState(studentId); },
+    subscribe() { return () => {}; },
+    async markWelcomeSeen(id) { const st = findStudent(id); if (st) st.welcomeSeenAt = nowIso(); },
+    async saveGoal(id, v) { await wait(); addHistory(findStudent(id), 'goal', v); },
+    async saveNote(id, v) { await wait(); addHistory(findStudent(id), 'note', v); },
+    async saveWish(id, v) { await wait(); addHistory(findStudent(id), 'wish', v); },
+    async saveAge(id, age) {
+      await wait();
+      const st = findStudent(id);
+      Object.assign(st, { age, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v` });
+    },
+    async addMood(id, { score, note, hiddenFromCoach }) {
+      await wait();
+      const at = nowIso();
+      findStudent(id).moods.unshift({ id: newId('m'), at, date: koutsiFmtShortDate(at.slice(0, 10)), score, note: note || '', hiddenFromCoach: !!hiddenFromCoach });
+    },
+    async setMoodHidden(moodId, hidden) { patchById('moods', moodId, { hiddenFromCoach: !!hidden }); },
+    async deleteMood(moodId) { removeById('moods', moodId); },
+    async addMatchNote(id, n) {
+      await wait();
+      findStudent(id).matchNotes.unshift({
+        id: newId('n'), at: nowIso(), opponentName: n.opponentName, date: n.date, note: n.note || '',
+        durationMinutes: n.durationMinutes || null, result: n.result || null, format: n.format || null, score: n.score || '',
+        partnerName: n.format === 'nelinpeli' ? (n.partnerName || '') : '', opponent2Name: n.format === 'nelinpeli' ? (n.opponent2Name || '') : '',
+        tournamentId: n.tournamentId || null,
+      });
+    },
+    async updateMatchNote(noteId, n) {
+      await wait();
+      patchById('matchNotes', noteId, {
+        opponentName: n.opponentName, date: n.date, note: n.note || '', durationMinutes: n.durationMinutes || null,
+        result: n.result || null, format: n.format || null, score: n.score || '',
+        partnerName: n.format === 'nelinpeli' ? (n.partnerName || '') : '', opponent2Name: n.format === 'nelinpeli' ? (n.opponent2Name || '') : '',
+        tournamentId: n.tournamentId || null,
+      });
+    },
+    async deleteMatchNote(noteId) { removeById('matchNotes', noteId); },
+    async addSelfTraining({ studentId, coachId, date, endDate, time, type, durationMinutes, notes }) {
+      await wait();
+      S().trainings.push({
+        id: newId('tr'), date, endDate: endDate || null, time, type, durationMinutes: durationMinutes || null, loggedBy: 'player',
+        notes: notes || '', studentId, groupId: null, coachId: coachId || COACH, seriesId: null, absences: [],
+      });
+    },
+    async deleteSelfTraining(id) { S().trainings = S().trainings.filter((t) => t.id !== id); },
+  },
+
+  students: {
+    async create(coachId, { name, age, level }) {
+      await wait();
+      if (!validAge(age)) throw new ApiError('Jos annat pelaajan iän, sen pitää olla 1–119 vuotta.');
+      const id = newId('demo-s');
+      S().students.push(student(id, name, { age: age ?? null, level: level || null }));
+      return id;
+    },
+    async bulkSetup(coachId, { groups = [], players = [], themes = [], weeksAhead } = {}) {
+      await wait();
+      if (players.some((p) => !validAge(p.age))) throw new ApiError('Jos annat pelaajan iän, sen pitää olla 1–119 vuotta.');
+      const s = S();
+      const groupIds = {};
+      groups.forEach((row) => {
+        let group = row.existing_id ? findGroup(row.existing_id) : null;
+        if (row.existing_id && !group) throw new ApiError('Ryhmää ei löytynyt.');
+        if (!group) {
+          group = { id: newId('g'), coachId: COACH, name: row.name, level: row.level || 'Kaikki tasot', day: row.day || 'Ma', time: row.time, durationMinutes: row.duration_minutes || 60, memberIds: [], slots: [], themes: [], annualPlan: null };
+          refreshThemes(group);
+          s.groups.push(group);
+          s.trainings.push(...weeklySessions(group, koutsiTodayStr(), koutsiClampGroupTrainingWeeks(weeksAhead ?? KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS)));
+        }
+        groupIds[row.client_id] = group.id;
+      });
+      const created = players.map((row) => {
+        const id = newId('demo-s');
+        s.students.push(student(id, row.name, { age: row.age ?? null, level: row.level || null }));
+        (row.group_refs || []).forEach((ref) => {
+          const group = findGroup(groupIds[ref]);
+          if (group && !group.memberIds.includes(id)) group.memberIds.push(id);
+        });
+        return { id, name: row.name };
+      });
+      themes.forEach((row) => {
+        const group = findGroup(groupIds[row.group_ref]);
+        if (!group) return;
+        const hit = group.themes.find((t) => t.year === row.year && t.week === row.week);
+        if (hit) Object.assign(hit, { title: row.title, lead: row.lead || '' });
+        else group.themes.push({ id: newId('t'), year: row.year, week: row.week, title: row.title, lead: row.lead || '' });
+        refreshThemes(group);
+      });
+      return { players_created: created.length, players: created, group_ids: groupIds };
+    },
+    async setLevel(id, level) { await wait(); findStudent(id).level = level; },
+    async updatePlaceholder(id, { name, age, level }) {
+      await wait();
+      const st = findStudent(id);
+      if (!st) return;
+      if (name !== undefined) Object.assign(st, { name, initial: koutsiInitialOf(name) });
+      if (age !== undefined) Object.assign(st, { age, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v` });
+      if (level !== undefined) st.level = level;
+    },
+    async endCoaching(coachId, studentId) {
+      await wait();
+      const s = S();
+      s.students = s.students.filter((x) => x.id !== studentId);
+      s.groups.forEach((g) => { g.memberIds = g.memberIds.filter((id) => id !== studentId); });
+    },
+    async merge(coachId, keepId, removeId) {
+      await wait();
+      const s = S();
+      const keep = findStudent(keepId);
+      const remove = findStudent(removeId);
+      if (!keep || !remove) throw new ApiError('Pelaajaa ei löytynyt.');
+      if (!remove.isPlaceholder) throw new ApiError('Vain vielä liittymättömän pelaajan voi yhdistää toiseen.');
+      s.groups.forEach((g) => {
+        if (!g.memberIds.includes(removeId)) return;
+        g.memberIds = g.memberIds.filter((id) => id !== removeId);
+        if (!g.memberIds.includes(keepId)) g.memberIds.push(keepId);
+      });
+      s.trainings.forEach((t) => {
+        if (t.studentId === removeId) t.studentId = keepId;
+        t.absences = (t.absences || []).filter((a) => a.studentId !== removeId || !t.absences.some((b) => b.studentId === keepId))
+          .map((a) => (a.studentId === removeId ? { ...a, studentId: keepId } : a));
+      });
+      ['diary', 'homework', 'videos', 'moods', 'matchNotes'].forEach((key) => { keep[key] = [...(keep[key] || []), ...(remove[key] || [])]; });
+      s.students = s.students.filter((x) => x.id !== removeId);
+      return { kept_id: keepId, removed_id: removeId };
+    },
+    async deletePlaceholder(coachId, studentId) {
+      await wait();
+      const s = S();
+      const st = findStudent(studentId);
+      if (!st || !st.isPlaceholder) throw new ApiError('Tätä pelaajaa ei voi poistaa — hän on jo lunastanut oman tilinsä.');
+      s.students = s.students.filter((x) => x.id !== studentId);
+      s.groups.forEach((g) => { g.memberIds = g.memberIds.filter((id) => id !== studentId); });
+    },
+    async placeholderJoinCode(studentId) {
+      return `DEMO${String(studentId).replace(/[^A-Z0-9]/gi, '').slice(-2).toUpperCase().padStart(2, '0')}`;
+    },
+  },
+
+  groups: {
+    async create(coachId, { name, level, day, time, durationMinutes, memberIds = [], weeksAhead }) {
+      await wait();
+      const group = { id: newId('g'), coachId: COACH, name, level, day, time, durationMinutes: durationMinutes || 60, memberIds: [...memberIds], slots: [], themes: [], annualPlan: null };
+      refreshThemes(group);
+      S().groups.push(group);
+      S().trainings.push(...weeklySessions(group, koutsiTodayStr(), koutsiClampGroupTrainingWeeks(weeksAhead ?? KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS)));
+      return group.id;
+    },
+    async update(groupId, { name, level, day, time, durationMinutes, weeksAhead }) {
+      await wait();
+      const s = S();
+      const group = findGroup(groupId);
+      const duration = durationMinutes || 60;
+      const changed = group.day !== day || group.time !== time || (group.durationMinutes || 60) !== duration;
+      Object.assign(group, { name, level, day, time, durationMinutes: duration });
+      if (!changed) return;
+      const today = koutsiTodayStr();
+      const slotSeries = new Set((group.slots || []).map((sl) => sl.seriesId).filter(Boolean));
+      s.trainings = s.trainings.filter((t) => !(t.groupId === groupId && t.date >= today && !slotSeries.has(t.seriesId)));
+      s.trainings.push(...weeklySessions(group, today, koutsiClampGroupTrainingWeeks(weeksAhead ?? KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS)));
+    },
+    async remove(groupId) {
+      await wait();
+      const s = S();
+      s.groups = s.groups.filter((g) => g.id !== groupId);
+      s.trainings = s.trainings.filter((t) => t.groupId !== groupId);
+    },
+    async addMembers(groupId, ids) {
+      await wait();
+      const g = findGroup(groupId);
+      g.memberIds = [...new Set([...g.memberIds, ...ids])];
+    },
+    async removeMember(groupId, studentId) {
+      await wait();
+      const g = findGroup(groupId);
+      g.memberIds = g.memberIds.filter((id) => id !== studentId);
+    },
+    async addSlot({ groupId, day, time, durationMinutes, weeksAhead }) {
+      await wait();
+      const g = findGroup(groupId);
+      const slot = { id: newId('slot'), day, time: koutsiRoundTimeToQuarterHour(time), durationMinutes: koutsiRoundToQuarterHourMinutes(durationMinutes || 60) };
+      const sessions = weeklySessions({ ...g, day: slot.day, time: slot.time, durationMinutes: slot.durationMinutes }, koutsiTodayStr(), koutsiClampGroupTrainingWeeks(weeksAhead ?? KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS));
+      slot.seriesId = sessions[0]?.seriesId || null;
+      g.slots = [...(g.slots || []), slot];
+      S().trainings.push(...sessions);
+      return slot.id;
+    },
+    async deleteSlot(slotId) {
+      await wait();
+      const s = S();
+      let seriesId = null;
+      s.groups.forEach((g) => {
+        const hit = (g.slots || []).find((sl) => sl.id === slotId);
+        if (hit) seriesId = hit.seriesId;
+        g.slots = (g.slots || []).filter((sl) => sl.id !== slotId);
+      });
+      const today = koutsiTodayStr();
+      if (seriesId) s.trainings = s.trainings.filter((t) => !(t.seriesId === seriesId && t.date >= today));
+    },
+    async extendSeries(groupId, untilDate, skipDates = []) {
+      await wait();
+      const s = S();
+      const g = findGroup(groupId);
+      const skip = new Set(skipDates);
+      let added = 0;
+      for (const slot of [{ day: g.day, time: g.time, durationMinutes: g.durationMinutes }, ...(g.slots || [])]) {
+        const existing = s.trainings.filter((t) => t.groupId === groupId && t.time === slot.time && t.loggedBy !== 'player');
+        const last = existing.map((t) => t.date).sort().pop() || koutsiTodayStr();
+        const seriesId = existing.find((t) => t.date === last)?.seriesId || newId('ser');
+        const dates = koutsiWeeklyDates(koutsiAddDays(last, 7), untilDate, 60).filter((d) => !skip.has(d));
+        dates.forEach((date) => s.trainings.push({ id: newId('tr'), date, time: slot.time, type: 'Ryhmätreeni', durationMinutes: slot.durationMinutes, loggedBy: 'coach', notes: '', endDate: null, studentId: null, groupId, coachId: COACH, seriesId, absences: [] }));
+        added += dates.length;
+      }
+      return { added };
+    },
+  },
+
+  themes: {
+    async save(rows, { onlyNew = false } = {}) {
+      await wait();
+      const clean = (rows || []).filter((r) => r.title && r.title.trim());
+      if (clean.some((r) => r.title.trim().length > KOUTSI_THEME_TITLE_MAX || (r.lead || '').trim().length > KOUTSI_THEME_LEAD_MAX)) {
+        throw new ApiError(`Viikkoteeman teksti on liian pitkä: teema enintään ${KOUTSI_THEME_TITLE_MAX} ja tarkennus enintään ${KOUTSI_THEME_LEAD_MAX} merkkiä.`);
+      }
+      let written = 0;
+      clean.forEach((r) => {
+        const g = findGroup(r.groupId);
+        if (!g) return;
+        const hit = g.themes.find((t) => t.year === r.year && t.week === r.week);
+        if (hit && onlyNew) return;
+        if (hit) Object.assign(hit, { title: r.title.trim(), lead: (r.lead || '').trim() });
+        else g.themes.push({ id: newId('t'), year: r.year, week: r.week, title: r.title.trim(), lead: (r.lead || '').trim() });
+        refreshThemes(g);
+        written += 1;
+      });
+      return written;
+    },
+    async remove(ids) {
+      await wait();
+      const set = new Set(ids || []);
+      S().groups.forEach((g) => { g.themes = g.themes.filter((t) => !set.has(t.id)); refreshThemes(g); });
+    },
+  },
+
+  trainings: {
+    async add({ coachId, studentId, groupId, date, time, type, repeatUntil }) {
+      await wait();
+      const seriesId = repeatUntil && repeatUntil > date ? newId('ser') : null;
+      const dates = seriesId ? koutsiWeeklyDates(date, repeatUntil) : [date];
+      const group = groupId ? findGroup(groupId) : null;
+      dates.forEach((d) => S().trainings.push({
+        id: newId('tr'), date: d, time, type, durationMinutes: group?.durationMinutes || null, loggedBy: 'coach', notes: '', endDate: null,
+        studentId: studentId || null, groupId: groupId || null, coachId: coachId || COACH, seriesId, absences: [],
+      }));
+      return dates.length;
+    },
+    async update(id, { date, time, type }) {
+      await wait();
+      S().trainings = S().trainings.map((t) => (t.id === id ? { ...t, date, time, type } : t));
+    },
+    async updateSeries(seriesId, { time, type }, fromDate) {
+      await wait();
+      const floor = fromDate || koutsiTodayStr();
+      S().trainings = S().trainings.map((t) => (t.seriesId === seriesId && t.date >= floor ? { ...t, time, type } : t));
+    },
+    async remove(id) { await wait(); S().trainings = S().trainings.filter((t) => t.id !== id); },
+    async removeSeries(seriesId, fromDate) {
+      await wait();
+      const today = koutsiTodayStr();
+      const floor = !fromDate || fromDate < today ? today : fromDate;
+      S().trainings = S().trainings.filter((t) => !(t.seriesId === seriesId && t.date >= floor));
+    },
+    async countSeriesRemaining(seriesId, fromDate) {
+      const floor = fromDate || koutsiTodayStr();
+      return S().trainings.filter((t) => t.seriesId === seriesId && t.date >= floor).length;
+    },
+  },
+
+  attendance: {
+    async set(trainingIds, studentId, status) {
+      await wait();
+      if (!['paikalla', 'poissa'].includes(status)) throw new ApiError('Pilotissa voi merkitä vain läsnäolon tai poissaolon.');
+      const ids = new Set(trainingIds || []);
+      S().trainings.forEach((t) => {
+        if (!ids.has(t.id)) return;
+        const rest = (t.absences || []).filter((a) => a.studentId !== studentId);
+        if (status === 'poissa') rest.push({ studentId, reason: 'poissa', note: '', reportedBy: uid(), updatedAt: nowIso() });
+        t.absences = rest;
+      });
+    },
+  },
+
+  notes: {
+    async add(coachId, studentId, text) {
+      await wait();
+      const at = nowIso();
+      findStudent(studentId).diary.unshift({ id: newId('d'), at, date: koutsiFmtShortDate(at.slice(0, 10)), text });
+    },
+    async update(id, text) { await wait(); patchById('diary', id, { text }); },
+    async remove(id) { await wait(); removeById('diary', id); },
+  },
+
+  homework: {
+    async add(studentId, text) { await wait(); findStudent(studentId).homework.unshift({ id: newId('h'), at: nowIso(), text, done: false, doneAt: null }); },
+    async update(id, text) { await wait(); patchById('homework', id, { text }); },
+    async remove(id) { await wait(); removeById('homework', id); },
+    async toggleDone(id, done) { await wait(); patchById('homework', id, { done, doneAt: done ? nowIso() : null }); },
+  },
+
+  videos: {
+    async share({ shareId, title, date, tags, studentIds, addedById, file, externalUrl, onProgress }) {
+      await wait();
+      const resolved = shareId || newId('vs');
+      const url = file ? URL.createObjectURL(file) : null;
+      if (file && onProgress) onProgress(100);
+      (studentIds || []).forEach((sid) => {
+        const st = findStudent(sid);
+        if (!st || st.videos.some((v) => v.shareId === resolved)) return;
+        st.videos.unshift({ id: newId('v'), shareId: resolved, recipientIds: [...studentIds], at: nowIso(), title, date, tags: tags || [], hue: koutsiHueFromId(resolved), addedBy: addedById === sid ? 'player' : 'coach', storagePath: url, externalUrl: externalUrl || null, mimeType: file ? file.type : null });
+      });
+      return resolved;
+    },
+    async setRecipients(shareId, studentIds) {
+      await wait();
+      const s = S();
+      let source = null;
+      s.students.forEach((st) => { const hit = st.videos.find((v) => v.shareId === shareId); if (hit && !source) source = hit; });
+      if (!source) return;
+      const recipients = [...new Set(studentIds || [])];
+      s.students.forEach((st) => {
+        st.videos = st.videos.filter((v) => v.shareId !== shareId || recipients.includes(st.id));
+        if (recipients.includes(st.id) && !st.videos.some((v) => v.shareId === shareId)) st.videos.unshift({ ...source, id: newId('v') });
+        st.videos.forEach((v) => { if (v.shareId === shareId) v.recipientIds = recipients; });
+      });
+    },
+    async url(storagePath) { return storagePath || null; },
+    async remove(id) { await wait(); removeById('videos', id); },
+  },
+
+  exercises: {
+    async add(coachId, e) { await wait(); S().exercises.push({ id: newId('e'), coachId: COACH, ...e, tags: e.tags || [], video: null }); },
+    async update(id, patch) { await wait(); S().exercises = S().exercises.map((e) => (e.id === id ? { ...e, ...patch } : e)); },
+    async remove(id) { await wait(); S().exercises = S().exercises.filter((e) => e.id !== id); },
+    async setVideo({ exerciseId, title, file, externalUrl, onProgress }) {
+      await wait();
+      if (file && onProgress) onProgress(100);
+      const e = S().exercises.find((x) => x.id === exerciseId);
+      if (e) e.video = { title, storagePath: file ? URL.createObjectURL(file) : null, externalUrl: externalUrl || null, mimeType: file ? file.type : null, sizeBytes: file ? file.size : null };
+    },
+    async removeVideo(id) { await wait(); const e = S().exercises.find((x) => x.id === id); if (e) e.video = null; },
+    async seedStarters() {
+      await wait();
+      const have = new Set(S().exercises.map((e) => e.name));
+      const added = STARTER_EXERCISES.filter((t) => !have.has(t.name));
+      added.forEach((t) => S().exercises.push({ id: newId('e'), coachId: COACH, ...t, video: null }));
+      return added.length;
+    },
+  },
+
+  events: {
+    async add(coachId, { date, endDate, title, kind }) { await wait(); S().clubEvents.push({ id: newId('ce'), date, endDate: endDate || null, title, kind: kind || 'seura' }); },
+    async update(id, { date, endDate, title, kind }) { await wait(); S().clubEvents = S().clubEvents.map((e) => (e.id === id ? { ...e, date, endDate: endDate || null, title, kind } : e)); },
+    async remove(id) { await wait(); S().clubEvents = S().clubEvents.filter((e) => e.id !== id); },
+  },
+
+  invites: {
+    async myJoinCode() { return S().joinCode; },
+    async rotateJoinCode() { await wait(); S().joinCode = newId('K').slice(-6).toUpperCase(); return S().joinCode; },
+    async create(groupId, { maxUses = 1, expiresDays = 14 } = {}) {
+      await wait();
+      const code = { code: newId('K').slice(-6).toUpperCase(), groupId: groupId || null, createdAt: nowIso(), expiresAt: new Date(Date.now() + expiresDays * 86400000).toISOString(), maxUses, useCount: 0, revokedAt: null, active: true };
+      S().inviteCodes.unshift(code);
+      return { code: code.code, expires_at: code.expiresAt };
+    },
+    async list() { return clone(S().inviteCodes); },
+    async revoke(code) { const hit = S().inviteCodes.find((c) => c.code === code); if (hit) Object.assign(hit, { revokedAt: nowIso(), active: false }); },
+    async redeem() { await wait(); return { coach_id: COACH, coach_name: S().coach.name, group_id: 'demo-g-ti-aik1', group_name: 'tiistai aikuiset' }; },
+    async claim(code, studentId) {
+      await wait();
+      const st = findStudent(studentId);
+      if (!st || !st.isPlaceholder) throw new ApiError('Tätä profiilia ei voi lunastaa. Pyydä valmentajalta uusi koodi.');
+      st.isPlaceholder = false;
+      return { coach_id: COACH, coach_name: S().coach.name, claimed: true };
+    },
+    async matchUnclaimed() {
+      const placeholders = S().students.filter((x) => x.isPlaceholder);
+      return placeholders.length === 1 ? { id: placeholders[0].id, name: placeholders[0].name } : null;
+    },
+    async unclaimedForCode() { return S().students.filter((x) => x.isPlaceholder).map((x) => ({ id: x.id, name: x.name })); },
+  },
+
+  plans: {
+    async upload(groupId, file) { await wait(); const g = findGroup(groupId); g.annualPlan = { filename: file.name, storagePath: URL.createObjectURL(file), sizeBytes: file.size, status: 'review', date: koutsiTodayStr() }; },
+    async url(storagePath) { return storagePath || null; },
+    async remove(groupId) { await wait(); findGroup(groupId).annualPlan = null; },
+    async uploadShared(coachId, file) {
+      await wait();
+      const row = { id: newId('ap'), coachId, filename: file.name, storagePath: URL.createObjectURL(file), sizeBytes: file.size, status: 'pending', uploadedAt: nowIso(), handledAt: null };
+      S().annualPlanSubmissions.unshift(row);
+      return row;
+    },
+    async submissions() { return clone(S().annualPlanSubmissions); },
+  },
+
+  notifications: {
+    async list() { return clone(role === 'player' ? S().playerNotifications : S().notifications).map((n) => ({ ...n, date: koutsiFmtShortDate(n.createdAt.slice(0, 10)) })); },
+    async markRead() { (role === 'player' ? S().playerNotifications : S().notifications).forEach((n) => { n.read = true; }); },
+    async getEmailPref() { return S().emailPref; },
+    async setEmailPref(id, enabled) { S().emailPref = !!enabled; },
+    subscribe() { return () => {}; },
+  },
+
+  admin: {
+    users: notAllowed, feedback: notAllowed, deleteFeedback: notAllowed, deleteUser: notAllowed, actAs: notAllowed,
+    groups: notAllowed, bulkInviteCodes: notAllowed, pendingPlans: notAllowed, publishPlan: notAllowed,
+    handleSubmission: notAllowed, uploadPlan: notAllowed,
+  },
+};

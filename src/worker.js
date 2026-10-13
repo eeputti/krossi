@@ -105,6 +105,57 @@ export function resolveAssetPath(input) {
     : resolveKrossiAssetPath(pathname);
 }
 
+// ── Renewed Koutsi (opt-in beta) ─────────────────────────────────────────────
+// koutsi/web is a rebuilt coach and player app on the same tables. Until it replaces the
+// old one it is opt-in per browser: /valmentaja?uusi=1 (or /pelaaja?uusi=1) sets a cookie,
+// and from then on /valmentaja/* and /pelaaja/* open the new app in that browser;
+// ?uusi=0 clears it. A request with neither the parameter nor the cookie never reaches
+// this code, so it is answered exactly as before (see the frozen-worker tests).
+
+export const NEW_KOUTSI_COOKIE = 'koutsi_uusi';
+const NEW_KOUTSI_SHELLS = {
+  [KOUTSI_HOST]: { valmentaja: '/koutsi-uusi-valmentaja.html', pelaaja: '/koutsi-uusi-pelaaja.html' },
+  [DEMO_HOST]: { valmentaja: '/koutsi-uusi-valmentaja-demo.html', pelaaja: '/koutsi-uusi-pelaaja-demo.html' },
+};
+
+// The new app's deepest pages are two segments below its root (/valmentaja/ryhma/<id>).
+export function resolveNewKoutsiPath(input) {
+  const url = input instanceof URL ? input : new URL(input.url || input);
+  const shells = NEW_KOUTSI_SHELLS[url.hostname];
+  if (!shells) return null;
+  if (matchesPath(url.pathname, '/valmentaja', 3)) return shells.valmentaja;
+  if (matchesPath(url.pathname, '/pelaaja', 3)) return shells.pelaaja;
+  return null;
+}
+
+function hasNewKoutsiCookie(request) {
+  return (request.headers.get('cookie') || '').split(';').some((part) => part.trim() === `${NEW_KOUTSI_COOKIE}=1`);
+}
+
+// Returns null when the request doesn't involve the switch at all.
+async function serveNewKoutsiSwitch(request, env) {
+  const url = new URL(request.url);
+  const choice = url.searchParams.get('uusi');
+  const optIn = choice === '1';
+  const optOut = choice === '0';
+  const cookie = hasNewKoutsiCookie(request);
+  if (!optIn && !optOut && !cookie) return null;
+
+  const newPath = (optIn || (cookie && !optOut)) ? resolveNewKoutsiPath(url) : null;
+  const assetPath = newPath || resolveAssetPath(url);
+  const response = await env.ASSETS.fetch(assetPath ? rewriteRequest(request, assetPath) : request);
+
+  const headers = new Headers(response.headers);
+  const cookieAttrs = 'Path=/; Secure; SameSite=Lax';
+  if (optIn) headers.append('set-cookie', `${NEW_KOUTSI_COOKIE}=1; Max-Age=31536000; ${cookieAttrs}`);
+  if (optOut) headers.append('set-cookie', `${NEW_KOUTSI_COOKIE}=; Max-Age=0; ${cookieAttrs}`);
+  // The same address now answers with either app, so no cache may keep one for the other.
+  headers.set('cache-control', 'private, no-cache');
+  headers.append('vary', 'Cookie');
+  headers.delete('etag');
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 function rewriteRequest(request, pathname) {
   const url = new URL(request.url);
   url.pathname = pathname;
@@ -259,6 +310,11 @@ export default {
     }
     if (pathname === '/sitemap.xml') {
       return new Response(buildSitemap(hostname), { headers: { 'content-type': 'application/xml; charset=utf-8' } });
+    }
+
+    if (isKoutsiHost(hostname)) {
+      const switched = await serveNewKoutsiSwitch(request, env);
+      if (switched) return switched;
     }
 
     const assetPath = resolveAssetPath(request);
