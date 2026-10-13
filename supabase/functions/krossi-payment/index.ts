@@ -217,6 +217,68 @@ Deno.serve(async (req: Request) => {
       return json(req, { paid: true, status: intent.status });
     }
 
+    // Admin-only setup check: which Stripe mode each secret is from and whether Stripe has what
+    // the checkout needs. Never returns key values.
+    if (body.action === 'status') {
+      const { data: isAdmin } = await asUser.rpc('krossi_is_admin');
+      if (!isAdmin) return json(req, { error: 'not allowed' }, 403);
+      const modeOf = (value: string | undefined, re: RegExp) => re.exec(value || '')?.[1] ?? (value ? 'invalid' : 'missing');
+      const settle = async <T,>(fn: () => Promise<T>) => {
+        try { return await fn(); } catch (err) { return { error: (err as Error).message }; }
+      };
+      const hookUrl = `${url}/functions/v1/stripe-webhook`;
+      return json(req, {
+        secretKey: modeOf(Deno.env.get('STRIPE_SECRET_KEY'), /^[sr]k_(test|live)_/),
+        publishableKey: modeOf(Deno.env.get('STRIPE_PUBLISHABLE_KEY'), /^pk_(test|live)_[A-Za-z0-9]{20,}$/),
+        publishableKeyUsed: Boolean(usablePublishableKey()),
+        webhookSecret: Deno.env.get('STRIPE_WEBHOOK_SECRET') ? 'set' : 'missing',
+        account: await settle(async () => {
+          const a = await stripe.accounts.retrieve();
+          return { charges_enabled: a.charges_enabled, payouts_enabled: a.payouts_enabled, details_submitted: a.details_submitted, country: a.country };
+        }),
+        price: await settle(async () => {
+          const p = await stripe.prices.retrieve(Deno.env.get('STRIPE_PRICE_ID')!);
+          return { livemode: p.livemode, active: p.active, amount: p.unit_amount, currency: p.currency };
+        }),
+        webhookEndpoints: await settle(async () => {
+          const { data } = await stripe.webhookEndpoints.list({ limit: 100 });
+          return data.filter((w) => w.url === hookUrl).map((w) => ({ status: w.status, events: w.enabled_events }));
+        }),
+        paymentMethods: await settle(async () => {
+          const { data } = await stripe.paymentMethodConfigurations.list({ limit: 20 });
+          const config = data.find((c) => c.is_default) ?? data[0];
+          const pick = (k: string) => {
+            const m = (config as unknown as Record<string, { available?: boolean; display_preference?: { value?: string } }>)?.[k];
+            return m ? { available: m.available, on: m.display_preference?.value } : 'unknown';
+          };
+          return { card: pick('card'), apple_pay: pick('apple_pay'), google_pay: pick('google_pay'), mobilepay: pick('mobilepay') };
+        }),
+        domains: await settle(async () => {
+          const { data } = await stripe.paymentMethodDomains.list({ limit: 100 });
+          return data.filter((d) => PAYMENT_DOMAINS.includes(d.domain_name)).map((d) => ({
+            domain: d.domain_name, enabled: d.enabled, apple_pay: d.apple_pay?.status, google_pay: d.google_pay?.status,
+          }));
+        }),
+      });
+    }
+
+    // Admin-only: finds or creates the 8,99 € one-time price in the current Stripe mode, found
+    // again by its lookup key so running it twice never makes a second product. Its id goes into
+    // the STRIPE_PRICE_ID secret.
+    if (body.action === 'setup-price') {
+      const { data: isAdmin } = await asUser.rpc('krossi_is_admin');
+      if (!isAdmin) return json(req, { error: 'not allowed' }, 403);
+      const lookupKey = 'krossi_unlock_899';
+      const { data: existing } = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
+      const price = existing[0] ?? await stripe.prices.create({
+        currency: 'eur',
+        unit_amount: 899,
+        lookup_key: lookupKey,
+        product_data: { name: 'Krossi — kertamaksu' },
+      });
+      return json(req, { priceId: price.id, created: !existing[0], livemode: price.livemode, amount: price.unit_amount, currency: price.currency });
+    }
+
     return json(req, { error: 'unknown action' }, 400);
   } catch (err) {
     console.error(`krossi-payment ${body.action} failed`, (err as Error).message);
