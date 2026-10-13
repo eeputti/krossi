@@ -189,10 +189,14 @@ Deno.serve(async (req: Request) => {
       const done = unapplied(intents);
       if (done) { await applyPayment(admin, user.id, done); return json(req, { paid: true }); }
 
-      // Reuse an unfinished attempt (closed sheet, declined card) instead of piling up new ones.
-      const open = intents.find((pi) => ['requires_payment_method', 'requires_confirmation'].includes(pi.status)
-        && pi.amount === price.amount && pi.currency === price.currency);
-      const intent = open ?? await stripe.paymentIntents.create({
+      // A fresh intent per attempt: an old one keeps the payment methods that were on when it was
+      // made (e.g. no MobilePay before Stripe approved it). Unfinished attempts are cancelled so the
+      // Dashboard doesn't fill up with them.
+      for (const stale of intents.filter((pi) => ['requires_payment_method', 'requires_confirmation'].includes(pi.status))) {
+        await stripe.paymentIntents.cancel(stale.id, { cancellation_reason: 'abandoned' }).catch((err) =>
+          console.error('cancelling an old payment intent failed', (err as Error).message));
+      }
+      const intent = await stripe.paymentIntents.create({
         amount: price.amount,
         currency: price.currency,
         customer: customerId,
@@ -252,6 +256,15 @@ Deno.serve(async (req: Request) => {
             return m ? { available: m.available, on: m.display_preference?.value } : 'unknown';
           };
           return { card: pick('card'), apple_pay: pick('apple_pay'), google_pay: pick('google_pay'), mobilepay: pick('mobilepay') };
+        }),
+        // The admin's own recent attempts (they test the paywall on their own account).
+        myPayments: await settle(async () => {
+          if (!profile.stripe_customer_id) return [];
+          const { data } = await stripe.paymentIntents.list({ customer: profile.stripe_customer_id, limit: 5 });
+          return data.map((pi) => ({
+            created: new Date(pi.created * 1000).toISOString(), status: pi.status, amount: pi.amount, livemode: pi.livemode,
+            method: pi.payment_method_types, applied: Boolean(pi.metadata?.applied_at), error: pi.last_payment_error?.message ?? null,
+          }));
         }),
         domains: await settle(async () => {
           const { data } = await stripe.paymentMethodDomains.list({ limit: 100 });
