@@ -331,7 +331,10 @@ export const API_CONTRACT = {
     'claim',               // (code) -> void   called once after onboarding; ignores own/invalid codes
   ],
   payments: [
-    'startCheckout',       // () -> void   redirects to Stripe Checkout
+    'startCheckout',       // () -> void   redirects to Stripe's hosted Checkout (fallback)
+    'checkoutConfig',      // () -> { paid: true } | { hosted: true } | { publishableKey, amount, currency, email }
+    'createPaymentIntent', // () -> { paid: true } | { clientSecret, paymentIntentId }   reuses an unfinished one
+    'verifyPayment',       // (paymentIntentId) -> { paid, status }   checks Stripe, unlocks the profile if paid
     'adminSetOwnPaid',     // (paid:boolean) -> void   admins only
   ],
   admin: [

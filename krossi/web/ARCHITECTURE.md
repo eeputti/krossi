@@ -34,10 +34,10 @@ krossi/
         errors.js         ApiError (suomenkielinen userMessage)
         supabase/         oikea toteutus, yksi tiedosto per domain + client.js + map.js
         demo/             demototeutus, yksi tiedosto per domain + store.js (seed-data)
-      app/                sovelluksen runko: App.jsx, AppShell.jsx, router.js, routes.js, session.jsx, paywall.jsx
+      app/                sovelluksen runko: App.jsx, AppShell.jsx, router.js, routes.js, session.jsx, paywall.jsx, checkout.jsx
       ui/                 design system -komponentit (index.js vie kaiken)
       features/           puhtaat funktiot: gamification.js (putket, merkit), recap.js (koosteet)
-      lib/                constants.js, format.js (päivämäärät, nimet), geo.js, image.js, ics.js, share.js
+      lib/                constants.js, format.js (päivämäärät, nimet), geo.js, image.js, ics.js, share.js, stripe.js
       screens/<alue>/     näkymät alueittain (home, games, players, messages, profile, leagues, recap, auth, admin)
       styles/             tokens.css, base.css, ui.css, shell.css + yksi tiedosto per näkymäalue
     test/                 node:test -testit (sopimus, gamification, reititys)
@@ -109,8 +109,16 @@ Reittitaulu on `app/routes.js`. Polut:
 - `session.jsx`: `SessionProvider` + `useSession()` → `{ session, user, profile, loading,
   isAdmin, eventCities, canCreateEvents, paid, refreshProfile, needsOnboarding }`.
 - `paywall.jsx`: `usePaywall()` → `{ paid, requirePaid(fn) }`. `requirePaid(fn)` ajaa fn:n jos
-  maksettu, muuten avaa PaywallSheetin. Myös `<LockedPreview title text>{children}</LockedPreview>`
-  (sumennettu esikatselu + avauskortti).
+  maksettu, muuten avaa PaywallSheetin (ja ajaa fn:n maksun onnistuttua "Jatketaan"-napista).
+  Myös `<LockedPreview title text>{children}</LockedPreview>` (sumennettu esikatselu + avauskortti).
+- `checkout.jsx`: Krossin oma kassa PaywallSheetissä — Stripe Elements (Apple Pay / Google Pay
+  -napit ylhäällä, alla MobilePay, kortti ja muut Stripe Dashboardissa päällä olevat tavat).
+  Edge-funktio `krossi-payment` (config / intent / verify) luo PaymentIntentin vasta maksettaessa
+  ja varmistaa maksun palvelimella. Uudelleenohjaavat tavat (MobilePay puhelimella) palaavat
+  osoitteeseen `/pelaa?maksu=1&payment_intent=…`, jonka `useStripeReturn()` (App.jsx) käsittelee.
+  Testi/live ratkeaa pelkillä Supabase-secreteillä (`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
+  `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`); ilman `STRIPE_PUBLISHABLE_KEY`:tä käytetään
+  Stripen hostattua Checkout-sivua (`stripe-checkout`).
 - `AppShell.jsx`: mobiilissa (< 900 px) alareunan **TabBar** (Koti · Pelit · Pelaajat ·
   Viestit · Profiili, lukemattomat-badge Viestit-kohdassa), työpöydällä vasen **SideNav**
   (logo, samat kohteet, iso lime "Pelataanko?" -nappi, oma profiilichippi). Keskellä

@@ -1,12 +1,15 @@
-// paywall.jsx — the one-time 8,99 € unlock.
+// paywall.jsx — the one-time 8,99 € unlock, paid right inside the sheet (see checkout.jsx).
 //
 //   const { paid, requirePaid, openPaywall } = usePaywall();
 //   requirePaid(() => navigate(`/pelaa/peli/${id}`), 'Avaa peli')   runs fn when paid, else opens the sheet
+//                                                                    (and runs fn once the payment goes through)
 //   <LockedPreview title text>{fake content}</LockedPreview>         blurred teaser with an unlock card
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo } from '../api/index.js';
 import { PRICE_LABEL } from '../lib/constants.js';
-import { Button, Icon, Illustration, Sheet, useToast } from '../ui/index.js';
+import { isTestKey, preloadStripe } from '../lib/stripe.js';
+import { Button, Icon, Illustration, Sheet, Skeleton, confetti, useToast } from '../ui/index.js';
+import { AFTER_PAYMENT_KEY, Checkout } from './checkout.jsx';
 import { useSession } from './session.jsx';
 
 const PaywallContext = createContext(null);
@@ -19,24 +22,66 @@ const PERKS = [
 ];
 
 export function PaywallProvider({ children }) {
-  const { paid } = useSession();
+  const { user, paid, refreshProfile } = useSession();
   const toast = useToast();
   const [reason, setReason] = useState(null);
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
+  // In-app checkout setup: { status: 'idle' | 'loading' | 'ready' | 'hosted' | 'error', config?, error? }
+  const [checkout, setCheckout] = useState({ status: 'idle' });
+  const [success, setSuccess] = useState(false);
+  const afterPaid = useRef(null);
 
-  const openPaywall = useCallback((why = null) => { setReason(why); setOpen(true); }, []);
+  const openPaywall = useCallback((why = null, then = null) => {
+    afterPaid.current = typeof then === 'function' ? then : null;
+    setReason(why);
+    setSuccess(false);
+    setOpen(true);
+  }, []);
   const requirePaid = useCallback((fn, why) => {
     if (paid) return fn?.();
-    openPaywall(why);
+    openPaywall(why, fn);
     return undefined;
   }, [paid, openPaywall]);
 
-  const pay = async () => {
+  const onPaid = useCallback(async () => {
+    setSuccess(true);
+    confetti();
+    try { await refreshProfile(); } catch { /* the Gate retries on the next load; paid_at is already set */ }
+  }, [refreshProfile]);
+
+  const loadCheckout = useCallback(async () => {
+    setCheckout({ status: 'loading' });
+    try {
+      const config = await api.payments.checkoutConfig();
+      if (config.paid) {
+        // Paid meanwhile (another tab, or MobilePay finished after they left) — just unlock.
+        setCheckout({ status: 'idle' });
+        onPaid();
+        return;
+      }
+      setCheckout(config.hosted ? { status: 'hosted' } : { status: 'ready', config });
+    } catch (err) {
+      setCheckout({ status: 'error', error: err });
+    }
+  }, [onPaid]);
+
+  // The config (default billing email) belongs to whoever is signed in.
+  useEffect(() => { setCheckout({ status: 'idle' }); }, [user?.id]);
+
+  useEffect(() => {
+    if (!open || paid || isDemo) return;
+    preloadStripe();
+    if (checkout.status === 'idle' || checkout.status === 'error') loadCheckout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, paid]);
+
+  // Stripe's hosted page — the fallback while the in-app checkout isn't configured or won't load.
+  const payHosted = async () => {
     setStarting(true);
     try {
       // Checkout returns to /pelaa?stripe=…; remember this page so the Gate can bring them back.
-      try { sessionStorage.setItem('krossi_after_payment', window.location.pathname + window.location.search); } catch { /* private mode */ }
+      try { sessionStorage.setItem(AFTER_PAYMENT_KEY, window.location.pathname + window.location.search); } catch { /* private mode */ }
       await api.payments.startCheckout();
       if (isDemo) { toast('Demossa kaikki on jo auki 😉', { icon: 'sparkles' }); setOpen(false); }
     } catch (err) {
@@ -46,32 +91,80 @@ export function PaywallProvider({ children }) {
     }
   };
 
+  const close = () => {
+    setOpen(false);
+    if (success) {
+      const next = afterPaid.current;
+      afterPaid.current = null;
+      next?.();
+    }
+  };
+
   const value = useMemo(() => ({ paid, requirePaid, openPaywall }), [paid, requirePaid, openPaywall]);
+  const testMode = checkout.status === 'ready' && isTestKey(checkout.config.publishableKey);
+
   return (
     <PaywallContext.Provider value={value}>
       {children}
-      <Sheet open={open} onClose={() => setOpen(false)} size="md" tone="dark" className="paywall-sheet">
-        <div className="paywall court-lines">
-          <Illustration name="lock" size={132} className="paywall-art" />
-          <div className="eyebrow">Krossi · kertamaksu</div>
-          <h2 className="paywall-title">{reason || 'Avaa koko Krossi'}</h2>
-          <p className="paywall-lead">Yksi maksu, ei tilausta eikä toistuvaa laskutusta. Sen jälkeen pelit voi alkaa.</p>
-          <ul className="paywall-perks">
-            {PERKS.map((p) => (
-              <li key={p.title} className="paywall-perk">
-                <span className="paywall-perk-icon"><Icon name={p.icon} size={18} /></span>
-                <span>
-                  <span className="paywall-perk-title">{p.title}</span>
-                  <span className="paywall-perk-text">{p.text}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-          <Button variant="lime" size="lg" block loading={starting} onClick={pay} icon="bolt">
-            {starting ? 'Avataan maksua…' : `Avaa Krossi — ${PRICE_LABEL}`}
-          </Button>
-          <p className="paywall-fine">Turvallinen maksu Stripen kautta. Maksun jälkeen palaat suoraan tähän.</p>
-        </div>
+      <Sheet open={open} onClose={close} size="md" tone="dark" className="paywall-sheet" labelledBy="paywall-title">
+        {success ? (
+          <div className="paywall paywall-done court-lines" role="status">
+            <span className="paywall-done-check"><Icon name="check" size={40} /></span>
+            <h2 id="paywall-title" className="paywall-title">Krossi on auki!</h2>
+            <p className="paywall-lead">
+              Kiitos! Kaikki pelaajat, pelit ja viestit ovat nyt käytössäsi.
+              {!testMode && ' Kuitti tulee sähköpostiisi.'}
+            </p>
+            <Button variant="lime" size="lg" block icon="ball" onClick={close}>
+              {afterPaid.current ? 'Jatketaan' : 'Pelataan!'}
+            </Button>
+          </div>
+        ) : (
+          <div className="paywall court-lines">
+            <Illustration name="lock" size={96} className="paywall-art" />
+            <div className="eyebrow">Krossi · kertamaksu</div>
+            <h2 id="paywall-title" className="paywall-title">{reason || 'Avaa koko Krossi'}</h2>
+            <p className="paywall-lead">Yksi maksu, ei tilausta eikä toistuvaa laskutusta. Sen jälkeen pelit voi alkaa.</p>
+            <ul className="paywall-perks">
+              {PERKS.map((p) => (
+                <li key={p.title} className="paywall-perk">
+                  <span className="paywall-perk-icon"><Icon name={p.icon} size={18} /></span>
+                  <span>
+                    <span className="paywall-perk-title">{p.title}</span>
+                    <span className="paywall-perk-text">{p.text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            {checkout.status === 'ready' ? (
+              <Checkout config={checkout.config} onPaid={onPaid} onHosted={payHosted} />
+            ) : checkout.status === 'loading' ? (
+              <div className="checkout-skeleton" aria-label="Avataan kassaa">
+                <Skeleton h={50} r={14} />
+                <Skeleton h={54} r={14} />
+                <Skeleton h={56} r={999} />
+              </div>
+            ) : checkout.status === 'error' ? (
+              <div className="checkout checkout-failed">
+                <p className="checkout-error" role="alert"><Icon name="alert" size={16} />{checkout.error?.userMessage || 'Kassa ei auennut.'}</p>
+                <Button variant="lime" size="lg" block icon="refresh" onClick={loadCheckout}>Yritä uudelleen</Button>
+                <Button variant="on-dark" size="md" block loading={starting} icon="external" onClick={payHosted}>Maksa Stripen sivulla</Button>
+              </div>
+            ) : (
+              <Button variant="lime" size="lg" block loading={starting} onClick={payHosted} icon="bolt">
+                {starting ? 'Avataan maksua…' : `Avaa Krossi — ${PRICE_LABEL}`}
+              </Button>
+            )}
+
+            <p className="paywall-fine">
+              <Icon name="shield" size={13} />
+              {checkout.status === 'hosted' || isDemo
+                ? 'Turvallinen maksu Stripen kautta. Maksun jälkeen palaat suoraan tähän.'
+                : 'Turvallinen maksu Stripen kautta — Krossi ei näe kortti- tai pankkitietojasi.'}
+            </p>
+          </div>
+        )}
       </Sheet>
     </PaywallContext.Provider>
   );

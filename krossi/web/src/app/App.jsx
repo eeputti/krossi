@@ -10,7 +10,8 @@ import { PublicGameScreen } from '../screens/games/PublicGameScreen.jsx';
 import { PendingOutcomeCheck } from '../screens/home/PendingOutcomeCheck.jsx';
 import { SetPasswordSheet } from '../screens/auth/SetPasswordSheet.jsx';
 import { AppShell } from './AppShell.jsx';
-import { PaywallProvider } from './paywall.jsx';
+import { AFTER_PAYMENT_KEY } from './checkout.jsx';
+import { PaywallProvider, usePaywall } from './paywall.jsx';
 import { configureRouter, navigate, useRoute } from './router.js';
 import { SessionProvider, useSession } from './session.jsx';
 
@@ -18,8 +19,6 @@ import { SessionProvider, useSession } from './session.jsx';
 export const AFTER_AUTH_KEY = 'krossi_after_auth';
 // Invite code from /pelaa/kutsu/<code>, claimed once the new player has a profile.
 export const INVITE_CODE_KEY = 'krossi_invite_code';
-// Where the player was when they started Stripe Checkout (Checkout always returns to /pelaa).
-export const AFTER_PAYMENT_KEY = 'krossi_after_payment';
 
 const store = {
   get: (k) => { try { return sessionStorage.getItem(k) || localStorage.getItem(k); } catch { return null; } },
@@ -89,36 +88,65 @@ export function Splash() {
   );
 }
 
-/** Handles ?stripe=success|cancel after Stripe Checkout redirects back. */
+/**
+ * Handles coming back from a payment that left the page: Stripe's hosted Checkout
+ * (?stripe=success|cancel) or a redirect method in the in-app checkout, e.g. MobilePay
+ * (?maksu=1&payment_intent=…&redirect_status=…). Either way the player lands back where they were
+ * (AFTER_PAYMENT_KEY) and the client secret Stripe put in the URL is dropped right away.
+ */
 function useStripeReturn() {
   const route = useRoute();
   const { refreshProfile, user } = useSession();
+  const { openPaywall } = usePaywall();
   const toast = useToast();
   const handled = useRef(false);
   useEffect(() => {
-    const status = route.query.stripe;
-    if (!status || !user || handled.current) return;
+    const { stripe: hosted, payment_intent: intentId, redirect_status: redirectStatus } = route.query;
+    if ((!hosted && !intentId) || !user || handled.current) return;
     handled.current = true;
-    const clean = route.path;
-    if (status === 'success') {
+    const unlocked = () => {
+      toast('Krossi on nyt auki — pelit voi alkaa! 🎾', { icon: 'sparkles', duration: 4200 });
+      confetti();
+    };
+    const slow = () => toast('Maksu vastaanotettu. Avaus voi viedä hetken — päivitä sivu, jos lukko ei aukea.', { tone: 'info', duration: 6000 });
+    const failed = () => {
+      toast('Maksu ei mennyt läpi — mitään ei veloitettu. Kokeile uudelleen tai valitse toinen maksutapa.', { tone: 'error', duration: 6000 });
+      openPaywall();
+    };
+
+    if (hosted === 'success') {
       // The webhook may land a moment after the redirect — poll briefly until paid_at shows up.
       let tries = 0;
       const poll = async () => {
         const p = await refreshProfile();
-        if (p?.paidAt) {
-          toast('Krossi on nyt auki — pelit voi alkaa! 🎾', { icon: 'sparkles', duration: 4200 });
-          confetti();
-        } else if (++tries < 6) setTimeout(poll, 1500);
-        else toast('Maksu vastaanotettu. Avaus voi viedä hetken — päivitä sivu, jos lukko ei aukea.', { tone: 'info', duration: 6000 });
+        if (p?.paidAt) unlocked();
+        else if (++tries < 6) setTimeout(poll, 1500);
+        else slow();
       };
       poll();
-    } else if (status === 'cancel') {
+    } else if (hosted === 'cancel') {
       toast('Maksu peruttiin — mitään ei veloitettu.', { tone: 'info' });
+    } else if (redirectStatus === 'failed') {
+      failed();
+    } else {
+      let tries = 0;
+      const check = async () => {
+        try {
+          const result = await api.payments.verifyPayment(intentId);
+          if (result.paid) { await refreshProfile(); unlocked(); return; }
+          if (result.status !== 'processing') { failed(); return; }
+          if (++tries < 8) setTimeout(check, 1500);
+          else slow();
+        } catch (err) {
+          toast(err);
+        }
+      };
+      check();
     }
     const back = store.get(AFTER_PAYMENT_KEY);
     store.remove(AFTER_PAYMENT_KEY);
-    navigate(back && back.startsWith('/pelaa') ? back : clean, { replace: true });
-  }, [route.query.stripe, route.path, user, refreshProfile, toast]);
+    navigate(back && back.startsWith('/pelaa') ? back : route.path, { replace: true });
+  }, [route.query.stripe, route.query.payment_intent, route.query.redirect_status, route.path, user, refreshProfile, toast, openPaywall]);
 }
 
 function Gate() {

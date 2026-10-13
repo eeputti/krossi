@@ -2,7 +2,7 @@
 // Only a signed-in caller can start a session, and we reuse their existing
 // Stripe customer (stored on profiles) instead of creating a new one every time.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import Stripe from 'npm:stripe@17.7.0?target=deno';
+import Stripe from 'npm:stripe@17.7.0';
 
 const ALLOWED_ORIGINS = ['https://krossi.app', 'https://www.krossi.app'];
 function corsHeaders(req: Request) {
@@ -44,6 +44,17 @@ Deno.serve(async (req: Request) => {
   if (profile?.paid_at) return json(req, { error: 'Olet jo maksanut.' }, 400);
 
   let customerId = profile?.stripe_customer_id || null;
+  // A stored id from the other Stripe mode (sandbox customers after switching to live keys) or a
+  // deleted customer can't be charged: start over with a new customer.
+  if (customerId) {
+    try {
+      const existing = await stripe.customers.retrieve(customerId);
+      if (existing.deleted) customerId = null;
+    } catch (err) {
+      if ((err as { code?: string })?.code !== 'resource_missing') throw err;
+      customerId = null;
+    }
+  }
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: user.email || undefined,

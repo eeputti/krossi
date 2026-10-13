@@ -2,7 +2,7 @@
 // Signature verification (not a Supabase JWT) is the auth here, since Stripe calls
 // this endpoint directly — the function must be deployed with verify_jwt disabled.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import Stripe from 'npm:stripe@17.7.0?target=deno';
+import Stripe from 'npm:stripe@17.7.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -40,15 +40,41 @@ Deno.serve(async (req: Request) => {
   const { error: seenError } = await admin.from('stripe_events').insert({ id: event.id });
   if (seenError) return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
 
+  // Who paid: hosted Checkout (stripe-checkout) or the in-app checkout (krossi-payment).
+  let paid: { userId: string; customerId: string | null; intent?: Stripe.PaymentIntent } | null = null;
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     const userId = session.client_reference_id || session.metadata?.supabase_user_id;
     if (userId && session.payment_status === 'paid') {
-      const { error } = await admin.from('profiles').update({
-        paid_at: new Date().toISOString(),
-        stripe_customer_id: typeof session.customer === 'string' ? session.customer : session.customer?.id,
-      }).eq('id', userId);
-      if (error) console.error('paid_at update failed', error.message);
+      paid = { userId, customerId: (typeof session.customer === 'string' ? session.customer : session.customer?.id) ?? null };
+    }
+  } else if (event.type === 'payment_intent.succeeded') {
+    const intent = event.data.object as Stripe.PaymentIntent;
+    const userId = intent.metadata?.supabase_user_id;
+    if (userId && intent.metadata?.product === 'krossi_unlock') {
+      paid = { userId, customerId: (typeof intent.customer === 'string' ? intent.customer : intent.customer?.id) ?? null, intent };
+    }
+  }
+
+  if (paid) {
+    // First payment wins: a late or repeated event never moves paid_at.
+    const { error } = await admin.from('profiles').update({
+      paid_at: new Date().toISOString(),
+      ...(paid.customerId ? { stripe_customer_id: paid.customerId } : {}),
+    }).eq('id', paid.userId).is('paid_at', null);
+    if (error) {
+      console.error('paid_at update failed', error.message);
+      // Forget the event so Stripe's retry gets another go instead of being skipped as a duplicate.
+      await admin.from('stripe_events').delete().eq('id', event.id);
+      return new Response('paid_at update failed', { status: 500 });
+    }
+    // Same stamp as krossi-payment's applyPayment: this payment has now unlocked the profile once.
+    if (paid.intent && !paid.intent.metadata?.applied_at) {
+      try {
+        await stripe.paymentIntents.update(paid.intent.id, { metadata: { applied_at: new Date().toISOString() } });
+      } catch (err) {
+        console.error('applied_at stamp failed', (err as Error).message);
+      }
     }
   }
 
