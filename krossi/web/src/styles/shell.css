@@ -160,6 +160,7 @@
 .checkout-express { max-height: 0; opacity: 0; overflow: hidden; transition: max-height var(--dur-3) var(--ease-out), opacity var(--dur-2) var(--ease-out); }
 .checkout-express.is-ready { max-height: 160px; opacity: 1; }
 .checkout-express.is-empty { display: none; }
+.checkout-express-skeleton { margin-bottom: -12px; } /* sits in the hidden wallet box's grid gap */
 .checkout-or { display: flex; align-items: center; gap: 12px; color: var(--on-dark-faint); font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .checkout-or::before, .checkout-or::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.14); }
 .checkout-element:not(.is-ready) { height: 0; overflow: hidden; }

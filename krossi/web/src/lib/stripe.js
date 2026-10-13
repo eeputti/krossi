@@ -21,6 +21,20 @@ function loadScript() {
   return script;
 }
 
+/** Opens the connection to Stripe ahead of time without loading Stripe.js (no cookies yet). */
+let preconnected = false;
+export function preconnectStripe() {
+  if (preconnected || typeof document === 'undefined') return;
+  preconnected = true;
+  for (const href of ['https://js.stripe.com', 'https://api.stripe.com']) {
+    const link = document.createElement('link');
+    link.rel = 'preconnect';
+    link.href = href;
+    link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+  }
+}
+
 /** Warms the connection while the player is still reading the paywall. */
 export function preloadStripe() {
   loadScript().catch(() => { /* loadStripe() reports it when it matters */ });

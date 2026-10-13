@@ -7,7 +7,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo } from '../api/index.js';
 import { PRICE_LABEL } from '../lib/constants.js';
-import { isTestKey, preloadStripe } from '../lib/stripe.js';
+import { isTestKey, preconnectStripe, preloadStripe } from '../lib/stripe.js';
 import { Button, Icon, Illustration, Sheet, Skeleton, confetti, useToast } from '../ui/index.js';
 import { AFTER_PAYMENT_KEY, Checkout } from './checkout.jsx';
 import { useSession } from './session.jsx';
@@ -22,13 +22,15 @@ const PERKS = [
 ];
 
 export function PaywallProvider({ children }) {
-  const { user, paid, refreshProfile } = useSession();
+  const { user, paid, needsOnboarding, refreshProfile } = useSession();
   const toast = useToast();
   const [reason, setReason] = useState(null);
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   // In-app checkout setup: { status: 'idle' | 'loading' | 'ready' | 'hosted' | 'error', config?, error? }
   const [checkout, setCheckout] = useState({ status: 'idle' });
+  const checkoutRef = useRef(checkout);
+  checkoutRef.current = checkout;
   const [success, setSuccess] = useState(false);
   const afterPaid = useRef(null);
 
@@ -50,24 +52,38 @@ export function PaywallProvider({ children }) {
     try { await refreshProfile(); } catch { /* the Gate retries on the next load; paid_at is already set */ }
   }, [refreshProfile]);
 
-  const loadCheckout = useCallback(async () => {
+  const loadCheckout = useCallback(async ({ background = false } = {}) => {
     setCheckout({ status: 'loading' });
     try {
       const config = await api.payments.checkoutConfig();
       if (config.paid) {
         // Paid meanwhile (another tab, or MobilePay finished after they left) — just unlock.
         setCheckout({ status: 'idle' });
-        onPaid();
+        if (!background) { onPaid(); return; }
+        await refreshProfile();
+        toast('Maksusi on vastaanotettu — Krossi on auki! 🎾', { icon: 'sparkles', duration: 4200 });
         return;
       }
       setCheckout(config.hosted ? { status: 'hosted' } : { status: 'ready', config });
     } catch (err) {
       setCheckout({ status: 'error', error: err });
     }
-  }, [onPaid]);
+  }, [onPaid, refreshProfile, toast]);
 
   // The config (default billing email) belongs to whoever is signed in.
   useEffect(() => { setCheckout({ status: 'idle' }); }, [user?.id]);
+
+  // Unpaid players: fetch the checkout config once the app has settled, so the sheet opens
+  // straight onto the payment buttons. Stripe.js itself still loads only when the sheet opens.
+  useEffect(() => {
+    if (!user || paid || needsOnboarding || isDemo) return undefined;
+    const t = setTimeout(() => {
+      preconnectStripe();
+      if (checkoutRef.current.status === 'idle') loadCheckout({ background: true });
+    }, 2500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, paid, needsOnboarding]);
 
   useEffect(() => {
     if (!open || paid || isDemo) return;

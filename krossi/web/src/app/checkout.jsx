@@ -149,7 +149,9 @@ export function Checkout({ config, onPaid, onHosted }) {
           buttonTheme: { applePay: 'white', googlePay: 'white' },
           buttonHeight: 50,
           layout: { maxColumns: 1, maxRows: 2, overflow: 'never' },
-          paymentMethods: { link: 'never', paypal: 'never', amazonPay: 'never', klarna: 'never' },
+          // 'always': show the wallet button on a supporting device even before a card is saved
+          // in it (the wallet then offers to add one) — otherwise many players never see it.
+          paymentMethods: { applePay: 'always', googlePay: 'always', link: 'never', paypal: 'never', amazonPay: 'never', klarna: 'never' },
         });
         express.on('ready', ({ availablePaymentMethods }) => {
           if (!cancelled) setWallets(Boolean(availablePaymentMethods && Object.values(availablePaymentMethods).some(Boolean)));
@@ -210,8 +212,10 @@ export function Checkout({ config, onPaid, onHosted }) {
         </p>
       )}
 
+      {/* Wallets first: their spot is held while Stripe checks the device, so nothing jumps. */}
+      {wallets === null && <Skeleton h={50} r={14} className="checkout-express-skeleton" />}
       <div ref={expressBox} className={cx('checkout-express', wallets && 'is-ready', wallets === false && 'is-empty')} />
-      {wallets && <div className="checkout-or" aria-hidden="true"><span>tai</span></div>}
+      {wallets && <div className="checkout-or" aria-hidden="true"><span>tai muulla tavalla</span></div>}
 
       {!ready && (
         <div className="checkout-skeleton" aria-label="Ladataan maksutapoja">
