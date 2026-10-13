@@ -10,6 +10,7 @@
     "smoke:cloudflare": "node scripts/smoke-cloudflare.mjs",
     "deploy:cloudflare": "npm run build:cloudflare && wrangler deploy",
     "send:test-email": "node --env-file=.env.local scripts/send-test-email.mjs",
+    "stripe:setup": "node scripts/stripe-setup.mjs",
     "build:krossi": "node krossi/web/build.mjs",
     "dev:krossi": "node krossi/web/dev.mjs",
     "test:krossi": "node --test \"krossi/web/test/*.test.mjs\""
