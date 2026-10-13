@@ -65,6 +65,9 @@ export function Checkout({ config, onPaid, onHosted }) {
   const [loadError, setLoadError] = useState(null);
   const [ready, setReady] = useState(false);
   const [wallets, setWallets] = useState(null); // null = still checking, false = none on this device
+  // Some browsers never answer the wallet check: stop holding the spot after a moment (a late
+  // answer still shows the buttons).
+  const [walletWait, setWalletWait] = useState(true);
   const [method, setMethod] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -131,7 +134,9 @@ export function Checkout({ config, onPaid, onHosted }) {
     let payment = null;
     setReady(false);
     setWallets(null);
+    setWalletWait(true);
     setLoadError(null);
+    const walletTimer = setTimeout(() => { if (!cancelled) setWalletWait(false); }, 3500);
     (async () => {
       try {
         const stripe = await loadStripe(config.publishableKey);
@@ -183,6 +188,7 @@ export function Checkout({ config, onPaid, onHosted }) {
     })();
     return () => {
       cancelled = true;
+      clearTimeout(walletTimer);
       express?.destroy();
       payment?.destroy();
       stripeRef.current = null;
@@ -213,7 +219,7 @@ export function Checkout({ config, onPaid, onHosted }) {
       )}
 
       {/* Wallets first: their spot is held while Stripe checks the device, so nothing jumps. */}
-      {wallets === null && <Skeleton h={50} r={14} className="checkout-express-skeleton" />}
+      {wallets === null && walletWait && <Skeleton h={50} r={14} className="checkout-express-skeleton" />}
       <div ref={expressBox} className={cx('checkout-express', wallets && 'is-ready', wallets === false && 'is-empty')} />
       {wallets && <div className="checkout-or" aria-hidden="true"><span>tai muulla tavalla</span></div>}
 
