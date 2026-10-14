@@ -11,7 +11,7 @@ Koutsi = valmentajan viikko ja pelaajan kehitys. Pilotin data (10/2026) näyttä
 ovat ryhmät, kalenteri ja viikkoteemat; videot, kotiläksyt, fiilikset ja ottelut ovat nollassa,
 ja 49/80 pelaajalla ei ole tunnusta. Siksi:
 
-- **Valmentaja** avaa sovelluksen viikkostartteriksi: etusivu on *Viikko* (teemojen kattavuus,
+- **Valmentaja** avaa sovelluksen viikkostartteriksi: etusivu on *Koti* (tämä viikko: teemojen kattavuus,
   tämän päivän ja huomisen treenit, läsnäolo yhdellä napautuksella, liittymättömät pelaajat,
   kalenterin loppuminen). Teemat asetetaan yhdellä suunnittelijalla monelle ryhmälle.
 - **Pelaaja** näkee heti viikon teeman ja seuraavan treenin, voi ilmoittaa "En pääse" ja kertoa
@@ -26,7 +26,8 @@ Uusi sovellus palvellaan **samoista osoitteista** kuin vanha (`/valmentaja/*`, `
 mutta vain selaimelle, jolla on eväste `koutsi_uusi=1`:
 
 - `…/valmentaja?uusi=1` (tai `/pelaaja?uusi=1`) → worker asettaa evästeen ja palauttaa uuden kuoren.
-- `…?uusi=0` → eväste poistetaan, vanha kuori.
+- `…?uusi=0` → eväste `koutsi_uusi=0` (vuodeksi): vanha kuori kuten ennen, mutta vanha sovellus näyttää
+  "Siirry uuteen" -napin — vain niille, jotka ovat jo käyttäneet uutta (eväste on olemassa).
 - Ilman evästettä worker toimii **täsmälleen kuten ennen** (testattu jäädytettyä workeria vasten).
 - Sama origin → sama Supabase-istunto (oletus-storageKey), samat OAuth-paluuosoitteet,
   samat kutsulinkit (`/pelaaja?koodi=…&oppilas=…`) ja ilmoitusten `link_path`-arvot.
@@ -96,7 +97,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 
 | Polku | Nimi | Tyyppi |
 |---|---|---|
-| `/valmentaja/viikko` | week | tab (etusivu) |
+| `/valmentaja/koti` | week | tab (etusivu, ent. `/valmentaja/viikko` → uudelleenohjaus) |
 | `/valmentaja/teemat` (`?vko=2026-42`) | planner | overlay (Sheet) |
 | `/valmentaja/ryhmat` | groups | tab |
 | `/valmentaja/ryhma/:id` | group | page |

@@ -32,7 +32,7 @@ function NotFound() {
   return (
     <Page>
       <EmptyState art="search" title="Tätä sivua ei löytynyt" text="Linkki voi olla vanha, tai kohde on poistettu."
-        action={<Button variant="dark" onClick={() => navigate('/valmentaja/viikko', { replace: true })}>Takaisin viikkoon</Button>} />
+        action={<Button variant="dark" onClick={() => navigate('/valmentaja/koti', { replace: true })}>Takaisin kotiin</Button>} />
     </Page>
   );
 }
@@ -42,7 +42,7 @@ const SCREENS = {
   players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet,
   calendar: CalendarScreen, session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen,
   profile: ProfileScreen, admin: AdminScreen,
-  legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect,
+  legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect,
 };
 
 function ActingBanner({ name, onExit }) {
@@ -88,8 +88,8 @@ function CoachShell() {
 
   useEffect(() => {
     // Ylläpito is a real address; once the check says no (or we act as a coach), leave it.
-    if (route.name === 'admin' && adminChecked && !isAdmin) navigate('/valmentaja/viikko', { replace: true });
-    if (acting && route.name === 'profile') navigate('/valmentaja/viikko', { replace: true });
+    if (route.name === 'admin' && adminChecked && !isAdmin) navigate('/valmentaja/koti', { replace: true });
+    if (acting && route.name === 'profile') navigate('/valmentaja/koti', { replace: true });
   }, [route.name, isAdmin, adminChecked, acting]);
 
   const tabs = acting ? TABS.filter((t) => t.id !== 'profiili') : TABS;

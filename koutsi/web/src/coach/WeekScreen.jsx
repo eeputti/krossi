@@ -40,7 +40,7 @@ function CoverageHero({ state }) {
     <section className="week-hero on-dark court-lines rise">
       <div className="week-hero-top">
         <span className="eyebrow">{isNow ? `Viikko ${week.week}` : `Ensi viikko · vko ${week.week}`} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
-        {!acting && <NotificationsButton uid={uid} home="/valmentaja/viikko" variant="on-dark" />}
+        {!acting && <NotificationsButton uid={uid} home="/valmentaja/koti" variant="on-dark" />}
       </div>
       <h1 className="week-hero-title">Moi, {firstName(state.coach.name) || 'valmentaja'}!</h1>
       {state.groups.length === 0 ? (

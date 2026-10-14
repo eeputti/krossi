@@ -47,7 +47,7 @@ export function RenewedIntro({ role, eligible }) {
         <h2 id="k-renewed-title" className="sheet-title">Krossi Koutsin ilme on uudistunut</h2>
         <p className="k-body-text">
           {role === 'coach'
-            ? <>Uutena esimerkiksi <b>Viikko</b>-näkymä, joka kokoaa kaiken yhteen: teemat, treenit ja pelaajien kuulumiset.</>
+            ? <>Uutena esimerkiksi <b>Koti</b>-näkymä, joka kokoaa kaiken yhteen: teemat, treenit ja pelaajien kuulumiset.</>
             : <>Uutena esimerkiksi <b>Koti</b>-näkymä, joka kokoaa kaiken yhteen: viikon teeman, seuraavan treenin ja oman kehityksesi.</>}
         </p>
         <p className="k-renewed-note">

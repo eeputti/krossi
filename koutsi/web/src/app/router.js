@@ -14,7 +14,7 @@
 
 import { createElement, useSyncExternalStore } from 'react';
 
-let config = { canon: '/valmentaja', home: '/valmentaja/viikko', routes: [] };
+let config = { canon: '/valmentaja', home: '/valmentaja/koti', routes: [] };
 let prefix = '';
 let compiled = [];
 const listeners = new Set();

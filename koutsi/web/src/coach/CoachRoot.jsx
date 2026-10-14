@@ -101,7 +101,7 @@ export function CoachRoot() {
 
   const actAs = useCallback(async (coachId) => {
     const verified = await api.admin.actAs(coachId);
-    navigate('/valmentaja/viikko', { replace: true });
+    navigate('/valmentaja/koti', { replace: true });
     setActing(verified);
     setActingFor(uid);
   }, [uid]);
