@@ -6,6 +6,7 @@ import { useLayoutEffect } from 'react';
 import { isDemo } from '../api/index.js';
 import { Avatar, Icon } from '../ui/index.js';
 import { useIsDesktop } from './hooks.js';
+import { RoleSwitch } from '../shared/roleSwitch.jsx';
 import { Link, canonBase, matchRoute, navigationType, savedScroll, useRoute, homePath } from './router.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -90,11 +91,12 @@ function DemoBanner({ signupUrl }) {
 
 // While the renewed Koutsi is an opt-in beta, every screen says which Koutsi this is and the
 // way back is one tap: ?uusi=0 is handled by the worker, so this is a full page load.
+// For a Koutsi admin the text gives way to the Valmentaja | Pelaaja switch (shared/roleSwitch.jsx).
 function BetaBanner() {
   return (
     <div className="top-banner top-banner-beta" role="note">
       <span className="top-banner-tag">Beta</span>
-      <span>Käytät uutta Koutsia</span>
+      <RoleSwitch fallback={<span>Käytät uutta Koutsia</span>} />
       <a href={`${canonBase()}?uusi=0`} className="top-banner-cta">Palaa vanhaan <Icon name="arrow-right" size={14} /></a>
     </div>
   );

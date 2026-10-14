@@ -137,6 +137,8 @@ export const backend = {
       const rest = (st.weekNotes || []).filter((n) => !(n.year === year && n.week === week));
       st.weekNotes = [...rest, { id: newId('wn'), year, week, score, note: note || '', updatedAt: nowIso() }];
     },
+    // The demo has no second role to join; the switch only opens the player demo.
+    async joinOwnGroups(groupIds) { await wait(); return { groups: (groupIds || []).length }; },
     subscribe() { return () => {}; },
   },
 

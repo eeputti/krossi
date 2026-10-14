@@ -322,6 +322,8 @@
   // Row presence is what gates the app; in the demo both always exist.
   window.koutsiFetchCoachRow = (uid) => done(uid === COACH ? { id: COACH } : null);
   window.koutsiFetchStudentRow = (uid) => done(findStudent(uid) ? { id: uid } : null);
+  // Only the admin's role switch asks, and it never runs in the demo.
+  window.koutsiFetchCoachLinksForStudent = (uid) => done(findStudent(uid) ? [{ coach_id: COACH }] : []);
   // ── diary ─────────────────────────────────────────────────────────────────
   window.koutsiAddDiaryEntry = (coachId, studentId, text) => {
     const st = findStudent(studentId);

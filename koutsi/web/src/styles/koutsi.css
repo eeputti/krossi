@@ -34,6 +34,21 @@
 /* The beta bar takes the demo banner's slot, but dark: this is the real app, not a toy. */
 .top-banner-beta { background: var(--green-900); color: rgba(255, 255, 255, 0.88); }
 .top-banner-beta .top-banner-cta { color: var(--lime); }
+/* The admin's Valmentaja | Pelaaja switch inside the beta bar. The negative margin keeps the
+   bar at its usual height (the side nav and top bars are offset by it); the ::after widens the
+   tap area past the drawn pill. */
+.k-roleswitch {
+  display: inline-flex; gap: 2px; margin: -2px 0; padding: 2px; border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.k-roleswitch-btn {
+  position: relative; height: 19px; padding: 0 10px; border-radius: var(--r-pill);
+  font-size: 11.5px; font-weight: 750; letter-spacing: 0.01em; color: rgba(255, 255, 255, 0.72);
+  transition: background-color var(--dur-2), color var(--dur-2);
+}
+.k-roleswitch-btn::after { content: ""; position: absolute; inset: -8px -1px; }
+.k-roleswitch-btn:hover { color: #fff; }
+.k-roleswitch-btn.is-on { background: var(--lime); color: #101A08; cursor: default; }
 .top-banner-tag {
   display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: var(--r-pill);
   background: var(--lime); color: #101A08; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;

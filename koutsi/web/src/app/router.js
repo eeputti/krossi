@@ -40,6 +40,8 @@ export function configureRouter(next) {
 
 export function homePath() { return config.home; }
 export function canonBase() { return config.canon; }
+/** The address the browser loads for a canonical path — for a full page load into the other app. */
+export function browserPath(path) { return toBrowser(path); }
 
 export function matchRoute(path) {
   for (const { route, re, keys } of compiled) {
