@@ -1,7 +1,7 @@
 // WeekScreen — the coach's home ("Koti"): what a weekly visit needs, in order. On a phone the
 // avatar in the corner is the way to Profiili (the tab bar's middle is "Merkitse").
 //   1. this week's theme coverage, with the one- or two-tap fix
-//   2. today's and tomorrow's sessions (attendance is one tap away)
+//   2. today on a timeline — over, running, still to come — then tomorrow in one line
 //   3. things that need the coach: calendars running out, players who haven't joined
 //   4. what players did lately
 import { useMemo, useState } from 'react';
@@ -25,6 +25,7 @@ import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
 import { WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
+import { TodayTimeline } from './today.jsx';
 
 function CoverageHero({ state }) {
   const { uid, acting } = useCoach();
@@ -85,18 +86,6 @@ function CoverageHero({ state }) {
         </>
       )}
     </section>
-  );
-}
-
-function DaySessions({ state, date, label, now }) {
-  const items = coachSessionsOn(state, date);
-  if (!items.length) return null;
-  return (
-    <Block eyebrow={label} title={koutsiFmtShortDate(date)}>
-      <div className="k-list stagger">
-        {items.map((item, i) => <div key={item.training.id} style={{ '--i': i }}><SessionRow item={item} now={now} /></div>)}
-      </div>
-    </Block>
   );
 }
 
@@ -221,8 +210,7 @@ export function WeekScreen() {
 
   const sessions = (
     <div className="stack-5">
-      <DaySessions state={state} date={today} label="Tänään" now={now} />
-      <DaySessions state={state} date={tomorrow} label="Huomenna" now={now} />
+      <TodayTimeline state={state} now={now} />
       {!hasToday && !hasTomorrow && <NextSession state={state} />}
     </div>
   );

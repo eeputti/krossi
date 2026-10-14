@@ -1,0 +1,217 @@
+/* board.css — the coach's day and week at a glance: the Ryhmät week board (gb-), today's
+   timeline on Koti (tt-) and the session strip in the Merkitse menu (ms-). Only tokens. */
+
+/* ── Ryhmät: the week board ──────────────────────────────── */
+.page-full { max-width: calc(1480px + 2 * var(--gutter)); }
+.gb-page { padding-bottom: 24px; }
+.gb-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; padding: calc(16px + var(--safe-top)) 0 4px; }
+.has-top-banner .gb-head { padding-top: 14px; }
+.gb-week { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.gb-week-text { min-width: 0; display: grid; gap: 2px; }
+.gb-week-title { font-size: 30px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.gb-week-range { font-size: 14px; font-weight: 650; color: var(--muted); }
+.gb-back { justify-self: start; margin-top: 2px; font-size: 13px; }
+.gb-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.gb-sub { margin: 8px 0 14px; font-size: 13.5px; color: var(--muted); }
+
+.gb-board { display: grid; gap: 10px; align-items: start; }
+.gb-day { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 8px; min-width: 0; }
+.gb-day-head {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; padding: 4px 2px 8px;
+  border-bottom: 2px solid var(--line);
+}
+.gb-day-name { font-size: 14px; font-weight: 800; letter-spacing: 0.02em; color: var(--ink); }
+.gb-day-long { display: none; }
+.gb-day-date { font-size: 12.5px; font-weight: 650; color: var(--muted); }
+.gb-day.is-today .gb-day-head { border-bottom-color: var(--lime); }
+.gb-day.is-today .gb-day-name { color: var(--green-700); }
+.gb-today {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 8px; margin-left: auto; border-radius: var(--r-pill);
+  background: var(--lime); color: #101A08; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.gb-day.is-past .gb-card:not(.is-missing) { background: var(--surface-2); }
+.gb-day-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.gb-empty { padding: 10px 2px; font-size: 12.5px; color: var(--faint); }
+
+.gb-card {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 10px 11px 11px; border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); color: var(--ink);
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2), box-shadow var(--dur-2);
+}
+.gb-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); }
+.gb-card:active { transform: scale(0.98); }
+.gb-card.is-now { border-color: rgba(180, 205, 20, 0.85); box-shadow: 0 0 0 3px rgba(207, 228, 20, 0.25), var(--shadow-1); }
+.gb-card.is-missing { background: transparent; border-style: dashed; box-shadow: none; color: var(--muted); }
+.gb-card-time { font-size: 13px; font-weight: 800; color: var(--green-800); }
+.gb-card.is-missing .gb-card-time { color: var(--faint); }
+.gb-card-name { font-size: 14.5px; font-weight: 750; line-height: 1.25; overflow-wrap: anywhere; }
+.gb-card.is-missing .gb-card-name { color: var(--muted); }
+.gb-card-meta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.gb-card-theme { display: flex; align-items: flex-start; gap: 4px; margin-top: 2px; font-size: 12.5px; font-weight: 650; line-height: 1.3; }
+.gb-card-theme svg { flex-shrink: 0; margin-top: 1px; }
+.gb-card-theme-text { min-width: 0; overflow-wrap: anywhere; }
+.gb-card-theme.has-theme { color: var(--success); }
+.gb-card-theme.no-theme { color: var(--warn); font-weight: 600; }
+.gb-card-note { margin-top: 2px; font-size: 12px; font-style: italic; color: var(--faint); }
+.gb-card-live { display: inline-flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; font-weight: 800; color: #4A5605; }
+.gb-card-absent { margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--warn); }
+
+/* the day strip only exists on a phone, where the board scrolls a day at a time */
+.gb-strip { display: none; }
+.gb-loose { margin-top: 24px; }
+.gb-bulk { margin-top: 18px; }
+
+@media (min-width: 900px) {
+  .gb-head { padding-top: 32px; }
+  .gb-week-title { font-size: 36px; }
+  .gb-board { grid-auto-flow: column; }
+}
+/* narrow desktop: seven columns still fit, with a smaller card */
+@media (min-width: 900px) and (max-width: 1180px) {
+  .gb-board { gap: 6px; }
+  .gb-card { padding: 8px 8px 9px; }
+  .gb-card-name { font-size: 13.5px; }
+  .gb-today { display: none; }
+}
+
+@media (max-width: 899px) {
+  .gb-week { flex: 1 1 auto; }
+  .gb-week-text { flex: 1; }
+  .gb-week-title { font-size: 28px; }
+  .gb-actions { width: 100%; }
+  .gb-actions > :last-child { margin-left: auto; }
+  .gb-sub { margin: 6px 0 10px; }
+  .gb-strip {
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; position: sticky; z-index: 3;
+    top: calc(var(--safe-top) + 0px); margin: 0 calc(-1 * var(--gutter)) 10px; padding: 8px var(--gutter);
+    background: rgba(247, 245, 239, 0.92); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
+  }
+  .has-top-banner .gb-strip { top: calc(33px + var(--safe-top)); }
+  .gb-strip-day {
+    display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 0 5px; border-radius: var(--r-md);
+    color: var(--muted); -webkit-tap-highlight-color: transparent; transition: background-color var(--dur-2), color var(--dur-2);
+  }
+  .gb-strip-dow { font-size: 11px; font-weight: 750; letter-spacing: 0.04em; text-transform: uppercase; }
+  .gb-strip-num { font-size: 17px; font-weight: 800; color: var(--ink); }
+  .gb-strip-dot { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
+  .gb-strip-dot.has-groups { background: var(--green-600); }
+  .gb-strip-day.is-today .gb-strip-dow { color: var(--green-700); }
+  .gb-strip-day.is-today .gb-strip-num { color: var(--green-700); }
+  .gb-strip-day.is-active { background: var(--green-800); color: var(--on-dark-muted); }
+  .gb-strip-day.is-active .gb-strip-num { color: #fff; }
+  .gb-strip-day.is-active .gb-strip-dow { color: var(--on-dark-muted); }
+  .gb-strip-day.is-active.is-today .gb-strip-dow { color: var(--lime); }
+  .gb-strip-day.is-active .gb-strip-dot.has-groups { background: var(--lime); }
+
+  /* one day per screen, the next one peeking in from the right */
+  .gb-board {
+    display: flex; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory;
+    margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) 4px; scroll-padding-inline: var(--gutter); scrollbar-width: none;
+  }
+  .gb-board::-webkit-scrollbar { display: none; }
+  .gb-day { flex: 0 0 86%; scroll-snap-align: start; }
+  .gb-day-short { display: none; }
+  .gb-day-long { display: inline; }
+  .gb-day-name { font-size: 16px; }
+  .gb-card { padding: 12px 14px; }
+  .gb-card-name { font-size: 15.5px; }
+}
+
+/* ── Koti: today's timeline ──────────────────────────────── */
+.tt-summary { font-size: 13px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+.tt-line { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 2px 0 0; padding: 0 0 0 24px; list-style: none; }
+.tt-line::before { content: ""; position: absolute; left: 7px; top: 14px; bottom: 14px; width: 2px; border-radius: 2px; background: var(--line); }
+.tt-item { position: relative; min-width: 0; }
+.tt-dot {
+  position: absolute; left: -24px; top: 15px; z-index: 1; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--bg); border: 2px solid var(--line-strong); color: #fff;
+}
+.tt-item.is-past .tt-dot { background: var(--green-600); border-color: var(--green-600); }
+.tt-item.is-now .tt-dot { background: var(--lime); border-color: var(--green-800); box-shadow: 0 0 0 4px rgba(207, 228, 20, 0.3); }
+.tt-card {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 12px; padding: 12px 12px 12px 14px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+}
+.tt-item.is-past .tt-card { background: var(--surface-2); }
+.tt-item.is-now .tt-card { border-color: rgba(180, 205, 20, 0.85); box-shadow: 0 0 0 3px rgba(207, 228, 20, 0.25), var(--shadow-1); }
+.tt-main { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: var(--ink); }
+.tt-main:active { opacity: 0.8; }
+.tt-time { font-size: 13px; font-weight: 800; color: var(--green-800); }
+.tt-item.is-past .tt-time { color: var(--muted); }
+.tt-name { font-size: 15.5px; font-weight: 750; line-height: 1.25; overflow-wrap: anywhere; }
+.tt-state { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.tt-item.is-now .tt-state { color: #4A5605; font-weight: 700; }
+.tt-theme { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 650; color: var(--success); }
+.tt-progress { display: block; height: 4px; margin-top: 6px; border-radius: 999px; background: var(--sand); overflow: hidden; }
+.tt-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--green-700); transition: width var(--dur-3) var(--ease-out); }
+.tt-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.tt-plus { flex-shrink: 0; }
+.tt-now { position: relative; display: flex; align-items: center; gap: 8px; min-height: 16px; }
+.tt-now::before {
+  content: ""; position: absolute; left: -21px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%;
+  background: var(--clay); box-shadow: 0 0 0 3px var(--bg);
+}
+.tt-now::after { content: ""; flex: 1; height: 2px; border-radius: 2px; background: var(--clay); opacity: 0.5; }
+.tt-now-label { font-size: 12px; font-weight: 800; color: #8A3A1A; }
+.tt-tomorrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; }
+.tt-tomorrow-label { margin-right: 2px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.tt-chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 32px; padding: 0 12px; border-radius: var(--r-pill);
+  background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 650; color: var(--ink-2);
+}
+.tt-chip:hover { border-color: var(--line-strong); }
+.tt-chip .t-num { font-weight: 800; color: var(--green-800); }
+@media (max-width: 899px) {
+  /* the session on now: its two buttons share the card's width under the text */
+  .tt-item.is-highlight .tt-actions { width: 100%; }
+  .tt-item.is-highlight .tt-actions > * { flex: 1 1 0; }
+}
+
+/* a group's page: its session today */
+.tt-group-today {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 16px; border-radius: var(--r-lg);
+  background: var(--lime-100); border: 1px solid rgba(180, 205, 20, 0.45);
+}
+.tt-group-today.is-now { background: var(--green-800); border-color: var(--green-800); color: #fff; }
+.tt-group-today.is-past { background: var(--surface-2); border-color: var(--line); }
+.tt-group-today-text { flex: 1 1 200px; min-width: 0; display: grid; gap: 3px; }
+.tt-group-today-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #4A5605; }
+.tt-group-today.is-now .tt-group-today-eyebrow { color: var(--lime); }
+.tt-group-today.is-past .tt-group-today-eyebrow { color: var(--muted); }
+.tt-group-today-state { font-size: 15px; font-weight: 750; }
+.tt-group-today.is-now .tt-progress { background: rgba(255, 255, 255, 0.16); }
+.tt-group-today.is-now .tt-progress > span { background: var(--lime); }
+
+/* ── Merkitse: today's sessions to pick from ─────────────── */
+.ms-today { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.ms-today-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ms-today-count { font-size: 12.5px; font-weight: 650; color: var(--muted); }
+.ms-strip {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 2px 20px 4px; scroll-padding-inline: 20px;
+}
+.ms-strip::-webkit-scrollbar { display: none; }
+.ms-chip {
+  flex: 1 0 128px; max-width: 220px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; text-align: left;
+  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+  -webkit-tap-highlight-color: transparent; transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-2), border-color var(--dur-2);
+}
+.ms-chip:active { transform: scale(0.97); }
+.ms-chip.is-past { background: var(--surface-2); }
+.ms-chip-time { font-size: 13px; font-weight: 800; color: var(--green-800); }
+.ms-chip-name {
+  min-height: 2.5em; font-size: 13.5px; font-weight: 750; line-height: 1.25; color: var(--ink);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ms-chip-state { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 750; color: var(--muted); }
+.ms-chip.is-now .ms-chip-state { color: #4A5605; }
+.ms-chip.is-picked { background: var(--green-800); border-color: var(--green-800); box-shadow: var(--shadow-2); }
+.ms-chip.is-picked .ms-chip-time { color: var(--lime); }
+.ms-chip.is-picked .ms-chip-name { color: #fff; }
+.ms-chip.is-picked .ms-chip-state { color: var(--on-dark-muted); }
+.ms-picked { display: flex; align-items: baseline; gap: 10px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+.ms-picked .k-textlink { flex-shrink: 0; }
+/* with a mouse there is no swipe: on a desktop the sessions share the row (and wrap) */
+@media (min-width: 900px) {
+  .ms-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); overflow: visible; margin: 0; padding: 0; }
+  .ms-chip { max-width: none; }
+}

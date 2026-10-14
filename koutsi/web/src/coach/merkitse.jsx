@@ -1,11 +1,14 @@
 // merkitse.jsx — the coach's "Merkitse": the big middle button of the phone tab bar (the side
-// nav's button on a desktop) and everything it opens. The menu leads with what is happening
-// today — the session on now or just over (one tap opens it), the next one, the day's summary
-// once the last session is over, the week's on Sundays — and then six tiles: the week's themes,
-// a note, homework or a video for one player or a whole group, attendance and the week diary.
+// nav's button on a desktop) and everything it opens. The menu leads with today: every session
+// side by side with where it stands (over, on now, to come), the one on now or just over — or
+// the next — already picked, so the tiles below are for its players: a note, homework or a video
+// for the ones who were there, its attendance. Tapping another session picks it instead (again
+// unpicks it: then the tiles are for anyone). The day's summary shows once the last session is
+// over, the week's on Sundays; the week's themes and the week diary are tiles too.
 //
 // RecordProvider also lets any page open the note/homework/video sheets with players picked
-// (a session's players, a group's members, one player): useRecord().open('note', { ids }).
+// (a session's players, a group's members, one player): useRecord().open('note', { ids }), and
+// the menu with a session picked: useRecord().openMenu({ trainingId }).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
@@ -13,14 +16,12 @@ import { useNow } from '../app/hooks.js';
 import { navigate, useRoute } from '../app/router.js';
 import { Icon, Sheet, useToast } from '../ui/index.js';
 import { VideoShareSheet } from '../shared/videos.jsx';
+import { koutsiCurrentIsoWeek, koutsiFmtShortDate, koutsiTodayStr, koutsiWeekThemeStatus } from '../domain/core.js';
 import {
-  koutsiCurrentIsoWeek, koutsiThemeForDate, koutsiTimeRangeLabel, koutsiTodayStr, koutsiWeekThemeStatus,
-} from '../domain/core.js';
-import {
-  attendanceSession, dayRecap, merkitseContext, plannerDefaultWeek, presentPlayerIds, sessionRoster, sessionStatus, weekRecap,
+  attendanceSession, dayRecap, merkitseContext, plannerDefaultWeek, presentPlayerIds, sessionStatus, todayTimeline, weekRecap,
 } from '../domain/week.js';
 import { useCoach } from './CoachRoot.jsx';
-import { openPlanner, sessionPath } from './nav.js';
+import { groupPath, openPlanner, sessionPath } from './nav.js';
 import { RecordSheet } from './RecordSheet.jsx';
 import { DaySummarySheet } from './DaySummarySheet.jsx';
 import { WeekRecapSheet } from './WeekRecapSheet.jsx';
@@ -32,7 +33,7 @@ const average = (x) => x.toFixed(1).replace('.', ',');
 const KIND_EVENT = { note: 'huomio', homework: 'laksy', video: 'video' };
 
 const RecordContext = createContext(null);
-/** { openMenu(), open('note' | 'homework' | 'video', { ids, source: 'treeni' | 'ryhma' | 'pelaaja' }) } */
+/** { openMenu({ trainingId? }), open('note' | 'homework' | 'video', { ids, source: 'treeni' | 'ryhma' | 'pelaaja' }) } */
 export function useRecord() {
   const ctx = useContext(RecordContext);
   if (!ctx) throw new Error('useRecord must be used inside RecordProvider');
@@ -40,26 +41,38 @@ export function useRecord() {
 }
 
 const sessionName = (item) => item.group?.name || item.student?.name || item.training.type;
+const forPlayers = (n) => (n === 1 ? '1 pelaajalle' : `${n} pelaajalle`);
+const STRIP_STATE = { past: 'Ohi', now: 'Nyt', upcoming: 'Tulossa' };
 
-/** One of today's sessions as the menu's lead card; a tap opens the session. */
-function SessionCard({ state, item, kind, now, onOpen }) {
-  const { training, group } = item;
-  const roster = sessionRoster(state, training);
-  const absent = (training.absences || []).length;
-  const theme = group ? koutsiThemeForDate(group, training.date) : null;
-  const eyebrow = kind === 'now' ? 'Käynnissä nyt' : kind === 'ended' ? 'Juuri päättyi' : 'Seuraavaksi tänään';
-  const who = kind === 'ended' && roster.length
-    ? `Läsnä ${roster.length - absent}/${roster.length}`
-    : `${roster.length === 1 ? '1 pelaaja' : `${roster.length} pelaajaa`}${absent ? ` · ${absent} poissa` : ''}`;
+/** The session the menu opens with: the one on now, just over or next today, else none. */
+export function defaultPick(state, now = new Date()) {
+  const ctx = merkitseContext(state, now);
+  return ctx && (ctx.kind === 'now' || ctx.kind === 'ended' || ctx.kind === 'next') ? ctx.items[0].training.id : null;
+}
+
+/** Today's sessions side by side; the picked one is who the tiles below are for. */
+function SessionStrip({ items, pickedId, onPick }) {
+  const ref = useRef(null);
+  // Keep the picked session in view when the strip is wider than the sheet.
+  useEffect(() => {
+    const box = ref.current;
+    const chip = box?.querySelector('.is-picked');
+    if (box && chip) box.scrollLeft = Math.max(0, chip.offsetLeft - box.offsetLeft - (box.clientWidth - chip.offsetWidth) / 2);
+  }, [pickedId, items.length]);
   return (
-    <button type="button" className={cx('k-ctx', kind === 'next' ? 'is-soft' : 'is-strong')} onClick={onOpen}>
-      <span className="k-ctx-main">
-        <span className="k-ctx-eyebrow">{kind === 'now' && sessionStatus(training, group, now) === 'now' && <span className="k-ctx-live" aria-hidden="true" />}{eyebrow}</span>
-        <span className="k-ctx-title truncate">{sessionName(item)}</span>
-        <span className="k-ctx-sub truncate">klo {koutsiTimeRangeLabel(training.time, training.durationMinutes || group?.durationMinutes)} · {who}{theme ? ` · ${theme.title}` : ''}</span>
-      </span>
-      <Icon name="chevron-right" size={20} />
-    </button>
+    <div className="ms-strip" ref={ref} role="radiogroup" aria-label="Tämän päivän treenit">
+      {items.map((it) => {
+        const picked = it.training.id === pickedId;
+        return (
+          <button key={it.training.id} type="button" role="radio" aria-checked={picked}
+            className={cx('ms-chip', `is-${it.status}`, picked && 'is-picked')} onClick={() => onPick(picked ? null : it.training.id)}>
+            <span className="ms-chip-time t-num">{it.training.time}–{it.end}</span>
+            <span className="ms-chip-name">{sessionName(it)}</span>
+            <span className="ms-chip-state">{it.status === 'now' && <span className="k-ctx-live" aria-hidden="true" />}{STRIP_STATE[it.status]}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -76,19 +89,9 @@ function SummaryCard({ eyebrow, title, sub, onOpen }) {
   );
 }
 
-function ContextCards({ state, ctx, now, onPick, onClose }) {
-  if (!ctx) return null;
-  const event = { now: 'merkitse.nyt', ended: 'merkitse.paattyi', next: 'merkitse.seuraava' }[ctx.kind];
-  if (event) {
-    return (
-      <div className="k-ctx-list">
-        {ctx.items.map((item) => (
-          <SessionCard key={item.training.id} state={state} item={item} kind={ctx.kind} now={now}
-            onOpen={() => { track(event); onClose(); navigate(sessionPath(item.training.id)); }} />
-        ))}
-      </div>
-    );
-  }
+/** Once the day (or, on a Sunday, the week) is over: its summary. */
+function SummaryCards({ state, ctx, now, onPick }) {
+  if (!ctx || (ctx.kind !== 'day' && ctx.kind !== 'week')) return null;
   if (ctx.kind === 'day') {
     const today = koutsiTodayStr();
     const recap = dayRecap(state, today, now);
@@ -109,33 +112,55 @@ function ContextCards({ state, ctx, now, onPick, onClose }) {
   );
 }
 
-function MerkitseSheet({ open, onClose, onPick }) {
+function MerkitseSheet({ open, onClose, onPick, pickedId, onPickSession }) {
   const { state } = useData();
   const nowMs = useNow(30_000);
   const now = new Date(nowMs);
   const ctx = merkitseContext(state, now);
-  const attend = attendanceSession(state, now);
+  const today = todayTimeline(state, now);
+  const picked = today.find((it) => it.training.id === pickedId) || null;
+  // Default "Läsnäolo" (nothing picked): the session on now or just over, else today's latest held one.
+  const attend = picked || attendanceSession(state, now);
   const themeWeek = plannerDefaultWeek(now);
   const themes = koutsiWeekThemeStatus(state.groups, state.trainings, themeWeek);
-  // After (or during) a session, a note is most likely for the players who were there.
-  const preset = ctx && (ctx.kind === 'now' || ctx.kind === 'ended') ? presentPlayerIds(state, ctx.items[0].training) : [];
+  // A note for a session is most likely for the players who were there (or are coming).
+  const preset = picked ? presentPlayerIds(state, picked.training) : [];
+  const recordSub = picked ? forPlayers(preset.length) : 'Yhdelle tai koko ryhmälle';
   const attendSub = !attend ? 'Ei treeniä tänään'
     : `${sessionStatus(attend.training, attend.group, now) === 'now' ? 'Nyt' : `klo ${attend.training.time}`} · ${sessionName(attend)}`;
   const tiles = [
     { id: 'teemat', icon: 'sparkles', tone: 'lime', title: 'Viikon teemat',
       sub: themes.pool.length ? `${themes.covered}/${themes.pool.length} ryhmällä · vko ${themeWeek.week}` : 'Usealle ryhmälle kerralla',
       run: () => { onClose(); openPlanner({ week: themeWeek }); } },
-    { id: 'huomio', icon: 'chat', tone: 'blue', title: 'Huomio', sub: 'Yhdelle tai koko ryhmälle', run: () => onPick({ kind: 'note', ids: preset }) },
-    { id: 'laksy', icon: 'check-circle', tone: 'green', title: 'Kotiläksy', sub: 'Yhdelle tai koko ryhmälle', run: () => onPick({ kind: 'homework', ids: preset }) },
-    { id: 'video', icon: 'play', tone: 'clay', title: 'Video', sub: 'Yhdelle tai koko ryhmälle', run: () => onPick({ kind: 'video', ids: preset }) },
+    { id: 'huomio', icon: 'chat', tone: 'blue', title: 'Huomio', sub: recordSub, run: () => onPick({ kind: 'note', ids: preset }) },
+    { id: 'laksy', icon: 'check-circle', tone: 'green', title: 'Kotiläksy', sub: recordSub, run: () => onPick({ kind: 'homework', ids: preset }) },
+    { id: 'video', icon: 'play', tone: 'clay', title: 'Video', sub: recordSub, run: () => onPick({ kind: 'video', ids: preset }) },
     { id: 'lasnaolo', icon: 'user-check', tone: 'sand', title: 'Läsnäolo', sub: attendSub,
       run: () => { onClose(); navigate(attend ? sessionPath(attend.training.id) : '/valmentaja/kalenteri'); } },
     { id: 'paivakirja', icon: 'book', tone: 'ink', title: 'Viikkopäiväkirja', sub: 'Vain sinulle', run: () => onPick({ kind: 'week', week: koutsiCurrentIsoWeek() }) },
   ];
+  const openGroup = () => { track('merkitse.ryhma'); onClose(); navigate(groupPath(picked.group.id), { state: { tab: 'ryhmat' } }); };
   return (
     <Sheet open={open} onClose={onClose} title="Mitä kirjataan?" size="md">
       <div className="stack-4">
-        <ContextCards state={state} ctx={ctx} now={now} onPick={onPick} onClose={onClose} />
+        {today.length > 0 && (
+          <div className="ms-today">
+            <div className="ms-today-head">
+              <span className="eyebrow">Tänään · {koutsiFmtShortDate(koutsiTodayStr())}</span>
+              <span className="ms-today-count">{today.length === 1 ? '1 treeni' : `${today.length} treeniä`}</span>
+            </div>
+            <SessionStrip items={today} pickedId={pickedId} onPick={(id) => { track('merkitse.valitse'); onPickSession(id); }} />
+            <p className="ms-picked">
+              {picked ? (
+                <>
+                  <span className="grow">Kirjaat treeniin <strong>{sessionName(picked)}</strong> · {preset.length === 1 ? '1 pelaaja' : `${preset.length} pelaajaa`}</span>
+                  {picked.group && <button type="button" className="k-textlink" onClick={openGroup}>Avaa ryhmä</button>}
+                </>
+              ) : <span className="grow">Valitse treeni, niin kirjaus menee sen pelaajille.</span>}
+            </p>
+          </div>
+        )}
+        <SummaryCards state={state} ctx={ctx} now={now} onPick={onPick} />
         <div className="k-merkitse-grid">
           {tiles.map((t) => (
             <button key={t.id} type="button" className="k-merkitse-tile" onClick={() => { track(`merkitse.${t.id}`); t.run(); }}>
@@ -155,7 +180,7 @@ export function RecordProvider({ children }) {
   const { coachId } = useCoach();
   const toast = useToast();
   const route = useRoute();
-  // { kind: 'menu' | 'note' | 'homework' | 'video' | 'day' | 'week', ids?, date?, week? }
+  // { kind: 'menu' | 'note' | 'homework' | 'video' | 'day' | 'week', ids?, date?, week?, trainingId? }
   const [sheet, setSheet] = useState(null);
   // The last of each kind stays while its sheet animates away (sheet is already null then).
   const last = useRef({});
@@ -172,7 +197,14 @@ export function RecordProvider({ children }) {
     if (source) track(`${source}.${KIND_EVENT[kind]}`);
     setSheet({ kind, ids });
   }, []);
-  const openMenu = useCallback(() => { track('merkitse.avaa'); setSheet({ kind: 'menu' }); }, []);
+  // The menu opens on the session asked for, else the one on now, just over or next today.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const openMenu = useCallback(({ trainingId } = {}) => {
+    track('merkitse.avaa');
+    setSheet({ kind: 'menu', trainingId: trainingId || defaultPick(stateRef.current) });
+  }, []);
+  const pickSession = useCallback((trainingId) => setSheet((s) => (s?.kind === 'menu' ? { ...s, trainingId } : s)), []);
 
   // The video sheet shows a failed upload itself (and keeps the form), so no toast for errors.
   const shareVideo = async (payload) => {
@@ -189,7 +221,7 @@ export function RecordProvider({ children }) {
   return (
     <RecordContext.Provider value={value}>
       {children}
-      <MerkitseSheet open={kind === 'menu'} onClose={close} onPick={setSheet} />
+      <MerkitseSheet open={kind === 'menu'} onClose={close} onPick={setSheet} pickedId={last.current.menu?.trainingId || null} onPickSession={pickSession} />
       <RecordSheet open={kind === 'note' || kind === 'homework'} kind={last.current.record?.kind || 'note'} initialIds={sheet?.ids || []} onClose={close} />
       <VideoShareSheet open={kind === 'video'} onClose={close} recipients={state.students} initialIds={sheet?.ids || []} groups={state.groups} onSave={shareVideo} />
       <DaySummarySheet open={kind === 'day'} date={last.current.day?.date} onClose={close} />

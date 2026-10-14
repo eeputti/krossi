@@ -1,9 +1,10 @@
-// GroupScreen — one group: schedule, a note / homework / video for the whole group, this week's
-// theme (and the next and earlier ones), upcoming sessions, members, inviting, and the rarely
-// used things behind "Lisää".
+// GroupScreen — one group: schedule, today's session (attendance and Merkitse one tap away),
+// a note / homework / video for the whole group, this week's theme (and the next and earlier
+// ones), upcoming sessions, members, inviting, and the rarely used things behind "Lisää".
 import { useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
+import { useNow } from '../app/hooks.js';
 import { Avatar, Button, Card, Chip, Disclosure, EmptyState, Icon, IconButton, Page, TopBar, useConfirm } from '../ui/index.js';
 import { Block, CopyButton, Quiet, ThemeCard, useShowMore } from '../shared/bits.jsx';
 import {
@@ -15,6 +16,7 @@ import { playerPath } from './nav.js';
 import { groupWhen, SessionRow } from './parts.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { useRecord } from './merkitse.jsx';
+import { GroupTodayCard } from './today.jsx';
 import { Link } from '../app/router.js';
 import {
   AddMembersSheet, AnnualPlanBlock, ExtendCalendarSheet, GroupFormSheet, GroupInviteSheet, SlotFormSheet, lastSessionDate, useGroupDelete,
@@ -119,6 +121,7 @@ export function GroupScreen({ params }) {
   const confirm = useConfirm();
   const deleteGroup = useGroupDelete();
   const record = useRecord();
+  const nowMs = useNow(60_000);
   const [sheet, setSheet] = useState(null); // 'edit' | 'slot' | 'members' | 'invite' | 'extend'
   const group = state.groups.find((g) => g.id === params.id);
   if (!group) {
@@ -150,6 +153,7 @@ export function GroupScreen({ params }) {
             <Button variant={endsSoon ? 'dark' : 'ghost'} size="sm" icon="repeat" onClick={() => setSheet('extend')}>Jatka</Button>
           </div>
         </header>
+        <GroupTodayCard state={state} group={group} now={new Date(nowMs)} />
         {memberIds.length > 0 && (
           <div className="k-quick">
             <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: memberIds, source: 'ryhma' })}>Huomio</Button>

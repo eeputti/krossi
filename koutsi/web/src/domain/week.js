@@ -1,11 +1,12 @@
 // week.js — the coach's week: labels, the default planning week, today's agenda, calendars
-// that are about to run out, player activity since the coach last looked, and unjoined players.
+// that are about to run out, player activity since the coach last looked, unjoined players,
+// today's timeline and the Ryhmät page's week board.
 // Pure functions over the loaded state (see domain/core.js for the shared helpers).
 
 import {
   koutsiCurrentIsoWeek, koutsiAddIsoWeeks, koutsiIsoWeekRangeLabel, koutsiIsoWeekStart, koutsiTodayStr,
   koutsiAddDays, koutsiAddMinutesToTime, koutsiPad, koutsiSortGroupsBySchedule, koutsiGroupById,
-  koutsiStudentById, koutsiIsoWeekOfDateStr, koutsiCompareIsoWeeks,
+  koutsiStudentById, koutsiIsoWeekOfDateStr, koutsiCompareIsoWeeks, KOUTSI_WEEKDAY_TO_INDEX,
 } from './core.js';
 
 export const DAY_NAMES = { Ma: 'Maanantai', Ti: 'Tiistai', Ke: 'Keskiviikko', To: 'Torstai', Pe: 'Perjantai', La: 'Lauantai', Su: 'Sunnuntai' };
@@ -289,4 +290,90 @@ export function attendanceSession(state, now = new Date()) {
   const items = coachSessionsOn(state, koutsiTodayStr());
   const held = items.filter((it) => sessionStatus(it.training, it.group, now) === 'past');
   return held[held.length - 1] || items.find((it) => sessionStatus(it.training, it.group, now) === 'upcoming') || null;
+}
+
+/** "25 min", "1 h", "1 h 55 min" — how long until a session starts or ends. */
+export function minutesLabel(minutes) {
+  const m = Math.max(0, Math.round(minutes));
+  if (m < 60) return `${m} min`;
+  return m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} h`;
+}
+
+/**
+ * Today's coach-run sessions as a timeline, by time: each with where it stands ('past' | 'now'
+ * | 'upcoming'), when it ends, the minutes left (running) or until it starts (upcoming), how far
+ * it has run (0–1), and who is expected and who is there.
+ */
+export function todayTimeline(state, now = new Date()) {
+  const minutesNow = toMinutes(nowHHMM(now));
+  return coachSessionsOn(state, koutsiTodayStr()).map((item) => {
+    const { training, group } = item;
+    const status = sessionStatus(training, group, now);
+    const end = sessionEnd(training, group);
+    const start = toMinutes(training.time);
+    const stop = Math.max(start + 1, toMinutes(end));
+    const roster = sessionRoster(state, training).length;
+    const absent = (training.absences || []).length;
+    return {
+      ...item,
+      status,
+      end,
+      roster,
+      absent,
+      present: Math.max(0, roster - absent),
+      minutesLeft: status === 'now' ? stop - minutesNow : null,
+      minutesUntil: status === 'upcoming' ? start - minutesNow : null,
+      progress: status === 'past' ? 1 : status === 'now' ? Math.min(1, Math.max(0, (minutesNow - start) / (stop - start))) : 0,
+    };
+  });
+}
+
+/** A group's weekly times: its own day and time, then its extra slots. */
+export function groupTimes(group) {
+  const main = group.day ? [{ day: group.day, time: group.time, durationMinutes: group.durationMinutes }] : [];
+  return [...main, ...(group.slots || []).map((s) => ({ day: s.day, time: s.time, durationMinutes: s.durationMinutes }))];
+}
+
+/** 0 = Monday … 6 = Sunday for a weekday code ("Ma", "ke"), or -1. */
+function mondayIndex(code) {
+  const i = KOUTSI_WEEKDAY_TO_INDEX[String(code || '').toLowerCase()];
+  return i == null ? -1 : (i + 6) % 7;
+}
+
+/**
+ * The Ryhmät page's week, Monday to Sunday: under each day the groups that train then, by time.
+ * A card is a session on the calendar — on the day it really is, so a moved session shows where
+ * it moved — or, when a group's weekly time has no session that week, a "no session" card
+ * (`missing`), so a calendar that ran out or a cancelled session shows instead of the group
+ * quietly vanishing. Weeks before a group's first session leave the group out.
+ *   → { days: [{ date, items: [{ group, training, time, durationMinutes, missing, why }] }] ×7, loose: [group] }
+ * `why` for a missing card: 'none' (nothing on the calendar at all), 'week' (no session this
+ * week) or 'day' (the group trains this week, but not on this day). `loose`: groups with no
+ * weekly day and no session this week.
+ */
+export function groupWeekBoard(state, week) {
+  const dates = weekDates(week);
+  const first = dates[0];
+  const last = dates[6];
+  const days = dates.map((date) => ({ date, items: [] }));
+  const loose = [];
+  for (const group of state.groups) {
+    const all = state.trainings.filter((t) => t.groupId === group.id && t.loggedBy !== 'player');
+    const inWeek = all.filter((t) => t.date >= first && t.date <= last);
+    inWeek.forEach((t) => {
+      days[dates.indexOf(t.date)].items.push({ group, training: t, time: t.time, durationMinutes: t.durationMinutes || group.durationMinutes, missing: false });
+    });
+    const times = groupTimes(group).filter((x) => mondayIndex(x.day) >= 0);
+    if (!times.length && !inWeek.length) loose.push(group);
+    const started = all.length === 0 || all.some((t) => t.date <= last);
+    if (!started) continue;
+    const why = all.length === 0 ? 'none' : inWeek.length ? 'day' : 'week';
+    times.forEach((x) => {
+      const day = days[mondayIndex(x.day)];
+      if (day.items.some((it) => it.group.id === group.id)) return;
+      day.items.push({ group, training: null, time: x.time, durationMinutes: x.durationMinutes, missing: true, why });
+    });
+  }
+  days.forEach((d) => d.items.sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.group.name.localeCompare(b.group.name, 'fi')));
+  return { days, loose: koutsiSortGroupsBySchedule(loose) };
 }

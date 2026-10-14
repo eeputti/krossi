@@ -3,7 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { koutsiTodayStr, koutsiAddDays, koutsiCurrentIsoWeek, koutsiAddIsoWeeks } from '../src/domain/core.js';
-import { sessionStatus, calendarEndings, themeWeekRelative, themeWeekLabel, merkitseContext, attendanceSession, presentPlayerIds } from '../src/domain/week.js';
+import {
+  sessionStatus, calendarEndings, themeWeekRelative, themeWeekLabel, merkitseContext, attendanceSession, presentPlayerIds,
+  todayTimeline, minutesLabel, groupWeekBoard, weekDates,
+} from '../src/domain/week.js';
 import { upcomingSessions, checkInCandidate } from '../src/domain/player.js';
 import { koutsiBuildTimeline } from '../src/domain/timeline.js';
 
@@ -160,4 +163,61 @@ test('a note after a session goes to the players who were there; Läsnäolo open
   assert.equal(attendanceSession(state, at('14:00')).training.id, 't1', "today's latest held session");
   assert.equal(attendanceSession(state, at('08:00')).training.id, 't1', "before anything: today's next one");
   assert.equal(attendanceSession({ ...state, trainings: [] }, at('12:00')), null);
+});
+
+test("today's timeline says which sessions are over, running and still to come", () => {
+  const g2 = { ...group, id: 'g2', name: 'keskiviikon keijot', time: '15:00', durationMinutes: 60, memberIds: ['s1', 's2'] };
+  const state = {
+    groups: [group, g2],
+    students: [student(), student({ id: 's2', name: 'Leo K.' })],
+    trainings: [
+      session('late', today, '19:00'),
+      session('early', today, '15:00', { groupId: 'g2', absences: [{ studentId: 's2', reason: 'poissa' }] }),
+      session('mid', today, '17:00'),
+      session('own', today, '12:00', { loggedBy: 'player', groupId: null, studentId: 's1' }),
+    ],
+  };
+  const line = todayTimeline(state, at('17:30'));
+  assert.deepEqual(line.map((x) => [x.training.id, x.status]), [['early', 'past'], ['mid', 'now'], ['late', 'upcoming']], "a player's own log is not on the coach's timeline");
+  assert.equal(line[0].end, '16:00');
+  assert.deepEqual([line[0].roster, line[0].present, line[0].progress], [2, 1, 1]);
+  assert.equal(line[1].minutesLeft, 60);
+  assert.equal(Math.round(line[1].progress * 100), 33);
+  assert.equal(line[2].minutesUntil, 90);
+  assert.equal(minutesLabel(25), '25 min');
+  assert.equal(minutesLabel(60), '1 h');
+  assert.equal(minutesLabel(115), '1 h 55 min');
+});
+
+test('the Ryhmät week board puts every group under the days it trains, and shows a missing session', () => {
+  const week = koutsiCurrentIsoWeek();
+  const [mon, tue, wed, thu] = weekDates(week);
+  const nextWeek = weekDates(koutsiAddIsoWeeks(week, 1));
+  const tueGroup = { ...group, slots: [{ id: 'x', day: 'To', time: '18:00', durationMinutes: 60 }] };
+  const wedGroup = { ...group, id: 'g2', name: 'keskiviikon keijot', day: 'Ke', time: '15:00', durationMinutes: 60, slots: [] };
+  const newGroup = { ...group, id: 'g3', name: 'uusi ryhmä', day: 'Ma', time: '10:00', slots: [] };
+  const noDay = { ...group, id: 'g4', name: 'leiri', day: '', time: '', slots: [] };
+  const empty = { ...group, id: 'g5', name: 'ilman treenejä', day: 'Pe', time: '09:00', slots: [] };
+  const state = {
+    groups: [tueGroup, wedGroup, newGroup, noDay, empty],
+    students: [],
+    trainings: [
+      session('t-tue', tue), // Tuesday's session is there, Thursday's extra slot is not
+      session('t-moved', thu, '12:00', { groupId: 'g2' }), // Wednesday's session moved to Thursday
+      session('t-new', nextWeek[0], '10:00', { groupId: 'g3' }), // starts next week
+      session('t-own', mon, '09:00', { groupId: null, loggedBy: 'player', studentId: 's1' }),
+    ],
+  };
+  const { days, loose } = groupWeekBoard(state, week);
+  const cell = (date) => days.find((d) => d.date === date).items.map((it) => `${it.group.id}${it.missing ? `:${it.why}` : ''}`);
+  assert.deepEqual(cell(mon), [], 'a group that starts next week is not on this week, nor a player\'s own log');
+  assert.deepEqual(cell(tue), ['g1']);
+  assert.deepEqual(cell(wed), ['g2:day'], "the moved session's usual day says there is no session that day");
+  assert.deepEqual(cell(thu), ['g2', 'g1:day'], 'the moved session sits on its new day, by time');
+  assert.deepEqual(cell(days[4].date), ['g5:none'], 'a group with nothing on the calendar still shows on its day');
+  assert.deepEqual(loose.map((g) => g.id), ['g4']);
+  const later = groupWeekBoard(state, koutsiAddIsoWeeks(week, 2));
+  assert.deepEqual(later.days[1].items.map((it) => `${it.group.id}:${it.why}`), ['g1:week'], 'a calendar that ran out shows on the day');
+  assert.equal(later.days[0].items[0].group.id, 'g3');
+  assert.equal(later.days[0].items[0].why, 'week');
 });

@@ -14,9 +14,11 @@ export const USAGE_SECTIONS = [
     title: 'Merkitse-valikko',
     events: [
       ['merkitse.avaa', 'Merkitse-nappi avattu'],
-      ['merkitse.nyt', 'Käynnissä nyt -kortti'],
-      ['merkitse.paattyi', 'Juuri päättyi -kortti'],
-      ['merkitse.seuraava', 'Seuraava treeni -kortti'],
+      ['merkitse.valitse', 'Tämän päivän treeni valittu'],
+      ['merkitse.ryhma', 'Valitun treenin ryhmä avattu'],
+      ['merkitse.nyt', 'Käynnissä nyt -kortti (ennen 14.10.)'],
+      ['merkitse.paattyi', 'Juuri päättyi -kortti (ennen 14.10.)'],
+      ['merkitse.seuraava', 'Seuraava treeni -kortti (ennen 14.10.)'],
       ['merkitse.paiva', 'Päivän yhteenveto'],
       ['merkitse.viikko', 'Viikon yhteenveto'],
       ['merkitse.teemat', 'Viikon teemat'],
@@ -30,6 +32,8 @@ export const USAGE_SECTIONS = [
   {
     title: 'Pikanapit sivuilla',
     events: [
+      ['koti.merkitse', 'Koti: aikajanan treeni → Merkitse'],
+      ['ryhma.merkitse', 'Ryhmä: tämän päivän treeni → Merkitse'],
       ['treeni.huomio', 'Treeni → Huomio'],
       ['treeni.laksy', 'Treeni → Kotiläksy'],
       ['treeni.video', 'Treeni → Video'],

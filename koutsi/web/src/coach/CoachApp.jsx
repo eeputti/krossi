@@ -120,8 +120,8 @@ function CoachShell() {
         screens={SCREENS}
         NotFound={NotFound}
         roleLabel="Valmentaja"
-        cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={openMenu}>Merkitse</Button>}
-        center={{ label: 'Merkitse', icon: 'plus', onClick: openMenu }}
+        cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => openMenu()}>Merkitse</Button>}
+        center={{ label: 'Merkitse', icon: 'plus', onClick: () => openMenu() }}
         extraLinks={extraLinks}
         me={acting ? null : { person: state.coach, sub: state.coach.tagline || 'Valmentaja', to: '/valmentaja/profiili' }}
         banner={acting ? <ActingBanner name={state.coach.name} onExit={exitActing} /> : null}
