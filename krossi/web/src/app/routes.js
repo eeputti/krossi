@@ -22,7 +22,7 @@ export const ROUTES = [
   { name: 'createGame', pattern: '/pelaa/uusi-peli', tab: 'pelit', type: 'overlay' },
   { name: 'game', pattern: '/pelaa/peli/:id', tab: 'pelit', type: 'page', public: true },
   { name: 'leagues', pattern: '/pelaa/liigat', tab: 'pelit', type: 'page' },
-  { name: 'league', pattern: '/pelaa/liiga/:id', tab: 'pelit', type: 'page' },
+  { name: 'league', pattern: '/pelaa/liiga/:id', tab: 'pelit', type: 'page', public: true },
   { name: 'players', pattern: '/pelaa/pelaajat', tab: 'pelaajat', type: 'tab' },
   { name: 'player', pattern: '/pelaa/pelaaja/:id', tab: 'pelaajat', type: 'page' },
   { name: 'partners', pattern: '/pelaa/pelikaverit', tab: 'pelaajat', type: 'page' },

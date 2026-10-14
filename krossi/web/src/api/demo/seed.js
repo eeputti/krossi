@@ -534,9 +534,9 @@ function buildLeagues(now, rng) {
   const labels = seasonLabels(now);
   const leagues = [
     { id: 'l-kausi', city: 'Lahti', skillLevel: 'keskitaso', seasonLabel: labels.current, groupSize: 6,
-      status: 'active', createdBy: pid('ville'), createdAt: iso(now - 56 * DAY) },
+      status: 'active', createdBy: pid('ville'), createdAt: iso(now - 56 * DAY), ...LADDER, currentRound: 1 },
     { id: 'l-seuraava', city: 'Lahti', skillLevel: 'edistynyt', seasonLabel: labels.next, groupSize: 6,
-      status: 'signup', createdBy: pid('petra'), createdAt: iso(now - 6 * DAY) },
+      status: 'signup', createdBy: pid('petra'), createdAt: iso(now - 6 * DAY), ...LADDER, currentRound: 0 },
   ];
 
   const groups = [
@@ -545,10 +545,10 @@ function buildLeagues(now, rng) {
   ];
   const members = [];
   groups.forEach((ids, g) => ids.forEach((userId, i) => {
-    members.push({ leagueId: 'l-kausi', userId, groupNumber: g + 1, joinedAt: iso(now - (56 - i * 2 - g) * DAY) });
+    members.push({ leagueId: 'l-kausi', userId, groupNumber: g + 1, joinedAt: iso(now - (56 - i * 2 - g) * DAY), continues: true });
   }));
   ['petra', 'joonas', 'sanna', 'riikka', 'teemu'].forEach((key, i) => {
-    members.push({ leagueId: 'l-seuraava', userId: pid(key), groupNumber: null, joinedAt: iso(now - (6 - i) * DAY) });
+    members.push({ leagueId: 'l-seuraava', userId: pid(key), groupNumber: null, joinedAt: iso(now - (6 - i) * DAY), continues: true });
   });
 
   // Alex's own fixtures, from Alex's point of view (my/opp games per set).
@@ -563,7 +563,7 @@ function buildLeagues(now, rng) {
   const fixtures = [];
   groups.forEach((ids, g) => {
     roundRobin(ids).forEach(([a, b], i) => {
-      const fixture = { id: `f-${g + 1}-${String(i + 1).padStart(2, '0')}`, leagueId: 'l-kausi', groupNumber: g + 1, playerAId: a, playerBId: b, result: null };
+      const fixture = { id: `f-${g + 1}-${String(i + 1).padStart(2, '0')}`, leagueId: 'l-kausi', roundNumber: 1, groupNumber: g + 1, playerAId: a, playerBId: b, result: null };
       const opponent = a === ME ? b : b === ME ? a : null;
       if (opponent) {
         fixture.result = alexResult(alexFixtures[opponent], a === ME, opponent, now);
@@ -574,7 +574,145 @@ function buildLeagues(now, rng) {
     });
   });
 
-  return { leagues, members, fixtures };
+  const halli = buildHallisarja(now);
+  return {
+    leagues: [halli.league, ...leagues],
+    members: [...halli.members, ...members],
+    fixtures: [...halli.fixtures, ...fixtures],
+    rounds: halli.rounds,
+  };
+}
+
+const LADDER = { format: 'ladder', matchFormat: 'sets', isPublic: false, venue: null, description: null };
+
+// ── Hallisarja ───────────────────────────────────────────────────────────────
+// Alex runs (and plays in) a Lahti indoor series modelled on the real one: rounds of eight
+// weeks, groups A–C, one-hour timed matches (2/1/0 points). Round 1 is over — Alex won
+// group B and moved up — and round 2 is under way in group A.
+
+const dayIso = (ms) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+function mondayOf(ms) {
+  const d = new Date(ms);
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+/** Higher seeds win; the bigger the seed gap, the bigger the margin (8 games to 7 − gap). */
+function seededResult(winnerId, loserId, winnerIsA, gap, at, extra = {}) {
+  const w = 8;
+  const l = Math.max(0, 7 - gap);
+  return {
+    sets: [winnerIsA ? { a: w, b: l } : { a: l, b: w }],
+    winnerId,
+    reportedBy: winnerIsA ? winnerId : loserId,
+    confirmedBy: winnerIsA ? loserId : winnerId,
+    confirmedAt: at,
+    createdAt: at,
+    walkover: false,
+    setByAdmin: false,
+    ...extra,
+  };
+}
+
+function buildHallisarja(now) {
+  const id = 'l-halli';
+  const r2Start = mondayOf(now) - 7 * DAY;
+  const r2End = r2Start + 55 * DAY;
+  const r1End = r2Start - 15 * DAY;
+  const r1Start = r1End - 55 * DAY;
+  const r3Start = r2End + 15 * DAY;
+  const rounds = [
+    { leagueId: id, roundNumber: 1, startsOn: dayIso(r1Start), endsOn: dayIso(r1End), status: 'completed' },
+    { leagueId: id, roundNumber: 2, startsOn: dayIso(r2Start), endsOn: dayIso(r2End), status: 'active' },
+    { leagueId: id, roundNumber: 3, startsOn: dayIso(r3Start), endsOn: dayIso(r3Start + 55 * DAY), status: 'planned' },
+  ];
+  const league = {
+    id, city: 'Lahti', skillLevel: 'kaikki', seasonLabel: 'Lahden hallisarja', groupSize: 5,
+    status: 'active', createdBy: ME, createdAt: iso(r1Start - 20 * DAY),
+    format: 'hallisarja', matchFormat: 'timed', currentRound: 2, isPublic: true,
+    venue: 'Kispi-areena tai Janus-areena',
+    description: 'Tunnin aikapeli: 5 min lämmittely, eniten geimejä voittaa (tasapeli mahdollinen). '
+      + 'Kenttä ja pallot puoliksi. Ilmoita tulos 24 tunnin sisällä ottelusta. '
+      + 'Lohkon voittaja nousee ja viimeinen putoaa kierrosten välissä.',
+  };
+
+  // Round-1 groups in seed order (strongest first) and the round-2 groups that followed.
+  const r1 = [
+    ['teemu', 'riikka', 'joonas', 'sanna', 'petra'],
+    ['me', 'mikko', 'laura', 'ville', 'emilia'],
+    ['antti', 'henna', 'olli', 'aino', 'juho'],
+  ].map((g) => g.map(pid));
+  const r2 = [
+    ['teemu', 'riikka', 'joonas', 'sanna', 'me'],
+    ['petra', 'mikko', 'laura', 'ville', 'antti'],
+    ['emilia', 'henna', 'olli', 'aino', 'juho', 'kaisa'],
+  ].map((g) => g.map(pid));
+
+  const members = r2.flatMap((ids, g) => ids.map((userId, i) => ({
+    leagueId: id, userId, groupNumber: g + 1, continues: userId !== pid('olli'),
+    joinedAt: iso(userId === pid('kaisa') ? r1End + 3 * DAY : r1Start - (18 - g * 5 - i) * DAY),
+  })));
+
+  const fixtures = [];
+  let n = 0;
+  const add = (round, group, a, b, result) => {
+    n += 1;
+    fixtures.push({ id: `fh-${round}-${String(n).padStart(3, '0')}`, leagueId: id, roundNumber: round, groupNumber: group, playerAId: a, playerBId: b, result });
+  };
+
+  // Round 1: everything decided, the seeds held. A 3–3 at the bottom of A (both tried, no
+  // date found) and a walkover in C, both entered by the organiser (Alex).
+  r1.forEach((ids, g) => {
+    for (let i = 0; i < ids.length; i += 1) {
+      for (let j = i + 1; j < ids.length; j += 1) {
+        const at = iso(r1Start + (6 + ((i * 7 + j * 11 + g * 5) % 48)) * DAY + 19 * HOUR);
+        let result = seededResult(ids[i], ids[j], true, j - i, at);
+        if (g === 0 && i === 3 && j === 4) {
+          result = { ...result, sets: [{ a: 3, b: 3 }], winnerId: null, reportedBy: ids[i], confirmedBy: ids[j], setByAdmin: true };
+        }
+        if (g === 2 && i === 1 && j === 2) {
+          result = { ...result, sets: [{ a: 6, b: 0 }], walkover: true, setByAdmin: true };
+        }
+        add(1, g + 1, ids[i], ids[j], result);
+      }
+    }
+  });
+
+  // Round 2, a week in. Alex (A): lost to Teemu, reported a draw with Sanna (Sanna confirms),
+  // Joonas reported a win over Alex (Alex confirms), Riikka still to play.
+  const recent = (days) => iso(now - days * DAY);
+  const [teemu, riikka, joonas, sanna] = r2[0];
+  add(2, 1, teemu, riikka, seededResult(teemu, riikka, true, 1, recent(4)));
+  add(2, 1, teemu, joonas, null);
+  add(2, 1, teemu, sanna, null);
+  add(2, 1, teemu, ME, seededResult(teemu, ME, true, 3, recent(3)));
+  add(2, 1, riikka, joonas, null);
+  add(2, 1, riikka, sanna, seededResult(riikka, sanna, true, 2, recent(5)));
+  add(2, 1, riikka, ME, null);
+  add(2, 1, joonas, sanna, null);
+  add(2, 1, joonas, ME, {
+    sets: [{ a: 9, b: 7 }], winnerId: joonas, reportedBy: joonas, confirmedBy: null, confirmedAt: null,
+    createdAt: recent(1), walkover: false, setByAdmin: false,
+  });
+  add(2, 1, sanna, ME, {
+    sets: [{ a: 8, b: 8 }], winnerId: null, reportedBy: ME, confirmedBy: null, confirmedAt: null,
+    createdAt: recent(2), walkover: false, setByAdmin: false,
+  });
+  [r2[1], r2[2]].forEach((ids, k) => {
+    const g = k + 2;
+    for (let i = 0; i < ids.length; i += 1) {
+      for (let j = i + 1; j < ids.length; j += 1) {
+        const played = (i + j + g) % 3 === 0;
+        add(2, g, ids[i], ids[j], played ? seededResult(ids[i], ids[j], true, j - i, recent(1 + ((i + j) % 6))) : null);
+      }
+    }
+  });
+
+  return { league, members, fixtures, rounds };
 }
 
 function alexResult(spec, alexIsA, opponentId, now) {
@@ -629,6 +767,7 @@ export function createSeed(now) {
     results: new Map(history.results.map((r) => [r.id, r])),
     leagues: new Map(league.leagues.map((l) => [l.id, l])),
     leagueMembers: league.members,
+    leagueRounds: league.rounds,
     fixtures: new Map(league.fixtures.map((f) => [f.id, f])),
     blocks: new Map(),
     reports: [],

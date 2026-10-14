@@ -103,3 +103,7 @@ export function leagueMembers(leagueId) {
 export function leagueFixtures(leagueId) {
   return [...db.fixtures.values()].filter((f) => f.leagueId === leagueId);
 }
+
+export function leagueRounds(leagueId) {
+  return db.leagueRounds.filter((r) => r.leagueId === leagueId).sort((a, b) => a.roundNumber - b.roundNumber);
+}

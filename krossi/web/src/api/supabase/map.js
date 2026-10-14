@@ -330,17 +330,47 @@ export function leagueSetsToStored(sets, fixture, reporterId) {
 }
 
 const LEAGUE_STATUS = { signup: 'signup', active: 'active', completed: 'finished' };
+const LEAGUE_ALL_LEVELS = 'kaikki';
 
 export function mapLeagueSummary(row, { memberIds = [], uid = null } = {}) {
+  const level = row.skill_level || '';
   return {
     id: row.id,
     city: row.city,
-    skillLevel: PLAIN_SKILLS.has(row.skill_level) || COMPETITION_CLASS_RE.test(row.skill_level || '') ? row.skill_level : 'keskitaso',
+    skillLevel: PLAIN_SKILLS.has(level) || COMPETITION_CLASS_RE.test(level) || level === LEAGUE_ALL_LEVELS ? level : 'keskitaso',
     seasonLabel: row.season_label,
     groupSize: row.group_size,
     status: LEAGUE_STATUS[row.status] || 'signup',
+    format: row.format === 'hallisarja' ? 'hallisarja' : 'ladder',
+    matchFormat: row.match_format === 'timed' ? 'timed' : 'sets',
+    currentRound: Number(row.current_round) || 0,
+    isPublic: Boolean(row.is_public),
+    venue: trimmedOrNull(row.venue),
+    description: trimmedOrNull(row.description),
     memberCount: memberIds.length,
     createdBy: row.created_by,
     iAmMember: Boolean(uid) && memberIds.includes(uid),
+  };
+}
+
+export function mapLeagueRound(row) {
+  return {
+    roundNumber: Number(row.round_number),
+    startsOn: String(row.starts_on || '').slice(0, 10),
+    endsOn: String(row.ends_on || '').slice(0, 10),
+    status: ['planned', 'active', 'completed'].includes(row.status) ? row.status : 'planned',
+  };
+}
+
+/** league_fixture_results row -> LeagueDetail fixture result (sets oriented to player A). */
+export function mapLeagueResult(result, playerAId) {
+  return {
+    sets: leagueSetsFor(result, playerAId),
+    winnerId: result.winner_id ?? null,
+    reportedBy: result.reported_by,
+    confirmedBy: result.confirmed_by ?? null,
+    confirmedAt: result.confirmed_at ?? null,
+    walkover: Boolean(result.walkover),
+    setByAdmin: Boolean(result.set_by),
   };
 }

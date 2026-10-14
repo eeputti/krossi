@@ -93,7 +93,7 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/merkit` | badges | profiili | page |
 | `/pelaa/kooste/:period` (`2026-09` tai `kausi-2026`) | recap | profiili | full |
 | `/pelaa/liigat` | leagues | pelit | page |
-| `/pelaa/liiga/:id` | league | pelit | page |
+| `/pelaa/liiga/:id` | league | pelit | page (kirjautumaton: julkinen sarjataulukko) |
 | `/pelaa/kutsu/:code` | invite | — | public |
 | `/pelaa/yllapito` | admin | profiili | page (vain admin) |
 
@@ -210,7 +210,16 @@ koko ruudun diaesitys (napauta eteenpäin): pelit, voitot, eniten pelattu kaveri
 pisin putki, uudet merkit, loppudia jaettavana korttina (canvas → kuva / navigator.share).
 
 **Liigat (leagues):** kaupungin liigat, luo/liity, liigan sivu: lohkot, sarjataulukko,
-ottelut, ilmoita/vahvista tulos, avaa chat vastustajan kanssa.
+ottelut, ilmoita/vahvista tulos, avaa chat vastustajan kanssa. Kaksi muotoa:
+*Krossi-liiga* (lohkot arvotaan kerran, erät) ja *hallisarja* (Lahden hallisarjan mallin mukaan:
+kierrokset päivämäärineen, ylläpitäjä jakaa lohkot A, B, C… — `proposeGroups` ehdottaa nousut ja
+putoamiset —, tunnin aikapeli geimeinä, tasapeli mahdollinen, 2/1/0 pistettä, tasapisteissä
+geimiero → keskinäinen → voitetut geimit). Perustaja on liigan **ylläpitäjä** (AdminCard +
+Ylläpito-sheet: tiedot, pelaajien poisto, kauden päätös, liigan poisto); Krossin moderaattorit
+(`krossi_can_manage_city`) saavat samat oikeudet. Ylläpitäjä kirjaa tulokset, luovutukset
+(wo 6–0) ja 3–3-tasapelit (AdminResultSheet) ja päättää kierrokset. Julkiseksi merkitty sarja
+näkyy kirjautumattomille (`api.leagues.publicGet`, nimet "Mikko V."). Tietokanta:
+`supabase/migrations/20261014191351_krossi_league_admin_and_hallisarja.sql`.
 
 **Auth & onboarding:** näyttävä tumma kirjautumisnäkymä (kenttäviivat, pallo), Google/Apple/
 sähköposti, rekisteröinti/kirjautuminen/salasanan palautus. Onboarding yhdellä ruudulla:

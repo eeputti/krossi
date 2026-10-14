@@ -38,7 +38,7 @@ export function playedGames() {
 /** League fixtures I played whose result the opponent has confirmed; `a` = my games. */
 export function confirmedLeagueMatches() {
   return [...db.fixtures.values()]
-    .filter((f) => (f.playerAId === ME || f.playerBId === ME) && f.result?.confirmedBy)
+    .filter((f) => (f.playerAId === ME || f.playerBId === ME) && f.result?.confirmedBy && !f.result.walkover)
     .map((f) => {
       const iAmA = f.playerAId === ME;
       return {

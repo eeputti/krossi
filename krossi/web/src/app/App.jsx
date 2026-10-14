@@ -7,6 +7,7 @@ import { AuthScreen } from '../screens/auth/AuthScreen.jsx';
 import { OnboardingScreen } from '../screens/auth/OnboardingScreen.jsx';
 import { InviteScreen } from '../screens/auth/InviteScreen.jsx';
 import { PublicGameScreen } from '../screens/games/PublicGameScreen.jsx';
+import { PublicLeagueScreen } from '../screens/leagues/PublicLeagueScreen.jsx';
 import { PendingOutcomeCheck } from '../screens/home/PendingOutcomeCheck.jsx';
 import { PlayMenu } from '../screens/play/PlayMenu.jsx';
 import { SetPasswordSheet } from '../screens/auth/SetPasswordSheet.jsx';
@@ -159,7 +160,7 @@ function Gate() {
   // Remember shared-link destinations for after sign-in, and invite codes for after onboarding.
   useEffect(() => {
     if (session.user) return;
-    if (route.name === 'game') rememberAfterAuth(route.path);
+    if (route.name === 'game' || route.name === 'league') rememberAfterAuth(route.path);
     if (route.name === 'invite') store.set(INVITE_CODE_KEY, route.params.code);
   }, [session.user, route.name, route.path, route.params.code]);
 
@@ -177,6 +178,7 @@ function Gate() {
   if (session.loading) return <Splash />;
   if (!session.user) {
     if (route.name === 'game') return <PublicGameScreen params={route.params} query={route.query} />;
+    if (route.name === 'league') return <PublicLeagueScreen params={route.params} />;
     if (route.name === 'invite') return <InviteScreen params={route.params} query={route.query} />;
     return <AuthScreen />;
   }

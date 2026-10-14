@@ -31,7 +31,10 @@ const MESSAGE_KEYS = ['id', 'conversationId', 'senderId', 'sender', 'kind', 'tex
 const RESULT_KEYS = ['id', 'createdAt', 'gameType', 'format', 'partnerName', 'opponentName', 'oppPartnerName', 'sets', 'won'];
 const ACTIVITY_GAME_KEYS = ['id', 'playedAt', 'matchType', 'kind', 'locationName', 'locationType', 'city', 'isOrganizer', 'people'];
 const LEAGUE_MATCH_KEYS = ['id', 'playedAt', 'won', 'opponent', 'sets', 'leagueId'];
-const LEAGUE_SUMMARY_KEYS = ['id', 'city', 'skillLevel', 'seasonLabel', 'groupSize', 'status', 'memberCount', 'createdBy', 'iAmMember'];
+const LEAGUE_SUMMARY_KEYS = [
+  'id', 'city', 'skillLevel', 'seasonLabel', 'groupSize', 'status', 'format', 'matchFormat', 'currentRound', 'isPublic',
+  'venue', 'description', 'memberCount', 'createdBy', 'iAmMember',
+];
 const PROFILE_KEYS = [
   'id', 'name', 'ageRange', 'gender', 'city', 'areas', 'bio', 'avatarUrl', 'avatarColor', 'skillLevel',
   'competitionClasses', 'playStyles', 'availability', 'handedness', 'backhand', 'playingThisWeek',
@@ -270,6 +273,66 @@ test('stats.myActivity: contract shape and a rich history', async () => {
   assert.ok(partners[0].gamesTogether >= partners[1].gamesTogether);
 });
 
+test('hallisarja: Alex runs a public series — round 2 in play, close it, plan and start round 3', async () => {
+  const hall = (await api.leagues.listByCity('Lahti')).find((l) => l.format === 'hallisarja');
+  assert.ok(hall, 'the demo has a hallisarja');
+  assert.equal(hall.matchFormat, 'timed');
+  let detail = await api.leagues.get(hall.id);
+  assert.equal(detail.canManage, true);
+  assert.equal(detail.currentRound, 2);
+  assert.deepEqual(detail.rounds.map((r) => r.status), ['completed', 'active', 'planned']);
+  assert.ok(detail.fixtures.some((f) => f.roundNumber === 1 && f.result?.walkover));
+  assert.ok(detail.fixtures.some((f) => f.roundNumber === 1 && f.result && f.result.winnerId === null), 'a 3–3 draw');
+
+  // Alex reports a timed draw; the winner is derived from the games, not the argument.
+  const open = detail.fixtures.find((f) => f.roundNumber === 2 && !f.result && (f.playerA.id === ME || f.playerB.id === ME));
+  await api.leagues.reportResult(open.id, [{ a: 9, b: 4 }], 'whoever');
+  detail = await api.leagues.get(hall.id);
+  const reported = detail.fixtures.find((f) => f.id === open.id);
+  assert.equal(reported.result.winnerId, open.playerA.id);
+
+  // The organiser enters a walkover and closes the round: pending reports are accepted.
+  const other = detail.fixtures.find((f) => f.roundNumber === 2 && !f.result && f.playerA.id !== ME && f.playerB.id !== ME);
+  await api.leagues.adminSetResult(other.id, { walkover: true, winnerId: other.playerB.id });
+  await assert.rejects(api.leagues.startRound(hall.id, [[ME, other.playerA.id]], { startsOn: '2027-01-01', endsOn: '2027-02-01' }), /kesken/);
+  await api.leagues.closeRound(hall.id);
+  detail = await api.leagues.get(hall.id);
+  assert.ok(detail.fixtures.filter((f) => f.roundNumber === 2 && f.result).every((f) => f.result.confirmedBy));
+  await assert.rejects(api.leagues.reportResult(open.id, [{ a: 5, b: 4 }], null), /Kierros on päättynyt/);
+
+  // Round 3 with the members who continue, in two groups.
+  const ids = detail.members.filter((m) => m.continues).map((m) => m.id);
+  const half = Math.ceil(ids.length / 2);
+  assert.equal(await api.leagues.startRound(hall.id, [ids.slice(0, half), ids.slice(half)], { startsOn: '2027-01-04', endsOn: '2027-02-28' }), 3);
+  detail = await api.leagues.get(hall.id);
+  assert.equal(detail.currentRound, 3);
+  assert.equal(detail.rounds.find((r) => r.roundNumber === 3).status, 'active');
+  assert.equal(detail.fixtures.filter((f) => f.roundNumber === 3).length, (half * (half - 1)) / 2 + ((ids.length - half) * (ids.length - half - 1)) / 2);
+
+  const pub = await api.leagues.publicGet(hall.id);
+  assert.equal(pub.canManage, false);
+  assert.ok(pub.fixtures.every((f) => !f.result || f.result.confirmedBy));
+
+  await api.leagues.finish(hall.id);
+  await api.leagues.remove(hall.id);
+  assert.equal(await api.leagues.get(hall.id), null);
+});
+
+test('league admin: only the creator manages; members can leave during sign-up', async () => {
+  const id = await api.leagues.create({ city: 'Turku', skillLevel: 'keskitaso', seasonLabel: 'Testiliiga' });
+  let detail = await api.leagues.get(id);
+  assert.equal(detail.canManage, true);
+  assert.equal(detail.format, 'ladder');
+  await api.leagues.leave(id);
+  detail = await api.leagues.get(id);
+  assert.equal(detail.iAmMember, false);
+  await api.leagues.remove(id);
+  assert.equal(await api.leagues.get(id), null);
+
+  const someoneElses = (await api.leagues.listByCity('Lahti')).find((l) => l.createdBy !== ME);
+  await assert.rejects(api.leagues.remove(someoneElses.id), /moderaattori/);
+});
+
 test('leagues: an active league with Alex in group 1 and a signup league', async () => {
   const leagues = await api.leagues.listByCity('Lahti');
   leagues.forEach((l) => assertKeys(l, LEAGUE_SUMMARY_KEYS, `league ${l.id}`));
@@ -278,15 +341,15 @@ test('leagues: an active league with Alex in group 1 and a signup league', async
   assert.ok(active?.iAmMember);
 
   const detail = await api.leagues.get(active.id);
-  assertKeys(detail, [...LEAGUE_SUMMARY_KEYS, 'members', 'fixtures'], 'league detail');
+  assertKeys(detail, [...LEAGUE_SUMMARY_KEYS, 'canManage', 'organizer', 'rounds', 'members', 'fixtures'], 'league detail');
   for (const m of detail.members) {
-    assertKeys(m, [...PERSON_KEYS, 'groupNumber'], 'league member');
+    assertKeys(m, [...PERSON_KEYS, 'groupNumber', 'continues'], 'league member');
   }
   assert.equal(detail.members.find((m) => m.id === ME).groupNumber, 1);
   for (const f of detail.fixtures) {
-    assert.deepEqual(sortedKeys(f), ['groupNumber', 'id', 'playerA', 'playerB', 'result']);
+    assert.deepEqual(sortedKeys(f), ['groupNumber', 'id', 'playerA', 'playerB', 'result', 'roundNumber']);
     if (f.result) {
-      assert.deepEqual(sortedKeys(f.result), ['confirmedAt', 'confirmedBy', 'reportedBy', 'sets', 'winnerId']);
+      assert.deepEqual(sortedKeys(f.result), ['confirmedAt', 'confirmedBy', 'reportedBy', 'setByAdmin', 'sets', 'walkover', 'winnerId']);
       f.result.sets.forEach((s) => assert.deepEqual(sortedKeys(s), ['a', 'b']));
     }
   }

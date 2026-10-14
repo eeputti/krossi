@@ -80,9 +80,10 @@ export async function loadConfirmedLeagueMatches(uid) {
   if (fixtures.length === 0) return [];
 
   const results = await selectIn(fixtures.map((f) => f.id), (chunk) =>
-    db().from('league_fixture_results').select('fixture_id, sets, winner_id, reported_by, confirmed_by, confirmed_at, created_at')
+    db().from('league_fixture_results').select('*')
       .in('fixture_id', chunk).not('confirmed_by', 'is', null), FAIL);
-  const resultByFixture = new Map(results.map((r) => [r.fixture_id, r]));
+  // A walkover (luovutus) was never played: it counts in the standings, not in my tennis history.
+  const resultByFixture = new Map(results.filter((r) => !r.walkover).map((r) => [r.fixture_id, r]));
 
   return fixtures
     .filter((f) => resultByFixture.has(f.id))

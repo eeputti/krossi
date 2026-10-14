@@ -1,6 +1,7 @@
 // ReportResultSheet — "Ilmoita tulos" for a league fixture: set rows with Stepper pairs, quick
 // scores for the last set, live winner preview. The opponent confirms afterwards.
-//   <ReportResultSheet open onClose fixture meId onSaved={({ won }) => …} />
+// timed (tunnin aikapeli, hallisarja): one pair of games, a draw is a result too.
+//   <ReportResultSheet open onClose fixture meId timed onSaved={({ won, draw }) => …} />
 import { useEffect, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useBusy } from '../../app/hooks.js';
@@ -24,7 +25,100 @@ function preview(sets, oppName) {
     : { state: 'loss', icon: 'flag', title: `${oppName} voitti ${t.lost}–${t.won}`, text: detail };
 }
 
-export function ReportResultSheet({ open, onClose, fixture, meId, onSaved }) {
+function timedPreview(g, oppName) {
+  if (g.my === 0 && g.opp === 0) return { state: 'idle', icon: 'clock', title: 'Syötä tunnin aikana pelatut geimit', text: 'Eniten geimejä voittaa' };
+  if (g.my === g.opp) return { state: 'even', icon: 'repeat', title: `Tasapeli ${g.my}–${g.opp}`, text: 'Piste kummallekin' };
+  return g.my > g.opp
+    ? { state: 'win', icon: 'trophy', title: `Voitit ${g.my}–${g.opp} 🎉`, text: '2 pistettä sarjataulukkoon' }
+    : { state: 'loss', icon: 'flag', title: `${oppName} voitti ${g.opp}–${g.my}`, text: 'Ensi kerralla revanssi' };
+}
+
+export function ReportResultSheet({ open, onClose, fixture, meId, timed = false, onSaved }) {
+  if (timed) return <TimedReportSheet open={open} onClose={onClose} fixture={fixture} meId={meId} onSaved={onSaved} />;
+  return <SetsReportSheet open={open} onClose={onClose} fixture={fixture} meId={meId} onSaved={onSaved} />;
+}
+
+/** Tunnin aikapeli: one row of games, the winner (or a draw) follows from them. */
+function TimedReportSheet({ open, onClose, fixture, meId, onSaved }) {
+  const toast = useToast();
+  const [busy, run] = useBusy();
+  const [games, setGames] = useState({ my: 0, opp: 0 });
+
+  useEffect(() => { if (open) setGames({ my: 0, opp: 0 }); }, [open, fixture?.id]);
+
+  if (!fixture) return null;
+  const iAmA = fixture.playerA.id === meId;
+  const me = iAmA ? fixture.playerA : fixture.playerB;
+  const opp = iAmA ? fixture.playerB : fixture.playerA;
+  const oppName = firstName(opp.name);
+  const p = timedPreview(games, oppName);
+
+  const submit = () => run(async () => {
+    if (games.my === 0 && games.opp === 0) return;
+    const payload = [iAmA ? { a: games.my, b: games.opp } : { a: games.opp, b: games.my }];
+    const winnerId = games.my > games.opp ? me.id : games.opp > games.my ? opp.id : null;
+    try {
+      await api.leagues.reportResult(fixture.id, payload, winnerId);
+      onSaved?.({ won: winnerId === me.id, draw: winnerId === null });
+    } catch (err) {
+      toast(err);
+    }
+  });
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Ilmoita tulos"
+      subtitle={`Tunnin aikapeli. ${oppName} vahvistaa tuloksen, jonka jälkeen se päivittyy sarjataulukkoon.`}
+      footer={(
+        <div className="leagues-report-footer">
+          <div key={`${p.state}-${p.title}`} className={cx('leagues-report-preview', `is-${p.state}`)} aria-live="polite">
+            <span className="leagues-report-preview-icon"><Icon name={p.icon} size={20} /></span>
+            <span className="leagues-report-preview-text">
+              <span className="leagues-report-preview-title">{p.title}</span>
+              <span className="leagues-report-preview-sub">{p.text}</span>
+            </span>
+          </div>
+          <Button variant="lime" size="lg" block icon="send" loading={busy} disabled={p.state === 'idle'} onClick={submit}>Ilmoita tulos</Button>
+        </div>
+      )}
+    >
+      <div className="leagues-report">
+        <div className="leagues-report-vs">
+          <span className="leagues-report-player">
+            <Avatar person={me} size={52} />
+            <span className="leagues-report-name">Sinä</span>
+          </span>
+          <span className="leagues-report-vs-mark" aria-hidden="true">vs</span>
+          <span className="leagues-report-player">
+            <Avatar person={opp} size={52} />
+            <span className="leagues-report-name truncate">{oppName}</span>
+          </span>
+        </div>
+        <div className="leagues-report-set leagues-report-timed rise" role="group" aria-label="Geimit tunnin aikana">
+          <div className="leagues-report-set-head">
+            <span className="leagues-report-set-label">Geimit tunnin aikana</span>
+          </div>
+          <div className="leagues-report-set-row">
+            <span className={cx('leagues-report-side', games.my > games.opp && 'is-ahead')}>
+              <Stepper value={games.my} onChange={(v) => setGames((g) => ({ ...g, my: v }))} min={0} max={40} label="Sinun geimisi" />
+            </span>
+            <span className="leagues-report-dash" aria-hidden="true">–</span>
+            <span className={cx('leagues-report-side', games.opp > games.my && 'is-ahead')}>
+              <Stepper value={games.opp} onChange={(v) => setGames((g) => ({ ...g, opp: v }))} min={0} max={40} label={`${oppName}: geimit`} />
+            </span>
+          </div>
+        </div>
+        <p className="leagues-report-rule">
+          Kesken jäänyt piste pelataan loppuun, kun aika loppuu; sen syöttövuoron tulos lasketaan. Tasapeli on mahdollinen.
+        </p>
+      </div>
+    </Sheet>
+  );
+}
+
+function SetsReportSheet({ open, onClose, fixture, meId, onSaved }) {
   const toast = useToast();
   const [busy, run] = useBusy();
   const [sets, setSets] = useState(EMPTY);

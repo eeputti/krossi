@@ -4,7 +4,7 @@
 
 import { ME, capacityOf, isExpired, previewText } from './rows.js';
 import {
-  db, gameRow, personLite, profileOf, messagesOf, gameConversation, isMember, leagueMembers, leagueFixtures,
+  db, gameRow, personLite, profileOf, messagesOf, gameConversation, isMember, leagueMembers, leagueFixtures, leagueRounds,
 } from './store.js';
 
 // ── People ───────────────────────────────────────────────────────────────────
@@ -211,6 +211,12 @@ export function toLeagueSummary(league) {
     seasonLabel: league.seasonLabel,
     groupSize: league.groupSize,
     status: league.status,
+    format: league.format || 'ladder',
+    matchFormat: league.matchFormat || 'sets',
+    currentRound: league.currentRound || 0,
+    isPublic: Boolean(league.isPublic),
+    venue: league.venue ?? null,
+    description: league.description ?? null,
     memberCount: members.length,
     createdBy: league.createdBy,
     iAmMember: members.some((m) => m.userId === ME),
@@ -218,22 +224,30 @@ export function toLeagueSummary(league) {
 }
 
 export function toLeagueDetail(league) {
-  const fixtures = leagueFixtures(league.id).sort((a, b) => a.groupNumber - b.groupNumber);
+  const fixtures = leagueFixtures(league.id).sort((a, b) => (a.roundNumber || 1) - (b.roundNumber || 1) || a.groupNumber - b.groupNumber);
   return {
     ...toLeagueSummary(league),
-    members: [...leagueMembers(league.id)].sort(byJoinedAt).map((m) => ({ ...personLite(m.userId), groupNumber: m.groupNumber ?? null })),
+    canManage: league.createdBy === ME,
+    organizer: personLite(league.createdBy),
+    rounds: leagueRounds(league.id).map((r) => ({ roundNumber: r.roundNumber, startsOn: r.startsOn, endsOn: r.endsOn, status: r.status })),
+    members: [...leagueMembers(league.id)].sort(byJoinedAt).map((m) => ({
+      ...personLite(m.userId), groupNumber: m.groupNumber ?? null, continues: m.continues !== false,
+    })),
     fixtures: fixtures.map((f) => ({
       id: f.id,
+      roundNumber: f.roundNumber || 1,
       groupNumber: f.groupNumber,
       playerA: personLite(f.playerAId),
       playerB: personLite(f.playerBId),
       result: f.result
         ? {
           sets: f.result.sets.map((s) => ({ a: s.a, b: s.b })),
-          winnerId: f.result.winnerId,
+          winnerId: f.result.winnerId ?? null,
           reportedBy: f.result.reportedBy,
           confirmedBy: f.result.confirmedBy ?? null,
           confirmedAt: f.result.confirmedAt ?? null,
+          walkover: Boolean(f.result.walkover),
+          setByAdmin: Boolean(f.result.setByAdmin),
         }
         : null,
     })),

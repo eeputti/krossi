@@ -192,19 +192,43 @@
 // @typedef {Object} LeagueSummary
 // @property {string} id
 // @property {string} city
-// @property {SkillLevel} skillLevel
+// @property {SkillLevel|'kaikki'} skillLevel
 // @property {string} seasonLabel
-// @property {number} groupSize
+// @property {number} groupSize               target group size (3–10)
 // @property {'signup'|'active'|'finished'} status
+// @property {'ladder'|'hallisarja'} format   ladder = Krossi-liiga (groups drawn once); hallisarja = rounds, organiser-made groups
+// @property {'sets'|'timed'} matchFormat     timed = tunnin aikapeli: one row of games, draws allowed
+// @property {number} currentRound            0 before the first round
+// @property {boolean} isPublic               standings visible without an account (publicGet)
+// @property {string|null} venue
+// @property {string|null} description
 // @property {number} memberCount
-// @property {string} createdBy
+// @property {string} createdBy               the creator is the league's admin (ylläpitäjä)
 // @property {boolean} iAmMember
 //
 // @typedef {Object} LeagueDetail
 // @property {string} id  ...all LeagueSummary fields
-// @property {(PersonLite & {groupNumber:number|null})[]} members
-// @property {{id:string, groupNumber:number, playerA:PersonLite, playerB:PersonLite,
-//             result:null|{sets:{a:number,b:number}[], winnerId:string, reportedBy:string, confirmedBy:string|null, confirmedAt:string|null}}[]} fixtures
+// @property {boolean} canManage              creator or Krossi moderator (admin / the city's admin)
+// @property {PersonLite} organizer           the creator (ylläpitäjä)
+// @property {{roundNumber:number, startsOn:string, endsOn:string, status:'planned'|'active'|'completed'}[]} rounds   dates 'YYYY-MM-DD'
+// @property {(PersonLite & {groupNumber:number|null, continues:boolean})[]} members   groupNumber = group in the current round
+// @property {{id:string, roundNumber:number, groupNumber:number, playerA:PersonLite, playerB:PersonLite,
+//             result:null|{sets:{a:number,b:number}[], winnerId:string|null, reportedBy:string, confirmedBy:string|null,
+//                          confirmedAt:string|null, walkover:boolean, setByAdmin:boolean}}[]} fixtures
+//   winnerId null = draw (timed only). setByAdmin: entered/accepted by the league admin.
+//
+// @typedef {Object} LeagueInput
+// @property {string} city
+// @property {SkillLevel|'kaikki'} skillLevel
+// @property {string} seasonLabel
+// @property {'ladder'|'hallisarja'} [format]
+// @property {'sets'|'timed'} [matchFormat]
+// @property {number} [groupSize]
+// @property {string} [description]
+// @property {string} [venue]
+// @property {{startsOn:string, endsOn:string}[]} [rounds]   hallisarja: planned rounds
+// @property {boolean} [organizerPlays]      hallisarja: does the creator play too (ladder: always)
+// @property {boolean} [isPublic]
 //
 // @typedef {Object} NotificationPrefs
 // @property {boolean} emailEnabled           master switch for email (new column)
@@ -307,11 +331,23 @@ export const API_CONTRACT = {
   leagues: [
     'listByCity',          // (city) -> LeagueSummary[]   newest first
     'get',                 // (id) -> LeagueDetail|null
-    'create',              // ({ city, skillLevel, seasonLabel }) -> id
-    'join',                // (id) -> void
-    'start',               // (id) -> void   (creator only, needs >= 4 members)
-    'reportResult',        // (fixtureId, sets:{a,b}[], winnerId) -> void
+    'publicGet',           // (id) -> LeagueDetail|null   works without a session; only leagues marked public, names "Etunimi S."
+    'create',              // (LeagueInput) -> id
+    'update',              // (id, { seasonLabel, description, venue, isPublic }) -> void   (admin)
+    'remove',              // (id) -> void   (admin or moderator; deletes everything)
+    'finish',              // (id) -> void   (admin; ends the season)
+    'join',                // (id) -> void   (hallisarja: also mid-season, group from the next round)
+    'leave',               // (id) -> void   (sign-up, or a hallisarja between rounds)
+    'setContinues',        // (id, boolean) -> void   hallisarja: "jatkan seuraavalla kierroksella"
+    'removeMember',        // (id, userId) -> void   (admin; not from a group of a running round)
+    'start',               // (id) -> void   (ladder, creator only, needs >= 4 members)
+    'startRound',          // (id, groups:string[][], { startsOn, endsOn }) -> roundNumber   (admin, hallisarja; groups top first)
+    'closeRound',          // (id) -> void   (admin, hallisarja; unconfirmed reports are accepted as reported)
+    'reportResult',        // (fixtureId, sets:{a,b}[], winnerId|null) -> void   timed: one row of games, winner derived
     'confirmResult',       // (fixtureId) -> void
+    'adminSetResult',      // (fixtureId, { sets:{a,b}[]|null, winnerId:string|null, walkover:boolean }) -> void   (admin; confirmed at once)
+    'adminConfirmResult',  // (fixtureId) -> void   (admin)
+    'adminClearResult',    // (fixtureId) -> void   (admin)
     'openFixtureChat',     // (fixtureId) -> conversationId
   ],
   social: [

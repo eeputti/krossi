@@ -13,7 +13,7 @@ import {
   confetti, useToast,
 } from '../../ui/index.js';
 import { CreateLeagueSheet } from './CreateLeagueSheet.jsx';
-import { MIN_MEMBERS_TO_START, cityIn, levelLabel, statusOf } from './leagueUtils.js';
+import { MIN_MEMBERS_TO_START, cityIn, isHallisarja, levelLabel, statusOf } from './leagueUtils.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -56,7 +56,9 @@ export function LeaguesScreen() {
       try {
         await api.leagues.join(league.id);
         confetti({ ...at, count: 70 });
-        toast(`Olet mukana: ${league.seasonLabel}! 🎾`);
+        toast(isHallisarja(league) && league.status === 'active'
+          ? `Olet mukana: ${league.seasonLabel}! Pääset lohkoon seuraavalla kierroksella. 🎾`
+          : `Olet mukana: ${league.seasonLabel}! 🎾`);
         setData((list) => (list || []).map((l) => (l.id === league.id ? { ...l, iAmMember: true, memberCount: l.memberCount + 1 } : l)));
       } catch (err) {
         toast(err);
@@ -66,10 +68,12 @@ export function LeaguesScreen() {
     }, 'Liity liigaan');
   };
 
-  const onCreated = (id) => {
+  const onCreated = (id, format) => {
     setCreateOpen(false);
     confetti();
-    toast('Liiga luotu! Jaa linkki, niin saat pelaajat mukaan.', { icon: 'trophy' });
+    toast(format === 'hallisarja'
+      ? 'Hallisarja luotu! Olet sen ylläpitäjä — jaa linkki pelaajille.'
+      : 'Liiga luotu! Jaa linkki, niin saat pelaajat mukaan.', { icon: 'trophy' });
     navigate(`/pelaa/liiga/${id}`);
   };
 
@@ -176,15 +180,20 @@ function HowItWorks() {
 }
 
 function LeagueCard({ league, index, joining, onJoin }) {
+  const hall = isHallisarja(league);
   const st = statusOf(league.status);
   const groups = Math.max(1, Math.ceil(league.memberCount / (league.groupSize || 6)));
-  const missing = Math.max(0, MIN_MEMBERS_TO_START - league.memberCount);
+  const missing = hall ? 0 : Math.max(0, MIN_MEMBERS_TO_START - league.memberCount);
+  const canJoin = league.status === 'signup' || (hall && league.status === 'active');
   const open = () => navigate(`/pelaa/liiga/${league.id}`);
   return (
     <article className={cx('leagues-card', league.iAmMember && 'is-member', `is-${league.status}`)} style={{ '--i': index }}>
       <button type="button" className="leagues-card-main" onClick={open} aria-label={`Avaa liiga ${league.seasonLabel}`}>
         <div className="leagues-card-top">
-          <Chip tone={st.tone} size="sm" icon={st.icon} dot={st.dot}>{st.label}</Chip>
+          <span className="leagues-card-chips">
+            <Chip tone={st.tone} size="sm" icon={st.icon} dot={st.dot}>{hall && league.status === 'active' ? `Kierros ${league.currentRound}` : st.label}</Chip>
+            {hall && <Chip tone="outline" size="sm" icon="grid">Hallisarja</Chip>}
+          </span>
           <Icon name="chevron-right" size={18} className="leagues-card-chevron" />
         </div>
         <h3 className="leagues-card-title">{league.seasonLabel}</h3>
@@ -192,7 +201,12 @@ function LeagueCard({ league, index, joining, onJoin }) {
           <span><Icon name="target" size={15} />{levelLabel(league.skillLevel)}</span>
           <span><Icon name="pin" size={15} />{league.city}</span>
         </div>
-        {league.status === 'signup' ? (
+        {league.status === 'signup' && hall ? (
+          <div className="leagues-card-facts">
+            <span><Icon name="users" size={15} /><span className="t-num">{league.memberCount}</span> ilmoittautunut</span>
+            <span><Icon name="clock" size={15} />{league.matchFormat === 'timed' ? 'Tunnin aikapeli' : 'Erät'}</span>
+          </div>
+        ) : league.status === 'signup' ? (
           <div className="leagues-card-progress">
             <div className="leagues-card-progress-row">
               <span className="leagues-card-count"><Icon name="users" size={15} /><span className="t-num">{league.memberCount}</span> ilmoittautunut</span>
@@ -212,8 +226,8 @@ function LeagueCard({ league, index, joining, onJoin }) {
       <div className="leagues-card-foot">
         {league.iAmMember ? (
           <Chip tone="success" icon="check-circle" className="leagues-card-in pop">Olet mukana</Chip>
-        ) : league.status === 'signup' ? (
-          <Button variant="lime" size="sm" icon="plus" loading={joining} onClick={(e) => onJoin(league, e)}>Liity</Button>
+        ) : canJoin ? (
+          <Button variant="lime" size="sm" icon="plus" loading={joining} onClick={(e) => onJoin(league, e)}>{hall ? 'Ilmoittaudu' : 'Liity'}</Button>
         ) : (
           <span className="leagues-card-closed">{league.status === 'active' ? 'Ilmoittautuminen päättynyt' : 'Kausi on päättynyt'}</span>
         )}
