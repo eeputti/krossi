@@ -252,6 +252,7 @@ function Nav() {
         <a href="#top" className="nav-logo"><Wordmark size={21} /></a>
         <nav className="nav-links">
           <a href="#ominaisuudet">Ominaisuudet</a>
+          <a href="#hinta">Hinta</a>
           <a href="/demo">Demo</a>
           <a href="#halleille">Halleille</a>
           <a href="https://koutsi.krossi.app">Valmentajille</a>
