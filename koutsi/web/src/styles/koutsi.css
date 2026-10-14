@@ -38,8 +38,25 @@
   display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: var(--r-pill);
   background: var(--lime); color: #101A08; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
 }
-.k-renewed { display: grid; gap: 10px; justify-items: start; }
-.k-renewed-icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--lime-100); color: var(--green-800); }
+/* "Hieman uutisia" note: a dark band runs to the sheet's top edge, so the phone grabber and the
+   floating close lie on top of it instead of above it. */
+.k-renewed-sheet { overflow: hidden; }
+.k-renewed-sheet .sheet-grab-zone { position: absolute; inset: 0 0 auto; z-index: 1; }
+.k-renewed-sheet .sheet-grabber { background: rgba(255, 255, 255, 0.3); }
+.k-renewed-sheet .sheet-close-floating { top: 26px; right: 18px; background: rgba(255, 255, 255, 0.12); color: #fff; }
+.k-renewed-sheet .sheet-close-floating:hover { background: rgba(255, 255, 255, 0.2); }
+.k-renewed-band {
+  display: flex; align-items: center; gap: 12px; margin: -10px -20px 0; padding: 24px 64px 16px 20px;
+  background: var(--green-900);
+}
+.k-renewed-icon { width: 36px; height: 36px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center; background: var(--lime); color: var(--green-900); }
+.k-renewed-tag { color: var(--lime); font-size: 13px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.k-renewed { display: grid; gap: 10px; padding-top: 20px; }
+.k-renewed-note { font-size: 14px; line-height: 1.55; color: var(--muted); }
+@media (min-width: 900px) {
+  .k-renewed-band { padding-top: 16px; }
+  .k-renewed-sheet .sheet-close-floating { top: 18px; }
+}
 /* A sliding page (route-enter starts 18px to the right) must not widen a phone's layout
    viewport. clip, unlike hidden, keeps the sticky top bar working. */
 @supports (overflow: clip) { .shell { overflow-x: clip; } }

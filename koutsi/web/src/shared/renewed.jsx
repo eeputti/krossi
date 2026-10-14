@@ -35,17 +35,24 @@ function markSeen() {
 export function RenewedIntro({ role, eligible }) {
   const [open, setOpen] = useState(() => eligible && (!isDemo || previewRenewed) && (previewRenewed || !seen()));
   const close = () => { markSeen(); setOpen(false); };
+  // Header-less sheet: the dark "Hieman uutisia" band is the header, the floating close sits on it.
   return (
-    <Sheet open={open} onClose={close} size="sm" title="Krossi Koutsin ilme on uudistunut"
+    <Sheet open={open} onClose={close} size="sm" className="k-renewed-sheet" labelledBy="k-renewed-title"
       footer={<Button variant="dark" size="lg" block onClick={close}>Selvä</Button>}>
+      <div className="k-renewed-band">
+        <span className="k-renewed-icon" aria-hidden="true"><Icon name="sparkles" size={20} /></span>
+        <span className="k-renewed-tag">Hieman uutisia</span>
+      </div>
       <div className="k-renewed">
-        <span className="k-renewed-icon" aria-hidden="true"><Icon name="sparkles" size={22} /></span>
+        <h2 id="k-renewed-title" className="sheet-title">Krossi Koutsin ilme on uudistunut</h2>
         <p className="k-body-text">
           {role === 'coach'
-            ? 'Viikko-näkymä kokoaa nyt viikon teemat, treenit ja pelaajien kuulumiset yhteen paikkaan.'
-            : 'Etusivulta näet nyt viikon teeman, seuraavan treenin ja oman kehityksesi.'}
+            ? <>Uutena esimerkiksi <b>Viikko</b>-näkymä, joka kokoaa kaiken yhteen: teemat, treenit ja pelaajien kuulumiset.</>
+            : <>Uutena esimerkiksi <b>Koti</b>-näkymä, joka kokoaa kaiken yhteen: viikon teeman, seuraavan treenin ja oman kehityksesi.</>}
         </p>
-        <p className="k-faint">Kaikki tietosi ovat tallessa. Vanhaan ulkoasuun pääset yläreunan Palaa vanhaan -napista.</p>
+        <p className="k-renewed-note">
+          Tietosi ovat tallessa. Voit kuitenkin vielä vaihtaa vanhaan ulkoasuun yläreunan napista!
+        </p>
       </div>
     </Sheet>
   );
