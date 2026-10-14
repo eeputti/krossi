@@ -1,10 +1,11 @@
 // merkitse.jsx — the coach's "Merkitse": the big middle button of the phone tab bar (the side
 // nav's button on a desktop) and everything it opens. The menu leads with today: every session
 // side by side with where it stands (over, on now, to come), the one on now or just over — or
-// the next — already picked, so the tiles below are for its players: a note, homework or a video
-// for the ones who were there, its attendance. Tapping another session picks it instead (again
-// unpicks it: then the tiles are for anyone). The day's summary shows once the last session is
-// over, the week's on Sundays; the week's themes and the week diary are tiles too.
+// the next — already picked, so the four tiles below say and do it for its group: "Huomio
+// ryhmälle", "Kotiläksy ryhmälle", "Video ryhmälle" (the players who were there) and its
+// Läsnäolo, with "Avaa koko ryhmä" under them. Tapping another session picks it instead (again
+// unpicks it: then the tiles are for anyone the coach chooses). The rarer things sit below as
+// small "Muut" rows: the day's or week's summary when it is due, the week's themes, the diary.
 //
 // RecordProvider also lets any page open the note/homework/video sheets with players picked
 // (a session's players, a group's members, one player): useRecord().open('note', { ids }), and
@@ -76,40 +77,29 @@ function SessionStrip({ items, pickedId, onPick }) {
   );
 }
 
-function SummaryCard({ eyebrow, title, sub, onOpen }) {
-  return (
-    <button type="button" className="k-ctx is-soft" onClick={onOpen}>
-      <span className="k-ctx-main">
-        <span className="k-ctx-eyebrow">{eyebrow}</span>
-        <span className="k-ctx-title truncate">{title}</span>
-        <span className="k-ctx-sub truncate">{sub}</span>
-      </span>
-      <Icon name="chevron-right" size={20} />
-    </button>
-  );
-}
+// The tiles' names say who a record is for: the picked session's group (or its one player),
+// or — nothing picked — anyone the coach chooses next.
+const TITLES = {
+  group: { huomio: 'Huomio ryhmälle', laksy: 'Kotiläksy ryhmälle', video: 'Video ryhmälle' },
+  player: { huomio: 'Huomio pelaajalle', laksy: 'Kotiläksy pelaajalle', video: 'Video pelaajalle' },
+  any: { huomio: 'Huomio', laksy: 'Kotiläksy', video: 'Video' },
+};
 
-/** Once the day (or, on a Sunday, the week) is over: its summary. */
-function SummaryCards({ state, ctx, now, onPick }) {
+/** Once the day (or, on a Sunday, the week) is over: its summary, as one of the "Muut" rows. */
+function summaryRow(state, ctx, now, onPick) {
   if (!ctx || (ctx.kind !== 'day' && ctx.kind !== 'week')) return null;
   if (ctx.kind === 'day') {
     const today = koutsiTodayStr();
     const recap = dayRecap(state, today, now);
     const parts = [recap.expected ? `Läsnä ${recap.present}/${recap.expected}` : '', recap.moodAverage != null ? `fiilis ${average(recap.moodAverage)} (${recap.moodCount})` : 'ei fiiliksiä vielä'].filter(Boolean);
-    return (
-      <SummaryCard eyebrow="Päivän yhteenveto" title={`Tänään ${recap.sessions === 1 ? '1 treeni' : `${recap.sessions} treeniä`}`} sub={parts.join(' · ')}
-        onOpen={() => { track('merkitse.paiva'); onPick({ kind: 'day', date: today }); }} />
-    );
+    return { id: 'paiva', icon: 'check-circle', title: 'Päivän yhteenveto', sub: parts.join(' · '), run: () => onPick({ kind: 'day', date: today }) };
   }
   const week = koutsiCurrentIsoWeek();
   const recap = weekRecap(state, week, now);
   const sub = recap.sessions
     ? [`${recap.held}/${recap.sessions} treeniä`, recap.attendance != null ? `läsnä ${percent(recap.attendance)}` : '', recap.moodAverage != null ? `fiilis ${average(recap.moodAverage)}` : ''].filter(Boolean).join(' · ')
-    : 'Ei treenejä tällä viikolla · kirjaa viikkopäiväkirja';
-  return (
-    <SummaryCard eyebrow="Viikon yhteenveto" title={`Viikko ${week.week} paketissa`} sub={sub}
-      onOpen={() => { track('merkitse.viikko'); onPick({ kind: 'week', week }); }} />
-  );
+    : 'Ei treenejä tällä viikolla';
+  return { id: 'viikko', icon: 'trophy', title: `Viikko ${week.week} paketissa`, sub, run: () => onPick({ kind: 'week', week }) };
 }
 
 function MerkitseSheet({ open, onClose, onPick, pickedId, onPickSession }) {
@@ -119,26 +109,33 @@ function MerkitseSheet({ open, onClose, onPick, pickedId, onPickSession }) {
   const ctx = merkitseContext(state, now);
   const today = todayTimeline(state, now);
   const picked = today.find((it) => it.training.id === pickedId) || null;
-  // Default "Läsnäolo" (nothing picked): the session on now or just over, else today's latest held one.
+  // Läsnäolo with nothing picked: the session on now or just over, else today's latest held one.
   const attend = picked || attendanceSession(state, now);
   const themeWeek = plannerDefaultWeek(now);
   const themes = koutsiWeekThemeStatus(state.groups, state.trainings, themeWeek);
-  // A note for a session is most likely for the players who were there (or are coming).
+  // A record for a session is most likely for the players who were there (or are coming).
   const preset = picked ? presentPlayerIds(state, picked.training) : [];
-  const recordSub = picked ? forPlayers(preset.length) : 'Yhdelle tai koko ryhmälle';
+  const titles = TITLES[!picked ? 'any' : picked.group ? 'group' : 'player'];
+  const recordSub = !picked ? 'Yhdelle pelaajalle tai ryhmälle'
+    : picked.group ? (preset.length === 1 ? '1 pelaaja' : `${preset.length} pelaajaa`) : sessionName(picked);
+  const attendNow = attend && sessionStatus(attend.training, attend.group, now) === 'now';
   const attendSub = !attend ? 'Ei treeniä tänään'
-    : `${sessionStatus(attend.training, attend.group, now) === 'now' ? 'Nyt' : `klo ${attend.training.time}`} · ${sessionName(attend)}`;
+    : picked ? (attendNow ? 'Nyt käynnissä' : `klo ${attend.training.time}`)
+      : `${attendNow ? 'Nyt' : `klo ${attend.training.time}`} · ${sessionName(attend)}`;
   const tiles = [
-    { id: 'teemat', icon: 'sparkles', tone: 'lime', title: 'Viikon teemat',
-      sub: themes.pool.length ? `${themes.covered}/${themes.pool.length} ryhmällä · vko ${themeWeek.week}` : 'Usealle ryhmälle kerralla',
-      run: () => { onClose(); openPlanner({ week: themeWeek }); } },
-    { id: 'huomio', icon: 'chat', tone: 'blue', title: 'Huomio', sub: recordSub, run: () => onPick({ kind: 'note', ids: preset }) },
-    { id: 'laksy', icon: 'check-circle', tone: 'green', title: 'Kotiläksy', sub: recordSub, run: () => onPick({ kind: 'homework', ids: preset }) },
-    { id: 'video', icon: 'play', tone: 'clay', title: 'Video', sub: recordSub, run: () => onPick({ kind: 'video', ids: preset }) },
+    { id: 'huomio', icon: 'chat', tone: 'blue', title: titles.huomio, sub: recordSub, run: () => onPick({ kind: 'note', ids: preset }) },
+    { id: 'laksy', icon: 'check-circle', tone: 'green', title: titles.laksy, sub: recordSub, run: () => onPick({ kind: 'homework', ids: preset }) },
+    { id: 'video', icon: 'play', tone: 'clay', title: titles.video, sub: recordSub, run: () => onPick({ kind: 'video', ids: preset }) },
     { id: 'lasnaolo', icon: 'user-check', tone: 'sand', title: 'Läsnäolo', sub: attendSub,
       run: () => { onClose(); navigate(attend ? sessionPath(attend.training.id) : '/valmentaja/kalenteri'); } },
-    { id: 'paivakirja', icon: 'book', tone: 'ink', title: 'Viikkopäiväkirja', sub: 'Vain sinulle', run: () => onPick({ kind: 'week', week: koutsiCurrentIsoWeek() }) },
   ];
+  const others = [
+    summaryRow(state, ctx, now, onPick),
+    { id: 'teemat', icon: 'sparkles', title: 'Viikon teemat',
+      sub: themes.pool.length ? `${themes.covered}/${themes.pool.length} ryhmällä · vko ${themeWeek.week}` : 'Usealle ryhmälle kerralla',
+      run: () => { onClose(); openPlanner({ week: themeWeek }); } },
+    { id: 'paivakirja', icon: 'book', title: 'Viikkopäiväkirja', sub: 'Vain sinulle', run: () => onPick({ kind: 'week', week: koutsiCurrentIsoWeek() }) },
+  ].filter(Boolean);
   const openGroup = () => { track('merkitse.ryhma'); onClose(); navigate(groupPath(picked.group.id), { state: { tab: 'ryhmat' } }); };
   return (
     <Sheet open={open} onClose={onClose} title="Mitä kirjataan?" size="md">
@@ -150,26 +147,43 @@ function MerkitseSheet({ open, onClose, onPick, pickedId, onPickSession }) {
               <span className="ms-today-count">{today.length === 1 ? '1 treeni' : `${today.length} treeniä`}</span>
             </div>
             <SessionStrip items={today} pickedId={pickedId} onPick={(id) => { track('merkitse.valitse'); onPickSession(id); }} />
-            <p className="ms-picked">
-              {picked ? (
-                <>
-                  <span className="grow">Kirjaat treeniin <strong>{sessionName(picked)}</strong> · {preset.length === 1 ? '1 pelaaja' : `${preset.length} pelaajaa`}</span>
-                  {picked.group && <button type="button" className="k-textlink" onClick={openGroup}>Avaa ryhmä</button>}
-                </>
-              ) : <span className="grow">Valitse treeni, niin kirjaus menee sen pelaajille.</span>}
-            </p>
+            {!picked && <p className="ms-hint">Valitse treeni, niin kirjaus menee suoraan sen ryhmälle.</p>}
           </div>
         )}
-        <SummaryCards state={state} ctx={ctx} now={now} onPick={onPick} />
-        <div className="k-merkitse-grid">
+        <div className="ms-grid">
           {tiles.map((t) => (
-            <button key={t.id} type="button" className="k-merkitse-tile" onClick={() => { track(`merkitse.${t.id}`); t.run(); }}>
+            <button key={t.id} type="button" className="k-merkitse-tile ms-tile" onClick={() => { track(`merkitse.${t.id}`); t.run(); }}>
               <span className={cx('k-merkitse-icon', `is-${t.tone}`)}><Icon name={t.icon} size={22} /></span>
               <span className="k-merkitse-title">{t.title}</span>
               <span className="k-merkitse-sub">{t.sub}</span>
             </button>
           ))}
         </div>
+        {picked?.group && (
+          <button type="button" className="ms-open-group" onClick={openGroup}>
+            <span className="ms-open-group-icon"><Icon name="users" size={18} /></span>
+            <span className="ms-row-main">
+              <span className="ms-row-title">Avaa koko ryhmä</span>
+              <span className="ms-row-sub">{picked.group.name}</span>
+            </span>
+            <Icon name="chevron-right" size={18} className="k-chevron" />
+          </button>
+        )}
+        <section className="ms-others" aria-label="Muut">
+          <div className="eyebrow">Muut</div>
+          <div className="ms-others-list">
+            {others.map((o) => (
+              <button key={o.id} type="button" className="ms-row" onClick={() => { track(`merkitse.${o.id}`); o.run(); }}>
+                <span className="ms-row-icon"><Icon name={o.icon} size={16} /></span>
+                <span className="ms-row-main">
+                  <span className="ms-row-title">{o.title}</span>
+                  <span className="ms-row-sub">{o.sub}</span>
+                </span>
+                <Icon name="chevron-right" size={16} className="k-chevron" />
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
     </Sheet>
   );

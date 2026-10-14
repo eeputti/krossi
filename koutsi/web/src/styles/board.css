@@ -208,8 +208,28 @@
 .ms-chip.is-picked .ms-chip-time { color: var(--lime); }
 .ms-chip.is-picked .ms-chip-name { color: #fff; }
 .ms-chip.is-picked .ms-chip-state { color: var(--on-dark-muted); }
-.ms-picked { display: flex; align-items: baseline; gap: 10px; font-size: 13px; line-height: 1.45; color: var(--ink-2); }
-.ms-picked .k-textlink { flex-shrink: 0; }
+.ms-hint { font-size: 13px; line-height: 1.45; color: var(--muted); }
+/* the four things to record, always two by two */
+.ms-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ms-tile { min-height: 104px; }
+.ms-open-group, .ms-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2), background-color var(--dur-2);
+}
+.ms-open-group { padding: 12px 14px; border-radius: var(--r-lg); background: var(--green-100); border: 1px solid rgba(21, 84, 64, 0.25); }
+.ms-open-group:hover { border-color: var(--green-700); }
+.ms-open-group:active, .ms-row:active { transform: scale(0.99); }
+.ms-open-group-icon { width: 36px; height: 36px; flex-shrink: 0; border-radius: 11px; display: grid; place-items: center; background: var(--green-800); color: var(--lime); }
+.ms-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ms-row-title { font-size: 14.5px; font-weight: 750; color: var(--ink); }
+.ms-row-sub { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the rarer things: small rows under "Muut" */
+.ms-others { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.ms-others-list { display: grid; grid-template-columns: minmax(0, 1fr); border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.ms-row { padding: 10px 12px; }
+.ms-row + .ms-row { border-top: 1px solid var(--line); }
+.ms-row:hover { background: var(--surface-2); }
+.ms-row-icon { width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px; display: grid; place-items: center; background: var(--sand); color: var(--green-800); }
 /* with a mouse there is no swipe: on a desktop the sessions share the row (and wrap) */
 @media (min-width: 900px) {
   .ms-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); overflow: visible; margin: 0; padding: 0; }
