@@ -19,6 +19,8 @@ import { LeaguesScreen } from '../screens/leagues/LeaguesScreen.jsx';
 import { LeagueScreen } from '../screens/leagues/LeagueScreen.jsx';
 import { InviteScreen } from '../screens/auth/InviteScreen.jsx';
 import { AdminScreen } from '../screens/admin/AdminScreen.jsx';
+import { BookingScreen } from '../screens/booking/BookingScreen.jsx';
+import { HallScreen } from '../screens/booking/HallScreen.jsx';
 import { EmptyState, Button, Page } from '../ui/index.js';
 import { navigate } from './router.js';
 
@@ -43,6 +45,9 @@ export const SCREENS = {
   league: LeagueScreen,
   invite: InviteScreen,
   admin: AdminScreen,
+  booking: BookingScreen,
+  bookingVenue: BookingScreen,
+  hall: HallScreen,
 };
 
 export function NotFoundScreen() {

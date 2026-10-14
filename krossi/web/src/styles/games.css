@@ -320,6 +320,7 @@
   display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding: 10px 12px;
   border-radius: var(--r-lg); background: var(--lime-100); font-size: 14px; color: var(--ink-2);
 }
+.games-create-booked { flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--green-800); color: var(--lime); }
 .games-create-invitee strong { color: var(--ink); }
 .games-q + .games-q { margin-top: 24px; }
 .games-q-title { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 16.5px; font-weight: 800; letter-spacing: -0.015em; }

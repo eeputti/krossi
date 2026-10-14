@@ -1,0 +1,137 @@
+/* booking-map.css — VenueMap (screens/booking/VenueMap.jsx): plain floor maps of the booking
+   locations. A light ground with a thin border, hall outlines as thin lines, and courts
+   coloured by state only: free green, selected lime, my booking dark green with a lime edge,
+   busy solid grey, closed faint; courts of other sports / outside this view are just drawn in
+   outline, so a solid grey court always means taken. Labels sit inside the courts.
+   VenueMap sets the label sizes for the current width as --bmap-fs-* vars. */
+
+.bmap { width: 100%; margin: 0; }
+
+/* Capped so a portrait map (Kisapuisto) never gets taller than --bmap-max-h. */
+.bmap-canvas,
+.bmap-legend { max-width: min(720px, calc(var(--bmap-max-h, 640px) * var(--bmap-ratio, 1))); margin-inline: auto; }
+.bmap--compact { --bmap-max-h: 340px; }
+
+.bmap-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--bmap-ar);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  overflow: hidden;
+  isolation: isolate;
+}
+.bmap-canvas::after {
+  content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  border: 1px solid var(--line); border-radius: inherit;
+}
+.bmap-svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+
+/* ── The plan (inside .bmap-svg) ────────────────────────────── */
+.bmap-road { fill: var(--sand-2); }
+.bmap-path { fill: none; stroke: var(--sand); stroke-linecap: round; stroke-linejoin: round; }
+.bmap-trees { fill: var(--green-100); }
+/* Every building rect is stroked twice as thick as a wall, then covered by its floor, so
+   buildings that touch end up with one shared outline. */
+.bmap-walls { fill: var(--faint); stroke: var(--faint); stroke-width: 3px; stroke-linejoin: round; }
+.bmap-walls rect { vector-effect: non-scaling-stroke; }
+.bmap-floor { fill: var(--surface); }
+.bmap-room { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.bmap-door { fill: none; stroke: var(--surface-2); stroke-width: 4px; vector-effect: non-scaling-stroke; }
+.bmap-arrow {
+  fill: none; stroke: var(--ink-2); stroke-width: 1.5px; stroke-linecap: round; stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ── Text on the plan ───────────────────────────────────────── */
+.bmap-label,
+.bmap-place {
+  position: absolute; left: var(--l); top: var(--t); width: var(--w); height: var(--h); pointer-events: none;
+}
+.bmap-label { display: flex; align-items: center; justify-content: center; text-align: center; }
+.bmap-label.is-start { justify-content: flex-start; text-align: left; }
+.bmap-label.is-end { justify-content: flex-end; text-align: right; }
+.bmap-label-text {
+  font-size: var(--bmap-fs-small, 11px); font-weight: 600; line-height: 1.15; color: var(--muted); white-space: pre;
+}
+.bmap-label.is-vertical .bmap-label-text { writing-mode: vertical-rl; transform: rotate(180deg); }
+.bmap-label--building .bmap-label-text,
+.bmap-label--entrance .bmap-label-text { font-weight: 700; color: var(--ink-2); }
+
+.bmap-place { display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start; gap: 3px 8px; }
+.bmap-place-name {
+  font-size: var(--bmap-fs-place, 13px); font-weight: 750; line-height: 1.2; letter-spacing: -0.01em; color: var(--ink);
+  white-space: nowrap;
+}
+.bmap-place-tag {
+  padding: 1px 6px; border-radius: 4px; background: var(--green-100); color: var(--green-800);
+  font-size: var(--bmap-fs-small, 11px); font-weight: 700; line-height: 1.25; white-space: nowrap;
+}
+
+/* ── Courts ─────────────────────────────────────────────────── */
+.bmap-court {
+  --bmap-fill: var(--surface);
+  --bmap-lines: var(--line-strong);
+  --bmap-lines-o: 0.8;
+  --bmap-text: var(--muted);
+  position: absolute; left: var(--l); top: var(--t); width: var(--w); height: var(--h);
+  display: block; margin: 0; padding: 0; border: 0; border-radius: 2px;
+  background: var(--bmap-fill);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  color: var(--bmap-text);
+  text-align: center;
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+.bmap-court-lines { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.bmap-court-lines path {
+  fill: none; stroke: var(--bmap-lines); stroke-width: 1px; opacity: var(--bmap-lines-o);
+  stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
+}
+.bmap-court-lines .bmap-court-net { stroke-width: 1.75px; }
+
+.bmap-court.is-free { --bmap-fill: var(--green-700); --bmap-lines: var(--on-dark); --bmap-lines-o: 0.5; --bmap-text: var(--on-dark); box-shadow: none; }
+.bmap-court.is-selected { --bmap-fill: var(--lime); --bmap-lines: var(--ink); --bmap-lines-o: 0.4; --bmap-text: var(--ink); box-shadow: none; }
+.bmap-court.is-mine {
+  --bmap-fill: var(--green-800); --bmap-lines: var(--on-dark); --bmap-lines-o: 0.45; --bmap-text: var(--on-dark);
+  z-index: 1; box-shadow: 0 0 0 2px var(--lime);
+}
+.bmap-court.is-busy,
+.bmap-court.is-closed { --bmap-fill: var(--line); --bmap-lines: var(--surface); --bmap-lines-o: 1; --bmap-text: var(--ink-2); box-shadow: none; }
+.bmap-court.is-closed { opacity: 0.4; }
+
+.bmap-court.is-interactive { cursor: pointer; }
+.bmap-court.is-free.is-interactive:hover { --bmap-fill: var(--green-600); }
+.bmap-court:focus-visible { z-index: 3; outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 2px; }
+
+/* The label sits on a plate of the court's own colour, which hides the lines behind it. */
+.bmap-court-label {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 1px 1.5px; background: var(--bmap-fill);
+  line-height: 1.15; white-space: nowrap; pointer-events: none;
+  transition: background-color var(--dur-1) var(--ease-out);
+}
+.bmap-court-label.is-tight { padding-top: 0; padding-bottom: 0; }
+.bmap-court-name { font-size: var(--bmap-fs-name, 11.5px); font-weight: 700; }
+.bmap-court-sub { font-size: var(--bmap-fs-sub, 11px); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bmap-court.is-busy .bmap-court-sub,
+.bmap-court.is-closed .bmap-court-sub { color: var(--muted); }
+.bmap-court-sub.is-mine { color: var(--lime); font-weight: 750; }
+.bmap-court.is-other .bmap-court-name { font-size: var(--bmap-fs-small, 11px); font-weight: 600; }
+
+/* ── Legend ─────────────────────────────────────────────────── */
+.bmap-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  margin-top: 8px; padding: 0 2px; list-style: none;
+  font-size: var(--fs-small); font-weight: 600; color: var(--muted);
+}
+.bmap-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.bmap-swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; background: var(--sand); }
+.bmap-swatch.is-free { background: var(--green-700); }
+.bmap-swatch.is-busy { background: var(--line); }
+.bmap-swatch.is-selected { background: var(--lime); }
+.bmap-swatch.is-mine { background: var(--green-800); box-shadow: 0 0 0 2px var(--lime); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bmap-court, .bmap-court-label { transition: none; }
+}

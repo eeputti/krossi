@@ -1,0 +1,243 @@
+/* booking.css — court booking for players (/pelaa/varaa): hero, my bookings, day strip,
+   start-time tiles, map picker and the booking sheets. Floor maps: booking-map.css;
+   the hall's staff view: booking-hall.css. */
+
+.bk-page { padding-top: var(--s3); padding-bottom: var(--s7); }
+.bk-page > * + * { margin-top: var(--s5); }
+
+/* ── Hero ── */
+.bk-hero {
+  background: var(--green-800); color: var(--on-dark); border-radius: var(--r-xl);
+  padding: 22px 20px 18px; box-shadow: var(--shadow-2);
+}
+.bk-hero-eyebrow { color: var(--lime); }
+.bk-hero-title { margin: 6px 0 4px; font-size: 26px; line-height: 1.12; font-weight: 800; letter-spacing: -0.02em; }
+.bk-hero-sub { margin: 0; color: var(--on-dark-muted); font-size: var(--fs-small); }
+.bk-hero-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px; font-size: 12.5px; font-weight: 700; color: var(--on-dark-muted); }
+.bk-hero-facts span { display: inline-flex; align-items: center; gap: 6px; }
+.bk-hero-facts svg { color: var(--lime); }
+
+/* ── Sections ── */
+.bk-h { margin: 0 0 var(--s3); font-size: var(--fs-h3); font-weight: 800; color: var(--ink); }
+.bk-section { margin-top: var(--s5); }
+
+/* ── My bookings strip ── */
+.bk-mine-strip { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.bk-mine-strip::-webkit-scrollbar { display: none; }
+.bk-mine {
+  flex: 0 0 auto; min-width: 168px; max-width: 210px; scroll-snap-align: start;
+  display: grid; gap: 2px; text-align: left; padding: 12px 14px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+}
+.bk-mine:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.bk-mine:active { transform: scale(0.97); }
+.bk-mine.is-held { border-color: var(--warn); }
+.bk-mine-day { font-size: var(--fs-micro); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--green-700); }
+.bk-mine-clock { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+.bk-mine-court { font-size: 14px; font-weight: 750; color: var(--ink-2); }
+.bk-mine-place { font-size: 12.5px; color: var(--muted); }
+.bk-mine-state { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 12px; font-weight: 800; }
+.bk-mine-state.is-ok { color: var(--success); }
+.bk-mine-state.is-held { color: var(--warn); }
+
+/* ── Controls ── */
+.bk-controls { display: grid; gap: 12px; }
+.bk-controls .segmented { width: 100%; }
+.bk-filters { display: grid; gap: 8px; }
+
+/* Kesto: [−] 1 h [+] */
+.bk-length-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bk-length-label { font-size: var(--fs-micro); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.bk-stepper {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px;
+  border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--line);
+}
+.bk-stepper-btn {
+  width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center;
+  background: var(--green-800); color: var(--on-dark); font-size: 22px; font-weight: 700; line-height: 1;
+  transition: transform var(--dur-1) var(--ease-out), opacity var(--dur-1);
+}
+.bk-stepper-btn:active:not(:disabled) { transform: scale(0.92); }
+.bk-stepper-btn:disabled { background: var(--sand); color: var(--faint); }
+.bk-stepper-value { min-width: 76px; display: grid; justify-items: center; text-align: center; gap: 1px; }
+.bk-stepper-value b { font-size: 18px; font-weight: 800; color: var(--ink); }
+.bk-stepper-value small { font-size: 12px; font-weight: 650; color: var(--muted); }
+.bk-stepper-wide { display: flex; width: 100%; justify-content: space-between; border-radius: var(--r-lg); padding: 6px; }
+.bk-stepper-wide .bk-stepper-btn { width: 48px; height: 48px; font-size: 26px; }
+.bk-stepper-wide .bk-stepper-value b { font-size: 22px; }
+.bk-stepper-wide .bk-stepper-value small { font-size: 13px; color: var(--green-700); font-weight: 750; }
+
+.bk-days { display: flex; gap: 8px; overflow-x: auto; padding: 2px; margin: 0 -2px; scrollbar-width: none; }
+.bk-days::-webkit-scrollbar { display: none; }
+.bk-day {
+  flex: 0 0 58px; height: 70px; display: grid; place-items: center; align-content: center; gap: 1px;
+  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+  transition: background var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.bk-day:hover { border-color: var(--line-strong); }
+.bk-day:active { transform: scale(0.96); }
+.bk-day-top { font-size: 11px; font-weight: 800; text-transform: capitalize; color: var(--muted); }
+.bk-day-num { font-size: 21px; font-weight: 800; line-height: 1.05; }
+.bk-day-month { font-size: 10.5px; font-weight: 700; color: var(--faint); }
+.bk-day.is-weekend .bk-day-top { color: var(--clay); }
+.bk-day.is-on { background: var(--green-800); border-color: var(--green-800); color: var(--on-dark); box-shadow: var(--shadow-2); }
+.bk-day.is-on .bk-day-top, .bk-day.is-on .bk-day-month { color: var(--lime); }
+
+/* ── Start-time tiles ── */
+.bk-times-wrap { display: grid; gap: var(--s4); }
+.bk-times-label { margin: 0 0 8px; color: var(--muted); }
+.bk-times { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 560px) { .bk-times { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .bk-times { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.bk-time {
+  display: grid; gap: 1px; justify-items: start; text-align: left; padding: 10px 12px 9px;
+  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-1);
+}
+.bk-time:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); border-color: var(--green-600); }
+.bk-time:active { transform: scale(0.96); }
+.bk-time-clock { font-size: 19px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+.bk-time-price { font-size: 13.5px; font-weight: 750; color: var(--green-700); }
+.bk-time-price small { font-size: 11px; font-weight: 700; color: var(--muted); }
+.bk-time-free { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.bk-time.is-last .bk-time-free { color: var(--clay); font-weight: 750; }
+
+/* ── Booking sheet ── */
+.bk-field { display: grid; gap: 8px; }
+.bk-field > .eyebrow { color: var(--muted); }
+.bk-sheet-map { margin: 2px 0 4px; }
+.bk-courts { display: grid; gap: 6px; }
+.bk-courts-place { font-size: 12px; font-weight: 800; color: var(--muted); }
+.bk-courts-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.bk-court {
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 8px 12px; border-radius: var(--r-pill);
+  background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); font-weight: 800; font-size: 14px;
+}
+.bk-court-price { font-size: 12px; font-weight: 700; color: var(--muted); }
+.bk-court.is-on { background: var(--lime); border-color: var(--lime); box-shadow: var(--shadow-lime); }
+.bk-court.is-on .bk-court-price { color: var(--ink-2); }
+
+.bk-facts { margin: 0; display: grid; gap: 0; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.bk-facts > div { display: grid; grid-template-columns: 92px 1fr; gap: 10px; padding: 10px 14px; }
+.bk-facts > div + div { border-top: 1px solid var(--line); }
+.bk-facts dt { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.bk-facts dd { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink); display: grid; }
+.bk-facts dd small { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+.bk-note { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 12px 14px; border-radius: var(--r-md); background: var(--warn-bg); color: var(--warn); font-size: 13.5px; font-weight: 650; }
+.bk-note svg { flex-shrink: 0; margin-top: 1px; }
+.bk-fine { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.bk-fine-center { text-align: center; }
+.bk-page-foot { padding: 0 var(--s4); }
+
+/* pay step */
+.bk-paybar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bk-paybar-price { font-size: 22px; font-weight: 800; color: var(--ink); }
+.bk-hold {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: var(--r-pill);
+  background: var(--lime-100); color: var(--green-800); font-size: 13px; font-weight: 700;
+}
+.bk-hold b { font-weight: 800; }
+.bk-hold.is-low { background: var(--warn-bg); color: var(--warn); }
+.bk-paybox { background: var(--green-800); color: var(--on-dark); border-radius: var(--r-lg); padding: 16px; display: grid; gap: 12px; }
+.bk-paybox-title { color: var(--lime); }
+.bk-paybox-demo { display: flex; gap: 8px; align-items: flex-start; margin: 0; font-size: 13px; line-height: 1.45; color: var(--on-dark-muted); }
+.bk-paybox-demo svg { flex-shrink: 0; margin-top: 2px; color: var(--lime); }
+.bk-paybox-demo b { color: var(--lime); }
+.bk-expired { display: grid; gap: 10px; padding: 14px; border-radius: var(--r-md); background: var(--warn-bg); }
+.bk-expired p { margin: 0; font-size: 14px; color: var(--ink-2); }
+
+/* done step */
+.bk-done { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 10px 0 4px; }
+.bk-done-check {
+  width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--lime); color: var(--green-900);
+}
+.bk-done-title { margin: 6px 0 0; font-size: var(--fs-title); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.bk-done-text { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
+.bk-done-map { width: 100%; margin-top: 4px; }
+.bk-done-actions { width: 100%; display: grid; gap: 8px; margin-top: 4px; }
+
+/* my booking sheet */
+.bk-mine-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bk-mine-head-when { font-size: 16px; font-weight: 800; color: var(--ink); }
+.bk-cancel {
+  display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 8px 2px;
+  font-size: 14px; font-weight: 750; color: var(--danger);
+}
+.bk-cancel:hover { text-decoration: underline; }
+.bk-cancel:disabled { opacity: 0.5; }
+
+/* skeletons */
+.bk-skel-row { display: flex; gap: 8px; overflow: hidden; }
+.bk-skel-row > * { flex: 0 0 58px; }
+.bk-skel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 900px) { .bk-skel-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+@media (min-width: 900px) {
+  .bk-hero { padding: 26px 28px 22px; }
+  .bk-hero-title { font-size: 30px; }
+  .bk-filters { grid-template-columns: auto 1fr; align-items: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bk-time, .bk-mine, .bk-day { transition: none; }
+}
+
+/* ── Better than the rest: full times with a bell, deals, your play times ── */
+.bk-time { position: relative; }
+.bk-time.is-full { background: var(--surface-2); border-style: dashed; box-shadow: none; }
+.bk-time.is-full .bk-time-clock { color: var(--muted); }
+.bk-time.is-full .bk-time-price { color: var(--faint); }
+.bk-time.is-full .bk-time-free { display: inline-flex; align-items: center; gap: 4px; color: var(--green-700); font-weight: 750; }
+.bk-time.is-full:hover { border-color: var(--green-600); transform: none; }
+.bk-time.is-watched { border-style: solid; border-color: var(--green-700); background: var(--lime-100); }
+.bk-time.is-watched .bk-time-free { color: var(--green-800); }
+.bk-time-was { margin-left: 5px; font-size: 11px; font-weight: 600; color: var(--faint); }
+.bk-time-tag {
+  position: absolute; top: 8px; right: 8px; padding: 2px 6px; border-radius: var(--r-pill);
+  background: var(--clay); color: var(--on-dark); font-size: 10.5px; font-weight: 800;
+}
+.bk-time.is-deal { border-color: var(--clay-100); }
+.bk-time-yours, .bk-legend .bk-time-yours {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--lime); box-shadow: 0 0 0 2px var(--green-800);
+}
+.bk-time > .bk-time-yours { position: absolute; top: 10px; right: 10px; }
+.bk-time.is-yours { border-color: var(--green-600); }
+.bk-legend { display: flex; align-items: center; gap: 8px; margin: 0 0 calc(-1 * var(--s3)); font-size: 12.5px; font-weight: 650; color: var(--muted); }
+
+/* a watched time freed up */
+.bk-freed {
+  display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 12px; border-radius: var(--r-lg);
+  background: var(--lime); color: var(--ink); box-shadow: var(--shadow-lime);
+}
+.bk-freed-icon { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--green-800); color: var(--lime); }
+.bk-freed-text { flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.35; }
+.bk-freed .icon-btn { color: var(--ink); }
+
+/* one-tap rebook */
+.bk-rebook {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 14px;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); color: var(--ink);
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+}
+.bk-rebook:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.bk-rebook:active { transform: scale(0.98); }
+.bk-rebook > svg { flex-shrink: 0; color: var(--muted); }
+.bk-rebook-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--green-800); color: var(--lime); }
+.bk-rebook-text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.bk-rebook-title { font-size: 15px; font-weight: 800; }
+.bk-rebook-sub { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-rebook-inline { box-shadow: none; background: var(--surface-2); }
+
+/* weather on outdoor courts */
+.bk-weather { font-weight: 700; }
+.bk-weather.is-wet { color: #2A5D94; }
+
+/* booking for a hallisarja match */
+.bk-match { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: var(--r-lg); background: var(--lime-100); color: var(--ink-2); font-size: 13.5px; line-height: 1.45; }
+.bk-match-icon { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--green-800); color: var(--lime); }
+.bk-match-text { display: grid; gap: 2px; }
+.bk-match-text b { color: var(--ink); font-size: 14.5px; }

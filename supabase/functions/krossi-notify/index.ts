@@ -16,6 +16,12 @@
 //   new_area_challenge/_event        one area mail per recipient per 6 h
 //   everything else                  the same event at most once per 10 min
 //
+// booking_slot_free ("ilmoita kun vapautuu", sent by krossi-booking with the JWT of whoever
+// freed the court) only mails a watch that krossi_booking_watchers_to_notify stamped as
+// notified in the last 10 minutes, so the body can't pick its own recipients. It respects
+// email_enabled only (the watch itself is the opt-in) and skips the block check: the mail
+// never says who freed the court.
+//
 // Deploy with verify_jwt = true. The caller's JWT is also checked here (auth.getUser)
 // and the event's actor id must be the caller, exactly like send-push-notification.
 //
@@ -67,7 +73,8 @@ type NotifyEvent =
   | { type: "challenge_invite"; challengeId: string; inviterId: string; invitedUserId: string }
   | { type: "challenge_spot_available"; challengeId: string; leaverId: string }
   | { type: "challenge_cancelled"; challengeId: string; creatorId: string }
-  | { type: "account_report"; reportId: string; reporterId: string; reportedId: string };
+  | { type: "account_report"; reportId: string; reporterId: string; reportedId: string }
+  | { type: "booking_slot_free"; watchId: string; freedById: string };
 
 type EventType = NotifyEvent["type"];
 
@@ -82,6 +89,7 @@ const REQUIRED_IDS: Record<EventType, string[]> = {
   challenge_spot_available: ["challengeId", "leaverId"],
   challenge_cancelled: ["challengeId", "creatorId"],
   account_report: ["reportId", "reporterId", "reportedId"],
+  booking_slot_free: ["watchId", "freedById"],
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -115,6 +123,8 @@ function actorIdOf(event: NotifyEvent): string {
       return event.leaverId;
     case "account_report":
       return event.reporterId;
+    case "booking_slot_free":
+      return event.freedById;
     default:
       return event.creatorId;
   }
@@ -122,13 +132,15 @@ function actorIdOf(event: NotifyEvent): string {
 
 // ── Delivery plan ────────────────────────────────────────────────────────────
 
+// "email_enabled" alone = only the master switch (mail the user asked for one by one).
 type PrefColumn =
   | "play_requests_enabled"
   | "messages_enabled"
   | "images_enabled"
   | "area_challenges_enabled"
   | "challenge_joins_enabled"
-  | "challenge_invites_enabled";
+  | "challenge_invites_enabled"
+  | "email_enabled";
 
 // direct    = a participant of the conversation / game (or its waitlist)
 // player    = targeted personally, must be a Krossi player (tennis_preferences row)
@@ -501,6 +513,56 @@ async function planAccountReport(admin: Admin, event: Extract<NotifyEvent, { typ
   };
 }
 
+// A watch is mailed only right after the database stamped it (krossi_booking_watchers_to_notify).
+const SLOT_FREE_MAX_AGE_MINUTES = 10;
+const SPORT_LABELS: Record<string, string> = { tennis: "Tennis", padel: "Padel", sulkapallo: "Sulkapallo", squash: "Squash" };
+
+async function planBookingSlotFree(
+  admin: Admin,
+  event: Extract<NotifyEvent, { type: "booking_slot_free" }>,
+): Promise<Delivery | null> {
+  const { data: watch, error } = await admin
+    .from("booking_watches")
+    .select("id, user_id, venue_id, sport, location_id, starts_at, minutes, notified_at")
+    .eq("id", event.watchId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!watch?.notified_at) return null;
+  if (Date.now() - Date.parse(watch.notified_at as string) > SLOT_FREE_MAX_AGE_MINUTES * 60_000) return null;
+  if (Date.parse(watch.starts_at as string) <= Date.now()) return null;
+
+  const [{ data: venue, error: venueError }, { data: location, error: locationError }] = await Promise.all([
+    admin.from("booking_venues").select("slug, name").eq("id", watch.venue_id).maybeSingle(),
+    watch.location_id
+      ? admin.from("booking_locations").select("name").eq("id", watch.location_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (venueError) throw venueError;
+  if (locationError) throw locationError;
+  if (!venue) return null;
+
+  const sport = SPORT_LABELS[watch.sport as string] ?? "Kenttä";
+  const minutes = Number(watch.minutes);
+  const start = formatSlot(watch.starts_at as string);
+  const end = formatSlot(new Date(Date.parse(watch.starts_at as string) + minutes * 60_000).toISOString());
+  const place = location?.name ? `${location.name}, ${venue.name}` : venue.name;
+  return {
+    recipientIds: [watch.user_id as string],
+    audience: "player",
+    prefColumn: "email_enabled",
+    throttle: { kinds: ["booking_slot_free"], refId: watch.id as string, windowMinutes: SLOT_FREE_MAX_AGE_MINUTES },
+    logRefId: watch.id as string,
+    content: {
+      subject: `Vuoro vapautui: ${start.label} — varaa ennen muita`,
+      preheader: `${sport} · ${place}. Nopein ehtii.`,
+      heading: "Odottamasi vuoro vapautui 🎾",
+      paragraphs: ["Pyysit ilmoitusta, kun tämä aika vapautuu. Nyt kenttä on vapaana — varaa se heti, ennen kuin joku muu ehtii."],
+      details: [`🗓 ${start.label}–${end.time}`, `📍 ${place}`, `🎾 ${sport} · ${durationText(minutes)}`],
+      cta: { label: "Varaa vuoro", path: `/pelaa/varaa/${encodeURIComponent(venue.slug as string)}` },
+    },
+  };
+}
+
 function planDelivery(admin: Admin, event: NotifyEvent): Promise<Delivery | null> {
   switch (event.type) {
     case "play_request":
@@ -520,6 +582,8 @@ function planDelivery(admin: Admin, event: NotifyEvent): Promise<Delivery | null
       return planChallengeCancelled(admin, event);
     case "account_report":
       return planAccountReport(admin, event);
+    case "booking_slot_free":
+      return planBookingSlotFree(admin, event);
   }
 }
 
@@ -560,8 +624,9 @@ async function withoutBlocked(admin: Admin, actorId: string, ids: string[]): Pro
 }
 
 async function withEmailPreference(admin: Admin, column: PrefColumn, ids: string[]): Promise<string[]> {
+  const columns = column === "email_enabled" ? "user_id, email_enabled" : `user_id, email_enabled, ${column}`;
   const rows = await selectInChunks<Record<string, unknown>>(ids, (slice) =>
-    admin.from("notification_preferences").select(`user_id, email_enabled, ${column}`).in("user_id", slice));
+    admin.from("notification_preferences").select(columns).in("user_id", slice));
   const optedOut = new Set(rows.filter((row) => row.email_enabled === false || row[column] === false).map((row) => row.user_id as string));
   return ids.filter((id) => !optedOut.has(id));
 }
@@ -646,7 +711,8 @@ async function prepare(admin: Admin, actorId: string, event: NotifyEvent): Promi
   const candidates = ids.length;
   if (ids.length === 0) return { delivery, recipients: [], candidates };
 
-  if (delivery.audience !== "admin") ids = await withoutBlocked(admin, actorId, ids);
+  // A freed-slot mail never names who freed it, so blocks between the two don't matter there.
+  if (delivery.audience !== "admin" && event.type !== "booking_slot_free") ids = await withoutBlocked(admin, actorId, ids);
   if (ids.length && delivery.prefColumn) ids = await withEmailPreference(admin, delivery.prefColumn, ids);
 
   const profiles = ids.length ? await loadProfiles(admin, ids) : new Map<string, ProfileInfo>();
@@ -739,6 +805,21 @@ function formatWhen(iso: string | null): string {
   const hour = String(Number(part("hour")));
   const minute = part("minute");
   return `${part("weekday")} ${part("day")}.${part("month")}. klo ${hour}${minute && minute !== "00" ? `.${minute}` : ""}`;
+}
+
+// Booking times always show the minutes: { label: "ti 21.10. klo 18.00", time: "18.00" }.
+function formatSlot(iso: string): { label: string; time: string } {
+  const parts = helsinkiParts.formatToParts(new Date(iso));
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const time = `${Number(part("hour"))}.${part("minute").padStart(2, "0")}`;
+  return { label: `${part("weekday")} ${part("day")}.${part("month")}. klo ${time}`, time };
+}
+
+// 60 -> "1 h", 90 -> "1,5 h", 45 -> "45 min"
+function durationText(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return `${Number.isInteger(hours) ? hours : String(hours).replace(".", ",")} h`;
 }
 
 function firstName(name: unknown): string {

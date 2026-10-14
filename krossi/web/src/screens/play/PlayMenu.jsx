@@ -5,7 +5,7 @@
 // create one, "Pelaan nyt", open games, players, log a result, invite a friend.
 // Mounted once by App.jsx; anything opens it with openPlayMenu() (AppShell.jsx).
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../api/index.js';
+import { api, isDemo } from '../../api/index.js';
 import { openCreateGame, PLAY_MENU_OPEN } from '../../app/AppShell.jsx';
 import { useAsync, useNow } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
@@ -87,7 +87,9 @@ function NewsCard({ news }) {
 }
 
 export function PlayMenu() {
-  const { user, profile, setProfile, paid, canCreateEvents } = useSession();
+  const { user, profile, setProfile, paid, canCreateEvents, isAdmin } = useSession();
+  // Court booking shows in the demo and for admins until the first hall is live.
+  const bookingOn = isDemo || isAdmin;
   const { requirePaid } = usePaywall();
   const toast = useToast();
   const route = useRoute();
@@ -202,7 +204,8 @@ export function PlayMenu() {
     { id: 'pelaajat', icon: 'users', tone: 'green', title: 'Etsi pelikaveri', sub: 'Pelaajat tasosi ja aikojesi mukaan', run: () => go('/pelaa/pelaajat') },
     { id: 'tulos', icon: 'trophy', tone: 'sand', title: 'Kirjaa tulos', sub: 'Putki ja merkit pysyvät ajan tasalla', run: () => setSheet('result') },
     { id: 'kutsu', icon: 'gift', tone: 'lime', title: 'Kutsu kaveri', sub: 'Pelatkaa yhdessä, saat Kutsuja-merkin', run: () => setSheet('invite') },
-  ];
+    bookingOn && { id: 'varaa', icon: 'court', tone: 'dark', wide: true, title: 'Varaa kenttä', sub: 'Vapaat vuorot halleissa — valitse kenttä kartalta ja maksa heti', run: () => go('/pelaa/varaa') },
+  ].filter(Boolean);
 
   return (
     <>
@@ -221,7 +224,7 @@ export function PlayMenu() {
 
           <div className="play-grid">
             {tiles.map((t) => (
-              <button key={t.id} type="button" className={cx('play-tile', t.id === 'luo' && 'is-primary')} onClick={t.run}>
+              <button key={t.id} type="button" className={cx('play-tile', t.id === 'luo' && 'is-primary', t.wide && 'is-wide')} onClick={t.run}>
                 <span className={cx('play-tile-icon', `is-${t.tone}`)}><Icon name={t.icon} size={22} strokeWidth={t.id === 'luo' ? 2.6 : 2} /></span>
                 <span className="play-tile-title">{t.title}</span>
                 <span className="play-tile-sub">{t.sub}</span>

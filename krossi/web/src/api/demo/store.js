@@ -5,6 +5,7 @@
 // only views built in views.js, deep-copied by runtime.run().
 
 import { createSeed } from './seed.js';
+import { createBookingSeed } from './bookingSeed.js';
 import { cancelScheduled } from './runtime.js';
 import { ME } from './rows.js';
 
@@ -15,6 +16,7 @@ export function resetStore(now = Date.now()) {
   cancelScheduled();
   for (const key of Object.keys(db)) delete db[key];
   Object.assign(db, createSeed(now), {
+    booking: createBookingSeed(now), // court booking: the hall, its courts and bookings
     pendingReplies: new Set(), // conversation ids with an auto-reply already on its way
     rotation: 0,               // rotates through canned replies / candidates so they don't repeat
     uploads: new Map(),        // avatar "storage path" -> object URL of the picked file

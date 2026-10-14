@@ -249,6 +249,114 @@
 //   { type:'challenge_spot_available', challengeId, leaverId }
 //   { type:'challenge_cancelled', challengeId, creatorId }
 //   { type:'account_report', reportId, reporterId, reportedId }
+//
+// ── Court booking (kenttävaraus) ─────────────────────────────────────────────
+// A venue (hall operator, e.g. Lahden Tennis- ja Squashkeskus) has locations (Janus-Areena,
+// Kispi-Areena, Kisapuisto outdoor courts) and each location has courts. Times are the venue's
+// local time (Europe/Helsinki); every ISO string is a real instant. Prices are cents.
+//
+// @typedef {'tennis'|'padel'|'sulkapallo'|'squash'} BookingSport
+//
+// @typedef {Object} BookingCourt
+// @property {string} id
+// @property {string} locationId
+// @property {string} name                    'Tennis 1'
+// @property {string} shortName               'Te1' — compact label for lists and the calendar
+// @property {BookingSport} sport
+// @property {string|null} surface            'massa' | 'kova' | 'matto' | 'parketti' | …
+// @property {string|null} mapId              where the court is on its location's floor map
+//                                            (screens/booking/venueMaps.js), e.g. 'te1', 'sulka3'
+//
+// @typedef {Object} BookingLocation
+// @property {string} id
+// @property {string} name                    'Janus-Areena'
+// @property {string|null} address            'Heinlammintie 64, Lahti'
+// @property {boolean} indoor
+// @property {string|null} mapKey             'lahti-janus' | 'lahti-kispi' | 'lahti-kisapuisto' | null (no map)
+// @property {number|null} lat                for directions and the weather of outdoor courts
+// @property {number|null} lng
+// @property {BookingCourt[]} courts          sorted for display
+//
+// @typedef {Object} BookingPriceRule          highest priority first; the first rule that matches
+//                                            a 30-minute piece prices it. A piece no rule matches
+//                                            can't be booked (rules double as opening hours).
+// @property {BookingSport[]|null} sports      null = every sport
+// @property {string[]|null} courtIds          null = every court
+// @property {number[]} weekdays               ISO weekdays, 1 = ma … 7 = su
+// @property {string} from                     'HH:MM' local, inclusive
+// @property {string} until                    'HH:MM' local, exclusive ('24:00' = midnight)
+// @property {number} centsPerHour
+//
+// @typedef {Object} BookingVenue
+// @property {string} id
+// @property {string} slug                     URL name: /pelaa/varaa/<slug>
+// @property {string} name
+// @property {string} city
+// @property {string} openFrom                 'HH:MM' earliest start shown in the calendar
+// @property {string} openUntil                'HH:MM' latest end shown in the calendar
+// @property {number} slotMinutes              start times are on this grid (30)
+// @property {number[]} durations              bookable lengths in minutes, e.g. [60, 90, 120]
+// @property {number} daysAhead                how many days ahead can be booked (today = day 0)
+// @property {number} cancelLimitHours         free cancellation until this long before the start
+// @property {number} holdMinutes              an unpaid booking holds the court this long
+// @property {boolean} payOnline               true = Stripe checkout (the only mode for now)
+// @property {{hours:number, percent:number}|null} lastMinute   "viime hetken ale": a booking made
+//                                            less than `hours` before its start costs `percent` % less
+//                                            (the server applies it in krossi_hold_booking)
+// @property {boolean} isStaff                 the signed-in user may open the hall view
+// @property {BookingLocation[]} locations
+// @property {BookingPriceRule[]} prices
+//
+// @typedef {Object} BookingBusy               what the public calendar knows about a taken slot
+// @property {string} id
+// @property {string} courtId
+// @property {string} startsAt
+// @property {string} endsAt
+// @property {'booking'|'block'|'league'} kind  league = reserved for a hallisarja / league round
+// @property {boolean} mine                    my own booking (held or confirmed)
+// @property {string|null} title               blocks only, e.g. 'Hallisarja', 'Valmennus' (never a name)
+//
+// @typedef {Object} Booking                   one of my bookings
+// @property {string} id
+// @property {string} venueId
+// @property {string} venueName
+// @property {string} locationName
+// @property {string|null} mapKey
+// @property {string} courtId
+// @property {string} courtName
+// @property {string|null} courtMapId
+// @property {BookingSport} sport
+// @property {string} startsAt
+// @property {string} endsAt
+// @property {'held'|'confirmed'|'cancelled'|'expired'} status
+// @property {number} priceCents
+// @property {'unpaid'|'paid'|'refunded'|'free'} paymentStatus
+// @property {string|null} holdExpiresAt       while status = 'held'
+// @property {string} cancellableUntil         startsAt − venue.cancelLimitHours
+// @property {string|null} cancelledAt
+// @property {string} createdAt
+//
+// @typedef {Object} BookingWatch              "Ilmoita kun vapautuu": tell me when a court frees up
+// @property {string} id
+// @property {string} venueId
+// @property {BookingSport} sport
+// @property {string|null} locationId          null = any of the venue's places
+// @property {string} startsAt
+// @property {number} minutes
+// @property {string|null} notifiedAt          set when a court freed up and I was told (email + in app)
+// @property {string} createdAt
+//
+// @typedef {Object} StaffItem                 the hall view: everything on one day, with names
+// @property {string} id
+// @property {string} courtId
+// @property {string} startsAt
+// @property {string} endsAt
+// @property {'booking'|'block'|'league'} kind
+// @property {'held'|'confirmed'} status
+// @property {string|null} title               blocks: their title; bookings: null
+// @property {PersonLite|null} bookedBy        bookings only
+// @property {number} priceCents
+// @property {'unpaid'|'paid'|'refunded'|'free'|'none'} paymentStatus   'none' = a block (nothing to pay)
 
 /**
  * Function names per domain. Both implementations must export exactly these.
@@ -372,6 +480,25 @@ export const API_CONTRACT = {
     'createPaymentIntent', // () -> { paid: true } | { clientSecret, paymentIntentId }   reuses an unfinished one
     'verifyPayment',       // (paymentIntentId) -> { paid, status }   checks Stripe, unlocks the profile if paid
     'adminSetOwnPaid',     // (paid:boolean) -> void   admins only
+  ],
+  booking: [
+    'listVenues',          // () -> BookingVenue[]   works without a session (isStaff false then)
+    'getVenue',            // (idOrSlug) -> BookingVenue|null   works without a session
+    'day',                 // (venueId, 'YYYY-MM-DD') -> { date, busy: BookingBusy[] }   held + confirmed bookings and blocks; works without a session
+    'hold',                // ({ courtId, startsAt, minutes }) -> Booking   status 'held' for venue.holdMinutes; the server prices it ('Joku ehti ensin…' if taken)
+    'release',             // (bookingId) -> void   drops my own unpaid hold (backing out before paying)
+    'checkoutConfig',      // (bookingId) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, amount, currency, email }
+    'createPaymentIntent', // (bookingId) -> { paid: true } | { clientSecret, paymentIntentId }
+    'verifyPayment',       // (bookingId, paymentIntentId) -> { confirmed: boolean, status }   confirms the booking once Stripe says succeeded
+    'listMine',            // () -> { upcoming: Booking[], past: Booking[] }   upcoming = held|confirmed, not ended, soonest first; past = newest first, max 30
+    'cancel',              // (bookingId) -> { refundedCents }   only before cancellableUntil; refunds to the original payment method
+    'watch',               // ({ venueId, sport, locationId, startsAt, minutes }) -> BookingWatch   max 5 active; 'Aika on vapaana…' if a court is free already; a duplicate returns the existing one
+    'unwatch',             // (watchId) -> void
+    'listWatches',         // () -> BookingWatch[]   mine, startsAt still ahead, soonest first
+    'staffDay',            // (venueId, 'YYYY-MM-DD') -> StaffItem[]   venue staff only
+    'block',               // ({ courtIds, startsAt, endsAt, title, kind: 'block'|'league' }) -> string[]   staff only; fails if anything overlaps
+    'unblock',             // (blockId) -> void   staff only
+    'staffCancel',         // (bookingId, { refund: boolean }) -> void   staff only; refund = money back to the player
   ],
   admin: [
     'stats',               // () -> object (krossi_admin_stats jsonb as-is)

@@ -1,9 +1,10 @@
 // CreateGameSheet — overlay route /pelaa/uusi-peli.
 //   ?tapahtuma=1  event mode (only when canCreateEvents)
 //   ?kutsu=<id>   invite that player right after publishing
+//   ?varaus=<id>  fill in a court I booked (BookSheet's "Etsi pelikaveri tähän vuoroon")
 // Required basics are always visible (what / when / where); extras live in a "Lisätiedot"
 // Disclosure. Success state stays in the same sheet: share link, invite, open the game.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync, useBusy } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
@@ -76,6 +77,45 @@ function scheduledIso(form, today) {
   return d.toISOString();
 }
 
+const squash = (s) => String(s || '').toLocaleLowerCase('fi').replace(/[^a-zåäö]/g, '');
+const clock = (iso) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+
+/** Fills the form from one of my court bookings: its day, exact time, place and court price. */
+function useBookedCourt(bookingId, today, setForm, setBooked) {
+  useEffect(() => {
+    if (!bookingId) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { upcoming } = await api.booking.listMine();
+        const booking = upcoming.find((b) => b.id === bookingId);
+        if (!booking || cancelled) return;
+        const venue = await api.booking.getVenue(booking.venueId);
+        const location = venue?.locations.find((l) => l.courts.some((c) => c.id === booking.courtId));
+        const day = Math.round((new Date(booking.startsAt).setHours(0, 0, 0, 0) - today.getTime()) / 86_400_000);
+        if (cancelled || day < 0 || day >= DAYS_AHEAD) return;
+        const indoor = location?.indoor !== false;
+        const known = INDOOR_VENUES.find((v) => squash(v.name) === squash(booking.locationName));
+        setForm((f) => ({
+          ...f,
+          day: String(day),
+          time: 'exact',
+          exactTime: clock(booking.startsAt),
+          locationType: indoor ? 'sisätennis' : 'ulkotennis',
+          venue: indoor ? (known ? known.name : OTHER_VENUE) : f.venue,
+          place: indoor && known ? f.place : booking.locationName,
+          courtPrice: booking.priceCents ? String(booking.priceCents / 100).replace('.', ',') : f.courtPrice,
+          description: f.description || `Kenttä on jo varattu: ${booking.courtName}, ${booking.locationName} klo ${clock(booking.startsAt).replace(':', '.')}–${clock(booking.endsAt).replace(':', '.')}.`,
+        }));
+        setBooked(booking);
+      } catch (err) {
+        console.warn('[krossi] booked court could not be filled in', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bookingId, today, setForm, setBooked]);
+}
+
 function Question({ n, title, children, className }) {
   return (
     <section className={cx('games-q', className)}>
@@ -120,6 +160,8 @@ export function CreateGameSheet({ query }) {
   const close = (then) => { after.current = then || null; setOpen(false); };
 
   const invitee = useAsync(() => (inviteId ? api.players.get(inviteId) : Promise.resolve(null)), [inviteId]);
+  const [bookedCourt, setBookedCourt] = useState(null);
+  useBookedCourt(query.varaus, today, setForm, setBookedCourt);
 
   // ── derived ──
   const city = eventMode ? (form.city || eventCities[0] || homeCity) : homeCity;
@@ -205,6 +247,12 @@ export function CreateGameSheet({ query }) {
 
   const formBody = (
     <div className="games-create">
+      {bookedCourt && (
+        <div className="games-create-invitee rise">
+          <span className="games-create-booked" aria-hidden="true"><Icon name="court" size={20} /></span>
+          <span><strong>Kenttä on varattu</strong> — {bookedCourt.courtName}, {bookedCourt.locationName}. Julkaise peli, niin löydät pelikaverin vuoroosi.</span>
+        </div>
+      )}
       {inviteId && invitee.data && (
         <div className="games-create-invitee rise">
           <Avatar person={invitee.data} size={38} />

@@ -64,6 +64,9 @@
 .play-tile:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); }
 .play-tile:active { transform: scale(0.97); }
 .play-tile.is-primary { background: var(--lime); border-color: var(--lime); box-shadow: var(--shadow-lime); }
+/* a full-width row (court booking): icon on the left, text beside it */
+.play-tile.is-wide { grid-column: 1 / -1; display: grid; grid-template-columns: 40px 1fr; column-gap: 12px; align-items: center; min-height: 0; }
+.play-tile.is-wide .play-tile-icon { grid-row: span 2; margin-bottom: 0; }
 .play-tile-icon { width: 40px; height: 40px; margin-bottom: 6px; border-radius: 12px; display: grid; place-items: center; }
 .play-tile-icon.is-dark { background: var(--green-800); color: var(--lime); }
 .play-tile-icon.is-clay { background: var(--clay-100); color: #8A3A1A; }

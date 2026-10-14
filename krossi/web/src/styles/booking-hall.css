@@ -1,0 +1,305 @@
+/* booking-hall.css — Hallin näkymä (/pelaa/halli/:venue, screens/booking/Hall*.jsx): the staff's
+   day view. Head + day/place controls, day stats, the court × time board (HallTimeline: sticky
+   hour axis, sticky court column, items laid out with --start/--len in half hours), legend, and
+   the block / item sheets. Every class is prefixed bhall-.
+   Three widths: phones (< 600), a tablet at the front desk in portrait (600–899, no side nav) and
+   ≥ 900 (side nav: landscape tablets scroll the day sideways, a 1280 desktop shows it whole). */
+
+.bhall {
+  --bhall-slot: 36px;       /* narrowest half hour; below this the board scrolls sideways */
+  --bhall-row: 44px;        /* a court row (touch target) */
+  --bhall-axis: 30px;
+  --bhall-sticky: calc(var(--safe-top) + var(--topbar-h));
+  --bhall-grid-soft: color-mix(in srgb, var(--line) 55%, transparent);
+  padding-top: var(--s2);
+  padding-bottom: var(--s7);
+}
+.has-demo-banner .bhall { --bhall-sticky: calc(33px + var(--safe-top) + var(--topbar-h)); }
+@media (min-width: 600px) { .bhall { --bhall-slot: 28px; --bhall-row: 48px; padding-top: var(--s3); } }
+@media (min-width: 900px) { .bhall { --bhall-slot: 26px; padding-top: var(--s4); padding-bottom: var(--s8); } }
+/* The page is wide: keep the bar's title over the content column. */
+.bhall-topbar .topbar-inner { max-width: calc(1080px + 2 * var(--gutter)); }
+.bhall-refresh.is-spinning .icon { animation: k-spin 900ms linear infinite; }
+
+/* ── head ───────────────────────────────────────────────── */
+.bhall-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s3); }
+.bhall-head-text { min-width: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.bhall-eyebrow { display: inline-flex; align-items: center; gap: 5px; color: var(--green-700); }
+.bhall-title { font-size: 21px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.15; color: var(--green-800); }
+.bhall-head-cta { flex-shrink: 0; }
+@media (min-width: 600px) { .bhall-title { font-size: 24px; } }
+@media (min-width: 900px) { .bhall-title { font-size: 28px; } }
+
+/* ── day + place controls ───────────────────────────────── */
+.bhall-controls { display: flex; flex-direction: column; gap: var(--s3); margin-top: var(--s4); }
+.bhall-daynav { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.bhall-date {
+  position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--s2); height: 48px;
+  padding: 0 var(--s3) 0 var(--s4); border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow-1); cursor: pointer; transition: border-color var(--dur-2), box-shadow var(--dur-2);
+}
+.bhall-date:hover { border-color: var(--line-strong); }
+.bhall-date:focus-within { border-color: var(--green-800); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green-800) 10%, transparent); }
+.bhall-date-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.bhall-date-main { font-size: 15.5px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.bhall-date-main.is-today { color: var(--green-800); }
+.bhall-date-sub { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bhall-date-icon { color: var(--green-700); }
+/* The whole date box is the native picker: transparent input on top (16px so iOS doesn't zoom). */
+.bhall-date-input {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0;
+  font-size: 16px; cursor: pointer; -webkit-appearance: none; appearance: none; background: transparent;
+}
+.bhall-date-input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; cursor: pointer; }
+.bhall-today { flex-shrink: 0; }
+.bhall-places { flex-shrink: 0; }
+@media (min-width: 600px) {
+  .bhall-controls { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .bhall-date { flex: 0 0 auto; width: 228px; }
+}
+@media (min-width: 1200px) { .bhall-places { min-width: 380px; } }
+
+/* ── day stats ──────────────────────────────────────────── */
+/* Phones: a compact 2 × 2 — label left, number right, the utilisation bar as a strip at the bottom. */
+.bhall-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); margin-top: var(--s4); }
+.bhall-stats .stat-tile {
+  display: flex; flex-direction: row-reverse; align-items: center; justify-content: space-between; gap: var(--s2);
+  min-height: 46px; padding: var(--s2) var(--s3); border-radius: var(--r-md);
+}
+.bhall-stats .stat-tile-icon { display: none; }
+.bhall-stats .stat-tile-value { flex-shrink: 0; font-size: 18px; white-space: nowrap; }
+.bhall-stats .stat-tile-label { min-width: 0; margin: 0; font-size: 12.5px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bhall-stats .stat-tile-sub { display: none; }
+.bhall-stats > .stat-tile:nth-child(2) .stat-tile-sub { display: block; position: absolute; left: var(--s3); right: var(--s3); bottom: 5px; margin: 0; }
+.bhall-stats .progress { height: 3px; }
+@media (min-width: 600px) {
+  .bhall-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s3); margin-top: var(--s5); }
+  .bhall-stats .stat-tile { display: block; min-height: 0; padding: 14px 16px 13px; border-radius: var(--r-lg); }
+  .bhall-stats .stat-tile-icon { display: block; color: var(--green-600); }
+  .bhall-stats .stat-tile-clay .stat-tile-icon { color: var(--clay); }
+  .bhall-stats .stat-tile-value { font-size: 22px; }
+  .bhall-stats .stat-tile-label { margin-top: 4px; font-size: 12.5px; }
+  .bhall-stats .stat-tile-sub { display: block; margin-top: 6px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bhall-stats > .stat-tile:nth-child(2) .stat-tile-sub { position: static; margin-top: 10px; }
+  .bhall-stats .progress { height: 6px; }
+}
+@media (min-width: 900px) { .bhall-stats .stat-tile-value { font-size: 26px; } }
+
+/* ── board: axis, rows, items ───────────────────────────── */
+.bhall-board {
+  margin-top: var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+}
+@media (min-width: 600px) { .bhall-board { margin-top: var(--s5); } }
+.bhall-board > .empty { padding: var(--s7) var(--s4); }
+.bhall-timeline { position: relative; --bhall-col: 70px; }
+.bhall-timeline.is-one-sport { --bhall-col: 60px; }
+@media (min-width: 600px) {
+  .bhall-timeline { --bhall-col: 72px; }
+  .bhall-timeline.is-one-sport { --bhall-col: 64px; }
+}
+.bhall-sizer { min-width: calc(var(--bhall-col) + var(--slots) * var(--bhall-slot)); }
+
+/* Hour axis: pinned under the top bar, scrolled sideways in step with the rows (HallTimeline). */
+.bhall-axis {
+  position: sticky; top: var(--bhall-sticky); z-index: 6; overflow: hidden; background: var(--surface);
+  border-bottom: 1px solid var(--line); border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.bhall-axis-row { display: grid; grid-template-columns: var(--bhall-col) minmax(0, 1fr); height: var(--bhall-axis); }
+.bhall-corner {
+  position: sticky; left: 0; z-index: 2; display: flex; align-items: center; padding-left: 10px; overflow: hidden;
+  background: var(--surface); border-right: 1px solid var(--line);
+  font-size: var(--fs-micro); font-weight: 750; letter-spacing: 0.05em; text-transform: uppercase; color: var(--faint);
+}
+.bhall-axis-track { position: relative; min-width: 0; }
+.bhall-hour {
+  position: absolute; top: 0; bottom: 0; left: calc(var(--at) / var(--slots) * 100%); display: flex; align-items: center;
+  padding-left: 5px; border-left: 1px solid var(--line); font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap;
+}
+.bhall-hour.is-covered { color: transparent; }
+.bhall-now-tag {
+  position: absolute; top: 50%; left: calc(var(--at) / var(--slots) * 100%); z-index: 1; transform: translate(-50%, -50%);
+  padding: 2px 6px; border-radius: var(--r-pill); background: var(--clay); color: var(--green-900);
+  font-size: 10.5px; font-weight: 800; line-height: 1.3; box-shadow: 0 0 0 2px var(--surface);
+}
+.bhall-now-tag.is-end { transform: translate(-100%, -50%); }
+.bhall-now-tag.is-start { transform: translate(0, -50%); }
+
+.bhall-body {
+  overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
+}
+.bhall-rows { position: relative; }
+.bhall-row { display: grid; grid-template-columns: var(--bhall-col) minmax(0, 1fr); height: var(--bhall-row); border-bottom: 1px solid var(--line); }
+.bhall-row:last-child { border-bottom: 0; }
+.bhall-row.is-group-start { border-top: 1px solid var(--line-strong); }
+
+.bhall-court {
+  position: sticky; left: 0; z-index: 4; display: flex; align-items: center; gap: 6px; min-width: 0;
+  padding: 0 6px 0 10px; background: var(--surface); border-right: 1px solid var(--line);
+  font-size: 13px; font-weight: 750; color: var(--ink); white-space: nowrap;
+}
+.bhall-court-name { overflow: hidden; text-overflow: ellipsis; }
+.bhall-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.bhall-dot-tennis { background: var(--lime); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--green-800) 30%, transparent); }
+.bhall-dot-padel { background: var(--sky); }
+.bhall-dot-sulkapallo { background: var(--green-500); }
+.bhall-dot-squash { background: var(--clay); }
+
+.bhall-track { position: relative; min-width: 0; }
+.bhall-cells { display: grid; grid-template-columns: repeat(var(--slots), minmax(0, 1fr)); height: 100%; }
+.bhall-cell { position: relative; display: block; min-width: 0; height: 100%; padding: 0; border: 0; background: transparent; box-shadow: inset 1px 0 0 var(--bhall-grid-soft); }
+.bhall-cell.is-hour { box-shadow: inset 1px 0 0 var(--line); }
+.bhall-cell.is-past { background: var(--surface-2); }
+.bhall-cell.is-closed { background: repeating-linear-gradient(-45deg, var(--surface-2) 0 5px, var(--sand-2) 5px 6px); }
+button.bhall-cell { cursor: pointer; transition: background-color var(--dur-1); }
+button.bhall-cell:hover { background: var(--lime-100); }
+button.bhall-cell:hover::after {
+  content: "+"; position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--green-700); font-size: 17px; font-weight: 800;
+}
+button.bhall-cell:active { background: var(--lime-200); }
+button.bhall-cell:focus-visible { outline-offset: -3px; }
+
+.bhall-item, .bhall-item-skeleton {
+  position: absolute; top: 3px; bottom: 3px;
+  left: calc(var(--start) / var(--slots) * 100% + 1px);
+  width: calc(var(--len) / var(--slots) * 100% - 2px);
+}
+.bhall-item-skeleton { border-radius: var(--r-xs); }
+.bhall-item {
+  z-index: 1; display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; overflow: hidden;
+  padding: 0 5px 0 8px; border-radius: var(--r-xs); text-align: left; font-size: 12px; line-height: 1.2;
+  background: var(--green-100); color: var(--green-900); box-shadow: inset 3px 0 0 var(--green-600);
+  transition: box-shadow var(--dur-2), filter var(--dur-2), opacity var(--dur-2);
+}
+/* Each item is a size container: narrow ones drop the "€" rather than clip the price. */
+.bhall-item { container: bhall-item / inline-size; }
+@container bhall-item (max-width: 49px) { .bhall-item-unit.is-after-cents { display: none; } }
+@container bhall-item (max-width: 35px) { .bhall-item-unit { display: none; } }
+.bhall-item:hover { filter: brightness(0.96); z-index: 2; }
+.bhall-item:focus-visible { z-index: 3; outline: 2px solid var(--green-800); outline-offset: 1px; }
+.bhall-item-title { display: flex; align-items: center; gap: 4px; min-width: 0; font-weight: 750; white-space: nowrap; }
+.bhall-item-meta {
+  display: flex; align-items: center; gap: 3px; min-width: 0; font-size: 10.5px; font-weight: 650; white-space: nowrap;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+}
+.bhall-item.is-booking .bhall-item-meta .icon { color: var(--success); }
+.bhall-item.is-unpaid { background: var(--warn-bg); color: var(--ink); box-shadow: inset 3px 0 0 var(--warn); }
+.bhall-item.is-unpaid .bhall-item-meta { color: var(--warn); }
+.bhall-item.is-held { background: var(--surface); color: var(--green-800); box-shadow: none; border: 1.5px dashed var(--green-600); padding-left: 6px; }
+.bhall-item.is-league { background: var(--lime); color: var(--ink); box-shadow: inset 3px 0 0 var(--green-800); }
+.bhall-item.is-block {
+  background: repeating-linear-gradient(135deg, var(--sand) 0 7px, var(--sand-2) 7px 14px);
+  color: var(--ink-2); box-shadow: inset 3px 0 0 var(--line-strong);
+}
+.bhall-item.is-tiny { padding: 0 3px 0 6px; }
+.bhall-item.is-tiny .bhall-item-meta { display: none; }
+/* Over already: faded. */
+.bhall-item.is-over { opacity: 0.55; }
+.bhall-item.is-over:hover, .bhall-item.is-over:focus-visible { opacity: 0.9; }
+/* On court right now: a dark frame. */
+.bhall-item.is-live::before {
+  content: ""; position: absolute; inset: 0; border: 2px solid var(--green-800); border-radius: inherit; pointer-events: none;
+}
+.bhall-item.is-held.is-live::before { inset: -1.5px; }
+@media (min-width: 600px) {
+  /* An hour is 52–56 px here: a little less padding keeps "✓ 25 €" whole. */
+  .bhall-item { padding: 0 3px 0 6px; }
+  .bhall-item-meta { gap: 1px; font-size: 10px; }
+  .bhall-item-meta .icon { width: 10px; height: 10px; }
+  .bhall-item.is-held { padding-left: 4px; }
+}
+@media (min-width: 900px) { .bhall-item { font-size: 11.5px; } }
+
+/* "Now": a clay line over the rows (under the pinned court column). */
+.bhall-now {
+  position: absolute; top: 0; bottom: 0; z-index: 3; width: 2px; margin-left: -1px; pointer-events: none;
+  left: calc(var(--bhall-col) + (100% - var(--bhall-col)) * var(--at) / var(--slots)); background: var(--clay);
+}
+
+/* ── legend ─────────────────────────────────────────────── */
+.bhall-legend {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4);
+  padding: var(--s3) var(--s4); border-top: 1px solid var(--line); background: var(--surface-2);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+.bhall-legend-list { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); }
+.bhall-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: var(--ink-2); }
+.bhall-legend-hint { font-size: 12px; color: var(--muted); }
+.bhall-swatch { display: inline-block; width: 18px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+.bhall-swatch.is-booking { background: var(--green-100); box-shadow: inset 3px 0 0 var(--green-600); }
+.bhall-swatch.is-held { background: var(--surface); border: 1.5px dashed var(--green-600); }
+.bhall-swatch.is-unpaid { background: var(--warn-bg); box-shadow: inset 3px 0 0 var(--warn); }
+.bhall-swatch.is-league { background: var(--lime); box-shadow: inset 3px 0 0 var(--green-800); }
+.bhall-swatch.is-block { background: repeating-linear-gradient(135deg, var(--sand) 0 3px, var(--sand-2) 3px 6px); box-shadow: inset 3px 0 0 var(--line-strong); }
+.bhall-swatch.is-closed { background: repeating-linear-gradient(-45deg, var(--surface-2) 0 3px, var(--sand-2) 3px 4px); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* ── block sheet ────────────────────────────────────────── */
+.bhall-form { display: flex; flex-direction: column; gap: var(--s5); }
+.bhall-form .field + .field { margin-top: 0; }
+.bhall-field-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); }
+.bhall-field-head .field-label { margin-right: auto; }
+.bhall-link {
+  padding: 2px 0; border-radius: 6px; font-size: 13px; font-weight: 700; color: var(--green-700);
+  text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px; transition: color var(--dur-1), text-decoration-color var(--dur-1);
+}
+.bhall-link:hover { color: var(--green-800); text-decoration-color: currentColor; }
+.bhall-court-chips .select-chip { min-width: 56px; }
+.bhall-time-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+.bhall-time { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.bhall-time-label { font-size: 12px; font-weight: 650; color: var(--muted); }
+.bhall-clash { padding: var(--s3) var(--s4); border-radius: var(--r-md); background: var(--warn-bg); color: var(--warn); }
+.bhall-clash-head { display: flex; align-items: center; gap: var(--s2); font-size: 14px; font-weight: 750; }
+.bhall-clash-list { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--ink-2); }
+.bhall-clash .bhall-link { margin-top: var(--s2); color: var(--warn); }
+.bhall-clash-hint { margin-top: 6px; font-size: 12.5px; color: var(--ink-2); }
+.bhall-sheet-foot { display: flex; flex-direction: column; gap: var(--s2); }
+.bhall-sheet-summary { display: flex; align-items: center; gap: var(--s2); min-width: 0; font-size: 13px; font-weight: 650; color: var(--ink-2); }
+
+/* ── item sheet ─────────────────────────────────────────── */
+.bhall-detail { display: flex; flex-direction: column; gap: var(--s4); }
+.bhall-who { display: flex; align-items: center; gap: var(--s3); }
+.bhall-who-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bhall-who-name { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+.bhall-who-sub { font-size: 13px; font-weight: 600; color: var(--muted); }
+.bhall-kind { width: 48px; height: 48px; border-radius: var(--r-md); display: grid; place-items: center; flex-shrink: 0; }
+.bhall-kind.is-league { background: var(--lime); color: var(--ink); }
+.bhall-kind.is-block { background: repeating-linear-gradient(135deg, var(--sand) 0 6px, var(--sand-2) 6px 12px); color: var(--ink-2); }
+.bhall-facts { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); }
+.bhall-fact { display: flex; align-items: center; gap: var(--s3); padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.bhall-fact:last-child { border-bottom: 0; }
+.bhall-fact dt { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 96px; font-size: 13px; font-weight: 650; color: var(--muted); }
+.bhall-fact dt .icon { color: var(--green-700); }
+.bhall-fact dd { margin: 0; flex: 1; min-width: 0; font-size: 14.5px; font-weight: 650; color: var(--ink); }
+.bhall-fact-sub { color: var(--muted); font-weight: 550; }
+.bhall-note {
+  display: flex; align-items: flex-start; gap: var(--s2); padding: 10px 12px; border-radius: var(--r-md);
+  background: var(--warn-bg); color: var(--warn); font-size: 13.5px; font-weight: 600; line-height: 1.4;
+}
+.bhall-note .icon { margin-top: 1px; }
+
+/* ── notice (not found / no access / no courts) ─────────── */
+.bhall-notice {
+  max-width: 440px; margin: var(--s7) auto 0; padding: var(--s6) var(--s5); text-align: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-1);
+}
+.bhall-notice-icon {
+  width: 44px; height: 44px; margin: 0 auto var(--s3); border-radius: var(--r-md); display: grid; place-items: center;
+  background: var(--sand); color: var(--green-800);
+}
+.bhall-notice-title { font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.bhall-notice-text { margin-top: var(--s2); font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+.bhall-notice-actions { margin-top: var(--s5); display: flex; justify-content: center; gap: var(--s2); }
+
+/* ── loading ────────────────────────────────────────────── */
+.bhall-skeleton { display: flex; flex-direction: column; gap: var(--s4); }
+.bhall-skeleton .bhall-head-text { gap: var(--s2); }
+.bhall-skeleton .bhall-controls, .bhall-skeleton .bhall-stats { margin-top: 0; }
+.bhall-skeleton-tile { height: 46px; }
+.bhall-skeleton-board { height: 300px; }
+@media (min-width: 600px) {
+  .bhall-skeleton-tile { height: 88px; }
+  .bhall-skeleton-board { height: 340px; }
+}

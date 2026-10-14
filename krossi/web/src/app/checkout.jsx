@@ -2,6 +2,10 @@
 //
 //   <Checkout config={{ publishableKey, amount, currency, email }} onPaid={() => …} onHosted={() => …} />
 //
+// The same checkout pays court bookings: pass `createIntent` / `verify` (both default to the 8,99 €
+// unlock in api.payments), the `returnPath` redirect methods come back to, and `pendingText`.
+// `verify` resolves to { paid, status }. Without `onHosted` there is no hosted-page fallback.
+//
 // Top: one-tap wallet buttons (Apple Pay / Google Pay, Express Checkout Element). Below: the
 // Payment Element (MobilePay first, then card and whatever else is enabled in the Stripe
 // Dashboard). The PaymentIntent is only created when the player actually pays, then the payment
@@ -56,7 +60,11 @@ function rememberWhereWeWere() {
   }
 }
 
-export function Checkout({ config, onPaid, onHosted }) {
+const UNLOCK_PENDING = 'Maksu on vielä kesken. Krossi aukeaa heti, kun pankki vahvistaa sen — voit sulkea tämän.';
+
+export function Checkout({
+  config, onPaid, onHosted, createIntent, verify, returnPath = RETURN_PATH, pendingText = UNLOCK_PENDING,
+}) {
   const expressBox = useRef(null);
   const paymentBox = useRef(null);
   const stripeRef = useRef(null); // { stripe, elements } once mounted
@@ -91,7 +99,7 @@ export function Checkout({ config, onPaid, onHosted }) {
 
       let intent;
       try {
-        intent = await api.payments.createPaymentIntent();
+        intent = await (createIntent ? createIntent() : api.payments.createPaymentIntent());
       } catch (err) {
         expressEvent?.paymentFailed({ reason: 'fail' });
         stop(err?.userMessage || FAIL);
@@ -99,11 +107,11 @@ export function Checkout({ config, onPaid, onHosted }) {
       }
       if (intent.paid) { busyRef.current = false; setBusy(false); onPaid(); return; }
 
-      rememberWhereWeWere();
+      if (!createIntent) rememberWhereWeWere(); // a custom returnPath already says where to land
       const { error: payError, paymentIntent } = await ctx.stripe.confirmPayment({
         elements: ctx.elements,
         clientSecret: intent.clientSecret,
-        confirmParams: { return_url: window.location.origin + RETURN_PATH },
+        confirmParams: { return_url: window.location.origin + returnPath },
         redirect: 'if_required',
       });
       if (payError) { stop(payError.message || FAIL); return; }
@@ -116,7 +124,7 @@ export function Checkout({ config, onPaid, onHosted }) {
 
   async function confirmUnlocked(paymentIntentId) {
     for (let tries = 0; tries < 8; tries += 1) {
-      const result = await api.payments.verifyPayment(paymentIntentId);
+      const result = await (verify ? verify(paymentIntentId) : api.payments.verifyPayment(paymentIntentId));
       if (result.paid) { busyRef.current = false; setBusy(false); onPaid(); return; }
       if (result.status !== 'processing') break;
       setProcessing(true);
@@ -125,7 +133,7 @@ export function Checkout({ config, onPaid, onHosted }) {
     busyRef.current = false;
     setBusy(false);
     setProcessing(false);
-    setError('Maksu on vielä kesken. Krossi aukeaa heti, kun pankki vahvistaa sen — voit sulkea tämän.');
+    setError(pendingText);
   }
 
   useEffect(() => {
@@ -200,7 +208,7 @@ export function Checkout({ config, onPaid, onHosted }) {
       <div className="checkout checkout-failed">
         <p className="checkout-error" role="alert"><Icon name="alert" size={16} />{loadError.userMessage}</p>
         <Button variant="lime" size="lg" block icon="refresh" onClick={() => setAttempt((n) => n + 1)}>Yritä uudelleen</Button>
-        <Button variant="on-dark" size="md" block icon="external" onClick={onHosted}>Maksa Stripen sivulla</Button>
+        {onHosted && <Button variant="on-dark" size="md" block icon="external" onClick={onHosted}>Maksa Stripen sivulla</Button>}
       </div>
     );
   }

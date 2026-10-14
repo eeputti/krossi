@@ -94,6 +94,8 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/kooste/:period` (`2026-09` tai `kausi-2026`) | recap | profiili | full |
 | `/pelaa/liigat` | leagues | pelit | page |
 | `/pelaa/liiga/:id` | league | pelit | page (kirjautumaton: julkinen sarjataulukko) |
+| `/pelaa/varaa`, `/pelaa/varaa/:venue` | booking, bookingVenue | pelit | page |
+| `/pelaa/halli/:venue` | hall | pelit | page (hallin henkilökunta) |
 | `/pelaa/kutsu/:code` | invite | — | public |
 | `/pelaa/yllapito` | admin | profiili | page (vain admin) |
 
@@ -220,6 +222,19 @@ Ylläpito-sheet: tiedot, pelaajien poisto, kauden päätös, liigan poisto); Kro
 (wo 6–0) ja 3–3-tasapelit (AdminResultSheet) ja päättää kierrokset. Julkiseksi merkitty sarja
 näkyy kirjautumattomille (`api.leagues.publicGet`, nimet "Mikko V."). Tietokanta:
 `supabase/migrations/20261014191351_krossi_league_admin_and_hallisarja.sql`.
+
+**Kenttävaraus (booking):** `/pelaa/varaa` — hallin vuorot ja maksu sovelluksessa (Cintoian ja
+Thrilin opit, ei niiden ulkoasua). Päivä, kesto ja paikka valitaan ylhäältä; *Ajat* näyttää vapaat
+aloitusajat ruutuina (hinta + montako kenttää vapaana), *Kartta* hallin pohjakartan valitulle
+ajalle (`VenueMap`, `venueMaps.js`: vapaat kentät korostuvat, napautus varaa). BookSheet: kesto →
+kenttä (kartta + chipit) → pito (`holdMinutes`, laskuri) → maksu (sama Stripe-`Checkout` kuin
+avausmaksussa, `createIntent`/`verify`-propseilla) → "Kenttä varattu!" + kalenteri + "Etsi pelikaveri
+tähän vuoroon" (avaa Luo peli -sheetin `?varaus=<id>`, täytettynä). Omat vuorot ylhäällä,
+peruutus maksutta `cancelLimitHours` ennen (raha takaisin maksutavalle). Säännöt (aloitusajat,
+puolen tunnin hinnoittelu, vapaat kentät) ovat `features/booking.js`:ssä; palvelin
+(`krossi_hold_booking`, edge-funktio `krossi-booking`) päättää. Hallin henkilökunta: `/pelaa/halli/:venue`
+(päivän aikajana nimillä, esteet kuten Hallisarja, peruutus + hyvitys). Näkyy toistaiseksi vain
+demossa ja adminille (PlayMenu: `isDemo || isAdmin`).
 
 **Auth & onboarding:** näyttävä tumma kirjautumisnäkymä (kenttäviivat, pallo), Google/Apple/
 sähköposti, rekisteröinti/kirjautuminen/salasanan palautus. Onboarding yhdellä ruudulla:

@@ -1,0 +1,252 @@
+// booking.js — the court-booking rules the screens and the demo backend share: which start
+// times a day has, what a booking costs, which courts are free. The Supabase side applies the
+// same rules on the server (krossi_booking_price / krossi_hold_booking); this copy only drives
+// what the calendar shows, the server decides.
+//
+// Times are the venue's local time. The browser's local time stands in for it (players are in
+// Finland), so every Date here is built with the local-time constructors.
+
+import { formatEuro } from '../lib/format.js';
+
+export const SPORTS = [
+  { value: 'tennis', label: 'Tennis' },
+  { value: 'padel', label: 'Padel' },
+  { value: 'sulkapallo', label: 'Sulkapallo' },
+  { value: 'squash', label: 'Squash' },
+];
+
+/**
+ * Sports players can book in the app right now. The Lahti pilot starts with tennis only; the
+ * data model (and the hall's other courts on the floor maps) stays, the UI just doesn't offer them.
+ */
+export const LIVE_SPORTS = ['tennis'];
+
+/** Prices are per half hour: a 90-minute booking can straddle a day and an evening price. */
+export const PIECE_MINUTES = 30;
+const MINUTE = 60_000;
+
+const pad = (n) => String(n).padStart(2, '0');
+
+/** 'YYYY-MM-DD' of a Date in local time. */
+export function dateKey(date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** Local Date for 'YYYY-MM-DD' + minutes after midnight (DST-safe: the constructor normalises). */
+export function localDate(key, minutes = 0) {
+  const [y, m, d] = String(key).split('-').map(Number);
+  return new Date(y, m - 1, d, 0, minutes, 0, 0);
+}
+
+export function addDays(key, days) {
+  const [y, m, d] = String(key).split('-').map(Number);
+  return dateKey(new Date(y, m - 1, d + days));
+}
+
+/** '06:30' -> 390, '24:00' -> 1440 */
+export function minutesOf(hhmm) {
+  const [h, m] = String(hhmm || '0:0').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/** ISO weekday: 1 = ma … 7 = su */
+export function isoWeekday(date) {
+  return ((date.getDay() + 6) % 7) + 1;
+}
+
+const minuteOfDay = (date) => date.getHours() * 60 + date.getMinutes();
+
+/** The price rule for the half hour starting at `when`, or null when nothing covers it (closed). */
+export function ruleAt(prices, court, when) {
+  const weekday = isoWeekday(when);
+  const minute = minuteOfDay(when);
+  return (prices || []).find((r) => (!r.sports || r.sports.includes(court.sport))
+    && (!r.courtIds || r.courtIds.includes(court.id))
+    && r.weekdays.includes(weekday)
+    && minute >= minutesOf(r.from) && minute < minutesOf(r.until)) || null;
+}
+
+/** Cents for `court` from `startsAt` for `minutes`, or null when any half hour is closed. */
+export function priceOf(venue, court, startsAt, minutes) {
+  const start = new Date(startsAt).getTime();
+  let total = 0;
+  for (let m = 0; m < minutes; m += PIECE_MINUTES) {
+    const rule = ruleAt(venue.prices, court, new Date(start + m * MINUTE));
+    if (!rule) return null;
+    total += (rule.centsPerHour * PIECE_MINUTES) / 60;
+  }
+  return Math.round(total);
+}
+
+/** "Viime hetken ale" percent for a booking made at `now` (0 when the venue has none or it's too early). */
+export function lastMinutePercent(venue, startsAt, now = Date.now()) {
+  const deal = venue?.lastMinute;
+  if (!deal || !deal.percent || !deal.hours) return 0;
+  const lead = Date.parse(startsAt) - now;
+  return lead > 0 && lead < deal.hours * 3_600_000 ? deal.percent : 0;
+}
+
+/** The price after a percent discount, rounded to whole cents like the server does. */
+export function discounted(cents, percent) {
+  return percent ? Math.round((cents * (100 - percent)) / 100) : cents;
+}
+
+/** [{ court, location }] of the venue, optionally only one sport / one location. */
+export function courtsOf(venue, { sport = null, locationId = null } = {}) {
+  const out = [];
+  for (const location of venue?.locations || []) {
+    if (locationId && location.id !== locationId) continue;
+    for (const court of location.courts || []) {
+      if (sport && court.sport !== sport) continue;
+      out.push({ court, location });
+    }
+  }
+  return out;
+}
+
+export function findCourt(venue, courtId) {
+  return courtsOf(venue).find((x) => x.court.id === courtId) || null;
+}
+
+/** Sports this venue has courts for, in SPORTS order (only LIVE_SPORTS unless `all`). */
+export function sportsOf(venue, { all = false } = {}) {
+  const have = new Set(courtsOf(venue).map((x) => x.court.sport));
+  return SPORTS.filter((s) => have.has(s.value) && (all || LIVE_SPORTS.includes(s.value)));
+}
+
+/** Locations that have courts for `sport`. */
+export function locationsFor(venue, sport) {
+  return (venue?.locations || []).filter((l) => (l.courts || []).some((c) => c.sport === sport));
+}
+
+/** The bookable days: today … today + daysAhead, as 'YYYY-MM-DD'. */
+export function bookingDays(venue, now = new Date()) {
+  const today = dateKey(now);
+  return Array.from({ length: (venue?.daysAhead ?? 14) + 1 }, (_, i) => addDays(today, i));
+}
+
+/** Start times (Date) on the venue's grid for `key` that leave room for `minutes` and are not past. */
+export function startTimes(venue, key, minutes, now = Date.now()) {
+  const from = minutesOf(venue.openFrom);
+  const until = minutesOf(venue.openUntil);
+  const step = venue.slotMinutes || 30;
+  const out = [];
+  for (let m = from; m + minutes <= until; m += step) {
+    const start = localDate(key, m);
+    if (start.getTime() > now) out.push(start);
+  }
+  return out;
+}
+
+/** True when `busy` has something on `courtId` overlapping [startMs, endMs). */
+export function isTaken(busy, courtId, startMs, endMs) {
+  return (busy || []).some((b) => b.courtId === courtId
+    && Date.parse(b.startsAt) < endMs && Date.parse(b.endsAt) > startMs);
+}
+
+/** The busy entry covering `courtId` at [startMs, endMs), if any. */
+export function busyAt(busy, courtId, startMs, endMs) {
+  return (busy || []).find((b) => b.courtId === courtId
+    && Date.parse(b.startsAt) < endMs && Date.parse(b.endsAt) > startMs) || null;
+}
+
+/**
+ * Free times of a day: [{ startsAt, endsAt, options: [{ court, location, cents, fullCents }], deal }],
+ * only start times where at least one court is free and open. Options keep the venue's court
+ * order; `cents` includes a last-minute discount (`deal` = its percent, 0 without one).
+ * With `includeFull`, start times where every open court is taken come back too, with
+ * `options: []` — the screen offers "Ilmoita kun vapautuu" for those.
+ */
+export function freeSlots(venue, key, busy, { sport, locationId = null, minutes, now = Date.now(), includeFull = false }) {
+  const courts = courtsOf(venue, { sport, locationId });
+  const out = [];
+  for (const start of startTimes(venue, key, minutes, now)) {
+    const startMs = start.getTime();
+    const endMs = startMs + minutes * MINUTE;
+    const startsAt = start.toISOString();
+    const deal = lastMinutePercent(venue, startsAt, now);
+    const options = [];
+    let open = 0;
+    for (const { court, location } of courts) {
+      const fullCents = priceOf(venue, court, startsAt, minutes);
+      if (fullCents == null) continue;
+      open += 1;
+      if (isTaken(busy, court.id, startMs, endMs)) continue;
+      options.push({ court, location, cents: discounted(fullCents, deal), fullCents });
+    }
+    if (options.length || (includeFull && open)) {
+      out.push({ startsAt, endsAt: new Date(endMs).toISOString(), options, deal: options.length ? deal : 0 });
+    }
+  }
+  return out;
+}
+
+/**
+ * State of every court of `sport` for one time window — what the floor map paints:
+ * { [courtId]: 'free' | 'busy' | 'mine' | 'closed' }.
+ */
+export function courtStatesAt(venue, busy, { sport, startsAt, minutes }) {
+  const startMs = Date.parse(startsAt);
+  const endMs = startMs + minutes * MINUTE;
+  const states = {};
+  for (const { court } of courtsOf(venue, { sport })) {
+    const taken = busyAt(busy, court.id, startMs, endMs);
+    if (taken) states[court.id] = taken.mine ? 'mine' : 'busy';
+    else states[court.id] = priceOf(venue, court, startsAt, minutes) == null ? 'closed' : 'free';
+  }
+  return states;
+}
+
+/** startsAt − cancelLimitHours, as ISO. */
+export function cancelDeadline(startsAt, venue) {
+  return new Date(Date.parse(startsAt) - (venue?.cancelLimitHours ?? 24) * 3_600_000).toISOString();
+}
+
+/** '1 h' | '1,5 h' | '2 h' | '45 min' */
+export function durationLabel(minutes) {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return `${Number.isInteger(hours) ? hours : String(hours).replace('.', ',')} h`;
+}
+
+/** '23 €' | '22,50 €' */
+export function centsLabel(cents) {
+  return formatEuro((cents || 0) / 100);
+}
+
+/** 'Aamu' | 'Päivä' | 'Ilta' for grouping a day's start times. */
+export function partOfDay(iso) {
+  const h = new Date(iso).getHours();
+  if (h < 12) return 'Aamu';
+  if (h < 17) return 'Päivä';
+  return 'Ilta';
+}
+
+// The profile's play times (AVAILABILITY_SLOTS) as weekday/weekend hour ranges. Evenings start at
+// 18 here so the usual 18.00 slot counts as an evening.
+const AVAILABILITY_HOURS = {
+  aamuvirkku: { days: 'all', from: 6, until: 9 },
+  arkiaamut: { days: 'week', from: 9, until: 12 },
+  'arkipäivät': { days: 'week', from: 12, until: 15 },
+  'arki-iltapäivät': { days: 'week', from: 15, until: 18 },
+  'arki-illat': { days: 'week', from: 18, until: 22 },
+  viikonloppuaamut: { days: 'weekend', from: 9, until: 12 },
+  'viikonloppupäivät': { days: 'weekend', from: 12, until: 15 },
+  'viikonloppuiltapäivät': { days: 'weekend', from: 15, until: 18 },
+  viikonloppuillat: { days: 'weekend', from: 18, until: 22 },
+};
+
+/** True when `startsAt` falls in one of the player's usual play times ('joustavasti' alone = no hint). */
+export function fitsAvailability(availability, startsAt) {
+  if (!availability?.length) return false;
+  const d = new Date(startsAt);
+  const weekend = isoWeekday(d) >= 6;
+  const hour = d.getHours() + d.getMinutes() / 60;
+  return availability.some((slot) => {
+    const range = AVAILABILITY_HOURS[slot];
+    if (!range) return false;
+    if (range.days === 'week' && weekend) return false;
+    if (range.days === 'weekend' && !weekend) return false;
+    return hour >= range.from && hour < range.until;
+  });
+}

@@ -15,7 +15,8 @@ import * as notifications from './notifications.js';
 import * as invites from './invites.js';
 import * as payments from './payments.js';
 import * as admin from './admin.js';
+import * as booking from './booking.js';
 
 export const backend = {
-  auth, profile, players, games, messages, results, stats, leagues, social, notifications, invites, payments, admin,
+  auth, profile, players, games, messages, results, stats, leagues, social, notifications, invites, payments, booking, admin,
 };

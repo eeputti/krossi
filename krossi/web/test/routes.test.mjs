@@ -25,6 +25,9 @@ test('every app URL resolves to the intended route', () => {
     ['/pelaa/liiga/l1', 'league', { id: 'l1' }],
     ['/pelaa/kutsu/ABC234', 'invite', { code: 'ABC234' }],
     ['/pelaa/yllapito', 'admin', {}],
+    ['/pelaa/varaa', 'booking', {}],
+    ['/pelaa/varaa/lahden-tennis-ja-squash', 'bookingVenue', { venue: 'lahden-tennis-ja-squash' }],
+    ['/pelaa/halli/lahden-tennis-ja-squash', 'hall', { venue: 'lahden-tennis-ja-squash' }],
     ['/pelaa/pelit/', 'games', {}],
   ];
   for (const [path, name, params] of cases) {
