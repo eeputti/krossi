@@ -560,3 +560,8 @@
   .week-hero-title { font-size: 27px; }
   .k-quick .btn-label { font-size: 13.5px; }
 }
+
+/* changing one group's theme in place (GroupThemeSheet) */
+.k-theme-edit { margin-top: 10px; }
+.k-danger-link { color: var(--danger); }
+.k-next-theme .k-textlink { margin-left: 8px; }

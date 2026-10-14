@@ -10,14 +10,16 @@ import {
   koutsiTimeRangeLabel, koutsiFmtShortDate, koutsiTrainingsForGroup, koutsiAddDays,
 } from '../domain/core.js';
 import { plannerDefaultWeek, themeWeekShort } from '../domain/week.js';
-import { openPlanner, playerPath } from './nav.js';
+import { playerPath } from './nav.js';
 import { groupWhen, SessionRow } from './parts.jsx';
+import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { Link } from '../app/router.js';
 import {
   AddMembersSheet, AnnualPlanBlock, ExtendCalendarSheet, GroupFormSheet, GroupInviteSheet, SlotFormSheet, lastSessionDate, useGroupDelete,
 } from './groupForms.jsx';
 
 function ThemeSection({ group }) {
+  const [themeWeek, setThemeWeek] = useState(null); // the week whose theme is being set or changed
   const now = koutsiCurrentIsoWeek();
   const week = plannerDefaultWeek();
   const current = koutsiGroupThemeForWeek(group, week);
@@ -27,7 +29,7 @@ function ThemeSection({ group }) {
   const [shown, more] = useShowMore(past, 6);
   return (
     <Block eyebrow="Viikon teema" title={week.week === now.week ? `Tämä viikko · vko ${week.week}` : `Ensi viikko · vko ${week.week}`}
-      action={<Button variant="outline" size="sm" icon={current ? 'edit' : 'sparkles'} onClick={() => openPlanner({ week, groupId: group.id })}>{current ? 'Muuta' : 'Aseta'}</Button>}>
+      action={<Button variant="outline" size="sm" icon={current ? 'edit' : 'sparkles'} onClick={() => setThemeWeek(week)}>{current ? 'Vaihda' : 'Aseta'}</Button>}>
       {current ? (
         <div className="stack-3">
           <ThemeCard theme={current} week={week} />
@@ -36,10 +38,13 @@ function ThemeSection({ group }) {
       ) : (
         <Card className="k-empty-theme">
           <p className="k-quiet-text">Tälle viikolle ei ole vielä teemaa{past[0] ? <> · edellinen: <strong>{themeWeekShort(past[0])} — {past[0].title}</strong></> : ''}.</p>
-          <Button variant="dark" size="sm" icon="sparkles" onClick={() => openPlanner({ week, groupId: group.id })}>Aseta teema</Button>
+          <Button variant="dark" size="sm" icon="sparkles" onClick={() => setThemeWeek(week)}>Aseta teema</Button>
         </Card>
       )}
-      {next && <p className="k-next-theme"><Icon name="arrow-right" size={14} /> Vko {nextWeek.week}: <strong>{next.title}</strong></p>}
+      <p className="k-next-theme">
+        <Icon name="arrow-right" size={14} /> Vko {nextWeek.week}: {next ? <strong>{next.title}</strong> : <span className="k-faint">ei vielä teemaa</span>}
+        <button type="button" className="k-textlink" onClick={() => setThemeWeek(nextWeek)}>{next ? 'Vaihda' : 'Aseta'}</button>
+      </p>
       {past.length > 0 && (
         <Disclosure title="Teemahistoria" summary={past.length === 1 ? '1 viikko' : `${past.length} viikkoa`} icon="clock">
           <ul className="k-history">
@@ -50,6 +55,7 @@ function ThemeSection({ group }) {
           {more}
         </Disclosure>
       )}
+      <GroupThemeSheet open={Boolean(themeWeek)} group={group} week={themeWeek} onClose={() => setThemeWeek(null)} />
     </Block>
   );
 }

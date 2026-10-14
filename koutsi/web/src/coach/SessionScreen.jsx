@@ -11,8 +11,9 @@ import {
   koutsiFmtLongDate, koutsiThemeForDate, koutsiTimeRangeLabel, koutsiIsoWeekOfDateStr, koutsiFmtShortDate,
 } from '../domain/core.js';
 import { sessionRoster, sessionStatus } from '../domain/week.js';
-import { groupPath, openPlanner, playerPath } from './nav.js';
+import { groupPath, playerPath } from './nav.js';
 import { TrainingSheet, useTrainingDelete } from './trainingForms.jsx';
+import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -21,6 +22,7 @@ export function SessionScreen({ params }) {
   const toast = useToast();
   const removeTraining = useTrainingDelete();
   const [editOpen, setEditOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
   const [pending, setPending] = useState(() => new Set());
   const training = state.trainings.find((t) => t.id === params.id);
   if (!training) {
@@ -84,11 +86,13 @@ export function SessionScreen({ params }) {
         </header>
 
         {group && (theme ? (
-          <ThemeCard theme={theme} week={week} eyebrow={`Teema · vko ${week.week}`} />
+          <ThemeCard theme={theme} week={week} eyebrow={`Teema · vko ${week.week}`}>
+            <Button variant="outline" size="sm" icon="edit" className="k-theme-edit" onClick={() => setThemeOpen(true)}>Vaihda teema</Button>
+          </ThemeCard>
         ) : (
           <Card className="k-empty-theme">
             <p className="k-quiet-text">Viikolle {week.week} ei ole teemaa tälle ryhmälle.</p>
-            <Button variant="dark" size="sm" icon="sparkles" onClick={() => openPlanner({ week, groupId: group.id })}>Aseta teema</Button>
+            <Button variant="dark" size="sm" icon="sparkles" onClick={() => setThemeOpen(true)}>Aseta teema</Button>
           </Card>
         ))}
 
@@ -126,6 +130,7 @@ export function SessionScreen({ params }) {
         </Block>
       </Page>
       <TrainingSheet open={editOpen} editing={training} onClose={() => setEditOpen(false)} />
+      <GroupThemeSheet open={themeOpen} group={group} week={week} onClose={() => setThemeOpen(false)} />
     </>
   );
 }
