@@ -101,8 +101,8 @@ export const account = {
   async recordAppOpen(appName) {
     try { await db().rpc('koutsi_record_app_open', { app_input: appName }); } catch { /* analytics only */ }
   },
-  // One tap on the Merkitse menu or a quick button. Fire and forget: until migration
-  // 20261014150000_koutsi_ui_events is applied the RPC is missing and nothing is counted.
+  // One tap on the Merkitse menu or a quick button (migration 20261014122952_koutsi_ui_events).
+  // Fire and forget: a failed count never shows.
   async trackEvent(name) {
     try { await db().rpc('koutsi_track_ui_event', { event_input: name }); } catch { /* analytics only */ }
   },
