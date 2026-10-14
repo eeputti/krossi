@@ -109,8 +109,10 @@ export function resolveAssetPath(input) {
 // koutsi/web is a rebuilt coach and player app on the same tables. Until it replaces the
 // old one it is opt-in per browser: /valmentaja?uusi=1 (or /pelaaja?uusi=1) sets a cookie,
 // and from then on /valmentaja/* and /pelaaja/* open the new app in that browser;
-// ?uusi=0 clears it. A request with neither the parameter nor the cookie never reaches
-// this code, so it is answered exactly as before (see the frozen-worker tests).
+// ?uusi=0 turns it to koutsi_uusi=0, which opens the old app as before but lets it show a
+// "Siirry uuteen" link, only to people who have used the new one. A request with neither
+// the parameter nor koutsi_uusi=1 never reaches this code, so it is answered exactly as
+// before (see the frozen-worker tests).
 
 export const NEW_KOUTSI_COOKIE = 'koutsi_uusi';
 const NEW_KOUTSI_SHELLS = {
@@ -148,7 +150,7 @@ async function serveNewKoutsiSwitch(request, env) {
   const headers = new Headers(response.headers);
   const cookieAttrs = 'Path=/; Secure; SameSite=Lax';
   if (optIn) headers.append('set-cookie', `${NEW_KOUTSI_COOKIE}=1; Max-Age=31536000; ${cookieAttrs}`);
-  if (optOut) headers.append('set-cookie', `${NEW_KOUTSI_COOKIE}=; Max-Age=0; ${cookieAttrs}`);
+  if (optOut) headers.append('set-cookie', `${NEW_KOUTSI_COOKIE}=0; Max-Age=31536000; ${cookieAttrs}`);
   // The same address now answers with either app, so no cache may keep one for the other.
   headers.set('cache-control', 'private, no-cache');
   headers.append('vary', 'Cookie');

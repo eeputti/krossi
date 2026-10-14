@@ -524,6 +524,36 @@ function KoutsiLegalLinks({ style }) {
   );
 }
 
+// ── Way back to the renewed Koutsi ───────────────────────────
+// Shown only in a browser that used the renewed Koutsi (koutsi/web) and came back with its
+// "Palaa vanhaan" button: the worker then leaves the cookie koutsi_uusi=0. Everyone else sees
+// nothing of the new app. ?uusi=1 sets it back to 1 and the same address opens the new app.
+// Never in the demos: the new demo has no "Palaa vanhaan", and on a phone the demo's "Luo tili"
+// button takes the room the link would need.
+function koutsiLeftNewApp() {
+  if (window.KOUTSI_DEMO_ROLE) return false;
+  try { return document.cookie.split(';').some((part) => part.trim() === 'koutsi_uusi=0'); } catch { return false; }
+}
+
+// variant: 'sidebar' (desktop side menu) | 'pill' (next to the role tag in the phone top bar)
+function KoutsiNewAppLink({ role, variant = 'sidebar' }) {
+  if (!koutsiLeftNewApp()) return null;
+  const href = `/${role}?uusi=1`;
+  if (variant === 'pill') {
+    return (
+      <a href={href} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, background: 'var(--lime)', color: '#101a08', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.3, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+        Siirry uuteen →
+      </a>
+    );
+  }
+  return (
+    <a href={href} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 12px', borderRadius: 12, background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.4)', color: 'var(--lime)', fontSize: 13.5, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8zM5 2.5l.6 1.6 1.6.6-1.6.6L5 6.9l-.6-1.6-1.6-.6 1.6-.6z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>
+      Siirry uuteen Koutsiin
+    </a>
+  );
+}
+
 // ── Views as addresses ───────────────────────────────────────
 // Both apps kept the open view in a single useState, so every view shared one address:
 // a refresh dropped you back on the first tab, a link could not point at anything in
@@ -713,7 +743,7 @@ Object.assign(window, {
   KoutsiAttendanceBadge, KoutsiAttendanceModal,
   KoutsiQrCode, KoutsiCopyButton, koutsiCopyText,
   KoutsiNotificationBell, KoutsiEmailPrefToggle,
-  KoutsiDeleteAccountButton, KoutsiLegalLinks,
+  KoutsiDeleteAccountButton, KoutsiLegalLinks, KoutsiNewAppLink,
   useKoutsiTabRoute,
   KoutsiWelcomeModal, KoutsiFeedbackModal,
 });

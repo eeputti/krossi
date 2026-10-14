@@ -101,7 +101,7 @@ export function AccountSection({ role, uid, profileName }) {
         <ListRow icon="mail" title="Ota yhteyttä" subtitle={SUPPORT_EMAIL} href={`mailto:${SUPPORT_EMAIL}?subject=Krossi%20Koutsi`} />
       </div>
       <div className="list-group">
-        {!isDemo && <ListRow icon="undo" title="Palaa vanhaan Koutsiin" subtitle="Voit palata uuteen milloin tahansa linkillä ?uusi=1" href={`${base}?uusi=0`} />}
+        {!isDemo && <ListRow icon="undo" title="Palaa vanhaan Koutsiin" subtitle="Pääset takaisin vanhan Koutsin Siirry uuteen -napista" href={`${base}?uusi=0`} />}
         <ListRow icon="logout" title="Kirjaudu ulos" onClick={signOut} />
         <ListRow icon="trash" tone="danger" title={deleting ? 'Poistetaan…' : 'Poista tili ja tiedot'} onClick={deleting ? undefined : deleteAccount} />
       </div>

@@ -201,10 +201,10 @@ test('with the cookie, every app address of the renewed Koutsi opens it, two lev
   }
 });
 
-test('?uusi=0 returns to the old Koutsi and clears the cookie', async () => {
+test('?uusi=0 returns to the old Koutsi and remembers it was left (the old app then offers the way back)', async () => {
   const response = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/valmentaja?uusi=0', 'koutsi_uusi=1'), echoAsset);
   assert.equal(await response.text(), '/koutsi-valmentaja.html');
-  assert.match(response.headers.get('set-cookie'), /^koutsi_uusi=; Max-Age=0; Path=\/; Secure; SameSite=Lax$/);
+  assert.match(response.headers.get('set-cookie'), /^koutsi_uusi=0; Max-Age=31536000; Path=\/; Secure; SameSite=Lax$/);
   const without = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/pelaaja/treenit?uusi=0'), echoAsset);
   assert.equal(await without.text(), '/koutsi-pelaaja.html');
 });
