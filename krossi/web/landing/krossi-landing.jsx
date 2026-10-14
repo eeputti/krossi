@@ -67,29 +67,15 @@ function trackDownload() {
   if (typeof fbq !== 'undefined') fbq('trackCustom', 'ClickDownload');
 }
 
-function StoreBadge({ store }) {
-  const apple = store === 'apple';
-  const href = apple ? APP_STORE_URL : 'https://tally.so/r/BzerXK';
-  const badge = (
-    <a href={href} className="store-badge" target="_blank" rel="noopener noreferrer"
-      onClick={apple ? trackDownload : undefined}>
-      {apple ? (
-        <AppleGlyph size={24} fill="#fff" />
-      ) : (
-        <svg width="20" height="22" viewBox="0 0 20 22" aria-hidden="true"><path d="M1 1.5v19l10-9.5L1 1.5z" fill="#fff" /><path d="M1 1.5l13.5 7L11 11 1 1.5z" fill="#fff" opacity="0.85" /><path d="M1 20.5L11 11l3.5 2.5L1 20.5z" fill="#fff" opacity="0.7" /><path d="M14.5 8.5L19 11l-4.5 2.5L11 11l3.5-2.5z" fill="#fff" opacity="0.55" /></svg>
-      )}
+function StoreBadge() {
+  return (
+    <a href={APP_STORE_URL} className="store-badge" target="_blank" rel="noopener noreferrer" onClick={trackDownload}>
+      <AppleGlyph size={24} fill="#fff" />
       <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, textAlign: 'left' }}>
-        <span style={{ fontSize: 10.5, opacity: 0.8, fontWeight: 500 }}>{apple ? 'Lataa täältä' : 'Saatavilla'}</span>
-        <span style={{ fontSize: 16, fontWeight: 700 }}>{apple ? 'App Store' : 'Google Play'}</span>
+        <span style={{ fontSize: 10.5, opacity: 0.8, fontWeight: 500 }}>Lataa täältä</span>
+        <span style={{ fontSize: 16, fontWeight: 700 }}>App Store</span>
       </span>
     </a>
-  );
-  if (apple) return badge;
-  return (
-    <div className="store-badge-wrap">
-      {badge}
-      <span className="store-badge-note">Testiversio</span>
-    </div>
   );
 }
 
@@ -497,6 +483,45 @@ function Features() {
   );
 }
 
+const PAID_PERKS = [
+  'Kaikki pelaajat, tasot ja milloin he ehtivät pelata',
+  'Pelien luominen ja niihin liittyminen',
+  'Viestit ja pelipyynnöt',
+  'Liigat, putket ja merkit',
+];
+const FREE_PERKS = ['Demo ilman tiliä', 'Tilin luominen', 'Sovelluksen selaaminen esikatseluna'];
+
+function Pricing() {
+  return (
+    <section className="pricing" id="hinta">
+      <div className="pricing-header">
+        <span className="eyebrow">Hinta</span>
+        <h2 className="sec-title">Yksi maksu. Ei tilausta.</h2>
+        <p className="pricing-sub">Krossin voi kokeilla ja tilin luoda maksutta. Pelaaminen avautuu yhdellä kertamaksulla — ei kuukausimaksua eikä toistuvaa laskutusta.</p>
+      </div>
+      <div className="pricing-grid">
+        <div className="price-card">
+          <span className="price-name">Maksutta</span>
+          <span className="price-amount">0 €</span>
+          <ul className="price-list">
+            {FREE_PERKS.map((p) => <li key={p}><LandIcon name="check" size={15} />{p}</li>)}
+          </ul>
+          <a href="/demo" className="btn-ghost btn-md">Kokeile demoa</a>
+        </div>
+        <div className="price-card price-card-main">
+          <span className="price-name">Krossi</span>
+          <span className="price-amount">8,99 €<small>kertamaksu</small></span>
+          <ul className="price-list">
+            {PAID_PERKS.map((p) => <li key={p}><LandIcon name="check" size={15} />{p}</li>)}
+          </ul>
+          <a href="/pelaa" className="btn-lime btn-md">Aloita pelit</a>
+        </div>
+      </div>
+      <p className="pricing-note">Maksu hoidetaan Stripen kautta, eikä Krossi näe korttitietojasi. Kuitti tulee sähköpostiin.</p>
+    </section>
+  );
+}
+
 const KROSSI_CITIES = ['Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio', 'Rovaniemi', 'Mikkeli'];
 
 function Trust() {
@@ -587,10 +612,9 @@ function ClosingCTA() {
         </div>
       </div>
       <div className="closing-stores">
-        <p>Mieluummin sovelluksena? Krossi löytyy myös puhelimeen.</p>
+        <p>Mieluummin sovelluksena? Krossi löytyy myös App Storesta.</p>
         <div className="store-row store-row-center">
-          <StoreBadge store="apple" />
-          <StoreBadge store="google" />
+          <StoreBadge />
         </div>
       </div>
     </section>
@@ -630,6 +654,7 @@ function App() {
       <Hero t={t} />
       <UpcomingMatches />
       <Features />
+      <Pricing />
       <Trust />
       <Clubs />
       <DemoBand />

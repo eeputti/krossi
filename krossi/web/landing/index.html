@@ -120,6 +120,25 @@ window.krossiLoadPixel = function () {
   .btn-note { font-weight: 600; opacity: 0.72; margin-left: -2px; }
   .btn-lg { padding: 17px 30px; font-size: 16.5px; }
   .btn-sm { padding: 10px 18px; font-size: 14px; }
+  .btn-md { padding: 14px 22px; font-size: 15px; }
+
+  /* ── pricing ── */
+  .pricing { max-width: 1120px; margin: 0 auto; padding: clamp(40px,7vw,90px) 22px clamp(20px,4vw,40px); }
+  .pricing-header { text-align: center; max-width: 640px; margin: 0 auto clamp(26px,4vw,40px); }
+  .pricing-header .sec-title { margin: 12px 0 14px; }
+  .pricing-sub { margin: 0; font-size: clamp(1rem,2vw,1.12rem); line-height: 1.55; color: #555049; }
+  .pricing-grid { display: grid; grid-template-columns: 1fr; gap: 14px; max-width: 760px; margin: 0 auto; }
+  @media (min-width: 720px) { .pricing-grid { grid-template-columns: 1fr 1.15fr; } }
+  .price-card { display: flex; flex-direction: column; gap: 14px; padding: 24px; border-radius: 20px; background: #fff; border: 1.5px solid #e6e2d8; }
+  .price-card-main { border-color: var(--green-deep); }
+  .price-name { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b665c; }
+  .price-amount { display: flex; align-items: baseline; gap: 8px; font-size: 40px; font-weight: 800; letter-spacing: -0.02em; line-height: 1; color: var(--ink); }
+  .price-amount small { font-size: 15px; font-weight: 600; letter-spacing: 0; color: #6b665c; }
+  .price-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; font-size: 15px; color: #3a372f; }
+  .price-list li { display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; }
+  .price-list svg { flex-shrink: 0; margin-top: 2px; color: #2d7a4d; }
+  .price-card .btn-ghost, .price-card .btn-lime { margin-top: auto; align-self: stretch; }
+  .pricing-note { text-align: center; margin: 18px auto 0; max-width: 60ch; font-size: 13.5px; color: #8a857a; line-height: 1.5; }
 
   .store-row { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
   .store-row-center { justify-content: center; }
@@ -129,8 +148,6 @@ window.krossiLoadPixel = function () {
     text-decoration: none; transition: transform .15s ease, background .2s;
   }
   .store-badge:hover { transform: translateY(-2px); background: #000; }
-  .store-badge-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-  .store-badge-note { font-size: 10px; font-weight: 600; color: #8a857a; letter-spacing: 0.02em; }
 
   .eyebrow {
     display: inline-flex; align-items: center; gap: 9px;
