@@ -5,7 +5,7 @@
 //   finished the final standings
 // A hallisarja keeps every round: a round picker shows the earlier rounds' tables.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../../api/index.js';
+import { api, isDemo } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
 import { LockedPreview, usePaywall } from '../../app/paywall.jsx';
 import { appUrl, navigate } from '../../app/router.js';
@@ -37,7 +37,8 @@ const shortDate = (day) => {
 
 export function LeagueScreen({ params }) {
   const id = params?.id;
-  const { user } = useSession();
+  const { user, isAdmin } = useSession();
+  const bookingOn = isDemo || isAdmin; // court booking: demo + admins until the first hall is live
   const meId = user?.id;
   const { paid, requirePaid } = usePaywall();
   const toast = useToast();
@@ -256,6 +257,9 @@ export function LeagueScreen({ params }) {
                   onConfirm={confirmResult}
                   onChat={openChat}
                   onAdmin={league.canManage ? (f) => setAdminFixture(f) : null}
+                  onBook={hall && bookingOn
+                    ? (f) => navigate(`/pelaa/varaa?liiga=${encodeURIComponent(league.id)}&ottelu=${encodeURIComponent(f.id)}`)
+                    : null}
                 />
               </>
             )}
@@ -648,7 +652,7 @@ function UnpaidPublicLeague({ id, league, meId }) {
  * The season: (round picker) → group picker → standings + fixtures.
  *   readOnly: no actions (public view, unpaid players)
  */
-export function SeasonView({ league, meId, busy, onPlayer, onReport, onConfirm, onChat, onAdmin, readOnly = false }) {
+export function SeasonView({ league, meId, busy, onPlayer, onReport, onConfirm, onChat, onAdmin, onBook, readOnly = false }) {
   const hall = isHallisarja(league);
   const phase = leaguePhase(league);
   const rounds = hall ? playedRounds(league) : [];
@@ -697,6 +701,7 @@ export function SeasonView({ league, meId, busy, onPlayer, onReport, onConfirm, 
       onConfirm={(e) => onConfirm?.(f, e)}
       onChat={() => onChat?.(f)}
       onAdmin={!readOnly && onAdmin ? () => onAdmin(f) : null}
+      onBook={!readOnly && onBook ? () => onBook(f) : null}
     />
   );
 

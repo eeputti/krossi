@@ -82,7 +82,8 @@ export function BookingScreen({ params, query }) {
   const key = dayKey && days.includes(dayKey) ? dayKey : venue ? firstDay(venue, new Date(now)) : null;
 
   const day = useAsync(() => (venue && key ? api.booking.day(venue.id, key) : Promise.resolve(null)), [venue?.id, key]);
-  const mine = useAsync(() => api.booking.listMine(), []);
+  // Only once a hall is visible: before the booking tables exist the list is just empty.
+  const mine = useAsync(() => (venue ? api.booking.listMine() : Promise.resolve(null)), [venue?.id]);
   // Booking for a hallisarja match: who the opponent is (the sheet sends them the time).
   const match = useAsync(async () => {
     if (!query?.liiga || !query?.ottelu) return null;
@@ -92,7 +93,7 @@ export function BookingScreen({ params, query }) {
     const opponent = fixture.playerA?.id === user?.id ? fixture.playerB : fixture.playerA;
     return { leagueId: league.id, leagueName: league.seasonLabel, fixtureId: fixture.id, opponent };
   }, [query?.liiga, query?.ottelu, user?.id]);
-  const watches = useAsync(() => api.booking.listWatches(), []);
+  const watches = useAsync(() => (venue ? api.booking.listWatches() : Promise.resolve([])), [venue?.id]);
   useResync(() => { day.reload({ silent: true }); mine.reload({ silent: true }); watches.reload({ silent: true }); });
 
   // While a bell is waiting, look again now and then: a freed court shows up without a reload.

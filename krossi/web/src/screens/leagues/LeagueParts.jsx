@@ -97,8 +97,9 @@ export function StandingsTable({ rows, meId, onPlayer, league, zones = null }) {
  * FixtureCard — tennis scoreboard for one fixture + its actions.
  *   state: fixtureState(); active: results can be reported (actions enabled)
  *   onAdmin: the league admin's "Kirjaa tulos" (shown on fixtures that aren't mine)
+ *   onBook: "Varaa kenttä" on my open fixture (hallisarja: players book the court themselves)
  */
-export function FixtureCard({ fixture, meId, state, active, compact, busy, onReport, onConfirm, onChat, onAdmin, league, index = 0 }) {
+export function FixtureCard({ fixture, meId, state, active, compact, busy, onReport, onConfirm, onChat, onAdmin, onBook, league, index = 0 }) {
   const sides = boardSides(fixture, meId);
   const mine = isMyFixture(fixture, meId);
   const played = Boolean(fixture.result);
@@ -137,7 +138,7 @@ export function FixtureCard({ fixture, meId, state, active, compact, busy, onRep
       ) : (
         <FixtureFoot
           state={state} active={active} fixture={fixture} opp={opp} busy={busy}
-          onReport={onReport} onConfirm={onConfirm} onChat={onChat}
+          onReport={onReport} onConfirm={onConfirm} onChat={onChat} onBook={onBook}
         />
       )}
     </article>
@@ -159,7 +160,7 @@ function AdminFoot({ fixture, state, active, onAdmin }) {
   );
 }
 
-function FixtureFoot({ state, active, fixture, opp, busy, onReport, onConfirm, onChat }) {
+function FixtureFoot({ state, active, fixture, opp, busy, onReport, onConfirm, onChat, onBook }) {
   const oppName = firstName(opp?.name);
   if (state === 'done') {
     return (
@@ -197,11 +198,12 @@ function FixtureFoot({ state, active, fixture, opp, busy, onReport, onConfirm, o
   if (!opp) return <div className="leagues-fx-foot is-status is-muted"><span>Ei vielä pelattu</span></div>;
   if (!active) return <div className="leagues-fx-foot is-status is-muted"><span>Jäi pelaamatta</span></div>;
   return (
-    <div className="leagues-fx-foot">
+    <div className={cx('leagues-fx-foot', onBook && 'is-stacked')}>
       <div className="leagues-fx-actions is-split">
         <Button variant="soft" size="sm" icon="chat" loading={busy} onClick={onChat}>Sovi peli</Button>
         <Button variant="dark" size="sm" icon="trophy" onClick={onReport}>Ilmoita tulos</Button>
       </div>
+      {onBook && <Button variant="outline" size="sm" icon="court" block onClick={onBook}>Varaa kenttä ottelulle</Button>}
     </div>
   );
 }

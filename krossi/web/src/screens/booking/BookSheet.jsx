@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from '../../api/index.js';
 import { Checkout } from '../../app/checkout.jsx';
 import { navigate } from '../../app/router.js';
-import { firstName, formatGameTime, formatTime } from '../../lib/format.js';
+import { WEEKDAYS_SHORT, firstName, formatDayMonth, formatGameTime, formatTime } from '../../lib/format.js';
 import {
   cancelDeadline, centsLabel, courtsOf, discounted, durationLabel, isTaken, lastMinutePercent, priceOf,
 } from '../../features/booking.js';
@@ -58,6 +58,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
   const [config, setConfig] = useState(null);
   const [configError, setConfigError] = useState(null);
   const [working, setWorking] = useState(false);
+  const [sending, setSending] = useState(false);
 
   // A new time (or court) starts over from the first step.
   useEffect(() => {
@@ -177,13 +178,12 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
   };
 
   // Hallisarja: the booked time goes straight to the match chat with the opponent.
-  const [sending, setSending] = useState(false);
   const sendToOpponent = async () => {
     setSending(true);
     try {
       const conversationId = await api.leagues.openFixtureChat(match.fixtureId);
       await api.messages.send(conversationId,
-        `Varasin meille kentän hallisarjan otteluun: ${booking.courtName}, ${booking.locationName}, ${whenLabel(booking.startsAt, booking.endsAt)}. Nähdään kentällä!`);
+        `Varasin meille kentän hallisarjan otteluun: ${booking.courtName}, ${booking.locationName}, ${exactWhen(booking)}. Nähdään kentällä!`);
       toast(`Aika lähetetty: ${firstName(match.opponent?.name)}`, { icon: 'check' });
       onClose();
       navigate(`/pelaa/viestit/${encodeURIComponent(conversationId)}`);
@@ -382,6 +382,9 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
     </Sheet>
   );
 }
+
+/** 'to 15.10. klo 10.00–11.00' — a message is read later, so no "huomenna". */
+const exactWhen = (b) => `${WEEKDAYS_SHORT[new Date(b.startsAt).getDay()]} ${formatDayMonth(b.startsAt)} klo ${formatTime(b.startsAt)}–${formatTime(b.endsAt)}`;
 
 const SURFACES = { massa: 'Massakenttä', kova: 'Kova kenttä', matto: 'Matto', parketti: 'Parketti', tekonurmi: 'Tekonurmi' };
 export const surfaceLabel = (surface) => SURFACES[surface] || surface;

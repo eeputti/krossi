@@ -266,6 +266,7 @@
 .leagues-fx-foot.is-status { font-size: 12.5px; font-weight: 650; color: var(--success); }
 .leagues-fx-foot.is-muted { color: var(--muted); font-weight: 550; }
 .leagues-fx-foot.is-callout { flex-direction: column; align-items: stretch; gap: 10px; background: var(--lime-100); border-top-color: var(--lime-200); }
+.leagues-fx-foot.is-stacked { flex-direction: column; align-items: stretch; gap: 8px; }
 .leagues-fx-callout { font-size: 13.5px; color: var(--ink-2); }
 .leagues-fx-callout strong { color: var(--ink); }
 .leagues-fx-actions { display: flex; justify-content: flex-end; gap: 8px; width: 100%; }
