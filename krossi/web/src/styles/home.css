@@ -57,6 +57,9 @@
 .home-hero-cta svg { transition: transform var(--dur-3) var(--ease-spring); }
 .home-hero-cta:hover svg { transform: rotate(90deg); }
 .home-hero-now-btn svg { color: var(--lime); }
+/* the narrower of the two: a smaller font so "Pelaan nyt" fits whole on a phone */
+.home-hero-actions .home-hero-now-btn { padding: 0 10px; gap: 6px; font-size: 15px; }
+@media (max-width: 359px) { .home-hero-actions .home-hero-now-btn { gap: 5px; font-size: 13.5px; } }
 
 .home-hero-panel {
   margin-top: 14px; padding: 0 14px; border-radius: var(--r-lg);
