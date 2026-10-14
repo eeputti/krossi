@@ -30,8 +30,9 @@ export const API_CONTRACT = {
   coach: ['fetchRow', 'load', 'redeemKey', 'markWelcomeSeen', 'saveProfile', 'subscribe'],
 
   // Player role: fetchRow(uid) → { id } | null; load(studentId) → PlayerState; and the player's own writes.
+  // addMood → { id }; updateMood(moodId, { score?, note?, hiddenFromCoach? }).
   player: ['fetchRow', 'load', 'subscribe', 'markWelcomeSeen', 'saveGoal', 'saveNote', 'saveWish', 'saveAge',
-    'addMood', 'setMoodHidden', 'deleteMood', 'addMatchNote', 'updateMatchNote', 'deleteMatchNote',
+    'addMood', 'updateMood', 'setMoodHidden', 'deleteMood', 'addMatchNote', 'updateMatchNote', 'deleteMatchNote',
     'addSelfTraining', 'deleteSelfTraining'],
 
   // A coach's roster.

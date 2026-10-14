@@ -101,8 +101,19 @@ export const player = {
     must(await from('koutsi_students').update({ age }).eq('id', studentId));
   },
   // hidden_from_coach is enforced by RLS: a hidden mood is simply not selectable by the coach.
+  // Returns the new row's id, so a check-in can add words or hide it right after the one tap.
   async addMood(studentId, { score, note, hiddenFromCoach }) {
-    must(await from('koutsi_moods').insert({ student_id: studentId, score, note: note || null, hidden_from_coach: !!hiddenFromCoach }));
+    const row = must(await from('koutsi_moods')
+      .insert({ student_id: studentId, score, note: note || null, hidden_from_coach: !!hiddenFromCoach })
+      .select('id').single());
+    return { id: row.id };
+  },
+  async updateMood(moodId, { score, note, hiddenFromCoach }) {
+    const patch = {};
+    if (score != null) patch.score = score;
+    if (note !== undefined) patch.note = note || null;
+    if (hiddenFromCoach !== undefined) patch.hidden_from_coach = !!hiddenFromCoach;
+    must(await from('koutsi_moods').update(patch).eq('id', moodId));
   },
   async setMoodHidden(moodId, hidden) {
     must(await from('koutsi_moods').update({ hidden_from_coach: hidden }).eq('id', moodId));

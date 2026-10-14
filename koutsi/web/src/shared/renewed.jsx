@@ -32,8 +32,13 @@ function markSeen() {
  *   role: 'coach' | 'player'
  *   eligible: an existing user who isn't being acted as (decided once, when the app opens)
  */
+/** Whether the note would open now — for an app that has more than one thing to show when it opens. */
+export function renewedNoteDue(eligible = true) {
+  return Boolean(eligible) && (!isDemo || previewRenewed) && (previewRenewed || !seen());
+}
+
 export function RenewedIntro({ role, eligible }) {
-  const [open, setOpen] = useState(() => eligible && (!isDemo || previewRenewed) && (previewRenewed || !seen()));
+  const [open, setOpen] = useState(() => renewedNoteDue(eligible));
   const close = () => { markSeen(); setOpen(false); };
   // Header-less sheet: the dark "Hieman uutisia" band is the header, the floating close sits on it.
   return (

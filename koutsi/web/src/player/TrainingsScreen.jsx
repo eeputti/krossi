@@ -116,7 +116,7 @@ export function TrainingsScreen() {
                     ? <Button variant="ghost" size="sm" onClick={() => actions.openAbsence(t)}>Poissa · muuta</Button>
                     : <Chip tone="danger" size="sm">Poissa</Chip>)}
                   {!own && !absent && upcoming && <Button variant="outline" size="sm" onClick={() => actions.openAbsence(t)}>En pääse</Button>}
-                  {askMood && <Button variant="outline" size="sm" icon="heart" onClick={() => actions.openMood()}>Miten meni?</Button>}
+                  {askMood && <Button variant="outline" size="sm" icon="heart" onClick={() => actions.openCheckIn(t)}>Miten meni?</Button>}
                 </div>
               );
             })}

@@ -1,14 +1,15 @@
 // PlayerApp.jsx — the signed-in player: state, chrome, screens, and the sheets for the
 // player's own writes (opened from anywhere through usePlayerActions()).
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { api } from '../api/index.js';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { api, isDemo } from '../api/index.js';
 import { AppShell } from '../app/AppShell.jsx';
 import { DataProvider, useData } from '../app/data.jsx';
 import { navigate } from '../app/router.js';
 import { GateError, Splash } from '../shared/gates.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
-import { RenewedIntro, showBetaBar } from '../shared/renewed.jsx';
+import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
+import { checkInCandidate } from '../domain/player.js';
 import { useToast } from '../ui/index.js';
 import { TABS } from './routes.js';
 import { HomeScreen } from './HomeScreen.jsx';
@@ -18,9 +19,12 @@ import { GroupScreen } from './GroupScreen.jsx';
 import { ExercisesScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
 import { AbsenceSheet, MatchNoteSheet, MoodSheet, PlayerTextSheet, SelfTrainingSheet } from './sheets.jsx';
+import { CheckInSheet } from './CheckInSheet.jsx';
+import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } from './checkin.js';
 
 const ActionsContext = createContext(null);
-/** openSelfTraining(date?), openMood(score?), openMatch({ editing?, date? }), openAbsence(training), openText(kind), openVideo(), playVideo(video) */
+/** openSelfTraining(date?), openMood(score?), openCheckIn(training?), openMatch({ editing?, date? }), openAbsence(training),
+ *  openText(kind), openVideo(), playVideo(video) */
 export function usePlayerActions() { return useContext(ActionsContext); }
 
 function NotFound() {
@@ -60,16 +64,34 @@ function WelcomeSheet({ student }) {
   );
 }
 
+// What opens by itself when the app starts, at most one thing, decided once:
+// the e-mail's link (a wish, or "Treenit ohi! Miten meni?") > the welcome for a new account >
+// the renewed-look note > "Miten meni?" for a session that just ended (once per session).
+function pickStartup(state, student) {
+  const pending = takePendingCheckIn();
+  if (pending?.wish) return { kind: 'wish' };
+  if (pending) return { kind: 'checkin', trainingId: pending.training, score: pending.score };
+  if (!student.welcomeSeenAt) return { kind: 'welcome' };
+  const candidate = (!isDemo || previewCheckIn) ? checkInCandidate(state, student, readSkipped(student.id)) : null;
+  const ask = candidate && (previewCheckIn || !wasAsked(student.id, candidate.id)) ? { kind: 'checkin', trainingId: candidate.id } : null;
+  if (previewCheckIn && ask) return ask;
+  if (renewedNoteDue()) return { kind: 'renewed' };
+  return ask;
+}
+
 function PlayerShell({ banner }) {
   const { state, ownerId, reload } = useData();
   const toast = useToast();
   const student = state.students[0];
   const [sheet, setSheet] = useState(null);
   const [video, setVideo] = useState(null);
+  const [startup] = useState(() => pickStartup(state, student));
+  const [checkIn, setCheckIn] = useState(() => (startup?.kind === 'checkin' ? startup : null));
   const close = () => setSheet(null);
   const actions = useMemo(() => ({
     openSelfTraining: (date) => setSheet({ kind: 'self', date }),
     openMood: (score = null) => setSheet({ kind: 'mood', score }),
+    openCheckIn: (training = null) => setCheckIn({ trainingId: training?.id || null, score: null }),
     openMatch: ({ editing, date } = {}) => setSheet({ kind: 'match', editing, date }),
     openAbsence: (training) => setSheet({ kind: 'absence', training }),
     openText: (kind) => setSheet({ kind: 'text', textKind: kind }),
@@ -81,6 +103,11 @@ function PlayerShell({ banner }) {
     await reload().catch(() => {});
     toast('Video tallennettu.');
   }, [ownerId, reload, toast]);
+  useEffect(() => {
+    if (startup?.kind === 'wish') actions.openText('wish');
+    if (startup?.kind === 'checkin' && startup.trainingId) markAsked(student.id, startup.trainingId);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const checkInTraining = checkIn?.trainingId ? state.trainings.find((t) => t.id === checkIn.trainingId) || null : null;
   const textInitial = sheet?.kind === 'text' ? { goal: student.goal, wish: student.playerWish, note: student.playerNote }[sheet.textKind] : '';
   return (
     <ActionsContext.Provider value={actions}>
@@ -103,8 +130,10 @@ function PlayerShell({ banner }) {
       <PlayerTextSheet open={sheet?.kind === 'text'} kind={sheet?.textKind} initial={textInitial} onClose={close} />
       <VideoShareSheet open={sheet?.kind === 'video'} onClose={close} title="Lisää oma video" onSave={saveOwnVideo} />
       <VideoPlayerSheet video={video} onClose={() => setVideo(null)} />
-      {!student.welcomeSeenAt && <WelcomeSheet student={student} />}
-      <RenewedIntro role="player" eligible={Boolean(student.welcomeSeenAt)} />
+      <CheckInSheet open={Boolean(checkIn)} training={checkInTraining} initialScore={checkIn?.score ?? null}
+        onClose={() => setCheckIn(null)} onWish={() => actions.openText('wish')} onSelfTraining={() => actions.openSelfTraining()} />
+      {!student.welcomeSeenAt && startup?.kind !== 'checkin' && <WelcomeSheet student={student} />}
+      <RenewedIntro role="player" eligible={startup?.kind === 'renewed'} />
     </ActionsContext.Provider>
   );
 }

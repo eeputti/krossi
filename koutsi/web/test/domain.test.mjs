@@ -77,3 +77,12 @@ test("the timeline speaks to its reader and shows what a player's own session wa
   const coachSession = { ...session('c1', koutsiAddDays(today, -2)), notes: 'sisäinen muistiinpano', studentId: null };
   assert.equal(koutsiBuildTimeline(s, [coachSession], []).find((e) => e.id === 'training-c1').body.includes('sisäinen'), false);
 });
+
+test('a check-in counts only feelings given after the session began', async () => {
+  const { moodAfter } = await import('../src/player/checkin.js');
+  const t = session('t1', today, '17:00');
+  const before = { id: 'm0', score: 2, at: at('16:00').toISOString() };
+  const after = { id: 'm1', score: 4, at: at('18:40').toISOString() };
+  assert.equal(moodAfter(student({ moods: [before] }), t), null);
+  assert.equal(moodAfter(student({ moods: [after, before] }), t)?.id, 'm1');
+});

@@ -20,10 +20,9 @@ import { firstName } from '../domain/roster.js';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { MoodPicker } from './sheets.jsx';
 import { usePlayerActions } from './PlayerApp.jsx';
+import { markSkipped, readSkipped } from './checkin.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
-const DISMISS_KEY = (id) => `koutsi_checkin_skip_${id}`;
-const readDismissed = (id) => { try { return new Set(JSON.parse(localStorage.getItem(DISMISS_KEY(id)) || '[]')); } catch { return new Set(); } };
 
 function Hero({ state, student, groups }) {
   const week = koutsiCurrentIsoWeek();
@@ -102,17 +101,13 @@ function NextSession({ state, student }) {
 function CheckIn({ state, student }) {
   const { run, reload } = useData();
   const toast = useToast();
-  const [dismissed, setDismissed] = useState(() => readDismissed(student.id));
+  const [dismissed, setDismissed] = useState(() => readSkipped(student.id));
   const [busy, setBusy] = useState(false);
   const candidate = checkInCandidate(state, student, dismissed);
   if (!candidate) return null;
   const group = candidate.groupId ? koutsiGroupById(state, candidate.groupId) : null;
   const dayWord = relativeDay(candidate.date).toLowerCase();
-  const skip = () => {
-    const next = new Set(dismissed).add(candidate.id);
-    try { localStorage.setItem(DISMISS_KEY(student.id), JSON.stringify([...next].slice(-30))); } catch { /* private mode */ }
-    setDismissed(next);
-  };
+  const skip = () => setDismissed(markSkipped(student.id, candidate.id));
   const pick = async (score) => {
     if (busy) return;
     setBusy(true);

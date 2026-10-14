@@ -149,7 +149,17 @@ export const backend = {
     async addMood(id, { score, note, hiddenFromCoach }) {
       await wait();
       const at = nowIso();
-      findStudent(id).moods.unshift({ id: newId('m'), at, date: koutsiFmtShortDate(at.slice(0, 10)), score, note: note || '', hiddenFromCoach: !!hiddenFromCoach });
+      const mood = { id: newId('m'), at, date: koutsiFmtShortDate(at.slice(0, 10)), score, note: note || '', hiddenFromCoach: !!hiddenFromCoach };
+      findStudent(id).moods.unshift(mood);
+      return { id: mood.id };
+    },
+    async updateMood(moodId, { score, note, hiddenFromCoach }) {
+      await wait();
+      patchById('moods', moodId, {
+        ...(score != null ? { score } : {}),
+        ...(note !== undefined ? { note: note || '' } : {}),
+        ...(hiddenFromCoach !== undefined ? { hiddenFromCoach: !!hiddenFromCoach } : {}),
+      });
     },
     async setMoodHidden(moodId, hidden) { patchById('moods', moodId, { hiddenFromCoach: !!hidden }); },
     async deleteMood(moodId) { removeById('moods', moodId); },
