@@ -38,7 +38,48 @@ function escapeHtml(s: string): string {
   ));
 }
 
+const MOOD_LABELS = ['Raskas', 'Vaisu', 'Ihan ok', 'Hyvä', 'Loistava'];
+
+// "Treenit ohi! Miten meni?" (koutsi_queue_session_checkins): the answer is one tap on a number.
+// Each button opens the renewed app's pop-up with that number; the app saves it, so a mail
+// scanner that opens the links changes nothing (it isn't signed in).
+function renderCheckInEmail(n: Pending): { subject: string; html: string; text: string } {
+  const base = APP_ORIGIN + (n.link_path ?? '/pelaaja?uusi=1');
+  const scoreLink = (score: number) => `${base}${base.includes('?') ? '&' : '?'}arvo=${score}`;
+  const wishLink = `${APP_ORIGIN}/pelaaja?uusi=1&toive=1`;
+  const greeting = `Moi ${n.recipient_name},`;
+  const bodyText = n.body ?? '';
+  const subject = `${n.title} — Krossi Koutsi`;
+  const text = [greeting, '', n.title, bodyText, '',
+    ...MOOD_LABELS.map((label, i) => `${i + 1} ${label}: ${scoreLink(i + 1)}`), '',
+    `Lähetä valmentajalle toive: ${wishLink}`, '',
+    'Voit kytkeä nämä viestit pois Koutsin profiilistasi.'].join('\n');
+  const buttons = MOOD_LABELS.map((label, i) => `
+        <td style="padding:0 3px" align="center">
+          <a href="${scoreLink(i + 1)}" style="display:block;min-width:52px;padding:12px 4px 10px;border-radius:14px;border:1px solid #D8D4CA;background:${i >= 3 ? '#E9F27A' : '#ffffff'};color:#111;text-decoration:none;font-family:inherit">
+            <span style="display:block;font-size:20px;font-weight:800;line-height:1">${i + 1}</span>
+            <span style="display:block;margin-top:4px;font-size:11px;font-weight:600;color:#514c42">${label}</span>
+          </a>
+        </td>`).join('');
+  const html = `<!doctype html><html lang="fi"><body style="margin:0;background:#F7F5EF;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#111">
+  <div style="max-width:520px;margin:0 auto;padding:32px 20px">
+    <div style="font-weight:800;font-size:22px;color:#0E3B2C;letter-spacing:-0.5px;margin-bottom:24px">Krossi <span style="font-size:13px;color:#8a857a;font-weight:700">Koutsi</span></div>
+    <div style="background:#fff;border:1px solid #D8D4CA;border-radius:18px;padding:26px 20px">
+      <p style="margin:0 0 14px;font-size:15px;color:#514c42">${escapeHtml(greeting)}</p>
+      <h1 style="margin:0 0 10px;font-size:21px;font-weight:800;color:#111">${escapeHtml(n.title)}</h1>
+      ${bodyText ? `<p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#3c382f">${escapeHtml(bodyText)}</p>` : ''}
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse"><tr>${buttons}
+      </tr></table>
+      <p style="margin:18px 0 0;font-size:14px;color:#514c42">Haluatko toivoa jotain seuraavaan treeniin? <a href="${wishLink}" style="color:#0E3B2C;font-weight:700">Lähetä valmentajalle toive</a></p>
+    </div>
+    <p style="margin:18px 0 0;font-size:12px;color:#8a857a;line-height:1.5">Saat tämän viestin, koska käytät Krossi Koutsia. Voit kytkeä sähköposti-ilmoitukset pois profiilisi asetuksista.</p>
+  </div>
+</body></html>`;
+  return { subject, html, text };
+}
+
 function renderEmail(n: Pending): { subject: string; html: string; text: string } {
+  if (n.kind === 'session_checkin') return renderCheckInEmail(n);
   const link = APP_ORIGIN + (n.link_path ?? '/pelaaja');
   const greeting = `Moi ${n.recipient_name},`;
   const bodyText = n.body ? n.body : '';

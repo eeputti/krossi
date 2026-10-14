@@ -162,6 +162,16 @@ kolme tilaa (skeleton / ErrorState + Yritä uudelleen / data tai EmptyState). Ei
 - QA vain demossa ja testeillä, ei tuotantodataa vasten.
 - `npm run deploy:cloudflare` rakentaa ja julkaisee kaiken; uusi Koutsi on julki vain opt-in-evästeellä.
 
+### Odottaa hyväksyntää: `sql/20261014120000_koutsi_checkins_and_week_diary.sql` + koutsi-notify
+
+- `koutsi_coach_week_notes` — valmentajan viikkopäiväkirja (Koti → Viikkopäiväkirja, "Viikko paketissa").
+  Siihen asti sovellus latautuu ilman sitä ja tallennus kertoo "otetaan käyttöön pian".
+- "Treenit ohi! Miten meni?" -sähköposti pelaajille 15 min treenin jälkeen (pg_cron 15 min välein →
+  `koutsi_queue_session_checkins()` → nykyinen ilmoitusjono → koutsi-notify). Betan aikana vain
+  `koutsi_beta_testers`-listan osoitteille. Linkit: `/pelaaja?uusi=1&fiilis=<treeni>&arvo=1–5`, `?toive=1`.
+- `supabase/functions/koutsi-notify`: oma pohja lajille `session_checkin` (1–5-napit). Julkaistava
+  (`deploy_edge_function`) samalla kertaa kuin SQL; muut viestilajit ennallaan.
+
 ### Odottaa hyväksyntää: `sql/20261013120000_koutsi_extend_group_series.sql`
 
 "Jatka kalenteria" tarvitsee RPC:n `koutsi_extend_group_series` (yksi koosteilmoitus pelaajaa kohden

@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { api, isDemo } from '../api/index.js';
 import { AppShell } from '../app/AppShell.jsx';
 import { DataProvider, useData } from '../app/data.jsx';
-import { navigate } from '../app/router.js';
+import { dropQueryParam, navigate, useRoute } from '../app/router.js';
 import { GateError, Splash } from '../shared/gates.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
@@ -107,6 +107,16 @@ function PlayerShell({ banner }) {
     if (startup?.kind === 'wish') actions.openText('wish');
     if (startup?.kind === 'checkin' && startup.trainingId) markAsked(student.id, startup.trainingId);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // The same pop-up from inside the app: the bell's "Treenit ohi! Miten meni?" item.
+  const route = useRoute();
+  useEffect(() => {
+    const { fiilis, toive } = route.query;
+    if (!fiilis && !toive) return;
+    if (fiilis) setCheckIn({ trainingId: fiilis, score: null });
+    if (toive) actions.openText('wish');
+    dropQueryParam('fiilis');
+    dropQueryParam('toive');
+  }, [route.query.fiilis, route.query.toive]); // eslint-disable-line react-hooks/exhaustive-deps
   const checkInTraining = checkIn?.trainingId ? state.trainings.find((t) => t.id === checkIn.trainingId) || null : null;
   const textInitial = sheet?.kind === 'text' ? { goal: student.goal, wish: student.playerWish, note: student.playerNote }[sheet.textKind] : '';
   return (

@@ -8,12 +8,18 @@ import { koutsiFmtEventDate } from '../domain/timeline.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
-/** Maps a stored link_path ('/pelaaja', '/valmentaja', …) to a canonical in-app path. */
+/** Maps a stored link_path ('/pelaaja', '/valmentaja', …) to a canonical in-app path. A
+ *  "Treenit ohi! Miten meni?" keeps its ?fiilis= (and ?toive=) so the player app opens the pop-up. */
 function targetOf(linkPath, home) {
   if (!linkPath) return null;
-  const path = String(linkPath).split('?')[0].replace(/\/+$/, '');
-  if (path === '/pelaaja' || path === '/valmentaja') return home;
-  return path.startsWith('/pelaaja/') || path.startsWith('/valmentaja/') ? path : null;
+  const [raw, query = ''] = String(linkPath).split('?');
+  const path = raw.replace(/\/+$/, '');
+  const from = new URLSearchParams(query);
+  const keep = new URLSearchParams();
+  ['fiilis', 'toive'].forEach((key) => { if (from.get(key)) keep.set(key, from.get(key)); });
+  const suffix = keep.toString() ? `?${keep}` : '';
+  if (path === '/pelaaja' || path === '/valmentaja') return home + suffix;
+  return path.startsWith('/pelaaja/') || path.startsWith('/valmentaja/') ? path + suffix : null;
 }
 
 export function NotificationsButton({ uid, home, variant = 'soft' }) {
