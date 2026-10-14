@@ -66,7 +66,6 @@ koutsi/web/
     styles/          tokens/base/ui/shell (Krossista) + koutsi.css + alueittaiset tiedostot
   test/              node:test — pariteetti vanhaan, sopimus, demo, supabase-kirjoitukset, reititys
   scripts/preview-prod.mjs  tuotantobuildi oikean workerin läpi (opt-in-kytkimen kokeilu)
-  sql/               tietokantamuutokset, jotka odottavat hyväksyntää
 ```
 
 UI-kit ja tyylit on **kopioitu** krossi/webistä, ei jaettu: Krossin muutos ei saa koskaan
@@ -162,20 +161,16 @@ kolme tilaa (skeleton / ErrorState + Yritä uudelleen / data tai EmptyState). Ei
 - QA vain demossa ja testeillä, ei tuotantodataa vasten.
 - `npm run deploy:cloudflare` rakentaa ja julkaisee kaiken; uusi Koutsi on julki vain opt-in-evästeellä.
 
-### Odottaa hyväksyntää: `sql/20261014120000_koutsi_checkins_and_week_diary.sql` + koutsi-notify
+### Tietokanta (ajettu 2026-10-14 käyttäjän luvalla)
 
-- `koutsi_coach_week_notes` — valmentajan viikkopäiväkirja (Koti → Viikkopäiväkirja, "Viikko paketissa").
-  Siihen asti sovellus latautuu ilman sitä ja tallennus kertoo "otetaan käyttöön pian".
-- "Treenit ohi! Miten meni?" -sähköposti pelaajille 15 min treenin jälkeen (pg_cron 15 min välein →
-  `koutsi_queue_session_checkins()` → nykyinen ilmoitusjono → koutsi-notify). Betan aikana vain
-  `koutsi_beta_testers`-listan osoitteille. Linkit: `/pelaaja?uusi=1&fiilis=<treeni>&arvo=1–5`, `?toive=1`.
-- `supabase/functions/koutsi-notify`: oma pohja lajille `session_checkin` (1–5-napit). Julkaistava
-  (`deploy_edge_function`) samalla kertaa kuin SQL; muut viestilajit ennallaan.
-
-### Odottaa hyväksyntää: `sql/20261013120000_koutsi_extend_group_series.sql`
-
-"Jatka kalenteria" tarvitsee RPC:n `koutsi_extend_group_series` (yksi koosteilmoitus pelaajaa kohden
-treenikohtaisten sijaan) ja korjaa samalla, ettei pelaaja saa ilmoitusta omasta kirjauksestaan.
-Ei ajettu tuotantoon. Kun hyväksytty: aja `apply_migration`-työkalulla samalla nimellä ja siirrä tiedosto
-`supabase/migrations/`-kansioon. Siihen asti uusi sovellus näyttää jatkamisesta selkeän virheen
-("otetaan käyttöön pian"), eikä mitään kirjoiteta.
+- `supabase/migrations/20261014074355_koutsi_extend_group_series.sql` — "Jatka kalenteria":
+  `koutsi_extend_group_series()` lisää ryhmän viikkotreenit (myös lisäajat) halutulle ajalle,
+  taukoviikot pois, ja lähettää pelaajalle yhden koosteilmoituksen treenikohtaisten sijaan.
+  Samalla pelaaja ei enää saa ilmoitusta omasta kirjauksestaan.
+- `supabase/migrations/20261014074420_koutsi_checkins_and_week_diary.sql` — valmentajan
+  `koutsi_coach_week_notes` (viikkopäiväkirja) ja "Treenit ohi! Miten meni?": pg_cron 15 min välein →
+  `koutsi_queue_session_checkins()` → nykyinen ilmoitusjono → koutsi-notify (oma 1–5-pohja,
+  versio 20). Betan aikana vain `koutsi_beta_testers`-listan osoitteille.
+  Linkit: `/pelaaja?uusi=1&fiilis=<treeni>&arvo=1–5`, `?toive=1`.
+- Kun uusi Koutsi otetaan kaikille käyttöön: poista beta-ehto `koutsi_queue_session_checkins()`-funktiosta
+  (tai lisää osoitteet listaan) — muuten muut eivät koskaan saa viestiä.

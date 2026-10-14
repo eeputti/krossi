@@ -1,7 +1,8 @@
 -- Renewed Koutsi (koutsi/web): "Treenit ohi! Miten meni?" e-mails for players, and the coach's
 -- private week diary ("Viikko paketissa" → "Miten treeniviikko sujui?").
 --
--- NOT APPLIED automatically. Run only with the user's go-ahead ("aja migraatio").
+-- Applied 2026-10-14 with the user's go-ahead, together with the koutsi-notify template for
+-- kind 'session_checkin' (edge function version 20).
 --
 -- 1. koutsi_coach_week_notes — one row per coach per ISO week: score 1–5 and a note, visible
 --    only to the coach (and an admin acting as them). The new app reads it if it exists and
