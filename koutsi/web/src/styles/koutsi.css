@@ -30,7 +30,16 @@
   grid-template-columns: minmax(0, 1fr);
 }
 /* The top bar sits right under the demo banner (33px), so the banner must stay one line. */
-.demo-banner { white-space: nowrap; box-sizing: border-box; height: calc(33px + var(--safe-top)); }
+.top-banner { white-space: nowrap; box-sizing: border-box; height: calc(33px + var(--safe-top)); }
+/* The beta bar takes the demo banner's slot, but dark: this is the real app, not a toy. */
+.top-banner-beta { background: var(--green-900); color: rgba(255, 255, 255, 0.88); }
+.top-banner-beta .top-banner-cta { color: var(--lime); }
+.top-banner-tag {
+  display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: var(--r-pill);
+  background: var(--lime); color: #101A08; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.k-renewed { display: grid; gap: 10px; justify-items: start; }
+.k-renewed-icon { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--lime-100); color: var(--green-800); }
 /* A sliding page (route-enter starts 18px to the right) must not widen a phone's layout
    viewport. clip, unlike hidden, keeps the sticky top bar working. */
 @supports (overflow: clip) { .shell { overflow-x: clip; } }
@@ -237,7 +246,7 @@
 
 /* ── week hero (coach Viikko + player Koti) ──────────────── */
 .week-page { padding-top: calc(12px + var(--safe-top)); }
-.has-demo-banner .week-page { padding-top: 12px; }
+.has-top-banner .week-page { padding-top: 12px; }
 @media (min-width: 900px) { .week-page { padding-top: 28px; } }
 .week-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px; align-items: start; }
 .week-hero { position: relative; display: grid; gap: 14px; padding: 20px 20px 22px; border-radius: var(--r-2xl); background: var(--green-800); color: #fff; box-shadow: var(--shadow-3); }

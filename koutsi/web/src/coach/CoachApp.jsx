@@ -5,6 +5,7 @@ import { AppShell } from '../app/AppShell.jsx';
 import { DataProvider, useData } from '../app/data.jsx';
 import { navigate, useRoute } from '../app/router.js';
 import { GateError, Splash } from '../shared/gates.jsx';
+import { RenewedIntro, showBetaBar } from '../shared/renewed.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { useCoach } from './CoachRoot.jsx';
 import { TABS } from './routes.js';
@@ -108,8 +109,10 @@ function CoachShell() {
         me={acting ? null : { person: state.coach, sub: state.coach.tagline || 'Valmentaja', to: '/valmentaja/profiili' }}
         banner={acting ? <ActingBanner name={state.coach.name} onExit={exitActing} /> : null}
         signupUrl="https://koutsi.krossi.app/valmentaja?uusi=1"
+        beta={showBetaBar() && !acting}
       />
       {!acting && !state.coach.welcomeSeenAt && <WelcomeSheet />}
+      <RenewedIntro role="coach" eligible={!acting && Boolean(state.coach.welcomeSeenAt)} />
     </>
   );
 }

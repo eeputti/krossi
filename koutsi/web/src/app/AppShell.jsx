@@ -6,7 +6,7 @@ import { useLayoutEffect } from 'react';
 import { isDemo } from '../api/index.js';
 import { Avatar, Icon } from '../ui/index.js';
 import { useIsDesktop } from './hooks.js';
-import { Link, matchRoute, navigationType, savedScroll, useRoute, homePath } from './router.js';
+import { Link, canonBase, matchRoute, navigationType, savedScroll, useRoute, homePath } from './router.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -67,10 +67,22 @@ function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel })
 
 function DemoBanner({ signupUrl }) {
   return (
-    <div className="demo-banner" role="note">
+    <div className="top-banner" role="note">
       <Icon name="sparkles" size={15} />
       <span>Demo — mikään ei tallennu</span>
-      <a href={signupUrl} className="demo-banner-cta">Ota käyttöön <Icon name="arrow-right" size={14} /></a>
+      <a href={signupUrl} className="top-banner-cta">Ota käyttöön <Icon name="arrow-right" size={14} /></a>
+    </div>
+  );
+}
+
+// While the renewed Koutsi is an opt-in beta, every screen says which Koutsi this is and the
+// way back is one tap: ?uusi=0 is handled by the worker, so this is a full page load.
+function BetaBanner() {
+  return (
+    <div className="top-banner top-banner-beta" role="note">
+      <span className="top-banner-tag">Beta</span>
+      <span>Käytät uutta Koutsia</span>
+      <a href={`${canonBase()}?uusi=0`} className="top-banner-cta">Palaa vanhaan <Icon name="arrow-right" size={14} /></a>
     </div>
   );
 }
@@ -85,9 +97,9 @@ function renderScreen(screens, NotFound, match, query) {
  *   tabs: [{ id, label, icon, path }]   screens: { routeName: Component }   NotFound: Component
  *   badges: { tabId: count }   cta: node (side nav)   extraLinks: [{ to, label, icon, pages: [route names] }]
  *   me: { person, sub, to }   roleLabel   banner: node shown above the page (acting mode etc.)
- *   signupUrl: where the demo banner points
+ *   signupUrl: where the demo banner points   beta: show the "Käytät uutta Koutsia" bar instead
  */
-export function AppShell({ tabs, screens, NotFound, badges, cta, extraLinks, me, roleLabel, banner, signupUrl }) {
+export function AppShell({ tabs, screens, NotFound, badges, cta, extraLinks, me, roleLabel, banner, signupUrl, beta = false }) {
   const route = useRoute();
   const isDesktop = useIsDesktop();
   const type = route.route?.type;
@@ -114,8 +126,8 @@ export function AppShell({ tabs, screens, NotFound, badges, cta, extraLinks, me,
 
   const transition = navigationType() === 'push' && pageType !== 'tab' ? 'route-enter' : 'route-fade';
   return (
-    <div className={cx('shell', isDemo && 'has-demo-banner', hideChrome && 'no-chrome')}>
-      {isDemo && <DemoBanner signupUrl={signupUrl} />}
+    <div className={cx('shell', (beta || isDemo) && 'has-top-banner', hideChrome && 'no-chrome')}>
+      {beta ? <BetaBanner /> : isDemo && <DemoBanner signupUrl={signupUrl} />}
       {isDesktop && <SideNav tabs={tabs} active={activeTab} page={pageMatch?.name} badges={badges} cta={cta} extraLinks={extraLinks} me={me} roleLabel={roleLabel} />}
       <div className="shell-main">
         {banner}

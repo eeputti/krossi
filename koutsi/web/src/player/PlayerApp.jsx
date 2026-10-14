@@ -8,6 +8,7 @@ import { navigate } from '../app/router.js';
 import { GateError, Splash } from '../shared/gates.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
+import { RenewedIntro, showBetaBar } from '../shared/renewed.jsx';
 import { useToast } from '../ui/index.js';
 import { TABS } from './routes.js';
 import { HomeScreen } from './HomeScreen.jsx';
@@ -93,6 +94,7 @@ function PlayerShell({ banner }) {
         me={{ person: student, sub: student.level || 'Pelaaja', to: '/pelaaja/profiili' }}
         banner={banner}
         signupUrl="https://koutsi.krossi.app/pelaaja?uusi=1"
+        beta={showBetaBar()}
       />
       <SelfTrainingSheet open={sheet?.kind === 'self'} defaultDate={sheet?.date} onClose={close} onSwitchToMatch={(date) => setSheet({ kind: 'match', date })} />
       <MoodSheet open={sheet?.kind === 'mood'} initialScore={sheet?.score ?? null} studentId={ownerId} onClose={close} />
@@ -102,6 +104,7 @@ function PlayerShell({ banner }) {
       <VideoShareSheet open={sheet?.kind === 'video'} onClose={close} title="Lisää oma video" onSave={saveOwnVideo} />
       <VideoPlayerSheet video={video} onClose={() => setVideo(null)} />
       {!student.welcomeSeenAt && <WelcomeSheet student={student} />}
+      <RenewedIntro role="player" eligible={Boolean(student.welcomeSeenAt)} />
     </ActionsContext.Provider>
   );
 }
