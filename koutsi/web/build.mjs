@@ -14,6 +14,7 @@ import { context, build } from 'esbuild';
 import { readFile, writeFile, mkdir, rm, readdir, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { usageWords } from '../../scripts/usage-words.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // KOUTSI_OUT lets parallel tools (scripts/snap.mjs) build into their own folder.
@@ -110,7 +111,20 @@ async function writeShells() {
 if (!watch) await rm(outDir, { recursive: true, force: true });
 await mkdir(assetDir, { recursive: true });
 
-const options = (page) => ({ ...shared, entryPoints: [join(here, page.entry)], outfile: join(assetDir, `${page.out}.js`) });
+// The app's own wording: the only text the anonymous usage tracker sends as a tap label
+// (lib/koutsi-usage.js, scripts/usage-words.mjs). Demo code and its seed data stay out — their
+// made-up names are not UI words. The demos don't track at all, so they get none.
+const sources = (await readdir(join(here, 'src'), { recursive: true }))
+  .filter((f) => /\.jsx?$/.test(f) && !f.startsWith('api/demo/') && !/-demo\.jsx$/.test(f))
+  .map((f) => join(here, 'src', f));
+const USAGE_WORDS = await usageWords(sources);
+
+const options = (page) => ({
+  ...shared,
+  define: { ...shared.define, __KOUTSI_USAGE_WORDS__: JSON.stringify(page.demo ? '' : USAGE_WORDS) },
+  entryPoints: [join(here, page.entry)],
+  outfile: join(assetDir, `${page.out}.js`),
+});
 
 if (watch) {
   const ctxs = await Promise.all(PAGES.map((p) => context(options(p))));

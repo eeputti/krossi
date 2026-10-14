@@ -151,6 +151,16 @@ export const admin = {
       event: r.event, clicks: r.clicks || 0, users: r.users || 0, adminClicks: r.admin_clicks || 0, lastAt: r.last_at,
     }));
   },
+  // Anonymous usage of both Koutsi apps (lib/koutsi-usage.js) over the last `days` days.
+  // includeTest also counts the admins' and test accounts' own events.
+  async usageOverview(days = 30, includeTest = false) {
+    const { data, error } = await db().rpc('koutsi_admin_usage', { days_input: days, include_test: includeTest });
+    if (error && isMissingFunction(error)) {
+      throw new ApiError('Käyttötilastot otetaan käyttöön, kun tietokantamuutos on ajettu.', { code: 'not_deployed' });
+    }
+    if (error) throw error;
+    return data;
+  },
 };
 
 export { avatarUrl, SUPABASE_URL };

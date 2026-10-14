@@ -10,6 +10,7 @@ import { koutsiParseNameList } from '../domain/core.js';
 import { koutsiFmtEventDate } from '../domain/timeline.js';
 import { useCoach } from './CoachRoot.jsx';
 import { MerkitseUsage } from './MerkitseUsage.jsx';
+import { AdminUsage } from './AdminUsage.jsx';
 
 const fmtBytes = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} Mt` : b >= 1024 ? `${Math.round(b / 1024)} kt` : `${b} t`);
 const fmtWhen = (iso) => (iso ? koutsiFmtEventDate(iso) : 'ei koskaan');
@@ -217,7 +218,12 @@ export function AdminScreen() {
         {tab === 'users' && <Users />}
         {tab === 'feedback' && <Feedback />}
         {tab === 'plans' && <Plans />}
-        {tab === 'usage' && <MerkitseUsage />}
+        {tab === 'usage' && (
+          <div className="stack-6">
+            <AdminUsage />
+            <MerkitseUsage />
+          </div>
+        )}
         <p className="k-fine"><Icon name="info" size={14} /> Vuosisuunnitelman lisääminen ryhmälle ylläpitäjänä onnistuu vielä vanhassa Koutsissa (Ylläpito → Vuosisuunnitelmat).</p>
       </Page>
     </>

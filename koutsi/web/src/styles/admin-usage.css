@@ -1,0 +1,58 @@
+/* admin-usage.css — Ylläpito → Käyttö (coach/AdminUsage.jsx). Prefix: ausage-. */
+
+.ausage-section-head { align-items: flex-end; }
+.ausage-controls { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.ausage-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+
+/* lists: one row per page / control / error / visit */
+.ausage-list { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); }
+.ausage-row { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line); }
+.ausage-row-head { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 650; color: var(--ink); }
+.ausage-hidden-label { color: var(--muted); font-weight: 600; font-style: italic; }
+.ausage-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.ausage-who { display: inline-flex; gap: 4px; }
+.ausage-place { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; }
+.ausage-bar { height: 6px; border-radius: 999px; background: var(--sand); overflow: hidden; }
+.ausage-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--green-700); }
+
+.ausage-error .ausage-row-head svg { color: var(--danger); vertical-align: -2px; }
+.ausage-error-msg { font-size: 13px; color: var(--ink-2); line-height: 1.45; word-break: break-word; margin: 0; }
+.ausage-ok { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--success); margin: 0; }
+
+/* weekday × hour grid: one hue, light → dark (sand = no visits) */
+.ausage-heat-wrap { display: grid; gap: 8px; }
+.ausage-heat { display: grid; grid-template-columns: 22px repeat(24, minmax(0, 1fr)); gap: 2px; }
+.ausage-heat-row { display: contents; }
+.ausage-heat-hour { font-size: 10px; color: var(--faint); line-height: 1; padding-bottom: 2px; }
+.ausage-heat-day { font-size: 11px; font-weight: 600; color: var(--muted); align-self: center; }
+.ausage-cell { display: block; aspect-ratio: 1; min-height: 9px; border: 0; padding: 0; border-radius: 3px; cursor: pointer; background: var(--sand); }
+.ausage-cell.is-focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+.ausage-l1 { background: #D6E8DD; }
+.ausage-l2 { background: #9CC7AE; }
+.ausage-l3 { background: #4E9A77; }
+.ausage-l4 { background: var(--green-600); }
+.ausage-l5 { background: var(--green-800); }
+.ausage-heat-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; align-items: center; }
+.ausage-legend { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); }
+.ausage-legend .ausage-cell { width: 11px; min-height: 11px; cursor: default; }
+
+/* visits per day / week */
+.ausage-days { display: flex; align-items: flex-end; gap: 2px; height: 72px; border-bottom: 1px solid var(--line-strong); }
+.ausage-day { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; border: 0; padding: 0; background: transparent; cursor: pointer; }
+.ausage-day > span { display: block; width: 100%; border-radius: 4px 4px 0 0; background: var(--green-700); }
+.ausage-day.is-focus > span, .ausage-day:hover > span { background: var(--green-900); }
+
+/* visits as timelines */
+.ausage-session { border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line); }
+.ausage-session > summary { list-style: none; cursor: pointer; display: grid; gap: 4px; padding: 10px 12px; }
+.ausage-session > summary::-webkit-details-marker { display: none; }
+.ausage-session-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ausage-session-sub { font-size: 13px; color: var(--ink-2); }
+.ausage-session[open] > summary { border-bottom: 1px solid var(--line); }
+.ausage-timeline { list-style: none; margin: 0; padding: 8px 12px 12px; display: grid; gap: 4px; }
+.ausage-ev { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px; font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+.ausage-ev-time { color: var(--faint); }
+.ausage-ev-text { word-break: break-word; }
+.ausage-ev-view .ausage-ev-text { font-weight: 650; color: var(--ink); }
+.ausage-ev-error .ausage-ev-text { color: var(--danger); font-weight: 600; }
+.ausage-ev-hide .ausage-ev-text { color: var(--faint); }

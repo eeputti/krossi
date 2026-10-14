@@ -70,8 +70,10 @@ export const API_CONTRACT = {
 
   // Ylläpito — every RPC behind these re-checks koutsi_is_admin() server-side.
   // usage(days | null) → [{ event, clicks, users, adminClicks, lastAt }] (admins' own taps apart).
+  // usageOverview(days, includeTest) → the anonymous page/tap/error statistics of both Koutsi apps
+  // (koutsi_admin_usage, fed by lib/koutsi-usage.js) — see coach/AdminUsage.jsx for the shape.
   admin: ['users', 'feedback', 'deleteFeedback', 'deleteUser', 'actAs', 'groups', 'bulkInviteCodes',
-    'pendingPlans', 'publishPlan', 'handleSubmission', 'uploadPlan', 'usage'],
+    'pendingPlans', 'publishPlan', 'handleSubmission', 'uploadPlan', 'usage', 'usageOverview'],
 };
 
 // Functions that return synchronously-usable values (subscriptions) — not wrapped in

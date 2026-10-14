@@ -22,6 +22,8 @@ export function ToastProvider({ children }) {
     const isError = message && typeof message === 'object';
     const text = isError ? (message.userMessage || 'Jokin meni pieleen. Yritä uudelleen.') : message;
     const tone = opts.tone || (isError ? 'error' : 'success');
+    // Ylläpito → Käyttö counts the errors people actually saw (lib/koutsi-usage.js; absent in the demos)
+    if (tone === 'error') window.koutsiUsage?.toast(text);
     const id = ++seq.current;
     setToasts((list) => [...list.slice(-2), { id, text, tone, icon: opts.icon || ICONS[tone], action: opts.action }]);
     setTimeout(() => dismiss(id), opts.duration || (tone === 'error' ? 4600 : 2800));

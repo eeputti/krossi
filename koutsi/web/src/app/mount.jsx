@@ -9,7 +9,10 @@ import { SessionProvider } from './session.jsx';
 class AppErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }
-  componentDidCatch(error, info) { console.error('Koutsi kaatui', error, info?.componentStack); }
+  componentDidCatch(error, info) {
+    console.error('Koutsi kaatui', error, info?.componentStack);
+    try { window.koutsiUsage?.error('Sivu kaatui', error?.message || String(error)); } catch { /* analytics only */ }
+  }
   render() {
     if (!this.state.error) return this.props.children;
     return (

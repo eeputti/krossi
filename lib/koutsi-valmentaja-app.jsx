@@ -4901,6 +4901,8 @@ const ADMIN_USER_SORT_OPTIONS = [
   { id: 'joined-desc', label: 'Uusin tili ensin' },
 ];
 function AdminView({ onActAs }) {
+  // 'users' = the page as it always was; 'usage' = Käyttö (lib/koutsi-admin-usage.jsx)
+  const [section, setSection] = React.useState('users');
   const [users, setUsers] = React.useState(null);
   const [loadError, setLoadError] = React.useState(false);
   const [importCoach, setImportCoach] = React.useState(null);
@@ -4956,6 +4958,17 @@ function AdminView({ onActAs }) {
   return (
     <div>
       <PageHeader title="Ylläpito" sub={users ? `${users.length} käyttäjää · ${totals.coaches} valmentajaa · ${totals.players} pelaajaa · ${totals.active30d} aktiivista (30 pv) · ${adminFormatBytes(totals.storage)}` : 'Ladataan…'} />
+      <div role="tablist" aria-label="Ylläpito" style={{ display: 'inline-flex', gap: 4, padding: 4, borderRadius: 999, background: '#efece3', marginBottom: 18 }}>
+        {[{ id: 'users', label: 'Käyttäjät ja palaute' }, { id: 'usage', label: 'Käyttö' }].map((item) => {
+          const active = section === item.id;
+          return <button key={item.id} type="button" role="tab" aria-selected={active} onClick={() => setSection(item.id)}
+            style={{ border: 'none', borderRadius: 999, padding: '9px 16px', fontSize: 13.5, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer', background: active ? 'var(--green-deep)' : 'transparent', color: active ? '#fff' : '#514c42' }}>
+            {item.label}
+          </button>;
+        })}
+      </div>
+      {section === 'usage' && (window.KoutsiAdminUsage ? <window.KoutsiAdminUsage /> : null)}
+      {section === 'users' && <>
       {totals.pending > 0 && (
         <div className="k-card" style={{ padding: '14px 17px', marginBottom: 18, background: 'rgba(199,123,46,0.1)', borderColor: 'rgba(199,123,46,0.35)', fontSize: 14, color: '#7a4c1e', fontWeight: 700 }}>
           {totals.pending} vuosisuunnitelmaa odottaa käsittelyä.
@@ -4999,6 +5012,7 @@ function AdminView({ onActAs }) {
       </div>
       {importCoach && <AdminImportModal coach={importCoach} onClose={() => setImportCoach(null)} />}
       {plansCoach && <AdminPlansModal coach={plansCoach} onClose={() => setPlansCoach(null)} onChanged={load} onActAs={onActAs} />}
+      </>}
     </div>
   );
 }

@@ -14,6 +14,8 @@ function KoutsiToastProvider({ children }) {
   const [toasts, setToasts] = React.useState([]);
   const remove = React.useCallback((id) => setToasts((prev) => prev.filter((t) => t.id !== id)), []);
   const push = React.useCallback((message, tone = 'info', ms = 4200) => {
+    // Ylläpito → Käyttö counts the errors people actually saw (lib/koutsi-usage.js; absent in the demo)
+    if (tone === 'error' && window.koutsiUsage) window.koutsiUsage.toast(message);
     const id = `${Date.now()}-${Math.random()}`;
     setToasts((prev) => [...prev, { id, message, tone }]);
     setTimeout(() => remove(id), ms);

@@ -89,6 +89,12 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 - `groups.extendSeries` käyttää RPC:tä `koutsi_extend_group_series`, joka lisää treenit ilman
   rivikohtaista ilmoitustulvaa. Jos RPC:tä ei vielä ole (migraatio ajamatta), käyttäjä saa
   selkeän viestin eikä mitään kirjoiteta.
+- Käyttötilastot (Ylläpito → Käyttö): sama seurantaskripti kuin vanhassa Koutsissa
+  (`lib/koutsi-usage.js`, käynnistys `src/app/usageTracking.js`, vain tuotantobundleissa).
+  Sivut, painallukset ja virheet ilman käyttäjää; painikkeen teksti lähtee vain, jos jokainen
+  sana on sovelluksen omaa sanastoa (`scripts/usage-words.mjs`, build.mjs:n `__KOUTSI_USAGE_WORDS__`).
+  Luku `api.admin.usageOverview` → `koutsi_admin_usage()`, muotoilu `lib/koutsi-usage-report.js`
+  (yhteinen vanhan ylläpidon `lib/koutsi-admin-usage.jsx`:n kanssa). Rivit poistuvat 180 pv jälkeen.
 
 ## 5. Reitit
 

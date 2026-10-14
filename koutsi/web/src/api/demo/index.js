@@ -580,6 +580,6 @@ export const backend = {
   admin: {
     users: notAllowed, feedback: notAllowed, deleteFeedback: notAllowed, deleteUser: notAllowed, actAs: notAllowed,
     groups: notAllowed, bulkInviteCodes: notAllowed, pendingPlans: notAllowed, publishPlan: notAllowed,
-    handleSubmission: notAllowed, uploadPlan: notAllowed, usage: notAllowed,
+    handleSubmission: notAllowed, uploadPlan: notAllowed, usage: notAllowed, usageOverview: notAllowed,
   },
 };
