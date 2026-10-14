@@ -1,5 +1,6 @@
-// GroupScreen — one group: schedule, this week's theme (and the next and earlier ones),
-// upcoming sessions, members, inviting, and the rarely used things behind "Lisää".
+// GroupScreen — one group: schedule, a note / homework / video for the whole group, this week's
+// theme (and the next and earlier ones), upcoming sessions, members, inviting, and the rarely
+// used things behind "Lisää".
 import { useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
@@ -13,6 +14,7 @@ import { plannerDefaultWeek, themeWeekShort } from '../domain/week.js';
 import { playerPath } from './nav.js';
 import { groupWhen, SessionRow } from './parts.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
+import { useRecord } from './merkitse.jsx';
 import { Link } from '../app/router.js';
 import {
   AddMembersSheet, AnnualPlanBlock, ExtendCalendarSheet, GroupFormSheet, GroupInviteSheet, SlotFormSheet, lastSessionDate, useGroupDelete,
@@ -116,6 +118,7 @@ export function GroupScreen({ params }) {
   const { state, run } = useData();
   const confirm = useConfirm();
   const deleteGroup = useGroupDelete();
+  const record = useRecord();
   const [sheet, setSheet] = useState(null); // 'edit' | 'slot' | 'members' | 'invite' | 'extend'
   const group = state.groups.find((g) => g.id === params.id);
   if (!group) {
@@ -126,6 +129,7 @@ export function GroupScreen({ params }) {
       </>
     );
   }
+  const memberIds = group.memberIds.filter((id) => state.students.some((s) => s.id === id));
   const last = lastSessionDate(state, group.id);
   const endsSoon = !last || last <= koutsiAddDays(koutsiTodayStr(), 42);
   const removeSlot = async (slot) => {
@@ -146,6 +150,13 @@ export function GroupScreen({ params }) {
             <Button variant={endsSoon ? 'dark' : 'ghost'} size="sm" icon="repeat" onClick={() => setSheet('extend')}>Jatka</Button>
           </div>
         </header>
+        {memberIds.length > 0 && (
+          <div className="k-quick">
+            <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: memberIds, source: 'ryhma' })}>Huomio</Button>
+            <Button variant="outline" icon="check-circle" onClick={() => record.open('homework', { ids: memberIds, source: 'ryhma' })}>Kotiläksy</Button>
+            <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: memberIds, source: 'ryhma' })}>Video</Button>
+          </div>
+        )}
         <ThemeSection group={group} />
         <Sessions state={state} group={group} />
         <Members state={state} group={group} onAdd={() => setSheet('members')} onInvite={() => setSheet('invite')} />

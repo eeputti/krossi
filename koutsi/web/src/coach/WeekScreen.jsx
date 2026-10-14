@@ -1,4 +1,5 @@
-// WeekScreen — the coach's home ("Viikko"): what a weekly visit needs, in order.
+// WeekScreen — the coach's home ("Koti"): what a weekly visit needs, in order. On a phone the
+// avatar in the corner is the way to Profiili (the tab bar's middle is "Merkitse").
 //   1. this week's theme coverage, with the one- or two-tap fix
 //   2. today's and tomorrow's sessions (attendance is one tap away)
 //   3. things that need the coach: calendars running out, players who haven't joined
@@ -6,7 +7,8 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../app/data.jsx';
 import { useIsDesktop, useNow } from '../app/hooks.js';
-import { Button, Card, Icon, Page, ProgressRing } from '../ui/index.js';
+import { Avatar, Button, Card, Icon, Page, ProgressRing } from '../ui/index.js';
+import { Link } from '../app/router.js';
 import { NotificationsButton } from '../shared/Notifications.jsx';
 import { Block, Quiet } from '../shared/bits.jsx';
 import {
@@ -26,6 +28,7 @@ import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 
 function CoverageHero({ state }) {
   const { uid, acting } = useCoach();
+  const isDesktop = useIsDesktop();
   const continueThemes = useContinueThemes();
   const [busy, setBusy] = useState(false);
   const week = plannerDefaultWeek();
@@ -42,7 +45,16 @@ function CoverageHero({ state }) {
     <section className="week-hero on-dark court-lines rise">
       <div className="week-hero-top">
         <span className="eyebrow">{isNow ? `Viikko ${week.week}` : `Ensi viikko · vko ${week.week}`} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
-        {!acting && <NotificationsButton uid={uid} home="/valmentaja/koti" variant="on-dark" />}
+        {!acting && (
+          <span className="week-hero-tools">
+            <NotificationsButton uid={uid} home="/valmentaja/koti" variant="on-dark" />
+            {!isDesktop && (
+              <Link to="/valmentaja/profiili" className="week-hero-me" aria-label="Profiili ja asetukset">
+                <Avatar person={state.coach} size={36} />
+              </Link>
+            )}
+          </span>
+        )}
       </div>
       <h1 className="week-hero-title">Moi, {firstName(state.coach.name) || 'valmentaja'}!</h1>
       {state.groups.length === 0 ? (

@@ -1,6 +1,7 @@
 // AdminScreen — Ylläpito: users (open a coach's view, turn a name list into invite links,
-// delete an account), pilot feedback, annual plans waiting for review. Every RPC behind this
-// re-checks koutsi_is_admin() on the server.
+// delete an account), pilot feedback, annual plans waiting for review, and what the renewed
+// app's quick actions are used for (Käyttö). Every RPC behind this re-checks koutsi_is_admin()
+// on the server.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { Button, Card, Chip, EmptyState, ErrorState, Field, Icon, Input, Page, Segmented, Select, Sheet, SkeletonList, StatTile, Textarea, TopBar, useConfirm, useToast } from '../ui/index.js';
@@ -8,6 +9,7 @@ import { CopyButton } from '../shared/bits.jsx';
 import { koutsiParseNameList } from '../domain/core.js';
 import { koutsiFmtEventDate } from '../domain/timeline.js';
 import { useCoach } from './CoachRoot.jsx';
+import { MerkitseUsage } from './MerkitseUsage.jsx';
 
 const fmtBytes = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} Mt` : b >= 1024 ? `${Math.round(b / 1024)} kt` : `${b} t`);
 const fmtWhen = (iso) => (iso ? koutsiFmtEventDate(iso) : 'ei koskaan');
@@ -210,11 +212,12 @@ export function AdminScreen() {
     <>
       <TopBar title="Ylläpito" back="/valmentaja/profiili" />
       <Page width="wide" className="stack-4 k-page-pad">
-        <p className="k-faint">Pilotin käyttäjät, palaute ja vuosisuunnitelmat</p>
-        <Segmented ariaLabel="Ylläpito" value={tab} onChange={setTab} options={[{ value: 'users', label: 'Käyttäjät', icon: 'users' }, { value: 'feedback', label: 'Palaute', icon: 'chat' }, { value: 'plans', label: 'Suunnitelmat', icon: 'calendar' }]} />
+        <p className="k-faint">Pilotin käyttäjät, palaute, vuosisuunnitelmat ja käyttö</p>
+        <Segmented ariaLabel="Ylläpito" value={tab} onChange={setTab} options={[{ value: 'users', label: 'Käyttäjät' }, { value: 'feedback', label: 'Palaute' }, { value: 'plans', label: 'Suunnitelmat' }, { value: 'usage', label: 'Käyttö' }]} />
         {tab === 'users' && <Users />}
         {tab === 'feedback' && <Feedback />}
         {tab === 'plans' && <Plans />}
+        {tab === 'usage' && <MerkitseUsage />}
         <p className="k-fine"><Icon name="info" size={14} /> Vuosisuunnitelman lisääminen ryhmälle ylläpitäjänä onnistuu vielä vanhassa Koutsissa (Ylläpito → Vuosisuunnitelmat).</p>
       </Page>
     </>

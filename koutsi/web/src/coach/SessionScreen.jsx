@@ -1,4 +1,5 @@
-// SessionScreen — one session: when, who, the week's theme, and attendance. Attendance is a
+// SessionScreen — one session: when, who, the week's theme, a note / homework / video for the
+// players who came (or, before it, for everyone expected), and attendance. Attendance is a
 // tap per player (Paikalla ↔ Poissa); presence is "no row", so nothing needs saving for the
 // players who came. A tap shows immediately and is saved in the background.
 import { useState } from 'react';
@@ -10,10 +11,11 @@ import { Block, ThemeCard } from '../shared/bits.jsx';
 import {
   koutsiFmtLongDate, koutsiThemeForDate, koutsiTimeRangeLabel, koutsiIsoWeekOfDateStr, koutsiFmtShortDate,
 } from '../domain/core.js';
-import { sessionRoster, sessionStatus } from '../domain/week.js';
+import { presentPlayerIds, sessionRoster, sessionStatus } from '../domain/week.js';
 import { groupPath, playerPath } from './nav.js';
 import { TrainingSheet, useTrainingDelete } from './trainingForms.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
+import { useRecord } from './merkitse.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -21,6 +23,7 @@ export function SessionScreen({ params }) {
   const { state, mutate, reload } = useData();
   const toast = useToast();
   const removeTraining = useTrainingDelete();
+  const record = useRecord();
   const [editOpen, setEditOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [pending, setPending] = useState(() => new Set());
@@ -40,6 +43,8 @@ export function SessionScreen({ params }) {
   const theme = group ? koutsiThemeForDate(group, training.date) : null;
   const week = koutsiIsoWeekOfDateStr(training.date);
   const present = roster.filter((s) => !absentIds.has(s.id)).length;
+  // after a session: the players who were there; before it: everyone expected
+  const recipients = status === 'upcoming' ? roster.map((s) => s.id) : presentPlayerIds(state, training);
   const label = `${koutsiFmtShortDate(training.date)} klo ${training.time} — ${group ? group.name : training.type}`;
 
   const setStatus = async (student, next) => {
@@ -84,6 +89,14 @@ export function SessionScreen({ params }) {
           <p className="k-group-when">klo {koutsiTimeRangeLabel(training.time, training.durationMinutes || group?.durationMinutes)} · {training.type}</p>
           {group && <Link to={groupPath(group.id)} className="chip chip-sm chip-outline">{group.day} {group.time} · {group.name}</Link>}
         </header>
+
+        {roster.length > 0 && (
+          <div className="k-quick">
+            <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: recipients, source: 'treeni' })}>Huomio</Button>
+            <Button variant="outline" icon="check-circle" onClick={() => record.open('homework', { ids: recipients, source: 'treeni' })}>Kotiläksy</Button>
+            <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: recipients, source: 'treeni' })}>Video</Button>
+          </div>
+        )}
 
         {group && (theme ? (
           <ThemeCard theme={theme} week={week} eyebrow={`Teema · vko ${week.week}`}>

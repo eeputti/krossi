@@ -10,18 +10,31 @@ import { Link, canonBase, matchRoute, navigationType, savedScroll, useRoute, hom
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
-function TabBar({ tabs, active, badges }) {
+// `center` ({ label, icon, onClick }) puts one big round action in the middle of the bar, between
+// the two halves of the tabs (the coach's "Merkitse").
+function TabBar({ tabs, active, badges, center }) {
+  const item = (t) => (
+    <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
+      <span className="tabbar-icon">
+        <Icon name={t.icon} size={23} strokeWidth={active === t.id ? 2.3 : 1.9} />
+        {badges?.[t.id] > 0 && <span className="tabbar-badge">{badges[t.id] > 9 ? '9+' : badges[t.id]}</span>}
+      </span>
+      <span className="tabbar-label">{t.label}</span>
+    </Link>
+  );
+  const half = Math.ceil(tabs.length / 2);
   return (
-    <nav className="tabbar" aria-label="Päävalikko" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
-      {tabs.map((t) => (
-        <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
-          <span className="tabbar-icon">
-            <Icon name={t.icon} size={23} strokeWidth={active === t.id ? 2.3 : 1.9} />
-            {badges?.[t.id] > 0 && <span className="tabbar-badge">{badges[t.id] > 9 ? '9+' : badges[t.id]}</span>}
-          </span>
-          <span className="tabbar-label">{t.label}</span>
-        </Link>
-      ))}
+    <nav className={cx('tabbar', center && 'has-center')} aria-label="Päävalikko" style={{ gridTemplateColumns: `repeat(${tabs.length + (center ? 1 : 0)}, 1fr)` }}>
+      {center ? (
+        <>
+          {tabs.slice(0, half).map(item)}
+          <button type="button" className="tabbar-center" onClick={center.onClick}>
+            <span className="tabbar-center-btn"><Icon name={center.icon || 'plus'} size={28} strokeWidth={2.5} /></span>
+            <span className="tabbar-label">{center.label}</span>
+          </button>
+          {tabs.slice(half).map(item)}
+        </>
+      ) : tabs.map(item)}
     </nav>
   );
 }
@@ -96,10 +109,11 @@ function renderScreen(screens, NotFound, match, query) {
  * AppShell
  *   tabs: [{ id, label, icon, path }]   screens: { routeName: Component }   NotFound: Component
  *   badges: { tabId: count }   cta: node (side nav)   extraLinks: [{ to, label, icon, pages: [route names] }]
+ *   center: { label, icon, onClick } — the phone tab bar's big middle button
  *   me: { person, sub, to }   roleLabel   banner: node shown above the page (acting mode etc.)
  *   signupUrl: where the demo banner points   beta: show the "Käytät uutta Koutsia" bar instead
  */
-export function AppShell({ tabs, screens, NotFound, badges, cta, extraLinks, me, roleLabel, banner, signupUrl, beta = false }) {
+export function AppShell({ tabs, screens, NotFound, badges, cta, center, extraLinks, me, roleLabel, banner, signupUrl, beta = false }) {
   const route = useRoute();
   const isDesktop = useIsDesktop();
   const type = route.route?.type;
@@ -136,7 +150,7 @@ export function AppShell({ tabs, screens, NotFound, badges, cta, extraLinks, me,
         </div>
       </div>
       {overlay && renderScreen(screens, NotFound, { name: route.name, params: route.params, route: route.route }, route.query)}
-      {!isDesktop && !hideChrome && <TabBar tabs={tabs} active={activeTab} badges={badges} />}
+      {!isDesktop && !hideChrome && <TabBar tabs={tabs} active={activeTab} badges={badges} center={center} />}
     </div>
   );
 }

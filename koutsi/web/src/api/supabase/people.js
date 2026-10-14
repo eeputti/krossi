@@ -1,7 +1,8 @@
 // people.js — joining (codes, claims), notifications and Ylläpito.
 // Same RPCs and tables as the old lib/koutsi-data.js.
 
-import { db, must, callFunction, randomUuid, SUPABASE_URL } from './client.js';
+import { db, must, callFunction, randomUuid, isMissingFunction, SUPABASE_URL } from './client.js';
+import { ApiError } from '../errors.js';
 import { koutsiFmtShortDateFromTimestamp, koutsiInviteLink } from '../../domain/core.js';
 import { avatarUrl } from './map.js';
 
@@ -138,6 +139,17 @@ export const admin = {
       if (!prev?.annual_plan_storage_path) await db().storage.from('koutsi-plans').remove([path]);
       throw error;
     }
+  },
+  // Taps per event (account.trackEvent) over the last `days` days, or all time for null.
+  async usage(days = null) {
+    const { data, error } = await db().rpc('koutsi_admin_ui_events', { days_input: days });
+    if (error && isMissingFunction(error)) {
+      throw new ApiError('Käytön seuranta otetaan käyttöön, kun tietokantamuutos on ajettu.', { code: 'not_deployed' });
+    }
+    if (error) throw error;
+    return (data || []).map((r) => ({
+      event: r.event, clicks: r.clicks || 0, users: r.users || 0, adminClicks: r.admin_clicks || 0, lastAt: r.last_at,
+    }));
   },
 };
 

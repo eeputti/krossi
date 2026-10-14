@@ -101,6 +101,11 @@ export const account = {
   async recordAppOpen(appName) {
     try { await db().rpc('koutsi_record_app_open', { app_input: appName }); } catch { /* analytics only */ }
   },
+  // One tap on the Merkitse menu or a quick button. Fire and forget: until migration
+  // 20261014150000_koutsi_ui_events is applied the RPC is missing and nothing is counted.
+  async trackEvent(name) {
+    try { await db().rpc('koutsi_track_ui_event', { event_input: name }); } catch { /* analytics only */ }
+  },
   async isAdmin() {
     const { data, error } = await db().rpc('koutsi_is_admin');
     if (error) return false; // never block the app on this

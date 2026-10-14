@@ -1,18 +1,17 @@
 // videos.jsx — sharing a video (file up to 50 MB or a link) and playing one. Used by the coach
 // (to one or many players) and by the player (to their own bank).
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
-import { Avatar, Button, ChipSelect, Field, Input, ProgressBar, Segmented, Sheet, Spinner } from '../ui/index.js';
-import { koutsiTodayStr, koutsiRandomUuid, KOUTSI_TAGS, KOUTSI_TAG_LABELS } from '../domain/core.js';
-import { matchStudents } from '../domain/roster.js';
+import { Button, ChipSelect, Disclosure, Field, Input, ProgressBar, Segmented, Sheet, Spinner } from '../ui/index.js';
+import { koutsiTodayStr, koutsiRandomUuid, koutsiFmtShortDate, KOUTSI_TAGS, KOUTSI_TAG_LABELS } from '../domain/core.js';
 import { VIDEO_MAX_BYTES } from '../lib/constants.js';
-
-const cx = (...c) => c.filter(Boolean).join(' ');
+import { RecipientPicker } from './recipients.jsx';
 
 /**
  * VideoShareSheet
  *   recipients: [{ id, name, … }] to pick from (coach) — omit for "own video" (player)
- *   initialIds: preselected recipients     groups: for "+ group" quick picks
+ *   initialIds: preselected recipients     groups: for the one-tap group picks
+ *   The date (today) and topics are tucked under "Lisätiedot": they are rarely changed.
  *   onSave({ shareId, title, date, tags, studentIds, file, externalUrl, onProgress }) → Promise
  */
 export function VideoShareSheet({ open, onClose, recipients, initialIds = [], groups = [], onSave, title: sheetTitle = 'Jaa video' }) {
@@ -21,7 +20,6 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
   const [date, setDate] = useState(koutsiTodayStr());
   const [tags, setTags] = useState([]);
   const [ids, setIds] = useState(initialIds);
-  const [query, setQuery] = useState('');
   const [source, setSource] = useState('link');
   const [file, setFile] = useState(null);
   const [url, setUrl] = useState('');
@@ -32,7 +30,7 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
   useEffect(() => {
     if (!open) return;
     setShareId(koutsiRandomUuid()); setTitle(''); setDate(koutsiTodayStr()); setTags([]); setIds(initialIds);
-    setQuery(''); setSource('link'); setFile(null); setUrl(''); setBusy(false); setProgress(0); setError('');
+    setSource('link'); setFile(null); setUrl(''); setBusy(false); setProgress(0); setError('');
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const pick = (f) => {
     setError('');
@@ -59,11 +57,9 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
       setBusy(false);
     }
   };
-  const list = useMemo(() => (recipients ? (query.trim() ? matchStudents(recipients, query, { limit: 60 }) : recipients) : []), [recipients, query]);
-  const toggle = (id) => setIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={sheetTitle} size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>{busy && source === 'file' ? `Ladataan ${progress} %` : 'Tallenna'}</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>{busy && source === 'file' ? `Ladataan ${progress} %` : recipients ? (ids.length > 1 ? `Jaa ${ids.length} pelaajalle` : 'Jaa') : 'Tallenna'}</Button></div>}>
       <div className="stack-4">
         <Segmented options={[{ value: 'link', label: 'Linkki', icon: 'link' }, { value: 'file', label: 'Tiedosto', icon: 'play' }]} value={source} onChange={setSource} ariaLabel="Videon lähde" />
         {source === 'link' ? (
@@ -82,32 +78,19 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
         {busy && source === 'file' && <ProgressBar value={progress / 100} label="Latauksen eteneminen" />}
         {error && <p className="field-msg field-msg-error" role="alert">{error}</p>}
         <Field label="Otsikko" htmlFor="v-title"><Input id="v-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Syöttöanalyysi" maxLength={120} /></Field>
-        <Field label="Päivä" htmlFor="v-date"><Input id="v-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-        <Field label="Aiheet" optional>
-          <ChipSelect multiple size="sm" options={KOUTSI_TAGS.map((t) => ({ value: t, label: KOUTSI_TAG_LABELS[t] }))} value={tags} onChange={setTags} ariaLabel="Aiheet" />
-        </Field>
         {recipients && (
           <Field label={`Kenelle (${ids.length} valittu)`}>
-            {groups.length > 0 && (
-              <div className="row wrap k-group-picks">
-                {groups.map((g) => (
-                  <button key={g.id} type="button" className="planner-chip" onClick={() => setIds((p) => [...new Set([...p, ...g.memberIds.filter((id) => recipients.some((r) => r.id === id))])])}>
-                    + {g.day} {g.time} {g.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            {recipients.length > 8 && <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae nimellä" aria-label="Hae pelaajaa" />}
-            <div className="k-pick-list">
-              {list.map((s) => (
-                <label key={s.id} className={cx('k-pick', ids.includes(s.id) && 'is-on')}>
-                  <input type="checkbox" checked={ids.includes(s.id)} onChange={() => toggle(s.id)} />
-                  <Avatar person={s} size={28} /><span className="truncate">{s.name}</span>
-                </label>
-              ))}
-            </div>
+            <RecipientPicker students={recipients} groups={groups} value={ids} onChange={setIds} open={open} />
           </Field>
         )}
+        <Disclosure title="Lisätiedot" summary={`${date === koutsiTodayStr() ? 'Tänään' : koutsiFmtShortDate(date)}${tags.length ? ` · ${tags.map((t) => KOUTSI_TAG_LABELS[t]).join(', ')}` : ''}`} icon="sliders">
+          <div className="stack-4">
+            <Field label="Päivä" htmlFor="v-date"><Input id="v-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+            <Field label="Aiheet" optional>
+              <ChipSelect multiple size="sm" options={KOUTSI_TAGS.map((t) => ({ value: t, label: KOUTSI_TAG_LABELS[t] }))} value={tags} onChange={setTags} ariaLabel="Aiheet" />
+            </Field>
+          </div>
+        </Disclosure>
       </div>
     </Sheet>
   );

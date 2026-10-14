@@ -8,7 +8,6 @@ import { DAY_NAMES, plannerDefaultWeek } from '../domain/week.js';
 import { GroupRow } from './parts.jsx';
 import { GroupFormSheet } from './groupForms.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
-import { openPlanner } from './nav.js';
 
 export function GroupsScreen() {
   const { state } = useData();
@@ -38,13 +37,6 @@ export function GroupsScreen() {
           action={<><Button variant="dark" icon="plus" onClick={() => setFormOpen(true)}>Luo ryhmä</Button><Button variant="outline" icon="list" onClick={() => setBulkOpen(true)}>Lisää monta kerralla</Button></>} />
       ) : (
         <div className="stack-5">
-          <div className="k-banner-card">
-            <div className="grow">
-              <div className="k-banner-title">Viikon teemat</div>
-              <div className="k-banner-sub">{status.covered}/{status.pool.length} ryhmällä on teema viikolla {week.week}.</div>
-            </div>
-            <Button variant="lime" size="sm" icon="sparkles" onClick={() => openPlanner({ week })}>Avaa</Button>
-          </div>
           {byDay.map((bucket) => (
             <section key={bucket.day || 'muut'} className="k-day-section">
               <h2 className="k-day-title">{DAY_NAMES[bucket.day] || 'Muut'}</h2>

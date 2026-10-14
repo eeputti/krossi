@@ -6,12 +6,13 @@
 export const CANON = '/valmentaja';
 export const HOME = '/valmentaja/koti';
 
+// Four tabs around the big "Merkitse" button in the middle of the phone tab bar. Profiili is
+// the avatar on Koti (phone) and the card at the bottom of the side nav (desktop).
 export const TABS = [
   { id: 'koti', label: 'Koti', icon: 'home', path: '/valmentaja/koti' },
   { id: 'ryhmat', label: 'Ryhmät', icon: 'users', path: '/valmentaja/ryhmat' },
   { id: 'pelaajat', label: 'Pelaajat', icon: 'user', path: '/valmentaja/pelaajat' },
   { id: 'kalenteri', label: 'Kalenteri', icon: 'calendar', path: '/valmentaja/kalenteri' },
-  { id: 'profiili', label: 'Profiili', icon: 'settings', path: '/valmentaja/profiili' },
 ];
 
 export const ROUTES = [

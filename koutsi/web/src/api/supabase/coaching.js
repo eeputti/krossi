@@ -362,6 +362,12 @@ export const notes = {
   async add(coachId, studentId, text) {
     must(await from('koutsi_diary_entries').insert({ coach_id: coachId, student_id: studentId, text }));
   },
+  async addMany(coachId, studentIds, text) {
+    const ids = [...new Set((studentIds || []).filter(Boolean))];
+    if (ids.length === 0) return 0;
+    must(await from('koutsi_diary_entries').insert(ids.map((studentId) => ({ coach_id: coachId, student_id: studentId, text }))));
+    return ids.length;
+  },
   async update(entryId, text) {
     must(await from('koutsi_diary_entries').update({ text }).eq('id', entryId));
   },
@@ -373,6 +379,12 @@ export const notes = {
 export const homework = {
   async add(studentId, text) {
     must(await from('koutsi_homework').insert({ student_id: studentId, text }));
+  },
+  async addMany(studentIds, text) {
+    const ids = [...new Set((studentIds || []).filter(Boolean))];
+    if (ids.length === 0) return 0;
+    must(await from('koutsi_homework').insert(ids.map((studentId) => ({ student_id: studentId, text }))));
+    return ids.length;
   },
   async update(homeworkId, text) {
     must(await from('koutsi_homework').update({ text }).eq('id', homeworkId));

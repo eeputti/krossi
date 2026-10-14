@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { koutsiTodayStr, koutsiAddDays, koutsiCurrentIsoWeek, koutsiAddIsoWeeks } from '../src/domain/core.js';
-import { sessionStatus, calendarEndings, themeWeekRelative, themeWeekLabel } from '../src/domain/week.js';
+import { sessionStatus, calendarEndings, themeWeekRelative, themeWeekLabel, merkitseContext, attendanceSession, presentPlayerIds } from '../src/domain/week.js';
 import { upcomingSessions, checkInCandidate } from '../src/domain/player.js';
 import { koutsiBuildTimeline } from '../src/domain/timeline.js';
 
@@ -130,4 +130,34 @@ test('the recap opens once the week is over, not after a diary entry or once clo
   if (koutsiTodayStr() < koutsiAddDays(monday, 6)) {
     assert.equal(recapWeekDue(later, never, new Date(`${monday}T12:00:00`)), null, 'not while sessions are still to come');
   }
+});
+
+test('the Merkitse menu leads with the session on now, then one just over, then the day', () => {
+  const state = { groups: [group], students: [student()], trainings: [session('t1', today, '09:00'), session('t2', today, '17:00')] };
+  const ctx = (hhmm) => merkitseContext(state, at(hhmm));
+  const kind = (hhmm) => ctx(hhmm)?.kind;
+  const sunday = new Date(at('12:00')).getDay() === 0;
+  assert.equal(kind('08:00'), 'next');
+  assert.equal(ctx('08:00').items[0].training.id, 't1');
+  assert.equal(kind('09:30'), 'now');
+  assert.equal(kind('11:00'), 'ended', 'within two hours of the end (10:30)');
+  assert.equal(kind('12:31'), 'next', 'more than two hours after: the next session today');
+  assert.equal(ctx('12:31').items[0].training.id, 't2');
+  assert.equal(kind('18:00'), 'now');
+  assert.equal(kind('19:00'), 'ended');
+  assert.equal(ctx('19:00').items[0].training.id, 't2', 'the latest one first');
+  assert.equal(kind('21:00'), sunday ? 'week' : 'day', "after the day's last session: the day's summary (on Sundays the week's)");
+  assert.equal(merkitseContext({ ...state, trainings: [] }, at('12:00'))?.kind ?? null, sunday ? 'week' : null);
+});
+
+test('a note after a session goes to the players who were there; Läsnäolo opens today\'s session', () => {
+  const g = { ...group, memberIds: ['s1', 's2'] };
+  const s2 = { ...student(), id: 's2', name: 'Onni V.' };
+  const t = session('t1', today, '09:00', { absences: [{ studentId: 's2', reason: 'poissa' }] });
+  const state = { groups: [g], students: [student(), s2], trainings: [t, session('t2', today, '17:00')] };
+  assert.deepEqual(presentPlayerIds(state, t), ['s1']);
+  assert.equal(attendanceSession(state, at('09:30')).training.id, 't1');
+  assert.equal(attendanceSession(state, at('14:00')).training.id, 't1', "today's latest held session");
+  assert.equal(attendanceSession(state, at('08:00')).training.id, 't1', "before anything: today's next one");
+  assert.equal(attendanceSession({ ...state, trainings: [] }, at('12:00')), null);
 });

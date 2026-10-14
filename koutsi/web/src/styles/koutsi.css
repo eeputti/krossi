@@ -565,3 +565,86 @@
 .k-theme-edit { margin-top: 10px; }
 .k-danger-link { color: var(--danger); }
 .k-next-theme .k-textlink { margin-left: 8px; }
+
+/* ── Merkitse: the coach's big middle button and its menu ── */
+.tabbar.has-center { overflow: visible; }
+.tabbar-center {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px;
+  padding-bottom: 6px; color: var(--ink); font-size: 10.5px; font-weight: 800; letter-spacing: 0.01em;
+  -webkit-tap-highlight-color: transparent;
+}
+.tabbar-center-btn {
+  width: 58px; height: 58px; margin-top: -30px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--lime); color: #101A08; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.95), var(--shadow-lime);
+  transition: transform var(--dur-2) var(--ease-spring);
+}
+.tabbar-center:active .tabbar-center-btn { transform: scale(0.9); }
+.tabbar-center:focus-visible { outline: none; }
+.tabbar-center:focus-visible .tabbar-center-btn { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.95), 0 0 0 7px var(--green-700); }
+
+.week-hero-tools { display: inline-flex; align-items: center; gap: 8px; }
+.week-hero-me { display: inline-flex; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.week-hero-me:active { transform: scale(0.95); }
+
+.k-ctx-list { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
+.k-ctx {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 14px 13px 16px; text-align: left;
+  border-radius: var(--r-lg); transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-2);
+}
+.k-ctx:active { transform: scale(0.99); }
+.k-ctx.is-strong { background: var(--green-800); color: #fff; }
+.k-ctx.is-strong:hover { background: var(--green-700); }
+.k-ctx.is-soft { background: var(--lime-100); color: var(--ink); border: 1px solid rgba(180, 205, 20, 0.45); }
+.k-ctx-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.k-ctx-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.k-ctx.is-strong .k-ctx-eyebrow { color: var(--lime); }
+.k-ctx.is-soft .k-ctx-eyebrow { color: #4A5605; }
+.k-ctx-title { font-weight: 800; font-size: 16px; }
+.k-ctx-sub { font-size: 13px; }
+.k-ctx.is-strong .k-ctx-sub { color: var(--on-dark-muted); }
+.k-ctx.is-soft .k-ctx-sub { color: var(--ink-2); }
+.k-ctx-live { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 0 rgba(207, 228, 20, 0.6); animation: k-ctx-pulse 1.6s ease-out infinite; }
+@keyframes k-ctx-pulse { 0% { box-shadow: 0 0 0 0 rgba(207, 228, 20, 0.6); } 100% { box-shadow: 0 0 0 8px rgba(207, 228, 20, 0); } }
+@media (prefers-reduced-motion: reduce) { .k-ctx-live { animation: none; } }
+
+.k-merkitse-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 900px) { .k-merkitse-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.k-merkitse-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 112px; padding: 14px; text-align: left;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2), box-shadow var(--dur-2);
+}
+.k-merkitse-tile:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); }
+.k-merkitse-tile:active { transform: scale(0.97); }
+.k-merkitse-icon { width: 40px; height: 40px; margin-bottom: 6px; border-radius: 12px; display: grid; place-items: center; }
+.k-merkitse-icon.is-lime { background: var(--lime-100); color: #4A5605; }
+.k-merkitse-icon.is-blue { background: #E8F0FC; color: #2A5D94; }
+.k-merkitse-icon.is-green { background: var(--success-bg); color: var(--success); }
+.k-merkitse-icon.is-clay { background: var(--clay-100); color: #8A3A1A; }
+.k-merkitse-icon.is-sand { background: var(--sand); color: var(--green-800); }
+.k-merkitse-icon.is-ink { background: var(--green-800); color: var(--lime); }
+.k-merkitse-title { font-weight: 800; font-size: 15px; color: var(--ink); }
+.k-merkitse-sub { font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+
+/* who a note / homework / video is for (shared/recipients.jsx) */
+.k-recipient-groups { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; }
+.k-recipient-groups::-webkit-scrollbar { display: none; }
+.k-recipient-groups .planner-chip { flex-shrink: 0; white-space: nowrap; }
+/* with a mouse there is no swipe: on a desktop the group picks wrap instead of scrolling */
+@media (min-width: 900px) { .k-recipient-groups { flex-wrap: wrap; overflow: visible; } }
+.k-recipients-folded {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-md);
+  background: var(--green-100); border: 1px solid var(--green-700);
+}
+.k-recipients-avatars { display: inline-flex; flex-shrink: 0; }
+.k-recipients-avatars > * + * { margin-left: -8px; }
+.k-recipients-avatars > * { box-shadow: 0 0 0 2px var(--green-100); border-radius: 50%; }
+.k-recipients-text { min-width: 0; display: flex; flex-direction: column; font-size: 14px; }
+
+/* Ylläpito → Käyttö */
+.admin-usage { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); }
+.admin-usage-row { display: grid; gap: 5px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+.admin-usage-head { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 650; }
+.admin-usage-bar { height: 6px; border-radius: 999px; background: var(--sand); overflow: hidden; }
+.admin-usage-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--green-700); min-width: 2px; }
+.admin-usage-meta { font-size: 12px; }

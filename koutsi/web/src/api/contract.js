@@ -22,9 +22,10 @@ export const API_CONTRACT = {
   auth: ['getSession', 'onChange', 'signInWithPassword', 'signUp', 'signInWithOAuth', 'resetPassword',
     'resendConfirmation', 'updatePassword', 'signOut'],
 
-  // The shared Krossi profile row and account-level actions.
+  // The shared Krossi profile row and account-level actions. trackEvent(name) counts one tap
+  // (an event name, no content) for Ylläpito → Käyttö; it never throws.
   account: ['getProfile', 'getPilotAcknowledgement', 'acceptPilot', 'createProfile', 'saveDisplayName',
-    'uploadAvatar', 'recordAppOpen', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
+    'uploadAvatar', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
 
   // Coach role: fetchRow(uid) → { id } | null; load(coachId) → CoachState; subscribe(coachId, cb) → unsubscribe.
   // saveWeekNote(coachId, { year, week, score, note }) — the coach's private weekly diary.
@@ -50,9 +51,10 @@ export const API_CONTRACT = {
   // set(trainingIds, studentId, 'paikalla' | 'poissa')
   attendance: ['set'],
 
-  // Coach's notes to a player (koutsi_diary_entries) and homework.
-  notes: ['add', 'update', 'remove'],
-  homework: ['add', 'update', 'remove', 'toggleDone'],
+  // Coach's notes to a player (koutsi_diary_entries) and homework. addMany writes one row per
+  // player in one insert: each player gets their own copy (and their own notification).
+  notes: ['add', 'addMany', 'update', 'remove'],
+  homework: ['add', 'addMany', 'update', 'remove', 'toggleDone'],
 
   videos: ['share', 'setRecipients', 'url', 'remove'],
   exercises: ['add', 'update', 'remove', 'setVideo', 'removeVideo', 'seedStarters'],
@@ -67,8 +69,9 @@ export const API_CONTRACT = {
   notifications: ['list', 'markRead', 'getEmailPref', 'setEmailPref', 'subscribe'],
 
   // Ylläpito — every RPC behind these re-checks koutsi_is_admin() server-side.
+  // usage(days | null) → [{ event, clicks, users, adminClicks, lastAt }] (admins' own taps apart).
   admin: ['users', 'feedback', 'deleteFeedback', 'deleteUser', 'actAs', 'groups', 'bulkInviteCodes',
-    'pendingPlans', 'publishPlan', 'handleSubmission', 'uploadPlan'],
+    'pendingPlans', 'publishPlan', 'handleSubmission', 'uploadPlan', 'usage'],
 };
 
 // Functions that return synchronously-usable values (subscriptions) — not wrapped in

@@ -178,15 +178,9 @@ const localDay = (iso) => {
   return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${koutsiPad(d.getMonth() + 1)}-${koutsiPad(d.getDate())}`;
 };
 
-/**
- * "Viikko paketissa": how a week went for the coach — sessions held, attendance, the players'
- * feelings (the ones they let the coach see) and new wishes. `done` once every coach-run session
- * of the week has ended; `hadSessions` false for a week with nothing on the calendar.
- */
-export function weekRecap(state, week, now = new Date()) {
-  const dates = weekDates(week);
-  const first = dates[0];
-  const last = dates[6];
+// Sessions held, attendance, the players' feelings (the ones they let the coach see) and new
+// wishes between two dates (inclusive) — the recap of a week, or of a single day.
+function recapBetween(state, first, last, now) {
   const sessions = state.trainings.filter((t) => t.loggedBy !== 'player' && t.date >= first && t.date <= last);
   const groupOf = (t) => (t.groupId ? koutsiGroupById(state, t.groupId) : null);
   const held = sessions.filter((t) => sessionStatus(t, groupOf(t), now) === 'past');
@@ -197,22 +191,38 @@ export function weekRecap(state, week, now = new Date()) {
     expected += roster.length;
     present += roster.filter((s) => !(t.absences || []).some((a) => a.studentId === s.id)).length;
   });
-  const inWeek = (iso) => { const d = localDay(iso); return d >= first && d <= last; };
-  const moods = state.students.flatMap((s) => (s.moods || []).filter((m) => inWeek(m.at)).map((m) => ({ ...m, student: s })));
+  const inRange = (iso) => { const d = localDay(iso); return d >= first && d <= last; };
+  const moods = state.students.flatMap((s) => (s.moods || []).filter((m) => inRange(m.at)).map((m) => ({ ...m, student: s })));
   const wishes = state.students.flatMap((s) => (s.wishHistory || [])
-    .filter((h) => h.value && inWeek(h.at)).map((h) => ({ student: s, text: h.value, at: h.at })))
+    .filter((h) => h.value && inRange(h.at)).map((h) => ({ student: s, text: h.value, at: h.at })))
     .sort((a, b) => String(b.at).localeCompare(String(a.at)));
   return {
-    week,
     hadSessions: sessions.length > 0,
     sessions: sessions.length,
     held: held.length,
     done: sessions.length > 0 && held.length === sessions.length,
     attendance: expected ? present / expected : null,
+    present,
+    expected,
     moodCount: moods.length,
     moodAverage: moods.length ? moods.reduce((sum, m) => sum + m.score, 0) / moods.length : null,
     wishes,
   };
+}
+
+/**
+ * "Viikko paketissa": how a week went for the coach — sessions held, attendance, the players'
+ * feelings (the ones they let the coach see) and new wishes. `done` once every coach-run session
+ * of the week has ended; `hadSessions` false for a week with nothing on the calendar.
+ */
+export function weekRecap(state, week, now = new Date()) {
+  const dates = weekDates(week);
+  return { week, ...recapBetween(state, dates[0], dates[6], now) };
+}
+
+/** The same for one day ("Päivän yhteenveto"). */
+export function dayRecap(state, date, now = new Date()) {
+  return { date, ...recapBetween(state, date, date, now) };
 }
 
 /**
@@ -229,4 +239,54 @@ export function recapWeekDue(state, seen, now = new Date()) {
   const previous = koutsiAddIsoWeeks(current, -1);
   if (isoDay <= 2 && weekRecap(state, previous, now).hadSessions && !noted(previous) && !seen(previous)) return previous;
   return null;
+}
+
+const toMinutes = (hhmm) => { const [h, m] = String(hhmm || '00:00').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+export const JUST_ENDED_MINUTES = 120;
+
+/**
+ * What the Merkitse menu leads with, today:
+ *   'now'   a session is going on (all of them, if two overlap)
+ *   'ended' a session ended within the last two hours (the latest first, at most two)
+ *   'week'  on a Sunday once the day's sessions are over: the week's recap
+ *   'day'   once the day's last session is over: the day's summary
+ *   'next'  the next session later today
+ * → { kind, items: [{ training, group, student }] } or null (nothing on today, not a Sunday).
+ */
+export function merkitseContext(state, now = new Date()) {
+  const today = koutsiTodayStr();
+  const items = coachSessionsOn(state, today);
+  const status = (it) => sessionStatus(it.training, it.group, now);
+  const live = items.filter((it) => status(it) === 'now');
+  if (live.length) return { kind: 'now', items: live };
+  const minutesNow = toMinutes(nowHHMM(now));
+  const ended = items.filter((it) => {
+    if (status(it) !== 'past') return false;
+    const ago = minutesNow - toMinutes(sessionEnd(it.training, it.group));
+    return ago >= 0 && ago <= JUST_ENDED_MINUTES;
+  }).reverse();
+  if (ended.length) return { kind: 'ended', items: ended.slice(0, 2) };
+  const later = items.filter((it) => status(it) === 'upcoming');
+  if (!later.length && now.getDay() === 0) return { kind: 'week', items: [] };
+  if (items.length && !later.length) return { kind: 'day', items };
+  if (later.length) return { kind: 'next', items: later.slice(0, 1) };
+  return null;
+}
+
+/** Who a note after a session is for: the players who were there (or the one student). */
+export function presentPlayerIds(state, training) {
+  const absent = new Set((training.absences || []).map((a) => a.studentId));
+  return sessionRoster(state, training).filter((s) => !absent.has(s.id)).map((s) => s.id);
+}
+
+/**
+ * The session "Läsnäolo" opens: the one going on or just over, else today's latest held one,
+ * else today's next one; null when there is nothing today.
+ */
+export function attendanceSession(state, now = new Date()) {
+  const ctx = merkitseContext(state, now);
+  if (ctx && (ctx.kind === 'now' || ctx.kind === 'ended')) return ctx.items[0];
+  const items = coachSessionsOn(state, koutsiTodayStr());
+  const held = items.filter((it) => sessionStatus(it.training, it.group, now) === 'past');
+  return held[held.length - 1] || items.find((it) => sessionStatus(it.training, it.group, now) === 'upcoming') || null;
 }

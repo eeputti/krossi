@@ -118,6 +118,7 @@ export const backend = {
       return url;
     },
     async recordAppOpen() {},
+    async trackEvent() {},
     async isAdmin() { return false; },
     async submitFeedback() { await wait(); },
     async exportMyData() { return clone(S()); },
@@ -449,12 +450,25 @@ export const backend = {
       const at = nowIso();
       findStudent(studentId).diary.unshift({ id: newId('d'), at, date: koutsiFmtShortDate(at.slice(0, 10)), text });
     },
+    async addMany(coachId, studentIds, text) {
+      await wait();
+      const at = nowIso();
+      const ids = [...new Set(studentIds)];
+      ids.forEach((studentId) => findStudent(studentId).diary.unshift({ id: newId('d'), at, date: koutsiFmtShortDate(at.slice(0, 10)), text }));
+      return ids.length;
+    },
     async update(id, text) { await wait(); patchById('diary', id, { text }); },
     async remove(id) { await wait(); removeById('diary', id); },
   },
 
   homework: {
     async add(studentId, text) { await wait(); findStudent(studentId).homework.unshift({ id: newId('h'), at: nowIso(), text, done: false, doneAt: null }); },
+    async addMany(studentIds, text) {
+      await wait();
+      const ids = [...new Set(studentIds)];
+      ids.forEach((studentId) => findStudent(studentId).homework.unshift({ id: newId('h'), at: nowIso(), text, done: false, doneAt: null }));
+      return ids.length;
+    },
     async update(id, text) { await wait(); patchById('homework', id, { text }); },
     async remove(id) { await wait(); removeById('homework', id); },
     async toggleDone(id, done) { await wait(); patchById('homework', id, { done, doneAt: done ? nowIso() : null }); },
@@ -566,6 +580,6 @@ export const backend = {
   admin: {
     users: notAllowed, feedback: notAllowed, deleteFeedback: notAllowed, deleteUser: notAllowed, actAs: notAllowed,
     groups: notAllowed, bulkInviteCodes: notAllowed, pendingPlans: notAllowed, publishPlan: notAllowed,
-    handleSubmission: notAllowed, uploadPlan: notAllowed,
+    handleSubmission: notAllowed, uploadPlan: notAllowed, usage: notAllowed,
   },
 };

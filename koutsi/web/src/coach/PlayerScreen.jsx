@@ -4,10 +4,10 @@ import { useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Link, navigate } from '../app/router.js';
-import { Avatar, Button, Card, ChipSelect, Disclosure, EmptyState, Icon, IconButton, Page, Segmented, Sheet, StatTile, TopBar, useConfirm, useToast } from '../ui/index.js';
+import { Avatar, Button, Card, ChipSelect, Disclosure, EmptyState, Icon, IconButton, Page, Segmented, Sheet, StatTile, TopBar, useConfirm } from '../ui/index.js';
 import { Block, Quiet } from '../shared/bits.jsx';
 import { Timeline } from '../shared/Timeline.jsx';
-import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
+import { VideoPlayerSheet } from '../shared/videos.jsx';
 import {
   koutsiAttendanceSummary, koutsiTrainingsForStudent, koutsiThemeForDate, koutsiGroupById, koutsiMonthlySummary, koutsiFmtShortDate,
 } from '../domain/core.js';
@@ -17,6 +17,7 @@ import { LEVELS, MOOD_LABELS } from '../lib/constants.js';
 import { useCoach } from './CoachRoot.jsx';
 import { groupPath } from './nav.js';
 import { AudienceSheet, EditPlaceholderSheet, MergeSheet, PlaceholderInvite, TextEntrySheet } from './playerForms.jsx';
+import { useRecord } from './merkitse.jsx';
 
 function LevelSheet({ open, onClose, student }) {
   const { run } = useData();
@@ -131,9 +132,9 @@ function Details({ state, student }) {
 }
 
 export function PlayerScreen({ params }) {
-  const { state, run, reload } = useData();
-  const toast = useToast();
+  const { state, run } = useData();
   const { coachId } = useCoach();
+  const record = useRecord();
   const confirm = useConfirm();
   const [tab, setTab] = useState('kehitys');
   const [sheet, setSheet] = useState(null); // { kind, item }
@@ -179,13 +180,6 @@ export function PlayerScreen({ params }) {
     if (res.ok) navigate('/valmentaja/pelaajat', { replace: true });
   };
 
-  // The sheet shows a failed upload itself (and keeps the form), so no toast for errors here.
-  const shareVideo = async (payload) => {
-    await api.videos.share({ ...payload, addedById: coachId });
-    await reload().catch(() => {});
-    toast('Video jaettu.');
-  };
-
   return (
     <>
       <TopBar title={student.name} back="/valmentaja/pelaajat" actions={student.isPlaceholder ? <IconButton icon="edit" label="Muokkaa perustietoja" onClick={() => setSheet({ kind: 'edit' })} /> : null} />
@@ -209,9 +203,9 @@ export function PlayerScreen({ params }) {
         {student.isPlaceholder && <PlaceholderInvite student={student} />}
 
         <div className="k-quick">
-          <Button variant="lime" icon="edit" onClick={() => setSheet({ kind: 'note' })}>Huomio</Button>
-          <Button variant="outline" icon="check-circle" onClick={() => setSheet({ kind: 'homework' })}>Kotiläksy</Button>
-          <Button variant="outline" icon="play" onClick={() => setSheet({ kind: 'video' })}>Video</Button>
+          <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: [student.id], source: 'pelaaja' })}>Huomio</Button>
+          <Button variant="outline" icon="check-circle" onClick={() => record.open('homework', { ids: [student.id], source: 'pelaaja' })}>Kotiläksy</Button>
+          <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: [student.id], source: 'pelaaja' })}>Video</Button>
         </div>
 
         {attendance.total > 0 && (
@@ -263,21 +257,21 @@ export function PlayerScreen({ params }) {
       <EditPlaceholderSheet open={sheet?.kind === 'edit'} student={student} onClose={close} />
       <MergeSheet open={sheet?.kind === 'merge'} student={student} onClose={close} />
       <AudienceSheet open={sheet?.kind === 'audience'} video={sheet?.item} onClose={close} />
+      {/* new notes, homework and videos go through Merkitse's sheets (useRecord); these edit one */}
       <TextEntrySheet
         open={sheet?.kind === 'note'} onClose={close}
-        title={sheet?.item ? 'Muokkaa huomiota' : `Huomio pelaajalle ${student.name.split(' ')[0]}`}
-        subtitle="Näkyy pelaajan aikajanalla. Pelaaja saa ilmoituksen."
+        title="Muokkaa huomiota"
+        subtitle="Näkyy pelaajan aikajanalla."
         initial={sheet?.item?.text} placeholder="Esim. Hyvä nousu syötössä tällä viikolla…"
-        onSave={async (text) => (await run(() => (sheet?.item ? api.notes.update(sheet.item.id, text) : api.notes.add(coachId, student.id, text)), sheet?.item ? 'Huomio päivitetty.' : 'Huomio tallennettu.')).ok}
+        onSave={async (text) => (await run(() => api.notes.update(sheet.item.id, text), 'Huomio päivitetty.')).ok}
       />
       <TextEntrySheet
         open={sheet?.kind === 'homework'} onClose={close}
-        title={sheet?.item ? 'Muokkaa kotiläksyä' : 'Uusi kotiläksy'}
+        title="Muokkaa kotiläksyä"
         subtitle="Pelaaja voi merkitä läksyn tehdyksi omassa näkymässään."
         initial={sheet?.item?.text} placeholder="Esim. 20 rystylyöntiä seinää vasten…"
-        onSave={async (text) => (await run(() => (sheet?.item ? api.homework.update(sheet.item.id, text) : api.homework.add(student.id, text)), sheet?.item ? 'Kotiläksy päivitetty.' : 'Kotiläksy lisätty.')).ok}
+        onSave={async (text) => (await run(() => api.homework.update(sheet.item.id, text), 'Kotiläksy päivitetty.')).ok}
       />
-      <VideoShareSheet open={sheet?.kind === 'video'} onClose={close} recipients={state.students} initialIds={[student.id]} groups={state.groups} onSave={shareVideo} />
       <VideoPlayerSheet video={video} onClose={() => setVideo(null)} />
     </>
   );

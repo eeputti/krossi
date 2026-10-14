@@ -24,7 +24,7 @@ import { SessionScreen } from './SessionScreen.jsx';
 import { ExercisesScreen, ExerciseScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
 import { AdminScreen } from './AdminScreen.jsx';
-import { openPlanner } from './nav.js';
+import { RecordProvider, useRecord } from './merkitse.jsx';
 
 function LegacyRedirect({ route }) {
   useEffect(() => { navigate(route.redirect, { replace: true }); }, [route.redirect]);
@@ -65,7 +65,8 @@ function WelcomeSheet() {
   const close = () => { setOpen(false); run(() => api.coach.markWelcomeSeen(ownerId), null); };
   const steps = [
     ['sparkles', 'Viikon teemat', 'Kirjoita teema kerran ja valitse ryhmät — tai jatka viime viikon teemoilla yhdellä napautuksella.'],
-    ['calendar', 'Treenit ja läsnäolo', 'Tämän päivän treenit näkyvät Viikko-sivulla. Merkitse poissaolijat napauttamalla.'],
+    ['calendar', 'Treenit ja läsnäolo', 'Tämän päivän treenit näkyvät Koti-sivulla. Merkitse poissaolijat napauttamalla.'],
+    ['plus', 'Merkitse', 'Iso Merkitse-nappi: huomio, kotiläksy tai video yhdelle pelaajalle tai koko ryhmälle — treenin jälkeen ryhmä on valmiina.'],
     ['users', 'Pelaajat mukaan', 'Lähetä jokaiselle oma liittymislinkki WhatsAppiin. Pelaaja näkee teeman ja oman kehityksensä.'],
   ];
   return (
@@ -87,6 +88,7 @@ function WelcomeSheet() {
 function CoachShell() {
   const { state } = useData();
   const { acting, exitActing, isAdmin, adminChecked, coachId } = useCoach();
+  const { openMenu } = useRecord();
   const route = useRoute();
   // What opens by itself, at most one thing, decided once: the welcome for a new account > the
   // renewed-look note > "Viikko paketissa" after the week's last session (never while acting).
@@ -107,7 +109,6 @@ function CoachShell() {
     if (acting && route.name === 'profile') navigate('/valmentaja/koti', { replace: true });
   }, [route.name, isAdmin, adminChecked, acting]);
 
-  const tabs = acting ? TABS.filter((t) => t.id !== 'profiili') : TABS;
   const extraLinks = [
     { to: '/valmentaja/harjoitteet', label: 'Harjoitepankki', icon: 'list', pages: ['exercises', 'exercise'] },
     ...(isAdmin ? [{ to: '/valmentaja/yllapito', label: 'Ylläpito', icon: 'shield', pages: ['admin'] }] : []),
@@ -115,11 +116,12 @@ function CoachShell() {
   return (
     <>
       <AppShell
-        tabs={tabs}
+        tabs={TABS}
         screens={SCREENS}
         NotFound={NotFound}
         roleLabel="Valmentaja"
-        cta={<Button variant="lime" size="lg" block icon="sparkles" className="sidenav-cta" onClick={() => openPlanner()}>Viikon teemat</Button>}
+        cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={openMenu}>Merkitse</Button>}
+        center={{ label: 'Merkitse', icon: 'plus', onClick: openMenu }}
         extraLinks={extraLinks}
         me={acting ? null : { person: state.coach, sub: state.coach.tagline || 'Valmentaja', to: '/valmentaja/profiili' }}
         banner={acting ? <ActingBanner name={state.coach.name} onExit={exitActing} /> : null}
@@ -144,7 +146,9 @@ export function CoachApp() {
       fallback={<Splash />}
       renderError={(error, retry) => <GateError message="Valmennustietojasi ei saatu ladattua. Tarkista verkkoyhteys ja yritä uudelleen." error={error} onRetry={retry} onSignOut={session.signOut} />}
     >
-      <CoachShell />
+      <RecordProvider>
+        <CoachShell />
+      </RecordProvider>
     </DataProvider>
   );
 }
