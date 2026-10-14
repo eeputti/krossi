@@ -6,7 +6,7 @@
 // helpers in domain/core.js run unchanged on them:
 //
 //   CoachState  { coach, coaches: [coach], students: Student[], groups: Group[], trainings: Training[],
-//                 exercises: Exercise[], clubEvents: ClubEvent[] }
+//                 exercises: Exercise[], clubEvents: ClubEvent[], weekNotes: [{ id, year, week, score, note, updatedAt }] }
 //   PlayerState { coach, coaches, students: [me, ...rosterStubs], groups, trainings, exercises, clubEvents }
 //   Group       { id, coachId, name, level, day: 'Ma'…'Su', time: 'HH:MM', durationMinutes, memberIds,
 //                 slots: [{ id, day, time, durationMinutes }], themes, theme, upcomingThemes, pastThemes, annualPlan }
@@ -27,7 +27,8 @@ export const API_CONTRACT = {
     'uploadAvatar', 'recordAppOpen', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
 
   // Coach role: fetchRow(uid) → { id } | null; load(coachId) → CoachState; subscribe(coachId, cb) → unsubscribe.
-  coach: ['fetchRow', 'load', 'redeemKey', 'markWelcomeSeen', 'saveProfile', 'subscribe'],
+  // saveWeekNote(coachId, { year, week, score, note }) — the coach's private weekly diary.
+  coach: ['fetchRow', 'load', 'redeemKey', 'markWelcomeSeen', 'saveProfile', 'saveWeekNote', 'subscribe'],
 
   // Player role: fetchRow(uid) → { id } | null; load(studentId) → PlayerState; and the player's own writes.
   // addMood → { id }; updateMood(moodId, { score?, note?, hiddenFromCoach? }).

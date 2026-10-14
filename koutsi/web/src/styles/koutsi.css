@@ -362,6 +362,13 @@
 .k-mood-score { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--sand); }
 .k-mood-score[data-score="4"], .k-mood-score[data-score="5"] { background: var(--lime); color: #101A08; }
 .k-mood-score[data-score="1"], .k-mood-score[data-score="2"] { background: var(--clay-100); color: #8A3A1A; }
+/* weekly diary rows and the "Viikko paketissa" recap */
+.k-diary-score { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; font-weight: 800; background: var(--sand); color: var(--green-800); }
+.k-diary-score[data-score="4"], .k-diary-score[data-score="5"] { background: var(--lime); color: #101A08; }
+.k-diary-score[data-score="1"], .k-diary-score[data-score="2"] { background: var(--clay-100); color: #8A3A1A; }
+.k-recap-wishes { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--ink-2); }
+.k-recap-wishes li { padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line); }
+.k-recap-next { padding: 14px; border-radius: var(--r-lg); background: var(--lime-100); border: 1px solid rgba(180, 205, 20, 0.45); }
 .k-merge { display: flex; align-items: center; gap: 10px; }
 .k-merge-side { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 14px; }
 .k-merge-side.is-empty { justify-content: center; color: var(--muted); font-weight: 600; border-style: dashed; }

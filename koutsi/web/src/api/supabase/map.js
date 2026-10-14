@@ -173,3 +173,7 @@ export function groupBy(rows, key) {
   }
   return map;
 }
+
+export function mapWeekNote(n) {
+  return { id: n.id, year: n.iso_year, week: n.iso_week, score: n.score, note: n.note || '', updatedAt: n.updated_at || n.created_at || null };
+}

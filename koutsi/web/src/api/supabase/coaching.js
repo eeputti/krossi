@@ -4,7 +4,7 @@
 // Every write is the same query the old lib/koutsi-data.js runs, against the same tables and
 // RPCs, so the old and the renewed app can run side by side on one database.
 
-import { db, must, randomUuid, isMissingFunction } from './client.js';
+import { db, must, randomUuid, isMissingFunction, isMissingTable } from './client.js';
 import { loadCoachState, loadPlayerState } from './load.js';
 import { ApiError } from '../errors.js';
 import {
@@ -57,6 +57,16 @@ export const coach = {
   },
   async saveProfile(coachId, { tagline, bio, experience, specialties }) {
     must(await from('koutsi_coaches').update({ tagline, bio, experience, specialties }).eq('id', coachId));
+  },
+  // The coach's own "Miten treeniviikko sujui?" — one row per ISO week, private to the coach.
+  async saveWeekNote(coachId, { year, week, score, note }) {
+    const { error } = await from('koutsi_coach_week_notes').upsert({
+      coach_id: coachId, iso_year: year, iso_week: week, score, note: note || null, updated_at: new Date().toISOString(),
+    }, { onConflict: 'coach_id,iso_year,iso_week' });
+    if (error && isMissingTable(error)) {
+      throw new ApiError('Viikkopäiväkirja otetaan käyttöön pian. Viikon kooste toimii jo.', { code: 'not_deployed' });
+    }
+    if (error) throw error;
   },
   subscribe(coachId, cb) { return subscribeTables(`koutsi-coach-${coachId}`, cb); },
 };

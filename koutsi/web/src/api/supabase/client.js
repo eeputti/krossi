@@ -45,6 +45,13 @@ export async function requireSession() {
 
 // PostgREST answers PGRST202 when a function is not in its schema cache; plain Postgres
 // answers 42883. Both mean "not deployed yet".
+/** A table that isn't in the database (yet): its migration hasn't run. */
+export function isMissingTable(error) {
+  const code = error?.code || error?.cause?.code;
+  const message = String(error?.message || error?.cause?.message || '');
+  return code === 'PGRST205' || code === '42P01' || /could not find the table|relation .* does not exist/i.test(message);
+}
+
 export function isMissingFunction(error) {
   const code = error?.code || error?.cause?.code;
   const message = String(error?.message || error?.cause?.message || '');

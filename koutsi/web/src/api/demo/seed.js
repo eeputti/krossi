@@ -3,7 +3,7 @@
 // A coach (Anna) with six groups that look like a real club's week — adults and juniors,
 // several groups with the same kind of name — some players who have joined and some who
 // haven't, weekly themes for the past weeks with this week half planned, attendance, and a
-// bit of player activity so the coach's Viikko and the player's Kehitys have a story to tell.
+// bit of player activity so the coach's Koti and the player's Kehitys have a story to tell.
 // Nothing is stored: every page load starts from this seed.
 
 import {
@@ -195,6 +195,11 @@ export function seed() {
     ],
     playerNotifications: [
       { id: 'demo-pn-1', kind: 'diary_added', title: 'Uusi huomio valmentajalta', body: 'Hyvä nousu syötössä tällä viikolla…', linkPath: '/pelaaja', createdAt: isoAt(-2, 19), read: false },
+    ],
+    // the coach's own diary: how the last two weeks went
+    weekNotes: [
+      { id: 'demo-wn-1', ...koutsiAddIsoWeeks(koutsiCurrentIsoWeek(), -2), score: 4, note: 'Juniorit innostuivat pistepeleistä. Lisää niitä loppuun.', updatedAt: isoAt(-10, 20) },
+      { id: 'demo-wn-2', ...koutsiAddIsoWeeks(koutsiCurrentIsoWeek(), -1), score: 3, note: 'Sateinen viikko, kaksi siirtoa sisähalliin. Syötön heitto vaatii vielä toistoja.', updatedAt: isoAt(-3, 20) },
     ],
     inviteCodes: [],
     joinCode: 'ANNA24',

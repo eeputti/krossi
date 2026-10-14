@@ -40,7 +40,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [] };
 }
 
 function playerState(studentId) {
@@ -130,6 +130,12 @@ export const backend = {
     async redeemKey() { return { ok: true }; },
     async markWelcomeSeen() { S().coach.welcomeSeenAt = nowIso(); },
     async saveProfile(coachId, patch) { await wait(); Object.assign(S().coach, patch); },
+    async saveWeekNote(coachId, { year, week, score, note }) {
+      await wait();
+      const st = S();
+      const rest = (st.weekNotes || []).filter((n) => !(n.year === year && n.week === week));
+      st.weekNotes = [...rest, { id: newId('wn'), year, week, score, note: note || '', updatedAt: nowIso() }];
+    },
     subscribe() { return () => {}; },
   },
 

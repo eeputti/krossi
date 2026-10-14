@@ -20,6 +20,8 @@ import { openInvites, openPlanner } from './nav.js';
 import { ActivityRow, SessionRow } from './parts.jsx';
 import { useContinueThemes } from './themeActions.js';
 import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
+import { WeekRecapSheet } from './WeekRecapSheet.jsx';
+import { MOOD_LABELS } from '../lib/constants.js';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 
 function CoverageHero({ state }) {
@@ -148,6 +150,36 @@ function Activity({ state }) {
   );
 }
 
+// The coach's private weekly diary ("Miten treeniviikko sujui?"): the latest weeks, and a way to
+// write this week's entry any time (the recap also opens by itself after the week's last session).
+function WeekDiary({ state }) {
+  const [openWeek, setOpenWeek] = useState(null);
+  const current = koutsiCurrentIsoWeek();
+  const notes = [...(state.weekNotes || [])].sort((a, b) => b.year - a.year || b.week - a.week);
+  const hasCurrent = notes.some((n) => n.year === current.year && n.week === current.week);
+  return (
+    <Block eyebrow="Vain sinulle" title="Viikkopäiväkirja"
+      action={<Button variant="outline" size="sm" icon="edit" onClick={() => setOpenWeek(current)}>{hasCurrent ? 'Tämä viikko' : 'Kirjaa viikko'}</Button>}>
+      {notes.length === 0 ? (
+        <Quiet icon="edit">Kirjaa viikon päätteeksi, miten treeniviikko sujui. Merkinnät näkyvät vain sinulle, ja niistä näet kauden kulun.</Quiet>
+      ) : (
+        <div className="k-list">
+          {notes.slice(0, 4).map((n) => (
+            <button key={`${n.year}-${n.week}`} type="button" className="k-row" onClick={() => setOpenWeek({ year: n.year, week: n.week })}>
+              <span className="k-diary-score t-num" data-score={n.score}>{n.score}</span>
+              <span className="k-row-main">
+                <span className="k-row-title">Vko {n.week} · {MOOD_LABELS[n.score]}</span>
+                {n.note && <span className="k-row-sub truncate">{n.note}</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      <WeekRecapSheet open={Boolean(openWeek)} week={openWeek} onClose={() => setOpenWeek(null)} />
+    </Block>
+  );
+}
+
 function FirstSteps() {
   const [groupOpen, setGroupOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -186,6 +218,7 @@ export function WeekScreen() {
     <div className="stack-5">
       <Alerts state={state} />
       <Activity state={state} />
+      {state.groups.length > 0 && <WeekDiary state={state} />}
     </div>
   );
   return (

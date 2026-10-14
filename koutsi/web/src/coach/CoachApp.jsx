@@ -1,11 +1,14 @@
 // CoachApp.jsx — the signed-in coach: state snapshot, navigation chrome, screens.
 import { useEffect, useState } from 'react';
-import { api } from '../api/index.js';
+import { api, isDemo } from '../api/index.js';
 import { AppShell } from '../app/AppShell.jsx';
 import { DataProvider, useData } from '../app/data.jsx';
 import { navigate, useRoute } from '../app/router.js';
 import { GateError, Splash } from '../shared/gates.jsx';
-import { RenewedIntro, showBetaBar } from '../shared/renewed.jsx';
+import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
+import { koutsiCurrentIsoWeek } from '../domain/core.js';
+import { recapWeekDue } from '../domain/week.js';
+import { markRecapSeen, previewRecap, recapSeen, WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { useCoach } from './CoachRoot.jsx';
 import { TABS } from './routes.js';
@@ -83,8 +86,20 @@ function WelcomeSheet() {
 
 function CoachShell() {
   const { state } = useData();
-  const { acting, exitActing, isAdmin, adminChecked } = useCoach();
+  const { acting, exitActing, isAdmin, adminChecked, coachId } = useCoach();
   const route = useRoute();
+  // What opens by itself, at most one thing, decided once: the welcome for a new account > the
+  // renewed-look note > "Viikko paketissa" after the week's last session (never while acting).
+  const [startup] = useState(() => {
+    if (acting) return null;
+    if (!state.coach.welcomeSeenAt) return { kind: 'welcome' };
+    if (previewRecap) return { kind: 'recap', week: koutsiCurrentIsoWeek() };
+    if (renewedNoteDue()) return { kind: 'renewed' };
+    const week = isDemo ? null : recapWeekDue(state, (w) => recapSeen(coachId, w));
+    return week ? { kind: 'recap', week } : null;
+  });
+  const [recapWeek, setRecapWeek] = useState(() => (startup?.kind === 'recap' ? startup.week : null));
+  const closeRecap = () => { if (recapWeek) markRecapSeen(coachId, recapWeek); setRecapWeek(null); };
 
   useEffect(() => {
     // Ylläpito is a real address; once the check says no (or we act as a coach), leave it.
@@ -112,7 +127,8 @@ function CoachShell() {
         beta={showBetaBar() && !acting}
       />
       {!acting && !state.coach.welcomeSeenAt && <WelcomeSheet />}
-      <RenewedIntro role="coach" eligible={!acting && Boolean(state.coach.welcomeSeenAt)} />
+      <RenewedIntro role="coach" eligible={startup?.kind === 'renewed'} />
+      <WeekRecapSheet open={Boolean(recapWeek)} week={recapWeek} onClose={closeRecap} />
     </>
   );
 }

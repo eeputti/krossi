@@ -86,3 +86,48 @@ test('a check-in counts only feelings given after the session began', async () =
   assert.equal(moodAfter(student({ moods: [before] }), t), null);
   assert.equal(moodAfter(student({ moods: [after, before] }), t)?.id, 'm1');
 });
+
+test('"Viikko paketissa" counts held sessions, attendance, feelings and wishes of that week', async () => {
+  const { weekRecap, weekDates } = await import('../src/domain/week.js');
+  const week = koutsiCurrentIsoWeek();
+  const [monday] = weekDates(week);
+  const g = { ...group, memberIds: ['s1', 's2'] };
+  const s2 = { ...student(), id: 's2', name: 'Leo K.' };
+  const s1 = student({
+    moods: [{ id: 'm1', score: 5, at: `${monday}T18:00:00` }, { id: 'm0', score: 1, at: `${koutsiAddDays(monday, -3)}T18:00:00` }],
+    wishHistory: [{ at: `${monday}T19:00:00`, value: 'Lisää verkkopeliä' }],
+  });
+  const state = {
+    groups: [g], students: [s1, s2],
+    trainings: [
+      session('a', monday, '10:00', { absences: [{ studentId: 's2', reason: 'poissa' }] }),
+      session('b', koutsiAddDays(monday, 7), '10:00'), // next week
+    ],
+  };
+  const recap = weekRecap(state, week, new Date(`${koutsiAddDays(monday, 6)}T23:00:00`));
+  assert.equal(recap.sessions, 1);
+  assert.equal(recap.held, 1);
+  assert.equal(recap.done, true);
+  assert.equal(recap.attendance, 0.5);
+  assert.equal(recap.moodCount, 1);
+  assert.equal(recap.moodAverage, 5);
+  assert.deepEqual(recap.wishes.map((w) => w.text), ['Lisää verkkopeliä']);
+});
+
+test('the recap opens once the week is over, not after a diary entry or once closed', async () => {
+  const { recapWeekDue, weekDates } = await import('../src/domain/week.js');
+  const week = koutsiCurrentIsoWeek();
+  const [monday] = weekDates(week);
+  const state = { groups: [group], students: [student()], trainings: [session('a', monday, '00:00')], weekNotes: [] };
+  const after = new Date(`${koutsiAddDays(monday, 6)}T23:59:00`);
+  const never = () => false;
+  // the week's only session (Monday 00:00–01:30) is over by Sunday evening
+  assert.deepEqual(recapWeekDue(state, never, after), week);
+  assert.equal(recapWeekDue({ ...state, weekNotes: [{ ...week, score: 4 }] }, never, after), null, 'already in the diary');
+  assert.equal(recapWeekDue(state, () => true, after), null, 'already closed');
+  // a session still to come on Sunday night keeps this week's recap closed (and last week had none)
+  const later = { ...state, trainings: [...state.trainings, session('b', koutsiAddDays(monday, 6), '23:30')] };
+  if (koutsiTodayStr() < koutsiAddDays(monday, 6)) {
+    assert.equal(recapWeekDue(later, never, new Date(`${monday}T12:00:00`)), null, 'not while sessions are still to come');
+  }
+});

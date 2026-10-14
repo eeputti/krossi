@@ -8,14 +8,25 @@
 //      silently lose sessions;
 //   3. `.in()` id lists are chunked so a long season cannot outgrow the request URL.
 
-import { db, must, selectAll, selectIn } from './client.js';
-import { mapClubEvent, mapCoach, mapExercise, mapGroup, mapRosterStub, mapStudent, mapTraining, groupBy } from './map.js';
+import { db, isMissingTable, must, selectAll, selectIn } from './client.js';
+import { mapClubEvent, mapCoach, mapExercise, mapGroup, mapRosterStub, mapStudent, mapTraining, mapWeekNote, groupBy } from './map.js';
 
 const fromTable = (table) => db().from(table);
 
 async function loadAbsences(trainingIds) {
   const rows = await selectIn(trainingIds, (ids) => fromTable('koutsi_training_absences').select('*').in('training_id', ids));
   return groupBy(rows, 'training_id');
+}
+
+// The coach's own weekly diary. It is an addition: if its table isn't there yet (migration not
+// run) or the read fails, the coach's app still opens, just without old entries.
+async function loadWeekNotes(coachId) {
+  const { data, error } = await fromTable('koutsi_coach_week_notes').select('*').eq('coach_id', coachId);
+  if (error) {
+    if (!isMissingTable(error)) console.warn('week notes unavailable:', error.message || error);
+    return [];
+  }
+  return (data || []).map(mapWeekNote);
 }
 
 export async function loadCoachState(coachId) {
@@ -34,7 +45,7 @@ export async function loadCoachState(coachId) {
 
   const [
     studentRows, studentProfiles, groupRows, exerciseRows, eventRows, trainingRows,
-    diary, homework, videos, moods, matchNotes, history,
+    diary, homework, videos, moods, matchNotes, history, weekNotes,
   ] = await Promise.all([
     selectIn(studentIds, (ids) => fromTable('koutsi_students').select('*').in('id', ids)),
     selectIn(studentIds, (ids) => fromTable('profiles').select('id, name, avatar_url, age').in('id', ids)),
@@ -49,6 +60,7 @@ export async function loadCoachState(coachId) {
     byStudent('koutsi_moods', 'created_at'),
     byStudent('koutsi_match_notes', 'date'),
     byStudent('koutsi_player_history', 'created_at'),
+    loadWeekNotes(coachId),
   ]);
 
   const groupIds = (groupRows || []).map((g) => g.id);
@@ -71,6 +83,7 @@ export async function loadCoachState(coachId) {
     trainings: trainingRows.map((t) => mapTraining(t, absencesByTraining)),
     exercises: (exerciseRows || []).map(mapExercise),
     clubEvents: (eventRows || []).map(mapClubEvent),
+    weekNotes,
   };
 }
 

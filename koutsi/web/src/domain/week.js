@@ -172,3 +172,61 @@ export function lastActivityDays(state, student, today = koutsiTodayStr()) {
 export function inCurrentWeek(dateStr) {
   return koutsiCompareIsoWeeks(koutsiIsoWeekOfDateStr(dateStr), koutsiCurrentIsoWeek()) === 0;
 }
+
+const localDay = (iso) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${koutsiPad(d.getMonth() + 1)}-${koutsiPad(d.getDate())}`;
+};
+
+/**
+ * "Viikko paketissa": how a week went for the coach — sessions held, attendance, the players'
+ * feelings (the ones they let the coach see) and new wishes. `done` once every coach-run session
+ * of the week has ended; `hadSessions` false for a week with nothing on the calendar.
+ */
+export function weekRecap(state, week, now = new Date()) {
+  const dates = weekDates(week);
+  const first = dates[0];
+  const last = dates[6];
+  const sessions = state.trainings.filter((t) => t.loggedBy !== 'player' && t.date >= first && t.date <= last);
+  const groupOf = (t) => (t.groupId ? koutsiGroupById(state, t.groupId) : null);
+  const held = sessions.filter((t) => sessionStatus(t, groupOf(t), now) === 'past');
+  let expected = 0;
+  let present = 0;
+  held.forEach((t) => {
+    const roster = sessionRoster(state, t);
+    expected += roster.length;
+    present += roster.filter((s) => !(t.absences || []).some((a) => a.studentId === s.id)).length;
+  });
+  const inWeek = (iso) => { const d = localDay(iso); return d >= first && d <= last; };
+  const moods = state.students.flatMap((s) => (s.moods || []).filter((m) => inWeek(m.at)).map((m) => ({ ...m, student: s })));
+  const wishes = state.students.flatMap((s) => (s.wishHistory || [])
+    .filter((h) => h.value && inWeek(h.at)).map((h) => ({ student: s, text: h.value, at: h.at })))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  return {
+    week,
+    hadSessions: sessions.length > 0,
+    sessions: sessions.length,
+    held: held.length,
+    done: sessions.length > 0 && held.length === sessions.length,
+    attendance: expected ? present / expected : null,
+    moodCount: moods.length,
+    moodAverage: moods.length ? moods.reduce((sum, m) => sum + m.score, 0) / moods.length : null,
+    wishes,
+  };
+}
+
+/**
+ * The week whose recap the coach should see when the app opens, if any: this week once all its
+ * sessions are over, or — early in the next week — last week, when it had sessions and has no
+ * diary entry yet. `seen(week)` says whether the coach already closed that week's recap.
+ */
+export function recapWeekDue(state, seen, now = new Date()) {
+  const current = koutsiCurrentIsoWeek();
+  const noted = (w) => (state.weekNotes || []).some((n) => n.year === w.year && n.week === w.week);
+  const thisWeek = weekRecap(state, current, now);
+  if (thisWeek.done && !noted(current) && !seen(current)) return current;
+  const isoDay = ((now.getDay() + 6) % 7) + 1; // 1 = Monday
+  const previous = koutsiAddIsoWeeks(current, -1);
+  if (isoDay <= 2 && weekRecap(state, previous, now).hadSessions && !noted(previous) && !seen(previous)) return previous;
+  return null;
+}
