@@ -1,6 +1,7 @@
 // HomeScreen — Koti (/pelaa/koti), the first thing a player sees.
 //
-//   hero         greeting, city context, "Pelaan tällä viikolla", ⚡ Pelaan nyt, big "Pelataanko?"
+//   hero         greeting, city context, bell (Ilmoitukset), "Pelaan tällä viikolla", ⚡ Pelaan nyt,
+//                big "Pelataanko?" (opens the play menu, like the tab bar's middle button)
 //   unlock       (unpaid) striking unlock card instead of the gated sections
 //   attention    pending game invites (Liity / Ei kiitos) and play requests
 //   next game    listMine().upcoming[0] as the shared hero GameCard, or a friendly empty card
@@ -11,7 +12,7 @@
 // Phones: one column. ≥1200 px: main column + right rail (progress, recap, invite).
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/index.js';
-import { openCreateGame } from '../../app/AppShell.jsx';
+import { openCreateGame, openPlayMenu } from '../../app/AppShell.jsx';
 import { useAsync, useMediaQuery, useNow } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
 import { Link, navigate } from '../../app/router.js';
@@ -31,6 +32,7 @@ import { PlayerCard } from '../shared/PlayerCard.jsx';
 import { RecapTeaser } from '../shared/RecapTeaser.jsx';
 import { StreakBadge } from '../shared/StreakBadge.jsx';
 import { useActivity } from '../shared/useActivity.js';
+import { NotificationsButton, useNotificationFeed } from './Notifications.jsx';
 import { PlayingNowSheet } from './PlayingNowSheet.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -49,7 +51,7 @@ function contextLine({ city, loading, count }) {
   return `${cityIn(city)} ei vielä avoimia pelejä — avaa sinä eka!`;
 }
 
-function HomeHero({ openThisWeek, openLoading }) {
+function HomeHero({ openThisWeek, openLoading, feed }) {
   const { user, profile, setProfile } = useSession();
   const { requirePaid } = usePaywall();
   const toast = useToast();
@@ -92,9 +94,12 @@ function HomeHero({ openThisWeek, openLoading }) {
       
       <div className="home-hero-top">
         <span className="eyebrow">{dateLabel}{city ? ` · ${city}` : ''}</span>
-        <Link to="/pelaa/profiili" className="home-hero-me hide-desktop" aria-label="Oma profiili">
-          <Avatar person={profile} size={38} ring status={active ? 'now' : profile?.playingThisWeek ? 'week' : null} />
-        </Link>
+        <span className="home-hero-tools">
+          <NotificationsButton feed={feed} />
+          <Link to="/pelaa/profiili" className="home-hero-me hide-desktop" aria-label="Oma profiili">
+            <Avatar person={profile} size={38} ring status={active ? 'now' : profile?.playingThisWeek ? 'week' : null} />
+          </Link>
+        </span>
       </div>
 
       <div className="home-hero-grid">
@@ -107,7 +112,7 @@ function HomeHero({ openThisWeek, openLoading }) {
         </div>
 
         <div className={cx('home-hero-actions', active && 'is-single')}>
-          <Button variant="lime" size="lg" icon="plus" className="home-hero-cta" onClick={() => requirePaid(() => openCreateGame(), 'Luo peli ja pelaa')}>
+          <Button variant="lime" size="lg" icon="plus" className="home-hero-cta" onClick={openPlayMenu}>
             Pelataanko?
           </Button>
           {!active && (
@@ -519,6 +524,8 @@ export function HomeScreen() {
   const requests = useAsync(() => api.messages.listRequests(), []);
   const players = useAsync(() => (paid && city ? api.players.list({ city }) : Promise.resolve([])), [paid, city]);
   const act = useActivity();
+  const myCities = useMemo(() => [...(profile?.areas || []), profile?.city].filter(Boolean), [profile?.areas, profile?.city]);
+  const feed = useNotificationFeed({ open, mine, invites, requests, areas: myCities });
 
   // Refresh what an overlay (create game, invite reply, outcome check) may have changed.
   const { reload: reloadOpen } = open;
@@ -557,7 +564,7 @@ export function HomeScreen() {
   return (
     <Page width="wide" className="home">
       <div className="home-layout">
-        <HomeHero openThisWeek={openThisWeek} openLoading={open.loading} />
+        <HomeHero openThisWeek={openThisWeek} openLoading={open.loading} feed={feed} />
 
         <div className="home-main">
           {!paid && <UnlockCard city={city} openCount={nearby.length} />}

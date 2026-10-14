@@ -6,6 +6,7 @@
 //   Ei pelattu        -> recordOutcome('not_played')
 //   closing the sheet -> snoozes that game for 24 h (localStorage 'krossi_outcome_snoozed')
 // It waits while an overlay or a full-screen page (chat, recap) is open so it never stacks on them.
+// askOutcome(game) asks about one game right away, snoozed or not (the bell's "Pelasitteko?").
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useRoute } from '../../app/router.js';
@@ -22,6 +23,12 @@ const NEXT_DELAY_MS = 650;
 const SHEET_EXIT_MS = 280;
 const RETRY_MS = 2000;
 const BLOCKING_ROUTE_TYPES = new Set(['overlay', 'full']);
+
+const ASK_OUTCOME = 'krossi:ask-outcome';
+/** Put "Pelasitteko?" about this game first in line (shown on Koti once no sheet is open). */
+export function askOutcome(game) {
+  window.dispatchEvent(new CustomEvent(ASK_OUTCOME, { detail: game }));
+}
 
 function readSnoozed() {
   try {
@@ -82,6 +89,15 @@ export function PendingOutcomeCheck() {
     }, FIRST_CHECK_MS);
     return () => { alive = false; clearTimeout(t); };
   }, [uid]);
+
+  useEffect(() => {
+    const onAsk = (e) => {
+      const asked = e.detail;
+      if (asked?.id) setQueue((q) => [asked, ...q.filter((g) => g.id !== asked.id)]);
+    };
+    window.addEventListener(ASK_OUTCOME, onAsk);
+    return () => window.removeEventListener(ASK_OUTCOME, onAsk);
+  }, []);
 
   // Ask about the head of the queue whenever nothing else is in the way.
   useEffect(() => {

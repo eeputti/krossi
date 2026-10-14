@@ -12,6 +12,10 @@ export const TABS = [
   { id: 'profiili', label: 'Profiili', icon: 'user', path: '/pelaa/profiili' },
 ];
 
+// The phone tab bar: four tabs around the big "Pelataanko?" button in the middle (like Koutsi's
+// "Merkitse"). Profiili is the avatar on Koti there; the desktop side nav keeps all of TABS.
+export const PHONE_TABS = TABS.filter((t) => t.id !== 'profiili');
+
 export const ROUTES = [
   { name: 'home', pattern: '/pelaa/koti', tab: 'koti', type: 'tab' },
   { name: 'games', pattern: '/pelaa/pelit', tab: 'pelit', type: 'tab' },

@@ -119,10 +119,18 @@ Reittitaulu on `app/routes.js`. Polut:
   Testi/live ratkeaa pelkillä Supabase-secreteillä (`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
   `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`); ilman `STRIPE_PUBLISHABLE_KEY`:tä käytetään
   Stripen hostattua Checkout-sivua (`stripe-checkout`).
-- `AppShell.jsx`: mobiilissa (< 900 px) alareunan **TabBar** (Koti · Pelit · Pelaajat ·
-  Viestit · Profiili, lukemattomat-badge Viestit-kohdassa), työpöydällä vasen **SideNav**
-  (logo, samat kohteet, iso lime "Pelataanko?" -nappi, oma profiilichippi). Keskellä
+- `AppShell.jsx`: mobiilissa (< 900 px) alareunan **TabBar** (Koti · Pelit · iso lime
+  **Pelataanko?** keskellä · Pelaajat · Viestit, lukemattomat-badge Viestit-kohdassa; kuten
+  Koutsin "Merkitse") — Profiili on mobiilissa Kodin avatar. Työpöydällä vasen **SideNav**
+  (logo, kaikki viisi kohdetta, iso lime "Pelataanko?" -nappi, oma profiilichippi). Keskellä
   sisältö max 720 px (Koti: 1080 px kahdella palstalla ≥ 1200 px).
+- **Pelataanko?-valikko** (`screens/play/PlayMenu.jsx`, avataan `openPlayMenu()`): Tulossa
+  (omat tulevat pelit), Ajankohtaista (kutsu peliin, pelaa nyt, avoimet pelit tällä viikolla)
+  ja ruudut Luo peli · Pelaan nyt · Avoimet pelit · Etsi pelikaveri · Kirjaa tulos · Kutsu kaveri.
+- **Ilmoitukset** (kello Kodin yläkulmassa, `screens/home/Notifications.jsx`): lista kootaan
+  olemassa olevasta datasta (`features/notifications.js`: pelikutsut, pelipyynnöt, lukemattomat
+  viestit, "Pelasitteko?", alle vuorokauden päästä alkavat pelit, uudet pelit omissa kaupungeissa);
+  omaa taulua ei ole. "Nähty" = localStorage `krossi_notifs_seen:<uid>`.
 - Globaalit: `ToastHost`, `ConfirmHost`, `PaywallSheet`, `PendingOutcomeCheck`
   (kysyy menneistä peleistä "Pelasitteko?" ja tarjoaa tuloksen kirjaamista), demotilan banneri.
 

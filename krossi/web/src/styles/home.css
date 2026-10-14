@@ -297,3 +297,35 @@ button.home-goal:active { background: var(--sand); }
 .home-outcome-hint { margin-top: 14px; max-width: 300px; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .home-outcome-actions { width: 100%; margin-top: 22px; }
 .home-outcome-more { margin-top: 12px; font-size: 12.5px; font-weight: 600; color: var(--faint); }
+
+/* ── bell + Ilmoitukset (Notifications.jsx) ──────────────── */
+.home-hero-tools { display: inline-flex; align-items: center; gap: 10px; }
+.home-bell .icon-btn-badge { box-shadow: 0 0 0 2px var(--green-800); }
+.home-notifs { display: grid; gap: 2px; margin: 0 -10px; grid-template-columns: minmax(0, 1fr); }
+.home-notif {
+  display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 10px; text-align: left; border-radius: var(--r-md);
+  -webkit-tap-highlight-color: transparent; transition: background-color var(--dur-2), transform var(--dur-1) var(--ease-out);
+}
+.home-notif:hover { background: var(--surface-2); }
+.home-notif:active { transform: scale(0.99); }
+.home-notif.is-new { background: var(--surface); box-shadow: var(--shadow-1); }
+.home-notif-art { position: relative; flex-shrink: 0; }
+.home-notif-icon { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--sand); color: var(--green-800); }
+.home-notif-icon.is-outcome { background: var(--lime-100); color: #4A5605; }
+.home-notif-icon.is-soon { background: var(--green-800); color: var(--lime); }
+.home-notif-kind {
+  position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--green-800); color: var(--lime); box-shadow: 0 0 0 2px var(--bg);
+}
+.home-notif.is-new .home-notif-kind { box-shadow: 0 0 0 2px var(--surface); }
+.home-notif-kind.is-request { background: var(--clay); color: #fff; }
+.home-notif-kind.is-newGame { background: var(--lime); color: #101A08; }
+.home-notif-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-top: 2px; }
+.home-notif-title { font-size: 14.5px; font-weight: 750; line-height: 1.3; color: var(--ink); }
+.home-notif-body {
+  font-size: 13px; line-height: 1.4; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.home-notif-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; padding-top: 3px; }
+.home-notif-time { font-size: 12px; font-weight: 650; color: var(--faint); }
+.home-notif-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--clay); }

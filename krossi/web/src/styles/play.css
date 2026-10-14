@@ -1,0 +1,86 @@
+/* play.css — the "Pelataanko?" menu (screens/play/PlayMenu.jsx). Tab bar button: shell.css. */
+
+.play-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.play-textlink { color: var(--green-800); font-weight: 700; font-size: 13.5px; text-decoration: underline; text-underline-offset: 2px; }
+.play-hint { font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+
+/* Tulossa: my next games side by side */
+.play-upcoming { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
+.play-strip {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 2px 20px 4px; scroll-padding-inline: 20px;
+}
+.play-strip::-webkit-scrollbar { display: none; }
+.play-chip {
+  flex: 0 0 auto; width: 158px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; text-align: left;
+  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+  -webkit-tap-highlight-color: transparent; transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2);
+}
+.play-chip:hover { border-color: var(--line-strong); }
+.play-chip:active { transform: scale(0.97); }
+.play-chip-time { font-size: 13px; font-weight: 800; color: var(--green-800); }
+.play-chip-name { font-size: 14px; font-weight: 750; line-height: 1.25; color: var(--ink); }
+.play-chip-place { max-width: 100%; font-size: 12px; color: var(--muted); }
+.play-chip-state { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 11.5px; font-weight: 750; color: var(--muted); }
+.play-chip.is-live { background: var(--green-800); border-color: var(--green-800); }
+.play-chip.is-live .play-chip-time { color: var(--lime); }
+.play-chip.is-live .play-chip-name { color: #fff; }
+.play-chip.is-live .play-chip-place, .play-chip.is-live .play-chip-state { color: var(--on-dark-muted); }
+
+/* Ajankohtaista */
+.play-news-list { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
+.play-news {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; text-align: left; border-radius: var(--r-lg);
+  -webkit-tap-highlight-color: transparent; transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-2);
+}
+.play-news:active { transform: scale(0.99); }
+.play-news.is-strong { background: var(--green-800); color: #fff; }
+.play-news.is-strong:hover { background: var(--green-700); }
+.play-news.is-soft { background: var(--lime-100); color: var(--ink); border: 1px solid rgba(180, 205, 20, 0.45); }
+.play-news .avatar-stack { flex-shrink: 0; }
+.play-news-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.play-news-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.play-news.is-strong .play-news-eyebrow { color: var(--lime); }
+.play-news.is-soft .play-news-eyebrow { color: #4A5605; }
+.play-news-title { font-size: 15.5px; font-weight: 800; }
+.play-news-sub { font-size: 13px; }
+.play-news.is-strong .play-news-sub { color: var(--on-dark-muted); }
+.play-news.is-soft .play-news-sub { color: var(--ink-2); }
+.play-live {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 0 rgba(207, 228, 20, 0.6);
+  animation: play-pulse 1.6s ease-out infinite;
+}
+.play-chip:not(.is-live) .play-live { background: var(--success); }
+@keyframes play-pulse { 0% { box-shadow: 0 0 0 0 rgba(207, 228, 20, 0.6); } 100% { box-shadow: 0 0 0 8px rgba(207, 228, 20, 0); } }
+@media (prefers-reduced-motion: reduce) { .play-live { animation: none; } }
+
+/* the ways to get a game, two by two (three on a desktop) */
+.play-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 900px) { .play-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.play-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 112px; padding: 14px; text-align: left;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+  -webkit-tap-highlight-color: transparent; transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2), box-shadow var(--dur-2);
+}
+.play-tile:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); }
+.play-tile:active { transform: scale(0.97); }
+.play-tile.is-primary { background: var(--lime); border-color: var(--lime); box-shadow: var(--shadow-lime); }
+.play-tile-icon { width: 40px; height: 40px; margin-bottom: 6px; border-radius: 12px; display: grid; place-items: center; }
+.play-tile-icon.is-dark { background: var(--green-800); color: var(--lime); }
+.play-tile-icon.is-clay { background: var(--clay-100); color: #8A3A1A; }
+.play-tile-icon.is-sky { background: #E8F0FC; color: #2A5D94; }
+.play-tile-icon.is-green { background: var(--success-bg); color: var(--success); }
+.play-tile-icon.is-sand { background: var(--sand); color: var(--green-800); }
+.play-tile-icon.is-lime { background: var(--lime-100); color: #4A5605; }
+.play-tile-title { font-size: 15px; font-weight: 800; color: var(--ink); }
+.play-tile-sub { font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+.play-tile.is-primary .play-tile-title { color: #101A08; }
+.play-tile.is-primary .play-tile-sub { color: #3B4500; }
+
+.play-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.play-link {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: var(--r-pill);
+  background: var(--surface); border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; color: var(--green-800);
+  transition: border-color var(--dur-2), transform var(--dur-1) var(--ease-out);
+}
+.play-link:hover { border-color: var(--line-strong); }
+.play-link:active { transform: scale(0.97); }

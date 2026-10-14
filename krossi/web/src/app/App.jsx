@@ -8,6 +8,7 @@ import { OnboardingScreen } from '../screens/auth/OnboardingScreen.jsx';
 import { InviteScreen } from '../screens/auth/InviteScreen.jsx';
 import { PublicGameScreen } from '../screens/games/PublicGameScreen.jsx';
 import { PendingOutcomeCheck } from '../screens/home/PendingOutcomeCheck.jsx';
+import { PlayMenu } from '../screens/play/PlayMenu.jsx';
 import { SetPasswordSheet } from '../screens/auth/SetPasswordSheet.jsx';
 import { AppShell } from './AppShell.jsx';
 import { AFTER_PAYMENT_KEY } from './checkout.jsx';
@@ -190,6 +191,7 @@ function Gate() {
   return (
     <>
       <AppShell />
+      <PlayMenu />
       <PendingOutcomeCheck />
       <SetPasswordSheet />
     </>
