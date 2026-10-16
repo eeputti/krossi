@@ -4,7 +4,7 @@
 //
 // The booking tables have no client access: every read and write is a SECURITY DEFINER RPC
 // (supabase/migrations/20261016074110_krossi_court_booking.sql and
-// 20261016120000_krossi_booking_split_and_resale.sql), and money only moves in the
+// 20261016130000_krossi_booking_split_and_resale.sql), and money only moves in the
 // krossi-booking edge function (Stripe Payment Element, refunds). The RPCs already answer in the
 // contract's shapes (camelCase, ISO strings); the mappers below pin the types down so a missing
 // field never reaches a screen as undefined, and turn a booker's avatar path into a URL.
@@ -85,7 +85,7 @@ function mapVenue(raw) {
     durations: list(raw.durations).map(Number),
     daysAhead: number(raw.daysAhead, 14),
     cancelLimitHours: number(raw.cancelLimitHours, 24),
-    // Only the phase 4 server (20261016120000_krossi_booking_split_and_resale) sends it: without
+    // Only the phase 4 server (20261016130000_krossi_booking_split_and_resale) sends it: without
     // it there are no split payments or resale to offer.
     shareDeadlineHours: raw.shareDeadlineHours == null ? null : number(raw.shareDeadlineHours, 2),
     holdMinutes: number(raw.holdMinutes, 10),

@@ -8,7 +8,7 @@
 -- runs krossi_dispatch_booking_tasks(), which POSTs to the krossi-booking-cron edge function with
 -- the x-krossi-cron-key header (the existing Vault secret 'krossi_cron_key', shared with
 -- krossi-reminders). Apply this only after krossi-booking-cron is deployed (verify_jwt = false)
--- and 20261016120000_krossi_booking_split_and_resale is in. Until the secret exists the job does
+-- and 20261016130000_krossi_booking_split_and_resale is in. Until the secret exists the job does
 -- nothing. Krossi-only and additive: no Koutsi object or job is touched.
 
 create or replace function public.krossi_dispatch_booking_tasks()

@@ -1,7 +1,7 @@
 // krossi-booking-cron — kenttävarauksen ajastetut tehtävät (krossi.app/pelaa/varaa).
 //
 // Called every five minutes by the pg_cron job 'krossi-booking-tasks', which runs
-// public.krossi_dispatch_booking_tasks() (migration 20261016120100_krossi_booking_tasks_cron).
+// public.krossi_dispatch_booking_tasks() (migration 20261016130100_krossi_booking_tasks_cron).
 // Never called by a browser: deploy with verify_jwt = false. The only way in is the
 // x-krossi-cron-key header, checked against the Vault secret 'krossi_cron_key' (shared with
 // krossi-reminders) through public.krossi_cron_key_valid().

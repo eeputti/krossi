@@ -274,7 +274,7 @@ sovelluksessa (banneri + kello + sähköposti). MyBookingSheet ja ShareScreen n�
 maksanut (`SplitLines`). *Laita myyntiin*: maksuttoman peruutuksen jälkeen oma vuoro myyntiin
 (`putOnSale`) — se näkyy muille vapaana ("Myynnissä tänä päivänä"), sen kokonaan kattava varaus ottaa
 sen normaalihintaan, ja kaikki maksut palautetaan (toast + kello). Tietokanta:
-`supabase/migrations/20261016120000_krossi_booking_split_and_resale.sql`, raha:
+`supabase/migrations/20261016130000_krossi_booking_split_and_resale.sql`, raha:
 `supabase/functions/_shared/booking.ts`.
 
 **Auth & onboarding:** näyttävä tumma kirjautumisnäkymä (kenttäviivat, pallo), Google/Apple/

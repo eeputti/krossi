@@ -26,7 +26,8 @@
 --
 -- Court booking phase 4 for Krossi (krossi.app/pelaa). Additive on top of
 -- 20261016074110_krossi_court_booking and phase 2's 20261016100000_krossi_booking_seasons_billing_wallet
--- (it needs both): new columns, the booking_shares table and new versions of the booking
+-- (it needs both; it comes after 20261016120000_krossi_booking_hall_settings, which touches none of the
+-- same functions or tables): new columns, the booking_shares table and new versions of the booking
 -- functions. The functions phase 2 replaced (krossi_booking_json, _day, _staff_day, _mark_paid)
 -- are based on its versions here, and three of its wallet functions (krossi_wallet_payable_booking,
 -- _pay_booking, _use_gift) get the split and resale rules. Chat rows are written the way
