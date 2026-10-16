@@ -328,10 +328,15 @@ export async function listShares() {
   return list(data).map(mapShare);
 }
 
+/** My share or one of my own booking's; null when there is none (or the phase 4 migration isn't deployed). */
 export async function getShare(shareId) {
   await requireUid();
   if (!isUuid(shareId)) return null;
-  const data = await call('krossi_booking_share', { share_id_input: shareId }, SHARE_FAIL);
+  const { data, error } = await db().rpc('krossi_booking_share', { share_id_input: shareId });
+  if (error) {
+    if (isMissingFunction(error)) return null;
+    throw rpcError(error, SHARE_FAIL);
+  }
   return data ? mapShare(data) : null;
 }
 

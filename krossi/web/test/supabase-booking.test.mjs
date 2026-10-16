@@ -443,11 +443,12 @@ test('putOnSale / takeOffSale: the RPCs, then the watchers are told; their messa
   await assert.rejects(booking.putOnSale('x'), (err) => err.code === 'not_found');
 });
 
-test('shareFriends and listShares answer [] while the phase 4 migration is not deployed', async () => {
+test('shareFriends and listShares answer [] and getShare null while the phase 4 migration is not deployed', async () => {
   const missing = { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.krossi_booking_my_shares without parameters' } };
   setClientForTests(fakeClient({ rpc: () => missing }));
   assert.deepEqual(await booking.shareFriends(), []);
   assert.deepEqual(await booking.listShares(), []);
+  assert.equal(await booking.getShare(SHARE), null, 'the share page then says the share was not found');
   setClientForTests(fakeClient({ rpc: () => ({ data: [RAW_PERSON, { id: null }], error: null }) }));
   assert.deepEqual((await booking.shareFriends()).map((p) => [p.id, p.skillLevel]), [[FRIEND, 'kilpapelaaja']]);
 });
