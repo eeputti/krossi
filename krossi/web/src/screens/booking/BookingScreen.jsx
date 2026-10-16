@@ -29,6 +29,7 @@ import {
   Button, ChipSelect, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Skeleton, TopBar, useToast,
 } from '../../ui/index.js';
 import { BookSheet } from './BookSheet.jsx';
+import { BookingExtras } from './BookingExtras.jsx';
 import { MyBookingSheet } from './MyBookingSheet.jsx';
 import { DateStrip, DurationStepper, MyBookingCard, TimeTiles } from './BookingParts.jsx';
 
@@ -293,6 +294,8 @@ export function BookingScreen({ params, query }) {
             <span><Icon name="undo" size={15} />Peru {venue.cancelLimitHours} h ennen</span>
           </div>
         </header>
+
+        <BookingExtras venue={venue} refreshKey={mine.data} />
 
         {freed.map((w) => (
           <div key={w.id} className="bk-freed rise" role="status">

@@ -28,6 +28,8 @@ test('every app URL resolves to the intended route', () => {
     ['/pelaa/varaa', 'booking', {}],
     ['/pelaa/varaa/lahden-tennis-ja-squash', 'bookingVenue', { venue: 'lahden-tennis-ja-squash' }],
     ['/pelaa/halli/lahden-tennis-ja-squash', 'hall', { venue: 'lahden-tennis-ja-squash' }],
+    ['/pelaa/omat-varaukset', 'myBookings', {}],
+    ['/pelaa/lasku/inv-1001', 'invoice', { id: 'inv-1001' }],
     ['/pelaa/pelit/', 'games', {}],
   ];
   for (const [path, name, params] of cases) {

@@ -14,6 +14,7 @@ import { Button, Icon, Sheet, Skeleton, useConfirm, useToast } from '../../ui/in
 import { VenueMap, hasVenueMap } from './VenueMap.jsx';
 import { DurationStepper, HoldCountdown, downloadBookingIcs, sportLabel, useHoldLeft, whenLabel } from './BookingParts.jsx';
 import { useForecast, weatherInfo } from './weather.js';
+import { CreditPay, dueCents } from './CreditPay.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const MIN = 60_000;
@@ -227,7 +228,9 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
           {!match && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
         </div>
         <p className="bk-fine">
-          {config?.demo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi.'}
+          {booking.paymentStatus === 'credit'
+            ? `Maksettu ${booking.credit?.kind === 'pass' ? 'sarjakortilla' : 'lahjakorttisaldolla'}.`
+            : config?.demo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi.'}
           {!lateBooking && ` Maksuton peruutus ${formatGameTime(booking.cancellableUntil || deadline)} asti.`}
         </p>
       </div>
@@ -240,9 +243,12 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
           {expired
             ? <span className="bk-hold is-low"><Icon name="alert" size={15} />Pitoaika umpeutui</span>
             : holdLeft != null && <HoldCountdown left={holdLeft} />}
-          <span className="bk-paybar-price">{centsLabel(booking.priceCents)}</span>
+          <span className="bk-paybar-price">{centsLabel(dueCents(booking))}</span>
         </div>
         <Summary venue={venue} booking={booking} lateBooking={lateBooking} deadline={deadline} />
+        {!expired && (
+          <CreditPay venue={venue} booking={booking} onConfirmed={finish} onChanged={(next) => { setBooking(next); loadConfig(next); }} />
+        )}
         {expired ? (
           <div className="bk-expired">
             <p>Vuoroa pidettiin sinulle {venue.holdMinutes} minuuttia, ja se vapautui nyt muille. Mitään ei veloitettu.</p>
@@ -264,7 +270,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
                   <Icon name="info" size={15} />
                   <span><b>Demotila</b> — maksu hyväksytään heti. Oikeassa Krossissa maksat Apple Paylla, Google Paylla, MobilePaylla tai kortilla.</span>
                 </p>
-                <Button variant="lime" size="lg" block icon="lock" loading={working} onClick={payDemo}>Maksa {centsLabel(booking.priceCents)}</Button>
+                <Button variant="lime" size="lg" block icon="lock" loading={working} onClick={payDemo}>Maksa {centsLabel(dueCents(booking))}</Button>
               </div>
             ) : (
               <Checkout

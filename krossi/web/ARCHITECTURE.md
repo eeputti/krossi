@@ -36,7 +36,8 @@ krossi/
         demo/             demototeutus, yksi tiedosto per domain + store.js (seed-data)
       app/                sovelluksen runko: App.jsx, AppShell.jsx, router.js, routes.js, session.jsx, paywall.jsx, checkout.jsx
       ui/                 design system -komponentit (index.js vie kaiken)
-      features/           puhtaat funktiot: gamification.js (putket, merkit), recap.js (koosteet)
+      features/           puhtaat funktiot: gamification.js (putket, merkit), recap.js (koosteet),
+                          booking.js (kenttävaraus), seasons.js (kausivuorot, laskut, krediitit)
       lib/                constants.js, format.js (päivämäärät, nimet), geo.js, image.js, ics.js, share.js, stripe.js
       screens/<alue>/     näkymät alueittain (home, games, players, messages, profile, leagues, recap, auth, admin)
       styles/             tokens.css, base.css, ui.css, shell.css + yksi tiedosto per näkymäalue
@@ -95,7 +96,9 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/liigat` | leagues | pelit | page |
 | `/pelaa/liiga/:id` | league | pelit | page (kirjautumaton: julkinen sarjataulukko) |
 | `/pelaa/varaa`, `/pelaa/varaa/:venue` | booking, bookingVenue | pelit | page |
-| `/pelaa/halli/:venue` | hall | pelit | page (hallin henkilökunta) |
+| `/pelaa/halli/:venue` (`?nakyma=kausivuorot\|laskutus\|kortit`) | hall | pelit | page (hallin henkilökunta) |
+| `/pelaa/omat-varaukset` | myBookings | pelit | page (vuorot, kausivuorot, sarja- ja lahjakortit) |
+| `/pelaa/lasku/:id` | invoice | pelit | full (tulostettava lasku: henkilökunta ja haltija) |
 | `/pelaa/kutsu/:code` | invite | — | public |
 | `/pelaa/yllapito` | admin | profiili | page (vain admin) |
 
@@ -235,6 +238,24 @@ puolen tunnin hinnoittelu, vapaat kentät) ovat `features/booking.js`:ssä; palv
 (`krossi_hold_booking`, edge-funktio `krossi-booking`) päättää. Hallin henkilökunta: `/pelaa/halli/:venue`
 (päivän aikajana nimillä, esteet kuten Hallisarja, peruutus + hyvitys). Näkyy toistaiseksi vain
 demossa ja adminille (PlayMenu: `isDemo || isAdmin`).
+
+**Kausivuorot, laskutus, sarja- ja lahjakortit (vaihe 2):** domainit `seasons`, `billing` ja `wallet`
+(contract.js), säännöt `features/seasons.js` (kauden viikot ja pyhät, kausihinta kuukausittain
+pyöristettynä, viitenumero 7-3-1, pankkiviivakoodi v4, lahjakorttikoodit). Varaussivun alla
+`BookingExtras`: *Hae kausivuoroa* (`SeasonRequestSheet`: viikonpäivä, aika, kesto, paikka → koko kauden
+tarjous, varatut viikot kentittäin, kuukausierät; maksu laskulla tai kortilta kuukausittain, kortti
+tallennetaan `SaveCard`issa Stripen SetupIntentillä), *Sarja- ja lahjakortit* (`WalletSheet`: osto samalla
+kassalla, lahjakortin koodi jaettavaksi, lunastus saldoksi) ja *Omat varaukset* (`/pelaa/omat-varaukset`:
+vuorot maksutapoineen, kausivuorot laskuineen tai kuukausierineen, epäonnistunut kuukausi → "Maksa nyt"
+(`ChargePaySheet`), sarjakorttien saldo ja historia, lahjakorttisaldo, kortti). Varauksen maksuvaiheessa
+`CreditPay`: sarjakortti maksaa koko vuoron, lahjakorttisaldo koko tai osan (kortille jää ≥ 0,50 €).
+Hallin näkymässä välilehdet `?nakyma=kausivuorot|laskutus|kortit` (`HallSeasons` + `SeasonStaffSheet`:
+hakemusten hyväksyntä kenttä- ja varattujen viikkojen kanssa, oma kausivuoro seuralle laskulla,
+päättäminen; `HallBilling`: laskut, korttiveloitukset ja "Veloita erääntyneet"; `HallCards`). Kausivuoron
+viikot ovat varauksia (`kind: 'season'`, oma väri aikajanalla); yksittäisen viikon voi vapauttaa.
+Tulostettava lasku `/pelaa/lasku/:id`. Tietokanta: `supabase/migrations/20261016100000_…` (+ Lahden seed
+`…100100`), edge-funktio `krossi-billing` (kortti, kuukausiveloitukset off-session, korttien osto, laskun
+sähköposti); `krossi-booking` veloittaa hinnasta lahjakorttiosuuden pois.
 
 **Auth & onboarding:** näyttävä tumma kirjautumisnäkymä (kenttäviivat, pallo), Google/Apple/
 sähköposti, rekisteröinti/kirjautuminen/salasanan palautus. Onboarding yhdellä ruudulla:

@@ -21,6 +21,8 @@ import { InviteScreen } from '../screens/auth/InviteScreen.jsx';
 import { AdminScreen } from '../screens/admin/AdminScreen.jsx';
 import { BookingScreen } from '../screens/booking/BookingScreen.jsx';
 import { HallScreen } from '../screens/booking/HallScreen.jsx';
+import { MyBookingsScreen } from '../screens/booking/MyBookingsScreen.jsx';
+import { InvoiceScreen } from '../screens/booking/InvoiceScreen.jsx';
 import { EmptyState, Button, Page } from '../ui/index.js';
 import { navigate } from './router.js';
 
@@ -48,6 +50,8 @@ export const SCREENS = {
   booking: BookingScreen,
   bookingVenue: BookingScreen,
   hall: HallScreen,
+  myBookings: MyBookingsScreen,
+  invoice: InvoiceScreen,
 };
 
 export function NotFoundScreen() {

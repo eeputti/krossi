@@ -5,6 +5,8 @@
 //
 // ?pv=YYYY-MM-DD (missing = today) and ?paikka=<locationId> (missing = the first location) keep
 // the view over a reload; both are written with navigate(…, { replace: true }).
+// ?nakyma=kausivuorot | laskutus | kortit switches from the day to the hall's kausivuorot
+// (HallSeasons), invoices and card charges (HallBilling) or series / gift cards sold (HallCards).
 // Only venue staff get in (venue.isStaff; api.booking.staffDay refuses everyone else too).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,8 +18,11 @@ import { WEEKDAYS, WEEKDAYS_SHORT, dayDiff, dayLabel } from '../../lib/format.js
 import {
   Button, ErrorState, Icon, IconButton, Page, ProgressBar, Segmented, Skeleton, StatTile, TopBar, useToast,
 } from '../../ui/index.js';
+import { HallBilling } from './HallBilling.jsx';
 import { HallBlockSheet } from './HallBlockSheet.jsx';
+import { HallCards } from './HallCards.jsx';
 import { HallItemSheet } from './HallItemSheet.jsx';
+import { HallSeasons } from './HallSeasons.jsx';
 import { HallTimeline } from './HallTimeline.jsx';
 import {
   courtsLabel, dayWindow, daySummary, defaultStart, hhmm, isoWeek, liveLocations, locationLabel, nowMinuteOn,
@@ -26,6 +31,7 @@ import {
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const REFRESH_MS = 60_000;
+const VIEWS = ['kausivuorot', 'laskutus', 'kortit'];
 
 export function HallScreen({ params, query }) {
   const ref = params.venue;
@@ -81,6 +87,7 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
   const venue = useMemo(() => liveCourtsOnly(allCourts), [allCourts]);
   const toast = useToast();
   const longLabels = useMediaQuery('(min-width: 1200px)');
+  const phone = useMediaQuery('(max-width: 599px)');
   const now = useNow(30_000);
   const today = dateKey(new Date(now));
   const dayKey = parseDayKey(query.pv) || today;
@@ -90,6 +97,11 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
   const location = locations.find((l) => l.id === query.paikka) || locations[0] || null;
   const win = useMemo(() => dayWindow(venue), [venue]);
   const nowMin = nowMinuteOn(dayKey, now);
+  const view = VIEWS.includes(query.nakyma) ? query.nakyma : 'paiva';
+  // Requests waiting for the hall: a count on the Kausivuorot tab.
+  const requests = useAsync(() => api.seasons.staffList(venue.id)
+    .then((list) => list.filter((s) => s.status === 'requested').length)
+    .catch(() => 0), [venue.id, view]);
 
   // The day's rows carry their key, so a slow answer for yesterday never paints under today.
   const day = useAsync(async () => ({ key: dayKey, items: await api.booking.staffDay(venue.id, dayKey) }), [venue.id, dayKey]);
@@ -133,6 +145,11 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
     window.scrollTo(0, keepScroll.current);
     keepScroll.current = null;
   }, [query.pv, query.paikka]);
+
+  const showView = (next) => {
+    keepScroll.current = window.scrollY;
+    navigate(`/pelaa/halli/${venueRef}${next === 'paiva' ? '' : `?nakyma=${next}`}`, { replace: true });
+  };
 
   // Sheets keep their last content while they animate out.
   const [blockDraft, setBlockDraft] = useState(null);
@@ -189,49 +206,71 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
             <div className="eyebrow bhall-eyebrow"><Icon name="shield" size={13} strokeWidth={2.4} />Henkilökunta</div>
             <h1 className="bhall-title">{venue.name}</h1>
           </div>
-          {canBlock && location && (
+          {view === 'paiva' && canBlock && location && (
             <Button variant="dark" size="sm" icon="plus" className="bhall-head-cta" onClick={() => openBlock({ courtIds: [], startMin: defaultStart(win, nowMin) })}>
               Estä aika
             </Button>
           )}
         </header>
 
-        <div className="bhall-controls">
-          <DayNav dayKey={dayKey} today={today} onChange={(pv) => setView({ pv })} />
-          {locations.length > 1 && (
-            <Segmented
-              key={longLabels ? 'long' : 'short'}
-              ariaLabel="Paikka"
-              className="bhall-places"
-              options={locations.map((l) => ({ value: l.id, label: locationLabel(l, !longLabels) }))}
-              value={location?.id}
-              onChange={(paikka) => setView({ paikka })}
-            />
-          )}
-        </div>
+        <Segmented
+          ariaLabel="Näkymä"
+          size={phone ? 'sm' : 'md'}
+          className="bhall-views"
+          options={[
+            { value: 'paiva', label: 'Päivä' },
+            { value: 'kausivuorot', label: 'Kausivuorot', badge: requests.data || undefined },
+            { value: 'laskutus', label: 'Laskutus' },
+            { value: 'kortit', label: 'Kortit' },
+          ]}
+          value={view}
+          onChange={showView}
+        />
 
-        {location && <DayStats summary={summary} failed={Boolean(day.error) && !fresh} />}
+        {view === 'kausivuorot' && <HallSeasons venue={venue} onChanged={() => requests.reload({ silent: true })} />}
+        {view === 'laskutus' && <HallBilling venue={venue} />}
+        {view === 'kortit' && <HallCards venue={venue} />}
 
-        {location ? (
-          <section className="bhall-board" aria-label={`${location.name}: kentät ja varaukset`}>
-            {day.error && !fresh ? (
-              <ErrorState error={day.error} onRetry={() => reloadDay()} compact />
+        {view === 'paiva' && (
+          <>
+            <div className="bhall-controls">
+              <DayNav dayKey={dayKey} today={today} onChange={(pv) => setView({ pv })} />
+              {locations.length > 1 && (
+                <Segmented
+                  key={longLabels ? 'long' : 'short'}
+                  ariaLabel="Paikka"
+                  className="bhall-places"
+                  options={locations.map((l) => ({ value: l.id, label: locationLabel(l, !longLabels) }))}
+                  value={location?.id}
+                  onChange={(paikka) => setView({ paikka })}
+                />
+              )}
+            </div>
+
+            {location && <DayStats summary={summary} failed={Boolean(day.error) && !fresh} />}
+
+            {location ? (
+              <section className="bhall-board" aria-label={`${location.name}: kentät ja varaukset`}>
+                {day.error && !fresh ? (
+                  <ErrorState error={day.error} onRetry={() => reloadDay()} compact />
+                ) : (
+                  <HallTimeline
+                    venue={venue}
+                    location={location}
+                    dayKey={dayKey}
+                    items={items}
+                    loading={loading}
+                    nowMin={nowMin}
+                    onFree={onFree}
+                    onItem={onItem}
+                  />
+                )}
+                <Legend hint={fresh && summary && summary.bookings + summary.season + summary.own === 0 ? 'Ei varauksia — koko päivä on vapaana.' : canBlock ? 'Napauta vapaata aikaa estääksesi sen.' : null} />
+              </section>
             ) : (
-              <HallTimeline
-                venue={venue}
-                location={location}
-                dayKey={dayKey}
-                items={items}
-                loading={loading}
-                nowMin={nowMin}
-                onFree={onFree}
-                onItem={onItem}
-              />
+              <HallNotice icon="court" title="Ei varattavia kenttiä" text="Kun hallin kentät ovat varattavissa Krossissa, päivän varaukset näkyvät tässä." />
             )}
-            <Legend hint={fresh && summary && summary.bookings + summary.own === 0 ? 'Ei varauksia — koko päivä on vapaana.' : canBlock ? 'Napauta vapaata aikaa estääksesi sen.' : null} />
-          </section>
-        ) : (
-          <HallNotice icon="court" title="Ei varattavia kenttiä" text="Kun hallin kentät ovat varattavissa Krossissa, päivän varaukset näkyvät tässä." />
+          </>
         )}
       </Page>
 
@@ -309,7 +348,10 @@ function DayStats({ summary: s, failed }) {
         icon="calendar"
         label="Varauksia"
         value={s ? s.bookings : wait}
-        sub={s ? (s.own ? `+ ${s.own} ${s.own === 1 ? 'hallin oma vuoro' : 'hallin omaa vuoroa'}` : 'ei hallin omia vuoroja') : null}
+        sub={s ? ([
+          s.season ? `+ ${s.season} ${s.season === 1 ? 'kausivuoro' : 'kausivuoroa'}` : null,
+          s.own ? `+ ${s.own} ${s.own === 1 ? 'hallin oma' : 'hallin omaa'}` : null,
+        ].filter(Boolean).join(' · ') || 'ei kausi- eikä hallin omia vuoroja') : null}
       />
       <StatTile
         icon="grid"
@@ -336,6 +378,7 @@ function DayStats({ summary: s, failed }) {
 
 const LEGEND = [
   ['booking', 'Varaus'],
+  ['season', 'Kausivuoro'],
   ['held', 'Pidossa'],
   ['unpaid', 'Maksamatta'],
   ['league', 'Hallisarja'],

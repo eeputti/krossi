@@ -156,7 +156,7 @@ test('the demo hall: live courts only, and every location adds up', async () => 
     const ids = new Set(loc.courts.map((c) => c.id));
     const here = items.filter((it) => ids.has(it.courtId));
     assert.ok(s.utilization >= 0 && s.utilization <= 1, `${loc.name} ${s.utilization}`);
-    assert.equal(s.bookings + s.own, here.length);
+    assert.equal(s.bookings + s.season + s.own, here.length);
     assert.equal(s.salesCents, here.filter((it) => it.paymentStatus === 'paid').reduce((n, it) => n + it.priceCents, 0));
   }
 });

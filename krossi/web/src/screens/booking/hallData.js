@@ -112,6 +112,7 @@ export const isUnpaid = (item) => item.kind === 'booking' && (item.status === 'h
 /**
  * The day's numbers for one location:
  *   bookings     kind 'booking' (held ones too)
+ *   season       kausivuoro weeks (kind 'season'), billed with the season
  *   own          the hall's own rows (blocks + league), one per court
  *   unpaid       held / unpaid bookings, unpaidCents their value
  *   salesCents   paid bookings
@@ -136,11 +137,13 @@ export function daySummary(venue, location, key, items, win = dayWindow(venue)) 
     }
   }
   const bookings = here.filter((it) => it.kind === 'booking');
+  const season = here.filter((it) => it.kind === 'season');
   const unpaid = bookings.filter(isUnpaid);
   const sum = (list) => list.reduce((total, it) => total + (it.priceCents || 0), 0);
   return {
     bookings: bookings.length,
-    own: here.length - bookings.length,
+    season: season.length,
+    own: here.length - bookings.length - season.length,
     unpaid: unpaid.length,
     unpaidCents: sum(unpaid),
     salesCents: sum(bookings.filter((it) => it.paymentStatus === 'paid')),
@@ -213,14 +216,18 @@ export function locationLabel(location, short = false) {
 
 /** Payment of a booking for chips and labels: { label, tone } (Chip tones). */
 export function paymentInfo(item) {
+  if (item.kind === 'season') return { label: 'Kausivuoro', tone: 'neutral' };
+  if (item.paymentStatus === 'credit') return { label: item.credit?.kind === 'gift' ? 'Lahjakortti' : 'Sarjakortti', tone: 'success' };
+  if (item.paymentStatus === 'paid' && item.credit?.kind === 'gift') return { label: 'Maksettu + lahjakortti', tone: 'success' };
   if (item.paymentStatus === 'paid') return { label: 'Maksettu', tone: 'success' };
   if (item.paymentStatus === 'refunded') return { label: 'Hyvitetty', tone: 'neutral' };
   if (item.paymentStatus === 'free') return { label: 'Maksuton', tone: 'neutral' };
   return { label: 'Maksamatta', tone: 'warn' };
 }
 
-/** How the timeline paints an item: 'booking' | 'unpaid' | 'held' | 'league' | 'block'. */
+/** How the timeline paints an item: 'booking' | 'unpaid' | 'held' | 'league' | 'block' | 'season'. */
 export function itemVariant(item) {
+  if (item.kind === 'season') return 'season';
   if (item.kind === 'league') return 'league';
   if (item.kind === 'block') return 'block';
   if (item.status === 'held') return 'held';
