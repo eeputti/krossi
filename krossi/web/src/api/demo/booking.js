@@ -547,7 +547,7 @@ function myShare(shareId) {
 function shareBlocker(share) {
   const row = bookingOfShare(share);
   if (share.status === 'paid') return null;
-  if (share.status === 'covered') return fail(`Maksuaika päättyi — ${firstName(personLite(row.bookedBy).name)} maksoi osuutesi.`, 'closed');
+  if (share.status === 'covered') return fail(`Maksuaika päättyi — ${firstName(personLite(row.bookedBy).name)} maksaa osuutesi.`, 'closed');
   if (share.status === 'cancelled' || share.status === 'refunded' || row.status !== 'confirmed') return fail('Vuoro on peruttu — osuutta ei tarvitse maksaa.', 'cancelled');
   if (!isPayable(share, row)) return fail('Maksuaika päättyi.', 'closed');
   return null;

@@ -403,7 +403,7 @@ test('the deadline: unpaid shares become my rest, charged; a card that said no l
   // A friend share past its deadline can't be paid any more: the booker has covered it.
   const fromMikko = shares.find((s) => s.kind === 'friend' && s.booker.id === 'p-mikko');
   db.booking.rows.find((r) => r.id === fromMikko.booking.id).split.deadline = new Date(Date.now() - 60_000).toISOString();
-  await assert.rejects(api.booking.shareCheckoutConfig(fromMikko.id), (err) => err.code === 'closed' && /Mikko maksoi osuutesi/.test(err.userMessage));
+  await assert.rejects(api.booking.shareCheckoutConfig(fromMikko.id), (err) => err.code === 'closed' && /Mikko maksaa osuutesi/.test(err.userMessage));
   assert.equal((await api.booking.getShare(fromMikko.id)).status, 'covered');
 });
 

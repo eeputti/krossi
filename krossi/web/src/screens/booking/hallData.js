@@ -213,6 +213,8 @@ export function locationLabel(location, short = false) {
 
 /** Payment of a booking for chips and labels: { label, tone } (Chip tones). */
 export function paymentInfo(item) {
+  // Jaettu maksu: the booker has paid their part, friends (or a rest the card didn't cover) haven't.
+  if (item.paymentStatus === 'paid' && item.unpaidCents > 0) return { label: 'Osin maksettu', tone: 'warn' };
   if (item.paymentStatus === 'paid') return { label: 'Maksettu', tone: 'success' };
   if (item.paymentStatus === 'refunded') return { label: 'Hyvitetty', tone: 'neutral' };
   if (item.paymentStatus === 'free') return { label: 'Maksuton', tone: 'neutral' };

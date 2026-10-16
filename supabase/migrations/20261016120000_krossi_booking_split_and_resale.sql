@@ -193,7 +193,7 @@ $function$;
 
 revoke all on function public.krossi_booking_person_json(uuid) from public, anon, authenticated;
 
--- Etunimi viesteihin ("Mikko maksoi osuutesi"), 'Pelaaja' kun nimeä ei ole.
+-- Etunimi viesteihin ("Mikko maksaa osuutesi"), 'Pelaaja' kun nimeä ei ole.
 create function public.krossi_booking_first_name(user_id_input uuid)
 returns text
 language sql
@@ -1060,7 +1060,7 @@ set search_path = ''
 as $function$
   select case
     when s.status = 'paid' then null
-    when s.status = 'covered' then 'Maksuaika päättyi — ' || public.krossi_booking_first_name(r.booked_by) || ' maksoi osuutesi.'
+    when s.status = 'covered' then 'Maksuaika päättyi — ' || public.krossi_booking_first_name(r.booked_by) || ' maksaa osuutesi.'
     when s.status in ('cancelled', 'refunded') or r.status <> 'confirmed' then 'Vuoro on peruttu — osuutta ei tarvitse maksaa.'
     when s.kind = 'friend' and now() >= r.share_deadline then 'Maksuaika päättyi.'
   end

@@ -1,5 +1,8 @@
 // chatUtils.js — pure helpers for the inbox and chat (previews, grouping, links). No React, no api.
 import { chatDayLabel, firstName, formatTime } from '../../lib/format.js';
+import { shareRequestOf } from '../../features/booking.js';
+
+export { shareRequestOf };
 
 const GROUP_GAP_MS = 6 * 60_000; // bubbles further apart than this start a new group
 
@@ -19,7 +22,8 @@ export function previewText(conversation, meId) {
     const name = String(last.text || '').replace(/\s*liittyi peliin!?\s*$/i, '').trim();
     return `${firstName(name || 'Pelaaja')} liittyi peliin 🎾`;
   }
-  const body = last.kind === 'image' ? 'Kuva 📷' : last.kind === 'thumbs' ? '👍' : String(last.text || '').replace(/\s+/g, ' ').trim();
+  const share = last.kind === 'text' ? shareRequestOf(last.text) : null; // a court-share request without its link
+  const body = last.kind === 'image' ? 'Kuva 📷' : last.kind === 'thumbs' ? '👍' : String(share ? share.text : last.text || '').replace(/\s+/g, ' ').trim();
   if (last.senderId && last.senderId === meId) return `Sinä: ${body}`;
   if (conversation.isGroup && last.senderId) {
     const sender = conversation.participants.find((p) => p.id === last.senderId);

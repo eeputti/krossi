@@ -487,8 +487,8 @@ test('paying a share goes to krossi-booking; "Maksuaika päättyi" and refunds r
     { action: 'shareConfig', shareId: SHARE }, { action: 'shareIntent', shareId: SHARE },
     { action: 'shareVerify', shareId: SHARE, paymentIntentId: 'pi_7' },
   ]);
-  setClientForTests(fakeClient({ invoke: () => functionError('Maksuaika päättyi — Aino maksoi osuutesi.') }));
-  await assert.rejects(booking.shareCheckoutConfig(SHARE), (err) => err.code === 'closed' && err.userMessage === 'Maksuaika päättyi — Aino maksoi osuutesi.');
+  setClientForTests(fakeClient({ invoke: () => functionError('Maksuaika päättyi — Aino maksaa osuutesi.') }));
+  await assert.rejects(booking.shareCheckoutConfig(SHARE), (err) => err.code === 'closed' && err.userMessage === 'Maksuaika päättyi — Aino maksaa osuutesi.');
   setClientForTests(fakeClient({ invoke: () => ({ data: { paid: false, status: 'refunded', error: 'Osuutesi oli jo maksettu — tämä maksu palautettiin.' }, error: null }) }));
   assert.deepEqual(await booking.verifySharePayment(SHARE, 'pi_8'), { paid: false, status: 'refunded', message: 'Osuutesi oli jo maksettu — tämä maksu palautettiin.' });
   await assert.rejects(booking.createSharePaymentIntent('x'), (err) => err.code === 'not_found');

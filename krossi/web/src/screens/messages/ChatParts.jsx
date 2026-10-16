@@ -3,9 +3,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Avatar, Button, Chip, Icon, IconButton, Skeleton, useToast } from '../../ui/index.js';
 import { firstName, formatGameTime, formatTime } from '../../lib/format.js';
+import { navigate } from '../../app/router.js';
 import { GameDateTile } from '../shared/GameCard.jsx';
 import { matchLabel, placeLine } from '../games/gameUtils.js';
-import { bubblePosition, groupTime, isEmojiOnly, joinText, linkParts } from './chatUtils.js';
+import { bubblePosition, groupTime, isEmojiOnly, joinText, linkParts, shareRequestOf } from './chatUtils.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const MAX_LEN = 1000;
@@ -16,8 +17,20 @@ function BubbleText({ text }) {
     : <span key={i}>{part.text}</span>));
 }
 
-function Bubble({ m, pos, isNew, onImage, onImageLoad }) {
+function Bubble({ m, pos, isNew, onImage, onImageLoad, mine }) {
   const cls = cx('chat-bubble', `is-${pos}`, m.local && !m.failed && 'is-pending', m.failed && 'is-failed', isNew && 'is-new');
+  const share = m.kind === 'text' ? shareRequestOf(m.text) : null;
+  if (share) {
+    // A court-share request: the friend pays from here, the booker sees who has paid.
+    return (
+      <div className={cx(cls, 'chat-share')}>
+        <span>{share.text}</span>
+        <button type="button" className="chat-share-btn" onClick={() => navigate(`/pelaa/osuus/${encodeURIComponent(share.shareId)}`)}>
+          <Icon name={mine ? 'users' : 'lock'} size={15} />{mine ? 'Katso maksut' : 'Maksa osuutesi'}
+        </button>
+      </div>
+    );
+  }
   if (m.kind === 'thumbs' || (m.kind === 'text' && isEmojiOnly(m.text))) {
     return <div className={cx(cls, 'chat-emoji', m.kind === 'thumbs' && 'is-thumbs')} role="img" aria-label={m.kind === 'thumbs' ? 'Peukku' : m.text}>{m.kind === 'thumbs' ? '👍' : m.text}</div>;
   }
@@ -46,7 +59,7 @@ export function MessageGroup({ group, showSender, isNew, onImage, onImageLoad, o
         )}
         <div className="chat-bubbles">
           {group.messages.map((m, i) => (
-            <Bubble key={m.key || m.id} m={m} pos={bubblePosition(i, count)} isNew={isNew(m)} onImage={onImage} onImageLoad={onImageLoad} />
+            <Bubble key={m.key || m.id} m={m} pos={bubblePosition(i, count)} isNew={isNew(m)} onImage={onImage} onImageLoad={onImageLoad} mine={group.mine} />
           ))}
         </div>
       </div>

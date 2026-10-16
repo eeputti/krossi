@@ -125,3 +125,45 @@ describe('countNew', () => {
     assert.equal(countNew(items, 30), 0);
   });
 });
+
+describe('court booking in the bell', () => {
+  const booking = (extra = {}) => ({
+    id: 'bk1', courtName: 'Tennis 2', locationName: 'Janus-Areena', startsAt: iso(2026, 10, 15, 18), endsAt: iso(2026, 10, 15, 19),
+    createdAt: iso(2026, 10, 14, 9), priceCents: 3000, paymentStatus: 'paid', soldAt: null, split: null, ...extra,
+  });
+  const share = (extra = {}) => ({
+    id: 's1', kind: 'friend', cents: 1500, status: 'pending', payable: true, deadline: iso(2026, 10, 15, 16), chargeError: null,
+    booker: person('b', 'Mikko Mallikas'), booking: booking(), ...extra,
+  });
+
+  test('a friend\'s request to pay my share, and a rest my card did not cover, open the share', () => {
+    const items = buildNotifications({
+      uid: 'me', now: NOW,
+      shares: [share(), share({ id: 's2', kind: 'rest', booker: person('me', 'Minä'), deadline: iso(2026, 10, 13, 16), chargeError: 'card_declined' })],
+    });
+    const byKind = Object.fromEntries(items.map((i) => [i.kind, i]));
+    assert.equal(byKind.share.title, 'Mikko pyytää osuuttasi kenttävuorosta');
+    assert.equal(byKind.share.body, '15 € · Huomenna klo 18.00 · Janus-Areena');
+    assert.equal(byKind.share.to, '/pelaa/osuus/s1');
+    assert.equal(byKind.share.person.name, 'Mikko Mallikas');
+    assert.equal(byKind.rest.title, 'Loppuosuus maksamatta: 15 €');
+    assert.equal(byKind.rest.to, '/pelaa/osuus/s2');
+    assert.equal(byKind.rest.at, local(2026, 10, 13, 16).getTime());
+  });
+
+  test('only payable shares count; a sold booking of the last week says what comes back', () => {
+    const items = buildNotifications({
+      uid: 'me', now: NOW,
+      shares: [share({ payable: false, status: 'paid' })],
+      bookings: [
+        booking({ soldAt: iso(2026, 10, 14, 10), status: 'cancelled', paymentStatus: 'refunded' }),
+        booking({ id: 'old', soldAt: iso(2026, 10, 1, 10) }),
+        booking({ id: 'plain', status: 'cancelled' }),
+      ],
+    });
+    assert.deepEqual(items.map((i) => [i.kind, i.id]), [['sold', 'sold:bk1']]);
+    assert.equal(items[0].title, 'Vuorosi myytiin');
+    assert.equal(items[0].body, '30 € palautetaan · Huomenna klo 18.00 · Tennis 2');
+    assert.equal(items[0].to, '/pelaa/varaa');
+  });
+});

@@ -5,6 +5,8 @@
 // The same checkout pays court bookings: pass `createIntent` / `verify` (both default to the 8,99 €
 // unlock in api.payments), the `returnPath` redirect methods come back to, and `pendingText`.
 // `verify` resolves to { paid, status }. Without `onHosted` there is no hosted-page fallback.
+// `config.setupFutureUsage: 'off_session'` (a split court booking) saves the card for later: the
+// Elements must say the same as the PaymentIntent, and only methods that can be saved are offered.
 //
 // Top: one-tap wallet buttons (Apple Pay / Google Pay, Express Checkout Element). Below: the
 // Payment Element (MobilePay first, then card and whatever else is enabled in the Stripe
@@ -153,6 +155,7 @@ export function Checkout({
           mode: 'payment',
           amount: config.amount,
           currency: config.currency,
+          ...(config.setupFutureUsage ? { setupFutureUsage: config.setupFutureUsage } : {}),
           appearance: APPEARANCE,
           locale: 'fi',
         });
@@ -201,7 +204,7 @@ export function Checkout({
       payment?.destroy();
       stripeRef.current = null;
     };
-  }, [config.publishableKey, config.amount, config.currency, config.email, attempt]);
+  }, [config.publishableKey, config.amount, config.currency, config.email, config.setupFutureUsage, attempt]);
 
   if (loadError) {
     return (

@@ -16,7 +16,9 @@ import { askOutcome } from './PendingOutcomeCheck.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const SEEN_KEY = 'krossi_notifs_seen';
-const KIND_ICON = { invite: 'mail', request: 'racket', message: 'chat', outcome: 'ball', soon: 'clock', newGame: 'sparkles' };
+const KIND_ICON = {
+  invite: 'mail', request: 'racket', message: 'chat', outcome: 'ball', soon: 'clock', newGame: 'sparkles', share: 'euro', rest: 'alert', sold: 'check',
+};
 
 function readSeen(uid) {
   try {
@@ -38,6 +40,9 @@ export function useNotificationFeed({ open, mine, invites, requests, areas }) {
   const { user } = useSession();
   const conversations = useAsync(() => api.messages.listConversations(), []);
   const outcomes = useAsync(() => api.games.pendingOutcomes(), []);
+  // Court booking: shares to pay and sold bookings. A player who never booked just gets nothing here.
+  const shares = useAsync(() => api.booking.listShares().catch(() => []), []);
+  const bookings = useAsync(() => api.booking.listMine().catch(() => null), []);
   const { reload: reloadConversations } = conversations;
   const { reload: reloadOutcomes } = outcomes;
   const { reload: reloadRequests } = requests;
@@ -64,9 +69,11 @@ export function useNotificationFeed({ open, mine, invites, requests, areas }) {
     upcoming: mine.data?.upcoming || [],
     open: open.data || [],
     areas,
+    shares: shares.data || [],
+    bookings: bookings.data?.past || [],
     uid: user?.id,
     now,
-  }), [invites.data, requests.data, conversations.data, outcomes.data, mine.data, open.data, areas, user?.id, now]);
+  }), [invites.data, requests.data, conversations.data, outcomes.data, mine.data, open.data, areas, shares.data, bookings.data, user?.id, now]);
   const loading = [conversations, outcomes, invites, requests].some((q) => q.loading && q.data === undefined);
   return { items, loading };
 }

@@ -104,8 +104,9 @@ function useStripeReturn() {
   const handled = useRef(false);
   useEffect(() => {
     const { stripe: hosted, payment_intent: intentId, redirect_status: redirectStatus } = route.query;
-    // Court bookings come back with ?varaus=<id>: BookingScreen confirms those itself.
-    if ((!hosted && !intentId) || route.query.varaus || !user || handled.current) return;
+    // Court bookings come back with ?varaus=<id> and shares to /pelaa/osuus/<id>: BookingScreen and
+    // ShareScreen confirm those themselves.
+    if ((!hosted && !intentId) || route.query.varaus || route.name === 'share' || !user || handled.current) return;
     handled.current = true;
     const unlocked = () => {
       toast('Krossi on nyt auki — pelit voi alkaa! 🎾', { icon: 'sparkles', duration: 4200 });

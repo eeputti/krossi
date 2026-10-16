@@ -337,3 +337,20 @@ export function fitsAvailability(availability, startsAt) {
     return hour >= range.from && hour < range.until;
   });
 }
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+
+// A court-share request ends with its link (krossi_booking_share_message / the demo's shareMessage).
+const SHARE_LINK_RE = /:?\s*https:\/\/krossi\.app\/pelaa\/osuus\/([A-Za-z0-9-]+)\s*$/;
+
+/**
+ * "Varasin meille kentän … Osuutesi on 15 € — maksa se Krossissa viimeistään …: <link>" →
+ * { text: the message without the link, shareId }, else null. The chat shows the link as a button
+ * that opens the share in the app (other clients just see the link).
+ */
+export function shareRequestOf(text) {
+  const s = String(text || '');
+  const m = SHARE_LINK_RE.exec(s);
+  if (!m) return null;
+  return { text: s.slice(0, m.index).trim(), shareId: m[1] };
+}

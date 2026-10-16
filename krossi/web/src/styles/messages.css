@@ -348,3 +348,12 @@ button.chat-who:active { transform: scale(0.98); }
   .chat-thumb-btn.is-tapped span, .msg-row-dot { animation: none; }
   .msg-row-front, .msg-row-wrap { transition: none; }
 }
+
+/* A court-share request: the link becomes a button that opens the share in the app */
+.chat-share { display: grid; gap: 10px; }
+.chat-share-btn {
+  justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--r-pill);
+  background: var(--lime); color: var(--ink); font-size: 14px; font-weight: 800; white-space: nowrap;
+}
+.chat-share-btn:active { transform: scale(0.97); }
+.is-mine .chat-share-btn { background: rgba(255, 255, 255, 0.14); color: #fff; }

@@ -332,3 +332,5 @@ button.home-goal:active { background: var(--sand); }
 .home-notif-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; padding-top: 3px; }
 .home-notif-time { font-size: 12px; font-weight: 650; color: var(--faint); }
 .home-notif-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--clay); }
+.home-notif-icon.is-rest { background: var(--danger-bg); color: var(--danger); }
+.home-notif-icon.is-sold { background: var(--success-bg); color: var(--success); }

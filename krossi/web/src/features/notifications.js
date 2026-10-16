@@ -8,14 +8,19 @@
 //   outcome   a game of mine is over, no answer yet    -> "Pelasitteko?"
 //   soon      a game I'm in starts within 24 hours     -> the game
 //   newGame   someone opened a game in my cities (7 d) -> the game
+//   share     a friend asked me to pay my share of a court they booked -> the share
+//   rest      my saved card didn't cover the rest of a split booking   -> the share (pay it)
+//   sold      a booking I put on sale was booked by somebody (7 d)     -> Varaa kenttä
 // `at` orders the list and decides what is new: whatever came after the bell was last opened.
 
 import { GAME_DURATION_HOURS } from '../lib/constants.js';
 import { dayDiff, firstName, formatGameTime, formatTime } from '../lib/format.js';
+import { centsLabel, paidTotal, shareRequestOf } from './booking.js';
 
 const HOUR = 3_600_000;
 const SOON_MS = 24 * HOUR;
 const NEW_GAME_MS = 7 * 24 * HOUR;
+const SOLD_MS = 7 * 24 * HOUR;
 const MAX_NEW_GAMES = 5;
 export const MAX_NOTIFICATIONS = 30;
 
@@ -39,17 +44,47 @@ function messagePreview(last) {
 }
 
 /**
- * buildNotifications({ invites, requests, conversations, outcomes, upcoming, open, areas, uid, now })
+ * buildNotifications({ invites, requests, conversations, outcomes, upcoming, open, areas, shares, bookings, uid, now })
  *   invites: GameInvite[]   requests: PlayRequest[]   conversations: Conversation[]
  *   outcomes: Game[] (pendingOutcomes)   upcoming: Game[] (listMine().upcoming)   open: Game[] (listOpen)
- *   areas: string[] my cities   uid: my id
+ *   areas: string[] my cities   shares: BookingShare[] (booking.listShares)   bookings: Booking[]
+ *   (booking.listMine().past)   uid: my id
  * -> [{ id, kind, at, title, body, person, game?, to? }]  newest first, at most MAX_NOTIFICATIONS
  */
 export function buildNotifications({
-  invites = [], requests = [], conversations = [], outcomes = [], upcoming = [], open = [], areas = [], uid = null, now = Date.now(),
+  invites = [], requests = [], conversations = [], outcomes = [], upcoming = [], open = [], areas = [], shares = [], bookings = [],
+  uid = null, now = Date.now(),
 } = {}) {
   const items = [];
   const cities = new Set(areas.map(norm).filter(Boolean));
+
+  for (const s of shares) {
+    if (!s.payable) continue;
+    const when = formatGameTime(s.booking.startsAt, new Date(now));
+    if (s.kind === 'rest') {
+      items.push({
+        id: `rest:${s.id}`, kind: 'rest', at: Math.min(ms(s.deadline) || now, now), person: null, to: `/pelaa/osuus/${s.id}`,
+        title: `Loppuosuus maksamatta: ${centsLabel(s.cents)}`,
+        body: join('Kortiltasi ei voitu veloittaa', when),
+      });
+    } else {
+      items.push({
+        id: `share:${s.id}`, kind: 'share', at: ms(s.booking.createdAt) || now, person: s.booker, to: `/pelaa/osuus/${s.id}`,
+        title: `${firstName(s.booker?.name)} pyytää osuuttasi kenttävuorosta`,
+        body: join(centsLabel(s.cents), when, s.booking.locationName),
+      });
+    }
+  }
+
+  for (const b of bookings) {
+    if (!b.soldAt || now - ms(b.soldAt) > SOLD_MS) continue;
+    const back = paidTotal(b) || (b.paymentStatus === 'refunded' ? b.priceCents : 0);
+    items.push({
+      id: `sold:${b.id}`, kind: 'sold', at: ms(b.soldAt), person: null, to: '/pelaa/varaa',
+      title: 'Vuorosi myytiin',
+      body: join(back ? `${centsLabel(back)} palautetaan` : '', formatGameTime(b.startsAt, new Date(now)), b.courtName),
+    });
+  }
 
   for (const inv of invites) {
     const g = inv.game;
@@ -72,6 +107,7 @@ export function buildNotifications({
   for (const c of conversations) {
     const last = c.lastMessage;
     if (!c.unread || !last || (uid && last.senderId === uid)) continue;
+    if (last.kind === 'text' && shareRequestOf(last.text)) continue; // the share item below says it better
     const sender = (c.participants || []).find((p) => p.id === last.senderId) || c.participants?.[0] || null;
     items.push({
       id: `message:${c.id}:${last.createdAt}`, kind: 'message', at: ms(last.createdAt) || ms(c.updatedAt) || now,

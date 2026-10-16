@@ -1,18 +1,32 @@
 // MyBookingSheet — one of my bookings: where and when (with the court on the floor map), what it
 // cost, add to calendar, find a partner for it, and cancel while cancelling is still free.
+//
+// Jaettu maksu: who has paid their share, when the rest goes to my card, and — if the card said
+// no — the rest to pay here. Past the free cancellation the booking can go on sale ("Laita
+// myyntiin", better than Cintoia's manual resale: it is bookable for others at once, the people
+// waiting for that time are told, and when somebody books it everything paid comes back).
 import { useState } from 'react';
 import { api } from '../../api/index.js';
 import { navigate } from '../../app/router.js';
-import { formatGameTime } from '../../lib/format.js';
-import { centsLabel } from '../../features/booking.js';
+import { useSession } from '../../app/session.jsx';
+import { canPutOnSale, centsLabel, chargeErrorText, paidTotal } from '../../features/booking.js';
 import { Button, Chip, Icon, Sheet, useConfirm, useToast } from '../../ui/index.js';
 import { VenueMap, hasVenueMap } from './VenueMap.jsx';
-import { bookingStateText, downloadBookingIcs, sportLabel, whenLabel } from './BookingParts.jsx';
+import { SplitLines, bookingStateText, downloadBookingIcs, restOwed, sportLabel, timeInSentence, whenLabel } from './BookingParts.jsx';
 import { useForecast, weatherInfo } from './weather.js';
+
+/** What goes back to me (my own part and a rest share) when the booking is cancelled or sold. */
+function myRefund(booking) {
+  if (!booking.split) return booking.paymentStatus === 'paid' ? booking.priceCents : 0;
+  return booking.split.lines.filter((l) => l.kind !== 'friend' && l.status === 'paid').reduce((n, l) => n + l.cents, 0);
+}
+
+const friendsPaid = (booking) => Boolean(booking.split?.lines.some((l) => l.kind === 'friend' && l.status === 'paid'));
 
 export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onRebook }) {
   const toast = useToast();
   const confirm = useConfirm();
+  const { user } = useSession();
   const [working, setWorking] = useState(false);
   const location = (booking && venue?.locations.find((l) => l.courts.some((c) => c.id === booking.courtId))) || null;
   const weather = weatherInfo(useForecast(location, booking?.startsAt));
@@ -21,50 +35,87 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
   const live = booking.status === 'confirmed' || booking.status === 'held';
   const ended = Date.parse(booking.endsAt) <= Date.now();
   const canCancel = booking.status === 'confirmed' && Date.parse(booking.cancellableUntil) > Date.now();
+  const canSell = canPutOnSale(booking);
   const paid = booking.paymentStatus === 'paid';
+  const owed = restOwed(booking);
+  const split = booking.split;
+  const unpaidFriends = split ? split.lines.filter((l) => l.kind === 'friend' && (l.status === 'pending' || l.status === 'declined')) : [];
+  const restLine = split?.lines.find((l) => l.kind === 'rest');
+  const back = myRefund(booking);
+  const backText = `${back ? `Saat ${centsLabel(back)} takaisin maksutavallesi` : 'Saat rahasi takaisin'}${friendsPaid(booking) ? ', kaverit omat osuutensa' : ''}`;
+
+  const run = async (fn) => {
+    setWorking(true);
+    try {
+      await fn();
+    } catch (err) {
+      toast(err);
+    } finally {
+      setWorking(false);
+    }
+  };
 
   const cancel = async () => {
     const ok = await confirm({
       title: 'Perutaanko vuoro?',
       message: paid
-        ? `${booking.courtName}, ${whenLabel(booking.startsAt, booking.endsAt)}. Saat ${centsLabel(booking.priceCents)} takaisin maksutavallesi.`
+        ? `${booking.courtName}, ${whenLabel(booking.startsAt, booking.endsAt)}. ${backText}.`
         : `${booking.courtName}, ${whenLabel(booking.startsAt, booking.endsAt)}. Vuoro vapautuu muille.`,
       confirmLabel: 'Peru vuoro',
       cancelLabel: 'Pidä vuoro',
       danger: true,
     });
     if (!ok) return;
-    setWorking(true);
-    try {
+    await run(async () => {
       const { refundedCents } = await api.booking.cancel(booking.id);
       toast(refundedCents ? `Vuoro peruttu — ${centsLabel(refundedCents)} palautetaan maksutavallesi.` : 'Vuoro peruttu.', { icon: 'check' });
       onChanged?.();
       onClose();
-    } catch (err) {
-      toast(err);
-    } finally {
-      setWorking(false);
-    }
+    });
   };
 
-  const release = async () => {
-    setWorking(true);
-    try {
-      await api.booking.release(booking.id);
-      toast('Varaus peruttu — mitään ei veloitettu.');
+  const release = () => run(async () => {
+    await api.booking.release(booking.id);
+    toast('Varaus peruttu — mitään ei veloitettu.');
+    onChanged?.();
+    onClose();
+  });
+
+  const putOnSale = async () => {
+    const ok = await confirm({
+      title: 'Laitetaanko vuoro myyntiin?',
+      message: `Vuoro näkyy muille vapaana. Kun joku varaa sen, ${backText.charAt(0).toLowerCase()}${backText.slice(1)}. Siihen asti vuoro on sinun.`,
+      confirmLabel: 'Laita myyntiin',
+      cancelLabel: 'Pidä vuoro',
+    });
+    if (!ok) return;
+    await run(async () => {
+      await api.booking.putOnSale(booking.id);
+      toast('Vuoro on myynnissä. Kerromme, kun joku varaa sen.', { icon: 'check' });
       onChanged?.();
       onClose();
-    } catch (err) {
-      toast(err);
-    } finally {
-      setWorking(false);
-    }
+    });
   };
+
+  const takeOffSale = () => run(async () => {
+    await api.booking.takeOffSale(booking.id);
+    toast('Myynti peruttu — vuoro on taas vain sinun.');
+    onChanged?.();
+    onClose();
+  });
 
   const findPartner = () => {
     onClose();
     navigate(`/pelaa/uusi-peli?varaus=${encodeURIComponent(booking.id)}`, { overlay: true });
   };
+
+  const payRest = () => {
+    onClose();
+    navigate(`/pelaa/osuus/${encodeURIComponent(owed.id)}`);
+  };
+
+  const stateTone = booking.soldAt ? 'neutral' : owed ? 'danger' : booking.status === 'confirmed' ? (booking.forSale ? 'neutral' : 'success')
+    : booking.status === 'held' ? 'warn' : 'neutral';
 
   return (
     <Sheet
@@ -78,40 +129,96 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
         <div className="stack-2">
           {booking.status === 'held' ? (
             <Button variant="outline" block loading={working} onClick={release}>Peru maksamaton varaus</Button>
+          ) : owed ? (
+            <Button variant="lime" icon="lock" block onClick={payRest}>Maksa loppuosuus {centsLabel(owed.cents)}</Button>
           ) : (
             <>
               <Button variant="dark" icon="calendar" block onClick={() => downloadBookingIcs(booking, { cancellableUntil: booking.cancellableUntil })}>Lisää kalenteriin</Button>
-              <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>
+              {!split && !booking.forSale && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
             </>
           )}
         </div>
+      ) : owed ? (
+        <Button variant="lime" icon="lock" block onClick={payRest}>Maksa loppuosuus {centsLabel(owed.cents)}</Button>
       ) : undefined}
     >
       <div className="stack-4">
         <div className="bk-mine-head">
           <span className="bk-mine-head-when">{whenLabel(booking.startsAt, booking.endsAt)}</span>
-          <Chip tone={booking.status === 'confirmed' ? 'success' : booking.status === 'held' ? 'warn' : 'neutral'} size="sm">
-            {bookingStateText(booking)}
-          </Chip>
+          <Chip tone={stateTone} size="sm">{owed ? 'Loppuosuus maksamatta' : bookingStateText(booking)}</Chip>
         </div>
+
+        {owed && (
+          <div className="bk-alert" role="alert">
+            <Icon name="alert" size={18} />
+            <span>
+              <b>Kortiltasi ei voitu veloittaa loppuosuutta ({centsLabel(owed.cents)}).</b>{' '}
+              {chargeErrorText(restLine?.chargeError)}. Maksa se nyt, niin vuoro on kokonaan maksettu.
+            </span>
+          </div>
+        )}
+
+        {booking.soldAt && (
+          <div className="bk-info">
+            <Icon name="check-circle" size={18} />
+            <span>Joku varasi vuoron {timeInSentence(booking.soldAt)}. {paidTotal(booking) || booking.paymentStatus === 'refunded' ? 'Kaikki maksut palautettiin maksutavoille.' : 'Mitään ei veloitettu.'}</span>
+          </div>
+        )}
+
+        {booking.forSale && (
+          <div className="bk-info">
+            <Icon name="share" size={18} />
+            <span><b>Myynnissä.</b> Vuoro näkyy muille vapaana. Kun joku varaa sen, {backText.charAt(0).toLowerCase()}{backText.slice(1)}. Siihen asti vuoro on sinun.</span>
+          </div>
+        )}
 
         {location && hasVenueMap(location.mapKey) && (
           <VenueMap compact mapKey={location.mapKey} courts={location.courts} states={{ [booking.courtId]: 'mine' }} className="bk-sheet-map" />
         )}
 
+        {split && (
+          <section className="bk-field" aria-label="Jaettu maksu">
+            <span className="eyebrow">Jaettu maksu · {split.parts === 4 ? 'nelinpeli' : 'kaksinpeli'}</span>
+            <SplitLines split={split} meId={user?.id} />
+            {booking.status === 'confirmed' && !restLine && unpaidFriends.length > 0 && Date.parse(split.deadline) > Date.now() && (
+              <p className="bk-fine">
+                Maksamatta {centsLabel(unpaidFriends.reduce((n, l) => n + l.cents, 0))}. Jos osuuksia on maksamatta {timeInSentence(split.deadline)}, ne veloitetaan tallennetulta kortiltasi.
+              </p>
+            )}
+            {restLine?.status === 'paid' && (
+              <p className="bk-fine">Maksamatta jääneet osuudet ({centsLabel(restLine.cents)}) veloitettiin kortiltasi {timeInSentence(restLine.paidAt || split.deadline)}.</p>
+            )}
+          </section>
+        )}
+
         <dl className="bk-facts">
           <div><dt>Paikka</dt><dd>{booking.locationName}{location?.address ? <small>{location.address}</small> : null}</dd></div>
-          <div><dt>Hinta</dt><dd>{centsLabel(booking.priceCents)}<small>{bookingStateText(booking)}</small></dd></div>
+          <div><dt>Hinta</dt><dd>{centsLabel(booking.priceCents)}<small>{split ? `Osuutesi ${centsLabel(split.ownCents)}` : bookingStateText(booking)}</small></dd></div>
           {weather && !ended && <div><dt>Sää</dt><dd className={weather.wet ? 'bk-weather is-wet' : 'bk-weather'}>{weather.symbol} {weather.text}</dd></div>}
-          {booking.status === 'confirmed' && !ended && (
+          {booking.status === 'confirmed' && !ended && !booking.forSale && (
             <div>
               <dt>Peruutus</dt>
-              <dd>{canCancel ? `Maksuton ${formatGameTime(booking.cancellableUntil)} asti` : 'Peruutusaika on mennyt — ota yhteyttä halliin.'}</dd>
+              <dd>{canCancel ? `Maksuton ${timeInSentence(booking.cancellableUntil)} asti` : 'Maksuton peruutus on mennyt — voit laittaa vuoron myyntiin.'}</dd>
             </div>
           )}
         </dl>
 
-        {onRebook && booking.status === 'confirmed' && (
+        {canSell && (
+          <button type="button" className="bk-rebook bk-rebook-inline" onClick={putOnSale} disabled={working}>
+            <span className="bk-rebook-icon" aria-hidden="true"><Icon name="share" size={18} strokeWidth={2.4} /></span>
+            <span className="bk-rebook-text">
+              <span className="bk-rebook-title">Et pääse? Laita vuoro myyntiin</span>
+              <span className="bk-rebook-sub">Kun joku varaa sen, saat rahat takaisin</span>
+            </span>
+            <Icon name="chevron-right" size={18} />
+          </button>
+        )}
+
+        {booking.forSale && (
+          <Button variant="outline" block loading={working} onClick={takeOffSale}>Peru myynti, pidän vuoron</Button>
+        )}
+
+        {onRebook && booking.status === 'confirmed' && !booking.forSale && (
           <button type="button" className="bk-rebook bk-rebook-inline" onClick={() => onRebook(booking)}>
             <span className="bk-rebook-icon" aria-hidden="true"><Icon name="repeat" size={18} strokeWidth={2.4} /></span>
             <span className="bk-rebook-text">
@@ -124,7 +231,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
 
         {canCancel && (
           <button type="button" className="bk-cancel" onClick={cancel} disabled={working}>
-            <Icon name="close" size={16} />Peru vuoro{paid ? ` ja palauta ${centsLabel(booking.priceCents)}` : ''}
+            <Icon name="close" size={16} />Peru vuoro{paid ? ` ja palauta ${centsLabel(back || booking.priceCents)}` : ''}
           </button>
         )}
       </div>

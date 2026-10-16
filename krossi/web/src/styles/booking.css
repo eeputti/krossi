@@ -241,3 +241,88 @@
 .bk-match-icon { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--green-800); color: var(--lime); }
 .bk-match-text { display: grid; gap: 2px; }
 .bk-match-text b { color: var(--ink); font-size: 14.5px; }
+
+/* ── Jaettu maksu ── */
+.bk-pay-modes { width: 100%; }
+.bk-pick-hint { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.bk-friends { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 4px; margin: 0 -2px; scrollbar-width: none; }
+.bk-friends::-webkit-scrollbar { display: none; }
+.bk-friend {
+  flex: 0 0 68px; display: grid; justify-items: center; gap: 4px; padding: 8px 4px 6px; border-radius: var(--r-md);
+  background: var(--surface); border: 1.5px solid var(--line); color: var(--ink);
+  transition: border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+}
+.bk-friend:hover:not(:disabled) { border-color: var(--line-strong); }
+.bk-friend:disabled { opacity: 0.45; }
+.bk-friend.is-on { border-color: var(--green-800); background: var(--lime-100); }
+.bk-friend-face { position: relative; display: inline-flex; }
+.bk-friend-check {
+  position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--green-800); color: var(--lime); box-shadow: 0 0 0 2px var(--surface);
+}
+.bk-friend-name { max-width: 60px; font-size: 12.5px; font-weight: 750; }
+
+.bk-split { list-style: none; margin: 0; padding: 0; display: grid; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.bk-split-line { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
+.bk-split-line + .bk-split-line { border-top: 1px solid var(--line); }
+.bk-split-line.is-rest { background: var(--surface-2); }
+.bk-split-who { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.bk-split-name { font-size: 14px; font-weight: 750; color: var(--ink); }
+.bk-split-role { font-size: 12px; color: var(--muted); }
+.bk-split-cents { font-size: 14px; font-weight: 800; color: var(--ink); }
+.bk-split-line > .chip { min-width: 96px; justify-content: center; }
+.bk-done-split { width: 100%; display: grid; gap: 10px; text-align: left; }
+.bk-done-split .bk-done-text { text-align: center; }
+
+/* notices in the booking sheets and the share page */
+.bk-alert, .bk-info {
+  display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 12px 14px; border-radius: var(--r-md);
+  font-size: 13.5px; line-height: 1.45;
+}
+.bk-alert > svg, .bk-info > svg { flex-shrink: 0; margin-top: 1px; }
+.bk-alert { background: var(--danger-bg); color: var(--ink-2); }
+.bk-alert > svg, .bk-alert b { color: var(--danger); }
+.bk-info { background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); }
+.bk-info > svg { color: var(--green-700); }
+.bk-info b { color: var(--ink); }
+
+/* shares waiting for my payment, on top of the booking page */
+.bk-owe {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1.5px solid var(--green-800); box-shadow: var(--shadow-1); color: var(--ink);
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.bk-owe:active { transform: scale(0.98); }
+.bk-owe-icon { flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--danger-bg); color: var(--danger); }
+.bk-owe-text { flex: 1; min-width: 0; display: grid; gap: 1px; font-size: 12.5px; color: var(--muted); }
+.bk-owe-text b { font-size: 14px; color: var(--ink); }
+.bk-owe-cta { flex-shrink: 0; padding: 7px 14px; border-radius: var(--r-pill); background: var(--lime); color: var(--ink); font-size: 13px; font-weight: 800; }
+
+/* somebody's booking on sale today */
+.bk-sales { display: grid; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); margin-bottom: 8px; }
+.bk-sale { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 11px 12px; color: var(--ink); }
+.bk-sale + .bk-sale { border-top: 1px solid var(--line); }
+.bk-sale:hover { background: var(--surface-2); }
+.bk-sale > svg { flex-shrink: 0; color: var(--muted); }
+.bk-sale-clock { flex-shrink: 0; font-size: 15px; font-weight: 800; }
+.bk-sale-place { flex: 1; min-width: 0; font-size: 13px; color: var(--ink-2); }
+.bk-sale-price { flex-shrink: 0; font-size: 14px; font-weight: 800; color: var(--green-700); }
+.bk-mine.is-sale { border-style: dashed; }
+.bk-mine-state.is-sale { color: var(--green-700); }
+
+/* the share page (/pelaa/osuus/:id) */
+.bk-share-head { display: flex; align-items: center; gap: 12px; }
+.bk-share-head-text { min-width: 0; display: grid; gap: 2px; }
+.bk-share-head-text .eyebrow { color: var(--muted); }
+.bk-share-head-title { font-size: var(--fs-h2); font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+.bk-share-head-sub { font-size: 13.5px; color: var(--ink-2); }
+.bk-share-amount { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.bk-share-amount-label { font-size: 14px; font-weight: 750; color: var(--muted); }
+.bk-share-amount-value { font-size: 28px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+.bk-share-done { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 8px 0; }
+.bk-share-done .bk-done-check { width: 56px; height: 56px; }
+.bk-share-title { margin: 0; font-size: var(--fs-h2); font-weight: 800; color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bk-friend, .bk-owe { transition: none; }
+}

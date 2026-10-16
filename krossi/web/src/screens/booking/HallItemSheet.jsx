@@ -57,7 +57,7 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
     const giveBack = paid && refund;
     const ok = await confirm({
       title: 'Perutaanko varaus?',
-      message: `${name} · ${court?.shortName || 'kenttä'} ${whenInSentence}. ${giveBack ? `${price} palautetaan pelaajalle.` : paid ? 'Rahoja ei palauteta.' : 'Aika vapautuu muille.'}`,
+      message: `${name} · ${court?.shortName || 'kenttä'} ${whenInSentence}. ${giveBack ? (item.parts ? 'Jokainen maksaja saa osuutensa takaisin.' : `${price} palautetaan pelaajalle.`) : paid ? 'Rahoja ei palauteta.' : 'Aika vapautuu muille.'}`,
       confirmLabel: 'Peru varaus',
       danger: true,
     });
@@ -143,6 +143,14 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
               <dd className="t-num">{item.paymentStatus === 'free' ? 'Maksuton' : price}</dd>
             </div>
           )}
+          {!own && item.parts && (
+            <div className="bhall-fact">
+              <dt><Icon name="users" size={16} />Jaettu</dt>
+              <dd>{item.parts} pelaajalle{item.unpaidCents > 0
+                ? <span className="bhall-fact-sub"> · maksamatta <b className="t-num">{centsLabel(item.unpaidCents)}</b></span>
+                : <span className="bhall-fact-sub"> · kaikki maksettu</span>}</dd>
+            </div>
+          )}
           {own && (
             <div className="bhall-fact">
               <dt><Icon name="eye" size={16} />Pelaajille</dt>
@@ -154,11 +162,18 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
         {variant === 'held' && (
           <p className="bhall-note"><Icon name="info" size={16} />Pelaaja on maksamassa. Jos maksu ei valmistu, aika vapautuu itsestään.</p>
         )}
+        {item.forSale && (
+          <p className="bhall-note"><Icon name="share" size={16} />Pelaaja on laittanut vuoron myyntiin. Vuoro on hänen, kunnes joku varaa sen — sitten se siirtyy uudelle varaajalle.</p>
+        )}
+        {/* Past the friends' deadline the rest is the booker's: what the card didn't cover is still open. */}
+        {!own && item.unpaidCents > 0 && Date.parse(item.startsAt) - Date.now() <= (venue?.shareDeadlineHours ?? 2) * 3_600_000 && (
+          <p className="bhall-note"><Icon name="alert" size={16} />Osuuksia on maksamatta {centsLabel(item.unpaidCents)}. Jos pelaajat tulevat tiskille, maksun voi periä siellä.</p>
+        )}
         {!own && paid && (
           <Toggle
             icon="undo"
             label="Palauta rahat pelaajalle"
-            hint={refund ? `${price} takaisin alkuperäiseen maksutapaan.` : 'Varaus perutaan ilman hyvitystä.'}
+            hint={refund ? (item.parts ? 'Jokaiselle maksajalle oma osuus takaisin.' : `${price} takaisin alkuperäiseen maksutapaan.`) : 'Varaus perutaan ilman hyvitystä.'}
             checked={refund}
             onChange={setRefund}
           />

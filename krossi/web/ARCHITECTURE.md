@@ -96,6 +96,7 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/liiga/:id` | league | pelit | page (kirjautumaton: julkinen sarjataulukko) |
 | `/pelaa/varaa`, `/pelaa/varaa/:venue` | booking, bookingVenue | pelit | page |
 | `/pelaa/halli/:venue` | hall | pelit | page (hallin henkilökunta) |
+| `/pelaa/osuus/:id` | share | pelit | page (osuus jaetusta kenttävuorosta; ei vaadi avausmaksua) |
 | `/pelaa/kutsu/:code` | invite | — | public |
 | `/pelaa/yllapito` | admin | profiili | page (vain admin) |
 
@@ -235,6 +236,21 @@ puolen tunnin hinnoittelu, vapaat kentät) ovat `features/booking.js`:ssä; palv
 (`krossi_hold_booking`, edge-funktio `krossi-booking`) päättää. Hallin henkilökunta: `/pelaa/halli/:venue`
 (päivän aikajana nimillä, esteet kuten Hallisarja, peruutus + hyvitys). Näkyy toistaiseksi vain
 demossa ja adminille (PlayMenu: `isDemo || isAdmin`).
+
+*Jaettu maksu* (BookSheetin Maksu-kenttä: Maksan itse / Jaa kahdelle / Jaa neljälle): pelikaverit
+(`booking.shareFriends()`: yhteinen keskustelu, peli tai liigaottelu) valitaan kasvoista. Varaaja
+maksaa oman osuutensa heti (`split.ownCents`, kortti tallentuu: `setupFutureUsage 'off_session'`),
+ja jokainen kaveri saa varaajalta viestin kahdenkeskiseen chattiin — chat näyttää linkin
+`https://krossi.app/pelaa/osuus/<id>` "Maksa osuutesi" -nappina (`shareRequestOf`) — sekä sähköpostin.
+Kaveri maksaa ShareScreenissä samalla kassalla tai kertoo "En pääse". `venue.shareDeadlineHours`
+ennen alkua maksamattomat osuudet siirtyvät varaajan loppuosuudeksi (`kind 'rest'`), joka
+veloitetaan tallennetulta kortilta (`krossi-booking-cron`); jos kortti ei käy, varaaja maksaa sen
+sovelluksessa (banneri + kello + sähköposti). MyBookingSheet ja ShareScreen näyttävät, kuka on
+maksanut (`SplitLines`). *Laita myyntiin*: maksuttoman peruutuksen jälkeen oma vuoro myyntiin
+(`putOnSale`) — se näkyy muille vapaana ("Myynnissä tänä päivänä"), sen kokonaan kattava varaus ottaa
+sen normaalihintaan, ja kaikki maksut palautetaan (toast + kello). Tietokanta:
+`supabase/migrations/20261016120000_krossi_booking_split_and_resale.sql`, raha:
+`supabase/functions/_shared/booking.ts`.
 
 **Auth & onboarding:** näyttävä tumma kirjautumisnäkymä (kenttäviivat, pallo), Google/Apple/
 sähköposti, rekisteröinti/kirjautuminen/salasanan palautus. Onboarding yhdellä ruudulla:

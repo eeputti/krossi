@@ -6,9 +6,11 @@
 // nobody has to scan a calendar grid (learned from Thril). The floor map shows *where* the court
 // is — Krossi's own idea, neither Cintoia nor Thril has it. My upcoming bookings sit on top.
 //
-// Better than both: "Ilmoita kun vapautuu" on a full time (a bell instead of Cintoia's manual
-// resale), "Sama vuoro ensi viikolla" in one tap, the player's own play times marked, last-minute
-// deals on empty courts and the weather for outdoor courts.
+// Better than both: "Ilmoita kun vapautuu" on a full time (a bell), "Sama vuoro ensi viikolla" in
+// one tap, the player's own play times marked, last-minute deals on empty courts and the weather
+// for outdoor courts. Jaettu maksu with pelikaverit (BookSheet) and "Laita myyntiin" for a
+// booking past its free cancellation (MyBookingSheet): what others put on sale is listed for the
+// day, and shares waiting for my payment sit on top.
 //
 // From a hallisarja fixture (?liiga=<leagueId>&ottelu=<fixtureId>) the page says whose match it
 // is, and after paying the booking sheet sends the time to the opponent's chat in one tap.
@@ -22,15 +24,15 @@ import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
 import { firstName, formatGameTime, formatTime } from '../../lib/format.js';
 import {
-  addDays, bookingDays, dateKey, durationLabel, fitsAvailability, freeSlots, localDate, locationsFor, minutesOf,
-  sportsOf,
+  addDays, bookingDays, centsLabel, dateKey, durationLabel, findCourt, fitsAvailability, freeSlots, localDate, locationsFor,
+  minutesOf, paidTotal, priceOf, sportsOf,
 } from '../../features/booking.js';
 import {
-  Button, ChipSelect, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Skeleton, TopBar, useToast,
+  Avatar, Button, ChipSelect, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Skeleton, TopBar, useToast,
 } from '../../ui/index.js';
 import { BookSheet } from './BookSheet.jsx';
 import { MyBookingSheet } from './MyBookingSheet.jsx';
-import { DateStrip, DurationStepper, MyBookingCard, TimeTiles } from './BookingParts.jsx';
+import { DateStrip, DurationStepper, MyBookingCard, TimeTiles, whenLabel } from './BookingParts.jsx';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ALL = 'kaikki';
@@ -94,7 +96,33 @@ export function BookingScreen({ params, query }) {
     return { leagueId: league.id, leagueName: league.seasonLabel, fixtureId: fixture.id, opponent };
   }, [query?.liiga, query?.ottelu, user?.id]);
   const watches = useAsync(() => (venue ? api.booking.listWatches() : Promise.resolve([])), [venue?.id]);
-  useResync(() => { day.reload({ silent: true }); mine.reload({ silent: true }); watches.reload({ silent: true }); });
+  // Shares waiting for my payment: friends' bookings, and a rest my card didn't cover.
+  const shares = useAsync(() => (venue ? api.booking.listShares() : Promise.resolve([])), [venue?.id]);
+  useResync(() => { day.reload({ silent: true }); mine.reload({ silent: true }); watches.reload({ silent: true }); shares.reload({ silent: true }); });
+
+  // While a booking of mine is on sale, or friends still owe their shares, look now and then:
+  // who has paid shows up, and when somebody books my on-sale slot, say so.
+  const onSale = (mine.data?.upcoming || []).filter((b) => b.forSale).map((b) => b.id).join();
+  const owing = (mine.data?.upcoming || []).some((b) => b.split?.lines.some((l) => l.kind === 'friend' && l.status === 'pending'));
+  const listedRef = useRef(new Set());
+  useEffect(() => {
+    if (!onSale && !owing) return undefined;
+    const timer = setInterval(() => { mine.reload({ silent: true }); if (onSale) day.reload({ silent: true }); }, 15_000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onSale, owing]);
+  useEffect(() => {
+    const listed = listedRef.current;
+    for (const b of mine.data?.past || []) {
+      if (b.soldAt && listed.has(b.id)) {
+        listed.delete(b.id);
+        const back = paidTotal(b) || b.priceCents;
+        toast(`Vuorosi myytiin — ${centsLabel(back)} palautetaan maksutavallesi.`, { icon: 'check', duration: 6000 });
+      }
+    }
+    for (const b of mine.data?.upcoming || []) if (b.forSale) listed.add(b.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mine.data]);
 
   // While a bell is waiting, look again now and then: a freed court shows up without a reload.
   const waiting = (watches.data || []).some((w) => !w.notifiedAt);
@@ -112,7 +140,12 @@ export function BookingScreen({ params, query }) {
   );
   const freeCount = slots.filter((s) => s.options.length).length;
 
-  const refresh = () => { day.reload({ silent: true }); mine.reload({ silent: true }); watches.reload({ silent: true }); };
+  const refresh = () => {
+    day.reload({ silent: true });
+    mine.reload({ silent: true });
+    watches.reload({ silent: true });
+    shares.reload({ silent: true });
+  };
 
   // A rebook / freed-watch pick opens once its day's calendar has loaded.
   useEffect(() => {
@@ -218,8 +251,24 @@ export function BookingScreen({ params, query }) {
   }
 
   const upcoming = mine.data?.upcoming || [];
+  // The open booking follows the latest data (a friend paid, it sold) instead of the tapped snapshot.
+  const shownBooking = openBooking
+    && ([...upcoming, ...(mine.data?.past || [])].find((b) => b.id === openBooking.id) || openBooking);
   const freed = (watches.data || []).filter((w) => w.notifiedAt);
+  const owed = (shares.data || []).filter((s) => s.payable);
   const lastDay = days[days.length - 1];
+  // Somebody else's booking on sale today: bookable at exactly its time and length (the rule of
+  // krossi_hold_booking), so they get their own list whatever length the stepper shows.
+  const forSale = busy
+    .filter((b) => b.forSale && !b.mine && Date.parse(b.startsAt) > now)
+    .map((b) => {
+      const found = findCourt(venue, b.courtId);
+      const length = Math.round((Date.parse(b.endsAt) - Date.parse(b.startsAt)) / 60_000);
+      return found && found.court.sport === sport && venue.durations.includes(length)
+        ? { ...b, ...found, minutes: length, cents: priceOf(venue, found.court, b.startsAt, length) }
+        : null;
+    })
+    .filter((b) => b && b.cents != null);
 
   // "Sama vuoro ensi viikolla?": my latest played booking, one week on, if that day can be booked.
   const lastPlayed = (mine.data?.past || []).find((b) => b.status === 'confirmed' && Date.parse(b.endsAt) < now);
@@ -293,6 +342,19 @@ export function BookingScreen({ params, query }) {
             <span><Icon name="undo" size={15} />Peru {venue.cancelLimitHours} h ennen</span>
           </div>
         </header>
+
+        {owed.map((s) => (
+          <button key={s.id} type="button" className="bk-owe rise" onClick={() => navigate(`/pelaa/osuus/${encodeURIComponent(s.id)}`)}>
+            {s.kind === 'rest'
+              ? <span className="bk-owe-icon" aria-hidden="true"><Icon name="alert" size={18} strokeWidth={2.4} /></span>
+              : <Avatar person={s.booker} size={38} />}
+            <span className="bk-owe-text">
+              <b>{s.kind === 'rest' ? `Loppuosuus maksamatta: ${centsLabel(s.cents)}` : `${firstName(s.booker.name)} pyytää osuuttasi: ${centsLabel(s.cents)}`}</b>
+              <span className="truncate">{whenLabel(s.booking.startsAt, s.booking.endsAt)} · {s.booking.courtName}, {s.booking.locationName}</span>
+            </span>
+            <span className="bk-owe-cta">Maksa</span>
+          </button>
+        ))}
 
         {freed.map((w) => (
           <div key={w.id} className="bk-freed rise" role="status">
@@ -370,6 +432,28 @@ export function BookingScreen({ params, query }) {
           </div>
         </section>
 
+        {forSale.length > 0 && (
+          <section className="bk-section" aria-label="Myynnissä">
+            <h2 className="bk-h">Myynnissä tänä päivänä</h2>
+            <div className="bk-sales">
+              {forSale.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  className="bk-sale"
+                  onClick={() => openPick({ startsAt: b.startsAt, courtId: b.courtId, locationId: b.location.id, minutes: b.minutes })}
+                >
+                  <span className="bk-sale-clock t-num">{formatTime(b.startsAt)}–{formatTime(b.endsAt)}</span>
+                  <span className="bk-sale-place truncate">{b.court.name} · {b.location.name}</span>
+                  <span className="bk-sale-price t-num">{centsLabel(b.cents)}</span>
+                  <Icon name="chevron-right" size={18} />
+                </button>
+              ))}
+            </div>
+            <p className="bk-fine">Pelaaja ei pääse vuoroonsa ja myy sen eteenpäin. Varaat sen sellaisenaan, normaalihintaan.</p>
+          </section>
+        )}
+
         {results}
 
         <p className="bk-fine bk-fine-center bk-page-foot">
@@ -393,7 +477,7 @@ export function BookingScreen({ params, query }) {
       />
       <MyBookingSheet
         open={Boolean(openBooking)}
-        booking={openBooking}
+        booking={shownBooking}
         venue={venue}
         onClose={() => setOpenBooking(null)}
         onChanged={refresh}
