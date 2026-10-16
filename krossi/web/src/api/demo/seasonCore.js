@@ -74,6 +74,7 @@ export function toSlot(slot) {
       : [],
     createdAt: slot.createdAt,
     decidedAt: slot.decidedAt,
+    notifiedAt: slot.notifiedAt || null,
   };
 }
 

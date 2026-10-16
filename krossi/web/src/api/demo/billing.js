@@ -1,13 +1,14 @@
 // billing.js (demo) — laskutus for kausivuorot: the hall's invoices (mark paid, "send"), the card
-// kept on file and the month-by-month card charges. No money moves: the demo card 'demo-0341'
-// fails every charge on purpose, so the failure path (a failed month, "Maksa nyt") can be tried.
+// kept on file, the month-by-month card charges and the hall's invoicing details (Hallin
+// asetukset). No money moves: the demo card 'demo-0341' fails every charge on purpose, so the
+// failure path (a failed month, "Maksa nyt") can be tried.
 
 import { ME } from './rows.js';
 import { run } from './runtime.js';
 import { db, nowIso } from './store.js';
 import { dateKey } from '../../features/booking.js';
-import { chargeIsDue } from '../../features/seasons.js';
-import { fail, requireStaff, venueRow } from './bookingCore.js';
+import { chargeIsDue, checkBillingSettings } from '../../features/seasons.js';
+import { billingRow, fail, requireStaff, venueRow } from './bookingCore.js';
 import { slotRow, toCharge, toInvoice } from './seasonCore.js';
 
 const MAX_ATTEMPTS = 4;
@@ -180,5 +181,63 @@ export async function verifyCharge(chargeId) {
       charge.failureMessage = null;
     }
     return { paid: charge.status === 'paid', status: charge.status === 'paid' ? 'succeeded' : 'canceled' };
+  });
+}
+
+// ── Hallin asetukset: laskutustiedot ─────────────────────────────────────────
+
+/** The biggest invoice number the venue has used (0 = none yet). */
+function lastInvoiceNumber(venueId) {
+  return db.booking.invoices
+    .filter((i) => i.venueId === venueId && /^\d{1,9}$/.test(i.number))
+    .reduce((max, i) => Math.max(max, Number(i.number)), 0);
+}
+
+function toSettings(venue) {
+  const row = db.booking.billing[venue.id] || null;
+  const seller = row?.seller || {};
+  return {
+    venueId: venue.id,
+    sellerName: seller.name || '',
+    businessId: seller.businessId || null,
+    address: seller.address || null,
+    iban: seller.iban || null,
+    bic: seller.bic || null,
+    email: seller.email || null,
+    phone: seller.phone || null,
+    vatPercent: row?.vatPercent ?? 14,
+    paymentTermsDays: row?.paymentTermsDays ?? 14,
+    nextInvoiceNumber: row?.nextInvoiceNumber ?? 1001,
+    lastInvoiceNumber: lastInvoiceNumber(venue.id),
+    ready: Boolean(seller.name && seller.iban),
+    updatedAt: row?.updatedAt || null,
+  };
+}
+
+export async function getSettings(venueId) {
+  return run(() => {
+    const venue = venueRow(venueId);
+    requireStaff(venue);
+    return toSettings(venue);
+  });
+}
+
+export async function saveSettings(venueId, input = {}) {
+  return run(() => {
+    const venue = venueRow(venueId);
+    requireStaff(venue);
+    const row = billingRow(venue.id);
+    const { value, error } = checkBillingSettings(
+      { ...input, nextInvoiceNumber: input.nextInvoiceNumber ?? null },
+      { lastInvoiceNumber: lastInvoiceNumber(venue.id) },
+    );
+    if (error) throw fail(error);
+    row.seller = {
+      name: value.sellerName, businessId: value.businessId, address: value.address, iban: value.iban, bic: value.bic,
+      email: value.email, phone: value.phone,
+    };
+    Object.assign(row, { vatPercent: value.vatPercent, paymentTermsDays: value.paymentTermsDays, updatedAt: nowIso() });
+    if (value.nextInvoiceNumber != null) row.nextInvoiceNumber = value.nextInvoiceNumber;
+    return toSettings(venue);
   });
 }

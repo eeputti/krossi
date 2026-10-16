@@ -19,6 +19,7 @@ const SLOT_KEYS = [
   'id', 'venueId', 'seasonId', 'seasonName', 'sport', 'courtId', 'courtName', 'locationId', 'locationName', 'weekday',
   'startTime', 'minutes', 'startsOn', 'endsOn', 'skipDates', 'status', 'billing', 'priceCents', 'weeks', 'holderName',
   'holder', 'billingEmail', 'billingAddress', 'note', 'declineReason', 'nextAt', 'invoice', 'charges', 'createdAt', 'decidedAt',
+  'notifiedAt',
 ];
 const INVOICE_KEYS = [
   'id', 'venueId', 'seasonSlotId', 'number', 'reference', 'issuedOn', 'dueOn', 'amountCents', 'vatPercent', 'vatCents',

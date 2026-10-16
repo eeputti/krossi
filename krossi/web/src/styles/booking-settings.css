@@ -1,0 +1,73 @@
+/* booking-settings.css — Hallin asetukset (HallSettings and its sheets: SeasonSettingsSheet,
+   PassProductSheet, GiftSettingsSheet, BillingSettingsSheet). A work tool like the other hall views:
+   plain rows, factual chips, no decoration. Every class is prefixed hset-. */
+
+/* ── The view ── */
+.hset-lead { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.hset .bhall-subhead { margin-bottom: 2px; }
+.hset-section { display: grid; gap: var(--s3); }
+.hset-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s3); }
+.hset-head > div { min-width: 0; }
+.hset-head .btn { flex-shrink: 0; }
+.hset-help { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+
+.hset-notice {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--r-lg);
+  background: var(--warn-bg); color: var(--ink-2); font-size: 13.5px; line-height: 1.45;
+}
+.hset-notice > .icon { flex-shrink: 0; color: var(--warn); }
+.hset-notice > span { flex: 1; min-width: 0; }
+.hset-notice b { color: var(--ink); }
+.hset-notice .btn { flex-shrink: 0; }
+
+.hset-list { padding: 0; list-style: none; display: grid; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.hset-list > li + li { border-top: 1px solid var(--line); }
+.hset-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; gap: 4px 12px; align-items: center;
+  width: 100%; padding: 12px 14px; text-align: left; color: var(--ink);
+}
+.hset-row:hover { background: var(--surface-2); }
+.hset-row-main { display: grid; gap: 2px; min-width: 0; }
+.hset-row-main b { font-size: 14.5px; font-weight: 800; }
+.hset-row-main small { font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+.hset-row-side { display: grid; justify-items: end; gap: 4px; }
+.hset-row-side small { font-size: 12px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+.hset-row-chevron { grid-column: -2; color: var(--faint); }
+.hset-row.is-quiet { background: var(--surface-2); }
+.hset-row.is-quiet .hset-row-main b { color: var(--ink-2); }
+.hset-row.is-warn { box-shadow: inset 3px 0 0 var(--warn); }
+@media (max-width: 480px) {
+  .hset-head { flex-direction: column; align-items: stretch; }
+  .hset-head .btn { align-self: flex-start; }
+  .hset-row { grid-template-columns: minmax(0, 1fr) 18px; }
+  .hset-row-side { grid-column: 1; grid-row: 2; justify-items: start; grid-auto-flow: column; justify-content: start; align-items: center; gap: 8px; }
+  .hset-row-chevron { grid-column: 2; grid-row: 1 / span 2; }
+}
+
+/* ── Sheets: day / amount chips that come off with a tap ── */
+.hset-days-box { display: grid; gap: 10px; padding: 14px; border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--line); }
+.hset-days-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hset-days-count { font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.hset-days { padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.hset-day {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 8px 4px 12px; border-radius: var(--r-pill);
+  background: var(--surface); border: 1px solid var(--line-strong); font-size: 13px; font-weight: 750; color: var(--ink);
+  transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.hset-day small { font-size: 12px; font-weight: 600; color: var(--muted); }
+.hset-day .icon { color: var(--faint); }
+.hset-day:hover { border-color: var(--danger); }
+.hset-day:hover .icon { color: var(--danger); }
+.hset-day.is-out { border-style: dashed; color: var(--faint); text-decoration: line-through; }
+.hset-day-add { display: flex; gap: 8px; align-items: center; }
+.hset-day-add .input { flex: 1; min-width: 0; }
+.hset-day-add .btn { flex-shrink: 0; }
+.hset-day-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.hset-note { margin: 0; font-size: 13px; font-weight: 650; color: var(--green-700); }
+
+.hset-three { display: grid; gap: 12px; }
+@media (min-width: 560px) { .hset-three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hset-day { transition: none; }
+}

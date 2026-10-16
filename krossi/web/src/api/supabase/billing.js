@@ -1,11 +1,12 @@
 // billing.js — laskutus for kausivuorot: the hall's invoices (RPCs), the card kept on file for
-// monthly season charges and the charges themselves. Reading and marking invoices goes through
-// SECURITY DEFINER RPCs; everything that touches Stripe or sends mail goes through the
-// krossi-billing edge function (SetupIntent, off-session PaymentIntents, invoice e-mail).
+// monthly season charges, the charges themselves and the hall's invoicing details (Hallin
+// asetukset). Reading and marking invoices and the details go through SECURITY DEFINER RPCs;
+// everything that touches Stripe or sends mail goes through the krossi-billing edge function
+// (SetupIntent, off-session PaymentIntents, invoice e-mail).
 
 import { db, isMissingFunction, isUuid, requireUid } from './client.js';
 import { DATE_RE, call, callOrEmpty, edgeCall, fail, list, number, rpcError, text } from './bookingCore.js';
-import { mapCard, mapCharge, mapInvoice } from './hallMaps.js';
+import { mapBillingSettings, mapCard, mapCharge, mapInvoice } from './hallMaps.js';
 
 const FUNCTION = 'krossi-billing';
 const LOAD_FAIL = 'Laskutustietoja ei voitu ladata.';
@@ -119,4 +120,40 @@ export async function verifyCharge(chargeId, paymentIntentId) {
   if (!isUuid(chargeId)) throw fail('Veloitusta ei löytynyt.');
   const data = await edge('verifyCharge', { chargeId, paymentIntentId }, 'Maksun tarkistus epäonnistui. Päivitä sivu hetken päästä.');
   return { paid: data?.paid === true, status: text(data?.status) };
+}
+
+// ── Hallin asetukset: laskutustiedot ─────────────────────────────────────────
+
+/** The venue's invoicing details; the defaults (not ready) while the settings migration is not deployed. */
+export async function getSettings(venueId) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  return mapBillingSettings(await callOrEmpty('krossi_billing_settings', { venue_id_input: venueId }, LOAD_FAIL, null), venueId);
+}
+
+/** Saves them; the RPC checks and normalizes like features/seasons.js checkBillingSettings. */
+export async function saveSettings(venueId, {
+  sellerName = '', businessId = null, address = null, iban = null, bic = null, email = null, phone = null,
+  vatPercent, paymentTermsDays, nextInvoiceNumber = null,
+} = {}) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  if (nextInvoiceNumber !== null && nextInvoiceNumber !== undefined && !Number.isInteger(nextInvoiceNumber)) {
+    throw fail('Tarkista seuraavan laskun numero.', 'invalid');
+  }
+  const textOrNull = (value) => (typeof value === 'string' ? value : null);
+  const data = await call('krossi_billing_save_settings', {
+    venue_id_input: venueId,
+    seller_name_input: typeof sellerName === 'string' ? sellerName : '',
+    business_id_input: textOrNull(businessId),
+    address_input: textOrNull(address),
+    iban_input: textOrNull(iban),
+    bic_input: textOrNull(bic),
+    email_input: textOrNull(email),
+    phone_input: textOrNull(phone),
+    vat_percent_input: typeof vatPercent === 'number' && Number.isFinite(vatPercent) ? vatPercent : null,
+    payment_terms_days_input: Number.isInteger(paymentTermsDays) ? paymentTermsDays : null,
+    next_invoice_number_input: nextInvoiceNumber ?? null,
+  }, 'Laskutustietojen tallennus epäonnistui. Yritä hetken päästä uudelleen.');
+  return mapBillingSettings(data, venueId);
 }

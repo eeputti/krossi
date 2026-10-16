@@ -67,7 +67,7 @@ const SLOT_ROW = {
   invoice: null,
   charges: [{ id: CHARGE, seasonSlotId: SLOT, month: '2026-10', weeks: 2, amountCents: 5100, dueOn: '2026-10-16', status: 'failed',
     attempts: 1, failureMessage: 'Pankki hylkäsi veloituksen.', paidAt: null, holderName: 'Pelaaja Yksi' }],
-  createdAt: '2026-10-14T18:00:00.000Z', decidedAt: '2026-10-16T08:00:00.000Z',
+  createdAt: '2026-10-14T18:00:00.000Z', decidedAt: '2026-10-16T08:00:00.000Z', notifiedAt: '2026-10-16T08:00:02.000Z',
 };
 
 test('the phase-2 modules export exactly their contract functions and are registered', () => {
@@ -174,4 +174,107 @@ test('wallet: orders through krossi-billing, redeem answers become errors, credi
   assert.deepEqual(await wallet.createPaymentIntent({ kind: 'pass', id: PASS }), { paid: true });
   assert.deepEqual(fake.log.invoked.map((c) => c.body), [{ action: 'orderConfig', kind: 'pass', id: PASS }, { action: 'orderIntent', kind: 'pass', id: PASS }]);
   await assert.rejects(wallet.checkoutConfig({ kind: 'lahja', id: PASS }), /Tilausta ei löytynyt/);
+});
+
+// ── Hallin asetukset ──────────────────────────────────────────────────────────
+
+test('settings: before the migration the views look empty or not ready', async () => {
+  setClientForTests(fakeClient({ rpc: () => missing }));
+  assert.deepEqual(await seasons.staffSeasons(VENUE), []);
+  assert.deepEqual(await wallet.staffProducts(VENUE), { passes: [], gift: null });
+  const settings = await billing.getSettings(VENUE);
+  assert.deepEqual([settings.venueId, settings.sellerName, settings.ready, settings.nextInvoiceNumber, settings.vatPercent], [VENUE, '', false, 1001, 14]);
+});
+
+test('settings: seasons, products, gift cards and invoicing details go to their RPCs as typed arguments', async () => {
+  const STAFF_SEASON = {
+    id: SEASON, venueId: VENUE, name: 'Talvikausi', startsOn: '2026-08-31', endsOn: '2027-05-02', skipDates: ['2026-12-24'], discountPercent: 15,
+    requestsOpen: true, activeSlots: 3, requests: 1, bookedFrom: '2026-09-02', bookedUntil: '2027-04-28', removable: false,
+  };
+  const PRODUCT = {
+    id: PASS, venueId: VENUE, name: 'Tennis 10 × 1 h', sport: 'tennis', uses: 10, minutesPerUse: 60, validDays: 365, priceCents: 26000,
+    description: null, active: false, sold: 4, removable: false,
+  };
+  const GIFT = { amounts: [2500, 5000], minCents: 1000, maxCents: 30000, validDays: 365 };
+  const SETTINGS = {
+    venueId: VENUE, sellerName: 'Halli Oy', businessId: '0112038-9', address: null, iban: 'FI2112345600000785', bic: 'NDEAFIHH',
+    email: 'laskutus@halli.fi', phone: null, vatPercent: 25.5, paymentTermsDays: 14, nextInvoiceNumber: 1006, lastInvoiceNumber: 1005,
+    ready: true, updatedAt: '2026-10-16T08:00:00.000Z',
+  };
+  const fake = fakeClient({
+    rpc: (name) => {
+      if (name === 'krossi_season_save' || name === 'krossi_season_staff_seasons') return { data: name === 'krossi_season_save' ? STAFF_SEASON : [STAFF_SEASON], error: null };
+      if (name === 'krossi_wallet_staff_products') return { data: { passes: [PRODUCT], gift: GIFT }, error: null };
+      if (name === 'krossi_wallet_save_product') return { data: PRODUCT, error: null };
+      if (name === 'krossi_wallet_save_gift_settings') return { data: GIFT, error: null };
+      if (name === 'krossi_billing_settings' || name === 'krossi_billing_save_settings') return { data: SETTINGS, error: null };
+      if (name === 'krossi_season_remove') return raised('Kaudella on kausivuoroja tai hakemuksia, joten sitä ei voi poistaa. Sulje haku, niin uusia ei tule.');
+      return { data: null, error: null };
+    },
+  });
+  setClientForTests(fake);
+  assert.deepEqual(await seasons.staffSeasons(VENUE), [STAFF_SEASON]);
+  assert.deepEqual(await seasons.saveSeason({
+    id: null, venueId: VENUE, name: 'Talvikausi', startsOn: '2026-08-31', endsOn: '2027-05-02', skipDates: ['2026-12-24', 'nope'],
+    discountPercent: 12.5, requestsOpen: false,
+  }), STAFF_SEASON);
+  assert.deepEqual(fake.log.rpc.at(-1), {
+    name: 'krossi_season_save',
+    args: { season_id_input: null, venue_id_input: VENUE, name_input: 'Talvikausi', starts_on_input: '2026-08-31', ends_on_input: '2027-05-02',
+      skip_dates_input: ['2026-12-24'], discount_percent_input: null, requests_open_input: false },
+  });
+  await assert.rejects(seasons.removeSeason(SEASON), (err) => err instanceof ApiError && /ei voi poistaa/.test(err.userMessage));
+  await assert.rejects(seasons.saveSeason({ id: 'nope', venueId: VENUE, name: 'X' }), /Kautta ei löytynyt/);
+
+  assert.deepEqual(await wallet.staffProducts(VENUE), { passes: [PRODUCT], gift: GIFT });
+  assert.deepEqual(await wallet.saveProduct({ ...PRODUCT, uses: '10', priceCents: 26000.5 }), PRODUCT);
+  assert.deepEqual(fake.log.rpc.at(-1).args, {
+    product_id_input: PASS, venue_id_input: VENUE, name_input: 'Tennis 10 × 1 h', sport_input: 'tennis', uses_input: null,
+    minutes_per_use_input: 60, valid_days_input: 365, price_cents_input: null, description_input: null, active_input: false,
+  });
+  await wallet.removeProduct(PASS);
+  assert.deepEqual(fake.log.rpc.at(-1), { name: 'krossi_wallet_remove_product', args: { product_id_input: PASS } });
+  assert.deepEqual(await wallet.saveGiftSettings(VENUE, { amounts: [2500, 5000, 25.5], minCents: 1000, maxCents: 30000, validDays: 365 }), GIFT);
+  assert.deepEqual(fake.log.rpc.at(-1).args, {
+    venue_id_input: VENUE, amounts_input: [2500, 5000, null], min_cents_input: 1000, max_cents_input: 30000, valid_days_input: 365,
+  });
+
+  assert.deepEqual(await billing.getSettings(VENUE), SETTINGS);
+  assert.deepEqual(await billing.saveSettings(VENUE, { ...SETTINGS, iban: 'FI21 1234 5600 0007 85', vatPercent: 25.5, nextInvoiceNumber: null }), SETTINGS);
+  assert.deepEqual(fake.log.rpc.at(-1), {
+    name: 'krossi_billing_save_settings',
+    args: { venue_id_input: VENUE, seller_name_input: 'Halli Oy', business_id_input: '0112038-9', address_input: null,
+      iban_input: 'FI21 1234 5600 0007 85', bic_input: 'NDEAFIHH', email_input: 'laskutus@halli.fi', phone_input: null,
+      vat_percent_input: 25.5, payment_terms_days_input: 14, next_invoice_number_input: null },
+  });
+  await assert.rejects(billing.saveSettings(VENUE, { ...SETTINGS, nextInvoiceNumber: 10.5 }), /seuraavan laskun numero/);
+  assert.equal(fake.log.invoked.length, 0);
+});
+
+test('approve and decline e-mail the player through krossi-billing; a failing mail never fails the decision', async () => {
+  const fake = fakeClient({
+    rpc: () => ({ data: SLOT_ROW, error: null }),
+    invoke: () => functionError('Sähköpostilähetintä ei ole vielä konfiguroitu.', 503),
+  });
+  setClientForTests(fake);
+  const warn = console.warn;
+  const warned = [];
+  console.warn = (...args) => warned.push(args);
+  try {
+    assert.deepEqual(await seasons.approve(SLOT, { courtId: COURT }), SLOT_ROW);
+    await seasons.decline(SLOT, 'Täynnä.');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  } finally {
+    console.warn = warn;
+  }
+  assert.deepEqual(fake.log.invoked, [
+    { name: 'krossi-billing', body: { action: 'seasonDecided', slotId: SLOT } },
+    { name: 'krossi-billing', body: { action: 'seasonDecided', slotId: SLOT } },
+  ]);
+  assert.equal(warned.length, 2);
+  // a refused approval sends nothing
+  const refused = fakeClient({ rpc: () => raised('Hakemus on jo käsitelty.') });
+  setClientForTests(refused);
+  await assert.rejects(seasons.approve(SLOT, {}), /jo käsitelty/);
+  assert.deepEqual(refused.log.invoked, []);
 });

@@ -1,15 +1,17 @@
 // wallet.js — sarjakortit and lahjakortit: the hall's series cards for sale, ordering them and gift
 // cards, paying for an order with the same Stripe checkout as bookings (krossi-billing edge
-// function: orderConfig / orderIntent / orderVerify), redeeming a gift card's code, and paying a
-// held booking with a series card or the gift balance (RPCs; the database keeps the ledger).
+// function: orderConfig / orderIntent / orderVerify), redeeming a gift card's code, paying a held
+// booking with a series card or the gift balance (RPCs; the database keeps the ledger), and the
+// hall's own products and gift card limits (Hallin asetukset).
 
 import { db, isMissingFunction, isUuid, requireUid } from './client.js';
 import { call, callOrEmpty, edgeCall, fail, list, mapBooking, mapBooker, number, rpcError, text } from './bookingCore.js';
-import { mapGiftCard, mapPass, mapProduct, mapWallet } from './hallMaps.js';
+import { mapGift, mapGiftCard, mapPass, mapProduct, mapStaffProduct, mapWallet } from './hallMaps.js';
 
 const FUNCTION = 'krossi-billing';
 const LOAD_FAIL = 'Kortteja ei voitu ladata.';
 const ORDER_FAIL = 'Tilaus epäonnistui. Yritä hetken päästä uudelleen.';
+const SETTINGS_FAIL = 'Tallennus epäonnistui. Yritä hetken päästä uudelleen.';
 const CHECKOUT_FAIL = 'Maksun aloitus epäonnistui. Yritä hetken päästä uudelleen.';
 const PAY_FAIL = 'Maksu epäonnistui. Yritä hetken päästä uudelleen.';
 
@@ -34,16 +36,7 @@ export async function products(venueId) {
     if (isMissingFunction(error)) return { passes: [], gift: null };
     throw rpcError(error, LOAD_FAIL);
   }
-  const gift = data?.gift;
-  return {
-    passes: list(data?.passes).map(mapProduct),
-    gift: gift ? {
-      amounts: list(gift.amounts).map((n) => number(n)).filter((n) => n > 0),
-      minCents: number(gift.minCents, 1000),
-      maxCents: number(gift.maxCents, 30000),
-      validDays: number(gift.validDays, 365),
-    } : null,
-  };
+  return { passes: list(data?.passes).map(mapProduct), gift: mapGift(data?.gift) };
 }
 
 export async function get(venueId) {
@@ -132,4 +125,57 @@ export async function staffList(venueId) {
       ...mapGiftCard(g), buyer: mapBooker(g.buyer), redeemedBy: mapBooker(g.redeemedBy),
     })),
   };
+}
+
+// ── Hallin asetukset: products and gift cards ────────────────────────────────
+
+const intOrNull = (value) => (Number.isInteger(value) ? value : null);
+
+/** Products for sale and hidden ones + the gift card settings; empty before the migration. */
+export async function staffProducts(venueId) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  const data = await callOrEmpty('krossi_wallet_staff_products', { venue_id_input: venueId }, LOAD_FAIL, { passes: [], gift: null });
+  return { passes: list(data?.passes).map(mapStaffProduct), gift: mapGift(data?.gift) };
+}
+
+/** A new product (id null) or changes; the RPC checks it like features/seasons.js checkPassProduct. */
+export async function saveProduct({
+  id = null, venueId, name, sport, uses, minutesPerUse, validDays, priceCents, description = null, active = true,
+} = {}) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  if (id !== null && id !== undefined && !isUuid(id)) throw fail('Sarjakorttia ei löytynyt.');
+  const data = await call('krossi_wallet_save_product', {
+    product_id_input: id || null,
+    venue_id_input: venueId,
+    name_input: typeof name === 'string' ? name : '',
+    sport_input: typeof sport === 'string' ? sport : null,
+    uses_input: intOrNull(uses),
+    minutes_per_use_input: intOrNull(minutesPerUse),
+    valid_days_input: intOrNull(validDays),
+    price_cents_input: intOrNull(priceCents),
+    description_input: typeof description === 'string' ? description : null,
+    active_input: active !== false,
+  }, SETTINGS_FAIL);
+  return mapStaffProduct(data);
+}
+
+export async function removeProduct(productId) {
+  await requireUid();
+  if (!isUuid(productId)) throw fail('Sarjakorttia ei löytynyt.');
+  await call('krossi_wallet_remove_product', { product_id_input: productId }, 'Poisto epäonnistui. Yritä hetken päästä uudelleen.');
+}
+
+export async function saveGiftSettings(venueId, { amounts = [], minCents, maxCents, validDays } = {}) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  const data = await call('krossi_wallet_save_gift_settings', {
+    venue_id_input: venueId,
+    amounts_input: list(amounts).map(intOrNull),
+    min_cents_input: intOrNull(minCents),
+    max_cents_input: intOrNull(maxCents),
+    valid_days_input: intOrNull(validDays),
+  }, SETTINGS_FAIL);
+  return mapGift(data);
 }

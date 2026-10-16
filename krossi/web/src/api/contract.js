@@ -447,6 +447,9 @@
 // @property {CardCharge[]} charges            billing 'card': the month-by-month schedule
 // @property {string} createdAt
 // @property {string|null} decidedAt           approved / declined / ended
+// @property {string|null} notifiedAt          when the player was e-mailed the hall's decision on their
+//                                            request (approved or declined); null = not (yet), or a slot
+//                                            the hall added itself
 //
 // @typedef {Object} CardCharge                one month of a card-billed season slot
 // @property {string} id
@@ -546,6 +549,84 @@
 // @property {number} giftCents                gift balance I can spend now
 // @property {CreditEvent[]} giftHistory       newest first
 // @property {GiftCard[]} giftCards             gift cards I bought (paid ones), newest first
+//
+// ── Hallin asetukset (the hall's own settings) ───────────────────────────────
+// Staff edit the venue's seasons, series card products, gift card limits and invoicing details in
+// the app (/pelaa/halli/:venue?nakyma=asetukset). The checks and their Finnish messages are
+// features/seasons.js's checkSeason / checkPassProduct / checkGiftSettings / checkBillingSettings;
+// the RPCs check the same again. Changes apply to new requests, approvals, orders and invoices:
+// an active kausivuoro keeps its weeks and price, a paid series card its content, an invoice its
+// seller details.
+//
+// @typedef {Object} SeasonInput               seasons.saveSeason
+// @property {string|null} id                  null = a new season
+// @property {string} venueId
+// @property {string} name
+// @property {string} startsOn                 'YYYY-MM-DD'
+// @property {string} endsOn
+// @property {string[]} skipDates              holidays; days outside startsOn…endsOn are dropped
+// @property {number} discountPercent          whole percent 0–90
+// @property {boolean} requestsOpen
+//
+// @typedef {Object} StaffSeason               Season + what the settings view needs
+// @property {string} id  ...all Season fields
+// @property {number} activeSlots              kausivuoroja voimassa
+// @property {number} requests                 requests waiting for the hall
+// @property {string|null} bookedFrom          first and last week ('YYYY-MM-DD') of its active slots: the
+// @property {string|null} bookedUntil         season's dates must keep covering them (null = none)
+// @property {boolean} removable               no kausivuoro or request of any kind refers to it
+//
+// @typedef {Object} StaffPassProduct          PassProduct + the hall's own fields
+// @property {string} id  ...all PassProduct fields
+// @property {boolean} active                  for sale (wallet.products lists only these)
+// @property {number} sold                     paid series cards of this product
+// @property {boolean} removable               never ordered (else: hide it, active false)
+//
+// @typedef {Object} PassProductInput          wallet.saveProduct
+// @property {string|null} id                  null = a new product
+// @property {string} venueId
+// @property {string} name
+// @property {BookingSport} sport              a sport the venue has courts for
+// @property {number} uses                     1–200
+// @property {number} minutesPerUse            30–480 in half hours
+// @property {number} validDays                1–1825, from the purchase
+// @property {number} priceCents               50–1 000 000
+// @property {string|null} description         ≤ 300 characters
+// @property {boolean} active
+//
+// @typedef {Object} GiftSettings              the venue's gift cards (wallet.products' `gift`)
+// @property {number[]} amounts                ready amounts in cents, whole euros, ascending (1–6 of them)
+// @property {number} minCents                 smallest amount of one's own (whole euros, ≥ 1 €)
+// @property {number} maxCents                 largest (≤ 1000 €); the ready amounts are between the two
+// @property {number} validDays                30–1825, from the purchase
+//
+// @typedef {Object} BillingSettings           laskutustiedot: what an invoice says about the seller
+// @property {string} venueId
+// @property {string} sellerName               '' until filled
+// @property {string|null} businessId          Y-tunnus '1234567-1'
+// @property {string|null} address
+// @property {string|null} iban                'FI2112345600000785' (no spaces)
+// @property {string|null} bic
+// @property {string|null} email               also the reply-to of invoices and decision e-mails
+// @property {string|null} phone
+// @property {number} vatPercent               ALV % in the prices, one decimal (25.5)
+// @property {number} paymentTermsDays         due date = invoice day + this
+// @property {number} nextInvoiceNumber        the next invoice's number
+// @property {number} lastInvoiceNumber        the biggest number used so far (0 = none)
+// @property {boolean} ready                   seller name and IBAN filled: invoiced slots can be approved
+// @property {string|null} updatedAt
+//
+// @typedef {Object} BillingSettingsInput      billing.saveSettings: the BillingSettings fields staff edit
+// @property {string} sellerName
+// @property {string|null} businessId          check digit checked; '12345671' / 'FI12345671' are fine too
+// @property {string|null} address
+// @property {string|null} iban                mod 97 checked; spaces are fine
+// @property {string|null} bic                 a Finnish IBAN needs a Finnish bank's BIC
+// @property {string|null} email
+// @property {string|null} phone
+// @property {number} vatPercent
+// @property {number} paymentTermsDays         0–90
+// @property {number|null} nextInvoiceNumber   above lastInvoiceNumber; null keeps the current one
 
 /**
  * Function names per domain. Both implementations must export exactly these.
@@ -697,10 +778,13 @@ export const API_CONTRACT = {
     'withdraw',            // (slotId) -> void   my own request while it is 'requested'
     'staffList',           // (venueId) -> SeasonSlot[]   staff only: requests (oldest first), active, the rest
     'create',              // ({ venueId, seasonId, courtId, weekday, startTime, minutes, holderName, billingEmail, billingAddress, priceCents, skipConflicts, fromDate }) -> SeasonSlot   staff: a team's slot, invoiced, active at once
-    'approve',             // (slotId, { courtId, priceCents, skipConflicts }) -> SeasonSlot   staff: the weeks go into the calendar and the invoice / card schedule is made; 'conflict' error lists taken weeks unless skipConflicts
-    'decline',             // (slotId, reason) -> void   staff
+    'approve',             // (slotId, { courtId, priceCents, skipConflicts }) -> SeasonSlot   staff: the weeks go into the calendar and the invoice / card schedule is made; 'conflict' error lists taken weeks unless skipConflicts; the player gets an e-mail (notifiedAt)
+    'decline',             // (slotId, reason) -> void   staff; the player gets an e-mail with the reason
     'end',                 // (slotId) -> { released:number }   staff: frees the coming weeks; unpaid card months not due yet are voided
     'releaseOccurrence',   // (reservationId) -> void   staff: frees one week (e.g. a hall event); no money moves
+    'staffSeasons',        // (venueId) -> StaffSeason[]   staff: every season of the venue, earliest first (past ones too)
+    'saveSeason',          // (SeasonInput) -> StaffSeason   staff: a new season (id null) or changes to one; refused if the dates would leave out weeks of its active slots
+    'removeSeason',        // (seasonId) -> void   staff: only a season no kausivuoro or request refers to (else close its requests)
   ],
   billing: [
     'listInvoices',        // (venueId) -> Invoice[]   staff: newest first
@@ -715,6 +799,8 @@ export const API_CONTRACT = {
     'runCharges',          // (venueId) -> { paid:number, failed:number }   staff (and a daily cron): charges every due month off-session
     'payCharge',           // (chargeId) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, clientSecret, paymentIntentId, amount, currency, email }   my unpaid month, paid in the app
     'verifyCharge',        // (chargeId, paymentIntentId) -> { paid, status }   demo: paymentIntentId null pays it
+    'getSettings',         // (venueId) -> BillingSettings   staff
+    'saveSettings',        // (venueId, BillingSettingsInput) -> BillingSettings   staff; Y-tunnus, IBAN and BIC are checked, stored normalized
   ],
   wallet: [
     'products',            // (venueId) -> { passes: PassProduct[], gift: { amounts:number[], minCents, maxCents, validDays }|null }   works without a session; gift null = no gift cards sold
@@ -728,6 +814,10 @@ export const API_CONTRACT = {
     'payBooking',          // (bookingId, passId) -> Booking   pays my held booking with a series card (whole booking)
     'useGift',             // (bookingId, use:boolean) -> Booking   puts my gift balance on a held booking / takes it off; covering the price confirms it
     'staffList',           // (venueId) -> { passes: (Pass & { owner: PersonLite })[], giftCards: (GiftCard & { buyer: PersonLite|null, redeemedBy: PersonLite|null })[] }   staff, no history
+    'staffProducts',       // (venueId) -> { passes: StaffPassProduct[], gift: GiftSettings }   staff: series cards for sale and hidden ones, in shop order
+    'saveProduct',         // (PassProductInput) -> StaffPassProduct   staff: new (id null) or changed; unpaid orders of it take the new content and price
+    'removeProduct',       // (productId) -> void   staff: only a product never ordered (else hide it)
+    'saveGiftSettings',    // (venueId, GiftSettings) -> GiftSettings   staff
   ],
   admin: [
     'stats',               // () -> object (krossi_admin_stats jsonb as-is)

@@ -23,6 +23,25 @@ export function requireStaff(venue) {
   if (!venue || !venue.staffIds.includes(ME)) throw fail(STAFF_ONLY, 'forbidden');
 }
 
+/** Gift cards of a venue that has never set its own (the SQL table's defaults). */
+export const DEFAULT_GIFT = Object.freeze({ amounts: [2500, 5000, 10000], minCents: 1000, maxCents: 30000, validDays: 365 });
+
+/**
+ * The venue's laskutustiedot and gift card settings (booking_billing_settings): { seller: { name,
+ * businessId, address, iban, bic, email, phone }, vatPercent, paymentTermsDays, nextInvoiceNumber,
+ * gift, updatedAt }. Made with the table's defaults the first time the hall saves something.
+ */
+export function billingRow(venueId) {
+  if (!db.booking.billing[venueId]) {
+    db.booking.billing[venueId] = {
+      seller: { name: '', businessId: null, address: null, iban: null, bic: null, email: null, phone: null },
+      vatPercent: 14, paymentTermsDays: 14, nextInvoiceNumber: 1001,
+      gift: { ...DEFAULT_GIFT, amounts: [...DEFAULT_GIFT.amounts] }, updatedAt: null,
+    };
+  }
+  return db.booking.billing[venueId];
+}
+
 /** A hold whose time ran out counts as free everywhere, like the SQL does. */
 export function isLive(row, now = Date.now()) {
   if (row.status === 'confirmed') return true;

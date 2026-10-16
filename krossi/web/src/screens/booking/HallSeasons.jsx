@@ -1,9 +1,11 @@
 // HallSeasons — Hallin näkymä → Kausivuorot: the requests waiting for the hall (oldest first,
 // with "Käsittele"), the season slots in force by weekday, and the ended / declined ones. "Uusi
-// kausivuoro" adds one for a club or a company. Every row opens SeasonStaffSheet.
+// kausivuoro" adds one for a club or a company. Every row opens SeasonStaffSheet. Seasons
+// themselves are set up in Hallin asetukset.
 import { useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
+import { navigate } from '../../app/router.js';
 import { centsLabel } from '../../features/booking.js';
 import { WEEKDAY_NAMES, dayMonth, slotWhen } from '../../features/seasons.js';
 import { formatGameTime } from '../../lib/format.js';
@@ -25,6 +27,8 @@ export function HallSeasons({ venue, onChanged }) {
   const toast = useToast();
   const list = useAsync(() => api.seasons.staffList(venue.id), [venue.id]);
   const seasons = useAsync(() => api.seasons.list(venue.id), [venue.id]);
+  // Invoiced slots need the hall's invoicing details: the sheet says so before staff try.
+  const billing = useAsync(() => api.billing.getSettings(venue.id).catch(() => null), [venue.id]);
   const [sheet, setSheet] = useState(null); // { mode, slot }
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -50,7 +54,9 @@ export function HallSeasons({ venue, onChanged }) {
           <h2 className="bhall-view-title">Kausivuorot</h2>
           <p className="bhall-view-sub">{(seasons.data || []).map((s) => `${s.name} ${dayMonth(s.startsOn)}–${dayMonth(s.endsOn, true)}`).join(' · ') || 'Ei kausia'}</p>
         </div>
-        {canCreate && <Button variant="dark" size="sm" icon="plus" onClick={() => open('create')}>Uusi kausivuoro</Button>}
+        {canCreate ? <Button variant="dark" size="sm" icon="plus" onClick={() => open('create')}>Uusi kausivuoro</Button> : seasons.data && (
+          <Button variant="dark" size="sm" icon="settings" onClick={() => navigate(`/pelaa/halli/${venue.slug}?nakyma=asetukset`)}>Lisää kausi</Button>
+        )}
       </div>
 
       {list.loading && !list.data ? (
@@ -145,6 +151,7 @@ export function HallSeasons({ venue, onChanged }) {
         slot={sheet?.slot}
         venue={venue}
         seasons={seasons.data || []}
+        billingReady={billing.data?.ready !== false}
         onDone={done}
       />
     </div>

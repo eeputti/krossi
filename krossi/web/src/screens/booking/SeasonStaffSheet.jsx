@@ -5,16 +5,20 @@
 //   mode 'create'   the hall adds a slot itself (a club, a company, a deal made at the counter):
 //                   holder, billing address, time and court — invoiced, active at once
 //   mode 'view'     an active / ended / declined slot: weeks, billing (invoice or the card months),
-//                   "Päätä kausivuoro" frees the coming weeks
+//                   whether the player was e-mailed the decision, "Päätä kausivuoro" frees the coming weeks
 //
 // The season quote (api.seasons.quote) is the same one the player saw; the server checks it all
-// again when approving (a week taken meanwhile fails with code 'conflict' unless skipped).
+// again when approving (a week taken meanwhile fails with code 'conflict' unless skipped). The player
+// gets the decision by e-mail (the data layer asks krossi-billing to send it). Without the hall's
+// invoicing details (`billingReady` false) an invoiced slot can't be approved: the sheet says so
+// and links to Hallin asetukset.
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync, useBusy } from '../../app/hooks.js';
 import { navigate } from '../../app/router.js';
 import { centsLabel, dateKey, locationsFor, minutesOf } from '../../features/booking.js';
 import { WEEKDAY_SHORT, clockLabel, dayMonth, monthLabel, slotWhen } from '../../features/seasons.js';
+import { formatDayMonth, formatTime } from '../../lib/format.js';
 import {
   Avatar, Button, ChipSelect, Field, Icon, Input, Select, Sheet, Skeleton, Textarea, Toggle, useConfirm, useToast,
 } from '../../ui/index.js';
@@ -97,7 +101,17 @@ function priceInput(text) {
   return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : NaN;
 }
 
-export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, onDone }) {
+/** "Laskutustiedot puuttuvat" with a way to Hallin asetukset. */
+function BillingMissing({ venue }) {
+  return (
+    <div className="ss-box">
+      <InfoLine icon="alert" tone="danger">Hallin laskutustiedot (nimi ja tilinumero) puuttuvat, joten laskulla maksettavaa kausivuoroa ei voi vielä vahvistaa.</InfoLine>
+      <Button variant="dark" size="sm" icon="settings" onClick={() => navigate(`/pelaa/halli/${venue.slug}?nakyma=asetukset`)}>Lisää laskutustiedot</Button>
+    </div>
+  );
+}
+
+export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, billingReady = true, onDone }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [busy, run] = useBusy();
@@ -243,6 +257,12 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, on
             <div><dt>Lasku</dt><dd className="ss-invoice-line"><span>Nro {slot.invoice.number} · {centsLabel(slot.invoice.amountCents)}</span><InvoiceStateChip invoice={slot.invoice} /></dd></div>
           )}
           {slot.declineReason && <div><dt>Syy</dt><dd>{slot.declineReason}</dd></div>}
+          {slot.holder && ['active', 'declined'].includes(slot.status) && (
+            <div>
+              <dt>Ilmoitus</dt>
+              <dd>{slot.notifiedAt ? `Sähköposti lähetetty ${formatDayMonth(slot.notifiedAt)} klo ${formatTime(slot.notifiedAt)}` : 'Sähköpostia ei ole lähetetty'}</dd>
+            </div>
+          )}
         </dl>
         {slot.billing === 'card' && <ChargeList charges={slot.charges} compact />}
       </div>
@@ -281,11 +301,13 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, on
         ) : (
           <InfoLine icon="lock">Ensimmäinen kuukausi veloitetaan pelaajan kortilta heti seuraavassa veloitusajossa, loput kunkin kuun 1. päivä.</InfoLine>
         )}
+        {slot.billing === 'invoice' && !billingReady && !declining && <BillingMissing venue={venue} />}
         {declining && (
-          <Field label="Syy pelaajalle" optional htmlFor="ss-reason">
+          <Field label="Syy pelaajalle" optional htmlFor="ss-reason" hint="Näkyy pelaajalle sähköpostissa ja sovelluksessa.">
             <Textarea id="ss-reason" rows={2} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="esim. Torstai-illat ovat jo täynnä" />
           </Field>
         )}
+        <p className="bk-fine">{declining ? 'Pelaaja saa hylkäyksen sähköpostiin.' : `Pelaaja saa päätöksen sähköpostiin${slot.billing === 'invoice' ? ' laskun tietoineen' : ''}.`}</p>
       </div>
     );
     footer = declining ? (
@@ -295,7 +317,8 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, on
       </div>
     ) : (
       <div className="stack-2">
-        <Button variant="lime" size="lg" block icon="check" loading={busy} disabled={!q || q.count === 0 || (conflicts > 0 && !skip) || Number.isNaN(agreed)} onClick={approve}>
+        <Button variant="lime" size="lg" block icon="check" loading={busy}
+          disabled={!q || q.count === 0 || (conflicts > 0 && !skip) || Number.isNaN(agreed) || (slot.billing === 'invoice' && !billingReady)} onClick={approve}>
           {q ? `Hyväksy · ${q.count} krt` : 'Hyväksy'}
         </Button>
         <Button variant="ghost" block onClick={() => setDeclining(true)}>Hylkää</Button>
@@ -358,11 +381,12 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, on
         <Field label="Sovittu hinta" optional hint={q ? `Tyhjä = kausihinta ${centsLabel(q.cents)}` : null} htmlFor="ss-create-price" error={Number.isNaN(agreed) ? 'Tarkista hinta.' : ''}>
           <Input id="ss-create-price" inputMode="decimal" value={price} placeholder="esim. 1500" onChange={(e) => setPrice(e.target.value)} />
         </Field>
+        {!billingReady && <BillingMissing venue={venue} />}
       </div>
     );
     footer = (
       <Button variant="lime" size="lg" block icon="plus" loading={busy}
-        disabled={!holder.trim() || !q || q.count === 0 || (conflicts > 0 && !skip) || Number.isNaN(agreed)} onClick={create}>
+        disabled={!holder.trim() || !q || q.count === 0 || (conflicts > 0 && !skip) || Number.isNaN(agreed) || !billingReady} onClick={create}>
         {q ? `Lisää kausivuoro · ${q.count} krt` : 'Lisää kausivuoro'}
       </Button>
     );

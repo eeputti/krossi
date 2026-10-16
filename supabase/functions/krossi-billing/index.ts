@@ -11,6 +11,8 @@
 //   { action: 'orderIntent', kind, id }              -> { paid: true } | { clientSecret, paymentIntentId }
 //   { action: 'orderVerify', kind, id, paymentIntentId } -> { paid, status }
 //   { action: 'sendInvoice', invoiceId }             -> { sentTo }   hall staff: e-mails the invoice with the payment details
+//   { action: 'seasonDecided', slotId }              -> { sent }     hall staff, right after approving / declining a
+//                                                                     kausivuoro request: e-mails the player the decision
 //
 // Monthly charges: krossi_billing_due_charges lists the due months of active card-billed season
 // slots; each one is claimed with krossi_billing_charge_attempt (so two runs never charge the same
@@ -27,6 +29,13 @@
 // (booking_passes.price_cents / booking_gift_cards.amount_cents), metadata.product 'krossi_pass' /
 // 'krossi_gift', and krossi_wallet_order_paid activates the pass or issues the gift card's code
 // (here and in stripe-webhook). An order paid twice is refunded (key `krossi-order-refund-<pi>`).
+//
+// Decision e-mails: the app calls 'seasonDecided' after krossi_season_approve / _decline. The mail
+// goes once per decision: krossi_season_decision_claim stamps the slot's notified_at (only a
+// player's own request, decided in the last 24 h, not mailed yet) and krossi_season_decision_release
+// lifts the stamp when the mail didn't go, so a later call may try again. It is a transactional
+// message about the player's own request (like the failed-charge mail): no notification
+// preferences; reply-to is the hall's invoicing e-mail.
 //
 // Stripe Connect: a venue with stripe_account_id gets destination charges (transfer_data +
 // application_fee_amount from platform_fee_bps), like krossi-booking.
@@ -618,6 +627,117 @@ async function sendInvoice(admin: SupabaseClient, asUser: SupabaseClient, invoic
   return { sentTo: to };
 }
 
+// ── The hall's decision on a kausivuoro request ──────────────────────────────
+
+const WEEKDAY_SHORT = ['ma', 'ti', 'ke', 'to', 'pe', 'la', 'su'];
+const WEEKDAY_ADVERBS = ['Maanantaisin', 'Tiistaisin', 'Keskiviikkoisin', 'Torstaisin', 'Perjantaisin', 'Lauantaisin', 'Sunnuntaisin'];
+const MONTHS = ['tammikuu', 'helmikuu', 'maaliskuu', 'huhtikuu', 'toukokuu', 'kesäkuu', 'heinäkuu', 'elokuu', 'syyskuu', 'lokakuu', 'marraskuu', 'joulukuu'];
+
+/** '19:00' + 60 -> '19.00–20.00' */
+function clockRange(startTime: string, minutes: number) {
+  const start = Number(startTime.slice(0, 2)) * 60 + Number(startTime.slice(3, 5));
+  const label = (m: number) => `${Math.floor(m / 60)}.${String(m % 60).padStart(2, '0')}`;
+  return `${label(start)}–${label(start + minutes)}`;
+}
+const dayMonth = (key: string) => `${Number(key.slice(8, 10))}.${Number(key.slice(5, 7))}.`;
+
+interface DecidedSlot {
+  id: string;
+  status: 'active' | 'declined';
+  holderId: string;
+  holderName: string;
+  venueName: string;
+  venueSlug: string;
+  replyTo: string | null;
+  seasonName: string;
+  weekday: number;
+  startTime: string;
+  minutes: number;
+  courtName: string | null;
+  locationName: string;
+  startsOn: string;
+  endsOn: string;
+  skipDates: string[];
+  weeks: number;
+  priceCents: number;
+  billing: 'invoice' | 'card';
+  declineReason: string | null;
+  invoice: { number: string; dueOn: string; amountCents: number } | null;
+  charges: { month: string; amountCents: number; dueOn: string; status: string }[];
+}
+
+/** Subject, lines and button of the decision e-mail (Finnish, plain like the invoice mail). */
+function decisionMail(d: DecidedSlot) {
+  const time = `${WEEKDAY_ADVERBS[d.weekday - 1]} klo ${clockRange(d.startTime, d.minutes)}`;
+  const place = [d.courtName, d.locationName].filter(Boolean).join(', ');
+  if (d.status === 'declined') {
+    return {
+      subject: `Kausivuorohakemuksesi: ${d.venueName}`,
+      lines: [
+        `${d.venueName} ei valitettavasti voinut myöntää hakemaasi kausivuoroa.`,
+        '',
+        `${time}${place ? ` · ${place}` : ''}`,
+        d.seasonName,
+        ...(d.declineReason ? ['', `Hallin viesti: ”${d.declineReason}”`] : []),
+        '',
+        'Voit hakea toista aikaa tai varata yksittäisiä vuoroja Krossissa.',
+      ],
+      cta: { label: 'Katso vapaat ajat', url: `${APP}/pelaa/varaa/${encodeURIComponent(d.venueSlug)}` },
+    };
+  }
+  const skipped = (d.skipDates || []).filter((x) => x >= d.startsOn && x <= d.endsOn);
+  const first = d.charges.find((c) => c.status !== 'void');
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Helsinki' });
+  const payment = d.billing === 'invoice'
+    ? (d.invoice
+      ? `Maksu laskulla: lasku ${d.invoice.number}, ${euros(d.invoice.amountCents)}, eräpäivä ${fiDate(d.invoice.dueOn)}. Lasku näkyy Krossissa kohdassa Omat varaukset.`
+      : 'Maksu laskulla: halli lähettää laskun erikseen.')
+    : first
+      ? `Maksu kortilta kuukausittain: ${MONTHS[Number(first.month.slice(5, 7)) - 1]}n erä ${euros(first.amountCents)} veloitetaan ${first.dueOn <= today ? 'tänään' : fiDate(first.dueOn)}, seuraavat kunkin kuun 1. päivä.`
+      : 'Maksu kortilta kuukausittain.';
+  return {
+    subject: `Kausivuorosi on vahvistettu: ${d.venueName}`,
+    lines: [
+      `${d.venueName} hyväksyi kausivuorohakemuksesi. Vuoro on nyt sinun koko kauden.`,
+      '',
+      `${time} · ${place}`,
+      `${d.seasonName}: ${d.weeks} kertaa, ensimmäinen ${WEEKDAY_SHORT[d.weekday - 1]} ${fiDate(d.startsOn)}`,
+      ...(skipped.length ? [`Ei vuoroa: ${skipped.slice(0, 10).map(dayMonth).join(', ')}${skipped.length > 10 ? ' …' : ''}`] : []),
+      `Kausihinta ${euros(d.priceCents)}`,
+      '',
+      payment,
+    ],
+    cta: { label: 'Avaa omat varaukset', url: `${APP}/pelaa/omat-varaukset` },
+  };
+}
+
+async function seasonDecided(admin: SupabaseClient, asUser: SupabaseClient, slotId: unknown) {
+  if (!isUuid(slotId)) throw new Reply(404, 'Kausivuoroa ei löytynyt.');
+  const { data: slot, error } = await admin.from('booking_season_slots').select('id, venue_id').eq('id', slotId).maybeSingle();
+  if (error) throw new Error(`slot lookup failed: ${error.message}`);
+  if (!slot) throw new Reply(404, 'Kausivuoroa ei löytynyt.');
+  if (!(await isStaff(asUser, slot.venue_id as string))) throw new Reply(403, STAFF_ONLY);
+  const { data: claimed, error: claimError } = await admin.rpc('krossi_season_decision_claim', { slot_id_input: slotId });
+  if (claimError) throw new Error(`krossi_season_decision_claim failed: ${claimError.message}`);
+  if (!claimed) return { sent: false };
+  const decided = claimed as DecidedSlot;
+  let sent = false;
+  try {
+    const { data } = await admin.auth.admin.getUserById(decided.holderId);
+    const to = data?.user?.email;
+    if (to) {
+      const mail = decisionMail(decided);
+      sent = await sendMail(to, mail.subject, mail.lines, { replyTo: decided.replyTo, cta: mail.cta });
+    }
+  } finally {
+    if (!sent) {
+      const { error: releaseError } = await admin.rpc('krossi_season_decision_release', { slot_id_input: slotId });
+      if (releaseError) console.error('krossi-billing: releasing the decision mail failed', releaseError.message);
+    }
+  }
+  return { sent };
+}
+
 // ── Handler ──────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -693,6 +813,8 @@ Deno.serve(async (req: Request) => {
       }
       case 'sendInvoice':
         return json(req, await sendInvoice(admin, asUser, body.invoiceId));
+      case 'seasonDecided':
+        return json(req, await seasonDecided(admin, asUser, body.slotId));
       default:
         throw new Reply(400, 'Tuntematon toiminto.');
     }
