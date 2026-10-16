@@ -1,8 +1,10 @@
 // booking.js — kenttävaraus (court booking): the hall calendar, holds, paying for a booking,
-// cancelling it, "ilmoita kun vapautuu" watches and the hall staff view.
+// cancelling it, jaettu maksu (friends pay their shares), "Laita myyntiin" (a late-cancelled
+// booking sold on), "ilmoita kun vapautuu" watches and the hall staff view.
 //
 // The booking tables have no client access: every read and write is a SECURITY DEFINER RPC
-// (supabase/migrations/20261016074110_krossi_court_booking.sql), and money only moves in the
+// (supabase/migrations/20261016074110_krossi_court_booking.sql and
+// 20261016120000_krossi_booking_split_and_resale.sql), and money only moves in the
 // krossi-booking edge function (Stripe Payment Element, refunds). The RPCs already answer in the
 // contract's shapes (camelCase, ISO strings); the mappers below pin the types down so a missing
 // field never reaches a screen as undefined, and turn a booker's avatar path into a URL.
@@ -10,7 +12,8 @@
 // The booking RPCs and the edge function raise Finnish messages written for players
 // ('Valitse varauksen kesto.', 'Varauksen pitoaika ehti umpeutua…'). toApiError() only trusts
 // raw messages that contain ä/ö/å, so those are passed through here as-is, with the same error
-// codes the demo backend uses ('taken', 'expired', 'too_late', 'forbidden', 'not_found', 'free').
+// codes the demo backend uses ('taken', 'expired', 'too_late', 'forbidden', 'not_found', 'free',
+// 'cancellable', 'buyer_paying', 'closed', 'cancelled').
 
 import { db, requireUid, invokeFunction, isMissingFunction, isUuid } from './client.js';
 import { mapPerson } from './map.js';
@@ -24,6 +27,8 @@ const VERIFY_FAIL = 'Maksun tarkistus epäonnistui. Päivitä sivu hetken pääs
 const CANCEL_FAIL = 'Peruutus epäonnistui. Yritä hetken päästä uudelleen.';
 const WATCH_FAIL = 'Hälytyksen tallennus epäonnistui.';
 const STAFF_FAIL = 'Hallin tietoja ei voitu ladata.';
+const SALE_FAIL = 'Myyntiin laitto epäonnistui. Yritä hetken päästä uudelleen.';
+const SHARE_FAIL = 'Osuuden tietoja ei voitu ladata.';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // ── Errors ───────────────────────────────────────────────────────────────────
@@ -36,6 +41,10 @@ const CODES = [
   [/^Peruutusaika on mennyt/, 'too_late'],
   [/^Vain hallin henkilökunta/, 'forbidden'],
   [/^Aika on vapaana/, 'free'],
+  [/^Voit vielä perua vuoron maksutta/, 'cancellable'],
+  [/^Joku on juuri varaamassa vuoroa/, 'buyer_paying'],
+  [/^Maksuaika päättyi/, 'closed'],
+  [/^Vuoro on peruttu/, 'cancelled'],
   [/^Kirjaudu /, 'auth_required'],
   [/ei löytynyt\.$/, 'not_found'],
 ];
@@ -152,6 +161,7 @@ function mapVenue(raw) {
     durations: list(raw.durations).map(Number),
     daysAhead: number(raw.daysAhead, 14),
     cancelLimitHours: number(raw.cancelLimitHours, 24),
+    shareDeadlineHours: number(raw.shareDeadlineHours, 2),
     holdMinutes: number(raw.holdMinutes, 10),
     payOnline: raw.payOnline !== false,
     lastMinute: deal && number(deal.hours) > 0 && number(deal.percent) > 0
@@ -172,6 +182,32 @@ function mapBusy(raw) {
     kind: raw.kind,
     mine: raw.mine === true,
     title: text(raw.title),
+    forSale: raw.forSale === true,
+  };
+}
+
+/** The RPCs build PersonLite like krossi_booking_staff_day; a deleted account is just 'Pelaaja'. */
+const NOBODY = { id: '', name: 'Pelaaja', avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: null };
+const linePerson = (raw) => mapBooker(raw) || { ...NOBODY };
+
+function mapLine(raw) {
+  return {
+    id: text(raw.id),
+    kind: raw.kind,
+    person: linePerson(raw.person),
+    cents: number(raw.cents),
+    status: raw.status,
+    paidAt: iso(raw.paidAt),
+  };
+}
+
+function mapSplit(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    parts: number(raw.parts, 2),
+    ownCents: number(raw.ownCents),
+    deadline: iso(raw.deadline),
+    lines: list(raw.lines).map(mapLine),
   };
 }
 
@@ -195,6 +231,24 @@ function mapBooking(raw) {
     cancellableUntil: iso(raw.cancellableUntil),
     cancelledAt: iso(raw.cancelledAt),
     createdAt: iso(raw.createdAt),
+    forSale: raw.forSale === true,
+    soldAt: iso(raw.soldAt),
+    split: mapSplit(raw.split),
+  };
+}
+
+function mapShare(raw) {
+  return {
+    id: raw.id,
+    kind: raw.kind,
+    cents: number(raw.cents),
+    status: raw.status,
+    paidAt: iso(raw.paidAt),
+    deadline: iso(raw.deadline),
+    payable: raw.payable === true,
+    chargeError: text(raw.chargeError),
+    booker: linePerson(raw.booker),
+    booking: mapBooking(raw.booking || {}),
   };
 }
 
@@ -224,6 +278,9 @@ function mapStaffItem(raw) {
     bookedBy: mapBooker(raw.bookedBy),
     priceCents: number(raw.priceCents),
     paymentStatus: raw.paymentStatus,
+    forSale: raw.forSale === true,
+    unpaidCents: number(raw.unpaidCents),
+    parts: numberOrNull(raw.parts),
   };
 }
 
@@ -275,17 +332,21 @@ export async function day(venueId, date) {
 
 // ── Booking and paying ───────────────────────────────────────────────────────
 
-export async function hold({ courtId, startsAt, minutes } = {}) {
+/** friendIds (jaettu maksu): 1 for kaksinpeli, 3 for nelinpeli; the server checks who counts as a pelikaveri. */
+export async function hold({ courtId, startsAt, minutes, friendIds = [] } = {}) {
   await requireUid();
   if (!isUuid(courtId)) throw fail('Kenttää ei löytynyt.');
   const start = iso(startsAt);
   if (!start) throw fail('Valitse aika kalenterista.', 'invalid');
-  const data = await call('krossi_hold_booking', {
+  const friends = list(friendIds);
+  if (friends.some((id) => !isUuid(id))) throw fail('Voit jakaa maksun vain pelikavereidesi kanssa.', 'invalid');
+  const args = {
     court_id_input: courtId,
     starts_at_input: start,
     minutes_input: minutesOrNull(minutes),
-  }, HOLD_FAIL);
-  return mapBooking(data);
+  };
+  if (friends.length) args.friend_ids_input = friends;
+  return mapBooking(await call('krossi_hold_booking', args, HOLD_FAIL));
 }
 
 export async function release(bookingId) {
@@ -295,11 +356,8 @@ export async function release(bookingId) {
   announceFreed(bookingId);
 }
 
-/** { paid: true } when nothing is left to pay, else what the Payment Element needs. */
-export async function checkoutConfig(bookingId) {
-  await requireUid();
-  if (!isUuid(bookingId)) throw fail('Varausta ei löytynyt.');
-  const data = await edge('config', { bookingId }, CHECKOUT_FAIL);
+/** What the Payment Element needs, from a krossi-booking config answer. */
+function mapCheckout(data) {
   if (data?.paid) return { paid: true };
   if (!data?.publishableKey) throw fail(CHECKOUT_FAIL);
   return {
@@ -307,7 +365,16 @@ export async function checkoutConfig(bookingId) {
     amount: number(data.amount),
     currency: text(data.currency, 'eur'),
     email: text(data.email),
+    // 'off_session': a split booking saves the card for the rest (the Elements must say the same)
+    setupFutureUsage: data.setupFutureUsage === 'off_session' ? 'off_session' : null,
   };
+}
+
+/** { paid: true } when nothing is left to pay, else what the Payment Element needs (split: my part). */
+export async function checkoutConfig(bookingId) {
+  await requireUid();
+  if (!isUuid(bookingId)) throw fail('Varausta ei löytynyt.');
+  return mapCheckout(await edge('config', { bookingId }, CHECKOUT_FAIL));
 }
 
 /** { paid: true } if already paid, else the PaymentIntent (an unfinished one is reused). */
@@ -341,12 +408,98 @@ export async function listMine() {
   return { upcoming: list(data?.upcoming).map(mapBooking), past: list(data?.past).map(mapBooking) };
 }
 
-/** Cancels my confirmed booking before cancellableUntil; a paid one is refunded in full. */
+/**
+ * Cancels my confirmed booking before cancellableUntil. Everything paid goes back to where it came
+ * from (friends' shares to the friends); refundedCents is what comes back to me.
+ */
 export async function cancel(bookingId) {
   await requireUid();
   if (!isUuid(bookingId)) throw fail('Varausta ei löytynyt.');
   const data = await edge('cancel', { bookingId }, CANCEL_FAIL);
   return { refundedCents: number(data?.refundedCents) };
+}
+
+// ── Laita myyntiin ───────────────────────────────────────────────────────────
+
+/** Puts my booking on sale (after the free cancellation); the people waiting for that time are told. */
+export async function putOnSale(bookingId) {
+  await requireUid();
+  if (!isUuid(bookingId)) throw fail('Varausta ei löytynyt.');
+  const data = await call('krossi_booking_put_on_sale', { booking_id_input: bookingId }, SALE_FAIL);
+  announceFreed(bookingId);
+  return mapBooking(data);
+}
+
+export async function takeOffSale(bookingId) {
+  await requireUid();
+  if (!isUuid(bookingId)) throw fail('Varausta ei löytynyt.');
+  return mapBooking(await call('krossi_booking_take_off_sale', { booking_id_input: bookingId }, 'Myynnin peruminen epäonnistui.'));
+}
+
+// ── Jaettu maksu ─────────────────────────────────────────────────────────────
+
+/** Pelikaverit and chat contacts to split with; [] while the migration isn't deployed. */
+export async function shareFriends() {
+  await requireUid();
+  const { data, error } = await db().rpc('krossi_booking_share_friends', {});
+  if (error) {
+    if (isMissingFunction(error)) return [];
+    throw rpcError(error, 'Pelikavereita ei voitu ladata.');
+  }
+  return list(data).map(mapBooker).filter(Boolean);
+}
+
+/** Shares I owe or owed; [] while the migration isn't deployed (the bell asks for these too). */
+export async function listShares() {
+  await requireUid();
+  const { data, error } = await db().rpc('krossi_booking_my_shares', {});
+  if (error) {
+    if (isMissingFunction(error)) return [];
+    throw rpcError(error, SHARE_FAIL);
+  }
+  return list(data).map(mapShare);
+}
+
+export async function getShare(shareId) {
+  await requireUid();
+  if (!isUuid(shareId)) return null;
+  const data = await call('krossi_booking_share', { share_id_input: shareId }, SHARE_FAIL);
+  return data ? mapShare(data) : null;
+}
+
+export async function shareCheckoutConfig(shareId) {
+  await requireUid();
+  if (!isUuid(shareId)) throw fail('Osuutta ei löytynyt.');
+  return mapCheckout(await edge('shareConfig', { shareId }, CHECKOUT_FAIL));
+}
+
+export async function createSharePaymentIntent(shareId) {
+  await requireUid();
+  if (!isUuid(shareId)) throw fail('Osuutta ei löytynyt.');
+  const data = await edge('shareIntent', { shareId }, CHECKOUT_FAIL);
+  if (data?.paid) return { paid: true };
+  if (!data?.clientSecret) throw fail(CHECKOUT_FAIL);
+  return { clientSecret: data.clientSecret, paymentIntentId: data.paymentIntentId };
+}
+
+/**
+ * Asks Stripe (server-side) whether my share's payment went through. status 'refunded' means the
+ * share was settled meanwhile (the booker's card covered it, or the booking was cancelled) and
+ * this payment went back — `message` says which.
+ */
+export async function verifySharePayment(shareId, paymentIntentId) {
+  await requireUid();
+  if (!isUuid(shareId)) throw fail('Osuutta ei löytynyt.');
+  const data = await edge('shareVerify', { shareId, paymentIntentId }, VERIFY_FAIL);
+  const result = { paid: data?.paid === true, status: text(data?.status) };
+  if (typeof data?.error === 'string' && data.error) result.message = data.error;
+  return result;
+}
+
+export async function declineShare(shareId) {
+  await requireUid();
+  if (!isUuid(shareId)) throw fail('Osuutta ei löytynyt.');
+  await call('krossi_booking_decline_share', { share_id_input: shareId }, 'Viestin lähetys epäonnistui. Yritä hetken päästä uudelleen.');
 }
 
 // ── Ilmoita kun vapautuu ─────────────────────────────────────────────────────
