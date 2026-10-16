@@ -72,3 +72,29 @@
 @media (prefers-reduced-motion: reduce) {
   .hset-day { transition: none; }
 }
+
+/* Hinnat ja säännöt (read-only) */
+.hset-prices > li { padding: 12px 14px; display: grid; gap: 8px; }
+.hset-price-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.hset-price-head b { font-size: 14.5px; font-weight: 800; color: var(--ink); }
+.hset-price-head small { font-size: 12.5px; color: var(--muted); }
+.hset-price-row { display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: start; }
+.hset-price-days { font-size: 13px; font-weight: 750; color: var(--ink-2); padding-top: 3px; }
+.hset-price-slots { display: flex; flex-wrap: wrap; gap: 6px; }
+.hset-price-slot {
+  display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 10px; border-radius: var(--r-pill);
+  background: var(--surface-2); border: 1px solid var(--line); font-size: 13px; color: var(--muted);
+}
+.hset-price-slot b { font-weight: 800; color: var(--green-800); }
+.hset-rules { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.hset-rules > div { padding: 10px 14px; display: grid; gap: 2px; border-top: 1px solid var(--line); }
+.hset-rules > div:nth-child(-n + 2) { border-top: 0; }
+.hset-rules > div:nth-child(odd) { border-right: 1px solid var(--line); }
+.hset-rules dt { font-size: 12px; font-weight: 700; color: var(--muted); }
+.hset-rules dd { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink); }
+@media (max-width: 599px) {
+  .hset-rules { grid-template-columns: 1fr; }
+  .hset-rules > div:nth-child(2) { border-top: 1px solid var(--line); }
+  .hset-rules > div:nth-child(odd) { border-right: 0; }
+  .hset-price-row { grid-template-columns: 1fr; gap: 4px; }
+}

@@ -1,5 +1,6 @@
 // HallSettings — Hallin näkymä → Hallin asetukset (?nakyma=asetukset, the gear in the top bar):
-// what the hall runs Krossi with, edited in the app instead of SQL. Seasons (dates, holidays,
+// what the hall runs Krossi with, edited in the app instead of SQL. On top, read-only, the price
+// list and booking rules players book by (Hinnat ja säännöt, set up with Krossi). Seasons (dates, holidays,
 // season discount, requests open), series card products (for sale or hidden), gift card amounts,
 // and the invoicing details every new invoice carries. Each row opens its editor sheet
 // (SeasonSettingsSheet, PassProductSheet, GiftSettingsSheet, BillingSettingsSheet). Changes apply
@@ -7,7 +8,7 @@
 import { useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
-import { centsLabel, dateKey } from '../../features/booking.js';
+import { centsLabel, dateKey, durationLabel } from '../../features/booking.js';
 import { dayMonth, formatIban } from '../../features/seasons.js';
 import { plural } from '../../lib/format.js';
 import { Button, Chip, Disclosure, ErrorState, Icon, Skeleton, useToast } from '../../ui/index.js';
@@ -16,6 +17,7 @@ import { GiftSettingsSheet } from './GiftSettingsSheet.jsx';
 import { PassProductSheet } from './PassProductSheet.jsx';
 import { SeasonSettingsSheet } from './SeasonSettingsSheet.jsx';
 import { numberToInput, validityLabel } from './hallSettingsForm.js';
+import { hoursLabel, priceTable } from './priceTable.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -58,7 +60,7 @@ export function HallSettings({ venue, sports }) {
 
   return (
     <div className="bhall-view hset">
-      <p className="hset-lead">Kaudet, sarja- ja lahjakortit sekä laskutustiedot. Muutokset koskevat uusia hakemuksia, ostoja ja laskuja; jo sovitut pysyvät ennallaan.</p>
+      <p className="hset-lead">Hinnat, kaudet, sarja- ja lahjakortit sekä laskutustiedot. Muutokset koskevat uusia hakemuksia, ostoja ja laskuja; jo sovitut pysyvät ennallaan.</p>
 
       {settings && !settings.ready && (
         <div className="hset-notice" role="status">
@@ -67,6 +69,8 @@ export function HallSettings({ venue, sports }) {
           <Button variant="dark" size="sm" onClick={() => edit('billing', settings)}>Lisää</Button>
         </div>
       )}
+
+      <PricesAndRules venue={venue} />
 
       <section className="hset-section" aria-labelledby="hset-seasons">
         <div className="hset-head">
@@ -238,5 +242,59 @@ function SeasonRow({ season: s, today, onOpen }) {
         <Icon name="chevron-right" size={18} className="hset-row-chevron" />
       </button>
     </li>
+  );
+}
+
+/** Hinnat ja säännöt: the price list by courts and days, and the booking rules, as players see them. */
+function PricesAndRules({ venue }) {
+  const table = priceTable(venue);
+  const deal = venue.lastMinute;
+  const rules = [
+    ['Aukiolo', `klo ${hoursLabel(venue.openFrom, venue.openUntil)}`],
+    ['Vuoron kesto', venue.durations.map(durationLabel).join(' · ')],
+    ['Varattavissa', `${venue.daysAhead} päivää eteenpäin`],
+    ['Maksuton peruutus', `${venue.cancelLimitHours} h ennen alkua, raha takaisin kortille`],
+    ['Maksun pitoaika', `${venue.holdMinutes} min`],
+    ['Viime hetken ale', deal ? `−${deal.percent} %, kun alkuun on alle ${deal.hours} h` : 'Ei käytössä'],
+  ];
+  return (
+    <section className="hset-section" aria-labelledby="hset-prices">
+      <div className="hset-head">
+        <div>
+          <h2 className="bhall-subhead" id="hset-prices">Hinnat ja säännöt</h2>
+          <p className="hset-help">Näillä pelaajat varaavat. Tuntihinta vaihtelee ajan mukaan, ja 1,5 tunnin vuoro hinnoitellaan puolen tunnin paloissa. Krossi asettaa hinnat käyttöönotossa hallin hinnaston mukaan.</p>
+        </div>
+      </div>
+      {table.length > 0 && (
+        <ul className="hset-list hset-prices">
+          {table.map((g) => (
+            <li key={g.label} className="hset-price-group">
+              <div className="hset-price-head">
+                <b>{g.label}</b>
+                {g.places.length > 1 && <small>{g.places.join(' · ')}</small>}
+              </div>
+              {g.rows.map((r) => (
+                <div key={r.days} className="hset-price-row">
+                  <span className="hset-price-days">{r.days}</span>
+                  <span className="hset-price-slots">
+                    {r.slots.map((slot) => (
+                      <span key={slot.hours} className="hset-price-slot">
+                        <span className="t-num">{slot.hours}</span>
+                        <b className="t-num">{slot.price}</b>
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </li>
+          ))}
+        </ul>
+      )}
+      <dl className="hset-rules">
+        {rules.map(([term, value]) => (
+          <div key={term}><dt>{term}</dt><dd>{value}</dd></div>
+        ))}
+      </dl>
+    </section>
   );
 }
