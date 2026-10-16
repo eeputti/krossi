@@ -22,6 +22,17 @@
 // email_enabled only (the watch itself is the opt-in) and skips the block check: the mail
 // never says who freed the court.
 //
+// Court-booking events from the booking functions themselves (krossi-booking, krossi-booking-cron,
+// stripe-webhook), only accepted with the service-role key and only for what the database says
+// happened just now:
+//   booking_share_request  { shareId }    a friend's share of a split booking: the booker paid
+//                                         their part and asked them (invited_at < 10 min ago)
+//   booking_rest_failed    { shareId }    the booker's saved card was declined for the rest
+//                                         (charge_attempted_at < 60 min ago) — a billing notice,
+//                                         sent even with email notifications off
+//   booking_resold         { bookingId }  somebody booked the slot the booker put on sale
+//                                         (resold_at < 60 min ago): the money is on its way back
+//
 // Deploy with verify_jwt = true. The caller's JWT is also checked here (auth.getUser)
 // and the event's actor id must be the caller, exactly like send-push-notification.
 //
@@ -51,6 +62,9 @@ if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
   throw new Error("Supabase function environment variables are missing.");
 }
 
+// The keys Krossi's own functions call with (the legacy service-role JWT and the new secret key).
+const SERVICE_KEYS = [Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), supabaseServiceRoleKey].filter((k): k is string => Boolean(k));
+
 const APP_ORIGIN = "https://krossi.app";
 const SETTINGS_URL = `${APP_ORIGIN}/pelaa/asetukset`;
 const ADMIN_USER_ID = "b65ee88c-efd6-4ea9-b3a2-e2c83f218244";
@@ -74,7 +88,10 @@ type NotifyEvent =
   | { type: "challenge_spot_available"; challengeId: string; leaverId: string }
   | { type: "challenge_cancelled"; challengeId: string; creatorId: string }
   | { type: "account_report"; reportId: string; reporterId: string; reportedId: string }
-  | { type: "booking_slot_free"; watchId: string; freedById: string };
+  | { type: "booking_slot_free"; watchId: string; freedById: string }
+  | { type: "booking_share_request"; shareId: string }
+  | { type: "booking_rest_failed"; shareId: string }
+  | { type: "booking_resold"; bookingId: string };
 
 type EventType = NotifyEvent["type"];
 
@@ -90,7 +107,14 @@ const REQUIRED_IDS: Record<EventType, string[]> = {
   challenge_cancelled: ["challengeId", "creatorId"],
   account_report: ["reportId", "reporterId", "reportedId"],
   booking_slot_free: ["watchId", "freedById"],
+  booking_share_request: ["shareId"],
+  booking_rest_failed: ["shareId"],
+  booking_resold: ["bookingId"],
 };
+
+// Sent by Krossi's own booking functions with the service-role key, never by an app.
+const INTERNAL_EVENTS: EventType[] = ["booking_share_request", "booking_rest_failed", "booking_resold"];
+const isInternalEvent = (event: NotifyEvent) => INTERNAL_EVENTS.includes(event.type);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -110,8 +134,12 @@ function parseEvent(body: unknown): NotifyEvent | null {
   return candidate as unknown as NotifyEvent;
 }
 
-function actorIdOf(event: NotifyEvent): string {
+function actorIdOf(event: NotifyEvent): string | null {
   switch (event.type) {
+    case "booking_share_request":
+    case "booking_rest_failed":
+    case "booking_resold":
+      return null;
     case "play_request":
     case "new_message":
       return event.senderId;
@@ -165,6 +193,8 @@ interface Delivery {
   throttle: { kinds: EventType[]; refId: string | null; windowMinutes: number };
   logRefId: string;
   content: EmailContent;
+  // whose blocks apply when it isn't the caller (internal events); null = nobody else involved
+  blockActor?: string | null;
 }
 
 interface ChallengeRow {
@@ -563,6 +593,205 @@ async function planBookingSlotFree(
   };
 }
 
+// ── Court booking: shares and sales ─────────────────────────────────────────
+
+const BOOKING_NOTIFY_WINDOW_MINUTES = { invite: 10, charge: 60, sale: 60 };
+const DAY_MINUTES = 24 * 60;
+const CHARGE_ERRORS: Record<string, string> = {
+  card_declined: "Kortti hylättiin",
+  insufficient_funds: "Kortilla ei ollut katetta",
+  expired_card: "Kortti on vanhentunut",
+  authentication_required: "Pankki halusi vahvistaa maksun",
+  no_card: "Tallennettua korttia ei löytynyt",
+};
+
+interface BookingFacts {
+  id: string;
+  status: string;
+  bookedBy: string | null;
+  splitParts: number | null;
+  shareDeadline: string | null;
+  startsAt: string;
+  endsAt: string;
+  slug: string;
+  place: string;
+  when: string;
+}
+
+// What a booking email says about the booking: when (Finnish time) and where.
+async function bookingFacts(admin: Admin, reservationId: string): Promise<BookingFacts | null> {
+  const { data: booking, error } = await admin
+    .from("booking_reservations")
+    .select("id, venue_id, court_id, status, booked_by, split_parts, share_deadline, starts_at, ends_at, resold_at, own_cents, price_cents, payment_status")
+    .eq("id", reservationId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!booking) return null;
+  const [{ data: venue, error: venueError }, { data: court, error: courtError }] = await Promise.all([
+    admin.from("booking_venues").select("slug, name").eq("id", booking.venue_id).maybeSingle(),
+    admin.from("booking_courts").select("name, location_id").eq("id", booking.court_id).maybeSingle(),
+  ]);
+  if (venueError) throw venueError;
+  if (courtError) throw courtError;
+  if (!venue || !court) return null;
+  const { data: location, error: locationError } = await admin.from("booking_locations").select("name").eq("id", court.location_id).maybeSingle();
+  if (locationError) throw locationError;
+  const start = formatSlot(booking.starts_at as string);
+  const end = formatSlot(booking.ends_at as string);
+  return {
+    id: booking.id as string,
+    status: booking.status as string,
+    bookedBy: (booking.booked_by as string | null) ?? null,
+    splitParts: (booking.split_parts as number | null) ?? null,
+    shareDeadline: (booking.share_deadline as string | null) ?? null,
+    startsAt: booking.starts_at as string,
+    endsAt: booking.ends_at as string,
+    slug: venue.slug as string,
+    place: [court.name, location?.name, venue.name].filter(Boolean).join(", "),
+    when: `${start.label}–${end.time}`,
+  };
+}
+
+const within = (iso: unknown, minutes: number) => typeof iso === "string" && Date.now() - Date.parse(iso) <= minutes * 60_000;
+
+// 1500 -> "15 €", 1125 -> "11,25 €"
+function euros(cents: number): string {
+  return `${cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace(".", ",")} €`;
+}
+
+async function planBookingShareRequest(
+  admin: Admin,
+  event: Extract<NotifyEvent, { type: "booking_share_request" }>,
+): Promise<Delivery | null> {
+  const { data: share, error } = await admin
+    .from("booking_shares")
+    .select("id, reservation_id, user_id, kind, cents, status, invited_at")
+    .eq("id", event.shareId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!share || share.kind !== "friend" || share.status !== "pending" || !share.user_id) return null;
+  if (!within(share.invited_at, BOOKING_NOTIFY_WINDOW_MINUTES.invite)) return null;
+  const booking = await bookingFacts(admin, share.reservation_id as string);
+  if (!booking || booking.status !== "confirmed" || !booking.bookedBy || !booking.shareDeadline) return null;
+
+  const { data: players, error: playersError } = await admin
+    .from("booking_shares")
+    .select("user_id")
+    .eq("reservation_id", booking.id)
+    .eq("kind", "friend");
+  if (playersError) throw playersError;
+  const names = await Promise.all(
+    [booking.bookedBy, ...(players ?? []).map((p) => p.user_id as string).filter(Boolean)].map((id) => fetchFirstName(admin, id)),
+  );
+  const booker = names[0];
+  const amount = euros(Number(share.cents));
+  const deadline = formatSlot(booking.shareDeadline).label;
+  const game = booking.splitParts === 4 ? "nelinpeliin" : "kaksinpeliin";
+  return {
+    recipientIds: [share.user_id as string],
+    audience: "player",
+    prefColumn: "email_enabled",
+    throttle: { kinds: ["booking_share_request"], refId: share.id as string, windowMinutes: DAY_MINUTES },
+    logRefId: share.id as string,
+    blockActor: booking.bookedBy,
+    content: {
+      subject: `${booker} varasi kentän — osuutesi ${amount}`,
+      preheader: `${booking.when} · ${booking.place}`,
+      heading: `${booker} varasi kentän ${game}`,
+      paragraphs: [
+        `${booker} jakoi vuoron maksun pelaajien kesken. Osuutesi on ${amount}.`,
+        `Maksa se Krossissa viimeistään ${deadline}. Sen jälkeen maksamatta jääneet osuudet veloitetaan varaajalta.`,
+      ],
+      details: [`🗓 ${booking.when}`, `📍 ${booking.place}`, `👥 ${names.join(", ")}`],
+      cta: { label: "Maksa osuutesi", path: `/pelaa/osuus/${share.id}` },
+    },
+  };
+}
+
+async function planBookingRestFailed(
+  admin: Admin,
+  event: Extract<NotifyEvent, { type: "booking_rest_failed" }>,
+): Promise<Delivery | null> {
+  const { data: share, error } = await admin
+    .from("booking_shares")
+    .select("id, reservation_id, user_id, kind, cents, status, charge_error, charge_attempted_at")
+    .eq("id", event.shareId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!share || share.kind !== "rest" || share.status !== "pending" || !share.charge_error || !share.user_id) return null;
+  if (!within(share.charge_attempted_at, BOOKING_NOTIFY_WINDOW_MINUTES.charge)) return null;
+  const booking = await bookingFacts(admin, share.reservation_id as string);
+  if (!booking || booking.status !== "confirmed") return null;
+  const amount = euros(Number(share.cents));
+  const reason = CHARGE_ERRORS[share.charge_error as string] ?? "Veloitus ei onnistunut";
+  return {
+    recipientIds: [share.user_id as string],
+    audience: "player",
+    // A billing notice: it goes out even with email notifications switched off.
+    prefColumn: null,
+    throttle: { kinds: ["booking_rest_failed"], refId: share.id as string, windowMinutes: DAY_MINUTES },
+    logRefId: share.id as string,
+    blockActor: null,
+    content: {
+      subject: `Kortiltasi ei voitu veloittaa loppuosuutta (${amount})`,
+      preheader: `${booking.when} · ${booking.place}`,
+      heading: "Kenttävuoron loppuosuus on maksamatta",
+      paragraphs: [
+        `Kaikki kaverit eivät maksaneet osuuttaan ajoissa, joten yritimme veloittaa loput ${amount} tallennetulta kortiltasi. ${reason}.`,
+        "Maksa loppuosuus Krossissa, niin vuoro on kokonaan maksettu.",
+      ],
+      details: [`🗓 ${booking.when}`, `📍 ${booking.place}`],
+      cta: { label: `Maksa ${amount}`, path: `/pelaa/osuus/${share.id}` },
+    },
+  };
+}
+
+async function planBookingResold(
+  admin: Admin,
+  event: Extract<NotifyEvent, { type: "booking_resold" }>,
+): Promise<Delivery | null> {
+  const { data: row, error } = await admin
+    .from("booking_reservations")
+    .select("id, status, booked_by, resold_at, own_cents, price_cents, payment_status, split_parts")
+    .eq("id", event.bookingId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row || row.status !== "cancelled" || !row.booked_by || !within(row.resold_at, BOOKING_NOTIFY_WINDOW_MINUTES.sale)) return null;
+  const booking = await bookingFacts(admin, row.id as string);
+  if (!booking) return null;
+  const { data: shares, error: sharesError } = await admin
+    .from("booking_shares")
+    .select("kind, cents, status")
+    .eq("reservation_id", row.id);
+  if (sharesError) throw sharesError;
+  const paid = (s: { status: string }) => s.status === "paid" || s.status === "refunded";
+  const ownPaid = row.payment_status === "paid" || row.payment_status === "refunded"
+    ? Number(row.split_parts ? row.own_cents : row.price_cents) : 0;
+  const own = ownPaid + (shares ?? []).filter((s) => s.kind === "rest" && paid(s)).reduce((n, s) => n + Number(s.cents), 0);
+  const friendsPaid = (shares ?? []).some((s) => s.kind === "friend" && paid(s));
+  return {
+    recipientIds: [row.booked_by as string],
+    audience: "player",
+    prefColumn: "email_enabled",
+    throttle: { kinds: ["booking_resold"], refId: row.id as string, windowMinutes: DAY_MINUTES },
+    logRefId: row.id as string,
+    blockActor: null,
+    content: {
+      subject: "Vuorosi myytiin — saat rahat takaisin",
+      preheader: `${booking.when} · ${booking.place}`,
+      heading: "Joku varasi myyntiin laittamasi vuoron",
+      paragraphs: [
+        own > 0
+          ? `Saat ${euros(own)} takaisin maksutavallesi. Palautus näkyy tililläsi yleensä muutamassa päivässä.`
+          : "Vuoro oli maksuton, joten palautettavaa ei ole.",
+        ...(friendsPaid ? ["Kavereiden maksamat osuudet palautetaan heille."] : []),
+      ],
+      details: [`🗓 ${booking.when}`, `📍 ${booking.place}`],
+      cta: { label: "Katso vuorosi", path: `/pelaa/varaa/${encodeURIComponent(booking.slug)}` },
+    },
+  };
+}
+
 function planDelivery(admin: Admin, event: NotifyEvent): Promise<Delivery | null> {
   switch (event.type) {
     case "play_request":
@@ -584,6 +813,12 @@ function planDelivery(admin: Admin, event: NotifyEvent): Promise<Delivery | null
       return planAccountReport(admin, event);
     case "booking_slot_free":
       return planBookingSlotFree(admin, event);
+    case "booking_share_request":
+      return planBookingShareRequest(admin, event);
+    case "booking_rest_failed":
+      return planBookingRestFailed(admin, event);
+    case "booking_resold":
+      return planBookingResold(admin, event);
   }
 }
 
@@ -703,7 +938,7 @@ interface Prepared {
   candidates: number; // recipients before filtering; whatever isn't sent counts as skipped
 }
 
-async function prepare(admin: Admin, actorId: string, event: NotifyEvent): Promise<Prepared | null> {
+async function prepare(admin: Admin, actorId: string | null, event: NotifyEvent): Promise<Prepared | null> {
   const delivery = await planDelivery(admin, event);
   if (!delivery) return null;
 
@@ -712,7 +947,10 @@ async function prepare(admin: Admin, actorId: string, event: NotifyEvent): Promi
   if (ids.length === 0) return { delivery, recipients: [], candidates };
 
   // A freed-slot mail never names who freed it, so blocks between the two don't matter there.
-  if (delivery.audience !== "admin" && event.type !== "booking_slot_free") ids = await withoutBlocked(admin, actorId, ids);
+  const blockActor = delivery.blockActor !== undefined ? delivery.blockActor : actorId;
+  if (delivery.audience !== "admin" && event.type !== "booking_slot_free" && blockActor) {
+    ids = await withoutBlocked(admin, blockActor, ids);
+  }
   if (ids.length && delivery.prefColumn) ids = await withEmailPreference(admin, delivery.prefColumn, ids);
 
   const profiles = ids.length ? await loadProfiles(admin, ids) : new Map<string, ProfileInfo>();
@@ -963,18 +1201,25 @@ Deno.serve(async (request) => {
     return json({ error: "Invalid event." }, 400);
   }
 
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false },
-  });
-  const { data: { user }, error: userError } = await userClient.auth.getUser();
-  if (userError || !user) {
-    return json({ error: "Unauthorized." }, 401);
-  }
-
+  // Krossi's own booking functions call with the service-role key; everybody else is a signed-in
+  // user who must be the event's actor.
+  const token = authorization.replace(/^Bearer\s+/i, "");
+  const internal = SERVICE_KEYS.includes(token);
   const actorId = actorIdOf(event);
-  if (user.id !== actorId) {
-    return json({ error: "Unauthorized actor." }, 403);
+  if (isInternalEvent(event)) {
+    if (!internal) return json({ error: "Unauthorized actor." }, 403);
+  } else {
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false },
+    });
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) {
+      return json({ error: "Unauthorized." }, 401);
+    }
+    if (user.id !== actorId) {
+      return json({ error: "Unauthorized actor." }, 403);
+    }
   }
 
   const admin = createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } });

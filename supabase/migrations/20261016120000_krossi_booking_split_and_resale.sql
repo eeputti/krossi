@@ -1492,7 +1492,8 @@ $function$;
 revoke all on function public.krossi_booking_share_mark_paid(uuid, text) from public, anon, authenticated;
 grant execute on function public.krossi_booking_share_mark_paid(uuid, text) to service_role;
 
--- Maksetut osat, jotka pitää palauttaa: [{ shareId (null = varaajan oma), paymentIntentId, cents }].
+-- Maksetut osat, jotka pitää palauttaa: [{ shareId (null = varaajan oma), kind ('own' | 'friend' |
+-- 'rest'), paymentIntentId, cents }].
 create function public.krossi_booking_paid_parts(booking_id_input uuid)
 returns jsonb
 language sql
@@ -1504,6 +1505,7 @@ as $function$
   from (
     select 0 as ord, jsonb_build_object(
       'shareId', null,
+      'kind', 'own',
       'paymentIntentId', r.stripe_payment_intent_id,
       'cents', coalesce(r.own_cents, r.price_cents)
     ) as part
@@ -1514,6 +1516,7 @@ as $function$
     union all
     select s.position + 1, jsonb_build_object(
       'shareId', s.id,
+      'kind', s.kind,
       'paymentIntentId', s.stripe_payment_intent_id,
       'cents', s.cents
     )

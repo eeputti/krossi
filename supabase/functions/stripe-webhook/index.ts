@@ -2,13 +2,17 @@
 // Signature verification (not a Supabase JWT) is the auth here, since Stripe calls
 // this endpoint directly — the function must be deployed with verify_jwt disabled.
 //
-// Also confirms court bookings (payment_intent.succeeded with metadata.product
-// 'krossi_booking', paid in krossi-booking): krossi_booking_mark_paid confirms the booking, and
+// Also confirms court bookings (payment_intent.succeeded with metadata.product 'krossi_booking',
+// paid in krossi-booking) and records share payments (metadata.product 'krossi_booking_share':
+// a friend's share of a split booking, or a booker's rest share — also krossi-booking-cron's
+// off-session charges). The shared functions in ../_shared/booking.ts do what krossi-booking does:
 // a payment whose court went to somebody else meanwhile ('lost') or that paid an already paid
-// booking ('duplicate') is refunded — with the same idempotency key as krossi-booking, so a
-// payment is never refunded twice.
+// booking or share is refunded — with the same idempotency key as krossi-booking, so a payment is
+// never refunded twice — and a confirmed booking refunds the on-sale bookings it took over and
+// emails the split's friends.
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
+import { BOOKING_PRODUCT, SHARE_PRODUCT, afterBookingPaid, settleBookingPayment, settleSharePayment } from '../_shared/booking.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -16,27 +20,7 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
 });
 const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
-const BOOKING_PRODUCT = 'krossi_booking';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-/** Same refund as krossi-booking's refundIntent (same params and idempotency key). */
-async function refundBookingIntent(intent: Stripe.PaymentIntent, bookingId: string): Promise<Stripe.Refund> {
-  const params: Stripe.RefundCreateParams = {
-    payment_intent: intent.id,
-    metadata: { product: BOOKING_PRODUCT, booking_id: bookingId },
-  };
-  if (intent.transfer_data?.destination) params.reverse_transfer = true;
-  if (intent.application_fee_amount) params.refund_application_fee = true;
-  try {
-    return await stripe.refunds.create(params, { idempotencyKey: `krossi-booking-refund-${intent.id}` });
-  } catch (err) {
-    if ((err as { code?: string }).code === 'charge_already_refunded') {
-      const { data } = await stripe.refunds.list({ payment_intent: intent.id, limit: 1 });
-      if (data[0]) return data[0];
-    }
-    throw err;
-  }
-}
 
 /** Confirms the booking a succeeded payment belongs to; throws when it should be retried. */
 async function settleBooking(admin: SupabaseClient, intent: Stripe.PaymentIntent) {
@@ -45,29 +29,37 @@ async function settleBooking(admin: SupabaseClient, intent: Stripe.PaymentIntent
     console.error('booking payment without a booking id', intent.id);
     return;
   }
-  const { data: outcome, error } = await admin.rpc('krossi_booking_mark_paid', {
-    booking_id_input: bookingId,
-    payment_intent_id_input: intent.id,
-  });
-  if (error) {
+  let outcome;
+  try {
+    outcome = await settleBookingPayment(stripe, admin, intent);
+  } catch (err) {
     // A booking this database doesn't have (e.g. a test-mode event of another environment):
     // nothing to confirm, and retrying won't change that. The money is not touched.
-    if (/Varausta ei löytynyt/.test(error.message)) {
+    if (/Varausta ei löytynyt/.test((err as Error).message)) {
       console.error('booking payment for an unknown booking', intent.id, bookingId);
       return;
     }
-    throw new Error(`krossi_booking_mark_paid failed: ${error.message}`);
+    throw err;
   }
-  if (outcome !== 'lost' && outcome !== 'duplicate') return;
-  const refund = await refundBookingIntent(intent, bookingId);
-  if (outcome === 'lost') {
-    const { error: cancelError } = await admin.rpc('krossi_booking_mark_cancelled', {
-      booking_id_input: bookingId,
-      refunded_input: true,
-      refund_id_input: refund.id,
-      by_input: null,
-    });
-    if (cancelError) throw new Error(`krossi_booking_mark_cancelled failed: ${cancelError.message}`);
+  // The booking is confirmed either way; refunds it owes are retried by krossi-booking-cron.
+  if (outcome === 'confirmed') await afterBookingPaid(stripe, admin, bookingId);
+}
+
+/** Records a share payment; throws when it should be retried. */
+async function settleShare(admin: SupabaseClient, intent: Stripe.PaymentIntent) {
+  const shareId = intent.metadata?.share_id ?? '';
+  if (!UUID_RE.test(shareId)) {
+    console.error('share payment without a share id', intent.id);
+    return;
+  }
+  try {
+    await settleSharePayment(stripe, admin, intent);
+  } catch (err) {
+    if (/Osuutta ei löytynyt/.test((err as Error).message)) {
+      console.error('share payment for an unknown share', intent.id, shareId);
+      return;
+    }
+    throw err;
   }
 }
 
@@ -101,12 +93,14 @@ Deno.serve(async (req: Request) => {
   const { error: seenError } = await admin.from('stripe_events').insert({ id: event.id });
   if (seenError) return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
 
-  // Kenttävaraus (krossi-booking) — erillään avausmaksusta alla.
+  // Kenttävaraus ja osuudet (krossi-booking) — erillään avausmaksusta alla.
   if (event.type === 'payment_intent.succeeded') {
     const intent = event.data.object as Stripe.PaymentIntent;
-    if (intent.metadata?.product === BOOKING_PRODUCT) {
+    const product = intent.metadata?.product;
+    if (product === BOOKING_PRODUCT || product === SHARE_PRODUCT) {
       try {
-        await settleBooking(admin, intent);
+        if (product === BOOKING_PRODUCT) await settleBooking(admin, intent);
+        else await settleShare(admin, intent);
       } catch (err) {
         console.error('booking update failed', (err as Error).message);
         // Forget the event so Stripe's retry gets another go instead of being skipped as a duplicate.
