@@ -30,6 +30,8 @@
 .ss-box { display: grid; gap: 10px; padding: 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
 .ss-two { display: grid; gap: 12px; }
 @media (min-width: 560px) { .ss-two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* side by side: the grid's gap spaces them, not `.field + .field` */
+.ss-two > .field + .field { margin-top: 0; }
 .ss-code { display: inline-block; padding: 6px 10px; border-radius: var(--r-sm); background: var(--sand); font: 800 16px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.06em; color: var(--ink); }
 .bk-facts.is-loading { opacity: 0.6; transition: opacity var(--dur-2); }
 .bk-court-price.is-warn { color: var(--warn); }

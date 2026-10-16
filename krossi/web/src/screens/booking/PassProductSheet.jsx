@@ -117,16 +117,19 @@ export function PassProductSheet({ open, onClose, venue, sports, product, onDone
           </div>
         )}
         <div className="ss-time-row">
-          <Field label="Kertoja" htmlFor="hset-pass-uses" error={error('uses')}>
+          <label className="bk-field" htmlFor="hset-pass-uses">
+            <span className="eyebrow">Kertoja</span>
             <Input id="hset-pass-uses" inputMode="numeric" value={form.uses} onChange={(e) => set({ uses: e.target.value })} />
-          </Field>
+          </label>
           <div className="bk-field">
             <span className="eyebrow">Kerran pituus</span>
             <DurationStepper value={form.minutesPerUse} options={USE_MINUTES.includes(form.minutesPerUse) ? USE_MINUTES : [...USE_MINUTES, form.minutesPerUse]}
               onChange={(m) => set({ minutesPerUse: m })} />
           </div>
         </div>
-        {error('minutesPerUse') && <div className="field-msg field-msg-error" role="alert">{error('minutesPerUse')}</div>}
+        {(error('uses') || error('minutesPerUse')) && (
+          <div className="field-msg field-msg-error" role="alert">{error('uses') || error('minutesPerUse')}</div>
+        )}
         <Field label="Nimi" htmlFor="hset-pass-name" error={error('name')} hint="Näkyy kaupassa ja pelaajan kortilla.">
           <Input id="hset-pass-name" value={form.name} maxLength={80} onChange={(e) => set({ name: e.target.value, autoName: false })} />
         </Field>

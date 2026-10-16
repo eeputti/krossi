@@ -67,6 +67,7 @@
 
 .hset-three { display: grid; gap: 12px; }
 @media (min-width: 560px) { .hset-three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.hset-three > .field + .field { margin-top: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .hset-day { transition: none; }
