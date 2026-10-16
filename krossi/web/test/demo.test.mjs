@@ -214,7 +214,8 @@ test('messages.listConversations / listMessages / requests: contract shapes', as
   }
   const updated = conversations.map((c) => c.updatedAt);
   assert.deepEqual(updated, [...updated].sort().reverse(), 'newest first');
-  assert.equal(conversations.filter((c) => c.unread).length, 1, 'one unread conversation');
+  // Laura's question, and Mikko asking for Alex's share of the court he booked (bookingSeed.js)
+  assert.equal(conversations.filter((c) => c.unread).length, 2, 'two unread conversations');
   assert.ok(conversations.some((c) => c.isGroup && c.gameId && c.participants.length >= 2), 'a game group chat');
 
   const group = conversations.find((c) => c.isGroup && c.participants.length >= 2);
@@ -233,7 +234,7 @@ test('messages.listConversations / listMessages / requests: contract shapes', as
     assert.deepEqual(sortedKeys(r), ['createdAt', 'from', 'id', 'message']);
     assertPerson(r.from, 'request.from');
   }
-  assert.equal(await api.messages.unreadCount(), 3, '1 unread conversation + 2 requests');
+  assert.equal(await api.messages.unreadCount(), 4, '2 unread conversations + 2 requests');
 });
 
 test('stats.myActivity: contract shape and a rich history', async () => {

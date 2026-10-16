@@ -4,11 +4,18 @@
 // the hall view too. The public demo uses a neutral venue name on purpose: the operator hasn't
 // joined Krossi, and the prices here are made up.
 //
+// Jaettu maksu and "Laita myyntiin" have something to show from the start: Alex's nelinpeli
+// (the seeded "Iltanelinpeli Januksessa" game) is split with Mikko, Laura and Ville, one of them
+// still to pay; Mikko has asked Alex for a share of his court; one booking of Alex's is inside the
+// 24-hour limit, so it can go on sale; somebody else's evening slot is on sale; and two past split
+// bookings show the deadline at work — one rest charged to the card, one card that said no.
+//
 // Same fixed-seed approach as seed.js: the layout is relative to `now`, so the demo always
 // shows "tomorrow 18.00" instead of a date that went stale.
 
 import { ME } from './rows.js';
-import { addDays, dateKey, localDate, priceOf } from '../../features/booking.js';
+import { addDays, dateKey, localDate, priceOf, shareDeadline, splitCents } from '../../features/booking.js';
+import { WEEKDAYS_SHORT, formatEuro } from '../../lib/format.js';
 
 const MIN = 60_000;
 const SEED = 20261014;
@@ -83,6 +90,7 @@ function buildVenue() {
     durations: [60, 90, 120],
     daysAhead: 14,
     cancelLimitHours: 24,
+    shareDeadlineHours: 2,
     holdMinutes: 10,
     payOnline: true,
     lastMinute: { hours: 4, percent: 30 }, // empty courts in the next four hours are 30 % off
@@ -112,18 +120,69 @@ function demand(sport, indoor, wd, h) {
   return p;
 }
 
+/** 'to 17.10. klo 19.00' — chat messages are read later, so no "huomenna". */
+function exactWhen(iso) {
+  const d = new Date(iso);
+  return `${WEEKDAYS_SHORT[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}. klo ${d.getHours()}.${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** The link a share request carries in the chat (the chat shows it as a "Maksa osuutesi" button). */
+export const shareLink = (shareId) => `https://krossi.app/pelaa/osuus/${encodeURIComponent(shareId)}`;
+
+/** What the booker's chat message to a friend says (same text as krossi_booking_share_message in SQL). */
+export function shareMessage({ courtName, locationName, startsAt, endsAt, cents, deadline, shareId }) {
+  const end = new Date(endsAt);
+  return `Varasin meille kentän: ${courtName}, ${locationName}, ${exactWhen(startsAt)}–${end.getHours()}.${String(end.getMinutes()).padStart(2, '0')}. `
+    + `Osuutesi on ${formatEuro(cents / 100)} — maksa se Krossissa viimeistään ${exactWhen(deadline)}: ${shareLink(shareId)}`;
+}
+
 export function createBookingSeed(now) {
   const rng = createRng(SEED);
   const venue = buildVenue();
   const rows = [];
+  const shares = [];
+  const seedMessages = []; // chat lines this world adds to seed.js's conversations
   let n = 0;
   const add = (row) => {
     n += 1;
-    rows.push({
+    const createdAt = new Date(now - (2 + (n % 9)) * 86_400_000).toISOString();
+    const full = {
       id: `bk-${n}`, venueId: venue.id, kind: 'booking', status: 'confirmed', bookedBy: null, title: null,
-      priceCents: 0, paymentStatus: 'paid', holdExpiresAt: null, createdAt: new Date(now - (2 + (n % 9)) * 86_400_000).toISOString(),
-      cancelledAt: null, ...row,
+      priceCents: 0, paymentStatus: 'paid', holdExpiresAt: null, createdAt, cancelledAt: null,
+      paidAt: row.kind && row.kind !== 'booking' ? null : createdAt,
+      split: null, listedAt: null, resoldBy: null, resoldAt: null, ...row,
+    };
+    rows.push(full);
+    return full;
+  };
+  let s = 0;
+  const share = (row, fields) => {
+    s += 1;
+    const out = {
+      id: `sh-${s}`, bookingId: row.id, kind: 'friend', status: 'pending', paidAt: null, invitedAt: row.createdAt,
+      declinedAt: null, chargeError: null, coveredBy: null, createdAt: row.createdAt, ...fields,
+    };
+    shares.push(out);
+    return out;
+  };
+  /** Jaettu maksu for `row`: `friends` = [{ key, status }]. */
+  const split = (row, parts, friends) => {
+    const { ownCents, friendCents } = splitCents(row.priceCents, parts);
+    row.split = { parts, ownCents, deadline: shareDeadline(row.startsAt, venue) };
+    return friends.map((f) => share(row, {
+      userId: pid(f.key), cents: friendCents, status: f.status,
+      paidAt: f.status === 'paid' ? new Date(Date.parse(row.createdAt) + (s + 2) * 3_600_000).toISOString() : null,
+    }));
+  };
+  /** The deadline came: the unpaid friend shares became the booker's rest share (charged, or the card said no). */
+  const rest = (row, { status, chargeError = null }) => {
+    const unpaid = shares.filter((x) => x.bookingId === row.id && x.kind === 'friend' && ['pending', 'declined'].includes(x.status));
+    const out = share(row, {
+      userId: row.bookedBy, kind: 'rest', cents: unpaid.reduce((sum, x) => sum + x.cents, 0), status,
+      paidAt: status === 'paid' ? row.split.deadline : null, invitedAt: null, chargeError, createdAt: row.split.deadline,
     });
+    for (const x of unpaid) { x.status = 'covered'; x.coveredBy = out.id; }
+    return out;
   };
   const today = dateKey(new Date(now));
   const at = (key, hhmm) => {
@@ -149,22 +208,42 @@ export function createBookingSeed(now) {
     }
   }
 
-  // Alex's own bookings: one tomorrow evening, one later this week, a few in the past.
-  const mine = [
-    { day: 1, time: '18:00', minutes: 90, loc: 0, mapId: 'te2' },
-    { day: 4, time: '07:00', minutes: 60, loc: 1, mapId: 'te1' },
-    { day: -2, time: '19:00', minutes: 60, loc: 0, mapId: 'te4' },
-    { day: -6, time: '17:30', minutes: 90, loc: 0, mapId: 'te1' },
-  ];
-  for (const b of mine) {
-    const key = addDays(today, b.day);
-    const c = venue.locations[b.loc].courts.find((x) => x.mapId === b.mapId);
-    const start = at(key, b.time);
-    add({
-      courtId: c.id, startsAt: start.toISOString(), endsAt: new Date(start.getTime() + b.minutes * MIN).toISOString(),
-      bookedBy: ME, priceCents: priceOf(venue, c, start.toISOString(), b.minutes) || 0,
+  // Alex's own bookings: one inside the 24-hour limit (it can go on sale), one tomorrow evening, the
+  // nelinpeli split with Mikko, Laura and Ville, one later this week, and two split ones in the past.
+  const courtAt = (loc, mapId) => venue.locations[loc].courts.find((x) => x.mapId === mapId);
+  const book = ({ start, minutes, loc, mapId, bookedBy = ME }) => {
+    const c = courtAt(loc, mapId);
+    const startsAt = start.toISOString();
+    return add({
+      courtId: c.id, startsAt, endsAt: new Date(start.getTime() + minutes * MIN).toISOString(),
+      bookedBy, priceCents: priceOf(venue, c, startsAt, minutes) || 0,
     });
-  }
+  };
+  // The first priced start on the grid at least three hours away (always within the next 24 h).
+  let soon = new Date(Math.ceil((now + 3 * 3_600_000) / (30 * MIN)) * 30 * MIN);
+  while (priceOf(venue, courtAt(0, 'te1'), soon.toISOString(), 60) == null) soon = new Date(soon.getTime() + 30 * MIN);
+  book({ start: soon, minutes: 60, loc: 0, mapId: 'te1' });
+  book({ start: at(addDays(today, 1), '18:00'), minutes: 90, loc: 0, mapId: 'te2' });
+  const nelinpeli = book({ start: at(addDays(today, 2), '18:30'), minutes: 120, loc: 0, mapId: 'te1' });
+  split(nelinpeli, 4, [{ key: 'mikko', status: 'paid' }, { key: 'laura', status: 'paid' }, { key: 'ville', status: 'pending' }]);
+  book({ start: at(addDays(today, 4), '07:00'), minutes: 60, loc: 1, mapId: 'te1' });
+  const failed = book({ start: at(addDays(today, -2), '19:00'), minutes: 60, loc: 0, mapId: 'te4' });
+  split(failed, 2, [{ key: 'ville', status: 'pending' }]);
+  rest(failed, { status: 'pending', chargeError: 'card_declined' });
+  const charged = book({ start: at(addDays(today, -6), '17:30'), minutes: 90, loc: 0, mapId: 'te1' });
+  split(charged, 2, [{ key: 'laura', status: 'pending' }]);
+  rest(charged, { status: 'paid' });
+
+  // Mikko booked the revanssi and asked Alex for half; the request is the newest line in their chat.
+  const revanssi = book({ start: at(addDays(today, 3), '19:00'), minutes: 60, loc: 0, mapId: 'te4', bookedBy: pid('mikko') });
+  revanssi.createdAt = new Date(now - 3 * 3_600_000).toISOString();
+  revanssi.paidAt = revanssi.createdAt;
+  const [toAlex] = split(revanssi, 2, [{ key: 'me', status: 'pending' }]);
+  seedMessages.push({
+    conversationId: 'c-mikko', senderId: pid('mikko'), createdAt: revanssi.createdAt,
+    text: shareMessage({ courtName: 'Tennis 4', locationName: 'Janus-Areena', startsAt: revanssi.startsAt, endsAt: revanssi.endsAt,
+      cents: toAlex.cents, deadline: revanssi.split.deadline, shareId: toAlex.id }),
+  });
 
   // Everybody else: walk every court hour by hour and book by demand.
   for (let d = -7; d <= venue.daysAhead; d += 1) {
@@ -191,5 +270,17 @@ export function createBookingSeed(now) {
     }
   }
 
-  return { venues: [venue], rows, watches: [] };
+  // Somebody can't make it tonight / tomorrow and put their evening slot on sale.
+  const tennis = new Set(courtsOfSport(venue, 'tennis'));
+  const onSale = rows
+    .filter((r) => r.kind === 'booking' && r.bookedBy && r.bookedBy !== ME && !r.split && tennis.has(r.courtId)
+      && Date.parse(r.startsAt) > now + 3 * 3_600_000 && Date.parse(r.startsAt) < now + 24 * 3_600_000)
+    .sort((a, b) => (new Date(b.startsAt).getHours() >= 17) - (new Date(a.startsAt).getHours() >= 17) || a.startsAt.localeCompare(b.startsAt))[0];
+  if (onSale) onSale.listedAt = new Date(now - 90 * MIN).toISOString();
+
+  return { venues: [venue], rows, watches: [], shares, seedMessages };
+}
+
+function courtsOfSport(venue, sport) {
+  return venue.locations.flatMap((l) => l.courts.filter((c) => c.sport === sport).map((c) => c.id));
 }

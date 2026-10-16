@@ -16,11 +16,20 @@ export function resetStore(now = Date.now()) {
   cancelScheduled();
   for (const key of Object.keys(db)) delete db[key];
   Object.assign(db, createSeed(now), {
-    booking: createBookingSeed(now), // court booking: the hall, its courts and bookings
+    booking: createBookingSeed(now), // court booking: the hall, its courts, bookings and shares
     pendingReplies: new Set(), // conversation ids with an auto-reply already on its way
     rotation: 0,               // rotates through canned replies / candidates so they don't repeat
     uploads: new Map(),        // avatar "storage path" -> object URL of the picked file
     ambientStarted: false,     // startAmbientActivity() runs once per page load
+  });
+  // The booking world's chat lines (Mikko asking for Alex's share) go into seed.js's threads.
+  db.booking.seedMessages.forEach(({ conversationId, senderId, text, createdAt }, i) => {
+    const conversation = db.conversations.get(conversationId);
+    if (!conversation) return;
+    const list = messagesOf(conversationId);
+    list.push({ id: `m-bk-${i + 1}`, conversationId, senderId, kind: 'text', text, imageUrl: null, createdAt, meta: null });
+    list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    if (createdAt > conversation.updatedAt) conversation.updatedAt = createdAt;
   });
 }
 

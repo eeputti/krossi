@@ -138,24 +138,46 @@ export function startTimes(venue, key, minutes, now = Date.now()) {
   return out;
 }
 
-/** True when `busy` has something on `courtId` overlapping [startMs, endMs). */
-export function isTaken(busy, courtId, startMs, endMs) {
-  return (busy || []).some((b) => b.courtId === courtId
-    && Date.parse(b.startsAt) < endMs && Date.parse(b.endsAt) > startMs);
+const overlaps = (b, courtId, startMs, endMs) => b.courtId === courtId
+  && Date.parse(b.startsAt) < endMs && Date.parse(b.endsAt) > startMs;
+
+/**
+ * An on-sale booking ("Laita myyntiin") doesn't block a booking that covers it completely: that
+ * booking takes it over and its seller gets their money back. A partial overlap would leave a
+ * piece of it unsold, so that still counts as taken — the same rule krossi_hold_booking applies.
+ * My own on-sale booking is never mine to buy.
+ */
+export function takesOver(b, startMs, endMs) {
+  return Boolean(b.forSale) && !b.mine && Date.parse(b.startsAt) >= startMs && Date.parse(b.endsAt) <= endMs;
 }
 
-/** The busy entry covering `courtId` at [startMs, endMs), if any. */
+/** The busy entry that keeps `courtId` taken for [startMs, endMs), if any. */
+export function blockingAt(busy, courtId, startMs, endMs) {
+  return (busy || []).find((b) => overlaps(b, courtId, startMs, endMs) && !takesOver(b, startMs, endMs)) || null;
+}
+
+/** True when `busy` has something on `courtId` that [startMs, endMs) can't be booked over. */
+export function isTaken(busy, courtId, startMs, endMs) {
+  return Boolean(blockingAt(busy, courtId, startMs, endMs));
+}
+
+/** The busy entry covering `courtId` at [startMs, endMs), if any (an on-sale one it would take over doesn't count). */
 export function busyAt(busy, courtId, startMs, endMs) {
-  return (busy || []).find((b) => b.courtId === courtId
-    && Date.parse(b.startsAt) < endMs && Date.parse(b.endsAt) > startMs) || null;
+  return blockingAt(busy, courtId, startMs, endMs);
+}
+
+/** True when booking [startMs, endMs) on `courtId` would take over somebody's on-sale booking (no last-minute deal then). */
+export function coversSale(busy, courtId, startMs, endMs) {
+  return (busy || []).some((b) => overlaps(b, courtId, startMs, endMs) && takesOver(b, startMs, endMs));
 }
 
 /**
- * Free times of a day: [{ startsAt, endsAt, options: [{ court, location, cents, fullCents }], deal }],
+ * Free times of a day: [{ startsAt, endsAt, options: [{ court, location, cents, fullCents, resale }], deal }],
  * only start times where at least one court is free and open. Options keep the venue's court
- * order; `cents` includes a last-minute discount (`deal` = its percent, 0 without one).
- * With `includeFull`, start times where every open court is taken come back too, with
- * `options: []` — the screen offers "Ilmoita kun vapautuu" for those.
+ * order; `cents` includes a last-minute discount (`deal` = its percent, 0 without one). A court
+ * that is free because its booking is on sale (`resale`) costs the full price: the seller gets
+ * back what they paid. With `includeFull`, start times where every open court is taken come back
+ * too, with `options: []` — the screen offers "Ilmoita kun vapautuu" for those.
  */
 export function freeSlots(venue, key, busy, { sport, locationId = null, minutes, now = Date.now(), includeFull = false }) {
   const courts = courtsOf(venue, { sport, locationId });
@@ -172,7 +194,8 @@ export function freeSlots(venue, key, busy, { sport, locationId = null, minutes,
       if (fullCents == null) continue;
       open += 1;
       if (isTaken(busy, court.id, startMs, endMs)) continue;
-      options.push({ court, location, cents: discounted(fullCents, deal), fullCents });
+      const resale = coversSale(busy, court.id, startMs, endMs);
+      options.push({ court, location, cents: resale ? fullCents : discounted(fullCents, deal), fullCents, resale });
     }
     if (options.length || (includeFull && open)) {
       out.push({ startsAt, endsAt: new Date(endMs).toISOString(), options, deal: options.length ? deal : 0 });
@@ -200,6 +223,70 @@ export function courtStatesAt(venue, busy, { sport, startsAt, minutes }) {
 /** startsAt − cancelLimitHours, as ISO. */
 export function cancelDeadline(startsAt, venue) {
   return new Date(Date.parse(startsAt) - (venue?.cancelLimitHours ?? 24) * 3_600_000).toISOString();
+}
+
+// ── Jaettu maksu ─────────────────────────────────────────────────────────────
+
+/** Payers per match type, the booker included: friends to pick = parts − 1. */
+export const SPLIT_PARTS = { kaksinpeli: 2, nelinpeli: 4 };
+/** Friends need at least this long to pay before the deadline, or there is no point asking. */
+export const SPLIT_MIN_LEAD_MINUTES = 30;
+/** Stripe's smallest euro charge: every share has to be at least this. */
+export const MIN_SHARE_CENTS = 50;
+
+/**
+ * Even shares in whole cents, like krossi_hold_booking: every friend pays floor(total / parts),
+ * the booker pays the rest (so an odd cent is theirs). → { ownCents, friendCents }
+ */
+export function splitCents(totalCents, parts) {
+  const friendCents = Math.floor(totalCents / parts);
+  return { ownCents: totalCents - friendCents * (parts - 1), friendCents };
+}
+
+/** When friends have to have paid: startsAt − venue.shareDeadlineHours, as ISO. */
+export function shareDeadline(startsAt, venue) {
+  return new Date(Date.parse(startsAt) - (venue?.shareDeadlineHours ?? 2) * 3_600_000).toISOString();
+}
+
+/**
+ * Whether a booking at `startsAt` costing `cents` can still be split in `parts`: the friends get
+ * at least SPLIT_MIN_LEAD_MINUTES before the deadline and every share reaches MIN_SHARE_CENTS.
+ * → null when it can, else the reason in Finnish (the server says the same).
+ */
+export function splitBlocker(venue, startsAt, cents, parts, now = Date.now()) {
+  if (Date.parse(shareDeadline(startsAt, venue)) - now < SPLIT_MIN_LEAD_MINUTES * MINUTE) {
+    return 'Jaettu maksu ei ehdi enää — vuoro alkaa pian. Maksa vuoro itse.';
+  }
+  if (splitCents(cents, parts).friendCents < MIN_SHARE_CENTS) return 'Vuoro on liian edullinen jaettavaksi.';
+  return null;
+}
+
+const CHARGE_ERRORS = {
+  card_declined: 'Kortti hylättiin',
+  insufficient_funds: 'Kortilla ei ollut katetta',
+  expired_card: 'Kortti on vanhentunut',
+  authentication_required: 'Pankki halusi vahvistaa maksun',
+  no_card: 'Tallennettua korttia ei löytynyt',
+};
+
+/** A rest share's chargeError (Stripe's decline code) in Finnish. */
+export function chargeErrorText(code) {
+  return CHARGE_ERRORS[code] || 'Veloitus ei onnistunut';
+}
+
+// ── Laita myyntiin ───────────────────────────────────────────────────────────
+
+/** A booking of mine that can go on sale now: confirmed, past its free cancellation, not started. */
+export function canPutOnSale(booking, now = Date.now()) {
+  return booking?.status === 'confirmed' && !booking.forSale
+    && Date.parse(booking.cancellableUntil) <= now && Date.parse(booking.startsAt) > now;
+}
+
+/** What goes back to everybody when an on-sale booking is sold: every part that was paid. */
+export function paidTotal(booking) {
+  if (!booking) return 0;
+  if (!booking.split) return booking.paymentStatus === 'paid' ? booking.priceCents : 0;
+  return booking.split.lines.filter((l) => l.status === 'paid').reduce((sum, l) => sum + l.cents, 0);
 }
 
 /** '1 h' | '1,5 h' | '2 h' | '45 min' */

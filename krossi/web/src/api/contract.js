@@ -298,6 +298,8 @@
 // @property {number[]} durations              bookable lengths in minutes, e.g. [60, 90, 120]
 // @property {number} daysAhead                how many days ahead can be booked (today = day 0)
 // @property {number} cancelLimitHours         free cancellation until this long before the start
+// @property {number} shareDeadlineHours       jaettu maksu: friends pay their shares until this long before the
+//                                            start; then the unpaid shares are charged to the booker's saved card
 // @property {number} holdMinutes              an unpaid booking holds the court this long
 // @property {boolean} payOnline               true = Stripe checkout (the only mode for now)
 // @property {{hours:number, percent:number}|null} lastMinute   "viime hetken ale": a booking made
@@ -315,6 +317,9 @@
 // @property {'booking'|'block'|'league'} kind  league = reserved for a hallisarja / league round
 // @property {boolean} mine                    my own booking (held or confirmed)
 // @property {string|null} title               blocks only, e.g. 'Hallisarja', 'Valmennus' (never a name)
+// @property {boolean} forSale                 "Laita myyntiin": its booker sells it on. A booking that covers the
+//                                            whole slot takes it over (features/booking.js blockingAt); the seller
+//                                            then gets everything back. Never mine to buy.
 //
 // @typedef {Object} Booking                   one of my bookings
 // @property {string} id
@@ -335,6 +340,40 @@
 // @property {string} cancellableUntil         startsAt − venue.cancelLimitHours
 // @property {string|null} cancelledAt
 // @property {string} createdAt
+// @property {boolean} forSale                 on sale ("Laita myyntiin"): others see the slot as bookable, and it
+//                                            stays mine until somebody books it
+// @property {string|null} soldAt              somebody booked it while it was on sale: status 'cancelled', and
+//                                            everything paid for it went back (paymentStatus 'refunded')
+// @property {BookingSplit|null} split         jaettu maksu with pelikaverit; null = the booker pays it all
+//
+// @typedef {Object} BookingSplit
+// @property {2|4} parts                       kaksinpeli 2 / nelinpeli 4 payers, the booker included
+// @property {number} ownCents                 the booker's part (paid when booking; an uneven split's extra cents)
+// @property {string} deadline                 friends pay until startsAt − venue.shareDeadlineHours; then the
+//                                            unpaid shares become the booker's 'rest' share, charged to the saved card
+// @property {BookingShareLine[]} lines        the booker ('own') first, then the friends, then 'rest' if any
+//
+// @typedef {Object} BookingShareLine          one payer of a split booking
+// @property {string|null} id                  share id (null for the booker's own part)
+// @property {'own'|'friend'|'rest'} kind      rest = the unpaid friend shares, owed by the booker after the deadline
+// @property {PersonLite} person
+// @property {number} cents
+// @property {'pending'|'paid'|'declined'|'covered'|'refunded'|'cancelled'} status
+//                                            declined = "en pääse" (still owed); covered = the rest share took it over
+// @property {string|null} paidAt
+//
+// @typedef {Object} BookingShare              a share I owe: a friend's booking ("Maksa osuutesi") or the rest of my own
+// @property {string} id
+// @property {'friend'|'rest'} kind
+// @property {number} cents
+// @property {'pending'|'paid'|'declined'|'covered'|'refunded'|'cancelled'} status
+// @property {string|null} paidAt
+// @property {string} deadline                 = booking.split.deadline
+// @property {boolean} payable                 pending/declined while the booking is on (a friend share only until
+//                                            the deadline; a rest share until it is paid)
+// @property {string|null} chargeError         rest only: why the saved card was not charged ('card_declined', …)
+// @property {PersonLite} booker
+// @property {Booking} booking                 the booking with its split (everybody's lines)
 //
 // @typedef {Object} BookingWatch              "Ilmoita kun vapautuu": tell me when a court frees up
 // @property {string} id
@@ -356,7 +395,12 @@
 // @property {string|null} title               blocks: their title; bookings: null
 // @property {PersonLite|null} bookedBy        bookings only
 // @property {number} priceCents
-// @property {'unpaid'|'paid'|'refunded'|'free'|'none'} paymentStatus   'none' = a block (nothing to pay)
+// @property {'unpaid'|'paid'|'refunded'|'free'|'none'} paymentStatus   'none' = a block (nothing to pay); the
+//                                            booker's own part for a split booking
+// @property {boolean} forSale                 the booker has put it on sale
+// @property {number} unpaidCents              split bookings: friend shares not paid yet + an unpaid rest share
+//                                            (the counter can collect a rest the card did not cover)
+// @property {number|null} parts               split bookings: 2 or 4 payers
 
 /**
  * Function names per domain. Both implementations must export exactly these.
@@ -485,20 +529,33 @@ export const API_CONTRACT = {
     'listVenues',          // () -> BookingVenue[]   works without a session (isStaff false then)
     'getVenue',            // (idOrSlug) -> BookingVenue|null   works without a session
     'day',                 // (venueId, 'YYYY-MM-DD') -> { date, busy: BookingBusy[] }   held + confirmed bookings and blocks; works without a session
-    'hold',                // ({ courtId, startsAt, minutes }) -> Booking   status 'held' for venue.holdMinutes; the server prices it ('Joku ehti ensin…' if taken)
+    'hold',                // ({ courtId, startsAt, minutes, friendIds? }) -> Booking   status 'held' for venue.holdMinutes; the server prices it ('Joku ehti ensin…' if taken).
+                           //   A booking covering on-sale bookings takes them over (no last-minute deal then).
+                           //   friendIds (1 = kaksinpeli, 3 = nelinpeli, from shareFriends): jaettu maksu — split.ownCents is paid now
     'release',             // (bookingId) -> void   drops my own unpaid hold (backing out before paying)
-    'checkoutConfig',      // (bookingId) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, amount, currency, email }
+    'checkoutConfig',      // (bookingId) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, amount, currency, email, setupFutureUsage }
+                           //   amount = what I pay now (split: ownCents); setupFutureUsage 'off_session' (split) = the card is saved for the rest, else null
     'createPaymentIntent', // (bookingId) -> { paid: true } | { clientSecret, paymentIntentId }
-    'verifyPayment',       // (bookingId, paymentIntentId) -> { confirmed: boolean, status }   confirms the booking once Stripe says succeeded
+    'verifyPayment',       // (bookingId, paymentIntentId) -> { confirmed: boolean, status }   confirms the booking once Stripe says succeeded (split: then the friends are asked)
     'listMine',            // () -> { upcoming: Booking[], past: Booking[] }   upcoming = held|confirmed, not ended, soonest first; past = newest first, max 30
-    'cancel',              // (bookingId) -> { refundedCents }   only before cancellableUntil; refunds to the original payment method
+    'cancel',              // (bookingId) -> { refundedCents }   only before cancellableUntil; refunds every paid part (friends' shares too) to its payment method
+    'putOnSale',           // (bookingId) -> Booking   "Laita myyntiin": my confirmed booking after cancellableUntil, before the start ('Voit vielä perua…' before the limit).
+                           //   Others can book the slot; when somebody does, everything paid is refunded and I'm told. Watchers of the time are told at once.
+    'takeOffSale',         // (bookingId) -> Booking   back to just mine ('Joku on juuri varaamassa…' while a buyer is paying)
+    'shareFriends',        // () -> PersonLite[]   who I can split a booking with: pelikaverit and chat contacts (Krossi players, no blocks), most recent first
+    'listShares',          // () -> BookingShare[]   shares I owe or owed (friends' bookings, my rest shares): payable first, soonest deadline first; then the last 30 days
+    'getShare',            // (shareId) -> BookingShare|null   my share, or any share of my own booking
+    'shareCheckoutConfig', // (shareId) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, amount, currency, email, setupFutureUsage: null }   'Maksuaika päättyi…' after a friend share's deadline
+    'createSharePaymentIntent', // (shareId) -> { paid: true } | { clientSecret, paymentIntentId }
+    'verifySharePayment',  // (shareId, paymentIntentId) -> { paid: boolean, status, message? }   status 'refunded' + message: the share was settled meanwhile and this payment went back
+    'declineShare',        // (shareId) -> void   "En pääse": tells the booker in our chat; the share stays owed (the booker's card covers it after the deadline)
     'watch',               // ({ venueId, sport, locationId, startsAt, minutes }) -> BookingWatch   max 5 active; 'Aika on vapaana…' if a court is free already; a duplicate returns the existing one
     'unwatch',             // (watchId) -> void
     'listWatches',         // () -> BookingWatch[]   mine, startsAt still ahead, soonest first
     'staffDay',            // (venueId, 'YYYY-MM-DD') -> StaffItem[]   venue staff only
     'block',               // ({ courtIds, startsAt, endsAt, title, kind: 'block'|'league' }) -> string[]   staff only; fails if anything overlaps
     'unblock',             // (blockId) -> void   staff only
-    'staffCancel',         // (bookingId, { refund: boolean }) -> void   staff only; refund = money back to the player
+    'staffCancel',         // (bookingId, { refund: boolean }) -> void   staff only; refund = money back to everybody who paid
   ],
   admin: [
     'stats',               // () -> object (krossi_admin_stats jsonb as-is)
