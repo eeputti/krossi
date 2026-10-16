@@ -2,7 +2,7 @@
 // cancelling it, "ilmoita kun vapautuu" watches and the hall staff view.
 //
 // The booking tables have no client access: every read and write is a SECURITY DEFINER RPC
-// (supabase/migrations/20261014200000_krossi_court_booking.sql), and money only moves in the
+// (supabase/migrations/20261016074110_krossi_court_booking.sql), and money only moves in the
 // krossi-booking edge function (Stripe Payment Element, refunds). The RPCs already answer in the
 // contract's shapes (camelCase, ISO strings); the mappers below pin the types down so a missing
 // field never reaches a screen as undefined, and turn a booker's avatar path into a URL.
