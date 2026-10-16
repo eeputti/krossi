@@ -84,6 +84,11 @@ test('before the migration is deployed the pages just look empty', async () => {
   assert.equal(await billing.cardStatus(), null);
   assert.deepEqual(await wallet.products(VENUE), { passes: [], gift: null });
   assert.deepEqual(await wallet.get(VENUE), { venueId: VENUE, passes: [], giftCents: 0, giftHistory: [], giftCards: [] });
+  // the hall's views too
+  assert.deepEqual(await seasons.staffList(VENUE), []);
+  assert.deepEqual(await billing.listInvoices(VENUE), []);
+  assert.deepEqual(await billing.listCharges(VENUE), []);
+  assert.deepEqual(await wallet.staffList(VENUE), { passes: [], giftCards: [] });
 });
 
 test('seasons: arguments, mapping, and the conflict error the approve sheet looks for', async () => {

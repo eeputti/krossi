@@ -4,7 +4,7 @@
 // held booking with a series card or the gift balance (RPCs; the database keeps the ledger).
 
 import { db, isMissingFunction, isUuid, requireUid } from './client.js';
-import { call, edgeCall, fail, list, mapBooking, mapBooker, number, rpcError, text } from './bookingCore.js';
+import { call, callOrEmpty, edgeCall, fail, list, mapBooking, mapBooker, number, rpcError, text } from './bookingCore.js';
 import { mapGiftCard, mapPass, mapProduct, mapWallet } from './hallMaps.js';
 
 const FUNCTION = 'krossi-billing';
@@ -125,7 +125,7 @@ export async function useGift(bookingId, use = true) {
 export async function staffList(venueId) {
   await requireUid();
   if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
-  const data = await call('krossi_wallet_staff_list', { venue_id_input: venueId }, LOAD_FAIL);
+  const data = await callOrEmpty('krossi_wallet_staff_list', { venue_id_input: venueId }, LOAD_FAIL, { passes: [], giftCards: [] });
   return {
     passes: list(data?.passes).map((p) => ({ ...mapPass(p), owner: mapBooker(p.owner) })),
     giftCards: list(data?.giftCards).map((g) => ({

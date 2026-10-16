@@ -5,7 +5,7 @@
 // in the same transaction. The RPCs answer in the contract's shapes; the mappers pin types down.
 
 import { db, isMissingFunction, isUuid, requireUid } from './client.js';
-import { announceFreed, call, day, fail, list as asList, number, rpcError } from './bookingCore.js';
+import { announceFreed, call, callOrEmpty, day, fail, list as asList, number, rpcError } from './bookingCore.js';
 import { mapQuote, mapSeason, mapSlot } from './hallMaps.js';
 
 const LOAD_FAIL = 'Kausivuoroja ei voitu ladata.';
@@ -95,7 +95,7 @@ export async function withdraw(slotId) {
 export async function staffList(venueId) {
   await requireUid();
   if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
-  return asList(await call('krossi_season_staff_list', { venue_id_input: venueId }, LOAD_FAIL)).map(mapSlot);
+  return asList(await callOrEmpty('krossi_season_staff_list', { venue_id_input: venueId }, LOAD_FAIL, [])).map(mapSlot);
 }
 
 export async function create({

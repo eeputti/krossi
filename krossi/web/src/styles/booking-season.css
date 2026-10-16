@@ -3,7 +3,7 @@
    SeasonParts). Plain and factual like the rest of booking: no decoration on money screens. */
 
 /* ── Tiles under the booking hero ── */
-.ss-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ss-tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .ss-tile {
   display: grid; grid-template-rows: auto auto 1fr; gap: 2px; text-align: left; min-width: 0; padding: 12px;
   border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); color: var(--ink);

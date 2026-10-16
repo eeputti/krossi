@@ -23,7 +23,7 @@
 -- (historia). Pidossa oleva varaus varaa lahjakorttiosuutensa (gift_cents), ja saldo vähennetään
 -- vasta kun varaus maksetaan (krossi_booking_mark_paid) — vanhentunut pito vapauttaa osuuden itsestään.
 --
--- Muutokset vaiheen 1 tauluihin ja funktioihin (20261014200000_krossi_court_booking.sql):
+-- Muutokset vaiheen 1 tauluihin ja funktioihin (20261016074110_krossi_court_booking.sql):
 --   booking_reservations: kind + 'season', payment_status + 'credit', uudet sarakkeet
 --     season_slot_id, pass_id, pass_minutes, gift_cents
 --   create or replace: krossi_booking_json (+ credit), krossi_booking_day (oma kausivuoro = mine),
@@ -658,8 +658,9 @@ $function$;
 -- Stripe sanoo maksun onnistuneen (ks. vaihe 1). Uutta: amount_input = maksun summa sentteinä.
 -- Hinnan ja maksetun summan erotus otetaan pelaajan lahjakorttisaldosta silloin, kun varaus
 -- vahvistuu; jos saldo ei enää riitä (pito ehti vanhentua ja saldo käytettiin muualla), tulos on
--- 'lost' ja maksu palautetaan. Ilman summaa oletetaan pidon oma osuus (price_cents - gift_cents).
--- Jo maksettu varaus (myös sarjakortilla tai lahjakortilla, 'credit') → 'duplicate'.
+-- 'lost' ja maksu palautetaan. Ilman summaa (vaiheen 1 edge-funktiot, jotka veloittavat aina koko
+-- hinnan) saldoa ei käytetä. Jo maksettu varaus (myös sarjakortilla tai lahjakortilla, 'credit')
+-- → 'duplicate'.
 drop function public.krossi_booking_mark_paid(uuid, text);
 
 create function public.krossi_booking_mark_paid(
@@ -693,9 +694,9 @@ begin
     return case when v_row.status = 'confirmed' then 'confirmed' else 'cancelled' end;
   end if;
 
-  -- Lahjakorttiosuus: hinta miinus kortilla maksettu summa (yli maksettu = ei saldoa).
+  -- Lahjakorttiosuus: hinta miinus kortilla maksettu summa (yli maksettu tai summa puuttuu = ei saldoa).
   v_gift := case
-    when amount_input is null then v_row.gift_cents
+    when amount_input is null then 0
     else greatest(0, v_row.price_cents - amount_input)
   end;
 

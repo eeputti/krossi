@@ -4,7 +4,7 @@
 // krossi-billing edge function (SetupIntent, off-session PaymentIntents, invoice e-mail).
 
 import { db, isMissingFunction, isUuid, requireUid } from './client.js';
-import { DATE_RE, call, edgeCall, fail, list, number, rpcError, text } from './bookingCore.js';
+import { DATE_RE, call, callOrEmpty, edgeCall, fail, list, number, rpcError, text } from './bookingCore.js';
 import { mapCard, mapCharge, mapInvoice } from './hallMaps.js';
 
 const FUNCTION = 'krossi-billing';
@@ -19,7 +19,7 @@ const edge = (action, payload, fallback) => edgeCall(FUNCTION, action, payload, 
 export async function listInvoices(venueId) {
   await requireUid();
   if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
-  return list(await call('krossi_billing_invoices', { venue_id_input: venueId }, LOAD_FAIL)).map(mapInvoice);
+  return list(await callOrEmpty('krossi_billing_invoices', { venue_id_input: venueId }, LOAD_FAIL, [])).map(mapInvoice);
 }
 
 /** null when there is no such invoice or it isn't the caller's (holder or hall staff). */
@@ -86,7 +86,7 @@ export async function removeCard() {
 export async function listCharges(venueId) {
   await requireUid();
   if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
-  return list(await call('krossi_billing_charges', { venue_id_input: venueId }, LOAD_FAIL)).map(mapCharge);
+  return list(await callOrEmpty('krossi_billing_charges', { venue_id_input: venueId }, LOAD_FAIL, [])).map(mapCharge);
 }
 
 /** Charges every due month of the venue now (krossi-billing; a daily cron does the same). */

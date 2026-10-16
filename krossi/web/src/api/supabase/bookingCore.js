@@ -7,7 +7,7 @@
 // raw messages that contain ä/ö/å, so those are passed through here as-is, with the same error
 // codes the demo backend uses.
 
-import { db, invokeFunction } from './client.js';
+import { db, invokeFunction, isMissingFunction } from './client.js';
 import { mapPerson } from './map.js';
 import { ApiError, toApiError } from '../errors.js';
 
@@ -57,6 +57,19 @@ export function rpcError(error, fallback) {
 export async function call(name, args, fallback) {
   const { data, error } = await db().rpc(name, args);
   if (error) throw rpcError(error, fallback);
+  return data;
+}
+
+/**
+ * Like call(), but `empty` when the function isn't deployed yet (a migration not applied): lists
+ * then look empty instead of failing.
+ */
+export async function callOrEmpty(name, args, fallback, empty) {
+  const { data, error } = await db().rpc(name, args);
+  if (error) {
+    if (isMissingFunction(error)) return empty;
+    throw rpcError(error, fallback);
+  }
   return data;
 }
 

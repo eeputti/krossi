@@ -1,7 +1,7 @@
 -- Krossi-kenttävaraus, vaihe 2: Lahden Tennis- ja Squashkeskuksen talvikausi, sarjakortit ja
 -- laskutuksen pohja.
 --
--- Halli on yhä piilossa (is_public = false, ks. 20261014200100_krossi_booking_seed_lahti.sql).
+-- Halli on yhä piilossa (is_public = false, ks. 20261016074309_krossi_booking_seed_lahti.sql).
 -- TARKISTETTAVA hallin kanssa ennen julkaisua:
 --   * kauden päivät ja pyhät, kausialennus (tässä 15 %)
 --   * sarjakorttien sisältö ja hinnat (tässä 10 × 1 h 260 € ja 20 × 1 h 480 €, voimassa 12 kk)
