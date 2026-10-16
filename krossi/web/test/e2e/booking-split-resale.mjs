@@ -1,7 +1,8 @@
 // booking-split-resale.mjs — phone-emulated end-to-end run of court booking phase 4 in the demo:
-// jaettu maksu (book a nelinpeli split with three pelikaverit, the friends are asked in their chats,
-// two of them pay), the friend's side (pay Mikko's request from the chat), the rest a declined
-// card left, and "Laita myyntiin" (sell a booking past its free cancellation; somebody books it).
+// the unpaid payments row and its sheet, jaettu maksu (book a nelinpeli split with three
+// pelikaverit, the friends are asked in their chats, two of them pay), the friend's side (pay
+// Mikko's request from the chat), and "Laita myyntiin" from Omat varaukset (sell a booking past its
+// free cancellation; somebody books it and the booking page says so).
 // Uses the build in <out>/site from snap.mjs; takes about a minute (the demo's friends and buyer
 // answer after a few seconds, the screens look again every 15 s).
 //
@@ -21,7 +22,7 @@ h.check('one row says payments are waiting', (await text('.bk-unpaid-row'))[0]?.
 await h.tapText(page, 'Maksamattomat maksut', { selector: '.bk-unpaid-row' });
 await h.wait(900);
 const owe = await text('.bk-owe');
-h.check('its sheet lists them', owe.some((t) => t.includes('Mikko pyytää osuuttasi')) && owe.some((t) => t.includes('Loppuosuus maksamatta')), owe);
+h.check('its sheet lists them, each with its own pay button', owe.some((t) => t.includes('Mikko pyytää osuuttasi') && t.includes('Maksa 15 €')), owe);
 await h.tapText(page, 'Sulje', { selector: '.sheet-close-floating' });
 await h.wait(700);
 h.check('somebody\'s slot on sale is a row among the times', (await text('.bk-time.is-sale')).length === 1, await text('.bk-time.is-sale'));
@@ -88,21 +89,9 @@ await h.tapText(page, 'Maksa 15 €', { selector: '.bk-paybox button' });
 await h.wait(1500);
 h.check('my share is paid', (await text('main')).some((t) => t.includes('Osuutesi on maksettu')));
 
-// ── The rest a declined card left, from the booking page (a fresh demo) ──
+// ── Laita myyntiin: the booking inside the 24-hour limit, from Omat varaukset (a fresh demo) ──
 await page.goto(h.url('/demo/varaa'), { waitUntil: 'networkidle0' });
-await h.wait(900);
-await h.tapText(page, 'Maksamattomat maksut', { selector: '.bk-unpaid-row' });
-await h.wait(900);
-await h.tapText(page, 'Loppuosuus maksamatta', { selector: '.bk-owe' });
-await h.wait(1500);
-h.check('the rest page says the card was declined', (await text('main')).some((t) => t.includes('Kortti hylättiin')));
-await h.tapText(page, 'Maksa 15 €', { selector: '.bk-paybox button' });
-await h.wait(1500);
-h.check('the rest is paid', (await text('main')).some((t) => t.includes('Loppuosuus on maksettu')));
-
-// ── Laita myyntiin: the booking inside the 24-hour limit, from Omat varaukset ──
-await page.evaluate(() => window.history.back());
-await h.wait(1500);
+await h.wait(1200);
 await h.tapText(page, 'Omat vuorot', { selector: 'button.icon-btn' });
 await h.wait(1500);
 await page.evaluate(() => document.querySelector('.ss-row')?.setAttribute('data-e2e', 'soon'));

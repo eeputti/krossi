@@ -15,7 +15,7 @@
 // Redirect payment methods (MobilePay on a phone) come back here with
 // ?varaus=<bookingId>&payment_intent=…; that is confirmed below and the query is dropped.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../../api/index.js';
+import { api, isDemo } from '../../api/index.js';
 import { useAsync, useLocalState, useNow, useResync } from '../../app/hooks.js';
 import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
@@ -130,10 +130,11 @@ export function BookingScreen({ params, query }) {
   }, [mine.data]);
 
   // While a bell is waiting, look again now and then: a freed court shows up without a reload.
+  // The demo frees a court within half a minute and asks nothing from a server, so it looks often.
   const waiting = (watches.data || []).some((w) => !w.notifiedAt);
   useEffect(() => {
     if (!waiting) return undefined;
-    const timer = setInterval(() => { watches.reload({ silent: true }); day.reload({ silent: true }); }, 20_000);
+    const timer = setInterval(() => { watches.reload({ silent: true }); day.reload({ silent: true }); }, isDemo ? 3_000 : 20_000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waiting]);

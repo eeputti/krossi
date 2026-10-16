@@ -32,8 +32,6 @@
 .bk-controls .segmented { width: 100%; }
 
 /* Kesto: [−] 1 h [+] */
-.bk-length-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.bk-length-label { font-size: var(--fs-micro); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .bk-stepper {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px;
   border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--line);

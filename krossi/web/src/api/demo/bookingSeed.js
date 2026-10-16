@@ -7,8 +7,9 @@
 // Jaettu maksu and "Laita myyntiin" have something to show from the start: Alex's nelinpeli
 // (the seeded "Iltanelinpeli Januksessa" game) is split with Mikko, Laura and Ville, one of them
 // still to pay; Mikko has asked Alex for a share of his court; one booking of Alex's is inside the
-// 24-hour limit, so it can go on sale; somebody else's evening slot is on sale; and two past split
-// bookings show the deadline at work — one rest charged to the card, one card that said no.
+// 24-hour limit, so it can go on sale; somebody else's evening slot is on sale; and a past split
+// booking shows the deadline at work — the share nobody paid was charged to Alex's card. (No card
+// that said no: the demo is shown to halls, and an unpaid rest on top of the page reads as a bug.)
 //
 // Same fixed-seed approach as seed.js: the layout is relative to `now`, so the demo always
 // shows "tomorrow 18.00" instead of a date that went stale.
@@ -38,7 +39,17 @@ const court = (locationId, key, name, shortName, sport, surface, mapId) => ({
   id: `c-${locationId.replace('loc-', '')}-${key}`, locationId, name, shortName, sport, surface, mapId,
 });
 
-function buildVenue() {
+/**
+ * When the Kisapuisto outdoor courts close: long evenings in May–August, daylight hours the rest of
+ * the year. They stay open in the off-season so the demo's outdoor map has something to show, but
+ * an October evening goes to the halls, at hall prices.
+ */
+export function outdoorUntil(now) {
+  const month = new Date(now).getMonth(); // 0 = January
+  return month >= 4 && month <= 7 ? '21:00' : '18:00';
+}
+
+function buildVenue(now) {
   const janus = [
     ...[1, 2, 3, 4].map((n) => court('loc-janus', `te${n}`, `Tennis ${n}`, `Te${n}`, 'tennis', 'kova', `te${n}`)),
     court('loc-janus', 'padel', 'Padel', 'Padel', 'padel', 'tekonurmi', 'padel'),
@@ -52,7 +63,7 @@ function buildVenue() {
   const ulko = [1, 2, 3, 4, 5, 6].map((n) => court('loc-ulko', `k${n}`, `Kenttä ${n}`, `K${n}`, 'tennis', 'massa', `ulko${n}`));
 
   // Hall tennis prices name the indoor courts: a sport-wide rule would also open the outdoor courts
-  // outside their own 8–21 hours.
+  // outside their own hours.
   const indoorTennis = [...janus, ...kispi].filter((c) => c.sport === 'tennis').map((c) => c.id);
   const weekdays = [1, 2, 3, 4, 5];
   const weekend = [6, 7];
@@ -72,7 +83,7 @@ function buildVenue() {
     { sports: ['sulkapallo'], courtIds: null, weekdays, from: '09:00', until: '16:00', centsPerHour: 1600 },
     { sports: ['sulkapallo'], courtIds: null, weekdays, from: '16:00', until: '22:00', centsPerHour: 2200 },
     { sports: ['sulkapallo'], courtIds: null, weekdays: weekend, from: '08:00', until: '21:00', centsPerHour: 1600 },
-    { sports: null, courtIds: ulko.map((c) => c.id), weekdays: all, from: '08:00', until: '21:00', centsPerHour: 1600 },
+    { sports: null, courtIds: ulko.map((c) => c.id), weekdays: all, from: '08:00', until: outdoorUntil(now), centsPerHour: 1600 },
     { sports: ['tennis'], courtIds: indoorTennis, weekdays, from: '06:00', until: '09:00', centsPerHour: 1800 },
     { sports: ['tennis'], courtIds: indoorTennis, weekdays, from: '09:00', until: '15:00', centsPerHour: 2300 },
     { sports: ['tennis'], courtIds: indoorTennis, weekdays, from: '15:00', until: '21:00', centsPerHour: 3000 },
@@ -139,7 +150,7 @@ export function shareMessage({ courtName, locationName, startsAt, endsAt, cents,
 
 export function createBookingSeed(now) {
   const rng = createRng(SEED);
-  const venue = buildVenue();
+  const venue = buildVenue(now);
   const rows = [];
   const shares = [];
   const seedMessages = []; // chat lines this world adds to seed.js's conversations
@@ -210,7 +221,8 @@ export function createBookingSeed(now) {
   }
 
   // Alex's own bookings: one inside the 24-hour limit (it can go on sale), one tomorrow evening, the
-  // nelinpeli split with Mikko, Laura and Ville, one later this week, and two split ones in the past.
+  // nelinpeli split with Mikko, Laura and Ville, one later this week, and two in the past — one paid
+  // with the series card (hallSeed.js marks it), one split.
   const courtAt = (loc, mapId) => venue.locations[loc].courts.find((x) => x.mapId === mapId);
   const book = ({ start, minutes, loc, mapId, bookedBy = ME }) => {
     const c = courtAt(loc, mapId);
@@ -228,9 +240,7 @@ export function createBookingSeed(now) {
   const nelinpeli = book({ start: at(addDays(today, 2), '18:30'), minutes: 120, loc: 0, mapId: 'te1' });
   split(nelinpeli, 4, [{ key: 'mikko', status: 'paid' }, { key: 'laura', status: 'paid' }, { key: 'ville', status: 'pending' }]);
   book({ start: at(addDays(today, 4), '07:00'), minutes: 60, loc: 1, mapId: 'te1' });
-  const failed = book({ start: at(addDays(today, -2), '19:00'), minutes: 60, loc: 0, mapId: 'te4' });
-  split(failed, 2, [{ key: 'ville', status: 'pending' }]);
-  rest(failed, { status: 'pending', chargeError: 'card_declined' });
+  book({ start: at(addDays(today, -2), '19:00'), minutes: 60, loc: 0, mapId: 'te4' });
   const charged = book({ start: at(addDays(today, -6), '17:30'), minutes: 90, loc: 0, mapId: 'te1' });
   split(charged, 2, [{ key: 'laura', status: 'pending' }]);
   rest(charged, { status: 'paid' });

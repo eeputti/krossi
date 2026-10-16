@@ -12,7 +12,7 @@ import { useSession } from '../../app/session.jsx';
 import { canPutOnSale, centsLabel, chargeErrorText, durationLabel, friendsPaid, giveBackOf, giveBackText } from '../../features/booking.js';
 import { Button, Chip, Icon, Sheet, useConfirm, useToast } from '../../ui/index.js';
 import { VenueMap, hasVenueMap } from './VenueMap.jsx';
-import { SplitLines, bookingStateText, downloadBookingIcs, restOwed, sportLabel, timeInSentence, whenLabel } from './BookingParts.jsx';
+import { SplitLines, bookingStateText, downloadBookingIcs, restOwed, sharesOpen, sportLabel, timeInSentence, whenLabel } from './BookingParts.jsx';
 import { useForecast, weatherInfo } from './weather.js';
 
 export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onRebook }) {
@@ -116,7 +116,8 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
     navigate(`/pelaa/osuus/${encodeURIComponent(owed.id)}`);
   };
 
-  const stateTone = booking.soldAt ? 'neutral' : owed ? 'danger' : booking.status === 'confirmed' ? (booking.forSale ? 'neutral' : 'success')
+  const stateTone = booking.soldAt ? 'neutral' : owed ? 'danger'
+    : booking.status === 'confirmed' ? (booking.forSale || sharesOpen(booking) ? 'neutral' : 'success')
     : booking.status === 'held' ? 'warn' : 'neutral';
 
   return (

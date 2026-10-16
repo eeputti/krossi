@@ -17,7 +17,7 @@ import {
   Button, Disclosure, EmptyState, ErrorState, Icon, Page, Skeleton, TopBar, useConfirm, useToast,
 } from '../../ui/index.js';
 import { MyBookingSheet } from './MyBookingSheet.jsx';
-import { restOwed } from './BookingParts.jsx';
+import { restOwed, sharesOpen } from './BookingParts.jsx';
 import { ChargePaySheet } from './ChargePaySheet.jsx';
 import { SaveCard } from './SaveCard.jsx';
 import { SeasonRequestSheet } from './SeasonRequestSheet.jsx';
@@ -34,7 +34,7 @@ export function paidWith(b) {
   if (b.status === 'held') return 'Maksamatta';
   if (b.forSale) return 'Myynnissä';
   if (restOwed(b)) return 'Loppuosuus maksamatta';
-  if (b.split?.lines.some((l) => l.kind === 'friend' && (l.status === 'pending' || l.status === 'declined'))) return 'Osuuksia maksamatta';
+  if (sharesOpen(b)) return 'Osuuksia maksamatta';
   if (b.paymentStatus === 'refunded') return 'Hyvitetty';
   if (b.paymentStatus === 'free') return 'Maksuton';
   if (b.credit?.kind === 'pass') return `Sarjakortti · ${b.credit.minutes} min`;

@@ -265,9 +265,14 @@ export function bookingStateText(booking) {
   if (booking.status === 'expired') return 'Vanhentunut';
   if (booking.status === 'held') return 'Maksamatta';
   if (booking.forSale) return 'Myynnissä';
-  if (booking.split && booking.split.lines.some((l) => l.status === 'pending' || l.status === 'declined')) return 'Osuuksia maksamatta';
+  if (sharesOpen(booking)) return 'Osuuksia maksamatta';
   if (booking.paymentStatus === 'paid') return 'Maksettu';
   return 'Vahvistettu';
+}
+
+/** Friends of a split booking still to pay (or who said they can't make it). */
+export function sharesOpen(booking) {
+  return Boolean(booking.split?.lines.some((l) => l.status === 'pending' || l.status === 'declined'));
 }
 
 // ── Jaettu maksu ─────────────────────────────────────────────────────────────
