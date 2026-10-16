@@ -8,6 +8,7 @@
 // shows "tomorrow 18.00" instead of a date that went stale.
 
 import { ME } from './rows.js';
+import { createHallSeed } from './hallSeed.js';
 import { addDays, dateKey, localDate, priceOf } from '../../features/booking.js';
 
 const MIN = 60_000;
@@ -166,6 +167,10 @@ export function createBookingSeed(now) {
     });
   }
 
+  // Kausivuorot, invoices, series and gift cards (hallSeed.js): the season weeks go in before
+  // everybody else's bookings, so those are made around them.
+  const hall = createHallSeed({ venue, rows, add, now, today, at });
+
   // Everybody else: walk every court hour by hour and book by demand.
   for (let d = -7; d <= venue.daysAhead; d += 1) {
     const key = addDays(today, d);
@@ -191,5 +196,5 @@ export function createBookingSeed(now) {
     }
   }
 
-  return { venues: [venue], rows, watches: [] };
+  return { venues: [venue], rows, watches: [], ...hall };
 }

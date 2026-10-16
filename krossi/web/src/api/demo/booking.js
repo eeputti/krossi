@@ -1,89 +1,27 @@
 // booking.js (demo) — court booking against the in-memory hall in bookingSeed.js, with the
 // rules of the booking RPCs (krossi_hold_booking & co.) and the krossi-booking edge function.
 // Payments don't go anywhere: checkoutConfig answers { demo: true } and the "payment" confirms
-// the booking at once.
+// the booking at once. Series cards and gift balance (wallet.js) pay through the same rows; a
+// cancelled booking gives its credit back (bookingCore.returnCredit).
 
-import { ApiError } from '../errors.js';
 import { ME } from './rows.js';
 import { later, run, newId } from './runtime.js';
 import { db, nowIso, personLite } from './store.js';
 import {
-  addDays, cancelDeadline, courtsOf, dateKey, discounted, findCourt, isTaken, lastMinutePercent, localDate, minutesOf,
-  priceOf,
+  addDays, cancelDeadline, courtsOf, dateKey, discounted, findCourt, isTaken, lastMinutePercent, minutesOf, priceOf,
 } from '../../features/booking.js';
+import {
+  MIN, creditOf, dayRange, expireStaleHolds, fail, inRange, isLive, liveRows, myRow, requireStaff, returnCredit,
+  spendGift, toBooking, venueRow,
+} from './bookingCore.js';
 
-const MIN = 60_000;
 const MAX_HOLDS = 2;
 const MAX_WATCHES = 5;
-const STAFF_ONLY = 'Vain hallin henkilökunta voi tehdä tämän.';
 const TAKEN = 'Joku ehti varata tämän ajan juuri ennen sinua. Valitse toinen aika.';
-
-const fail = (message, code) => new ApiError(message, code ? { code } : undefined);
-
-function venueRow(idOrSlug) {
-  return db.booking.venues.find((v) => v.id === idOrSlug || v.slug === idOrSlug) || null;
-}
 
 function toVenue(v) {
   const { staffIds, ...rest } = v;
   return { ...rest, isStaff: staffIds.includes(ME) };
-}
-
-function requireStaff(venue) {
-  if (!venue || !venue.staffIds.includes(ME)) throw fail(STAFF_ONLY, 'forbidden');
-}
-
-/** A hold whose time ran out counts as free everywhere, like the SQL does. */
-function isLive(row, now = Date.now()) {
-  if (row.status === 'confirmed') return true;
-  return row.status === 'held' && Date.parse(row.holdExpiresAt) > now;
-}
-
-function expireStaleHolds(now = Date.now()) {
-  for (const row of db.booking.rows) {
-    if (row.status === 'held' && Date.parse(row.holdExpiresAt) <= now) row.status = 'expired';
-  }
-}
-
-const liveRows = () => db.booking.rows.filter((r) => isLive(r));
-
-function dayRange(key) {
-  return [localDate(key).getTime(), localDate(addDays(key, 1)).getTime()];
-}
-
-function inRange(row, [from, to]) {
-  return Date.parse(row.startsAt) < to && Date.parse(row.endsAt) > from;
-}
-
-function toBooking(row) {
-  const venue = venueRow(row.venueId);
-  const found = findCourt(venue, row.courtId);
-  return {
-    id: row.id,
-    venueId: venue.id,
-    venueName: venue.name,
-    locationName: found?.location.name || '',
-    mapKey: found?.location.mapKey || null,
-    courtId: row.courtId,
-    courtName: found?.court.name || 'Kenttä',
-    courtMapId: found?.court.mapId || null,
-    sport: found?.court.sport || 'tennis',
-    startsAt: row.startsAt,
-    endsAt: row.endsAt,
-    status: row.status === 'held' && !isLive(row) ? 'expired' : row.status,
-    priceCents: row.priceCents,
-    paymentStatus: row.paymentStatus,
-    holdExpiresAt: row.status === 'held' ? row.holdExpiresAt : null,
-    cancellableUntil: cancelDeadline(row.startsAt, venue),
-    cancelledAt: row.cancelledAt,
-    createdAt: row.createdAt,
-  };
-}
-
-function myRow(bookingId) {
-  const row = db.booking.rows.find((r) => r.id === bookingId && r.kind === 'booking');
-  if (!row || row.bookedBy !== ME) throw fail('Varausta ei löytynyt.', 'not_found');
-  return row;
 }
 
 // ── Public calendar ──────────────────────────────────────────────────────────
@@ -108,7 +46,7 @@ export async function day(venueId, key) {
       .filter((r) => r.venueId === venue.id && inRange(r, range))
       .map((r) => ({
         id: r.id, courtId: r.courtId, startsAt: r.startsAt, endsAt: r.endsAt, kind: r.kind,
-        mine: r.kind === 'booking' && r.bookedBy === ME, title: r.kind === 'booking' ? null : r.title,
+        mine: (r.kind === 'booking' || r.kind === 'season') && r.bookedBy === ME, title: r.kind === 'booking' ? null : r.title,
       }));
     return { date: key, busy };
   });
@@ -164,7 +102,7 @@ export async function release(bookingId) {
 }
 
 function payable(row) {
-  if (row.paymentStatus === 'paid' || row.paymentStatus === 'free') return { paid: true };
+  if (['paid', 'free', 'credit'].includes(row.paymentStatus)) return { paid: true };
   if (!isLive(row) || row.status !== 'held') throw fail('Varauksen pitoaika ehti umpeutua. Valitse aika uudelleen.', 'expired');
   return null;
 }
@@ -172,7 +110,8 @@ function payable(row) {
 export async function checkoutConfig(bookingId) {
   return run(() => {
     const row = myRow(bookingId);
-    return payable(row) || { demo: true, amount: row.priceCents, currency: 'eur' };
+    // A gift balance on the hold pays part of it: the card pays the rest.
+    return payable(row) || { demo: true, amount: row.priceCents - (row.giftCents || 0), currency: 'eur' };
   });
 }
 
@@ -185,6 +124,7 @@ export async function createPaymentIntent(bookingId) {
     row.status = 'confirmed';
     row.paymentStatus = 'paid';
     row.holdExpiresAt = null;
+    spendGift(row);
     return { paid: true };
   });
 }
@@ -216,11 +156,13 @@ export async function cancel(bookingId) {
     if (row.status !== 'confirmed') throw fail('Tätä varausta ei voi enää perua.');
     const venue = venueRow(row.venueId);
     if (Date.now() >= Date.parse(cancelDeadline(row.startsAt, venue))) throw fail('Peruutusaika on mennyt. Ota yhteyttä halliin.', 'too_late');
-    const refundedCents = row.paymentStatus === 'paid' ? row.priceCents : 0;
+    const settled = row.paymentStatus === 'paid' || row.paymentStatus === 'credit';
+    const refundedCents = row.paymentStatus === 'paid' ? row.priceCents - (row.giftCents || 0) : 0;
+    const { creditCents, creditMinutes } = settled ? returnCredit(row) : { creditCents: 0, creditMinutes: 0 };
     row.status = 'cancelled';
     row.cancelledAt = nowIso();
-    if (refundedCents) row.paymentStatus = 'refunded';
-    return { refundedCents };
+    if (settled) row.paymentStatus = 'refunded';
+    return { refundedCents, creditCents, creditMinutes };
   });
 }
 
@@ -314,12 +256,16 @@ export async function staffDay(venueId, key) {
     return liveRows()
       .filter((r) => r.venueId === venue.id && inRange(r, range))
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-      .map((r) => ({
-        id: r.id, courtId: r.courtId, startsAt: r.startsAt, endsAt: r.endsAt, kind: r.kind, status: r.status,
-        title: r.kind === 'booking' ? null : r.title,
-        bookedBy: r.kind === 'booking' && r.bookedBy ? personLite(r.bookedBy) : null,
-        priceCents: r.priceCents, paymentStatus: r.paymentStatus,
-      }));
+      .map((r) => {
+        const slot = r.kind === 'season' ? db.booking.seasonSlots.find((s) => s.id === r.seasonSlotId) : null;
+        return {
+          id: r.id, courtId: r.courtId, startsAt: r.startsAt, endsAt: r.endsAt, kind: r.kind, status: r.status,
+          title: r.kind === 'booking' ? null : slot ? slot.holderName : r.title,
+          bookedBy: (r.kind === 'booking' || r.kind === 'season') && r.bookedBy ? personLite(r.bookedBy) : null,
+          priceCents: r.priceCents, paymentStatus: r.paymentStatus,
+          seasonSlotId: r.seasonSlotId || null, credit: creditOf(r),
+        };
+      });
   });
 }
 
@@ -352,7 +298,7 @@ export async function block({ courtIds, startsAt, endsAt, title, kind = 'block' 
 
 export async function unblock(blockId) {
   return run(() => {
-    const row = db.booking.rows.find((r) => r.id === blockId && r.kind !== 'booking');
+    const row = db.booking.rows.find((r) => r.id === blockId && (r.kind === 'block' || r.kind === 'league'));
     if (!row) throw fail('Estoa ei löytynyt.', 'not_found');
     requireStaff(venueRow(row.venueId));
     row.status = 'cancelled';
@@ -368,6 +314,9 @@ export async function staffCancel(bookingId, { refund = true } = {}) {
     if (row.status === 'cancelled' || row.status === 'expired') return;
     row.status = 'cancelled';
     row.cancelledAt = nowIso();
-    if (refund && row.paymentStatus === 'paid') row.paymentStatus = 'refunded';
+    if (refund && (row.paymentStatus === 'paid' || row.paymentStatus === 'credit')) {
+      returnCredit(row);
+      row.paymentStatus = 'refunded';
+    }
   });
 }

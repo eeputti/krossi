@@ -16,7 +16,11 @@ import * as invites from './invites.js';
 import * as payments from './payments.js';
 import * as admin from './admin.js';
 import * as booking from './booking.js';
+import * as seasons from './seasons.js';
+import * as billing from './billing.js';
+import * as wallet from './wallet.js';
 
 export const backend = {
-  auth, profile, players, games, messages, results, stats, leagues, social, notifications, invites, payments, booking, admin,
+  auth, profile, players, games, messages, results, stats, leagues, social, notifications, invites, payments, booking,
+  seasons, billing, wallet, admin,
 };

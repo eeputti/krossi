@@ -17,7 +17,7 @@ beforeEach(() => resetStore());
 
 const BOOKING_KEYS = [
   'id', 'venueId', 'venueName', 'locationName', 'mapKey', 'courtId', 'courtName', 'courtMapId', 'sport', 'startsAt',
-  'endsAt', 'status', 'priceCents', 'paymentStatus', 'holdExpiresAt', 'cancellableUntil', 'cancelledAt', 'createdAt',
+  'endsAt', 'status', 'priceCents', 'paymentStatus', 'holdExpiresAt', 'cancellableUntil', 'cancelledAt', 'createdAt', 'credit',
 ];
 const VENUE_KEYS = [
   'id', 'slug', 'name', 'city', 'openFrom', 'openUntil', 'slotMinutes', 'durations', 'daysAhead', 'cancelLimitHours',
@@ -142,7 +142,7 @@ test('hold → pay → listed as upcoming → cancel refunds', async () => {
   assert.equal(mine.paymentStatus, 'paid');
   assert.deepEqual(upcoming.map((b) => b.startsAt), [...upcoming.map((b) => b.startsAt)].sort());
 
-  assert.deepEqual(await api.booking.cancel(held.id), { refundedCents: slot.cents });
+  assert.deepEqual(await api.booking.cancel(held.id), { refundedCents: slot.cents, creditCents: 0, creditMinutes: 0 });
   const after = await api.booking.listMine();
   assert.ok(!after.upcoming.some((b) => b.id === held.id));
   assert.equal(after.past.find((b) => b.id === held.id).paymentStatus, 'refunded');
@@ -200,7 +200,9 @@ test('staff: day with names, block atomically, unblock, cancel with refund', asy
   const items = await api.booking.staffDay(v.id, key);
   const booking = items.find((i) => i.kind === 'booking' && i.bookedBy);
   assert.ok(booking.bookedBy.name);
-  assert.deepEqual(Object.keys(booking).sort(), ['bookedBy', 'courtId', 'endsAt', 'id', 'kind', 'paymentStatus', 'priceCents', 'startsAt', 'status', 'title']);
+  assert.deepEqual(Object.keys(booking).sort(), [
+    'bookedBy', 'courtId', 'credit', 'endsAt', 'id', 'kind', 'paymentStatus', 'priceCents', 'seasonSlotId', 'startsAt', 'status', 'title',
+  ]);
 
   const kispiTennis = v.locations[1].courts.filter((c) => c.sport === 'tennis').map((c) => c.id);
   const late = next(1);
