@@ -38,7 +38,9 @@ export async function startHarness(outDir, { name = 'e2e' } = {}) {
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}`;
   const chrome = [process.env.CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean).find(existsSync);
-  const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ['--no-sandbox'] });
+  // This is the real Chrome: without 'deny' a tap on "Lisää kalenteriin" saves an .ics into ~/Downloads,
+  // and from there it can end up in the user's own calendar.
+  const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ['--no-sandbox'], downloadBehavior: { policy: 'deny' } });
   const results = [];
 
   const check = (label, ok, detail = '') => {

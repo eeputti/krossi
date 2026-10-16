@@ -69,7 +69,8 @@ await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const { port } = server.address();
 
 const chrome = [process.env.CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium'].filter(Boolean).find((p) => existsSync(p));
-const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ['--no-sandbox', '--hide-scrollbars'] });
+// --click runs in the real Chrome: deny downloads so nothing lands in ~/Downloads (or the user's calendar).
+const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ['--no-sandbox', '--hide-scrollbars'], downloadBehavior: { policy: 'deny' } });
 const viewports = opt.viewport === 'both' ? ['mobile', 'desktop'] : [opt.viewport];
 const VP = { mobile: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, desktop: { width: 1280, height: 860, deviceScaleFactor: 1 } };
 const problems = [];

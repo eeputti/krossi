@@ -24,7 +24,7 @@ const server = createServer(async (req, res) => {
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const base = `http://127.0.0.1:${server.address().port}`;
 const chrome = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome'].find(existsSync);
-const browser = await puppeteer.launch({ executablePath: chrome, headless: true });
+const browser = await puppeteer.launch({ executablePath: chrome, headless: true, downloadBehavior: { policy: 'deny' } }); // no files into ~/Downloads
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`); };
 
