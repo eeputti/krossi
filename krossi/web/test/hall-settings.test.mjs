@@ -164,7 +164,7 @@ test('approving or declining a request marks the player e-mailed; the hall\'s ow
   await api.seasons.decline(juho.id, 'Lauantaiaamut ovat junioreiden.');
   const declined = (await api.seasons.staffList(v.id)).find((s) => s.id === juho.id);
   assert.ok(declined.notifiedAt);
-  assert.equal(staff.find((s) => s.holderName.startsWith('Lahden Tennisseura')).notifiedAt, null);
+  assert.equal(staff.find((s) => s.holderName.startsWith('Esimerkkiseura')).notifiedAt, null);
   assert.ok(staff.find((s) => s.holderName === 'Petra').notifiedAt);
 });
 

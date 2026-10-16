@@ -226,9 +226,9 @@ test('staff: day with names, block atomically, unblock, cancel with refund', asy
 
 test('last-minute deal: only inside the window, rounded like the server', async () => {
   const v = await venue();
-  const soon = new Date(Date.now() + 2 * 3_600_000).toISOString();
+  const soon = new Date(Date.now() + 1 * 3_600_000).toISOString();
   const later = new Date(Date.now() + 30 * 3_600_000).toISOString();
-  assert.equal(lastMinutePercent(v, soon), 30);
+  assert.equal(lastMinutePercent(v, soon), 20);
   assert.equal(lastMinutePercent(v, later), 0);
   assert.equal(lastMinutePercent({ ...v, lastMinute: null }, soon), 0);
   assert.equal(discounted(2500, 30), 1750);

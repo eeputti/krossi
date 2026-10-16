@@ -335,6 +335,11 @@ export function BookingScreen({ params, query }) {
       <Page className="bk-page">
         <header className="bk-hero court-lines">
           <span className="eyebrow bk-hero-eyebrow">Kenttävaraus · {venue.city}</span>
+          {upcoming.length > 0 && (
+            <button type="button" className="bk-hero-mine" onClick={() => navigate('/pelaa/omat-varaukset')}>
+              <Icon name="calendar" size={14} strokeWidth={2.4} />Omat vuorot · {upcoming.length}
+            </button>
+          )}
           <h1 className="bk-hero-title">{venue.name}</h1>
           <p className="bk-hero-sub">{venue.locations.map((l) => l.name).join(' · ')}</p>
           <div className="bk-hero-facts">
@@ -350,14 +355,15 @@ export function BookingScreen({ params, query }) {
               ? <span className="bk-owe-icon" aria-hidden="true"><Icon name="alert" size={18} strokeWidth={2.4} /></span>
               : <Avatar person={s.booker} size={38} />}
             <span className="bk-owe-text">
-              <b>{s.kind === 'rest' ? `Loppuosuus maksamatta: ${centsLabel(s.cents)}` : `${firstName(s.booker.name)} pyytää osuuttasi: ${centsLabel(s.cents)}`}</b>
+              <b>
+                {s.kind === 'rest' ? 'Loppuosuus maksamatta: ' : `${firstName(s.booker.name)} pyytää osuuttasi: `}
+                <span className="bk-nowrap">{centsLabel(s.cents)}</span>
+              </b>
               <span className="truncate">{whenLabel(s.booking.startsAt, s.booking.endsAt)} · {s.booking.courtName}, {s.booking.locationName}</span>
             </span>
             <span className="bk-owe-cta">Maksa</span>
           </button>
         ))}
-        <BookingExtras venue={venue} refreshKey={mine.data} />
-
         {freed.map((w) => (
           <div key={w.id} className="bk-freed rise" role="status">
             <span className="bk-freed-icon" aria-hidden="true"><Icon name="bell" size={18} strokeWidth={2.4} /></span>
@@ -371,21 +377,6 @@ export function BookingScreen({ params, query }) {
           </div>
         ))}
 
-        {rebook && (
-          <button
-            type="button"
-            className="bk-rebook"
-            onClick={() => goTo({ startsAt: rebook.startsAt, courtId: rebook.booking.courtId, sport: rebook.booking.sport, minutes: rebook.minutes })}
-          >
-            <span className="bk-rebook-icon" aria-hidden="true"><Icon name="repeat" size={20} strokeWidth={2.4} /></span>
-            <span className="bk-rebook-text">
-              <span className="bk-rebook-title">Sama vuoro uudestaan?</span>
-              <span className="bk-rebook-sub">{formatGameTime(rebook.startsAt)} · {rebook.booking.courtName}, {rebook.booking.locationName}</span>
-            </span>
-            <Icon name="chevron-right" size={18} />
-          </button>
-        )}
-
         {match.data && (
           <div className="bk-match" role="note">
             <span className="bk-match-icon" aria-hidden="true"><Icon name="trophy" size={18} /></span>
@@ -394,15 +385,6 @@ export function BookingScreen({ params, query }) {
               Varaa kenttä, niin voit lähettää ajan vastustajallesi yhdellä napautuksella.
             </span>
           </div>
-        )}
-
-        {upcoming.length > 0 && (
-          <section className="bk-section" aria-label="Omat vuorot">
-            <h2 className="bk-h">Omat vuorot</h2>
-            <div className="bk-mine-strip">
-              {upcoming.map((b) => <MyBookingCard key={b.id} booking={b} now={now} onOpen={setOpenBooking} />)}
-            </div>
-          </section>
         )}
 
         <section className="bk-controls" aria-label="Valitse aika">
@@ -457,6 +439,32 @@ export function BookingScreen({ params, query }) {
         )}
 
         {results}
+
+        {upcoming.length > 0 && (
+          <section className="bk-section" aria-label="Omat vuorot">
+            <h2 className="bk-h">Omat vuorot</h2>
+            <div className="bk-mine-strip">
+              {upcoming.map((b) => <MyBookingCard key={b.id} booking={b} now={now} onOpen={setOpenBooking} />)}
+            </div>
+          </section>
+        )}
+
+        {rebook && (
+          <button
+            type="button"
+            className="bk-rebook"
+            onClick={() => goTo({ startsAt: rebook.startsAt, courtId: rebook.booking.courtId, sport: rebook.booking.sport, minutes: rebook.minutes })}
+          >
+            <span className="bk-rebook-icon" aria-hidden="true"><Icon name="repeat" size={20} strokeWidth={2.4} /></span>
+            <span className="bk-rebook-text">
+              <span className="bk-rebook-title">Sama vuoro uudestaan?</span>
+              <span className="bk-rebook-sub">{formatGameTime(rebook.startsAt)} · {rebook.booking.courtName}, {rebook.booking.locationName}</span>
+            </span>
+            <Icon name="chevron-right" size={18} />
+          </button>
+        )}
+
+        <BookingExtras venue={venue} refreshKey={mine.data} />
 
         <p className="bk-fine bk-fine-center bk-page-foot">
           Hinnat sisältävät ALV:n. Maksuton peruutus {venue.cancelLimitHours} h ennen vuoron alkua — rahat palautuvat maksutavallesi.

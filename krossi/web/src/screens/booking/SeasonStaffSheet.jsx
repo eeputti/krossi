@@ -331,7 +331,7 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, bi
     body = (
       <div className="stack-4">
         <Field label="Haltija" htmlFor="ss-holder" hint="Seura, yritys tai pelaaja. Näkyy hallin näkymässä ja laskulla.">
-          <Input id="ss-holder" value={holder} maxLength={80} placeholder="esim. Lahden Tennisseura · juniorit" onChange={(e) => setHolder(e.target.value)} />
+          <Input id="ss-holder" value={holder} maxLength={80} placeholder="esim. Seuran juniorit · keskiviikot" onChange={(e) => setHolder(e.target.value)} />
         </Field>
         <div className="ss-two">
           <Field label="Laskun sähköposti" optional htmlFor="ss-email">

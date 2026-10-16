@@ -30,7 +30,11 @@ export function DateStrip({ days, value, onChange }) {
     const box = strip.current;
     const el = box?.querySelector('[aria-pressed="true"]');
     if (!box || !el) return;
-    const left = el.offsetLeft - box.clientWidth / 2 + el.offsetWidth / 2;
+    // Measured against the strip itself: offsetLeft counts from the nearest positioned ancestor,
+    // which on a desktop includes the side nav and pushed "Tänään" out of view.
+    const boxRect = box.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const left = box.scrollLeft + (elRect.left - boxRect.left) - box.clientWidth / 2 + elRect.width / 2;
     box.scrollTo?.({ left: Math.max(0, left), behavior: 'smooth' });
   }, [value]);
   return (
@@ -136,7 +140,6 @@ export function TimeTiles({ slots, onPick, onWatch, watched = () => false, fits 
               }
               const prices = slot.options.map((o) => o.cents);
               const min = Math.min(...prices);
-              const full = Math.min(...slot.options.map((o) => o.fullCents ?? o.cents));
               const varies = prices.some((p) => p !== min);
               const n = slot.options.length;
               const free = n === 1 ? 'Viimeinen kenttä' : `${n} kenttää`;
@@ -149,14 +152,16 @@ export function TimeTiles({ slots, onPick, onWatch, watched = () => false, fits 
                   onClick={() => onPick(slot)}
                   aria-label={`klo ${clockText}, ${free.toLowerCase()} vapaana, ${varies ? 'alkaen ' : ''}${centsLabel(min)}${slot.deal ? `, viime hetken ale −${slot.deal} %` : ''}${mine ? ', sopii peliaikoihisi' : ''}`}
                 >
-                  <span className="bk-time-clock t-num">{clockText}</span>
-                  <span className="bk-time-price">
-                    {varies && <small>alk. </small>}{centsLabel(min)}
-                    {slot.deal > 0 && full > min && <s className="bk-time-was">{centsLabel(full)}</s>}
+                  {/* time and its marker share a wrapping row: on a narrow tile the marker drops
+                      under the time instead of covering it */}
+                  <span className="bk-time-top">
+                    <span className="bk-time-clock t-num">{clockText}</span>
+                    {slot.deal > 0
+                      ? <span className="bk-time-tag">−{slot.deal} %</span>
+                      : mine && <span className="bk-time-yours" aria-hidden="true" title="Sopii peliaikoihisi" />}
                   </span>
+                  <span className="bk-time-price">{varies && <small>alk. </small>}{centsLabel(min)}</span>
                   <span className="bk-time-free">{free}</span>
-                  {slot.deal > 0 && <span className="bk-time-tag">−{slot.deal} %</span>}
-                  {mine && !slot.deal && <span className="bk-time-yours" aria-hidden="true" title="Sopii peliaikoihisi" />}
                 </button>
               );
             })}

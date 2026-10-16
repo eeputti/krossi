@@ -11,6 +11,13 @@
   padding: 22px 20px 18px; box-shadow: var(--shadow-2);
 }
 .bk-hero-eyebrow { color: var(--lime); }
+.bk-hero-mine {
+  position: absolute; top: 16px; right: 16px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px; border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.12);
+  color: var(--on-dark); font-size: 12.5px; font-weight: 750;
+}
+.bk-hero-mine:hover { background: rgba(255, 255, 255, 0.2); }
+.bk-hero-mine svg { color: var(--lime); }
 .bk-hero-title { margin: 6px 0 4px; font-size: 26px; line-height: 1.12; font-weight: 800; letter-spacing: -0.02em; }
 .bk-hero-sub { margin: 0; color: var(--on-dark-muted); font-size: var(--fs-small); }
 .bk-hero-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px; font-size: 12.5px; font-weight: 700; color: var(--on-dark-muted); }
@@ -194,17 +201,16 @@
 .bk-time.is-full:hover { border-color: var(--green-600); transform: none; }
 .bk-time.is-watched { border-style: solid; border-color: var(--green-700); background: var(--lime-100); }
 .bk-time.is-watched .bk-time-free { color: var(--green-800); }
-.bk-time-was { margin-left: 5px; font-size: 11px; font-weight: 600; color: var(--faint); }
+.bk-time-top { justify-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 6px; }
 .bk-time-tag {
-  position: absolute; top: 8px; right: 8px; padding: 2px 6px; border-radius: var(--r-pill);
-  background: var(--clay); color: var(--on-dark); font-size: 10.5px; font-weight: 800;
+  padding: 2px 6px; border-radius: var(--r-pill);
+  background: var(--clay); color: var(--on-dark); font-size: 10.5px; font-weight: 800; white-space: nowrap;
 }
 .bk-time.is-deal { border-color: var(--clay-100); }
 .bk-time-yours, .bk-legend .bk-time-yours {
   display: inline-block; width: 9px; height: 9px; border-radius: 50%;
   background: var(--lime); box-shadow: 0 0 0 2px var(--green-800);
 }
-.bk-time > .bk-time-yours { position: absolute; top: 10px; right: 10px; }
 .bk-time.is-yours { border-color: var(--green-600); }
 .bk-legend { display: flex; align-items: center; gap: 8px; margin: 0 0 calc(-1 * var(--s3)); font-size: 12.5px; font-weight: 650; color: var(--muted); }
 
@@ -326,3 +332,6 @@
 @media (prefers-reduced-motion: reduce) {
   .bk-friend, .bk-owe { transition: none; }
 }
+
+/* keeps "15 €" on one line */
+.bk-nowrap { white-space: nowrap; }

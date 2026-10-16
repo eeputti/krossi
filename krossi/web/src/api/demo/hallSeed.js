@@ -182,9 +182,9 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
 
   // A club's Monday training: two hours at Kispi, invoiced and paid.
   const club = slot({
-    key: 'seura', holderName: 'Lahden Tennisseura · kilpaharjoitukset', mapId: 'te1', location: 1, weekday: 1,
+    key: 'seura', holderName: 'Esimerkkiseura ry · kilpaharjoitukset', mapId: 'te1', location: 1, weekday: 1,
     startTime: '17:00', minutes: 120, billingKind: 'invoice', billingEmail: 'rahastonhoitaja@example.fi',
-    billingAddress: 'Lahden Tennisseura ry, PL 12, 15101 Lahti', decidedDaysAgo: 55,
+    billingAddress: 'Esimerkkiseura ry, PL 12, 15101 Lahti', decidedDaysAgo: 55,
   });
   invoiceFor(club.row, club.quote, { issuedOn: addDays(today, -55), status: 'paid', paidOn: addDays(today, -46), sentAt: daysAgo(55, '10:00') });
 

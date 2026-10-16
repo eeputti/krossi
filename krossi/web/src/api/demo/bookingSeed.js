@@ -94,7 +94,7 @@ function buildVenue() {
     shareDeadlineHours: 2,
     holdMinutes: 10,
     payOnline: true,
-    lastMinute: { hours: 4, percent: 30 }, // empty courts in the next four hours are 30 % off
+    lastMinute: { hours: 2, percent: 20 }, // empty courts in the next two hours are 20 % off
     staffIds: [ME],
     locations: [
       { id: 'loc-janus', name: 'Janus-Areena', address: 'Heinlammintie 64, Lahti', indoor: true, mapKey: 'lahti-janus', lat: 61.0015881, lng: 25.6970796, courts: janus },
