@@ -35,7 +35,8 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
   const live = booking.status === 'confirmed' || booking.status === 'held';
   const ended = Date.parse(booking.endsAt) <= Date.now();
   const canCancel = booking.status === 'confirmed' && Date.parse(booking.cancellableUntil) > Date.now();
-  const canSell = canPutOnSale(booking);
+  // Resale needs the phase 4 server (venue.shareDeadlineHours is null before it).
+  const canSell = canPutOnSale(booking) && venue?.shareDeadlineHours != null;
   const paid = booking.paymentStatus === 'paid';
   const owed = restOwed(booking);
   const split = booking.split;
@@ -198,7 +199,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
           {booking.status === 'confirmed' && !ended && !booking.forSale && (
             <div>
               <dt>Peruutus</dt>
-              <dd>{canCancel ? `Maksuton ${timeInSentence(booking.cancellableUntil)} asti` : 'Maksuton peruutus on mennyt — voit laittaa vuoron myyntiin.'}</dd>
+              <dd>{canCancel ? `Maksuton ${timeInSentence(booking.cancellableUntil)} asti` : canSell ? 'Maksuton peruutus on mennyt — voit laittaa vuoron myyntiin.' : 'Peruutusaika on mennyt — ota yhteyttä halliin.'}</dd>
             </div>
           )}
         </dl>

@@ -161,7 +161,9 @@ function mapVenue(raw) {
     durations: list(raw.durations).map(Number),
     daysAhead: number(raw.daysAhead, 14),
     cancelLimitHours: number(raw.cancelLimitHours, 24),
-    shareDeadlineHours: number(raw.shareDeadlineHours, 2),
+    // Only the phase 4 server (20261016120000_krossi_booking_split_and_resale) sends it: without
+    // it there are no split payments or resale to offer.
+    shareDeadlineHours: raw.shareDeadlineHours == null ? null : number(raw.shareDeadlineHours, 2),
     holdMinutes: number(raw.holdMinutes, 10),
     payOnline: raw.payOnline !== false,
     lastMinute: deal && number(deal.hours) > 0 && number(deal.percent) > 0

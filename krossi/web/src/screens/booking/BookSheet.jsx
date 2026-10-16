@@ -443,7 +443,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
           </dl>
         )}
 
-        {chosen && (
+        {chosen && venue.shareDeadlineHours != null && (
           <div className="bk-field">
             <span className="eyebrow">Maksu</span>
             <Segmented ariaLabel="Maksu" options={PAY_OPTIONS} value={payMode} onChange={changePayMode} size="sm" className="bk-pay-modes" />

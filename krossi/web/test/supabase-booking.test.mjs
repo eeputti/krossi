@@ -127,7 +127,7 @@ test('listVenues fills in what an older server leaves out', async () => {
   const [venue] = await booking.listVenues();
   assert.equal(venue.lastMinute, null);
   assert.equal(venue.isStaff, false);
-  assert.equal(venue.shareDeadlineHours, 2);
+  assert.equal(venue.shareDeadlineHours, null, 'no split payments or resale on a phase 1 server');
   assert.equal(venue.locations[0].lat, null);
   assert.equal(venue.locations[0].lng, null);
 });

@@ -298,8 +298,9 @@
 // @property {number[]} durations              bookable lengths in minutes, e.g. [60, 90, 120]
 // @property {number} daysAhead                how many days ahead can be booked (today = day 0)
 // @property {number} cancelLimitHours         free cancellation until this long before the start
-// @property {number} shareDeadlineHours       jaettu maksu: friends pay their shares until this long before the
-//                                            start; then the unpaid shares are charged to the booker's saved card
+// @property {number|null} shareDeadlineHours  jaettu maksu: friends pay their shares until this long before the
+//                                            start; then the unpaid shares are charged to the booker's saved card.
+//                                            null = this server has no split payments or resale yet (the screens hide them)
 // @property {number} holdMinutes              an unpaid booking holds the court this long
 // @property {boolean} payOnline               true = Stripe checkout (the only mode for now)
 // @property {{hours:number, percent:number}|null} lastMinute   "viime hetken ale": a booking made
