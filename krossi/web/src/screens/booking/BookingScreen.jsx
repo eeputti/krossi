@@ -1,16 +1,13 @@
 // BookingScreen — /pelaa/varaa(/:venue): book a court at a hall and pay in the app.
 //
-// Time first, court second — always. Pick the day and the length, tap a start time; only then
-// the booking sheet asks for the court, on the hall's floor map (a free court is preselected, so
-// the fastest path is time → pay). Start times show the price and how many courts are free, so
-// nobody has to scan a calendar grid (learned from Thril). The floor map shows *where* the court
-// is — Krossi's own idea, neither Cintoia nor Thril has it. My upcoming bookings sit on top.
-//
-// Better than both: "Ilmoita kun vapautuu" on a full time (a bell), "Sama vuoro ensi viikolla" in
-// one tap, the player's own play times marked, last-minute deals on empty courts and the weather
-// for outdoor courts. Jaettu maksu with pelikaverit (BookSheet) and "Laita myyntiin" for a
-// booking past its free cancellation (MyBookingSheet): what others put on sale is listed for the
-// day, and shares waiting for my payment sit on top.
+// One job, top to bottom: where (the venue's halls as cards — or "Mikä tahansa"), which day, how
+// long, and the start times as rows (time, free courts, price). Tap a time; only then the booking
+// sheet asks for the court on the hall's floor map (a free court is preselected, so the fastest path
+// is time → pay). Everything else is one tap away in a small sheet or its own page instead of text
+// on this one: unpaid payments (a row → sheet), my bookings (top bar → Omat varaukset), kausivuoro
+// and cards (tiles under the times), the booking terms (a link → sheet). Times that fit the
+// player's usual play times carry a lime dot; a full time takes a bell ("Ilmoita kun vapautuu");
+// somebody's booking on sale is its own row. Changing the day spins a ball while the times load.
 //
 // From a hallisarja fixture (?liiga=<leagueId>&ottelu=<fixtureId>) the page says whose match it
 // is, and after paying the booking sheet sends the time to the opponent's chat in one tap.
@@ -24,28 +21,22 @@ import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
 import { firstName, formatGameTime, formatTime } from '../../lib/format.js';
 import {
-  addDays, bookingDays, centsLabel, dateKey, durationLabel, findCourt, fitsAvailability, freeSlots, localDate, locationsFor,
+  addDays, bookingDays, centsLabel, dateKey, durationLabel, findCourt, fitsAvailability, freeSlots, locationsFor,
   minutesOf, giveBackOf, giveBackText, priceOf, sportsOf,
 } from '../../features/booking.js';
 import {
-  Avatar, Button, ChipSelect, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Skeleton, TopBar, useToast,
+  Button, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Sheet, Skeleton, TennisBall, TopBar, useToast,
 } from '../../ui/index.js';
 import { BookSheet } from './BookSheet.jsx';
 import { BookingExtras } from './BookingExtras.jsx';
-import { MyBookingSheet } from './MyBookingSheet.jsx';
-import { DateStrip, DurationStepper, MyBookingCard, TimeTiles, whenLabel } from './BookingParts.jsx';
+import { BookingTermsSheet } from './BookingTerms.jsx';
+import { DateStrip, DurationStepper, PlacePicker, TimeRows, UnpaidPayments } from './BookingParts.jsx';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ALL = 'kaikki';
 
 const SHORT_PLACE = { 'Kisapuiston ulkokentät': 'Ulkokentät' };
 const shortPlace = (name) => SHORT_PLACE[name] || name;
-
-/** The same local clock time `days` later, as ISO (DST-safe). */
-function sameTimeLater(iso, days) {
-  const d = new Date(iso);
-  return localDate(addDays(dateKey(d), days), d.getHours() * 60 + d.getMinutes()).toISOString();
-}
 
 const sameWatch = (w, { sport, startsAt, minutes, locationId }) => w.sport === sport && w.startsAt === startsAt
   && w.minutes === minutes && (w.locationId || null) === (locationId || null);
@@ -73,8 +64,10 @@ export function BookingScreen({ params, query }) {
   const [place, setPlace] = useState(ALL);
   const [pick, setPick] = useState(null); // { startsAt, courtId, locationId } for BookSheet
   const [bookOpen, setBookOpen] = useState(false);
-  const [openBooking, setOpenBooking] = useState(null);
-  const [pending, setPending] = useState(null); // a pick waiting for its day to load (rebook, freed watch)
+  const [pending, setPending] = useState(null); // a pick waiting for its day to load (a freed watch)
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [settling, setSettling] = useState(false); // the ball spins a moment after a day change, however fast it loads
 
   const sports = useMemo(() => (venue ? sportsOf(venue) : []), [venue]);
   const sport = sports.some((s) => s.value === prefs.sport) ? prefs.sport : sports[0]?.value || 'tennis';
@@ -97,9 +90,20 @@ export function BookingScreen({ params, query }) {
     return { leagueId: league.id, leagueName: league.seasonLabel, fixtureId: fixture.id, opponent };
   }, [query?.liiga, query?.ottelu, user?.id]);
   const watches = useAsync(() => (venue ? api.booking.listWatches() : Promise.resolve([])), [venue?.id]);
-  // Shares waiting for my payment: friends' bookings, and a rest my card didn't cover.
+  // Shares waiting for my payment (friends' bookings, a rest my card didn't cover) and failed
+  // kausivuoro months: the "Maksamattomat maksut" row.
   const shares = useAsync(() => (venue ? api.booking.listShares() : Promise.resolve([])), [venue?.id]);
-  useResync(() => { day.reload({ silent: true }); mine.reload({ silent: true }); watches.reload({ silent: true }); shares.reload({ silent: true }); });
+  const seasonSlots = useAsync(() => (venue ? api.seasons.listMine().catch(() => []) : Promise.resolve([])), [venue?.id]);
+  useResync(() => {
+    day.reload({ silent: true }); mine.reload({ silent: true }); watches.reload({ silent: true });
+    shares.reload({ silent: true }); seasonSlots.reload({ silent: true });
+  });
+  useEffect(() => {
+    if (!key) return undefined;
+    setSettling(true);
+    const timer = setTimeout(() => setSettling(false), 450);
+    return () => clearTimeout(timer);
+  }, [key]);
 
   // While a booking of mine is on sale, or friends still owe their shares, look now and then:
   // who has paid shows up, and when somebody books my on-sale slot, say so.
@@ -140,15 +144,22 @@ export function BookingScreen({ params, query }) {
     [venue, key, busy, sport, locationId, minutes, now],
   );
   const freeCount = slots.filter((s) => s.options.length).length;
+  // How many start times are still free per place on the day (the place cards say it).
+  const freeTimes = useMemo(() => {
+    if (!venue || !key || !day.data) return {};
+    const count = (loc) => freeSlots(venue, key, busy, { sport, locationId: loc, minutes, now }).filter((s) => s.options.length).length;
+    return Object.fromEntries([[ALL, count(null)], ...places.map((l) => [l.id, count(l.id)])]);
+  }, [venue, key, day.data, busy, sport, places, minutes, now]);
 
   const refresh = () => {
     day.reload({ silent: true });
     mine.reload({ silent: true });
     watches.reload({ silent: true });
     shares.reload({ silent: true });
+    seasonSlots.reload({ silent: true });
   };
 
-  // A rebook / freed-watch pick opens once its day's calendar has loaded.
+  // A freed-watch pick opens once its day's calendar has loaded.
   useEffect(() => {
     if (!pending || day.loading || day.data?.date !== pending.key) return;
     setPick(pending);
@@ -220,9 +231,9 @@ export function BookingScreen({ params, query }) {
       <>
         <TopBar title="Varaa kenttä" back="/pelaa/pelit" />
         <Page className="bk-page">
-          <Skeleton h={150} r={24} />
+          <div className="bk-skel-places">{[0, 1, 2, 3].map((i) => <Skeleton key={i} h={62} r={16} />)}</div>
           <div className="bk-skel-row">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} h={68} r={16} />)}</div>
-          <div className="bk-skel-grid">{Array.from({ length: 9 }, (_, i) => <Skeleton key={i} h={78} r={16} />)}</div>
+          <div className="bk-skel-rows">{Array.from({ length: 6 }, (_, i) => <Skeleton key={i} h={52} r={14} />)}</div>
         </Page>
       </>
     );
@@ -252,12 +263,12 @@ export function BookingScreen({ params, query }) {
   }
 
   const upcoming = mine.data?.upcoming || [];
-  // The open booking follows the latest data (a friend paid, it sold) instead of the tapped snapshot.
-  const shownBooking = openBooking
-    && ([...upcoming, ...(mine.data?.past || [])].find((b) => b.id === openBooking.id) || openBooking);
   const freed = (watches.data || []).filter((w) => w.notifiedAt);
   const owed = (shares.data || []).filter((s) => s.payable);
-  const lastDay = days[days.length - 1];
+  const failedMonths = (seasonSlots.data || [])
+    .filter((slot) => slot.venueId === venue.id && slot.status === 'active')
+    .flatMap((slot) => slot.charges.filter((c) => c.status === 'failed').map((c) => ({ ...c, slot })));
+  const unpaidCents = owed.reduce((n, s) => n + s.cents, 0) + failedMonths.reduce((n, c) => n + c.amountCents, 0);
   // Somebody else's booking on sale today: bookable at exactly its time and length (the rule of
   // krossi_hold_booking), so they get their own list whatever length the stepper shows.
   const forSale = busy
@@ -265,30 +276,23 @@ export function BookingScreen({ params, query }) {
     .map((b) => {
       const found = findCourt(venue, b.courtId);
       const length = Math.round((Date.parse(b.endsAt) - Date.parse(b.startsAt)) / 60_000);
-      return found && found.court.sport === sport && venue.durations.includes(length)
+      return found && found.court.sport === sport && venue.durations.includes(length) && (!locationId || found.location.id === locationId)
         ? { ...b, ...found, minutes: length, cents: priceOf(venue, found.court, b.startsAt, length) }
         : null;
     })
     .filter((b) => b && b.cents != null);
 
-  // "Sama vuoro ensi viikolla?": my latest played booking, one week on, if that day can be booked.
-  const lastPlayed = (mine.data?.past || []).find((b) => b.status === 'confirmed' && Date.parse(b.endsAt) < now);
-  let rebook = null;
-  if (lastPlayed) {
-    let next = sameTimeLater(lastPlayed.startsAt, 7);
-    while (Date.parse(next) < now + 30 * 60_000) next = sameTimeLater(next, 7);
-    const length = Math.round((Date.parse(lastPlayed.endsAt) - Date.parse(lastPlayed.startsAt)) / 60_000);
-    const taken = upcoming.some((b) => b.startsAt === next);
-    if (!taken && dateKey(new Date(next)) <= lastDay) rebook = { booking: lastPlayed, startsAt: next, minutes: length };
-  }
   const fits = (startsAt) => fitsAvailability(profile?.availability, startsAt);
-  const anyFits = slots.some((s) => s.options.length && fits(s.startsAt));
-  const courtsTotal = venue.locations.reduce((n, l) => n + l.courts.filter((c) => c.sport === sport).length, 0);
-  const sportName = sports.find((s) => s.value === sport)?.label.toLowerCase() || 'tennis';
+  // A new day: the ball spins until its times are in (and a moment more, so the change shows).
+  const loadingDay = settling || (day.loading && day.data?.date !== key);
 
   let results;
-  if (day.loading && !day.data) {
-    results = <div className="bk-skel-grid" aria-label="Ladataan vapaita aikoja">{Array.from({ length: 12 }, (_, i) => <Skeleton key={i} h={78} r={16} />)}</div>;
+  if (loadingDay) {
+    results = (
+      <div className="bk-loading" role="status" aria-label="Haetaan vapaita aikoja">
+        <TennisBall size={30} motion="spin" />
+      </div>
+    );
   } else if (day.error && !day.data) {
     results = <ErrorState error={day.error} onRetry={() => day.reload()} />;
   } else if (freeCount === 0 && slots.length === 0) {
@@ -309,12 +313,11 @@ export function BookingScreen({ params, query }) {
         {freeCount === 0 && (
           <p className="bk-note"><Icon name="bell" size={16} />Kaikki vuorot on viety. Napauta aikaa, niin ilmoitamme heti, jos joku peruu.</p>
         )}
-        {anyFits && (
-          <p className="bk-legend"><span className="bk-time-yours" aria-hidden="true" />Sopii tavallisiin peliaikoihisi</p>
-        )}
-        <TimeTiles
+        <TimeRows
           slots={slots}
+          sales={forSale}
           onPick={(slot) => openPick({ startsAt: slot.startsAt, courtId: null, locationId })}
+          onPickSale={(b) => openPick({ startsAt: b.startsAt, courtId: b.courtId, locationId: b.location.id, minutes: b.minutes })}
           onWatch={toggleWatch}
           watched={(startsAt) => (watches.data || []).some((w) => sameWatch(w, { sport, startsAt, minutes, locationId }))}
           fits={fits}
@@ -326,44 +329,28 @@ export function BookingScreen({ params, query }) {
   return (
     <>
       <TopBar
-        title="Varaa kenttä"
+        title={venue.name}
         back="/pelaa/pelit"
-        actions={venue.isStaff ? (
-          <Button variant="soft" size="sm" icon="grid" onClick={() => navigate(`/pelaa/halli/${encodeURIComponent(venue.slug)}`)}>Hallin näkymä</Button>
-        ) : null}
+        actions={(
+          <>
+            {upcoming.length > 0 && (
+              <IconButton icon="calendar" label={`Omat vuorot (${upcoming.length})`} onClick={() => navigate('/pelaa/omat-varaukset')} />
+            )}
+            {venue.isStaff && (
+              <IconButton icon="grid" label="Hallin näkymä" onClick={() => navigate(`/pelaa/halli/${encodeURIComponent(venue.slug)}`)} />
+            )}
+          </>
+        )}
       />
       <Page className="bk-page">
-        <header className="bk-hero court-lines">
-          <span className="eyebrow bk-hero-eyebrow">Kenttävaraus · {venue.city}</span>
-          {upcoming.length > 0 && (
-            <button type="button" className="bk-hero-mine" onClick={() => navigate('/pelaa/omat-varaukset')}>
-              <Icon name="calendar" size={14} strokeWidth={2.4} />Omat vuorot · {upcoming.length}
-            </button>
-          )}
-          <h1 className="bk-hero-title">{venue.name}</h1>
-          <p className="bk-hero-sub">{venue.locations.map((l) => l.name).join(' · ')}</p>
-          <div className="bk-hero-facts">
-            <span><Icon name="court" size={15} />{courtsTotal} {sportName}kenttää</span>
-            <span><Icon name="bolt" size={15} />Maksu heti</span>
-            <span><Icon name="undo" size={15} />Peru {venue.cancelLimitHours} h ennen</span>
-          </div>
-        </header>
-
-        {owed.map((s) => (
-          <button key={s.id} type="button" className="bk-owe rise" onClick={() => navigate(`/pelaa/osuus/${encodeURIComponent(s.id)}`)}>
-            {s.kind === 'rest'
-              ? <span className="bk-owe-icon" aria-hidden="true"><Icon name="alert" size={18} strokeWidth={2.4} /></span>
-              : <Avatar person={s.booker} size={38} />}
-            <span className="bk-owe-text">
-              <b>
-                {s.kind === 'rest' ? 'Loppuosuus maksamatta: ' : `${firstName(s.booker.name)} pyytää osuuttasi: `}
-                <span className="bk-nowrap">{centsLabel(s.cents)}</span>
-              </b>
-              <span className="truncate">{whenLabel(s.booking.startsAt, s.booking.endsAt)} · {s.booking.courtName}, {s.booking.locationName}</span>
-            </span>
-            <span className="bk-owe-cta">Maksa</span>
+        {unpaidCents > 0 && (
+          <button type="button" className="bk-unpaid-row" onClick={() => setPaymentsOpen(true)}>
+            <span className="bk-unpaid-icon" aria-hidden="true"><Icon name="alert" size={18} strokeWidth={2.4} /></span>
+            <span className="bk-unpaid-title">Maksamattomat maksut</span>
+            <span className="bk-unpaid-total t-num">{centsLabel(unpaidCents)}</span>
+            <Icon name="chevron-right" size={18} />
           </button>
-        ))}
+        )}
         {freed.map((w) => (
           <div key={w.id} className="bk-freed rise" role="status">
             <span className="bk-freed-icon" aria-hidden="true"><Icon name="bell" size={18} strokeWidth={2.4} /></span>
@@ -397,80 +384,38 @@ export function BookingScreen({ params, query }) {
               className="bk-sports"
             />
           )}
+          {places.length > 1 && (
+            <PlacePicker
+              places={places}
+              value={locationId}
+              onChange={(id) => setPlace(id || ALL)}
+              freeTimes={freeTimes}
+              loading={loadingDay}
+              shortName={shortPlace}
+              all={ALL}
+            />
+          )}
           <DateStrip days={days} value={key} onChange={setDayKey} />
-          <div className="bk-filters">
-            <div className="bk-length-row">
-              <span className="bk-length-label">Kesto</span>
-              <DurationStepper value={minutes} options={venue.durations} onChange={setLength} />
-            </div>
-            {places.length > 1 && (
-              <ChipSelect
-                ariaLabel="Paikka"
-                size="sm"
-                layout="scroll"
-                options={[{ value: ALL, label: 'Kaikki' }, ...places.map((l) => ({ value: l.id, label: shortPlace(l.name) }))]}
-                value={locationId || ALL}
-                onChange={(v) => setPlace(v || ALL)}
-              />
-            )}
-          </div>
+          <DurationStepper value={minutes} options={venue.durations} onChange={setLength} className="bk-stepper-wide" />
         </section>
-
-        {forSale.length > 0 && (
-          <section className="bk-section" aria-label="Myynnissä">
-            <h2 className="bk-h">Myynnissä tänä päivänä</h2>
-            <div className="bk-sales">
-              {forSale.map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  className="bk-sale"
-                  onClick={() => openPick({ startsAt: b.startsAt, courtId: b.courtId, locationId: b.location.id, minutes: b.minutes })}
-                >
-                  <span className="bk-sale-clock t-num">{formatTime(b.startsAt)}–{formatTime(b.endsAt)}</span>
-                  <span className="bk-sale-place truncate">{b.court.name} · {b.location.name}</span>
-                  <span className="bk-sale-price t-num">{centsLabel(b.cents)}</span>
-                  <Icon name="chevron-right" size={18} />
-                </button>
-              ))}
-            </div>
-            <p className="bk-fine">Pelaaja ei pääse vuoroonsa ja myy sen eteenpäin. Varaat sen sellaisenaan, normaalihintaan.</p>
-          </section>
-        )}
 
         {results}
 
-        {upcoming.length > 0 && (
-          <section className="bk-section" aria-label="Omat vuorot">
-            <h2 className="bk-h">Omat vuorot</h2>
-            <div className="bk-mine-strip">
-              {upcoming.map((b) => <MyBookingCard key={b.id} booking={b} now={now} onOpen={setOpenBooking} />)}
-            </div>
-          </section>
-        )}
+        <BookingExtras venue={venue} refreshKey={mine.data} showFailed={false} />
 
-        {rebook && (
-          <button
-            type="button"
-            className="bk-rebook"
-            onClick={() => goTo({ startsAt: rebook.startsAt, courtId: rebook.booking.courtId, sport: rebook.booking.sport, minutes: rebook.minutes })}
-          >
-            <span className="bk-rebook-icon" aria-hidden="true"><Icon name="repeat" size={20} strokeWidth={2.4} /></span>
-            <span className="bk-rebook-text">
-              <span className="bk-rebook-title">Sama vuoro uudestaan?</span>
-              <span className="bk-rebook-sub">{formatGameTime(rebook.startsAt)} · {rebook.booking.courtName}, {rebook.booking.locationName}</span>
-            </span>
-            <Icon name="chevron-right" size={18} />
-          </button>
-        )}
-
-        <BookingExtras venue={venue} refreshKey={mine.data} />
-
-        <p className="bk-fine bk-fine-center bk-page-foot">
-          Hinnat sisältävät ALV:n. Maksuton peruutus {venue.cancelLimitHours} h ennen vuoron alkua — rahat palautuvat maksutavallesi.
-        </p>
+        <button type="button" className="bk-terms-link" onClick={() => setTermsOpen(true)}>Varausehdot</button>
       </Page>
 
+      <Sheet open={paymentsOpen} onClose={() => setPaymentsOpen(false)} size="sm" title="Maksamattomat maksut">
+        <UnpaidPayments
+          shares={owed}
+          months={failedMonths}
+          now={new Date(now)}
+          onOpen={(share) => { setPaymentsOpen(false); navigate(`/pelaa/osuus/${encodeURIComponent(share.id)}`); }}
+          onOpenMonth={() => { setPaymentsOpen(false); navigate('/pelaa/omat-varaukset'); }}
+        />
+      </Sheet>
+      <BookingTermsSheet open={termsOpen} onClose={() => setTermsOpen(false)} venue={venue} />
       <BookSheet
         open={bookOpen && Boolean(pick)}
         onClose={() => setBookOpen(false)}
@@ -484,20 +429,6 @@ export function BookingScreen({ params, query }) {
         onBooked={refresh}
         onChanged={refresh}
         match={match.data || null}
-      />
-      <MyBookingSheet
-        open={Boolean(openBooking)}
-        booking={shownBooking}
-        venue={venue}
-        onClose={() => setOpenBooking(null)}
-        onChanged={refresh}
-        onRebook={(b) => {
-          setOpenBooking(null);
-          const length = Math.round((Date.parse(b.endsAt) - Date.parse(b.startsAt)) / 60_000);
-          const next = sameTimeLater(b.startsAt, 7);
-          if (dateKey(new Date(next)) > lastDay) { toast(`Vuoroja voi varata ${venue.daysAhead} päivän päähän.`, { tone: 'info' }); return; }
-          goTo({ startsAt: next, courtId: b.courtId, sport: b.sport, minutes: length });
-        }}
       />
     </>
   );

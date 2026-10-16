@@ -14,7 +14,8 @@ import { WalletSheet } from './WalletSheet.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
-export function BookingExtras({ venue, refreshKey }) {
+/** `showFailed` false: the page shows a failed month itself (BookingScreen's "Maksamattomat maksut"). */
+export function BookingExtras({ venue, refreshKey, showFailed = true }) {
   const seasons = useAsync(() => api.seasons.list(venue.id), [venue.id]);
   const slots = useAsync(() => api.seasons.listMine(), [venue.id]);
   const wallet = useAsync(() => api.wallet.get(venue.id), [venue.id]);
@@ -49,7 +50,7 @@ export function BookingExtras({ venue, refreshKey }) {
 
   return (
     <>
-      {failed.length > 0 && (
+      {showFailed && failed.length > 0 && (
         <div className="bk-note ss-failed-note" role="alert">
           <Icon name="alert" size={16} />
           <span>Kausivuoron kuukausimaksu ({centsLabel(failed[0].amountCents)}) ei mennyt läpi: {failed[0].failureMessage}</span>

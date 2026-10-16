@@ -1,10 +1,10 @@
-// BookingParts.jsx — small pieces of the court-booking screens: the day strip, the start-time
-// tiles, my booking cards, who has paid a split booking, the hold countdown and the calendar
-// file for a booking.
+// BookingParts.jsx — small pieces of the court-booking screens: the place cards, the day strip,
+// the length stepper, the start-time rows, unpaid payments, a booking's state, who has paid a
+// split booking, the hold countdown and the calendar file for a booking.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MONTHS, WEEKDAYS_SHORT, dayLabel, firstName, formatGameTime, formatTime } from '../../lib/format.js';
-import { SPORTS, centsLabel, durationLabel, localDate, partOfDay } from '../../features/booking.js';
-import { Avatar, Chip, Icon } from '../../ui/index.js';
+import { SPORTS, centsLabel, durationLabel, localDate } from '../../features/booking.js';
+import { Avatar, Chip, Icon, TennisBall } from '../../ui/index.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -89,86 +89,170 @@ export function DurationStepper({ value, options, onChange, note, className }) {
   );
 }
 
-// ── Start-time tiles ─────────────────────────────────────────────────────────
-
-const PARTS = { Aamu: 'Aamu', Päivä: 'Päivä', Ilta: 'Ilta' };
+// ── Place ────────────────────────────────────────────────────────────────────
 
 /**
- * A day's start times grouped into Aamu / Päivä / Ilta. A free tile shows the time, the cheapest
- * free court's price ("alk." when courts differ, struck-through full price on a last-minute deal)
- * and how many courts are free; `fits(startsAt)` marks the player's usual play times. A full time
- * (options: []) is a dimmed tile with a bell: "Ilmoita kun vapautuu" — `watched(startsAt)` says
- * whether the bell is already on.
+ * Missä pelaat: the venue's places as cards — "Mikä tahansa" first (no choice needed: any free
+ * court), then each hall (the icon tells indoor from outdoor) with how many start times are still
+ * free on the chosen day (`freeTimes[placeId]`, `all` for any). While the day loads (`loading`) a
+ * small ball spins where the number goes. `value` is a place id or null.
  */
-export function TimeTiles({ slots, onPick, onWatch, watched = () => false, fits = () => false }) {
-  const groups = [];
-  for (const slot of slots) {
-    const label = PARTS[partOfDay(slot.startsAt)];
-    let group = groups[groups.length - 1];
-    if (!group || group.label !== label) {
-      group = { label, slots: [] };
-      groups.push(group);
-    }
-    group.slots.push(slot);
-  }
+export function PlacePicker({ places, value, onChange, freeTimes = {}, loading = false, shortName = (n) => n, all = 'kaikki' }) {
+  const cards = [
+    { id: null, name: 'Mikä tahansa', icon: 'grid', free: freeTimes[all] },
+    ...places.map((l) => ({ id: l.id, name: shortName(l.name), icon: l.indoor ? 'court' : 'sun', free: freeTimes[l.id] })),
+  ];
   return (
-    <div className="bk-times-wrap">
-      {groups.map((group) => (
-        <section key={group.label} className="bk-times-group" aria-label={group.label}>
-          <h3 className="eyebrow bk-times-label">{group.label}</h3>
-          <div className="bk-times stagger">
-            {group.slots.map((slot, i) => {
-              const clockText = formatTime(slot.startsAt);
-              const mine = fits(slot.startsAt);
-              if (!slot.options.length) {
-                const on = watched(slot.startsAt);
-                return (
-                  <button
-                    key={slot.startsAt}
-                    type="button"
-                    className={cx('bk-time', 'is-full', on && 'is-watched')}
-                    style={{ '--i': Math.min(i, 10) }}
-                    aria-pressed={on}
-                    onClick={() => onWatch?.(slot)}
-                    aria-label={`klo ${clockText}, täynnä. ${on ? 'Ilmoitus vapautumisesta on päällä — poista napauttamalla' : 'Ilmoita kun vapautuu'}`}
-                  >
-                    <span className="bk-time-clock t-num">{clockText}</span>
-                    <span className="bk-time-price">Täynnä</span>
-                    <span className="bk-time-free"><Icon name="bell" size={12} strokeWidth={2.4} />{on ? 'Ilmoitetaan' : 'Ilmoita'}</span>
-                  </button>
-                );
-              }
-              const prices = slot.options.map((o) => o.cents);
-              const min = Math.min(...prices);
-              const varies = prices.some((p) => p !== min);
-              const n = slot.options.length;
-              const free = n === 1 ? 'Viimeinen kenttä' : `${n} kenttää`;
-              return (
-                <button
-                  key={slot.startsAt}
-                  type="button"
-                  className={cx('bk-time', n === 1 && 'is-last', slot.deal && 'is-deal', mine && 'is-yours')}
-                  style={{ '--i': Math.min(i, 10) }}
-                  onClick={() => onPick(slot)}
-                  aria-label={`klo ${clockText}, ${free.toLowerCase()} vapaana, ${varies ? 'alkaen ' : ''}${centsLabel(min)}${slot.deal ? `, viime hetken ale −${slot.deal} %` : ''}${mine ? ', sopii peliaikoihisi' : ''}`}
-                >
-                  {/* time and its marker share a wrapping row: on a narrow tile the marker drops
-                      under the time instead of covering it */}
-                  <span className="bk-time-top">
-                    <span className="bk-time-clock t-num">{clockText}</span>
-                    {slot.deal > 0
-                      ? <span className="bk-time-tag">−{slot.deal} %</span>
-                      : mine && <span className="bk-time-yours" aria-hidden="true" title="Sopii peliaikoihisi" />}
-                  </span>
-                  <span className="bk-time-price">{varies && <small>alk. </small>}{centsLabel(min)}</span>
-                  <span className="bk-time-free">{free}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+    <div className="bk-places" role="radiogroup" aria-label="Paikka">
+      {cards.map((card) => {
+        const on = (value || null) === card.id;
+        return (
+          <button
+            key={card.id || 'all'}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            className={cx('bk-place', on && 'is-on')}
+            onClick={() => onChange(card.id)}
+          >
+            <span className="bk-place-name"><Icon name={card.icon} size={17} strokeWidth={2.3} />{card.name}</span>
+            {loading ? (
+              <span className="bk-place-free"><TennisBall size={14} motion="spin" /></span>
+            ) : card.free != null && (
+              <span className={cx('bk-place-free', card.free === 0 && 'is-none')}>
+                {card.free === 0 ? 'Ei vapaita aikoja' : card.free === 1 ? '1 vapaa aika' : `${card.free} vapaata aikaa`}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
+  );
+}
+
+// ── Unpaid payments ──────────────────────────────────────────────────────────
+
+/**
+ * Maksamattomat maksut, one row each with its amount on the pay button: a friend asking for my
+ * part ("Mikko pyytää osuuttasi"), a rest my saved card didn't cover ("Loppuosuus maksamatta") and
+ * a kausivuoro month that failed (`months`: CardCharge & { slot }). `onOpen(share)` /
+ * `onOpenMonth(charge)` take the player to the payment.
+ */
+export function UnpaidPayments({ shares = [], months = [], onOpen, onOpenMonth, now = new Date() }) {
+  return (
+    <div className="bk-unpaid">
+      {shares.map((s) => (
+        <button key={s.id} type="button" className="bk-owe" onClick={() => onOpen(s)}>
+          {s.kind === 'rest'
+            ? <span className="bk-owe-icon" aria-hidden="true"><Icon name="alert" size={16} strokeWidth={2.4} /></span>
+            : <Avatar person={s.booker} size={34} />}
+          <span className="bk-owe-text">
+            <b>{s.kind === 'rest' ? 'Loppuosuus maksamatta' : `${firstName(s.booker.name)} pyytää osuuttasi`}</b>
+            <span className="truncate">{whenLabel(s.booking.startsAt, s.booking.endsAt, now)} · {s.booking.courtName}</span>
+          </span>
+          <span className="bk-owe-cta">Maksa <span className="t-num bk-nowrap">{centsLabel(s.cents)}</span></span>
+        </button>
+      ))}
+      {months.map((c) => {
+        const [year, month] = c.month.split('-').map(Number);
+        return (
+          <button key={c.id} type="button" className="bk-owe" onClick={() => onOpenMonth(c)}>
+            <span className="bk-owe-icon" aria-hidden="true"><Icon name="repeat" size={16} strokeWidth={2.4} /></span>
+            <span className="bk-owe-text">
+              <b>Kausivuoron kuukausimaksu</b>
+              <span className="truncate">{MONTHS[month - 1]} {year} · {c.slot.courtName || 'Kausivuoro'}</span>
+            </span>
+            <span className="bk-owe-cta">Maksa <span className="t-num bk-nowrap">{centsLabel(c.amountCents)}</span></span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Start times ──────────────────────────────────────────────────────────────
+
+/**
+ * A day's start times as one list of rows, read left to right: the time, how many courts are free
+ * (a lime dot: fits the player's usual play times, `fits(startsAt)`), a last-minute deal if the hall
+ * has one, the price (the cheapest free court's, "alk." when courts differ). A full time
+ * (options: []) is a dim row with a bell: "Ilmoita kun vapautuu" — `watched(startsAt)` says whether
+ * it is on. `sales` are other players' bookings on sale at exactly their time: each is its own row,
+ * booked as it is with `onPickSale(sale)`.
+ */
+export function TimeRows({ slots, sales = [], onPick, onPickSale, onWatch, watched = () => false, fits = () => false }) {
+  const items = [
+    ...slots.map((slot) => ({ at: slot.startsAt, slot })),
+    ...sales.map((sale) => ({ at: sale.startsAt, sale })),
+  ].sort((a, b) => a.at.localeCompare(b.at) || (a.sale ? 1 : 0) - (b.sale ? 1 : 0));
+  return (
+      <div className="bk-times stagger" aria-label="Vapaat ajat">
+        {items.map(({ slot, sale }, i) => {
+          if (sale) {
+            const length = durationLabel(sale.minutes);
+            return (
+              <button
+                key={sale.id}
+                type="button"
+                className="bk-time is-sale"
+                style={{ '--i': Math.min(i, 10) }}
+                onClick={() => onPickSale?.(sale)}
+                aria-label={`klo ${formatTime(sale.startsAt)}–${formatTime(sale.endsAt)}, myynnissä: ${sale.court.name}, ${sale.location.name}, ${centsLabel(sale.cents)}`}
+              >
+                <span className="bk-time-clock t-num">{formatTime(sale.startsAt)}</span>
+                <span className="bk-time-free truncate">{sale.court.name} · {length}</span>
+                <span className="bk-time-tag is-sale">Myynnissä</span>
+                <span className="bk-time-price">{centsLabel(sale.cents)}</span>
+                <Icon name="chevron-right" size={18} className="bk-time-go" />
+              </button>
+            );
+          }
+          const clockText = formatTime(slot.startsAt);
+          const mine = fits(slot.startsAt);
+          if (!slot.options.length) {
+            const on = watched(slot.startsAt);
+            return (
+              <button
+                key={slot.startsAt}
+                type="button"
+                className={cx('bk-time', 'is-full', on && 'is-watched')}
+                style={{ '--i': Math.min(i, 10) }}
+                aria-pressed={on}
+                onClick={() => onWatch?.(slot)}
+                aria-label={`klo ${clockText}, täynnä. ${on ? 'Ilmoitus vapautumisesta on päällä — poista napauttamalla' : 'Ilmoita kun vapautuu'}`}
+              >
+                <span className="bk-time-clock t-num">{clockText}</span>
+                <span className="bk-time-free">Täynnä</span>
+                <span className="bk-time-bell"><Icon name="bell" size={14} strokeWidth={2.4} />{on ? 'Ilmoitetaan' : 'Ilmoita'}</span>
+              </button>
+            );
+          }
+          const prices = slot.options.map((o) => o.cents);
+          const min = Math.min(...prices);
+          const varies = prices.some((p) => p !== min);
+          const n = slot.options.length;
+          const free = n === 1 ? 'Viimeinen kenttä' : `${n} kenttää`;
+          return (
+            <button
+              key={slot.startsAt}
+              type="button"
+              className={cx('bk-time', n === 1 && 'is-last', slot.deal && 'is-deal', mine && 'is-yours')}
+              style={{ '--i': Math.min(i, 10) }}
+              onClick={() => onPick(slot)}
+              aria-label={`klo ${clockText}, ${free.toLowerCase()} vapaana, ${varies ? 'alkaen ' : ''}${centsLabel(min)}${slot.deal ? `, viime hetken ale −${slot.deal} %` : ''}${mine ? ', sopii peliaikoihisi' : ''}`}
+            >
+              <span className="bk-time-clock t-num">{clockText}</span>
+              <span className="bk-time-free">
+                {mine && <span className="bk-time-yours" aria-hidden="true" title="Sopii peliaikoihisi" />}
+                {free}
+              </span>
+              {slot.deal > 0 && <span className="bk-time-tag">−{slot.deal} %</span>}
+              <span className="bk-time-price">{varies && <small>alk. </small>}{centsLabel(min)}</span>
+              <Icon name="chevron-right" size={18} className="bk-time-go" />
+            </button>
+          );
+        })}
+      </div>
   );
 }
 
@@ -184,24 +268,6 @@ export function bookingStateText(booking) {
   if (booking.split && booking.split.lines.some((l) => l.status === 'pending' || l.status === 'declined')) return 'Osuuksia maksamatta';
   if (booking.paymentStatus === 'paid') return 'Maksettu';
   return 'Vahvistettu';
-}
-
-export function MyBookingCard({ booking, now, onOpen }) {
-  const held = booking.status === 'held';
-  const owed = restOwed(booking);
-  const icon = held ? 'clock' : owed ? 'alert' : booking.forSale ? 'share' : 'check';
-  return (
-    <button type="button" className={cx('bk-mine', (held || owed) && 'is-held', booking.forSale && 'is-sale')} onClick={() => onOpen(booking)}>
-      <span className="bk-mine-day">{dayLabel(booking.startsAt, new Date(now))}</span>
-      <span className="bk-mine-clock t-num">{formatTime(booking.startsAt)}–{formatTime(booking.endsAt)}</span>
-      <span className="bk-mine-court">{booking.courtName}</span>
-      <span className="bk-mine-place truncate">{booking.locationName}</span>
-      <span className={cx('bk-mine-state', held || owed ? 'is-held' : booking.forSale ? 'is-sale' : 'is-ok')}>
-        <Icon name={icon} size={13} strokeWidth={2.6} />
-        {owed ? 'Loppuosuus maksamatta' : bookingStateText(booking)}
-      </span>
-    </button>
-  );
 }
 
 // ── Jaettu maksu ─────────────────────────────────────────────────────────────

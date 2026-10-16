@@ -224,13 +224,15 @@ test('staff: day with names, block atomically, unblock, cancel with refund', asy
   assert.ok(!(await api.booking.staffDay(v.id, key)).some((i) => i.id === booking.id));
 });
 
-test('last-minute deal: only inside the window, rounded like the server', async () => {
+test('last-minute deal: none in the demo hall; a hall with one: only inside the window, rounded like the server', async () => {
   const v = await venue();
   const soon = new Date(Date.now() + 1 * 3_600_000).toISOString();
   const later = new Date(Date.now() + 30 * 3_600_000).toISOString();
-  assert.equal(lastMinutePercent(v, soon), 20);
-  assert.equal(lastMinutePercent(v, later), 0);
-  assert.equal(lastMinutePercent({ ...v, lastMinute: null }, soon), 0);
+  assert.equal(v.lastMinute, null, 'no discounts until the hall agrees to them');
+  assert.equal(lastMinutePercent(v, soon), 0);
+  const deal = { ...v, lastMinute: { hours: 2, percent: 20 } };
+  assert.equal(lastMinutePercent(deal, soon), 20);
+  assert.equal(lastMinutePercent(deal, later), 0);
   assert.equal(discounted(2500, 30), 1750);
   assert.equal(discounted(2100, 0), 2100);
 });

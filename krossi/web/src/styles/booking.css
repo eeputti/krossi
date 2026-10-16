@@ -1,57 +1,35 @@
-/* booking.css — court booking for players (/pelaa/varaa): hero, my bookings, day strip,
-   start-time tiles, map picker and the booking sheets. Floor maps: booking-map.css;
+/* booking.css — court booking for players (/pelaa/varaa): the unpaid-payments row, place cards,
+   day strip, length, start-time rows, the terms, map picker and the booking sheets. Floor maps: booking-map.css;
    the hall's staff view: booking-hall.css. */
 
 .bk-page { padding-top: var(--s3); padding-bottom: var(--s7); }
 .bk-page > * + * { margin-top: var(--s5); }
 
-/* ── Hero ── */
-.bk-hero {
-  background: var(--green-800); color: var(--on-dark); border-radius: var(--r-xl);
-  padding: 22px 20px 18px; box-shadow: var(--shadow-2);
+/* ── Place cards: "Mikä tahansa" or a hall ── */
+.bk-places { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 720px) { .bk-places { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.bk-place {
+  display: grid; gap: 2px; align-content: start; text-align: left; padding: 12px 12px 11px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1.5px solid var(--line); box-shadow: var(--shadow-1); color: var(--ink);
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-1), background var(--dur-1);
 }
-.bk-hero-eyebrow { color: var(--lime); }
-.bk-hero-mine {
-  position: absolute; top: 16px; right: 16px; display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 11px; border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.12);
-  color: var(--on-dark); font-size: 12.5px; font-weight: 750;
-}
-.bk-hero-mine:hover { background: rgba(255, 255, 255, 0.2); }
-.bk-hero-mine svg { color: var(--lime); }
-.bk-hero-title { margin: 6px 0 4px; font-size: 26px; line-height: 1.12; font-weight: 800; letter-spacing: -0.02em; }
-.bk-hero-sub { margin: 0; color: var(--on-dark-muted); font-size: var(--fs-small); }
-.bk-hero-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px; font-size: 12.5px; font-weight: 700; color: var(--on-dark-muted); }
-.bk-hero-facts span { display: inline-flex; align-items: center; gap: 6px; }
-.bk-hero-facts svg { color: var(--lime); }
+.bk-place:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); }
+.bk-place:active { transform: scale(0.97); }
+.bk-place-name { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 15px; font-weight: 800; line-height: 1.25; letter-spacing: -0.01em; }
+.bk-place-name svg { flex-shrink: 0; color: var(--green-600); }
+.bk-place-free { display: flex; align-items: center; min-height: 18px; margin-top: 2px; font-size: 12.5px; font-weight: 750; color: var(--green-700); }
+.bk-place-free.is-none { color: var(--faint); font-weight: 650; }
+.bk-place.is-on { background: var(--green-800); border-color: var(--green-800); color: var(--on-dark); box-shadow: var(--shadow-2); }
+.bk-place.is-on .bk-place-name svg, .bk-place.is-on .bk-place-free { color: var(--lime); }
+.bk-place.is-on .bk-place-free.is-none { color: var(--on-dark-faint); }
 
 /* ── Sections ── */
 .bk-h { margin: 0 0 var(--s3); font-size: var(--fs-h3); font-weight: 800; color: var(--ink); }
 .bk-section { margin-top: var(--s5); }
 
-/* ── My bookings strip ── */
-.bk-mine-strip { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; scroll-snap-type: x proximity; }
-.bk-mine-strip::-webkit-scrollbar { display: none; }
-.bk-mine {
-  flex: 0 0 auto; min-width: 168px; max-width: 210px; scroll-snap-align: start;
-  display: grid; gap: 2px; text-align: left; padding: 12px 14px; border-radius: var(--r-lg);
-  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
-  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
-}
-.bk-mine:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
-.bk-mine:active { transform: scale(0.97); }
-.bk-mine.is-held { border-color: var(--warn); }
-.bk-mine-day { font-size: var(--fs-micro); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--green-700); }
-.bk-mine-clock { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
-.bk-mine-court { font-size: 14px; font-weight: 750; color: var(--ink-2); }
-.bk-mine-place { font-size: 12.5px; color: var(--muted); }
-.bk-mine-state { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 12px; font-weight: 800; }
-.bk-mine-state.is-ok { color: var(--success); }
-.bk-mine-state.is-held { color: var(--warn); }
-
 /* ── Controls ── */
 .bk-controls { display: grid; gap: 12px; }
 .bk-controls .segmented { width: 100%; }
-.bk-filters { display: grid; gap: 8px; }
 
 /* Kesto: [−] 1 h [+] */
 .bk-length-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -91,23 +69,23 @@
 .bk-day.is-on { background: var(--green-800); border-color: var(--green-800); color: var(--on-dark); box-shadow: var(--shadow-2); }
 .bk-day.is-on .bk-day-top, .bk-day.is-on .bk-day-month { color: var(--lime); }
 
-/* ── Start-time tiles ── */
+/* ── Start times: one row each — time, free courts, deal, price ── */
 .bk-times-wrap { display: grid; gap: var(--s4); }
-.bk-times-label { margin: 0 0 8px; color: var(--muted); }
-.bk-times { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 560px) { .bk-times { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@media (min-width: 900px) { .bk-times { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.bk-times-label { margin: 0 0 6px; color: var(--muted); }
+.bk-times { display: grid; gap: 6px; }
+@media (min-width: 720px) { .bk-times { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .bk-time {
-  display: grid; gap: 1px; justify-items: start; text-align: left; padding: 10px 12px 9px;
-  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px; text-align: left; padding: 9px 10px 9px 14px;
+  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); color: var(--ink);
   transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-1);
 }
-.bk-time:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); border-color: var(--green-600); }
-.bk-time:active { transform: scale(0.96); }
-.bk-time-clock { font-size: 19px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
-.bk-time-price { font-size: 13.5px; font-weight: 750; color: var(--green-700); }
-.bk-time-price small { font-size: 11px; font-weight: 700; color: var(--muted); }
-.bk-time-free { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.bk-time:hover { border-color: var(--green-600); box-shadow: var(--shadow-2); }
+.bk-time:active { transform: scale(0.985); }
+.bk-time-clock { flex-shrink: 0; min-width: 52px; font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+.bk-time-free { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 650; color: var(--muted); }
+.bk-time-price { flex-shrink: 0; font-size: 15.5px; font-weight: 800; color: var(--green-700); white-space: nowrap; }
+.bk-time-price small { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.bk-time-go { flex-shrink: 0; color: var(--faint); }
 .bk-time.is-last .bk-time-free { color: var(--clay); font-weight: 750; }
 
 /* ── Booking sheet ── */
@@ -179,40 +157,47 @@
 /* skeletons */
 .bk-skel-row { display: flex; gap: 8px; overflow: hidden; }
 .bk-skel-row > * { flex: 0 0 58px; }
-.bk-skel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 900px) { .bk-skel-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-
-@media (min-width: 900px) {
-  .bk-hero { padding: 26px 28px 22px; }
-  .bk-hero-title { font-size: 30px; }
-  .bk-filters { grid-template-columns: auto 1fr; align-items: center; }
-}
+.bk-skel-places { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 720px) { .bk-skel-places { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.bk-skel-rows { display: grid; gap: 6px; }
+@media (min-width: 720px) { .bk-skel-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .bk-time, .bk-mine, .bk-day { transition: none; }
+  .bk-time, .bk-day, .bk-place, .bk-unpaid-row { transition: none; }
 }
 
-/* ── Better than the rest: full times with a bell, deals, your play times ── */
-.bk-time { position: relative; }
+/* ── Better than the rest: full times with a bell, deals, your play times, resale ── */
 .bk-time.is-full { background: var(--surface-2); border-style: dashed; box-shadow: none; }
 .bk-time.is-full .bk-time-clock { color: var(--muted); }
-.bk-time.is-full .bk-time-price { color: var(--faint); }
-.bk-time.is-full .bk-time-free { display: inline-flex; align-items: center; gap: 4px; color: var(--green-700); font-weight: 750; }
-.bk-time.is-full:hover { border-color: var(--green-600); transform: none; }
-.bk-time.is-watched { border-style: solid; border-color: var(--green-700); background: var(--lime-100); }
-.bk-time.is-watched .bk-time-free { color: var(--green-800); }
-.bk-time-top { justify-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 6px; }
-.bk-time-tag {
-  padding: 2px 6px; border-radius: var(--r-pill);
-  background: var(--clay); color: var(--on-dark); font-size: 10.5px; font-weight: 800; white-space: nowrap;
+.bk-time.is-full .bk-time-free { color: var(--faint); }
+.bk-time-bell {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: var(--r-pill);
+  background: var(--sand); color: var(--green-800); font-size: 12.5px; font-weight: 750;
 }
+.bk-time.is-watched { border-style: solid; border-color: var(--green-700); background: var(--lime-100); }
+.bk-time.is-watched .bk-time-bell { background: var(--green-800); color: var(--lime); }
+.bk-time-tag {
+  flex-shrink: 0; padding: 3px 7px; border-radius: var(--r-pill);
+  background: var(--clay); color: var(--on-dark); font-size: 11px; font-weight: 800; white-space: nowrap;
+}
+.bk-time-tag.is-sale { background: var(--green-100); color: var(--green-800); }
 .bk-time.is-deal { border-color: var(--clay-100); }
-.bk-time-yours, .bk-legend .bk-time-yours {
-  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+.bk-time.is-sale { border-color: var(--green-600); }
+.bk-time-yours {
+  flex-shrink: 0; display: inline-block; width: 9px; height: 9px; border-radius: 50%;
   background: var(--lime); box-shadow: 0 0 0 2px var(--green-800);
 }
-.bk-time.is-yours { border-color: var(--green-600); }
-.bk-legend { display: flex; align-items: center; gap: 8px; margin: 0 0 calc(-1 * var(--s3)); font-size: 12.5px; font-weight: 650; color: var(--muted); }
+/* a new day's times are loading */
+.bk-loading { display: grid; place-items: center; min-height: 180px; }
+
+/* Varausehdot: a quiet link at the bottom of the page, inline in the pay step, and the sheet */
+.bk-terms-link { justify-self: center; display: block; margin: 0 auto; padding: 8px 12px; font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.bk-terms-link:hover, .bk-terms-inline:hover { color: var(--ink); }
+.bk-terms-inline { display: inline; padding: 0; font: inherit; font-weight: 700; color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; }
+.bk-terms { margin: 0; display: grid; gap: 14px; }
+.bk-terms-item dt { font-size: 14.5px; font-weight: 800; color: var(--ink); }
+.bk-terms-item dd { margin: 3px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.bk-terms-item a { color: var(--green-700); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; word-break: break-all; }
 
 /* a watched time freed up */
 .bk-freed {
@@ -292,29 +277,26 @@
 .bk-info > svg { color: var(--green-700); }
 .bk-info b { color: var(--ink); }
 
-/* shares waiting for my payment, on top of the booking page */
-.bk-owe {
-  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px; border-radius: var(--r-lg);
-  background: var(--surface); border: 1.5px solid var(--green-800); box-shadow: var(--shadow-1); color: var(--ink);
+/* Maksamattomat maksut: one row on the page (red triangle, total) that opens the sheet with each payment */
+.bk-unpaid-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 12px 12px 12px 14px;
+  border-radius: var(--r-lg); background: var(--danger-bg); color: var(--ink);
   transition: transform var(--dur-1) var(--ease-out);
 }
-.bk-owe:active { transform: scale(0.98); }
-.bk-owe-icon { flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--danger-bg); color: var(--danger); }
+.bk-unpaid-row:active { transform: scale(0.98); }
+.bk-unpaid-row > svg:last-child { flex-shrink: 0; color: var(--danger); }
+.bk-unpaid-icon { display: grid; color: var(--danger); }
+.bk-unpaid-title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 800; color: var(--ink); }
+.bk-unpaid-total { flex-shrink: 0; font-size: 14.5px; font-weight: 800; color: var(--danger); }
+.bk-unpaid { display: grid; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); overflow: hidden; }
+.bk-owe { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 10px 10px 12px; background: var(--surface); color: var(--ink); }
+.bk-owe + .bk-owe { border-top: 1px solid var(--line); }
+.bk-owe:hover { background: var(--surface-2); }
+.bk-owe:active { background: var(--sand); }
+.bk-owe-icon { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--danger-bg); color: var(--danger); }
 .bk-owe-text { flex: 1; min-width: 0; display: grid; gap: 1px; font-size: 12.5px; color: var(--muted); }
-.bk-owe-text b { font-size: 14px; color: var(--ink); }
-.bk-owe-cta { flex-shrink: 0; padding: 7px 14px; border-radius: var(--r-pill); background: var(--lime); color: var(--ink); font-size: 13px; font-weight: 800; }
-
-/* somebody's booking on sale today */
-.bk-sales { display: grid; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); margin-bottom: 8px; }
-.bk-sale { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 11px 12px; color: var(--ink); }
-.bk-sale + .bk-sale { border-top: 1px solid var(--line); }
-.bk-sale:hover { background: var(--surface-2); }
-.bk-sale > svg { flex-shrink: 0; color: var(--muted); }
-.bk-sale-clock { flex-shrink: 0; font-size: 15px; font-weight: 800; }
-.bk-sale-place { flex: 1; min-width: 0; font-size: 13px; color: var(--ink-2); }
-.bk-sale-price { flex-shrink: 0; font-size: 14px; font-weight: 800; color: var(--green-700); }
-.bk-mine.is-sale { border-style: dashed; }
-.bk-mine-state.is-sale { color: var(--green-700); }
+.bk-owe-text b { font-size: 13.5px; font-weight: 750; line-height: 1.25; color: var(--ink); }
+.bk-owe-cta { flex-shrink: 0; padding: 7px 11px; border-radius: var(--r-pill); background: var(--lime); color: var(--ink); font-size: 13px; font-weight: 800; white-space: nowrap; }
 
 /* the share page (/pelaa/osuus/:id) */
 .bk-share-head { display: flex; align-items: center; gap: 12px; }

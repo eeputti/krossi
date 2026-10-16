@@ -23,6 +23,7 @@ import { VenueMap, hasVenueMap } from './VenueMap.jsx';
 import { DurationStepper, HoldCountdown, SplitLines, downloadBookingIcs, sportLabel, timeInSentence, useHoldLeft, whenLabel } from './BookingParts.jsx';
 import { useForecast, weatherInfo } from './weather.js';
 import { CreditPay, dueCents } from './CreditPay.jsx';
+import { BookingTermsSheet } from './BookingTerms.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const MIN = 60_000;
@@ -115,6 +116,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
   const [sending, setSending] = useState(false);
   const [payMode, setPayMode] = useState('self'); // 'self' | 'kaksinpeli' | 'nelinpeli'
   const [friendIds, setFriendIds] = useState([]);
+  const [termsOpen, setTermsOpen] = useState(false);
   const splitting = payMode !== 'self';
   const friends = useAsync(() => (open && splitting ? api.booking.shareFriends() : Promise.resolve(null)), [open, splitting]);
 
@@ -369,6 +371,11 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
             )}
           </div>
         )}
+        {!expired && (
+          <p className="bk-fine bk-fine-center">
+            Maksamalla hyväksyt <button type="button" className="bk-terms-inline" onClick={() => setTermsOpen(true)}>varausehdot</button>.
+          </p>
+        )}
       </div>
     );
     footer = !expired && (
@@ -503,6 +510,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
       className="bk-sheet"
     >
       {body}
+      <BookingTermsSheet open={termsOpen} onClose={() => setTermsOpen(false)} venue={venue} />
     </Sheet>
   );
 }

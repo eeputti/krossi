@@ -228,13 +228,16 @@ näkyy kirjautumattomille (`api.leagues.publicGet`, nimet "Mikko V."). Tietokant
 `supabase/migrations/20261014191351_krossi_league_admin_and_hallisarja.sql`.
 
 **Kenttävaraus (booking):** `/pelaa/varaa` — hallin vuorot ja maksu sovelluksessa (Cintoian ja
-Thrilin opit, ei niiden ulkoasua). Päivä, kesto ja paikka valitaan ylhäältä; *Ajat* näyttää vapaat
-aloitusajat ruutuina (hinta + montako kenttää vapaana), *Kartta* hallin pohjakartan valitulle
-ajalle (`VenueMap`, `venueMaps.js`: vapaat kentät korostuvat, napautus varaa). BookSheet: kesto →
+Thrilin opit, ei niiden ulkoasua). Sivulla on vain varaaminen, ylhäältä alas: paikka korteista
+(`PlacePicker`: "Mikä tahansa" tai halli + vapaiden aikojen määrä), päivä, kesto (1–4 h) ja vapaat
+aloitusajat riveinä (`TimeRows`: aika, vapaat kentät, hinta; myynnissä oleva vuoro omana rivinään).
+Päivää vaihtaessa pallo pyörii, kunnes ajat ovat haettu. Muu aukeaa napautuksella: maksamattomat
+maksut rivistä sheetiin, omat varaukset yläpalkista (`/pelaa/omat-varaukset`), kausivuoro ja kortit
+ruuduista, varausehdot linkistä (`BookingTermsSheet`). BookSheet: kesto →
 kenttä (kartta + chipit) → pito (`holdMinutes`, laskuri) → maksu (sama Stripe-`Checkout` kuin
 avausmaksussa, `createIntent`/`verify`-propseilla) → "Kenttä varattu!" + kalenteri + "Etsi pelikaveri
-tähän vuoroon" (avaa Luo peli -sheetin `?varaus=<id>`, täytettynä). Omat vuorot ylhäällä,
-peruutus maksutta `cancelLimitHours` ennen (raha takaisin maksutavalle). Säännöt (aloitusajat,
+tähän vuoroon" (avaa Luo peli -sheetin `?varaus=<id>`, täytettynä). Peruutus maksutta
+`cancelLimitHours` ennen (raha takaisin maksutavalle). Säännöt (aloitusajat,
 puolen tunnin hinnoittelu, vapaat kentät) ovat `features/booking.js`:ssä; palvelin
 (`krossi_hold_booking`, edge-funktio `krossi-booking`) päättää. Hallin henkilökunta: `/pelaa/halli/:venue`
 (päivän aikajana nimillä, esteet kuten Hallisarja, peruutus + hyvitys). Näkyy toistaiseksi vain
