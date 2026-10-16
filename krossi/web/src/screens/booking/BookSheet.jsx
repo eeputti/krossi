@@ -22,6 +22,7 @@ import { Avatar, Button, Icon, Segmented, Sheet, Skeleton, useConfirm, useToast 
 import { VenueMap, hasVenueMap } from './VenueMap.jsx';
 import { DurationStepper, HoldCountdown, SplitLines, downloadBookingIcs, sportLabel, timeInSentence, useHoldLeft, whenLabel } from './BookingParts.jsx';
 import { useForecast, weatherInfo } from './weather.js';
+import { CreditPay, dueCents } from './CreditPay.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const MIN = 60_000;
@@ -305,7 +306,9 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
           {!match && !booking.split && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
         </div>
         <p className="bk-fine">
-          {config?.demo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi.'}
+          {booking.paymentStatus === 'credit'
+            ? `Maksettu ${booking.credit?.kind === 'pass' ? 'sarjakortilla' : 'lahjakorttisaldolla'}.`
+            : config?.demo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi.'}
           {!lateBooking && ` Maksuton peruutus ${timeInSentence(booking.cancellableUntil || deadline)} asti.`}
         </p>
       </div>
@@ -321,6 +324,10 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
           <span className="bk-paybar-price">{centsLabel(payNow(booking))}</span>
         </div>
         <Summary venue={venue} booking={booking} lateBooking={lateBooking} deadline={deadline} />
+        {/* A split booking's shares are paid by card (the card is saved for the rest). */}
+        {!expired && !booking.split && (
+          <CreditPay venue={venue} booking={booking} onConfirmed={finish} onChanged={(next) => { setBooking(next); loadConfig(next); }} />
+        )}
         {expired ? (
           <div className="bk-expired">
             <p>Vuoroa pidettiin sinulle {venue.holdMinutes} minuuttia, ja se vapautui nyt muille. Mitään ei veloitettu.</p>
@@ -507,7 +514,8 @@ const SURFACES = { massa: 'Massakenttä', kova: 'Kova kenttä', matto: 'Matto', 
 export const surfaceLabel = (surface) => SURFACES[surface] || surface;
 
 /** What the booker pays now: their own part of a split booking, else all of it. */
-const payNow = (b) => (b.split ? b.split.ownCents : b.priceCents);
+/** What the card pays now: my part of a split booking, else the price minus a gift share on it. */
+const payNow = (b) => (b.split ? b.split.ownCents : dueCents(b));
 
 /** 'Mikko sai viestin ja maksaa osuutensa Krossissa.' (names stay in the basic form: no inflection) */
 function friendsAsked(split) {

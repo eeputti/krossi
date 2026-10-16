@@ -1,0 +1,161 @@
+/* booking-billing.css — the hall staff's kausivuorot, laskutus and kortit views (HallSeasons,
+   HallBilling, HallCards, SeasonStaffSheet), the season variant on the day timeline, and the
+   printable invoice (/pelaa/lasku/:id, InvoiceScreen). A work tool: plain tables, no decoration. */
+
+/* ── View switch and view layout ── */
+.bhall-views { width: 100%; margin-top: var(--s4); }
+@media (min-width: 900px) { .bhall-views { max-width: 560px; } }
+.bhall-view { display: flex; flex-direction: column; gap: var(--s5); margin-top: var(--s5); }
+.bhall-view .bhall-stats { margin-top: 0; }
+.bhall-view-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s3); }
+.bhall-view-title { font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.bhall-view-sub { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.bhall-subhead { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--s3); font-size: var(--fs-h3); font-weight: 800; color: var(--ink); }
+.bhall-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: var(--r-pill); background: var(--clay); color: var(--on-dark); font-size: 12px; font-weight: 800; }
+.bhall-count.is-quiet { background: var(--sand); color: var(--ink-2); }
+.bhall-billing-tabs { max-width: 420px; }
+/* The day view's 2nd stat tile carries the utilization bar on phones; these views have none. */
+@media (max-width: 599px) { .bhall-view .bhall-stats > .stat-tile:nth-child(2) .stat-tile-sub { display: none; } }
+
+/* ── Season weeks on the day timeline ── */
+.bhall-item.is-season { background: var(--green-700); color: var(--on-dark); box-shadow: inset 3px 0 0 var(--lime); }
+.bhall-swatch.is-season { background: var(--green-700); box-shadow: inset 3px 0 0 var(--lime); }
+.bhall-kind.is-season { background: var(--green-700); color: var(--lime); }
+
+/* ── Kausivuorot ── */
+.hs-requests { display: grid; gap: var(--s3); }
+@media (min-width: 760px) { .hs-requests { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.hs-request {
+  display: grid; gap: 6px; align-content: start; padding: 14px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1.5px dashed var(--warn); box-shadow: var(--shadow-1);
+}
+.hs-request-who { display: flex; align-items: center; gap: 10px; }
+.hs-request-who > span { display: grid; gap: 1px; min-width: 0; }
+.hs-request-who b { font-size: 15px; font-weight: 800; }
+.hs-request-who small { font-size: 12.5px; color: var(--muted); }
+.hs-request-when { margin: 4px 0 0; font-size: 18px; font-weight: 800; color: var(--ink); text-transform: capitalize; }
+.hs-request-meta { font-size: 13px; font-weight: 650; color: var(--ink-2); }
+.hs-request-note { font-size: 13px; font-style: italic; color: var(--muted); }
+.hs-request .btn { justify-self: start; margin-top: 4px; }
+
+.hs-days { display: grid; gap: var(--s4); }
+.hs-day-name { display: block; margin-bottom: 6px; font-size: var(--fs-micro); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.hs-rows { padding: 0; list-style: none; display: grid; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.hs-rows > li + li { border-top: 1px solid var(--line); }
+.hs-row {
+  display: grid; grid-template-columns: 104px minmax(0, 0.9fr) minmax(0, 1.3fr) auto; gap: 4px 12px; align-items: center;
+  width: 100%; padding: 10px 14px; text-align: left; color: var(--ink);
+}
+.hs-row:hover { background: var(--surface-2); }
+.hs-row-time { font-size: 14px; font-weight: 800; white-space: nowrap; }
+.hs-row-court { display: grid; font-size: 13.5px; font-weight: 750; }
+.hs-row-court small { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.hs-row-holder { font-size: 14px; font-weight: 700; }
+.hs-row-billing { justify-self: end; }
+.hs-row-next { grid-column: 3 / -1; font-size: 12px; color: var(--muted); }
+.hs-billing { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700; color: var(--green-700); }
+.hs-billing.is-failed { color: var(--danger); }
+.hs-row.is-quiet { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; color: var(--muted); }
+@media (max-width: 560px) {
+  .hs-row { grid-template-columns: 96px minmax(0, 1fr) auto; }
+  .hs-row-court { grid-column: 2; grid-row: 1; }
+  .hs-row-holder { grid-column: 2; grid-row: 2; font-size: 13px; }
+  .hs-row-billing { grid-column: 3; grid-row: 1 / span 2; }
+  .hs-row-next { grid-column: 1; grid-row: 2; }
+}
+
+/* ── Laskutus: simple tables (rows of grid cells, readable on phones) ── */
+.hb-table { display: grid; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.hb-tr {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) 96px 96px 112px; gap: 4px 12px; align-items: center;
+  padding: 10px 14px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--ink);
+}
+.hb-tr:first-child { border-top: 0; }
+.hb-tr.is-charges { grid-template-columns: 120px minmax(0, 2fr) 96px 92px 112px; }
+.hb-th { background: var(--surface-2); font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.hb-tr .is-num { text-align: right; }
+.hb-strong { font-weight: 800; }
+.hb-who { display: grid; gap: 1px; min-width: 0; }
+.hb-who small { font-size: 12px; color: var(--muted); }
+.hb-error { display: inline-flex; align-items: center; gap: 4px; color: var(--danger) !important; font-weight: 650; white-space: normal !important; }
+.hb-actions { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.hb-actions:empty { display: none; }
+.hb-tr.is-overdue { background: var(--danger-bg); }
+.hb-tr.is-failed { background: var(--danger-bg); }
+.hb-tr.is-paid .hb-strong, .hb-tr.is-void { color: var(--muted); }
+@media (max-width: 760px) {
+  .hb-th { display: none; }
+  .hb-tr, .hb-tr.is-charges { grid-template-columns: minmax(0, 1fr) auto; }
+  .hb-tr > :nth-child(1) { grid-column: 1; }
+  .hb-tr > .hb-who { grid-column: 1; }
+  .hb-tr > .is-num { grid-column: 2; grid-row: 1; }
+  .hb-tr > :nth-child(4) { grid-column: 1; font-size: 12.5px; color: var(--muted); }
+  .hb-tr > :nth-child(5) { grid-column: 2; grid-row: 2 / span 2; justify-self: end; }
+  .hb-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* ── Kortit ── */
+.hc-controls { display: grid; gap: var(--s3); }
+@media (min-width: 760px) { .hc-controls { grid-template-columns: 320px minmax(0, 360px); justify-content: space-between; } }
+.hc-list { padding: 0; list-style: none; display: grid; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.hc-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.hc-row:first-child { border-top: 0; }
+.hc-row.is-quiet { background: var(--surface-2); color: var(--muted); }
+.hc-main { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.hc-main b { font-size: 14px; font-weight: 800; }
+.hc-main small, .hc-side small { font-size: 12px; color: var(--muted); }
+.hc-side { flex-shrink: 0; display: grid; justify-items: end; gap: 1px; font-size: 14px; }
+.hc-code { flex-shrink: 0; padding: 4px 8px; border-radius: var(--r-sm); background: var(--sand); font: 800 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.04em; color: var(--ink); }
+
+/* ── Printable invoice ── */
+.inv-page { padding-top: var(--s4); padding-bottom: var(--s8); }
+.inv-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: var(--s3); }
+.inv-toolbar-space { flex: 1; }
+.inv-sent { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 650; color: var(--muted); }
+.inv-demo { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--s3); padding: 10px 12px; border-radius: var(--r-md); background: var(--warn-bg); color: var(--warn); font-size: 13px; font-weight: 650; }
+.inv-paper {
+  max-width: 820px; margin: 0 auto; padding: 36px 40px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: var(--shadow-2);
+  display: grid; gap: 28px; font-size: 14px; line-height: 1.45;
+}
+@media (max-width: 600px) { .inv-paper { padding: 22px 18px; gap: 22px; font-size: 13px; } }
+.inv-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; }
+.inv-seller { display: grid; align-content: start; gap: 2px; font-size: 13px; color: var(--ink-2); }
+.inv-seller b { font-size: 16px; color: var(--ink); }
+.inv-title { margin: 0 0 8px; font-size: 26px; font-weight: 800; letter-spacing: 0.08em; color: var(--ink); text-align: right; }
+.inv-meta dl { display: grid; gap: 2px; }
+.inv-meta dl > div { display: grid; grid-template-columns: 110px auto; gap: 10px; }
+.inv-meta dt { font-size: 12.5px; color: var(--muted); }
+.inv-meta dd { font-weight: 750; text-align: right; }
+.inv-label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.inv-recipient { display: grid; gap: 2px; }
+.inv-recipient b { font-size: 15px; }
+.inv-lines { width: 100%; border-collapse: collapse; }
+.inv-lines th { padding: 8px 6px; border-bottom: 1.5px solid var(--ink); font-size: 11.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; text-align: left; color: var(--muted); }
+.inv-lines td { padding: 10px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.inv-lines .is-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.inv-lines tfoot td { border-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
+.inv-lines tfoot td:first-child { text-align: right; color: var(--ink-2); }
+.inv-lines .inv-total td { padding-top: 10px; border-top: 1.5px solid var(--ink); font-size: 16px; font-weight: 800; color: var(--ink); }
+.inv-pay { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 18px; padding: 16px 18px; border: 1.5px solid var(--ink); border-radius: var(--r-xs); }
+.inv-pay b { font-size: 14.5px; }
+@media (max-width: 600px) {
+  .inv-pay { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inv-lines { font-size: 12px; }
+  .inv-lines th, .inv-lines td { padding-left: 3px; padding-right: 3px; }
+  .inv-lines th { font-size: 10px; letter-spacing: 0; }
+}
+.inv-barcode { margin: -12px 0 0; display: grid; gap: 4px; }
+.inv-barcode code { font: 600 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.02em; word-break: break-all; color: var(--ink); }
+.inv-foot { font-size: 12.5px; color: var(--muted); }
+.inv-paper.is-paid .inv-title::after { content: ' · MAKSETTU'; color: var(--success); font-size: 14px; letter-spacing: 0.06em; }
+.inv-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: var(--s5); }
+
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body { background: #fff; }
+  .inv-noprint, .tabbar, .sidenav, .demo-banner, .topbar, .toast-host { display: none !important; }
+  .shell-page { padding: 0 !important; min-height: 0; }
+  .inv-page { padding: 0; max-width: none; }
+  .inv-paper { max-width: none; border: 0; box-shadow: none; padding: 0; }
+}

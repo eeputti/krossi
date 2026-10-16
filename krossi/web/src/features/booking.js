@@ -282,11 +282,47 @@ export function canPutOnSale(booking, now = Date.now()) {
     && Date.parse(booking.cancellableUntil) <= now && Date.parse(booking.startsAt) > now;
 }
 
-/** What goes back to everybody when an on-sale booking is sold: every part that was paid. */
-export function paidTotal(booking) {
-  if (!booking) return 0;
-  if (!booking.split) return booking.paymentStatus === 'paid' ? booking.priceCents : 0;
-  return booking.split.lines.filter((l) => l.status === 'paid').reduce((sum, l) => sum + l.cents, 0);
+const counted = (status) => status === 'paid' || status === 'refunded';
+
+/**
+ * What the booker gets back when their booking is cancelled or sold: { cardCents, giftCents,
+ * minutes } — card money (a split booking: their own part and a rest share; the friends get their
+ * own), the gift balance and series card minutes it was paid with (BookingCredit). Reads the same
+ * before and after the money went back.
+ */
+export function giveBackOf(booking) {
+  const none = { cardCents: 0, giftCents: 0, minutes: 0 };
+  if (!booking) return none;
+  if (booking.split) {
+    return { ...none, cardCents: booking.split.lines.filter((l) => l.kind !== 'friend' && counted(l.status)).reduce((n, l) => n + l.cents, 0) };
+  }
+  if (!['paid', 'credit', 'refunded'].includes(booking.paymentStatus)) return none;
+  if (booking.credit?.kind === 'pass') return { ...none, minutes: booking.credit.minutes };
+  const giftCents = booking.credit?.kind === 'gift' ? booking.credit.cents : 0;
+  return { cardCents: Math.max(0, booking.priceCents - giftCents), giftCents, minutes: 0 };
+}
+
+/** Friends paid their shares of a split booking (they get them back themselves). */
+export const friendsPaid = (booking) => Boolean(booking?.split?.lines.some((l) => l.kind === 'friend' && counted(l.status)));
+
+const backParts = ({ cardCents = 0, giftCents = 0, minutes = 0 }) => ({
+  card: cardCents > 0 ? centsLabel(cardCents) : null,
+  gift: giftCents > 0 ? centsLabel(giftCents) : null,
+  hours: minutes > 0 ? durationLabel(minutes) : null,
+});
+
+/** 'Saat takaisin 15 € maksutavallesi ja 5 € lahjakorttisaldoosi' (giveBackOf, or a cancel's answer); null = nothing. */
+export function giveBackText(back) {
+  const { card, gift, hours } = backParts(back || {});
+  const parts = [card && `${card} maksutavallesi`, gift && `${gift} lahjakorttisaldoosi`, hours && `${hours} sarjakortillesi`].filter(Boolean);
+  if (!parts.length) return null;
+  return `Saat takaisin ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} ja ${parts.at(-1)}` : parts[0]}`;
+}
+
+/** The bell's short form: '30 € palautetaan' | '1 h sarjakortille' | '5 € lahjakorttisaldoon'; '' = nothing. */
+export function giveBackShort(back) {
+  const { card, gift, hours } = backParts(back || {});
+  return [card && `${card} palautetaan`, gift && `${gift} lahjakorttisaldoon`, hours && `${hours} sarjakortille`].filter(Boolean).join(', ');
 }
 
 /** '1 h' | '1,5 h' | '2 h' | '45 min' */

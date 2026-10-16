@@ -1,14 +1,20 @@
 // krossi-booking — kenttävarauksen maksu ja peruutus (krossi.app/pelaa/varaa).
 //
 // The booking itself is made by the krossi_hold_booking RPC (a 'held' row that keeps the court
-// for venue.hold_minutes); this function moves the money. Amounts always come from the database
-// (booking_reservations.price_cents / own_cents, booking_shares.cents), never from the client.
+// for venue.hold_minutes); this function moves the money. Amounts always come from the database,
+// never from the client: a split booking's own_cents, else price_cents minus the gift balance the
+// player put on the hold (gift_cents, krossi_wallet_use_gift — that share leaves the balance when
+// the payment is recorded: krossi_booking_mark_paid gets the amount actually paid), and
+// booking_shares.cents. A booking paid in full with a series card or gift balance
+// (payment_status 'credit') has nothing to pay here; a split booking is paid by card only.
 //
 //   { action: 'config', bookingId }                    -> { paid: true } | { publishableKey, amount, currency, email, setupFutureUsage }
 //   { action: 'intent', bookingId }                    -> { paid: true } | { clientSecret, paymentIntentId }
 //   { action: 'verify', bookingId, paymentIntentId }   -> { confirmed, status } (+ error when the court was lost)
-//   { action: 'cancel', bookingId }                    -> { refundedCents }   the player, before the cancellation limit
-//   { action: 'staffCancel', bookingId, refund }       -> { refundedCents }   hall staff; refund defaults to true
+//   { action: 'confirmed', bookingId }                 -> { ok }   after a series card / gift balance confirmed my booking
+//                                                         (krossi_wallet_pay_booking / _use_gift): refunds what it took over
+//   { action: 'cancel', bookingId }                    -> { refundedCents, creditCents, creditMinutes }   the player, before the cancellation limit
+//   { action: 'staffCancel', bookingId, refund }       -> { refundedCents, creditCents, creditMinutes }   hall staff; refund defaults to true
 //   { action: 'freed', bookingId }                     -> { notified }        after krossi_release_booking / _unblock / _put_on_sale
 //   { action: 'shareConfig', shareId }                 -> like config, for my share (a friend's, or my rest share)
 //   { action: 'shareIntent', shareId }                 -> like intent
@@ -23,7 +29,8 @@
 // through while the player was away) and in stripe-webhook (payment_intent.succeeded), through
 // the shared functions in ../_shared/booking.ts. A payment the booking or share no longer needs
 // (the court went to somebody else, it was paid already, it was cancelled) is refunded at once.
-// Cancelling refunds every paid part: the booker's own, the friends' shares and a rest share.
+// Cancelling refunds every paid part: the booker's own, the friends' shares and a rest share;
+// krossi_booking_cancel gives credit back (a series card's minutes, the gift share to the balance).
 //
 // Stripe Connect: a venue with stripe_account_id gets a destination charge (transfer_data +
 // application_fee_amount from platform_fee_bps); its refunds reverse the transfer and the fee.
@@ -194,11 +201,18 @@ async function shareProblem(admin: SupabaseClient, shareId: string): Promise<str
 
 const holdIsLive = (b: BookingRow) =>
   b.status === 'held' && Boolean(b.hold_expires_at) && Date.parse(b.hold_expires_at as string) > Date.now();
-/** Paid (or free) and still on: nothing left to pay. */
-const isSettled = (b: BookingRow) => b.status === 'confirmed' && (b.payment_status === 'paid' || b.payment_status === 'free');
-/** What the booker pays now: their own part of a split booking, else the whole price. */
-const amountOf = (b: BookingRow) => (b.split_parts ? (b.own_cents ?? b.price_cents) : b.price_cents);
+/** Paid (by card, credit, or free) and still on: nothing left to pay. */
+const isSettled = (b: BookingRow) => b.status === 'confirmed' && ['paid', 'free', 'credit'].includes(b.payment_status);
+/** What the booker's card pays: their own part of a split booking, else the price minus the gift balance on the hold. */
+const amountOf = (b: BookingRow) => (b.split_parts ? (b.own_cents ?? b.price_cents) : b.price_cents - (b.gift_cents || 0));
 const futureUsageOf = (b: BookingRow) => (b.split_parts ? 'off_session' : null);
+
+/** The credit a cancelled booking gives back (krossi_booking_cancel does it in the database). */
+function creditBack(booking: BookingRow, giveBack: boolean) {
+  const settled = booking.payment_status === 'paid' || booking.payment_status === 'credit';
+  if (!giveBack || !settled) return { creditCents: 0, creditMinutes: 0 };
+  return { creditCents: booking.pass_minutes > 0 ? 0 : booking.gift_cents || 0, creditMinutes: booking.pass_minutes || 0 };
+}
 
 // ── Payments ─────────────────────────────────────────────────────────────────
 
@@ -365,16 +379,18 @@ Deno.serve(async (req: Request) => {
         currency: 'eur',
         customer: customerId,
         automatic_payment_methods: { enabled: true },
-        description: describeBooking(booking, venue, place),
+        description: describeBooking(booking, venue, place) + (booking.gift_cents > 0 ? ' (osa lahjakorttisaldolla)' : ''),
         receipt_email: user.email || undefined,
         metadata: { product: BOOKING_PRODUCT, booking_id: booking.id, venue_id: booking.venue_id, supabase_user_id: user.id },
         ...connectParams(venue, amount),
       };
       // Jaettu maksu: the card stays on the customer for the rest of the friends' shares.
       if (futureUsage) params.setup_future_usage = futureUsage;
-      // Two taps at once get the same intent: the key names the booking and the intent it replaces.
+      // Two taps at once get the same intent: the key names the booking, the intent it replaces
+      // and the amount (a gift balance put on or taken off changes it).
       const intent = await stripe.paymentIntents.create(params, {
-        idempotencyKey: `krossi-booking-intent-${booking.id}-${booking.stripe_payment_intent_id ?? 'first'}`,
+        idempotencyKey: `krossi-booking-intent-${booking.id}-${booking.stripe_payment_intent_id ?? 'first'}`
+          + (booking.gift_cents > 0 ? `-${amount}` : ''),
       });
 
       // Store it unless the booking changed meanwhile (paid, or another intent stored first).
@@ -425,6 +441,14 @@ Deno.serve(async (req: Request) => {
       return json(req, { confirmed, status: confirmed ? 'succeeded' : 'cancelled' });
     }
 
+    if (body.action === 'confirmed') {
+      const booking = await myBooking(admin, body.bookingId, user.id);
+      // Only a booking that is on: the on-sale bookings it took over get their money back now (the
+      // cron would in a few minutes), and their sellers an email (once — krossi-notify throttles).
+      if (booking.status === 'confirmed') inBackground(afterBookingPaid(stripe, admin, booking.id));
+      return json(req, { ok: booking.status === 'confirmed' });
+    }
+
     if (body.action === 'cancel') {
       let booking = await myBooking(admin, body.bookingId, user.id);
       ({ booking } = await settleStored(admin, booking));
@@ -433,7 +457,7 @@ Deno.serve(async (req: Request) => {
       if (Date.now() >= Date.parse(booking.starts_at) - venue.cancel_limit_hours * 3_600_000) throw new Reply(409, TOO_LATE);
       const { own } = await cancelAndRefund(admin, booking.id, user.id, true);
       inBackground(notifyWatchers(admin, asUser, booking.id, user.id));
-      return json(req, { refundedCents: own });
+      return json(req, { refundedCents: own, ...creditBack(booking, true) });
     }
 
     if (body.action === 'staffCancel') {
@@ -445,7 +469,7 @@ Deno.serve(async (req: Request) => {
       if (isStaff !== true) throw new Reply(403, STAFF_ONLY);
 
       ({ booking } = await settleStored(admin, booking));
-      if (booking.status !== 'confirmed' && !holdIsLive(booking)) return json(req, { refundedCents: 0 });
+      if (booking.status !== 'confirmed' && !holdIsLive(booking)) return json(req, { refundedCents: 0, creditCents: 0, creditMinutes: 0 });
       if (booking.payment_status === 'unpaid' && booking.stripe_payment_intent_id) {
         // A hold the hall cancels must not be payable any more (a late payment would be refunded anyway).
         await stripe.paymentIntents.cancel(booking.stripe_payment_intent_id, { cancellation_reason: 'abandoned' }).catch((err) =>
@@ -453,7 +477,7 @@ Deno.serve(async (req: Request) => {
       }
       const { total } = await cancelAndRefund(admin, booking.id, user.id, body.refund !== false);
       inBackground(notifyWatchers(admin, asUser, booking.id, user.id));
-      return json(req, { refundedCents: total });
+      return json(req, { refundedCents: total, ...creditBack(booking, body.refund !== false) });
     }
 
     if (body.action === 'freed') {

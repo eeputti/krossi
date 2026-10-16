@@ -25,12 +25,13 @@ import { useSession } from '../../app/session.jsx';
 import { firstName, formatGameTime, formatTime } from '../../lib/format.js';
 import {
   addDays, bookingDays, centsLabel, dateKey, durationLabel, findCourt, fitsAvailability, freeSlots, localDate, locationsFor,
-  minutesOf, paidTotal, priceOf, sportsOf,
+  minutesOf, giveBackOf, giveBackText, priceOf, sportsOf,
 } from '../../features/booking.js';
 import {
   Avatar, Button, ChipSelect, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Skeleton, TopBar, useToast,
 } from '../../ui/index.js';
 import { BookSheet } from './BookSheet.jsx';
+import { BookingExtras } from './BookingExtras.jsx';
 import { MyBookingSheet } from './MyBookingSheet.jsx';
 import { DateStrip, DurationStepper, MyBookingCard, TimeTiles, whenLabel } from './BookingParts.jsx';
 
@@ -116,8 +117,8 @@ export function BookingScreen({ params, query }) {
     for (const b of mine.data?.past || []) {
       if (b.soldAt && listed.has(b.id)) {
         listed.delete(b.id);
-        const back = paidTotal(b) || b.priceCents;
-        toast(`Vuorosi myytiin — ${centsLabel(back)} palautetaan maksutavallesi.`, { icon: 'check', duration: 6000 });
+        const back = giveBackText(giveBackOf(b));
+        toast(`Vuorosi myytiin. ${back ? `${back}.` : 'Mitään ei veloitettu.'}`, { icon: 'check', duration: 6000 });
       }
     }
     for (const b of mine.data?.upcoming || []) if (b.forSale) listed.add(b.id);
@@ -355,6 +356,7 @@ export function BookingScreen({ params, query }) {
             <span className="bk-owe-cta">Maksa</span>
           </button>
         ))}
+        <BookingExtras venue={venue} refreshKey={mine.data} />
 
         {freed.map((w) => (
           <div key={w.id} className="bk-freed rise" role="status">

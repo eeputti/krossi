@@ -158,10 +158,12 @@ function TimelineItem({ item, court, dayKey, win, nowSlot, onItem }) {
   const live = Number.isFinite(nowSlot) && start <= nowSlot && end > nowSlot;
   const name = firstName(item.bookedBy?.name);
   const own = variant === 'league' || variant === 'block';
-  const title = own ? (item.title || (variant === 'league' ? 'Hallisarja' : 'Este')) : name;
+  const season = variant === 'season';
+  const title = season ? item.title || 'Kausivuoro' : own ? (item.title || (variant === 'league' ? 'Hallisarja' : 'Este')) : name;
 
   let label;
-  if (own) label = `${title}, ${court.shortName} klo ${range}`;
+  if (season) label = `Kausivuoro: ${title}, ${court.shortName} klo ${range}`;
+  else if (own) label = `${title}, ${court.shortName} klo ${range}`;
   else if (variant === 'held') label = `Pidossa, maksu kesken: ${name}, ${court.shortName} klo ${range}`;
   else label = `${name}, ${court.shortName} klo ${range}, ${paymentInfo(item).label.toLowerCase()}`;
 
@@ -176,7 +178,7 @@ function TimelineItem({ item, court, dayKey, win, nowSlot, onItem }) {
     >
       <span className="bhall-item-title"><span className="truncate">{title}</span></span>
       <span className="bhall-item-meta t-num">
-        {own ? range : variant === 'held' ? 'Pidossa' : <ItemPrice item={item} variant={variant} />}
+        {season ? `Kausi · ${range}` : own ? range : variant === 'held' ? 'Pidossa' : <ItemPrice item={item} variant={variant} />}
       </span>
     </button>
   );
@@ -190,7 +192,7 @@ function ItemPrice({ item, variant }) {
     <>
       {variant === 'unpaid'
         ? <Icon name="alert" size={11} strokeWidth={2.6} />
-        : item.paymentStatus === 'paid' ? <Icon name="check" size={11} strokeWidth={3.2} /> : null}
+        : item.paymentStatus === 'paid' || item.paymentStatus === 'credit' ? <Icon name="check" size={11} strokeWidth={3.2} /> : null}
       <span className="truncate">{amount}{unit && <span className={cx('bhall-item-unit', amount.includes(',') && 'is-after-cents')}>{unit}</span>}</span>
     </>
   );

@@ -8,8 +8,8 @@ import { db, resetStore } from '../src/api/demo/store.js';
 import { backend as api } from '../src/api/demo/index.js';
 import {
   addDays, bookingDays, canPutOnSale, cancelDeadline, centsLabel, chargeErrorText, courtStatesAt, dateKey, discounted,
-  durationLabel, findCourt, fitsAvailability, freeSlots, isTaken, lastMinutePercent, localDate, priceOf, shareDeadline,
-  splitBlocker, splitCents, sportsOf, startTimes,
+  durationLabel, findCourt, fitsAvailability, freeSlots, friendsPaid, giveBackOf, giveBackShort, giveBackText, isTaken,
+  lastMinutePercent, localDate, priceOf, shareDeadline, splitBlocker, splitCents, sportsOf, startTimes,
 } from '../src/features/booking.js';
 
 configureTiming({ latencyMin: 0, latencyMax: 0, autoScale: 0.001 });
@@ -18,7 +18,7 @@ beforeEach(() => resetStore());
 
 const BOOKING_KEYS = [
   'id', 'venueId', 'venueName', 'locationName', 'mapKey', 'courtId', 'courtName', 'courtMapId', 'sport', 'startsAt',
-  'endsAt', 'status', 'priceCents', 'paymentStatus', 'holdExpiresAt', 'cancellableUntil', 'cancelledAt', 'createdAt',
+  'endsAt', 'status', 'priceCents', 'paymentStatus', 'holdExpiresAt', 'cancellableUntil', 'cancelledAt', 'createdAt', 'credit',
   'forSale', 'soldAt', 'split',
 ];
 const VENUE_KEYS = [
@@ -144,7 +144,7 @@ test('hold → pay → listed as upcoming → cancel refunds', async () => {
   assert.equal(mine.paymentStatus, 'paid');
   assert.deepEqual(upcoming.map((b) => b.startsAt), [...upcoming.map((b) => b.startsAt)].sort());
 
-  assert.deepEqual(await api.booking.cancel(held.id), { refundedCents: slot.cents });
+  assert.deepEqual(await api.booking.cancel(held.id), { refundedCents: slot.cents, creditCents: 0, creditMinutes: 0 });
   const after = await api.booking.listMine();
   assert.ok(!after.upcoming.some((b) => b.id === held.id));
   assert.equal(after.past.find((b) => b.id === held.id).paymentStatus, 'refunded');
@@ -202,8 +202,10 @@ test('staff: day with names, block atomically, unblock, cancel with refund', asy
   const items = await api.booking.staffDay(v.id, key);
   const booking = items.find((i) => i.kind === 'booking' && i.bookedBy);
   assert.ok(booking.bookedBy.name);
-  assert.deepEqual(Object.keys(booking).sort(), ['bookedBy', 'courtId', 'endsAt', 'forSale', 'id', 'kind', 'parts', 'paymentStatus', 'priceCents',
-    'startsAt', 'status', 'title', 'unpaidCents']);
+  assert.deepEqual(Object.keys(booking).sort(), [
+    'bookedBy', 'courtId', 'credit', 'endsAt', 'forSale', 'id', 'kind', 'parts', 'paymentStatus', 'priceCents', 'seasonSlotId', 'startsAt',
+    'status', 'title', 'unpaidCents',
+  ]);
 
   const kispiTennis = v.locations[1].courts.filter((c) => c.sport === 'tennis').map((c) => c.id);
   const late = next(1);
@@ -414,7 +416,7 @@ test('cancelling a split booking before the limit gives everybody their part bac
   await api.booking.createPaymentIntent(held.id);
   await tick(40); // Laura pays
   assert.deepEqual((await api.booking.listMine()).upcoming.find((b) => b.id === held.id).split.lines.map((l) => l.status), ['paid', 'paid']);
-  assert.deepEqual(await api.booking.cancel(held.id), { refundedCents: held.split.ownCents });
+  assert.deepEqual(await api.booking.cancel(held.id), { refundedCents: held.split.ownCents, creditCents: 0, creditMinutes: 0 });
   const gone = (await api.booking.listMine()).past.find((b) => b.id === held.id);
   assert.deepEqual([gone.status, gone.paymentStatus], ['cancelled', 'refunded']);
   assert.deepEqual(gone.split.lines.map((l) => l.status), ['refunded', 'refunded']);
@@ -483,6 +485,86 @@ test('buying somebody\'s on-sale slot takes it over at the full price; a partial
   assert.deepEqual([seller.status, seller.resoldBy, seller.paymentStatus], ['cancelled', held.id, 'refunded']);
   const busy = (await api.booking.day(v.id, key)).busy.filter((b) => b.courtId === entry.courtId && b.startsAt === entry.startsAt);
   assert.deepEqual(busy.map((b) => [b.id, b.mine, b.forSale]), [[held.id, true, false]]);
+});
+
+test('what comes back when a booking is cancelled or sold: card money, gift balance, series card hours', () => {
+  const card = { priceCents: 3000, paymentStatus: 'paid', credit: null, split: null };
+  assert.deepEqual(giveBackOf(card), { cardCents: 3000, giftCents: 0, minutes: 0 });
+  assert.equal(giveBackText(giveBackOf(card)), 'Saat takaisin 30 € maksutavallesi');
+  assert.equal(giveBackShort(giveBackOf({ ...card, paymentStatus: 'refunded' })), '30 € palautetaan', 'the same once it went back');
+  const gift = { ...card, credit: { kind: 'gift', cents: 500, minutes: 0, name: null } };
+  assert.equal(giveBackText(giveBackOf(gift)), 'Saat takaisin 25 € maksutavallesi ja 5 € lahjakorttisaldoosi');
+  const allGift = { ...card, paymentStatus: 'credit', credit: { kind: 'gift', cents: 3000, minutes: 0, name: null } };
+  assert.equal(giveBackText(giveBackOf(allGift)), 'Saat takaisin 30 € lahjakorttisaldoosi');
+  const pass = { ...card, paymentStatus: 'credit', credit: { kind: 'pass', cents: 3000, minutes: 90, name: 'Tennis 10 × 1 h' } };
+  assert.equal(giveBackText(giveBackOf(pass)), 'Saat takaisin 1,5 h sarjakortillesi');
+  assert.equal(giveBackShort(giveBackOf(pass)), '1,5 h sarjakortille');
+  assert.equal(giveBackText(giveBackOf({ ...card, paymentStatus: 'free' })), null);
+  assert.equal(giveBackText(giveBackOf({ ...card, paymentStatus: 'unpaid' })), null);
+  const line = (kind, status, cents) => ({ id: null, kind, person: null, cents, status, paidAt: null });
+  const split = { ...card, split: { parts: 4, ownCents: 750, lines: [line('own', 'refunded', 750), line('friend', 'refunded', 750), line('friend', 'covered', 750), line('rest', 'refunded', 1500)] } };
+  assert.deepEqual(giveBackOf(split), { cardCents: 2250, giftCents: 0, minutes: 0 }, 'my part and the rest; friends get their own');
+  assert.equal(friendsPaid(split), true);
+  assert.equal(friendsPaid(card), false);
+  assert.equal(giveBackText({ cardCents: 1500, giftCents: 200, minutes: 60 }), 'Saat takaisin 15 € maksutavallesi, 2 € lahjakorttisaldoosi ja 1 h sarjakortillesi');
+});
+
+test('a split booking is paid by card: no series card or gift balance on it', async () => {
+  const v = await venue();
+  const slot = await freeTennis(v, addDays(dateKey(new Date()), 8));
+  const held = await api.booking.hold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, friendIds: ['p-laura'] });
+  const pass = (await api.wallet.get(v.id)).passes.find((p) => p.status === 'active');
+  assert.ok(pass, 'the seed gives Alex a series card');
+  await assert.rejects(api.wallet.payBooking(held.id, pass.id), /Jaetun vuoron osuudet maksetaan kortilla/);
+  await assert.rejects(api.wallet.useGift(held.id, true), /Jaetun vuoron osuudet maksetaan kortilla/);
+  assert.deepEqual(await api.booking.checkoutConfig(held.id), { demo: true, amount: held.split.ownCents, currency: 'eur' });
+});
+
+test('a series card buys somebody\'s on-sale slot: taken over at once, the seller refunded', async () => {
+  const v = await venue();
+  const today = dateKey(new Date());
+  let entry = null;
+  for (const k of [today, addDays(today, 1)]) {
+    entry = (await api.booking.day(v.id, k)).busy.find((b) => b.forSale && !b.mine);
+    if (entry) break;
+  }
+  assert.ok(entry, 'the seed has somebody\'s slot on sale');
+  const minutes = Math.round((Date.parse(entry.endsAt) - Date.parse(entry.startsAt)) / 60_000);
+  const held = await api.booking.hold({ courtId: entry.courtId, startsAt: entry.startsAt, minutes });
+  const pass = (await api.wallet.get(v.id)).passes.find((p) => p.status === 'active');
+  db.booking.passes.find((p) => p.id === pass.id).minutesLeft = 600;
+  const paid = await api.wallet.payBooking(held.id, pass.id);
+  assert.deepEqual([paid.status, paid.paymentStatus, paid.credit.minutes], ['confirmed', 'credit', minutes]);
+  const seller = db.booking.rows.find((r) => r.id === entry.id);
+  assert.deepEqual([seller.status, seller.resoldBy, seller.paymentStatus], ['cancelled', held.id, 'refunded']);
+});
+
+test('my series-card booking on sale: when it sells, the hours go back to the card', async () => {
+  const v = await venue();
+  const now = Date.now();
+  // a free tennis start 3–22 h away: inside the free-cancellation limit, so it can go on sale
+  let slot = null;
+  for (const key of [dateKey(new Date(now)), addDays(dateKey(new Date(now)), 1)]) {
+    const { busy } = await api.booking.day(v.id, key);
+    slot = freeSlots(v, key, busy, { sport: 'tennis', minutes: 60 })
+      .find((s) => Date.parse(s.startsAt) > now + 3 * 3_600_000 && Date.parse(s.startsAt) < now + 22 * 3_600_000);
+    if (slot) break;
+  }
+  assert.ok(slot, 'a free court later today or tomorrow');
+  const held = await api.booking.hold({ courtId: slot.options[0].court.id, startsAt: slot.startsAt, minutes: 60 });
+  const pass = (await api.wallet.get(v.id)).passes.find((p) => p.status === 'active');
+  db.booking.passes.find((p) => p.id === pass.id).minutesLeft = 600;
+  await api.wallet.payBooking(held.id, pass.id);
+  assert.equal((await api.wallet.get(v.id)).passes.find((p) => p.id === pass.id).minutesLeft, 540);
+  await api.booking.putOnSale(held.id);
+  await tick(40); // somebody books it in the demo
+  const sold = (await api.booking.listMine()).past.find((b) => b.id === held.id);
+  assert.ok(sold?.soldAt, 'sold');
+  assert.deepEqual([sold.status, sold.paymentStatus], ['cancelled', 'refunded']);
+  assert.equal(giveBackText(giveBackOf(sold)), 'Saat takaisin 1 h sarjakortillesi');
+  const after = (await api.wallet.get(v.id)).passes.find((p) => p.id === pass.id);
+  assert.equal(after.minutesLeft, 600);
+  assert.match(after.history[0].label, /^Myyty: /);
 });
 
 test('staff see what is on sale and what is still unpaid', async () => {

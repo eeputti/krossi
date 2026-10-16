@@ -659,6 +659,13 @@ function euros(cents: number): string {
   return `${cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace(".", ",")} €`;
 }
 
+/** '1 h' | '1,5 h' | '45 min' (the app's durationLabel). */
+function hoursLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return `${Number.isInteger(hours) ? hours : String(hours).replace(".", ",")} h`;
+}
+
 async function planBookingShareRequest(
   admin: Admin,
   event: Extract<NotifyEvent, { type: "booking_share_request" }>,
@@ -752,7 +759,7 @@ async function planBookingResold(
 ): Promise<Delivery | null> {
   const { data: row, error } = await admin
     .from("booking_reservations")
-    .select("id, status, booked_by, resold_at, own_cents, price_cents, payment_status, split_parts")
+    .select("id, status, booked_by, resold_at, own_cents, price_cents, payment_status, split_parts, gift_cents, pass_id, pass_minutes")
     .eq("id", event.bookingId)
     .maybeSingle();
   if (error) throw error;
@@ -765,10 +772,20 @@ async function planBookingResold(
     .eq("reservation_id", row.id);
   if (sharesError) throw sharesError;
   const paid = (s: { status: string }) => s.status === "paid" || s.status === "refunded";
-  const ownPaid = row.payment_status === "paid" || row.payment_status === "refunded"
-    ? Number(row.split_parts ? row.own_cents : row.price_cents) : 0;
-  const own = ownPaid + (shares ?? []).filter((s) => s.kind === "rest" && paid(s)).reduce((n, s) => n + Number(s.cents), 0);
+  // What went back to the seller: card money (their part of a split booking and a rest share), and
+  // the series card minutes or gift balance it was paid with (given back at once).
+  const settled = ["paid", "refunded", "credit"].includes(row.payment_status as string);
+  const minutes = settled && row.pass_id ? Number(row.pass_minutes) || 0 : 0;
+  const gift = settled && !row.pass_id ? Number(row.gift_cents) || 0 : 0;
+  const ownCard = settled && !row.pass_id
+    ? Math.max(0, Number(row.split_parts ? row.own_cents : row.price_cents) - gift) : 0;
+  const own = ownCard + (shares ?? []).filter((s) => s.kind === "rest" && paid(s)).reduce((n, s) => n + Number(s.cents), 0);
   const friendsPaid = (shares ?? []).some((s) => s.kind === "friend" && paid(s));
+  const back = [
+    ...(own > 0 ? [`Saat ${euros(own)} takaisin maksutavallesi. Palautus näkyy tililläsi yleensä muutamassa päivässä.`] : []),
+    ...(gift > 0 ? [`${euros(gift)} palautui lahjakorttisaldoosi.`] : []),
+    ...(minutes > 0 ? [`${hoursLabel(minutes)} palautui sarjakortillesi.`] : []),
+  ];
   return {
     recipientIds: [row.booked_by as string],
     audience: "player",
@@ -777,13 +794,11 @@ async function planBookingResold(
     logRefId: row.id as string,
     blockActor: null,
     content: {
-      subject: "Vuorosi myytiin — saat rahat takaisin",
+      subject: own > 0 ? "Vuorosi myytiin — saat rahat takaisin" : "Vuorosi myytiin",
       preheader: `${booking.when} · ${booking.place}`,
       heading: "Joku varasi myyntiin laittamasi vuoron",
       paragraphs: [
-        own > 0
-          ? `Saat ${euros(own)} takaisin maksutavallesi. Palautus näkyy tililläsi yleensä muutamassa päivässä.`
-          : "Vuoro oli maksuton, joten palautettavaa ei ole.",
+        ...(back.length ? back : ["Vuoro oli maksuton, joten palautettavaa ei ole."]),
         ...(friendsPaid ? ["Kavereiden maksamat osuudet palautetaan heille."] : []),
       ],
       details: [`🗓 ${booking.when}`, `📍 ${booking.place}`],

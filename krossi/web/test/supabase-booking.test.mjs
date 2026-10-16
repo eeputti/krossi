@@ -88,12 +88,12 @@ const BOOKING_ROW = {
   courtId: COURT, courtName: 'Tennis 1', courtMapId: 'te1', sport: 'tennis', startsAt: '2026-10-20T15:00:00.000Z',
   endsAt: '2026-10-20T16:00:00.000Z', status: 'held', priceCents: 3000, paymentStatus: 'unpaid',
   holdExpiresAt: '2026-10-14T18:10:00.000Z', cancellableUntil: '2026-10-19T15:00:00.000Z', cancelledAt: null,
-  createdAt: '2026-10-14T18:00:00.000Z', forSale: false, soldAt: null, split: null,
+  createdAt: '2026-10-14T18:00:00.000Z', credit: null, forSale: false, soldAt: null, split: null,
 };
 
 const BOOKING_KEYS = ['id', 'venueId', 'venueName', 'locationName', 'mapKey', 'courtId', 'courtName', 'courtMapId', 'sport',
   'startsAt', 'endsAt', 'status', 'priceCents', 'paymentStatus', 'holdExpiresAt', 'cancellableUntil', 'cancelledAt', 'createdAt',
-  'forSale', 'soldAt', 'split'];
+  'credit', 'forSale', 'soldAt', 'split'];
 
 test('booking exports exactly the contract functions and is registered in the backend', () => {
   assert.deepEqual(Object.keys(booking).sort(), [...API_CONTRACT.booking].sort());
@@ -262,7 +262,7 @@ test('listMine maps both lists; cancel returns the refunded amount', async () =>
   assert.deepEqual(fake.log.rpc, [{ name: 'krossi_my_bookings', args: {} }]);
   assert.deepEqual(mine.upcoming, [BOOKING_ROW]);
   assert.equal(mine.past[0].cancelledAt, '2026-10-13T08:00:00.000Z'); // normalised to toISOString()
-  assert.deepEqual(await booking.cancel(BOOKING), { refundedCents: 3000 });
+  assert.deepEqual(await booking.cancel(BOOKING), { refundedCents: 3000, creditCents: 0, creditMinutes: 0 });
   assert.deepEqual(fake.log.invoked.at(-1), { name: 'krossi-booking', body: { action: 'cancel', bookingId: BOOKING } });
 
   setClientForTests(fakeClient({ invoke: () => functionError('Peruutusaika on mennyt. Ota yhteyttä halliin.') }));

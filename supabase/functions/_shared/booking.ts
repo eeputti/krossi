@@ -1,8 +1,9 @@
 // _shared/booking.ts — the court-booking money moves krossi-booking, krossi-booking-cron and
 // stripe-webhook share, so each one does them the same way:
 //
-//   settleBookingPayment   a booker's payment succeeded: krossi_booking_mark_paid (keeping a split
-//                          booking's card); a lost or duplicate payment is refunded at once
+//   settleBookingPayment   a booker's payment succeeded: krossi_booking_mark_paid (with the amount
+//                          paid — the rest of the price comes from the gift balance on the hold — and
+//                          a split booking's card); a lost or duplicate payment is refunded at once
 //   settleSharePayment     a friend's share (or a booker's rest share) was paid:
 //                          krossi_booking_share_mark_paid; a payment the share no longer needs
 //                          (covered by the rest, or the booking was cancelled) is refunded
@@ -47,6 +48,8 @@ export interface BookingRow {
   cancelled_by: string | null;
   split_parts: number | null;
   own_cents: number | null;
+  gift_cents: number;
+  pass_minutes: number;
 }
 
 export interface VenueRow {
@@ -60,7 +63,7 @@ export interface VenueRow {
 }
 
 export const BOOKING_COLUMNS = 'id, venue_id, court_id, starts_at, ends_at, kind, status, booked_by, price_cents, ' +
-  'payment_status, hold_expires_at, stripe_payment_intent_id, cancelled_by, split_parts, own_cents';
+  'payment_status, hold_expires_at, stripe_payment_intent_id, cancelled_by, split_parts, own_cents, gift_cents, pass_minutes';
 
 export async function loadBooking(admin: Admin, id: string): Promise<BookingRow | null> {
   const { data, error } = await admin.from('booking_reservations').select(BOOKING_COLUMNS).eq('id', id).maybeSingle();
@@ -192,8 +195,8 @@ export async function refundParts(stripe: Stripe, admin: Admin, bookingId: strin
 export type Outcome = 'confirmed' | 'lost' | 'duplicate' | 'cancelled';
 
 /**
- * Records a succeeded payment of the booker (krossi_booking_mark_paid; a split booking keeps the
- * card for the rest). 'lost' (the court went to somebody else) and 'duplicate' (the booking was
+ * Records a succeeded payment of the booker (krossi_booking_mark_paid: the amount paid, so a gift
+ * share on the hold leaves the balance; a split booking keeps the card for the rest). 'lost' (the court went to somebody else) and 'duplicate' (the booking was
  * paid by another payment) refund this payment; a lost booking is then marked cancelled + refunded.
  * Throws with the database's message (stripe-webhook recognises 'Varausta ei löytynyt').
  */
@@ -202,6 +205,7 @@ export async function settleBookingPayment(stripe: Stripe, admin: Admin, intent:
   const { data, error } = await admin.rpc('krossi_booking_mark_paid', {
     booking_id_input: bookingId,
     payment_intent_id_input: intent.id,
+    amount_input: intent.amount,
     payment_method_input: idOf(intent.payment_method),
   });
   if (error) throw new Error(`krossi_booking_mark_paid failed: ${error.message}`);

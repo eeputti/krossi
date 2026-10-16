@@ -315,9 +315,11 @@
 // @property {string} courtId
 // @property {string} startsAt
 // @property {string} endsAt
-// @property {'booking'|'block'|'league'} kind  league = reserved for a hallisarja / league round
-// @property {boolean} mine                    my own booking (held or confirmed)
-// @property {string|null} title               blocks only, e.g. 'Hallisarja', 'Valmennus' (never a name)
+// @property {'booking'|'block'|'league'|'season'} kind  league = reserved for a hallisarja / league round;
+//                                            season = one week of a kausivuoro (SeasonSlot)
+// @property {boolean} mine                    my own booking (held or confirmed) or my own season slot
+// @property {string|null} title               blocks only, e.g. 'Hallisarja', 'Valmennus'; season rows
+//                                            'Kausivuoro' (never a name)
 // @property {boolean} forSale                 "Laita myyntiin": its booker sells it on. A booking that covers the
 //                                            whole slot takes it over (features/booking.js blockingAt); the seller
 //                                            then gets everything back. Never mine to buy.
@@ -336,16 +338,26 @@
 // @property {string} endsAt
 // @property {'held'|'confirmed'|'cancelled'|'expired'} status
 // @property {number} priceCents
-// @property {'unpaid'|'paid'|'refunded'|'free'} paymentStatus
+// @property {'unpaid'|'paid'|'refunded'|'free'|'credit'} paymentStatus   credit = paid in full with a
+//                                            series card or gift card balance (BookingCredit)
 // @property {string|null} holdExpiresAt       while status = 'held'
 // @property {string} cancellableUntil         startsAt − venue.cancelLimitHours
 // @property {string|null} cancelledAt
 // @property {string} createdAt
+// @property {BookingCredit|null} credit       the part paid (or, on a hold, to be paid) with credit
 // @property {boolean} forSale                 on sale ("Laita myyntiin"): others see the slot as bookable, and it
 //                                            stays mine until somebody books it
 // @property {string|null} soldAt              somebody booked it while it was on sale: status 'cancelled', and
 //                                            everything paid for it went back (paymentStatus 'refunded')
 // @property {BookingSplit|null} split         jaettu maksu with pelikaverit; null = the booker pays it all
+//
+// @typedef {Object} BookingCredit             sarjakortti / lahjakortti on a booking
+// @property {'pass'|'gift'} kind
+// @property {number} cents                    the price this credit covers (a pass covers it all; gift
+//                                            balance may cover part — the rest is paid by card,
+//                                            priceCents − cents)
+// @property {number} minutes                  pass: minutes taken from the series card; gift: 0
+// @property {string|null} name                pass: its name ('Tennis 10 × 1 h'); gift: null
 //
 // @typedef {Object} BookingSplit
 // @property {2|4} parts                       kaksinpeli 2 / nelinpeli 4 payers, the booker included
@@ -391,17 +403,193 @@
 // @property {string} courtId
 // @property {string} startsAt
 // @property {string} endsAt
-// @property {'booking'|'block'|'league'} kind
+// @property {'booking'|'block'|'league'|'season'} kind
 // @property {'held'|'confirmed'} status
-// @property {string|null} title               blocks: their title; bookings: null
-// @property {PersonLite|null} bookedBy        bookings only
-// @property {number} priceCents
-// @property {'unpaid'|'paid'|'refunded'|'free'|'none'} paymentStatus   'none' = a block (nothing to pay); the
-//                                            booker's own part for a split booking
+// @property {string|null} title               blocks: their title; season: the holder's name or team;
+//                                            bookings: null
+// @property {PersonLite|null} bookedBy        bookings, and season rows of a Krossi player
+// @property {number} priceCents               season rows: the week's share of the season price
+// @property {'unpaid'|'paid'|'refunded'|'free'|'credit'|'none'} paymentStatus   'none' = a block or a
+//                                            season row (the season is billed on its own)
+// @property {string|null} seasonSlotId        season rows only
+// @property {BookingCredit|null} credit
 // @property {boolean} forSale                 the booker has put it on sale
 // @property {number} unpaidCents              split bookings: friend shares not paid yet + an unpaid rest share
 //                                            (the counter can collect a rest the card did not cover)
-// @property {number|null} parts               split bookings: 2 or 4 payers
+// @property {number|null} parts               split bookings: 2 or 4 payers (paymentStatus is the booker's own part)
+//
+// ── Kausivuorot, laskutus, sarja- ja lahjakortit ─────────────────────────────
+// A venue runs seasons ("Talvikausi 2026–2027"). A kausivuoro (SeasonSlot) is the same court,
+// weekday and time every week of a season, minus the season's holidays and any dates skipped
+// because the court was taken. Its weeks are real reservation rows (kind 'season'), so the
+// double-booking guard covers them. Season price = for each month, the normal prices of that
+// month's weeks minus the season discount, rounded to cents; the season = the sum of the months.
+// A season slot is paid by invoice (lasku) or charged month by month from the holder's saved card.
+//
+// @typedef {Object} Season
+// @property {string} id
+// @property {string} venueId
+// @property {string} name                     'Talvikausi 2026–2027'
+// @property {string} startsOn                 'YYYY-MM-DD'
+// @property {string} endsOn                   'YYYY-MM-DD' (last day of play)
+// @property {string[]} skipDates              holidays without season play ('YYYY-MM-DD')
+// @property {number} discountPercent          the season rate: normal prices minus this percent
+// @property {boolean} requestsOpen            players may apply for a season slot
+//
+// @typedef {Object} SeasonWeek                one week of a quote
+// @property {string} date                     'YYYY-MM-DD'
+// @property {string} startsAt
+// @property {string} endsAt
+// @property {number|null} cents               normal price (null = the court is closed then)
+// @property {null|{kind:'booking'|'block'|'league'|'season'|'closed', title:string|null}} conflict
+//
+// @typedef {Object} SeasonQuote
+// @property {string} seasonId
+// @property {string|null} courtId             the court quoted: the one asked for, else the one with
+//                                            the fewest conflicts (venue order on a tie)
+// @property {number} weekday                  ISO 1 = ma … 7 = su
+// @property {string} startTime                'HH:MM' local
+// @property {number} minutes
+// @property {SeasonWeek[]} weeks              every remaining week of the season on that weekday
+// @property {string[]} skipped                the season's holidays on that weekday
+// @property {number} count                    weeks without a conflict (what would be booked)
+// @property {number} fullCents                Σ normal prices of those weeks
+// @property {number} discountPercent
+// @property {number} cents                    season price (Σ months)
+// @property {{month:string, count:number, cents:number}[]} months   'YYYY-MM': monthly card charges
+// @property {{courtId:string, conflicts:number}[]} courts   every court of the sport at the location (the
+//                                            asked court's, the given one, or all), venue order, with conflicts
+//
+// @typedef {Object} SeasonSlot                kausivuoro
+// @property {string} id
+// @property {string} venueId
+// @property {string} seasonId
+// @property {string} seasonName
+// @property {BookingSport} sport
+// @property {string|null} courtId             null = a request for any free court (staff pick one)
+// @property {string|null} courtName
+// @property {string|null} locationId
+// @property {string} locationName             '' when the request named no place
+// @property {number} weekday                  ISO 1–7
+// @property {string} startTime                'HH:MM'
+// @property {number} minutes
+// @property {string} startsOn                 first week 'YYYY-MM-DD'
+// @property {string} endsOn                   last day of the season
+// @property {string[]} skipDates              holidays + weeks skipped because the court was taken
+// @property {'requested'|'active'|'declined'|'withdrawn'|'ended'} status
+// @property {'invoice'|'card'} billing
+// @property {number} priceCents               season price (a quote while requested)
+// @property {number} weeks                    how many times (a quote while requested)
+// @property {string} holderName               the player's name, or a team the hall added
+// @property {PersonLite|null} holder          the Krossi player (null = added by the hall)
+// @property {string|null} billingEmail        invoices go here
+// @property {string|null} billingAddress
+// @property {string|null} note                the player's message with the request
+// @property {string|null} declineReason
+// @property {string|null} nextAt              next week's start (active only)
+// @property {{id:string, number:string, dueOn:string, amountCents:number, status:'open'|'paid'|'void'}|null} invoice
+// @property {CardCharge[]} charges            billing 'card': the month-by-month schedule
+// @property {string} createdAt
+// @property {string|null} decidedAt           approved / declined / ended
+//
+// @typedef {Object} CardCharge                one month of a card-billed season slot
+// @property {string} id
+// @property {string} seasonSlotId
+// @property {string} month                    'YYYY-MM'
+// @property {number} weeks
+// @property {number} amountCents
+// @property {string} dueOn                    'YYYY-MM-DD' (the 1st; the first month: the approval day)
+// @property {'scheduled'|'processing'|'paid'|'failed'|'void'} status
+// @property {number} attempts
+// @property {string|null} failureMessage      Finnish, for the player and the hall
+// @property {string|null} paidAt
+// @property {string} holderName
+//
+// @typedef {Object} InvoiceLine
+// @property {string} text
+// @property {number} quantity
+// @property {string} unit                     'krt', or '' on a discount line
+// @property {number|null} unitCents
+// @property {number} totalCents               VAT included (negative for a discount)
+//
+// @typedef {Object} Invoice                   lasku (prices include VAT)
+// @property {string} id
+// @property {string} venueId
+// @property {string} seasonSlotId
+// @property {string} number                   '1001'
+// @property {string} reference                Finnish reference number (viitenumero) '10016'
+// @property {string} issuedOn                 'YYYY-MM-DD'
+// @property {string} dueOn
+// @property {number} amountCents
+// @property {number} vatPercent
+// @property {number} vatCents                 the VAT inside amountCents
+// @property {InvoiceLine[]} lines
+// @property {{name:string, email:string|null, address:string|null}} recipient
+// @property {{name:string, businessId:string|null, address:string|null, iban:string|null, bic:string|null,
+//             email:string|null, phone:string|null}} seller        the hall's invoicing details
+// @property {'open'|'paid'|'void'} status      overdue = open after dueOn (the UI says so)
+// @property {string|null} paidOn
+// @property {string|null} sentAt
+// @property {string} createdAt
+//
+// @typedef {Object} SavedCard                 the card monthly season charges are taken from
+// @property {string} brand                    'visa' | 'mastercard' | …
+// @property {string} last4
+// @property {number} expMonth
+// @property {number} expYear
+//
+// @typedef {Object} PassProduct               sarjakortti the hall sells
+// @property {string} id
+// @property {string} venueId
+// @property {string} name                     'Tennis 10 × 1 h'
+// @property {BookingSport} sport
+// @property {number} uses                     10
+// @property {number} minutesPerUse            60 — the card holds uses × minutesPerUse minutes
+// @property {number} validDays                from the purchase
+// @property {number} priceCents
+// @property {string|null} description
+//
+// @typedef {Object} CreditEvent               a line of a series card's or the gift balance's history
+// @property {string} id
+// @property {'purchase'|'use'|'refund'|'redeem'|'adjust'} kind
+// @property {number} minutes                  series card: + bought / refunded, − used
+// @property {number} cents                    gift balance: + redeemed / refunded, − used
+// @property {string} label                    'Tennis 2 · Janus-Areena · ti 6.10. klo 19.00'
+// @property {string|null} bookingId
+// @property {string} createdAt
+//
+// @typedef {Object} Pass                      a series card of mine
+// @property {string} id
+// @property {string} venueId
+// @property {string} productId
+// @property {string} name
+// @property {BookingSport} sport
+// @property {number} minutesTotal
+// @property {number} minutesLeft
+// @property {string|null} validUntil          'YYYY-MM-DD': bookings up to this day (null until paid)
+// @property {'pending'|'active'|'used'|'expired'} status   pending = not paid yet
+// @property {number} priceCents
+// @property {string|null} purchasedAt
+// @property {CreditEvent[]} history           newest first
+//
+// @typedef {Object} GiftCard                  lahjakortti
+// @property {string} id
+// @property {string} venueId
+// @property {string|null} code                'KRSI-7F3K-9QPA', once paid (the buyer passes it on)
+// @property {number} amountCents
+// @property {string|null} recipientName
+// @property {string|null} message
+// @property {'pending'|'active'|'redeemed'|'expired'} status
+// @property {string|null} validUntil          redeem by this day
+// @property {string|null} redeemedAt
+// @property {string} createdAt
+//
+// @typedef {Object} Wallet                    my credit at one venue
+// @property {string} venueId
+// @property {Pass[]} passes                   active first (soonest to expire), then used up / expired
+// @property {number} giftCents                gift balance I can spend now
+// @property {CreditEvent[]} giftHistory       newest first
+// @property {GiftCard[]} giftCards             gift cards I bought (paid ones), newest first
 
 /**
  * Function names per domain. Both implementations must export exactly these.
@@ -532,14 +720,14 @@ export const API_CONTRACT = {
     'day',                 // (venueId, 'YYYY-MM-DD') -> { date, busy: BookingBusy[] }   held + confirmed bookings and blocks; works without a session
     'hold',                // ({ courtId, startsAt, minutes, friendIds? }) -> Booking   status 'held' for venue.holdMinutes; the server prices it ('Joku ehti ensin…' if taken).
                            //   A booking covering on-sale bookings takes them over (no last-minute deal then).
-                           //   friendIds (1 = kaksinpeli, 3 = nelinpeli, from shareFriends): jaettu maksu — split.ownCents is paid now
+                           //   friendIds (1 = kaksinpeli, 3 = nelinpeli, from shareFriends): jaettu maksu — split.ownCents is paid now, by card only
     'release',             // (bookingId) -> void   drops my own unpaid hold (backing out before paying)
     'checkoutConfig',      // (bookingId) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, amount, currency, email, setupFutureUsage }
                            //   amount = what I pay now (split: ownCents); setupFutureUsage 'off_session' (split) = the card is saved for the rest, else null
     'createPaymentIntent', // (bookingId) -> { paid: true } | { clientSecret, paymentIntentId }
     'verifyPayment',       // (bookingId, paymentIntentId) -> { confirmed: boolean, status }   confirms the booking once Stripe says succeeded (split: then the friends are asked)
     'listMine',            // () -> { upcoming: Booking[], past: Booking[] }   upcoming = held|confirmed, not ended, soonest first; past = newest first, max 30
-    'cancel',              // (bookingId) -> { refundedCents }   only before cancellableUntil; refunds every paid part (friends' shares too) to its payment method
+    'cancel',              // (bookingId) -> { refundedCents, creditCents, creditMinutes }   only before cancellableUntil; money back to the original payment method (friends' shares too), credit back to the series card / gift balance
     'putOnSale',           // (bookingId) -> Booking   "Laita myyntiin": my confirmed booking after cancellableUntil, before the start ('Voit vielä perua…' before the limit).
                            //   Others can book the slot; when somebody does, everything paid is refunded and I'm told. Watchers of the time are told at once.
     'takeOffSale',         // (bookingId) -> Booking   back to just mine ('Joku on juuri varaamassa…' while a buyer is paying)
@@ -557,6 +745,47 @@ export const API_CONTRACT = {
     'block',               // ({ courtIds, startsAt, endsAt, title, kind: 'block'|'league' }) -> string[]   staff only; fails if anything overlaps
     'unblock',             // (blockId) -> void   staff only
     'staffCancel',         // (bookingId, { refund: boolean }) -> void   staff only; refund = money back to everybody who paid
+  ],
+  seasons: [
+    'list',                // (venueId) -> Season[]   seasons not over yet, soonest first; works without a session
+    'quote',               // ({ seasonId, courtId, locationId, weekday, startTime, minutes, fromDate }) -> SeasonQuote   courtId/locationId/fromDate may be null
+    'request',             // ({ seasonId, courtId, locationId, weekday, startTime, minutes, billing, note }) -> SeasonSlot   'requested'; billing 'card' needs a saved card
+    'listMine',            // () -> SeasonSlot[]   requests first, then active by next week, then the rest
+    'withdraw',            // (slotId) -> void   my own request while it is 'requested'
+    'staffList',           // (venueId) -> SeasonSlot[]   staff only: requests (oldest first), active, the rest
+    'create',              // ({ venueId, seasonId, courtId, weekday, startTime, minutes, holderName, billingEmail, billingAddress, priceCents, skipConflicts, fromDate }) -> SeasonSlot   staff: a team's slot, invoiced, active at once
+    'approve',             // (slotId, { courtId, priceCents, skipConflicts }) -> SeasonSlot   staff: the weeks go into the calendar and the invoice / card schedule is made; 'conflict' error lists taken weeks unless skipConflicts
+    'decline',             // (slotId, reason) -> void   staff
+    'end',                 // (slotId) -> { released:number }   staff: frees the coming weeks; unpaid card months not due yet are voided
+    'releaseOccurrence',   // (reservationId) -> void   staff: frees one week (e.g. a hall event); no money moves
+  ],
+  billing: [
+    'listInvoices',        // (venueId) -> Invoice[]   staff: newest first
+    'getInvoice',          // (invoiceId) -> Invoice|null   the venue's staff or the season slot's holder
+    'markInvoicePaid',     // (invoiceId, paidOn 'YYYY-MM-DD') -> Invoice   staff
+    'sendInvoice',         // (invoiceId) -> { sentTo: string }   staff: emails it to the billing address
+    'cardStatus',          // () -> SavedCard|null
+    'cardSetup',           // () -> { demo: true } | { publishableKey, clientSecret, email }   Stripe SetupIntent for a card kept on file
+    'cardSaved',           // (setupIntentId) -> SavedCard   after Stripe confirmed the setup; the demo takes 'demo-4242' (works) / 'demo-0341' (charges fail)
+    'removeCard',          // () -> void   refused while a card-billed season slot is active
+    'listCharges',         // (venueId) -> CardCharge[]   staff: failed first, then by due day
+    'runCharges',          // (venueId) -> { paid:number, failed:number }   staff (and a daily cron): charges every due month off-session
+    'payCharge',           // (chargeId) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, clientSecret, paymentIntentId, amount, currency, email }   my unpaid month, paid in the app
+    'verifyCharge',        // (chargeId, paymentIntentId) -> { paid, status }   demo: paymentIntentId null pays it
+  ],
+  wallet: [
+    'products',            // (venueId) -> { passes: PassProduct[], gift: { amounts:number[], minCents, maxCents, validDays }|null }   works without a session; gift null = no gift cards sold
+    'get',                 // (venueId) -> Wallet
+    'buyPass',             // (productId) -> Pass   'pending' until paid; an unpaid one of the same product is reused
+    'buyGiftCard',         // ({ venueId, amountCents, recipientName, message }) -> GiftCard   'pending' until paid
+    'checkoutConfig',      // ({ kind: 'pass'|'gift', id }) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, amount, currency, email }
+    'createPaymentIntent', // ({ kind, id }) -> { paid: true } | { clientSecret, paymentIntentId }   the demo pays at once
+    'verifyPayment',       // ({ kind, id }, paymentIntentId) -> { paid, status }   activates the pass / issues the gift card's code
+    'redeem',              // (code) -> { venueId, cents, giftCents }   a gift card's value onto my balance at its venue
+    'payBooking',          // (bookingId, passId) -> Booking   pays my held booking with a series card (whole booking); a covered on-sale slot is taken over as on a card payment
+    'useGift',             // (bookingId, use:boolean) -> Booking   puts my gift balance on a held booking / takes it off; covering the price confirms it.
+                           //   Neither works on a split booking ('Jaetun vuoron osuudet maksetaan kortilla.')
+    'staffList',           // (venueId) -> { passes: (Pass & { owner: PersonLite })[], giftCards: (GiftCard & { buyer: PersonLite|null, redeemedBy: PersonLite|null })[] }   staff, no history
   ],
   admin: [
     'stats',               // () -> object (krossi_admin_stats jsonb as-is)

@@ -14,6 +14,7 @@
 // shows "tomorrow 18.00" instead of a date that went stale.
 
 import { ME } from './rows.js';
+import { createHallSeed } from './hallSeed.js';
 import { addDays, dateKey, localDate, priceOf, shareDeadline, splitCents } from '../../features/booking.js';
 import { WEEKDAYS_SHORT, formatEuro } from '../../lib/format.js';
 
@@ -245,6 +246,10 @@ export function createBookingSeed(now) {
       cents: toAlex.cents, deadline: revanssi.split.deadline, shareId: toAlex.id }),
   });
 
+  // Kausivuorot, invoices, series and gift cards (hallSeed.js): the season weeks go in before
+  // everybody else's bookings, so those are made around them.
+  const hall = createHallSeed({ venue, rows, add, now, today, at });
+
   // Everybody else: walk every court hour by hour and book by demand.
   for (let d = -7; d <= venue.daysAhead; d += 1) {
     const key = addDays(today, d);
@@ -278,7 +283,7 @@ export function createBookingSeed(now) {
     .sort((a, b) => (new Date(b.startsAt).getHours() >= 17) - (new Date(a.startsAt).getHours() >= 17) || a.startsAt.localeCompare(b.startsAt))[0];
   if (onSale) onSale.listedAt = new Date(now - 90 * MIN).toISOString();
 
-  return { venues: [venue], rows, watches: [], shares, seedMessages };
+  return { venues: [venue], rows, watches: [], shares, seedMessages, ...hall };
 }
 
 function courtsOfSport(venue, sport) {

@@ -15,7 +15,7 @@
 
 import { GAME_DURATION_HOURS } from '../lib/constants.js';
 import { dayDiff, firstName, formatGameTime, formatTime } from '../lib/format.js';
-import { centsLabel, paidTotal, shareRequestOf } from './booking.js';
+import { centsLabel, giveBackOf, giveBackShort, shareRequestOf } from './booking.js';
 
 const HOUR = 3_600_000;
 const SOON_MS = 24 * HOUR;
@@ -78,11 +78,11 @@ export function buildNotifications({
 
   for (const b of bookings) {
     if (!b.soldAt || now - ms(b.soldAt) > SOLD_MS) continue;
-    const back = paidTotal(b) || (b.paymentStatus === 'refunded' ? b.priceCents : 0);
+    const back = giveBackShort(giveBackOf(b));
     items.push({
       id: `sold:${b.id}`, kind: 'sold', at: ms(b.soldAt), person: null, to: '/pelaa/varaa',
       title: 'Vuorosi myytiin',
-      body: join(back ? `${centsLabel(back)} palautetaan` : '', formatGameTime(b.startsAt, new Date(now)), b.courtName),
+      body: join(back, formatGameTime(b.startsAt, new Date(now)), b.courtName),
     });
   }
 

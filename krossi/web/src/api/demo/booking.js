@@ -1,7 +1,8 @@
 // booking.js (demo) — court booking against the in-memory hall in bookingSeed.js, with the
 // rules of the booking RPCs (krossi_hold_booking & co.) and the krossi-booking edge function.
 // Payments don't go anywhere: checkoutConfig answers { demo: true } and the "payment" confirms
-// the booking at once.
+// the booking at once. Series cards and gift balance (wallet.js) pay through the same rows; a
+// cancelled booking gives its credit back (bookingCore.refundEverything).
 //
 // Jaettu maksu: a booking held with friendIds is split. Once Alex has "paid" his part, every
 // friend gets a chat message from him with a "Maksa osuutesi" link, and the friends answer a
@@ -10,22 +11,23 @@
 // demo the saved card always says yes. Laita myyntiin: a booking past its free cancellation goes
 // on sale, somebody books the slot a little later and everything that was paid goes back.
 
-import { ApiError } from '../errors.js';
 import { ME } from './rows.js';
 import { later, run, newId } from './runtime.js';
 import { db, nowIso, personLite, profileOf, isBlocked, isMember, myConversations, conversationRow } from './store.js';
 import { findOrCreateDirect, postMessage } from './actions.js';
 import { shareMessage } from './bookingSeed.js';
 import {
-  addDays, cancelDeadline, courtsOf, dateKey, discounted, findCourt, lastMinutePercent, localDate, minutesOf,
+  addDays, cancelDeadline, courtsOf, dateKey, discounted, findCourt, lastMinutePercent, minutesOf,
   priceOf, shareDeadline, splitBlocker, splitCents,
 } from '../../features/booking.js';
 import { WEEKDAYS_SHORT, firstName, formatTime } from '../../lib/format.js';
+import {
+  MIN, blockers, creditOf, dayRange, expireStaleHolds, fail, inRange, isLive, liveRows, myRow, onSale, overlapping,
+  refundEverything, requireStaff, salesCovered, sharesOf, spendGift, takeOverSales, toBooking, venueRow,
+} from './bookingCore.js';
 
-const MIN = 60_000;
 const MAX_HOLDS = 2;
 const MAX_WATCHES = 5;
-const STAFF_ONLY = 'Vain hallin henkilökunta voi tehdä tämän.';
 const TAKEN = 'Joku ehti varata tämän ajan juuri ennen sinua. Valitse toinen aika.';
 const SHARE_NOT_FOUND = 'Osuutta ei löytynyt.';
 const FRIENDS_ONLY = 'Voit jakaa maksun vain pelikavereidesi kanssa.';
@@ -33,113 +35,12 @@ const BUYER_PAYING = 'Joku on juuri varaamassa vuoroa. Jos maksu ei mene läpi, 
 // The other players' booking names in the demo, for the buyer of an on-sale slot.
 const BUYERS = ['p-joonas', 'p-teemu', 'p-emilia', 'p-riikka', 'p-olli'];
 
-const fail = (message, code) => new ApiError(message, code ? { code } : undefined);
-
-function venueRow(idOrSlug) {
-  return db.booking.venues.find((v) => v.id === idOrSlug || v.slug === idOrSlug) || null;
-}
-
 function toVenue(v) {
   const { staffIds, ...rest } = v;
   return { ...rest, isStaff: staffIds.includes(ME) };
 }
 
-function requireStaff(venue) {
-  if (!venue || !venue.staffIds.includes(ME)) throw fail(STAFF_ONLY, 'forbidden');
-}
-
-/** A hold whose time ran out counts as free everywhere, like the SQL does. */
-function isLive(row, now = Date.now()) {
-  if (row.status === 'confirmed') return true;
-  return row.status === 'held' && Date.parse(row.holdExpiresAt) > now;
-}
-
-function expireStaleHolds(now = Date.now()) {
-  for (const row of db.booking.rows) {
-    if (row.status === 'held' && Date.parse(row.holdExpiresAt) <= now) row.status = 'expired';
-  }
-}
-
-const liveRows = () => db.booking.rows.filter((r) => isLive(r));
-const overlapping = (r, courtId, startMs, endMs) => r.courtId === courtId
-  && Date.parse(r.startsAt) < endMs && Date.parse(r.endsAt) > startMs;
-const onSale = (r) => r.status === 'confirmed' && Boolean(r.listedAt);
-/** An on-sale booking that [startMs, endMs) covers whole: `forUser` can take it over (never their own). */
-const takenOver = (r, startMs, endMs, forUser) => onSale(r) && r.bookedBy !== forUser
-  && Date.parse(r.startsAt) >= startMs && Date.parse(r.endsAt) <= endMs;
-
-/** Live rows that keep `courtId` taken for [startMs, endMs) (what the exclusion constraint + the cover rule refuse). */
-function blockers(courtId, startMs, endMs, forUser = ME) {
-  return liveRows().filter((r) => overlapping(r, courtId, startMs, endMs) && !takenOver(r, startMs, endMs, forUser));
-}
-
-/** On-sale rows a booking of [startMs, endMs) on `courtId` would take over. */
-function salesCovered(courtId, startMs, endMs, forUser = ME) {
-  return liveRows().filter((r) => overlapping(r, courtId, startMs, endMs) && takenOver(r, startMs, endMs, forUser));
-}
-
-function dayRange(key) {
-  return [localDate(key).getTime(), localDate(addDays(key, 1)).getTime()];
-}
-
-function inRange(row, [from, to]) {
-  return Date.parse(row.startsAt) < to && Date.parse(row.endsAt) > from;
-}
-
 // ── Shapes ───────────────────────────────────────────────────────────────────
-
-const sharesOf = (bookingId) => db.booking.shares
-  .filter((s) => s.bookingId === bookingId)
-  .sort((a, b) => (a.kind === 'rest') - (b.kind === 'rest') || a.createdAt.localeCompare(b.createdAt)); // stable: friends in the order picked
-
-function ownStatus(row) {
-  if (row.paymentStatus === 'paid' || row.paymentStatus === 'free') return 'paid';
-  if (row.paymentStatus === 'refunded') return 'refunded';
-  return row.status === 'held' && isLive(row) ? 'pending' : 'cancelled';
-}
-
-const toLine = (s) => ({ id: s.id, kind: s.kind, person: personLite(s.userId), cents: s.cents, status: s.status, paidAt: s.paidAt });
-
-function splitOf(row) {
-  if (!row.split) return null;
-  return {
-    parts: row.split.parts,
-    ownCents: row.split.ownCents,
-    deadline: row.split.deadline,
-    lines: [
-      { id: null, kind: 'own', person: personLite(row.bookedBy), cents: row.split.ownCents, status: ownStatus(row), paidAt: row.paidAt ?? null },
-      ...sharesOf(row.id).map(toLine),
-    ],
-  };
-}
-
-function toBooking(row) {
-  const venue = venueRow(row.venueId);
-  const found = findCourt(venue, row.courtId);
-  return {
-    id: row.id,
-    venueId: venue.id,
-    venueName: venue.name,
-    locationName: found?.location.name || '',
-    mapKey: found?.location.mapKey || null,
-    courtId: row.courtId,
-    courtName: found?.court.name || 'Kenttä',
-    courtMapId: found?.court.mapId || null,
-    sport: found?.court.sport || 'tennis',
-    startsAt: row.startsAt,
-    endsAt: row.endsAt,
-    status: row.status === 'held' && !isLive(row) ? 'expired' : row.status,
-    priceCents: row.priceCents,
-    paymentStatus: row.paymentStatus,
-    holdExpiresAt: row.status === 'held' ? row.holdExpiresAt : null,
-    cancellableUntil: cancelDeadline(row.startsAt, venue),
-    cancelledAt: row.cancelledAt,
-    createdAt: row.createdAt,
-    forSale: onSale(row),
-    soldAt: row.resoldAt ?? null,
-    split: splitOf(row),
-  };
-}
 
 function shareRow(shareId) {
   return db.booking.shares.find((s) => s.id === shareId) || null;
@@ -170,12 +71,6 @@ function toShare(share) {
   };
 }
 
-function myRow(bookingId) {
-  const row = db.booking.rows.find((r) => r.id === bookingId && r.kind === 'booking');
-  if (!row || row.bookedBy !== ME) throw fail('Varausta ei löytynyt.', 'not_found');
-  return row;
-}
-
 // ── The deadline and money moving (what krossi-booking-cron and the refunds do) ──────────
 
 /**
@@ -195,37 +90,6 @@ function settleDueShares(now = Date.now()) {
     };
     db.booking.shares.push(rest);
     for (const s of unpaid) { s.status = 'covered'; s.coveredBy = rest.id; }
-  }
-}
-
-/** Everything paid for `row` goes back (own part, friends' shares, the rest); unpaid shares are dropped. */
-function refundEverything(row) {
-  let ownRefund = 0;
-  if (row.paymentStatus === 'paid') {
-    ownRefund = row.split ? row.split.ownCents : row.priceCents;
-    row.paymentStatus = 'refunded';
-  }
-  for (const s of sharesOf(row.id)) {
-    if (s.status === 'paid') {
-      if (s.kind === 'rest') ownRefund += s.cents;
-      s.status = 'refunded';
-    } else if (['pending', 'declined'].includes(s.status)) {
-      s.status = 'cancelled';
-    }
-  }
-  return ownRefund;
-}
-
-/** A paid booking takes over the on-sale bookings it covers: they are sold, their payers refunded. */
-function takeOverSales(row) {
-  const startMs = Date.parse(row.startsAt);
-  const endMs = Date.parse(row.endsAt);
-  for (const sold of salesCovered(row.courtId, startMs, endMs, row.bookedBy)) {
-    sold.status = 'cancelled';
-    sold.cancelledAt = nowIso();
-    sold.resoldBy = row.id;
-    sold.resoldAt = nowIso();
-    refundEverything(sold);
   }
 }
 
@@ -269,6 +133,7 @@ function confirmPaid(row) {
   row.paymentStatus = 'paid';
   row.paidAt = nowIso();
   row.holdExpiresAt = null;
+  spendGift(row);
   takeOverSales(row);
   if (row.split) inviteShares(row);
 }
@@ -336,7 +201,7 @@ export async function day(venueId, key) {
       .filter((r) => r.venueId === venue.id && inRange(r, range))
       .map((r) => ({
         id: r.id, courtId: r.courtId, startsAt: r.startsAt, endsAt: r.endsAt, kind: r.kind,
-        mine: r.kind === 'booking' && r.bookedBy === ME, title: r.kind === 'booking' ? null : r.title,
+        mine: (r.kind === 'booking' || r.kind === 'season') && r.bookedBy === ME, title: r.kind === 'booking' ? null : r.title,
         forSale: onSale(r),
       }));
     return { date: key, busy };
@@ -408,7 +273,7 @@ export async function release(bookingId) {
 }
 
 function payable(row) {
-  if (row.paymentStatus === 'paid' || row.paymentStatus === 'free') return { paid: true };
+  if (['paid', 'free', 'credit'].includes(row.paymentStatus)) return { paid: true };
   if (!isLive(row) || row.status !== 'held') throw fail('Varauksen pitoaika ehti umpeutua. Valitse aika uudelleen.', 'expired');
   return null;
 }
@@ -416,7 +281,8 @@ function payable(row) {
 export async function checkoutConfig(bookingId) {
   return run(() => {
     const row = myRow(bookingId);
-    return payable(row) || { demo: true, amount: row.split ? row.split.ownCents : row.priceCents, currency: 'eur' };
+    // A split booking's own part, or what a gift balance on the hold leaves for the card.
+    return payable(row) || { demo: true, amount: row.split ? row.split.ownCents : row.priceCents - (row.giftCents || 0), currency: 'eur' };
   });
 }
 
@@ -462,7 +328,7 @@ export async function cancel(bookingId) {
     row.status = 'cancelled';
     row.cancelledAt = nowIso();
     row.listedAt = null;
-    return { refundedCents: refundEverything(row) };
+    return refundEverything(row);
   });
 }
 
@@ -733,13 +599,17 @@ export async function staffDay(venueId, key) {
     return liveRows()
       .filter((r) => r.venueId === venue.id && inRange(r, range))
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-      .map((r) => ({
-        id: r.id, courtId: r.courtId, startsAt: r.startsAt, endsAt: r.endsAt, kind: r.kind, status: r.status,
-        title: r.kind === 'booking' ? null : r.title,
-        bookedBy: r.kind === 'booking' && r.bookedBy ? personLite(r.bookedBy) : null,
-        priceCents: r.priceCents, paymentStatus: r.paymentStatus,
-        forSale: onSale(r), unpaidCents: unpaidCents(r), parts: r.split?.parts ?? null,
-      }));
+      .map((r) => {
+        const slot = r.kind === 'season' ? db.booking.seasonSlots.find((s) => s.id === r.seasonSlotId) : null;
+        return {
+          id: r.id, courtId: r.courtId, startsAt: r.startsAt, endsAt: r.endsAt, kind: r.kind, status: r.status,
+          title: r.kind === 'booking' ? null : slot ? slot.holderName : r.title,
+          bookedBy: (r.kind === 'booking' || r.kind === 'season') && r.bookedBy ? personLite(r.bookedBy) : null,
+          priceCents: r.priceCents, paymentStatus: r.paymentStatus,
+          seasonSlotId: r.seasonSlotId || null, credit: creditOf(r),
+          forSale: onSale(r), unpaidCents: unpaidCents(r), parts: r.split?.parts ?? null,
+        };
+      });
   });
 }
 
@@ -773,7 +643,7 @@ export async function block({ courtIds, startsAt, endsAt, title, kind = 'block' 
 
 export async function unblock(blockId) {
   return run(() => {
-    const row = db.booking.rows.find((r) => r.id === blockId && r.kind !== 'booking');
+    const row = db.booking.rows.find((r) => r.id === blockId && (r.kind === 'block' || r.kind === 'league'));
     if (!row) throw fail('Estoa ei löytynyt.', 'not_found');
     requireStaff(venueRow(row.venueId));
     row.status = 'cancelled';

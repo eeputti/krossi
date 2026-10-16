@@ -30,7 +30,7 @@ export function formatPrice(amount, currency) {
 }
 
 // Stripe's iframes can't read our CSS tokens: these mirror tokens.css for the dark paywall sheet.
-const APPEARANCE = {
+export const APPEARANCE = {
   theme: 'night',
   variables: {
     colorPrimary: '#CFE414',          // --lime

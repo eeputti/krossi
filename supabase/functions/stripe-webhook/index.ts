@@ -10,6 +10,12 @@
 // booking or share is refunded — with the same idempotency key as krossi-booking, so a payment is
 // never refunded twice — and a confirmed booking refunds the on-sale bookings it took over and
 // emails the split's friends.
+//
+// Phase 2 (krossi-billing): series cards and gift cards (metadata.product 'krossi_pass' /
+// 'krossi_gift') are activated with krossi_wallet_order_paid — an order already paid by another
+// payment is refunded (key `krossi-order-refund-<intent>`, same as krossi-billing) — and a monthly
+// kausivuoro charge ('krossi_season') is recorded with krossi_billing_charge_result, also when it
+// fails (payment_intent.payment_failed).
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
 import { BOOKING_PRODUCT, SHARE_PRODUCT, afterBookingPaid, settleBookingPayment, settleSharePayment } from '../_shared/booking.ts';
@@ -20,6 +26,8 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
 });
 const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
+const ORDER_PRODUCTS: Record<string, 'pass' | 'gift'> = { krossi_pass: 'pass', krossi_gift: 'gift' };
+const SEASON_PRODUCT = 'krossi_season';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Confirms the booking a succeeded payment belongs to; throws when it should be retried. */
@@ -63,6 +71,46 @@ async function settleShare(admin: SupabaseClient, intent: Stripe.PaymentIntent) 
   }
 }
 
+/** A paid series card / gift card order (same as krossi-billing's settleOrder). Throws to be retried. */
+async function settleOrder(admin: SupabaseClient, intent: Stripe.PaymentIntent, kind: 'pass' | 'gift') {
+  const orderId = intent.metadata?.order_id ?? '';
+  if (!UUID_RE.test(orderId)) {
+    console.error('order payment without an order id', intent.id);
+    return;
+  }
+  const { data: outcome, error } = await admin.rpc('krossi_wallet_order_paid', {
+    kind_input: kind, order_id_input: orderId, payment_intent_id_input: intent.id, amount_input: intent.amount,
+  });
+  if (error) {
+    if (/Tilausta ei löytynyt/.test(error.message)) {
+      console.error('order payment for an unknown order', intent.id, orderId);
+      return;
+    }
+    throw new Error(`krossi_wallet_order_paid failed: ${error.message}`);
+  }
+  if (outcome === 'duplicate') {
+    const params: Stripe.RefundCreateParams = { payment_intent: intent.id, metadata: { product: intent.metadata?.product ?? '', order_id: orderId } };
+    if (intent.transfer_data?.destination) params.reverse_transfer = true;
+    if (intent.application_fee_amount) params.refund_application_fee = true;
+    try {
+      await stripe.refunds.create(params, { idempotencyKey: `krossi-order-refund-${intent.id}` });
+    } catch (err) {
+      if ((err as { code?: string }).code !== 'charge_already_refunded') throw err;
+    }
+  }
+}
+
+/** A monthly kausivuoro charge succeeded or failed (krossi-billing records it too; this is the backup). */
+async function settleSeasonCharge(admin: SupabaseClient, intent: Stripe.PaymentIntent, succeeded: boolean) {
+  const chargeId = intent.metadata?.charge_id ?? '';
+  if (!UUID_RE.test(chargeId)) return;
+  const message = succeeded ? null : (intent.last_payment_error?.message ? 'Veloitus epäonnistui: ' + intent.last_payment_error.message : 'Veloitus epäonnistui.');
+  const { error } = await admin.rpc('krossi_billing_charge_result', {
+    charge_id_input: chargeId, payment_intent_id_input: intent.id, succeeded_input: succeeded, failure_message_input: message,
+  });
+  if (error && !/Veloitusta ei löytynyt/.test(error.message)) throw new Error(`krossi_billing_charge_result failed: ${error.message}`);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return new Response('method not allowed', { status: 405 });
 
@@ -92,6 +140,24 @@ Deno.serve(async (req: Request) => {
   // Idempotenssi: sama Stripe-tapahtuma ei saa merkitä maksua kahdesti (Stripe voi lähettää sen uudelleen).
   const { error: seenError } = await admin.from('stripe_events').insert({ id: event.id });
   if (seenError) return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
+
+  // Sarja- ja lahjakortit, kausivuorojen kuukausiveloitukset (krossi-billing).
+  if (event.type === 'payment_intent.succeeded' || event.type === 'payment_intent.payment_failed') {
+    const intent = event.data.object as Stripe.PaymentIntent;
+    const product = intent.metadata?.product ?? '';
+    const orderKind = ORDER_PRODUCTS[product];
+    if (orderKind || product === SEASON_PRODUCT) {
+      try {
+        if (product === SEASON_PRODUCT) await settleSeasonCharge(admin, intent, event.type === 'payment_intent.succeeded');
+        else if (event.type === 'payment_intent.succeeded') await settleOrder(admin, intent, orderKind);
+      } catch (err) {
+        console.error('billing update failed', (err as Error).message);
+        await admin.from('stripe_events').delete().eq('id', event.id);
+        return new Response('billing update failed', { status: 500 });
+      }
+      return new Response(JSON.stringify({ received: true }), { status: 200 });
+    }
+  }
 
   // Kenttävaraus ja osuudet (krossi-booking) — erillään avausmaksusta alla.
   if (event.type === 'payment_intent.succeeded') {

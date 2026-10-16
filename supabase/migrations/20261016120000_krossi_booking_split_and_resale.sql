@@ -19,11 +19,19 @@
 -- päällekkäinen varaus ei käy, eikä myyjä voi ostaa omaansa. Myynti ilmoittaa vuoroa
 -- odottaville ("Ilmoita kun vapautuu") samalla tavalla kuin peruttu vuoro.
 --
+-- Vaihe 2 (sarja- ja lahjakortit): jaetun vuoron osuudet maksetaan kortilla — sarjakortti tai
+-- lahjakorttisaldo ei käy jaettuun varaukseen. Myynnissä olevan vuoron saa ostaa myös sarjakortilla
+-- tai lahjakorttisaldolla; myydyn tai perutun vuoron sarjakortin minuutit ja lahjakorttiosuus
+-- palautuvat heti, korttimaksut Stripen kautta.
+--
 -- Court booking phase 4 for Krossi (krossi.app/pelaa). Additive on top of
--- 20261016074110_krossi_court_booking: new columns, the booking_shares table and new versions of
--- the booking functions. Chat rows are written the way accept_connection_request writes them
--- (find-or-create the 1:1 conversation, message as the sender), and nothing else outside the
--- booking tables changes, so Koutsi is unaffected.
+-- 20261016074110_krossi_court_booking and phase 2's 20261016100000_krossi_booking_seasons_billing_wallet
+-- (it needs both): new columns, the booking_shares table and new versions of the booking
+-- functions. The functions phase 2 replaced (krossi_booking_json, _day, _staff_day, _mark_paid)
+-- are based on its versions here, and three of its wallet functions (krossi_wallet_payable_booking,
+-- _pay_booking, _use_gift) get the split and resale rules. Chat rows are written the way
+-- accept_connection_request writes them (find-or-create the 1:1 conversation, message as the
+-- sender), and nothing else outside the booking tables changes, so Koutsi is unaffected.
 --
 --   booking_shares                       kaverin osuus / varaajan loppuosuus
 --   krossi_booking_share_friends()       kenen kanssa maksun voi jakaa (pelikaverit, keskustelut)
@@ -33,6 +41,8 @@
 --   service_role: _mark_paid(+payment method), _share_mark_paid, _cancel, _paid_parts,
 --                 _parts_refunded, _resold_by, _due_rests, _rest_failed, _refunds_due,
 --                 _share_problem
+--   vaihe 2:      krossi_wallet_payable_booking (ei jaettua), _pay_booking ja _use_gift (myynnissä
+--                 olevan vuoron ostaminen)
 
 
 -- ── Taulut ───────────────────────────────────────────────────────────────────
@@ -171,28 +181,6 @@ $function$;
 
 revoke all on function public.krossi_booking_when(timestamptz, text) from public, anon, authenticated;
 
--- PersonLite kuten krossi_booking_staff_day:ssa: avatarUrl on tallennuspolku (sovellus tekee
--- siitä URL:n), skillLevel '' = tennis_preferences-rivi ilman tasoa, null = ei riviä.
-create function public.krossi_booking_person_json(user_id_input uuid)
-returns jsonb
-language sql
-stable
-set search_path = ''
-as $function$
-  select jsonb_build_object(
-    'id', user_id_input,
-    'name', coalesce(nullif(btrim(p.name), ''), 'Pelaaja'),
-    'avatarUrl', p.avatar_url,
-    'avatarColor', coalesce(p.avatar_color, 'blue'),
-    'ageRange', p.age,
-    'skillLevel', (select coalesce(t.skill_level, '') from public.tennis_preferences t where t.user_id = user_id_input limit 1)
-  )
-  from (select 1) one
-  left join public.profiles p on p.id = user_id_input;
-$function$;
-
-revoke all on function public.krossi_booking_person_json(uuid) from public, anon, authenticated;
-
 -- Etunimi viesteihin ("Mikko maksaa osuutesi"), 'Pelaaja' kun nimeä ei ole.
 create function public.krossi_booking_first_name(user_id_input uuid)
 returns text
@@ -207,6 +195,32 @@ as $function$
 $function$;
 
 revoke all on function public.krossi_booking_first_name(uuid) from public, anon, authenticated;
+
+-- Sisäinen (vaihe 2): perutun tai myydyn maksetun varauksen sarjakortin minuutit tai
+-- lahjakorttiosuus takaisin (kuten krossi_booking_mark_cancelled). why_input aloittaa historian
+-- rivin: 'Peruttu' / 'Myyty'.
+create function public.krossi_booking_return_credit(r public.booking_reservations, why_input text)
+returns void
+language plpgsql
+set search_path = ''
+as $function$
+begin
+  if r.payment_status not in ('paid', 'credit') or r.booked_by is null then
+    return;
+  end if;
+  if r.pass_id is not null and r.pass_minutes > 0 then
+    update public.booking_passes set minutes_left = least(minutes_total, minutes_left + r.pass_minutes)
+     where id = r.pass_id;
+    insert into public.booking_credit_events (venue_id, user_id, kind, pass_id, booking_id, minutes, label)
+    values (r.venue_id, r.booked_by, 'refund', r.pass_id, r.id, r.pass_minutes, why_input || ': ' || public.krossi_booking_label(r));
+  elsif r.gift_cents > 0 then
+    insert into public.booking_credit_events (venue_id, user_id, kind, booking_id, cents, label)
+    values (r.venue_id, r.booked_by, 'refund', r.id, r.gift_cents, why_input || ': ' || public.krossi_booking_label(r));
+  end if;
+end;
+$function$;
+
+revoke all on function public.krossi_booking_return_credit(public.booking_reservations, text) from public, anon, authenticated;
 
 -- Kahdenkeskinen keskustelu, luodaan tarvittaessa (sama sääntö kuin accept_connection_request).
 create function public.krossi_booking_direct_chat(user_a uuid, user_b uuid)
@@ -326,7 +340,7 @@ as $function$
       'person', public.krossi_booking_person_json(r.booked_by),
       'cents', r.own_cents,
       'status', case
-        when r.payment_status in ('paid', 'free') then 'paid'
+        when r.payment_status in ('paid', 'free', 'credit') then 'paid'
         when r.payment_status = 'refunded' then 'refunded'
         when r.status = 'held' and r.hold_expires_at > now() then 'pending'
         else 'cancelled'
@@ -349,7 +363,7 @@ $function$;
 
 revoke all on function public.krossi_booking_split_json(public.booking_reservations) from public, anon, authenticated;
 
--- Booking: kuten ennen + forSale, soldAt ja split.
+-- Booking: kuten vaiheessa 2 (+ credit) + forSale, soldAt ja split.
 create or replace function public.krossi_booking_json(r public.booking_reservations)
 returns jsonb
 language sql
@@ -375,6 +389,7 @@ as $function$
     'cancellableUntil', public.krossi_booking_iso(r.starts_at - make_interval(hours => v.cancel_limit_hours)),
     'cancelledAt', public.krossi_booking_iso(r.cancelled_at),
     'createdAt', public.krossi_booking_iso(r.created_at),
+    'credit', public.krossi_booking_credit_json(r),
     'forSale', r.status = 'confirmed' and r.listed_at is not null,
     'soldAt', public.krossi_booking_iso(r.resold_at),
     'split', public.krossi_booking_split_json(r)
@@ -483,8 +498,8 @@ $function$;
 
 -- ── Julkinen kalenteri ───────────────────────────────────────────────────────
 
--- { date, busy }: kuten ennen + forSale (myynnissä oleva vuoro; sen kokonaan kattava varaus
--- ottaa sen).
+-- { date, busy }: kuten vaiheessa 2 (oma kausivuoro = mine) + forSale (myynnissä oleva vuoro; sen
+-- kokonaan kattava varaus ottaa sen).
 create or replace function public.krossi_booking_day(venue_id_input uuid, day_input date)
 returns jsonb
 language plpgsql
@@ -518,7 +533,7 @@ begin
         'startsAt', public.krossi_booking_iso(r.starts_at),
         'endsAt', public.krossi_booking_iso(r.ends_at),
         'kind', r.kind,
-        'mine', coalesce(r.kind = 'booking' and r.booked_by = v_uid, false),
+        'mine', coalesce(r.kind in ('booking', 'season') and r.booked_by = v_uid, false),
         'title', case when r.kind = 'booking' then null else r.title end,
         'forSale', r.status = 'confirmed' and r.listed_at is not null
       ) order by r.starts_at, r.court_id, r.id)
@@ -580,7 +595,10 @@ revoke all on function public.krossi_booking_free_court(uuid, text, uuid, timest
 -- ── Varaus ───────────────────────────────────────────────────────────────────
 
 -- Sisäinen: vahvistunut varaus ottaa kattamansa myynnissä olevat vuorot. Ne perutaan (myyty),
--- niiden maksamattomat osuudet perutaan ja maksut jäävät palautettaviksi (refund_due_at).
+-- niiden maksamattomat osuudet perutaan, sarjakortin minuutit ja lahjakorttiosuus palautuvat heti
+-- (kokonaan krediitillä maksettu on silloin palautettu) ja korttimaksut jäävät palautettaviksi
+-- (refund_due_at — myös ilman korttimaksuja, jotta myyjälle kerrotaan: krossi-booking /
+-- krossi-booking-cron).
 create function public.krossi_booking_take_over_sales(reservation_id_input uuid)
 returns integer
 language plpgsql
@@ -588,14 +606,15 @@ set search_path = ''
 as $function$
 declare
   v_row public.booking_reservations;
-  v_count integer;
+  v_sold public.booking_reservations;
+  v_count integer := 0;
 begin
   select * into v_row from public.booking_reservations where id = reservation_id_input;
   if not found or v_row.status <> 'confirmed' or v_row.kind <> 'booking' then
     return 0;
   end if;
 
-  with sold as (
+  for v_sold in
     update public.booking_reservations r
        set status = 'cancelled', cancelled_at = now(), resold_by = v_row.id, resold_at = now(), refund_due_at = now()
      where r.court_id = v_row.court_id
@@ -605,15 +624,18 @@ begin
        and r.booked_by is distinct from v_row.booked_by
        and r.starts_at >= v_row.starts_at
        and r.ends_at <= v_row.ends_at
-    returning r.id
-  ), unpaid as (
-    update public.booking_shares s
+    returning r.*
+  loop
+    update public.booking_shares
        set status = 'cancelled'
-     where s.reservation_id in (select id from sold)
-       and s.status in ('pending', 'declined')
-    returning s.id
-  )
-  select count(*) into v_count from sold;
+     where reservation_id = v_sold.id
+       and status in ('pending', 'declined');
+    perform public.krossi_booking_return_credit(v_sold, 'Myyty');
+    if v_sold.payment_status = 'credit' then
+      update public.booking_reservations set payment_status = 'refunded' where id = v_sold.id;
+    end if;
+    v_count := v_count + 1;
+  end loop;
   return v_count;
 end;
 $function$;
@@ -1122,8 +1144,8 @@ grant execute on function public.krossi_booking_decline_share(uuid) to authentic
 
 -- ── Hallin henkilökunta ──────────────────────────────────────────────────────
 
--- StaffItem[]: kuten ennen + forSale, unpaidCents (maksamattomat kaverien osuudet ja maksamaton
--- loppuosuus — tiski voi periä sen) ja parts.
+-- StaffItem[]: kuten vaiheessa 2 (kausivuoron haltija, seasonSlotId, credit) + forSale, unpaidCents
+-- (maksamattomat kaverien osuudet ja maksamaton loppuosuus — tiski voi periä sen) ja parts.
 create or replace function public.krossi_booking_staff_day(venue_id_input uuid, day_input date)
 returns jsonb
 language plpgsql
@@ -1158,8 +1180,12 @@ begin
       'endsAt', public.krossi_booking_iso(r.ends_at),
       'kind', r.kind,
       'status', r.status,
-      'title', case when r.kind = 'booking' then null else r.title end,
-      'bookedBy', case when r.kind = 'booking' and r.booked_by is not null then jsonb_build_object(
+      'title', case
+        when r.kind = 'booking' then null
+        when r.kind = 'season' then coalesce(s.holder_name, r.title)
+        else r.title
+      end,
+      'bookedBy', case when r.kind in ('booking', 'season') and r.booked_by is not null then jsonb_build_object(
         'id', r.booked_by,
         'name', coalesce(nullif(btrim(p.name), ''), 'Pelaaja'),
         'avatarUrl', p.avatar_url,
@@ -1170,15 +1196,18 @@ begin
       ) end,
       'priceCents', r.price_cents,
       'paymentStatus', r.payment_status,
+      'seasonSlotId', r.season_slot_id,
+      'credit', public.krossi_booking_credit_json(r),
       'forSale', r.status = 'confirmed' and r.listed_at is not null,
       'unpaidCents', coalesce((
-        select sum(s.cents)::integer from public.booking_shares s
-        where s.reservation_id = r.id and s.status in ('pending', 'declined')
+        select sum(sh.cents)::integer from public.booking_shares sh
+        where sh.reservation_id = r.id and sh.status in ('pending', 'declined')
       ), 0),
       'parts', r.split_parts
     ) order by r.starts_at, c.sort, c.name, r.id)
     from public.booking_reservations r
     join public.booking_courts c on c.id = r.court_id
+    left join public.booking_season_slots s on s.id = r.season_slot_id
     left join public.profiles p on p.id = r.booked_by
     left join lateral (
       select coalesce(t.skill_level, '') as skill_level
@@ -1348,16 +1377,19 @@ $function$;
 
 -- ── Maksut (vain service_role: krossi-booking, krossi-booking-cron, stripe-webhook) ──
 
--- Varaajan maksu onnistui (kuten ennen): 'confirmed' | 'lost' | 'duplicate' | 'cancelled'. Uutta:
+-- Varaajan maksu onnistui (kuten vaiheessa 2): 'confirmed' | 'lost' | 'duplicate' | 'cancelled'.
+-- amount_input = kortilla maksettu summa: hinnan ja sen erotus otetaan lahjakorttisaldosta, kun
+-- varaus vahvistuu (jaettu varaus maksetaan aina kortilla, eikä sille oteta saldoa). Uutta:
 --   payment_method_input  jaetun varauksen kortti talteen loppuosuutta varten
 --   vahvistuessa          kattamansa myynnissä olevat vuorot myydään tälle varaukselle ja
 --                         kavereille kerrotaan osuuksista (krossi_booking_after_confirm)
 --   uudelleenvahvistus    vanhentunut pito ei vie myynnissä olevaa vuoroa, jota se ei kata
 --                         kokonaan (silloin 'lost')
-drop function public.krossi_booking_mark_paid(uuid, text);
+drop function public.krossi_booking_mark_paid(uuid, text, integer);
 create function public.krossi_booking_mark_paid(
   booking_id_input uuid,
   payment_intent_id_input text,
+  amount_input integer default null,
   payment_method_input text default null
 )
 returns text
@@ -1369,6 +1401,8 @@ declare
   v_row public.booking_reservations;
   v_intent text := nullif(btrim(coalesce(payment_intent_id_input, '')), '');
   v_method text := nullif(btrim(coalesce(payment_method_input, '')), '');
+  v_gift integer;
+  v_confirm boolean := false;
 begin
   if v_intent is null then
     raise exception 'Maksun tunniste puuttuu.';
@@ -1382,26 +1416,22 @@ begin
   end if;
 
   if v_row.payment_status <> 'unpaid' then
-    if v_row.payment_status = 'free' or v_row.stripe_payment_intent_id is distinct from v_intent then
+    if v_row.payment_status in ('free', 'credit') or v_row.stripe_payment_intent_id is distinct from v_intent then
       return 'duplicate';
     end if;
     return case when v_row.status = 'confirmed' then 'confirmed' else 'cancelled' end;
   end if;
 
-  -- Pito on yhä voimassa (tai vanhentunut, mutta kukaan ei ole vienyt aikaa): vahvista.
-  if v_row.status in ('held', 'confirmed') then
-    update public.booking_reservations
-       set status = 'confirmed', payment_status = 'paid', stripe_payment_intent_id = v_intent,
-           hold_expires_at = null, paid_at = now(),
-           stripe_payment_method_id = case when split_parts is not null then coalesce(v_method, stripe_payment_method_id) end
-     where id = v_row.id;
-    perform public.krossi_booking_after_confirm(v_row.id);
-    return 'confirmed';
-  end if;
+  -- Lahjakorttiosuus: hinta miinus kortilla maksettu summa (yli maksettu tai summa puuttuu = ei saldoa).
+  v_gift := case
+    when amount_input is null or v_row.split_parts is not null then 0
+    else greatest(0, v_row.price_cents - amount_input)
+  end;
 
-  -- Pito vanheni tai pelaaja vapautti sen ennen kuin maksu ehti perille: otetaan kenttä
-  -- takaisin, jos se on yhä vapaa eikä aika ole alkanut.
-  if v_row.starts_at > now()
+  if v_row.status in ('held', 'confirmed') then
+    -- Pito on yhä voimassa (tai vanhentunut, mutta kukaan ei ole vienyt aikaa).
+    v_confirm := true;
+  elsif v_row.starts_at > now()
      and (v_row.status = 'expired'
           or (v_row.status = 'cancelled' and v_row.cancelled_by is not null and v_row.cancelled_by = v_row.booked_by))
      and not exists (
@@ -1413,6 +1443,8 @@ begin
          and tstzrange(r.starts_at, r.ends_at, '[)') && tstzrange(v_row.starts_at, v_row.ends_at, '[)')
          and (r.starts_at < v_row.starts_at or r.ends_at > v_row.ends_at or r.booked_by = v_row.booked_by)
      ) then
+    -- Pito vanheni tai pelaaja vapautti sen ennen kuin maksu ehti perille: otetaan kenttä
+    -- takaisin, jos se on yhä vapaa eikä aika ole alkanut.
     update public.booking_reservations r
        set status = 'expired'
      where r.court_id = v_row.court_id
@@ -1421,15 +1453,34 @@ begin
        and tstzrange(r.starts_at, r.ends_at, '[)') && tstzrange(v_row.starts_at, v_row.ends_at, '[)');
     begin
       update public.booking_reservations
-         set status = 'confirmed', payment_status = 'paid', stripe_payment_intent_id = v_intent,
-             hold_expires_at = null, cancelled_at = null, cancelled_by = null, paid_at = now(),
-             stripe_payment_method_id = case when split_parts is not null then coalesce(v_method, stripe_payment_method_id) end
+         set status = 'confirmed', cancelled_at = null, cancelled_by = null
        where id = v_row.id;
-      perform public.krossi_booking_after_confirm(v_row.id);
-      return 'confirmed';
+      v_confirm := true;
     exception when exclusion_violation then
       null; -- joku muu ehti varata kentän
     end;
+  end if;
+
+  if v_confirm and v_gift > 0 then
+    perform pg_advisory_xact_lock(hashtextextended('krossi_wallet:' || v_row.booked_by::text, 0));
+    if public.krossi_wallet_gift_available(v_row.booked_by, v_row.venue_id, v_row.id) < v_gift then
+      v_confirm := false;
+    end if;
+  end if;
+
+  if v_confirm then
+    update public.booking_reservations
+       set status = 'confirmed', payment_status = 'paid', stripe_payment_intent_id = v_intent,
+           hold_expires_at = null, gift_cents = v_gift, paid_at = now(),
+           stripe_payment_method_id = case when split_parts is not null then coalesce(v_method, stripe_payment_method_id) end
+     where id = v_row.id
+    returning * into v_row;
+    if v_gift > 0 then
+      insert into public.booking_credit_events (venue_id, user_id, kind, booking_id, cents, label)
+      values (v_row.venue_id, v_row.booked_by, 'use', v_row.id, -v_gift, public.krossi_booking_label(v_row));
+    end if;
+    perform public.krossi_booking_after_confirm(v_row.id);
+    return 'confirmed';
   end if;
 
   update public.booking_reservations
@@ -1439,8 +1490,8 @@ begin
 end;
 $function$;
 
-revoke all on function public.krossi_booking_mark_paid(uuid, text, text) from public, anon, authenticated;
-grant execute on function public.krossi_booking_mark_paid(uuid, text, text) to service_role;
+revoke all on function public.krossi_booking_mark_paid(uuid, text, integer, text) from public, anon, authenticated;
+grant execute on function public.krossi_booking_mark_paid(uuid, text, integer, text) to service_role;
 
 -- Osuuden maksu onnistui (kaverin tai varaajan loppuosuus). Palauttaa:
 --   'paid'       osuus on nyt maksettu (myös toistokutsulla samalla maksulla)
@@ -1507,7 +1558,7 @@ as $function$
       'shareId', null,
       'kind', 'own',
       'paymentIntentId', r.stripe_payment_intent_id,
-      'cents', coalesce(r.own_cents, r.price_cents)
+      'cents', coalesce(r.own_cents, r.price_cents - r.gift_cents)
     ) as part
     from public.booking_reservations r
     where r.id = booking_id_input
@@ -1532,9 +1583,10 @@ grant execute on function public.krossi_booking_paid_parts(uuid) to service_role
 
 -- Peruu varauksen (pelaaja ennen peruutusrajaa tai henkilökunta) ja palauttaa sen maksetut
 -- osat palautettaviksi (krossi_booking_paid_parts). Maksamattomat osuudet perutaan heti, joten
--- myöhässä tuleva kaverin maksu palautetaan ('cancelled'). refund_input false = henkilökunta
--- perui ilman hyvitystä: mitään ei palauteta. Jo peruttu varaus: ei muutoksia, palautukset
--- yhä listataan (uusintayritys).
+-- myöhässä tuleva kaverin maksu palautetaan ('cancelled'). Sarjakortin minuutit ja
+-- lahjakorttiosuus palautuvat heti (kuten krossi_booking_mark_cancelled); kokonaan krediitillä
+-- maksettu varaus on silloin palautettu. refund_input false = henkilökunta perui ilman hyvitystä:
+-- mitään ei palauteta. Jo peruttu varaus: ei muutoksia, palautukset yhä listataan (uusintayritys).
 create function public.krossi_booking_cancel(booking_id_input uuid, by_input uuid, refund_input boolean)
 returns jsonb
 language plpgsql
@@ -1564,6 +1616,10 @@ begin
      and status in ('pending', 'declined');
   if not v_refund then
     return '[]'::jsonb;
+  end if;
+  perform public.krossi_booking_return_credit(v_row, 'Peruttu');
+  if v_row.payment_status = 'credit' then
+    update public.booking_reservations set payment_status = 'refunded' where id = v_row.id;
   end if;
   v_parts := public.krossi_booking_paid_parts(v_row.id);
   if v_parts <> '[]'::jsonb then
@@ -1755,5 +1811,140 @@ $function$;
 
 revoke all on function public.krossi_booking_refunds_due(integer) from public, anon, authenticated;
 grant execute on function public.krossi_booking_refunds_due(integer) to service_role;
+
+
+-- ── Vaihe 2: sarja- ja lahjakortit ───────────────────────────────────────────
+-- Vaiheen 2 versiot (20261016100000), kaksi muutosta: jaettua varausta ei makseta sarjakortilla
+-- eikä lahjakorttisaldolla (sen osuudet maksetaan kortilla, ja kortti tallentuu loppuosuutta
+-- varten), ja kokonaan krediitillä vahvistuva varaus ottaa kattamansa myynnissä olevat vuorot
+-- kuten korttimaksu (krossi_booking_after_confirm). Oikeudet pysyvät ennallaan.
+
+-- Sisäinen: kutsujan oma, voimassa oleva ja maksamaton pito lukittuna (ei jaettu).
+create or replace function public.krossi_wallet_payable_booking(booking_id_input uuid, user_id_input uuid)
+returns public.booking_reservations
+language plpgsql
+set search_path = ''
+as $function$
+declare
+  v_row public.booking_reservations;
+begin
+  select * into v_row from public.booking_reservations
+   where id = booking_id_input and kind = 'booking' and booked_by = user_id_input
+   for update;
+  if not found then
+    raise exception 'Varausta ei löytynyt.';
+  end if;
+  if v_row.status = 'confirmed' and v_row.payment_status in ('paid', 'free', 'credit') then
+    raise exception 'Varaus on jo maksettu.';
+  end if;
+  if v_row.status <> 'held' or v_row.hold_expires_at <= now() or v_row.payment_status <> 'unpaid' then
+    raise exception 'Varauksen pitoaika ehti umpeutua. Valitse aika uudelleen.';
+  end if;
+  if v_row.split_parts is not null then
+    raise exception 'Jaetun vuoron osuudet maksetaan kortilla.';
+  end if;
+  return v_row;
+end;
+$function$;
+
+-- Maksaa oman pidossa olevan varauksen kokonaan sarjakortilla (minuutit vähenevät, varaus vahvistuu
+-- ja ottaa kattamansa myynnissä olevat vuorot).
+create or replace function public.krossi_wallet_pay_booking(booking_id_input uuid, pass_id_input uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_uid uuid := (select auth.uid());
+  v_row public.booking_reservations;
+  v_pass public.booking_passes;
+  v_sport text;
+  v_tz text;
+  v_minutes integer;
+begin
+  if v_uid is null then
+    raise exception 'Kirjaudu sisään ensin.';
+  end if;
+  v_row := public.krossi_wallet_payable_booking(booking_id_input, v_uid);
+  select * into v_pass from public.booking_passes where id = pass_id_input and user_id = v_uid and status = 'active' for update;
+  if not found then
+    raise exception 'Sarjakorttia ei löytynyt.';
+  end if;
+  select c.sport, v.timezone into v_sport, v_tz
+  from public.booking_courts c join public.booking_venues v on v.id = c.venue_id
+  where c.id = v_row.court_id;
+  if v_pass.venue_id <> v_row.venue_id or v_pass.sport <> v_sport then
+    raise exception 'Sarjakortti ei käy tähän vuoroon.';
+  end if;
+  if v_pass.valid_until < public.krossi_booking_today(v_pass.venue_id) or (v_row.starts_at at time zone v_tz)::date > v_pass.valid_until then
+    raise exception 'Sarjakortti ei ole voimassa vuoron päivänä.';
+  end if;
+  v_minutes := (extract(epoch from (v_row.ends_at - v_row.starts_at)) / 60)::integer;
+  if v_pass.minutes_left < v_minutes then
+    raise exception 'Sarjakortin saldo ei riitä tähän vuoroon.';
+  end if;
+
+  update public.booking_passes set minutes_left = minutes_left - v_minutes where id = v_pass.id;
+  update public.booking_reservations
+     set status = 'confirmed', payment_status = 'credit', hold_expires_at = null, pass_id = v_pass.id,
+         pass_minutes = v_minutes, gift_cents = 0
+   where id = v_row.id
+  returning * into v_row;
+  insert into public.booking_credit_events (venue_id, user_id, kind, pass_id, booking_id, minutes, label)
+  values (v_row.venue_id, v_uid, 'use', v_pass.id, v_row.id, -v_minutes, public.krossi_booking_label(v_row));
+  perform public.krossi_booking_after_confirm(v_row.id);
+  return public.krossi_booking_json(v_row);
+end;
+$function$;
+
+-- Käyttää (use_input) tai poistaa lahjakorttisaldon pidossa olevalta varaukselta (ks. vaihe 2). Jos
+-- saldo kattaa koko hinnan, varaus vahvistuu heti (ja ottaa kattamansa myynnissä olevat vuorot).
+create or replace function public.krossi_wallet_use_gift(booking_id_input uuid, use_input boolean)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_uid uuid := (select auth.uid());
+  v_row public.booking_reservations;
+  v_available integer;
+  v_share integer;
+begin
+  if v_uid is null then
+    raise exception 'Kirjaudu sisään ensin.';
+  end if;
+  v_row := public.krossi_wallet_payable_booking(booking_id_input, v_uid);
+  if not coalesce(use_input, false) then
+    update public.booking_reservations set gift_cents = 0 where id = v_row.id returning * into v_row;
+    return public.krossi_booking_json(v_row);
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('krossi_wallet:' || v_uid::text, 0));
+  v_available := public.krossi_wallet_gift_available(v_uid, v_row.venue_id, v_row.id);
+  v_share := case
+    when v_available <= 0 or v_row.price_cents <= 0 then 0
+    when v_available >= v_row.price_cents then v_row.price_cents
+    else greatest(0, least(v_available, v_row.price_cents - 50))
+  end;
+  if v_share <= 0 then
+    raise exception 'Lahjakorttisaldoa ei ole käytettävissä.';
+  end if;
+
+  if v_share = v_row.price_cents then
+    update public.booking_reservations
+       set status = 'confirmed', payment_status = 'credit', hold_expires_at = null, gift_cents = v_share
+     where id = v_row.id
+    returning * into v_row;
+    insert into public.booking_credit_events (venue_id, user_id, kind, booking_id, cents, label)
+    values (v_row.venue_id, v_uid, 'use', v_row.id, -v_share, public.krossi_booking_label(v_row));
+    perform public.krossi_booking_after_confirm(v_row.id);
+  else
+    update public.booking_reservations set gift_cents = v_share where id = v_row.id returning * into v_row;
+  end if;
+  return public.krossi_booking_json(v_row);
+end;
+$function$;
 
 notify pgrst, 'reload schema';

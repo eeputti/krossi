@@ -9,19 +9,11 @@ import { useState } from 'react';
 import { api } from '../../api/index.js';
 import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
-import { canPutOnSale, centsLabel, chargeErrorText, paidTotal } from '../../features/booking.js';
+import { canPutOnSale, centsLabel, chargeErrorText, durationLabel, friendsPaid, giveBackOf, giveBackText } from '../../features/booking.js';
 import { Button, Chip, Icon, Sheet, useConfirm, useToast } from '../../ui/index.js';
 import { VenueMap, hasVenueMap } from './VenueMap.jsx';
 import { SplitLines, bookingStateText, downloadBookingIcs, restOwed, sportLabel, timeInSentence, whenLabel } from './BookingParts.jsx';
 import { useForecast, weatherInfo } from './weather.js';
-
-/** What goes back to me (my own part and a rest share) when the booking is cancelled or sold. */
-function myRefund(booking) {
-  if (!booking.split) return booking.paymentStatus === 'paid' ? booking.priceCents : 0;
-  return booking.split.lines.filter((l) => l.kind !== 'friend' && l.status === 'paid').reduce((n, l) => n + l.cents, 0);
-}
-
-const friendsPaid = (booking) => Boolean(booking.split?.lines.some((l) => l.kind === 'friend' && l.status === 'paid'));
 
 export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onRebook }) {
   const toast = useToast();
@@ -37,13 +29,21 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
   const canCancel = booking.status === 'confirmed' && Date.parse(booking.cancellableUntil) > Date.now();
   // Resale needs the phase 4 server (venue.shareDeadlineHours is null before it).
   const canSell = canPutOnSale(booking) && venue?.shareDeadlineHours != null;
-  const paid = booking.paymentStatus === 'paid';
+  const paid = booking.paymentStatus === 'paid' || booking.paymentStatus === 'credit';
   const owed = restOwed(booking);
   const split = booking.split;
   const unpaidFriends = split ? split.lines.filter((l) => l.kind === 'friend' && (l.status === 'pending' || l.status === 'declined')) : [];
   const restLine = split?.lines.find((l) => l.kind === 'rest');
-  const back = myRefund(booking);
-  const backText = `${back ? `Saat ${centsLabel(back)} takaisin maksutavallesi` : 'Saat rahasi takaisin'}${friendsPaid(booking) ? ', kaverit omat osuutensa' : ''}`;
+  // What comes back: card money, series card hours, gift balance (and the friends get their own shares).
+  const back = giveBackOf(booking);
+  const backText = `${giveBackText(back) || 'Saat rahasi takaisin'}${friendsPaid(booking) ? ', kaverit omat osuutensa' : ''}`;
+  const backLabel = [
+    back.cardCents && centsLabel(back.cardCents),
+    back.giftCents && `${centsLabel(back.giftCents)} saldoon`,
+    back.minutes && `${durationLabel(back.minutes)} sarjakortille`,
+  ].filter(Boolean).join(' + ');
+
+  const soldBack = booking.soldAt ? giveBackText(back) : null;
 
   const run = async (fn) => {
     setWorking(true);
@@ -68,8 +68,9 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
     });
     if (!ok) return;
     await run(async () => {
-      const { refundedCents } = await api.booking.cancel(booking.id);
-      toast(refundedCents ? `Vuoro peruttu — ${centsLabel(refundedCents)} palautetaan maksutavallesi.` : 'Vuoro peruttu.', { icon: 'check' });
+      const { refundedCents, creditCents, creditMinutes } = await api.booking.cancel(booking.id);
+      const backNow = giveBackText({ cardCents: refundedCents, giftCents: creditCents, minutes: creditMinutes });
+      toast(backNow ? `Vuoro peruttu. ${backNow}.` : 'Vuoro peruttu.', { icon: 'check' });
       onChanged?.();
       onClose();
     });
@@ -162,7 +163,10 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
         {booking.soldAt && (
           <div className="bk-info">
             <Icon name="check-circle" size={18} />
-            <span>Joku varasi vuoron {timeInSentence(booking.soldAt)}. {paidTotal(booking) || booking.paymentStatus === 'refunded' ? 'Kaikki maksut palautettiin maksutavoille.' : 'Mitään ei veloitettu.'}</span>
+            <span>
+              Joku varasi vuoron {timeInSentence(booking.soldAt)}.{' '}
+              {soldBack ? `${soldBack}.` : 'Mitään ei veloitettu.'}{friendsPaid(booking) ? ' Kaverit saavat osuutensa takaisin.' : ''}
+            </span>
           </div>
         )}
 
@@ -232,7 +236,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
 
         {canCancel && (
           <button type="button" className="bk-cancel" onClick={cancel} disabled={working}>
-            <Icon name="close" size={16} />Peru vuoro{paid ? ` ja palauta ${centsLabel(back || booking.priceCents)}` : ''}
+            <Icon name="close" size={16} />Peru vuoro{backLabel ? ` ja palauta ${backLabel}` : ''}
           </button>
         )}
       </div>
