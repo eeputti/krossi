@@ -6,6 +6,7 @@ import { ApiError } from '../src/api/errors.js';
 import { configureTiming } from '../src/api/demo/runtime.js';
 import { db, resetStore } from '../src/api/demo/store.js';
 import { backend as api } from '../src/api/demo/index.js';
+import { outdoorUntil } from '../src/api/demo/bookingSeed.js';
 import {
   addDays, bookingDays, canPutOnSale, cancelDeadline, centsLabel, chargeErrorText, courtStatesAt, dateKey, discounted,
   durationLabel, findCourt, fitsAvailability, freeSlots, friendsPaid, giveBackOf, giveBackShort, giveBackText, isTaken,
@@ -67,11 +68,16 @@ test('prices add up per half hour across price boundaries and weekends', async (
   assert.equal(priceOf(v, te1, at(next(7), '20:30'), 60), null);
   const padel = v.locations[0].courts.find((c) => c.sport === 'padel');
   assert.equal(priceOf(v, padel, at(tue, '15:30'), 60), 1150 + 1550);
-  // outdoor courts only 8–21
+  // outdoor courts from 8: until 21 in the summer, until 18 the rest of the year
   const k1 = v.locations[2].courts[0];
   assert.equal(priceOf(v, k1, at(tue, '07:00'), 60), null);
   assert.equal(priceOf(v, k1, at(tue, '20:30'), 60), null);
-  assert.equal(priceOf(v, k1, at(tue, '18:00'), 60), 1600);
+  assert.equal(priceOf(v, k1, at(tue, '17:00'), 60), 1600);
+  assert.equal(priceOf(v, k1, at(tue, '18:00'), 60), outdoorUntil(Date.now()) === '21:00' ? 1600 : null);
+  assert.equal(outdoorUntil(new Date(2026, 9, 16)), '18:00');
+  assert.equal(outdoorUntil(new Date(2027, 4, 1)), '21:00');
+  assert.equal(outdoorUntil(new Date(2027, 7, 31)), '21:00');
+  assert.equal(outdoorUntil(new Date(2027, 8, 1)), '18:00');
 });
 
 test('start times follow the grid, leave room for the duration and skip the past', async () => {
@@ -384,14 +390,7 @@ test('a friend\'s side: Mikko asked for my share — it is listed, can be declin
 
 test('the deadline: unpaid shares become my rest, charged; a card that said no leaves a rest to pay', async () => {
   const shares = await api.booking.listShares();
-  const failed = shares.find((s) => s.kind === 'rest' && s.payable);
-  assert.ok(failed, 'the seeded rest share the card did not cover');
-  assert.equal(failed.chargeError, 'card_declined');
-  assert.equal(chargeErrorText(failed.chargeError), 'Kortti hylättiin');
-  assert.equal(failed.booker.id, 'demo-user');
-  assert.deepEqual(failed.booking.split.lines.map((l) => [l.kind, l.status]), [['own', 'paid'], ['friend', 'covered'], ['rest', 'pending']]);
-  await api.booking.createSharePaymentIntent(failed.id);
-  assert.equal((await api.booking.getShare(failed.id)).status, 'paid');
+  assert.equal(shares.some((s) => s.kind === 'rest' && s.payable), false, 'the demo starts without an unpaid rest');
 
   // Alex's nelinpeli: Ville hasn't paid. Once its deadline passes, Ville's share is charged to Alex.
   const nelinpeli = (await api.booking.listMine()).upcoming.find((b) => b.split?.parts === 4);
@@ -401,6 +400,17 @@ test('the deadline: unpaid shares become my rest, charged; a card that said no l
   const ville = after.split.lines[3];
   const rest = after.split.lines.at(-1);
   assert.deepEqual([ville.status, rest.kind, rest.status, rest.cents, rest.person.id], ['covered', 'rest', 'paid', ville.cents, 'demo-user']);
+
+  // Had the card said no, the rest stays for Alex to pay in Krossi.
+  const restRow = db.booking.shares.find((s) => s.bookingId === nelinpeli.id && s.kind === 'rest');
+  Object.assign(restRow, { status: 'pending', paidAt: null, chargeError: 'card_declined' });
+  const failed = (await api.booking.listShares()).find((s) => s.id === restRow.id);
+  assert.equal(failed.payable, true);
+  assert.equal(chargeErrorText(failed.chargeError), 'Kortti hylättiin');
+  assert.equal(failed.booker.id, 'demo-user');
+  assert.deepEqual(failed.booking.split.lines.map((l) => [l.kind, l.status]).slice(-2), [['friend', 'covered'], ['rest', 'pending']]);
+  await api.booking.createSharePaymentIntent(failed.id);
+  assert.equal((await api.booking.getShare(failed.id)).status, 'paid');
 
   // A friend share past its deadline can't be paid any more: the booker has covered it.
   const fromMikko = shares.find((s) => s.kind === 'friend' && s.booker.id === 'p-mikko');

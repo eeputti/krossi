@@ -181,22 +181,30 @@ export function bookingStateText(booking) {
   if (booking.status === 'expired') return 'Vanhentunut';
   if (booking.status === 'held') return 'Maksamatta';
   if (booking.forSale) return 'Myynnissä';
-  if (booking.split && booking.split.lines.some((l) => l.status === 'pending' || l.status === 'declined')) return 'Osuuksia maksamatta';
+  if (sharesOpen(booking)) return 'Osuuksia maksamatta';
   if (booking.paymentStatus === 'paid') return 'Maksettu';
   return 'Vahvistettu';
+}
+
+/** Friends of a split booking still to pay (or who said they can't make it). */
+export function sharesOpen(booking) {
+  return Boolean(booking.split?.lines.some((l) => l.status === 'pending' || l.status === 'declined'));
 }
 
 export function MyBookingCard({ booking, now, onOpen }) {
   const held = booking.status === 'held';
   const owed = restOwed(booking);
-  const icon = held ? 'clock' : owed ? 'alert' : booking.forSale ? 'share' : 'check';
+  // My part is paid while friends' shares are open: not a ✓ yet, not a warning either.
+  const waiting = booking.status === 'confirmed' && !owed && !booking.forSale && sharesOpen(booking);
+  const icon = held ? 'clock' : owed ? 'alert' : booking.forSale ? 'share' : waiting ? 'users' : 'check';
+  const tone = held || owed ? 'is-held' : booking.forSale ? 'is-sale' : waiting ? 'is-waiting' : 'is-ok';
   return (
     <button type="button" className={cx('bk-mine', (held || owed) && 'is-held', booking.forSale && 'is-sale')} onClick={() => onOpen(booking)}>
       <span className="bk-mine-day">{dayLabel(booking.startsAt, new Date(now))}</span>
       <span className="bk-mine-clock t-num">{formatTime(booking.startsAt)}–{formatTime(booking.endsAt)}</span>
       <span className="bk-mine-court">{booking.courtName}</span>
       <span className="bk-mine-place truncate">{booking.locationName}</span>
-      <span className={cx('bk-mine-state', held || owed ? 'is-held' : booking.forSale ? 'is-sale' : 'is-ok')}>
+      <span className={cx('bk-mine-state', tone)}>
         <Icon name={icon} size={13} strokeWidth={2.6} />
         {owed ? 'Loppuosuus maksamatta' : bookingStateText(booking)}
       </span>

@@ -32,7 +32,7 @@
 .bk-mine-strip { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; scroll-snap-type: x proximity; }
 .bk-mine-strip::-webkit-scrollbar { display: none; }
 .bk-mine {
-  flex: 0 0 auto; min-width: 168px; max-width: 210px; scroll-snap-align: start;
+  flex: 0 0 auto; min-width: 148px; max-width: 200px; scroll-snap-align: start; /* the third card peeks in on a phone */
   display: grid; gap: 2px; text-align: left; padding: 12px 14px; border-radius: var(--r-lg);
   background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
   transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
@@ -41,12 +41,13 @@
 .bk-mine:active { transform: scale(0.97); }
 .bk-mine.is-held { border-color: var(--warn); }
 .bk-mine-day { font-size: var(--fs-micro); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--green-700); }
-.bk-mine-clock { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
+.bk-mine-clock { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
 .bk-mine-court { font-size: 14px; font-weight: 750; color: var(--ink-2); }
 .bk-mine-place { font-size: 12.5px; color: var(--muted); }
 .bk-mine-state { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 12px; font-weight: 800; }
 .bk-mine-state.is-ok { color: var(--success); }
 .bk-mine-state.is-held { color: var(--warn); }
+.bk-mine-state.is-waiting { color: var(--ink-2); }
 
 /* ── Controls ── */
 .bk-controls { display: grid; gap: 12px; }
