@@ -2,13 +2,19 @@
 //
 // The booking itself is made by the krossi_hold_booking RPC (a 'held' row that keeps the court
 // for venue.hold_minutes); this function moves the money. The amount always comes from the
-// database (booking_reservations.price_cents), never from the client.
+// database, never from the client: price_cents minus the gift balance the player put on the hold
+// (gift_cents, krossi_wallet_use_gift) — that share leaves the balance when the payment is
+// recorded (krossi_booking_mark_paid gets the amount actually paid). A booking paid in full with a
+// series card or gift balance (payment_status 'credit') has nothing to pay here.
 //
 //   { action: 'config', bookingId }                  -> { paid: true } | { publishableKey, amount, currency, email }
 //   { action: 'intent', bookingId }                  -> { paid: true } | { clientSecret, paymentIntentId }
 //   { action: 'verify', bookingId, paymentIntentId } -> { confirmed, status } (+ error when the court was lost)
-//   { action: 'cancel', bookingId }                  -> { refundedCents }   the player, before the cancellation limit
-//   { action: 'staffCancel', bookingId, refund }     -> { refundedCents }   hall staff; refund defaults to true
+//   { action: 'cancel', bookingId }                  -> { refundedCents, creditCents, creditMinutes }   the player, before the cancellation limit
+//   { action: 'staffCancel', bookingId, refund }     -> { refundedCents, creditCents, creditMinutes }   hall staff; refund defaults to true
+//
+// Cancelling with a refund also gives credit back (krossi_booking_mark_cancelled): a series
+// card's minutes, or the gift share to the balance.
 //   { action: 'freed', bookingId }                   -> { notified }        after krossi_release_booking / _unblock
 //
 // A succeeded payment is confirmed through krossi_booking_mark_paid, here (verify, and config /
@@ -143,6 +149,8 @@ interface BookingRow {
   hold_expires_at: string | null;
   stripe_payment_intent_id: string | null;
   cancelled_by: string | null;
+  gift_cents: number;
+  pass_minutes: number;
 }
 
 interface VenueRow {
@@ -155,7 +163,7 @@ interface VenueRow {
 }
 
 const BOOKING_COLUMNS = 'id, venue_id, court_id, starts_at, ends_at, kind, status, booked_by, price_cents, ' +
-  'payment_status, hold_expires_at, stripe_payment_intent_id, cancelled_by';
+  'payment_status, hold_expires_at, stripe_payment_intent_id, cancelled_by, gift_cents, pass_minutes';
 
 async function loadBooking(admin: SupabaseClient, id: string): Promise<BookingRow | null> {
   const { data, error } = await admin.from('booking_reservations').select(BOOKING_COLUMNS).eq('id', id).maybeSingle();
@@ -189,8 +197,10 @@ async function myBooking(admin: SupabaseClient, id: unknown, userId: string): Pr
 
 const holdIsLive = (b: BookingRow) =>
   b.status === 'held' && Boolean(b.hold_expires_at) && Date.parse(b.hold_expires_at as string) > Date.now();
-/** Paid (or free) and still on: nothing left to pay. */
-const isSettled = (b: BookingRow) => b.status === 'confirmed' && (b.payment_status === 'paid' || b.payment_status === 'free');
+/** Paid (by card, credit, or free) and still on: nothing left to pay. */
+const isSettled = (b: BookingRow) => b.status === 'confirmed' && ['paid', 'free', 'credit'].includes(b.payment_status);
+/** What the card pays: the price minus the gift balance put on the hold. */
+const amountDue = (b: BookingRow) => b.price_cents - (b.gift_cents || 0);
 
 async function markCancelled(admin: SupabaseClient, bookingId: string, refunded: boolean, refundId: string | null, by: string | null) {
   const { error } = await admin.rpc('krossi_booking_mark_cancelled', {
@@ -200,6 +210,13 @@ async function markCancelled(admin: SupabaseClient, bookingId: string, refunded:
     by_input: by,
   });
   if (error) throw new Error(`krossi_booking_mark_cancelled failed: ${error.message}`);
+}
+
+/** The credit a cancelled booking gives back (krossi_booking_mark_cancelled does it in the database). */
+function creditBack(booking: BookingRow, giveBack: boolean) {
+  const settled = booking.payment_status === 'paid' || booking.payment_status === 'credit';
+  if (!giveBack || !settled) return { creditCents: 0, creditMinutes: 0 };
+  return { creditCents: booking.pass_minutes > 0 ? 0 : booking.gift_cents || 0, creditMinutes: booking.pass_minutes || 0 };
 }
 
 // ── Payments ─────────────────────────────────────────────────────────────────
@@ -251,6 +268,7 @@ async function settle(admin: SupabaseClient, intent: Stripe.PaymentIntent): Prom
   const { data, error } = await admin.rpc('krossi_booking_mark_paid', {
     booking_id_input: bookingId,
     payment_intent_id_input: intent.id,
+    amount_input: intent.amount,
   });
   if (error) throw new Error(`krossi_booking_mark_paid failed: ${error.message}`);
   const outcome = data as Outcome;
@@ -349,11 +367,11 @@ Deno.serve(async (req: Request) => {
       if (stored.outcome === 'lost') throw new Reply(409, LOST);
       if (isSettled(booking)) return json(req, { paid: true });
       if (!holdIsLive(booking)) throw new Reply(409, EXPIRED);
-      if (booking.price_cents < MIN_CHARGE_CENTS) throw new Reply(409, 'Varauksen hinta on liian pieni verkkomaksuun.');
+      if (amountDue(booking) < MIN_CHARGE_CENTS) throw new Reply(409, 'Varauksen hinta on liian pieni verkkomaksuun.');
       const publishableKey = usablePublishableKey();
       if (!publishableKey) throw new Reply(503, 'Kenttävarausten verkkomaksu ei ole vielä käytössä.');
       inBackground(ensurePaymentDomains());
-      return json(req, { publishableKey, amount: booking.price_cents, currency: 'eur', email: user.email ?? null });
+      return json(req, { publishableKey, amount: amountDue(booking), currency: 'eur', email: user.email ?? null });
     }
 
     if (body.action === 'intent') {
@@ -369,7 +387,7 @@ Deno.serve(async (req: Request) => {
         if (isSettled(booking)) return json(req, { paid: true });
       }
       if (previous?.status === 'processing') throw new Reply(409, 'Maksu on vielä kesken. Odota hetki ja päivitä sivu.');
-      const reusable = previous && REUSABLE.includes(previous.status) && previous.amount === booking.price_cents
+      const reusable = previous && REUSABLE.includes(previous.status) && previous.amount === amountDue(booking)
         && previous.metadata?.booking_id === booking.id ? previous : null;
 
       if (!holdIsLive(booking)) {
@@ -385,7 +403,7 @@ Deno.serve(async (req: Request) => {
         await stripe.paymentIntents.cancel(previous.id, { cancellation_reason: 'abandoned' }).catch((err) =>
           console.error('cancelling an outdated booking payment failed', (err as Error).message));
       }
-      if (booking.price_cents < MIN_CHARGE_CENTS) throw new Reply(409, 'Varauksen hinta on liian pieni verkkomaksuun.');
+      if (amountDue(booking) < MIN_CHARGE_CENTS) throw new Reply(409, 'Varauksen hinta on liian pieni verkkomaksuun.');
 
       const { data: profile, error: profileError } = await admin.from('profiles')
         .select('stripe_customer_id').eq('id', user.id).maybeSingle();
@@ -395,22 +413,24 @@ Deno.serve(async (req: Request) => {
       const [venue, place] = await Promise.all([loadVenue(admin, booking.venue_id), loadPlace(admin, booking.court_id)]);
       const customerId = await ensureCustomer(admin, user.id, user.email, profile.stripe_customer_id);
       const params: Stripe.PaymentIntentCreateParams = {
-        amount: booking.price_cents,
+        amount: amountDue(booking),
         currency: 'eur',
         customer: customerId,
         automatic_payment_methods: { enabled: true },
-        description: describeBooking(booking, venue, place),
+        description: describeBooking(booking, venue, place) + (booking.gift_cents > 0 ? ' (osa lahjakorttisaldolla)' : ''),
         receipt_email: user.email || undefined,
         metadata: { product: PRODUCT, booking_id: booking.id, venue_id: booking.venue_id, supabase_user_id: user.id },
       };
       if (venue.stripe_account_id) {
         params.transfer_data = { destination: venue.stripe_account_id };
-        const fee = Math.floor((booking.price_cents * (venue.platform_fee_bps || 0)) / 10_000);
+        const fee = Math.floor((amountDue(booking) * (venue.platform_fee_bps || 0)) / 10_000);
         if (fee > 0) params.application_fee_amount = fee;
       }
-      // Two taps at once get the same intent: the key names the booking and the intent it replaces.
+      // Two taps at once get the same intent: the key names the booking, the intent it replaces
+      // and the amount (a gift balance put on or taken off changes it).
       const intent = await stripe.paymentIntents.create(params, {
-        idempotencyKey: `krossi-booking-intent-${booking.id}-${booking.stripe_payment_intent_id ?? 'first'}`,
+        idempotencyKey: `krossi-booking-intent-${booking.id}-${booking.stripe_payment_intent_id ?? 'first'}`
+          + (booking.gift_cents > 0 ? `-${amountDue(booking)}` : ''),
       });
 
       // Store it unless the booking changed meanwhile (paid, or another intent stored first).
@@ -473,9 +493,10 @@ Deno.serve(async (req: Request) => {
         if (!booking.stripe_payment_intent_id) throw new Error(`paid booking ${booking.id} has no payment intent`);
         refund = await refundIntent(await stripe.paymentIntents.retrieve(booking.stripe_payment_intent_id), booking.id);
       }
-      await markCancelled(admin, booking.id, Boolean(refund), refund?.id ?? null, user.id);
+      const giveBack = Boolean(refund) || booking.payment_status === 'credit';
+      await markCancelled(admin, booking.id, giveBack, refund?.id ?? null, user.id);
       inBackground(notifyWatchers(admin, asUser, booking.id, user.id));
-      return json(req, { refundedCents: refund?.amount ?? 0 });
+      return json(req, { refundedCents: refund?.amount ?? 0, ...creditBack(booking, giveBack) });
     }
 
     if (body.action === 'staffCancel') {
@@ -487,7 +508,7 @@ Deno.serve(async (req: Request) => {
       if (isStaff !== true) throw new Reply(403, STAFF_ONLY);
 
       ({ booking } = await settleStored(admin, booking));
-      if (booking.status !== 'confirmed' && !holdIsLive(booking)) return json(req, { refundedCents: 0 });
+      if (booking.status !== 'confirmed' && !holdIsLive(booking)) return json(req, { refundedCents: 0, creditCents: 0, creditMinutes: 0 });
 
       let refund: Stripe.Refund | null = null;
       if (body.refund !== false && booking.payment_status === 'paid' && booking.stripe_payment_intent_id) {
@@ -497,9 +518,10 @@ Deno.serve(async (req: Request) => {
         await stripe.paymentIntents.cancel(booking.stripe_payment_intent_id, { cancellation_reason: 'abandoned' }).catch((err) =>
           console.error('cancelling the payment of a cancelled hold failed', (err as Error).message));
       }
-      await markCancelled(admin, booking.id, Boolean(refund), refund?.id ?? null, user.id);
+      const giveBack = Boolean(refund) || (body.refund !== false && booking.payment_status === 'credit');
+      await markCancelled(admin, booking.id, giveBack, refund?.id ?? null, user.id);
       inBackground(notifyWatchers(admin, asUser, booking.id, user.id));
-      return json(req, { refundedCents: refund?.amount ?? 0 });
+      return json(req, { refundedCents: refund?.amount ?? 0, ...creditBack(booking, giveBack) });
     }
 
     if (body.action === 'freed') {
