@@ -335,7 +335,13 @@ export function BookingScreen({ params, query }) {
         actions={(
           <>
             {upcoming.length > 0 && (
-              <IconButton icon="calendar" label={`Omat vuorot (${upcoming.length})`} onClick={() => navigate('/pelaa/omat-varaukset')} />
+              <IconButton
+                icon="calendar"
+                label={`Omat vuorot (${upcoming.length})`}
+                badge={upcoming.length}
+                className="bk-mine-btn"
+                onClick={() => navigate('/pelaa/omat-varaukset')}
+              />
             )}
             {venue.isStaff && (
               <IconButton icon="grid" label="Hallin näkymä" onClick={() => navigate(`/pelaa/halli/${encodeURIComponent(venue.slug)}`)} />

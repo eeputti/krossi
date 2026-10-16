@@ -31,6 +31,9 @@
 .bk-controls { display: grid; gap: 12px; }
 .bk-controls .segmented { width: 100%; }
 
+/* how many bookings are coming: a quiet count on the top bar's calendar (not an alert) */
+.bk-mine-btn .icon-btn-badge { background: var(--green-800); color: var(--lime); }
+
 /* Kesto: [−] 1 h [+] */
 .bk-stepper {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px;
