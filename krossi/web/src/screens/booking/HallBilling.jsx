@@ -1,7 +1,8 @@
 // HallBilling — Hallin näkymä → Laskutus: what the hall is owed for kausivuorot. The numbers on top
 // (open and overdue invoices, failed card months), the invoices (open them as printable pages, mark
 // paid, e-mail), and the monthly card charges with "Veloita erääntyneet" — the same run a daily cron
-// does — and every failed month with the bank's reason.
+// does — and every failed month with the bank's reason. Missing invoicing details are flagged with
+// a way to Hallin asetukset.
 import { useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync, useBusy } from '../../app/hooks.js';
@@ -19,6 +20,7 @@ export function HallBilling({ venue }) {
   const [busy, run] = useBusy();
   const [view, setView] = useState('invoices');
   const invoices = useAsync(() => api.billing.listInvoices(venue.id), [venue.id]);
+  const settings = useAsync(() => api.billing.getSettings(venue.id).catch(() => null), [venue.id]);
   const charges = useAsync(() => api.billing.listCharges(venue.id), [venue.id]);
 
   const inv = invoices.data || [];
@@ -73,6 +75,14 @@ export function HallBilling({ venue }) {
         </div>
         <Button variant="dark" size="sm" icon="refresh" loading={busy} onClick={runCharges}>Veloita erääntyneet</Button>
       </div>
+
+      {settings.data && !settings.data.ready && (
+        <div className="hset-notice" role="status">
+          <Icon name="alert" size={18} />
+          <span><b>Laskutustiedot puuttuvat.</b> Uusia laskuja ei voi tehdä ennen kuin hallin nimi ja tilinumero on lisätty.</span>
+          <Button variant="dark" size="sm" onClick={() => navigate(`/pelaa/halli/${venue.slug}?nakyma=asetukset`)}>Lisää</Button>
+        </div>
+      )}
 
       <div className="bhall-stats">
         <StatTile icon="mail" label="Avoimet laskut" value={invoices.data ? open.length : wait} sub={invoices.data ? centsLabel(sum(open)) : null} />

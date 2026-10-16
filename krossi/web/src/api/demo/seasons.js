@@ -1,14 +1,15 @@
 // seasons.js (demo) — kausivuorot against the hall in bookingSeed.js / hallSeed.js, with the rules
 // of the krossi_season_* RPCs: quotes over the whole season, requests, the hall's approval (the
-// weeks become reservation rows, the invoice or the monthly card schedule is made), ending a
-// slot and freeing one week. Same Finnish messages and error codes as the SQL.
+// weeks become reservation rows, the invoice or the monthly card schedule is made, the player is
+// "e-mailed"), ending a slot and freeing one week, and the hall's own seasons (Hallin asetukset).
+// Same Finnish messages and error codes as the SQL.
 
 import { ME, ME_EMAIL } from './rows.js';
-import { newId, run } from './runtime.js';
+import { logNotifyEvent, newId, run } from './runtime.js';
 import { db, nowIso, personLite } from './store.js';
 import { dateKey, findCourt, minutesOf } from '../../features/booking.js';
 import {
-  chargeSchedule, dayMonth, invoiceLines, quoteSeason, referenceNumber, vatOf,
+  chargeSchedule, checkSeason, dayMonth, invoiceLines, quoteSeason, referenceNumber, vatOf,
 } from '../../features/seasons.js';
 import { expireStaleHolds, fail, isLive, liveRows, requireStaff, venueRow } from './bookingCore.js';
 import { seasonRow, slotRow, slotRows, toSeason, toSlot } from './seasonCore.js';
@@ -96,7 +97,7 @@ export async function request(input = {}) {
       startsOn: q.weeks[0]?.date || today(), endsOn: season.endsOn, skipDates: q.skipped,
       status: 'requested', billing: input.billing, priceCents: q.cents, weeks: q.count,
       holderId: ME, holderName: personLite(ME).name, billingEmail: ME_EMAIL, billingAddress: null, note,
-      declineReason: null, createdAt: nowIso(), decidedAt: null,
+      declineReason: null, createdAt: nowIso(), decidedAt: null, notifiedAt: null,
     };
     db.booking.seasonSlots.push(slot);
     return toSlot(slot);
@@ -240,12 +241,22 @@ export async function create(input = {}) {
       weekday: input.weekday, startTime: input.startTime, minutes: input.minutes, startsOn: from, endsOn: season.endsOn,
       skipDates: [], status: 'requested', billing: 'invoice', priceCents: 0, weeks: 0, holderId: null, holderName,
       billingEmail: email, billingAddress: String(input.billingAddress || '').trim().slice(0, 300) || null, note: null,
-      declineReason: null, createdAt: nowIso(), decidedAt: null,
+      declineReason: null, createdAt: nowIso(), decidedAt: null, notifiedAt: null,
     };
     activate(venue, slot, { courtId: court.id, priceCents: input.priceCents ?? null, skipConflicts: Boolean(input.skipConflicts) });
     db.booking.seasonSlots.push(slot);
     return toSlot(slot);
   });
+}
+
+/**
+ * The player hears about the hall's decision by e-mail (production: krossi-billing 'seasonDecided',
+ * once per decision). The demo sends nothing; it marks the slot the way the real mail does.
+ */
+function notifyDecision(slot) {
+  if (!slot.holderId || slot.notifiedAt) return;
+  slot.notifiedAt = nowIso();
+  logNotifyEvent({ type: 'season_decided', slotId: slot.id, status: slot.status });
 }
 
 export async function approve(slotId, { courtId = null, priceCents = null, skipConflicts = false } = {}) {
@@ -256,6 +267,7 @@ export async function approve(slotId, { courtId = null, priceCents = null, skipC
     requireStaff(venue);
     if (slot.status !== 'requested') throw fail('Hakemus on jo käsitelty.');
     activate(venue, slot, { courtId, priceCents, skipConflicts });
+    notifyDecision(slot);
     return toSlot(slot);
   });
 }
@@ -269,6 +281,7 @@ export async function decline(slotId, reason = '') {
     slot.status = 'declined';
     slot.declineReason = String(reason || '').trim().slice(0, 300) || null;
     slot.decidedAt = nowIso();
+    notifyDecision(slot);
   });
 }
 
@@ -304,5 +317,71 @@ export async function releaseOccurrence(reservationId) {
     if (Date.parse(row.startsAt) <= Date.now()) throw fail('Alkanutta vuoroa ei voi enää vapauttaa.');
     row.status = 'cancelled';
     row.cancelledAt = nowIso();
+  });
+}
+
+// ── Hallin asetukset: the seasons themselves ─────────────────────────────────
+
+/** First and last week ('YYYY-MM-DD') of a season's active slots, or null (krossi_season_booked_range). */
+function bookedRange(season) {
+  const days = db.booking.rows
+    .filter((r) => r.kind === 'season' && r.status === 'confirmed')
+    .filter((r) => {
+      const slot = slotRow(r.seasonSlotId);
+      return slot?.seasonId === season.id && slot.status === 'active';
+    })
+    .map((r) => dateKey(new Date(r.startsAt)))
+    .sort();
+  return days.length ? { from: days[0], until: days.at(-1) } : null;
+}
+
+function toStaffSeason(season) {
+  const slots = db.booking.seasonSlots.filter((s) => s.seasonId === season.id);
+  const booked = bookedRange(season);
+  return {
+    ...toSeason(season),
+    activeSlots: slots.filter((s) => s.status === 'active').length,
+    requests: slots.filter((s) => s.status === 'requested').length,
+    bookedFrom: booked?.from || null,
+    bookedUntil: booked?.until || null,
+    removable: slots.length === 0,
+  };
+}
+
+export async function staffSeasons(venueId) {
+  return run(() => {
+    const venue = venueRow(venueId);
+    requireStaff(venue);
+    return db.booking.seasons
+      .filter((s) => s.venueId === venue.id)
+      .sort((a, b) => a.startsOn.localeCompare(b.startsOn) || a.id.localeCompare(b.id))
+      .map(toStaffSeason);
+  });
+}
+
+export async function saveSeason(input = {}) {
+  return run(() => {
+    const venue = venueRow(input.venueId);
+    requireStaff(venue);
+    const existing = input.id ? seasonRow(input.id) : null;
+    if (input.id && existing?.venueId !== venue.id) throw fail('Kautta ei löytynyt.', 'not_found');
+    const { value, error } = checkSeason(input, { today: today(), booked: existing ? bookedRange(existing) : null, isNew: !existing });
+    if (error) throw fail(error);
+    const season = existing || { id: newId('season'), venueId: venue.id };
+    Object.assign(season, value);
+    if (!existing) db.booking.seasons.push(season);
+    return toStaffSeason(season);
+  });
+}
+
+export async function removeSeason(seasonId) {
+  return run(() => {
+    const season = seasonRow(seasonId);
+    if (!season) throw fail('Kautta ei löytynyt.', 'not_found');
+    requireStaff(venueRow(season.venueId));
+    if (db.booking.seasonSlots.some((s) => s.seasonId === season.id)) {
+      throw fail('Kaudella on kausivuoroja tai hakemuksia, joten sitä ei voi poistaa. Sulje haku, niin uusia ei tule.');
+    }
+    db.booking.seasons.splice(db.booking.seasons.indexOf(season), 1);
   });
 }

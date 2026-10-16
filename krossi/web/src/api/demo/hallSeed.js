@@ -8,9 +8,9 @@
 // details are made up (the demo's neutral hall, not the real operator).
 
 import { ME } from './rows.js';
-import { addDays, dateKey, isoWeekday, localDate } from '../../features/booking.js';
+import { addDays, isoWeekday, localDate } from '../../features/booking.js';
 import {
-  chargeSchedule, creditEventLabel, invoiceLines, newGiftCode, quoteSeason, referenceNumber, vatOf,
+  chargeSchedule, creditEventLabel, finnishHolidays, invoiceLines, newGiftCode, quoteSeason, referenceNumber, vatOf,
 } from '../../features/seasons.js';
 
 const pid = (key) => (key === 'me' ? ME : `p-${key}`);
@@ -25,37 +25,12 @@ function createRng(seed) {
   };
 }
 
-/** Easter Sunday of `year` (anonymous Gregorian algorithm) as 'YYYY-MM-DD'. */
-function easter(year) {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return dateKey(new Date(year, month - 1, day));
-}
-
-/** Finnish holidays a hall usually keeps season play off, between two days. */
-function holidays(fromKey, toKey) {
-  const out = [];
-  for (let y = Number(fromKey.slice(0, 4)); y <= Number(toKey.slice(0, 4)); y += 1) {
-    const e = easter(y);
-    // Juhannusaatto: the Friday between 19 and 25 June.
-    const midsummerEve = addDays(`${y}-06-19`, (5 - isoWeekday(localDate(`${y}-06-19`)) + 7) % 7);
-    out.push(`${y}-01-01`, `${y}-01-06`, addDays(e, -2), addDays(e, 1), midsummerEve, addDays(midsummerEve, 1),
-      `${y}-12-06`, `${y}-12-24`, `${y}-12-25`, `${y}-12-26`, `${y}-12-31`);
-  }
-  return out.filter((k) => k >= fromKey && k <= toKey).sort();
-}
+/** The holidays the demo hall keeps season play off: the weekday ones, not the weekend days it stays open on. */
+const HALL_HOLIDAYS = new Set([
+  'uudenvuodenpäivä', 'loppiainen', 'pitkäperjantai', '2. pääsiäispäivä', 'juhannusaatto', 'juhannuspäivä',
+  'itsenäisyyspäivä', 'jouluaatto', 'joulupäivä', 'tapaninpäivä', 'uudenvuodenaatto',
+]);
+const holidays = (fromKey, toKey) => finnishHolidays(fromKey, toKey).filter((h) => HALL_HOLIDAYS.has(h.name)).map((h) => h.date);
 
 function seasonName(startsOn, endsOn) {
   const [y1, m1] = startsOn.split('-').map(Number);
@@ -92,6 +67,11 @@ const PASS_PRODUCTS = [
     id: 'pp-20', name: 'Tennis 20 × 1 h', sport: 'tennis', uses: 20, minutesPerUse: 60, validDays: 365, priceCents: 48000,
     description: 'Edullisin tuntihinta.',
   },
+  // Sold in summer only: hidden from the shop now (Hallin asetukset shows it as piilotettu).
+  {
+    id: 'pp-kesa', name: 'Kesäkortti 10 × 1 h', sport: 'tennis', uses: 10, minutesPerUse: 60, validDays: 120, priceCents: 19000,
+    description: 'Ulkokentille ja halliin kesäkaudella, voimassa neljä kuukautta.', active: false,
+  },
 ];
 
 /**
@@ -121,6 +101,7 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
     vatPercent: 14,
     paymentTermsDays: 14,
     gift: { amounts: [2500, 5000, 10000], minCents: 1000, maxCents: 30000, validDays: 365 },
+    updatedAt: daysAgo(60, '14:20'),
   };
 
   function invoiceFor(slot, quote, { issuedOn, status, paidOn = null, sentAt = null }) {
@@ -178,7 +159,7 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
       weekday, startTime, minutes, startsOn: booked[0]?.date || fromDate, endsOn: winter.endsOn,
       skipDates: [...quote.skipped, ...conflicts].sort(), status, billing: billingKind, priceCents: quote.cents,
       weeks: booked.length, holderId: holder ? pid(holder) : null, holderName, billingEmail, billingAddress, note,
-      declineReason: null, createdAt: daysAgo(decidedDaysAgo + 2), decidedAt,
+      declineReason: null, createdAt: daysAgo(decidedDaysAgo + 2), decidedAt, notifiedAt: holder ? decidedAt : null,
     };
     seasonSlots.push(row);
     const weekCents = (w) => Math.round((w.cents * (100 - winter.discountPercent)) / 100);
@@ -240,7 +221,7 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
       locationId: loc.id, weekday, startTime, minutes, startsOn: quote.weeks[0]?.date || today, endsOn: winter.endsOn,
       skipDates: quote.skipped, status: 'requested', billing: billingKind, priceCents: quote.cents, weeks: quote.count,
       holderId: pid(holder), holderName, billingEmail: email, billingAddress: null, note, declineReason: null,
-      createdAt: daysAgo(daysAgoCreated, '20:15'), decidedAt: null,
+      createdAt: daysAgo(daysAgoCreated, '20:15'), decidedAt: null, notifiedAt: null,
     });
   };
   request({
@@ -260,7 +241,7 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
   ]);
 
   // ── Series cards and gift cards ──
-  const passProducts = PASS_PRODUCTS.map((p) => ({ ...p, venueId: venue.id, active: true }));
+  const passProducts = PASS_PRODUCTS.map((p) => ({ ...p, venueId: venue.id, active: p.active !== false }));
   const passes = [];
   const giftCards = [];
   const creditEvents = [];

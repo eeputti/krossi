@@ -7,13 +7,15 @@
 // the view over a reload; both are written with navigate(…, { replace: true }).
 // ?nakyma=kausivuorot | laskutus | kortit switches from the day to the hall's kausivuorot
 // (HallSeasons), invoices and card charges (HallBilling) or series / gift cards sold (HallCards).
+// ?nakyma=asetukset (the gear in the top bar, pushed so back returns here) is Hallin asetukset
+// (HallSettings): seasons, series card products, gift cards and the invoicing details.
 // Only venue staff get in (venue.isStaff; api.booking.staffDay refuses everyone else too).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync, useBusy, useMediaQuery, useNow, useResync } from '../../app/hooks.js';
-import { navigate } from '../../app/router.js';
-import { LIVE_SPORTS, addDays, centsLabel, dateKey, localDate } from '../../features/booking.js';
+import { goBack, navigate } from '../../app/router.js';
+import { LIVE_SPORTS, addDays, centsLabel, dateKey, localDate, sportsOf } from '../../features/booking.js';
 import { WEEKDAYS, WEEKDAYS_SHORT, dayDiff, dayLabel } from '../../lib/format.js';
 import {
   Button, ErrorState, Icon, IconButton, Page, ProgressBar, Segmented, Skeleton, StatTile, TopBar, useToast,
@@ -23,6 +25,7 @@ import { HallBlockSheet } from './HallBlockSheet.jsx';
 import { HallCards } from './HallCards.jsx';
 import { HallItemSheet } from './HallItemSheet.jsx';
 import { HallSeasons } from './HallSeasons.jsx';
+import { HallSettings } from './HallSettings.jsx';
 import { HallTimeline } from './HallTimeline.jsx';
 import {
   courtsLabel, dayWindow, daySummary, defaultStart, hhmm, isoWeek, liveLocations, locationLabel, nowMinuteOn,
@@ -31,7 +34,7 @@ import {
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const REFRESH_MS = 60_000;
-const VIEWS = ['kausivuorot', 'laskutus', 'kortit'];
+const VIEWS = ['kausivuorot', 'laskutus', 'kortit', 'asetukset'];
 
 export function HallScreen({ params, query }) {
   const ref = params.venue;
@@ -150,6 +153,8 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
     keepScroll.current = window.scrollY;
     navigate(`/pelaa/halli/${venueRef}${next === 'paiva' ? '' : `?nakyma=${next}`}`, { replace: true });
   };
+  const settings = view === 'asetukset';
+  const hallPath = `/pelaa/halli/${venueRef}`;
 
   // Sheets keep their last content while they animate out.
   const [blockDraft, setBlockDraft] = useState(null);
@@ -187,23 +192,29 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
   return (
     <>
       <TopBar
-        title="Hallin näkymä"
+        title={settings ? 'Hallin asetukset' : 'Hallin näkymä'}
         back={back}
+        onBack={settings ? () => goBack(hallPath) : undefined}
         className="bhall-topbar"
-        actions={(
-          <IconButton
-            icon="refresh"
-            label="Päivitä"
-            className={cx('bhall-refresh', refreshing && 'is-spinning')}
-            onClick={refresh}
-            disabled={refreshing}
-          />
+        actions={settings ? null : (
+          <>
+            <IconButton
+              icon="refresh"
+              label="Päivitä"
+              className={cx('bhall-refresh', refreshing && 'is-spinning')}
+              onClick={refresh}
+              disabled={refreshing}
+            />
+            <IconButton icon="settings" label="Hallin asetukset" onClick={() => navigate(`${hallPath}?nakyma=asetukset`)} />
+          </>
         )}
       />
       <Page width="wide" className="bhall">
         <header className="bhall-head">
           <div className="bhall-head-text">
-            <div className="eyebrow bhall-eyebrow"><Icon name="shield" size={13} strokeWidth={2.4} />Henkilökunta</div>
+            <div className="eyebrow bhall-eyebrow">
+              <Icon name={settings ? 'settings' : 'shield'} size={13} strokeWidth={2.4} />{settings ? 'Hallin asetukset' : 'Henkilökunta'}
+            </div>
             <h1 className="bhall-title">{venue.name}</h1>
           </div>
           {view === 'paiva' && canBlock && location && (
@@ -213,23 +224,26 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
           )}
         </header>
 
-        <Segmented
-          ariaLabel="Näkymä"
-          size={phone ? 'sm' : 'md'}
-          className="bhall-views"
-          options={[
-            { value: 'paiva', label: 'Päivä' },
-            { value: 'kausivuorot', label: 'Kausivuorot', badge: requests.data || undefined },
-            { value: 'laskutus', label: 'Laskutus' },
-            { value: 'kortit', label: 'Kortit' },
-          ]}
-          value={view}
-          onChange={showView}
-        />
+        {!settings && (
+          <Segmented
+            ariaLabel="Näkymä"
+            size={phone ? 'sm' : 'md'}
+            className="bhall-views"
+            options={[
+              { value: 'paiva', label: 'Päivä' },
+              { value: 'kausivuorot', label: 'Kausivuorot', badge: requests.data || undefined },
+              { value: 'laskutus', label: 'Laskutus' },
+              { value: 'kortit', label: 'Kortit' },
+            ]}
+            value={view}
+            onChange={showView}
+          />
+        )}
 
         {view === 'kausivuorot' && <HallSeasons venue={venue} onChanged={() => requests.reload({ silent: true })} />}
         {view === 'laskutus' && <HallBilling venue={venue} />}
         {view === 'kortit' && <HallCards venue={venue} />}
+        {settings && <HallSettings venue={venue} sports={sportsOf(allCourts)} />}
 
         {view === 'paiva' && (
           <>

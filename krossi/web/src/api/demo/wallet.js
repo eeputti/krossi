@@ -1,15 +1,19 @@
 // wallet.js (demo) — sarjakortit and lahjakortit: the hall's series cards for sale, buying them and
 // gift cards ("paid" at once, like the demo's bookings), redeeming a gift card's code onto the
-// balance, and paying a held booking with a series card or gift balance. Same rules and messages
-// as the krossi_wallet_* RPCs; the ledger helpers are in bookingCore.js.
+// balance, paying a held booking with a series card or gift balance, and the hall's own products
+// and gift card limits (Hallin asetukset). Same rules and messages as the krossi_wallet_* RPCs; the
+// ledger helpers are in bookingCore.js.
 
 import { ME } from './rows.js';
 import { newId, run } from './runtime.js';
 import { db, nowIso, personLite } from './store.js';
-import { addDays, dateKey, findCourt } from '../../features/booking.js';
-import { giftShare, newGiftCode, normalizeGiftCode, passState } from '../../features/seasons.js';
+import { addDays, dateKey, findCourt, sportsOf } from '../../features/booking.js';
 import {
-  addCreditEvent, fail, giftAvailable, isLive, myRow, requireStaff, rowLabel, takeOverSales, toBooking, venueRow,
+  checkGiftSettings, checkPassProduct, giftShare, newGiftCode, normalizeGiftCode, passState,
+} from '../../features/seasons.js';
+import {
+  DEFAULT_GIFT, addCreditEvent, billingRow, fail, giftAvailable, isLive, myRow, requireStaff, rowLabel, takeOverSales, toBooking,
+  venueRow,
 } from './bookingCore.js';
 
 const EXPIRED = 'Varauksen pitoaika ehti umpeutua. Valitse aika uudelleen.';
@@ -20,6 +24,18 @@ const toProduct = (p) => ({
   id: p.id, venueId: p.venueId, name: p.name, sport: p.sport, uses: p.uses, minutesPerUse: p.minutesPerUse,
   validDays: p.validDays, priceCents: p.priceCents, description: p.description,
 });
+
+/** StaffPassProduct: + for sale, paid cards sold, never ordered. */
+function toStaffProduct(p) {
+  const orders = db.booking.passes.filter((x) => x.productId === p.id);
+  return { ...toProduct(p), active: p.active, sold: orders.filter((x) => x.status === 'active').length, removable: orders.length === 0 };
+}
+
+/** GiftSettings of a venue (the defaults until the hall saves its own). */
+function giftOf(venueId) {
+  const gift = db.booking.billing[venueId]?.gift || DEFAULT_GIFT;
+  return { amounts: [...gift.amounts], minCents: gift.minCents, maxCents: gift.maxCents, validDays: gift.validDays };
+}
 
 const toEvent = (e) => ({
   id: e.id, kind: e.kind, minutes: e.minutes, cents: e.cents, label: e.label, bookingId: e.bookingId, createdAt: e.createdAt,
@@ -66,8 +82,7 @@ function settle(kind, order) {
   } else {
     let code = newGiftCode();
     while (db.booking.giftCards.some((g) => g.code === code)) code = newGiftCode();
-    const settings = db.booking.billing[order.venueId];
-    Object.assign(order, { status: 'active', code, paidAt: nowIso(), validUntil: addDays(today(), settings?.gift.validDays ?? 365) });
+    Object.assign(order, { status: 'active', code, paidAt: nowIso(), validUntil: addDays(today(), giftOf(order.venueId).validDays) });
   }
 }
 
@@ -79,10 +94,9 @@ export async function products(venueId) {
   return run(() => {
     const venue = venueRow(venueId);
     if (!venue) throw fail('Hallia ei löytynyt.', 'not_found');
-    const settings = db.booking.billing[venue.id];
     return {
       passes: db.booking.passProducts.filter((p) => p.venueId === venue.id && p.active).map(toProduct),
-      gift: { ...(settings?.gift || { amounts: [2500, 5000, 10000], minCents: 1000, maxCents: 30000, validDays: 365 }) },
+      gift: giftOf(venue.id),
     };
   });
 }
@@ -128,7 +142,7 @@ export async function buyGiftCard({ venueId, amountCents, recipientName = null, 
   return run(() => {
     const venue = venueRow(venueId);
     if (!venue) throw fail('Hallia ei löytynyt.', 'not_found');
-    const { gift } = db.booking.billing[venue.id];
+    const gift = giftOf(venue.id);
     if (!Number.isInteger(amountCents) || amountCents % 100 || amountCents < gift.minCents || amountCents > gift.maxCents) {
       throw fail(`Valitse summa ${gift.minCents / 100}–${gift.maxCents / 100} € täysinä euroina.`);
     }
@@ -256,5 +270,67 @@ export async function staffList(venueId) {
           ...toGiftCard(g), buyer: g.buyerId ? personLite(g.buyerId) : null, redeemedBy: g.redeemedBy ? personLite(g.redeemedBy) : null,
         })),
     };
+  });
+}
+
+// ── Hallin asetukset: products and gift cards ────────────────────────────────
+
+export async function staffProducts(venueId) {
+  return run(() => {
+    const venue = venueRow(venueId);
+    requireStaff(venue);
+    return {
+      passes: db.booking.passProducts.filter((p) => p.venueId === venue.id).map(toStaffProduct),
+      gift: giftOf(venue.id),
+    };
+  });
+}
+
+export async function saveProduct(input = {}) {
+  return run(() => {
+    const venue = venueRow(input.venueId);
+    requireStaff(venue);
+    const existing = input.id ? db.booking.passProducts.find((p) => p.id === input.id) : null;
+    if (input.id && existing?.venueId !== venue.id) throw fail('Sarjakorttia ei löytynyt.', 'not_found');
+    const { value, error } = checkPassProduct(input, { sports: sportsOf(venue, { all: true }).map((s) => s.value) });
+    if (error) throw fail(error);
+    const product = existing || { id: newId('pp'), venueId: venue.id };
+    Object.assign(product, value);
+    if (!existing) {
+      db.booking.passProducts.push(product);
+    } else {
+      // An unpaid order is paid with the new content and price (as the RPC does).
+      const minutes = product.uses * product.minutesPerUse;
+      for (const pass of db.booking.passes) {
+        if (pass.productId !== product.id || pass.status !== 'pending') continue;
+        Object.assign(pass, { name: product.name, sport: product.sport, minutesTotal: minutes, minutesLeft: minutes, priceCents: product.priceCents });
+      }
+    }
+    return toStaffProduct(product);
+  });
+}
+
+export async function removeProduct(productId) {
+  return run(() => {
+    const product = db.booking.passProducts.find((p) => p.id === productId);
+    if (!product) throw fail('Sarjakorttia ei löytynyt.', 'not_found');
+    requireStaff(venueRow(product.venueId));
+    if (db.booking.passes.some((p) => p.productId === product.id)) {
+      throw fail('Tätä sarjakorttia on jo tilattu, joten sitä ei voi poistaa. Piilota se myynnistä.');
+    }
+    db.booking.passProducts.splice(db.booking.passProducts.indexOf(product), 1);
+  });
+}
+
+export async function saveGiftSettings(venueId, input = {}) {
+  return run(() => {
+    const venue = venueRow(venueId);
+    requireStaff(venue);
+    const { value, error } = checkGiftSettings(input);
+    if (error) throw fail(error);
+    const row = billingRow(venue.id);
+    row.gift = value;
+    row.updatedAt = nowIso();
+    return giftOf(venue.id);
   });
 }

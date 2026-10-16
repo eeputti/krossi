@@ -1,11 +1,13 @@
 // HallCards — Hallin näkymä → Kortit: series cards sold (owner, balance, valid until) and gift cards
 // (code, value, buyer, who redeemed it). The search box finds a player or a code at the counter.
+// What is for sale (products, gift card amounts) is set in Hallin asetukset.
 import { useMemo, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
+import { navigate } from '../../app/router.js';
 import { centsLabel } from '../../features/booking.js';
 import { dayMonth, hoursLeftLabel } from '../../features/seasons.js';
-import { Avatar, ErrorState, Input, Segmented, Skeleton, StatTile } from '../../ui/index.js';
+import { Avatar, Button, ErrorState, Input, Segmented, Skeleton, StatTile } from '../../ui/index.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const PASS_STATES = { active: 'Voimassa', used: 'Käytetty', expired: 'Vanhentunut', pending: 'Maksamatta' };
@@ -33,6 +35,7 @@ export function HallCards({ venue }) {
           <h2 className="bhall-view-title">Sarja- ja lahjakortit</h2>
           <p className="bhall-view-sub">Krossissa myydyt kortit ja niiden saldot</p>
         </div>
+        <Button variant="soft" size="sm" icon="settings" onClick={() => navigate(`/pelaa/halli/${venue.slug}?nakyma=asetukset`)}>Myytävät kortit</Button>
       </div>
       <div className="bhall-stats">
         <StatTile icon="repeat" label="Sarjakortit" value={all ? activePasses.length : wait} sub={all ? `voimassa · ${hoursLeftLabel(activePasses.reduce((s, p) => s + p.minutesLeft, 0))} pelaamatta` : null} />

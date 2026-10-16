@@ -9,6 +9,10 @@
 //   Invoices       Finnish reference number (7-3-1 check digit) and the bank's virtual barcode (v4)
 //   Credits        series cards hold minutes, gift balance holds cents; gift balance may pay part
 //                  of a booking, but the card then still pays at least MIN_CARD_CENTS
+//   Settings       what the hall edits in Hallin asetukset: seasons and their holidays (Finnish
+//                  holidays from Easter), series card products, gift card limits and the invoicing
+//                  details (Y-tunnus and IBAN check digits) — the same checks and messages as the
+//                  staff RPCs in 20261016120000_krossi_booking_hall_settings.sql
 //
 // Dates are 'YYYY-MM-DD' in the venue's local time (the browser's, as in booking.js).
 
@@ -336,3 +340,256 @@ export function normalizeGiftCode(input) {
 
 /** Date `days` after `key` (gift / pass validity). */
 export const validUntilFrom = (key, days) => addDays(key, days);
+
+// ── Holidays ─────────────────────────────────────────────────────────────────
+
+/** Easter Sunday of `year` (anonymous Gregorian algorithm), 'YYYY-MM-DD'. */
+export function easterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${year}-${pad(month)}-${pad(day)}`;
+}
+
+/** The first ISO `weekday` on or after `key`. */
+const weekdayFrom = (key, weekday) => addDays(key, (weekday - isoWeekday(localDate(key)) + 7) % 7);
+
+/**
+ * Finnish public holidays and the eves halls close for (jouluaatto, juhannusaatto,
+ * uudenvuodenaatto) from `fromKey` to `toKey`: [{ date, name }] by date. "Lisää Suomen pyhät" in
+ * the season editor adds them all; the hall takes off the ones it plays on.
+ */
+export function finnishHolidays(fromKey, toKey) {
+  const out = [];
+  for (let y = Number(String(fromKey).slice(0, 4)); y <= Number(String(toKey).slice(0, 4)); y += 1) {
+    const easter = easterSunday(y);
+    out.push(
+      { date: `${y}-01-01`, name: 'uudenvuodenpäivä' },
+      { date: `${y}-01-06`, name: 'loppiainen' },
+      { date: addDays(easter, -2), name: 'pitkäperjantai' },
+      { date: easter, name: 'pääsiäispäivä' },
+      { date: addDays(easter, 1), name: '2. pääsiäispäivä' },
+      { date: `${y}-05-01`, name: 'vappu' },
+      { date: addDays(easter, 39), name: 'helatorstai' },
+      { date: addDays(easter, 49), name: 'helluntaipäivä' },
+      { date: weekdayFrom(`${y}-06-19`, 5), name: 'juhannusaatto' },
+      { date: weekdayFrom(`${y}-06-20`, 6), name: 'juhannuspäivä' },
+      { date: weekdayFrom(`${y}-10-31`, 6), name: 'pyhäinpäivä' },
+      { date: `${y}-12-06`, name: 'itsenäisyyspäivä' },
+      { date: `${y}-12-24`, name: 'jouluaatto' },
+      { date: `${y}-12-25`, name: 'joulupäivä' },
+      { date: `${y}-12-26`, name: 'tapaninpäivä' },
+      { date: `${y}-12-31`, name: 'uudenvuodenaatto' },
+    );
+  }
+  return out.filter((x) => x.date >= fromKey && x.date <= toKey).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** 'itsenäisyyspäivä' for '2026-12-06'; null for an ordinary day. */
+export function holidayName(key) {
+  return finnishHolidays(key, key)[0]?.name ?? null;
+}
+
+// ── Hallin asetukset ─────────────────────────────────────────────────────────
+// What the hall's settings save. Each check returns { value, field, error }: the input as stored,
+// or the first problem as a Finnish message (the same ones the RPCs raise, in the same order), so
+// the demo backend refuses with it and the sheets show it under the field.
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const trimmed = (value) => String(value ?? '').trim();
+const isDay = (value) => DATE_RE.test(String(value || '')) && dateKey(localDate(value)) === value;
+const wholeEuros = (cents) => Number.isInteger(cents) && cents % 100 === 0;
+const utcDay = (key) => {
+  const [y, m, d] = String(key).split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+
+/** Days from `a` to `b` ('YYYY-MM-DD'). */
+export const daysBetween = (a, b) => Math.round((utcDay(b) - utcDay(a)) / 86_400_000);
+
+/** A season's holidays as saved: real days inside startsOn…endsOn, each once, in order. */
+export function seasonSkipDates(dates, startsOn, endsOn) {
+  return [...new Set((dates || []).filter((d) => isDay(d) && d >= startsOn && d <= endsOn))].sort();
+}
+
+export const SEASON_LIMITS = { maxDays: 400, maxDiscount: 90, maxSkipDates: 100 };
+
+/**
+ * SeasonInput -> { value, field, error }. `booked` = { from, until } of the season's active
+ * slots' weeks (the dates must still cover them); `isNew` refuses a season that is already over.
+ */
+export function checkSeason(input, { today = dateKey(new Date()), booked = null, isNew = false } = {}) {
+  const name = trimmed(input?.name);
+  const { startsOn, endsOn, discountPercent } = input || {};
+  const fail = (field, error) => ({ value: null, field, error });
+  if (!name) return fail('name', 'Anna kaudelle nimi.');
+  if (name.length > 80) return fail('name', 'Kauden nimi saa olla enintään 80 merkkiä.');
+  if (!isDay(startsOn) || !isDay(endsOn)) return fail('dates', 'Tarkista kauden päivät.');
+  if (endsOn < startsOn) return fail('dates', 'Kauden pitää päättyä alkamisen jälkeen.');
+  if (daysBetween(startsOn, endsOn) > SEASON_LIMITS.maxDays) return fail('dates', `Kausi voi olla enintään ${SEASON_LIMITS.maxDays} päivää.`);
+  if (isNew && endsOn < today) return fail('dates', 'Kausi on jo päättynyt. Tarkista päivät.');
+  if (booked?.from && (startsOn > booked.from || endsOn < booked.until)) {
+    return fail('dates', `Kauden kausivuoroja pelataan ${dayMonth(booked.from, true)}–${dayMonth(booked.until, true)}, joten kausi ei voi alkaa myöhemmin eikä päättyä aiemmin.`);
+  }
+  if (!Number.isInteger(discountPercent) || discountPercent < 0 || discountPercent > SEASON_LIMITS.maxDiscount) {
+    return fail('discountPercent', `Kausialennus on 0–${SEASON_LIMITS.maxDiscount} %.`);
+  }
+  const skipDates = seasonSkipDates(input.skipDates, startsOn, endsOn);
+  if (skipDates.length > SEASON_LIMITS.maxSkipDates) return fail('skipDates', `Pyhiä voi olla enintään ${SEASON_LIMITS.maxSkipDates}.`);
+  return {
+    value: { name, startsOn, endsOn, skipDates, discountPercent, requestsOpen: input.requestsOpen !== false },
+    field: null,
+    error: null,
+  };
+}
+
+export const PRODUCT_LIMITS = { maxUses: 200, minMinutes: 30, maxMinutes: 480, maxValidDays: 1825, minCents: 50, maxCents: 1_000_000 };
+
+/** PassProductInput -> { value, field, error }. `sports` = the sports the venue has courts for. */
+export function checkPassProduct(input, { sports = null } = {}) {
+  const name = trimmed(input?.name);
+  const description = trimmed(input?.description);
+  const { sport, uses, minutesPerUse, validDays, priceCents } = input || {};
+  const L = PRODUCT_LIMITS;
+  const fail = (field, error) => ({ value: null, field, error });
+  if (!name) return fail('name', 'Anna sarjakortille nimi.');
+  if (name.length > 80) return fail('name', 'Nimi saa olla enintään 80 merkkiä.');
+  if (!['tennis', 'padel', 'sulkapallo', 'squash'].includes(sport)) return fail('sport', 'Valitse laji.');
+  if (sports && !sports.includes(sport)) return fail('sport', 'Hallissa ei ole tämän lajin kenttiä.');
+  if (!Number.isInteger(uses) || uses < 1 || uses > L.maxUses) return fail('uses', `Kertoja on 1–${L.maxUses}.`);
+  if (!Number.isInteger(minutesPerUse) || minutesPerUse < L.minMinutes || minutesPerUse > L.maxMinutes || minutesPerUse % 30) {
+    return fail('minutesPerUse', 'Kerran pituus on 30 min – 8 h puolen tunnin välein.');
+  }
+  if (!Number.isInteger(validDays) || validDays < 1 || validDays > L.maxValidDays) return fail('validDays', `Voimassaolo on 1–${L.maxValidDays} päivää.`);
+  if (!Number.isInteger(priceCents) || priceCents < L.minCents || priceCents > L.maxCents) return fail('priceCents', 'Hinta on 0,50–10 000 €.');
+  if (description.length > 300) return fail('description', 'Kuvaus saa olla enintään 300 merkkiä.');
+  return {
+    value: { name, sport, uses, minutesPerUse, validDays, priceCents, description: description || null, active: input.active !== false },
+    field: null,
+    error: null,
+  };
+}
+
+export const GIFT_LIMITS = { minCents: 100, maxCents: 100_000, maxAmounts: 6, minValidDays: 30, maxValidDays: 1825 };
+
+/** GiftSettings -> { value, field, error } (amounts sorted, each once). */
+export function checkGiftSettings(input) {
+  const { minCents, maxCents, validDays } = input || {};
+  const L = GIFT_LIMITS;
+  const fail = (field, error) => ({ value: null, field, error });
+  const inRange = (c) => wholeEuros(c) && c >= L.minCents && c <= L.maxCents;
+  if (!inRange(minCents)) return fail('minCents', 'Pienin summa on 1–1000 € täysinä euroina.');
+  if (!inRange(maxCents)) return fail('maxCents', 'Suurin summa on 1–1000 € täysinä euroina.');
+  if (minCents > maxCents) return fail('minCents', 'Pienin summa ei voi olla suurempi kuin suurin.');
+  const amounts = [...new Set(Array.isArray(input.amounts) ? input.amounts : [])].sort((a, b) => a - b);
+  if (amounts.length < 1 || amounts.length > L.maxAmounts) return fail('amounts', `Valitse 1–${L.maxAmounts} valmista summaa.`);
+  if (!amounts.every((c) => wholeEuros(c) && c >= minCents && c <= maxCents)) {
+    return fail('amounts', `Valmiiden summien pitää olla täysiä euroja välillä ${minCents / 100}–${maxCents / 100} €.`);
+  }
+  if (!Number.isInteger(validDays) || validDays < L.minValidDays || validDays > L.maxValidDays) {
+    return fail('validDays', `Voimassaolo on ${L.minValidDays}–${L.maxValidDays} päivää.`);
+  }
+  return { value: { amounts, minCents, maxCents, validDays }, field: null, error: null };
+}
+
+/**
+ * Y-tunnus as stored ('1234567-1') from what was typed — '1234567-1', '12345671', an old six-digit
+ * '123456-7' (gets a leading zero) or the VAT number 'FI12345671' — or null when it isn't one. The
+ * check digit: digits × 7, 9, 10, 5, 8, 4, 2, the sum mod 11 taken from 11 (0 stays 0; 1 is never valid).
+ */
+export function normalizeBusinessId(input) {
+  let raw = String(input || '').toUpperCase().replace(/\s/g, '');
+  if (/^FI\d{8}$/.test(raw)) raw = raw.slice(2);
+  if (/^\d{8}$/.test(raw)) raw = `${raw.slice(0, 7)}-${raw.slice(7)}`;
+  if (/^\d{6}-\d$/.test(raw)) raw = `0${raw}`;
+  if (!/^\d{7}-\d$/.test(raw)) return null;
+  const sum = [7, 9, 10, 5, 8, 4, 2].reduce((total, w, i) => total + w * Number(raw[i]), 0);
+  const rest = sum % 11;
+  if (rest === 1) return null;
+  return (rest === 0 ? 0 : 11 - rest) === Number(raw[8]) ? raw : null;
+}
+
+/**
+ * IBAN as stored ('FI2112345600000785': capitals, no spaces), or null: ISO 13616 — the first four
+ * characters moved to the end, letters as 10–35, the number mod 97 = 1. A Finnish one is 18 long.
+ */
+export function normalizeIban(input) {
+  const iban = String(input || '').toUpperCase().replace(/[\s-]/g, '');
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return null;
+  if (iban.startsWith('FI') && iban.length !== 18) return null;
+  let rest = 0;
+  for (const ch of iban.slice(4) + iban.slice(0, 4)) {
+    const digits = ch >= 'A' ? String(ch.charCodeAt(0) - 55) : ch;
+    for (const d of digits) rest = (rest * 10 + Number(d)) % 97;
+  }
+  return rest === 1 ? iban : null;
+}
+
+/** BIC as stored ('NDEAFIHH'), or null when it isn't 8 or 11 characters of the right kind. */
+export function normalizeBic(input) {
+  const bic = String(input || '').toUpperCase().replace(/\s/g, '');
+  return /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(bic) ? bic : null;
+}
+
+export const isEmail = (value) => EMAIL_RE.test(String(value || '')) && String(value).length <= 200;
+
+/**
+ * BillingSettingsInput -> { value, field, error }. Empty fields are saved empty (an invoice needs
+ * only the seller's name and IBAN, `ready`); filled ones must be right. nextInvoiceNumber null
+ * keeps the current one; a new one must be above `lastInvoiceNumber`, the biggest used so far.
+ */
+export function checkBillingSettings(input, { lastInvoiceNumber = 0 } = {}) {
+  const fail = (field, error) => ({ value: null, field, error });
+  const sellerName = trimmed(input?.sellerName);
+  const address = trimmed(input?.address);
+  const rawBusinessId = trimmed(input?.businessId);
+  const rawIban = trimmed(input?.iban);
+  const rawBic = trimmed(input?.bic);
+  const email = trimmed(input?.email);
+  const phone = trimmed(input?.phone);
+  const { vatPercent, paymentTermsDays, nextInvoiceNumber } = input || {};
+  if (sellerName.length > 120) return fail('sellerName', 'Nimi saa olla enintään 120 merkkiä.');
+  const businessId = rawBusinessId ? normalizeBusinessId(rawBusinessId) : null;
+  if (rawBusinessId && !businessId) return fail('businessId', 'Tarkista Y-tunnus (muoto 1234567-8).');
+  if (address.length > 200) return fail('address', 'Osoite saa olla enintään 200 merkkiä.');
+  const iban = rawIban ? normalizeIban(rawIban) : null;
+  if (rawIban && !iban) return fail('iban', 'Tarkista tilinumero (IBAN).');
+  const bic = rawBic ? normalizeBic(rawBic) : null;
+  if (rawBic && !bic) return fail('bic', 'Tarkista BIC-koodi.');
+  if (bic && iban?.startsWith('FI') && bic.slice(4, 6) !== 'FI') return fail('bic', 'Suomalaisen tilinumeron BIC-koodissa on FI (esim. NDEAFIHH).');
+  if (email && !isEmail(email)) return fail('email', 'Tarkista sähköpostiosoite.');
+  if (phone && !/^[0-9+()\- ]{5,40}$/.test(phone)) return fail('phone', 'Tarkista puhelinnumero.');
+  if (typeof vatPercent !== 'number' || !Number.isFinite(vatPercent) || vatPercent < 0 || vatPercent > 50
+    || Math.abs(Math.round(vatPercent * 10) - vatPercent * 10) > 1e-9) {
+    return fail('vatPercent', 'ALV-prosentti on 0–50 (esim. 14 tai 25,5).');
+  }
+  if (!Number.isInteger(paymentTermsDays) || paymentTermsDays < 0 || paymentTermsDays > 90) return fail('paymentTermsDays', 'Maksuaika on 0–90 päivää.');
+  if (nextInvoiceNumber != null) {
+    if (!Number.isInteger(nextInvoiceNumber) || nextInvoiceNumber < 1 || nextInvoiceNumber > 999_999_999) {
+      return fail('nextInvoiceNumber', 'Tarkista seuraavan laskun numero.');
+    }
+    if (nextInvoiceNumber <= lastInvoiceNumber) {
+      return fail('nextInvoiceNumber', `Seuraavan laskun numeron pitää olla suurempi kuin viimeisimmän laskun (${lastInvoiceNumber}).`);
+    }
+  }
+  return {
+    value: {
+      sellerName, businessId, address: address || null, iban, bic, email: email || null, phone: phone || null,
+      vatPercent, paymentTermsDays, nextInvoiceNumber: nextInvoiceNumber ?? null,
+    },
+    field: null,
+    error: null,
+  };
+}

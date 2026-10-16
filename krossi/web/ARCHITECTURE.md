@@ -96,7 +96,7 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/liigat` | leagues | pelit | page |
 | `/pelaa/liiga/:id` | league | pelit | page (kirjautumaton: julkinen sarjataulukko) |
 | `/pelaa/varaa`, `/pelaa/varaa/:venue` | booking, bookingVenue | pelit | page |
-| `/pelaa/halli/:venue` (`?nakyma=kausivuorot\|laskutus\|kortit`) | hall | pelit | page (hallin henkilökunta) |
+| `/pelaa/halli/:venue` (`?nakyma=kausivuorot\|laskutus\|kortit\|asetukset`) | hall | pelit | page (hallin henkilökunta) |
 | `/pelaa/osuus/:id` | share | pelit | page (osuus jaetusta kenttävuorosta; ei vaadi avausmaksua) |
 | `/pelaa/omat-varaukset` | myBookings | pelit | page (vuorot, kausivuorot, sarja- ja lahjakortit) |
 | `/pelaa/lasku/:id` | invoice | pelit | full (tulostettava lasku: henkilökunta ja haltija) |
@@ -254,7 +254,11 @@ Hallin näkymässä välilehdet `?nakyma=kausivuorot|laskutus|kortit` (`HallSeas
 hakemusten hyväksyntä kenttä- ja varattujen viikkojen kanssa, oma kausivuoro seuralle laskulla,
 päättäminen; `HallBilling`: laskut, korttiveloitukset ja "Veloita erääntyneet"; `HallCards`). Kausivuoron
 viikot ovat varauksia (`kind: 'season'`, oma väri aikajanalla); yksittäisen viikon voi vapauttaa.
-Tulostettava lasku `/pelaa/lasku/:id`. Tietokanta: `supabase/migrations/20261016100000_…` (+ Lahden seed
+Tulostettava lasku `/pelaa/lasku/:id`. **Hallin asetukset** (`?nakyma=asetukset`, ratas yläpalkissa; `HallSettings` +
+`SeasonSettingsSheet`, `PassProductSheet`, `GiftSettingsSheet`, `BillingSettingsSheet`): kaudet (päivät, pyhät + "Lisää
+Suomen pyhät", kausialennus, haku auki), sarjakorttituotteet (myynnissä / piilotettu), lahjakorttien summat ja laskutustiedot
+(Y-tunnuksen tarkiste, IBAN mod 97). Tarkistukset `features/seasons.js` (`checkSeason` …), SQL `…120000_krossi_booking_hall_settings.sql`.
+Pelaaja saa sähköpostin, kun halli hyväksyy tai hylkää hakemuksen (`krossi-billing` `seasonDecided`, `SeasonSlot.notifiedAt`). Tietokanta: `supabase/migrations/20261016100000_…` (+ Lahden seed
 `…100100`), edge-funktio `krossi-billing` (kortti, kuukausiveloitukset off-session, korttien osto, laskun
 sähköposti); `krossi-booking` veloittaa hinnasta lahjakorttiosuuden pois.
 

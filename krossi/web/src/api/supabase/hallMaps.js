@@ -101,6 +101,19 @@ export function mapSlot(raw) {
     charges: list(raw.charges).map(mapCharge),
     createdAt: iso(raw.createdAt),
     decidedAt: iso(raw.decidedAt),
+    notifiedAt: iso(raw.notifiedAt),
+  };
+}
+
+/** StaffSeason: Season + the settings view's counts. */
+export function mapStaffSeason(raw) {
+  return {
+    ...mapSeason(raw),
+    activeSlots: number(raw.activeSlots),
+    requests: number(raw.requests),
+    bookedFrom: day(raw.bookedFrom),
+    bookedUntil: day(raw.bookedUntil),
+    removable: raw.removable === true,
   };
 }
 
@@ -163,6 +176,42 @@ export function mapProduct(raw) {
     validDays: number(raw.validDays),
     priceCents: number(raw.priceCents),
     description: text(raw.description),
+  };
+}
+
+/** StaffPassProduct: PassProduct + for sale, sold, removable. */
+export function mapStaffProduct(raw) {
+  return { ...mapProduct(raw), active: raw.active !== false, sold: number(raw.sold), removable: raw.removable === true };
+}
+
+/** GiftSettings (null when the RPC gave none). */
+export function mapGift(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  return {
+    amounts: list(raw.amounts).map((n) => number(n)).filter((n) => n > 0),
+    minCents: number(raw.minCents, 1000),
+    maxCents: number(raw.maxCents, 30000),
+    validDays: number(raw.validDays, 365),
+  };
+}
+
+/** BillingSettings (laskutustiedot). */
+export function mapBillingSettings(raw, venueId) {
+  return {
+    venueId: raw?.venueId || venueId,
+    sellerName: text(raw?.sellerName, ''),
+    businessId: text(raw?.businessId),
+    address: text(raw?.address),
+    iban: text(raw?.iban),
+    bic: text(raw?.bic),
+    email: text(raw?.email),
+    phone: text(raw?.phone),
+    vatPercent: number(raw?.vatPercent, 14),
+    paymentTermsDays: number(raw?.paymentTermsDays, 14),
+    nextInvoiceNumber: number(raw?.nextInvoiceNumber, 1001),
+    lastInvoiceNumber: number(raw?.lastInvoiceNumber),
+    ready: raw?.ready === true,
+    updatedAt: iso(raw?.updatedAt),
   };
 }
 
