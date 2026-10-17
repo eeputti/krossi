@@ -1,0 +1,120 @@
+/* tour.css — the demo's guided tour (screens/tour/DemoTour.jsx): a dimmed page with one lit-up
+   hole, a lime ring that pings when it lands, and a card that says what is there. */
+
+.tour { position: fixed; inset: 0; z-index: 300; animation: tour-fade var(--dur-3) var(--ease-out) both; }
+.tour-block { position: absolute; inset: 0; }
+
+.tour-hole { position: fixed; pointer-events: none; box-shadow: 0 0 0 200vmax rgba(10, 10, 10, 0.66); }
+.tour-hole.is-closed { background: rgba(10, 10, 10, 0.66); }
+.tour-ring {
+  position: fixed; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--lime), 0 0 0 7px rgba(207, 228, 20, 0.22);
+  animation: tour-fade var(--dur-3) var(--ease-out) both;
+}
+.tour-ping { position: absolute; inset: 0; border-radius: inherit; animation: tour-ping 1.25s var(--ease-out) 0.5s 2 both; }
+
+/* Hole, ring and card glide only right after a step changes; otherwise they stick to the target. */
+.tour.is-gliding .tour-hole,
+.tour.is-gliding .tour-ring {
+  transition: top 0.55s var(--ease-out), left 0.55s var(--ease-out), width 0.55s var(--ease-out),
+    height 0.55s var(--ease-out), border-radius 0.55s var(--ease-out);
+}
+
+.tour-card {
+  position: fixed; z-index: 1; box-sizing: border-box;
+  background: var(--surface); color: var(--ink); border-radius: var(--r-2xl); box-shadow: var(--shadow-3);
+  transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out);
+}
+.tour.is-gliding .tour-card {
+  transition: top 0.55s var(--ease-out), left 0.55s var(--ease-out),
+    opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out);
+}
+.tour-card.is-hidden { opacity: 0; transform: translateY(8px) scale(0.98); pointer-events: none; }
+.tour-card-inner { position: relative; padding: 14px 16px; }
+.tour-card-inner.is-nudged { animation: tour-nudge 0.34s var(--ease-out); }
+
+.tour-arrow { position: absolute; width: 14px; height: 14px; border-radius: 3px; background: var(--surface); transform: rotate(45deg); }
+.tour-card.is-bottom .tour-arrow { top: -6px; left: calc(var(--arrow) - 7px); }
+.tour-card.is-top .tour-arrow { bottom: -6px; left: calc(var(--arrow) - 7px); }
+.tour-card.is-right .tour-arrow { left: -6px; top: calc(var(--arrow) - 7px); }
+
+.tour-card-head { display: flex; align-items: center; gap: 9px; }
+.tour-icon {
+  flex: none; display: grid; place-items: center; width: 30px; height: 30px;
+  border-radius: var(--r-sm); background: var(--lime); color: var(--ink);
+}
+.tour-area {
+  flex: 1; min-width: 0; color: var(--muted);
+  font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.tour-count { font-size: 13px; font-weight: 800; }
+.tour-count span { color: var(--faint); font-weight: 700; }
+.tour-close { margin-right: -6px; }
+
+.tour-card-body { animation: tour-in 0.38s var(--ease-out) both; }
+.tour-title { margin: 12px 0 6px; font-size: 19px; font-weight: 800; line-height: 1.2; letter-spacing: -0.015em; }
+.tour-text { margin: 0; color: var(--ink-2); font-size: 14.5px; line-height: 1.5; }
+
+.tour-progress { display: flex; gap: 4px; margin: 14px 0 12px; }
+.tour-pip {
+  flex: 1 1 0; height: 4px; border-radius: var(--r-pill); background: var(--line);
+  transition: background-color var(--dur-3) var(--ease-out), flex-grow var(--dur-3) var(--ease-out);
+}
+.tour-pip.is-done { background: var(--ink); }
+.tour-pip.is-now { flex-grow: 2.6; background: var(--lime); }
+
+.tour-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tour-actions .btn-ghost { margin-left: -10px; }
+
+/* The welcome card: dark, centred, a ball that drops in and the topics one by one. */
+.tour-welcome { background: var(--green-800); color: var(--on-dark); text-align: center; animation: tour-pop 0.5s var(--ease-out) both; }
+.tour-welcome .tour-card-inner { padding: 26px 22px 18px; }
+.tour-welcome-ball { display: flex; justify-content: center; margin-bottom: 14px; animation: tour-drop 0.95s linear 0.1s both; }
+.tour-welcome-eyebrow { color: var(--lime); font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.tour-welcome-title { margin: 6px 0 8px; font-size: 28px; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; }
+.tour-welcome-text { max-width: 34ch; margin: 0 auto; color: var(--on-dark-muted); font-size: 15px; line-height: 1.5; }
+.tour-topics { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 16px 0 20px; padding: 0; list-style: none; }
+.tour-topics li {
+  padding: 6px 11px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.07); font-size: 12.5px; font-weight: 700;
+  animation: tour-in 0.4s var(--ease-out) both; animation-delay: calc(0.35s + var(--i) * 70ms);
+}
+.tour-welcome-actions { display: grid; gap: 2px; }
+.tour-welcome-skip {
+  padding: 10px; border: 0; border-radius: var(--r-md); background: none; color: var(--on-dark-muted);
+  font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.tour-welcome-skip:hover { color: var(--on-dark); }
+.tour-welcome-skip:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+.tour-welcome-note { margin: 2px 0 0; color: rgba(255, 255, 255, 0.5); font-size: 12px; }
+
+/* Profiili → Näytä opastus (demo) */
+.tour-restart { margin-top: var(--s4); }
+.tour-restart .list-row-icon { background: var(--lime); color: var(--ink); }
+
+@keyframes tour-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tour-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes tour-pop { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes tour-ping {
+  from { box-shadow: 0 0 0 0 rgba(207, 228, 20, 0.8); }
+  to { box-shadow: 0 0 0 18px rgba(207, 228, 20, 0); }
+}
+@keyframes tour-nudge {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
+/* Dropped from above, two small bounces, then still. */
+@keyframes tour-drop {
+  0% { opacity: 0; transform: translateY(-48px) rotate(-40deg); animation-timing-function: cubic-bezier(0.5, 0, 1, 1); }
+  42% { opacity: 1; transform: translateY(0) rotate(10deg); animation-timing-function: cubic-bezier(0, 0, 0.5, 1); }
+  64% { transform: translateY(-14px) rotate(28deg); animation-timing-function: cubic-bezier(0.5, 0, 1, 1); }
+  82% { transform: translateY(0) rotate(40deg); animation-timing-function: cubic-bezier(0, 0, 0.5, 1); }
+  91% { transform: translateY(-4px) rotate(44deg); animation-timing-function: cubic-bezier(0.5, 0, 1, 1); }
+  100% { opacity: 1; transform: translateY(0) rotate(45deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour, .tour * { animation: none !important; transition: none !important; }
+}

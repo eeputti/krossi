@@ -357,3 +357,12 @@ avoimia ja menneitä pelejä, keskusteluja, tuloksia, liiga ja merkkejä. Mikä�
 (sivun lataus nollaa). Ylhäällä ohut banneri "Demotila — mikään ei tallennu · Luo oma tili".
 Demon pitää näyttää elävältä: viestiin vastataan muutaman sekunnin päästä, liittyminen
 täyttää pelin ja laukaisee konfetin.
+
+**Opastus** (`screens/tour/`, `styles/tour.css`): ensimmäisellä käynnillä avautuu tervetulokortti ja
+10 askeleen opastus, joka avaa sovelluksen sivut itse ja korostaa yhden kohdan kerrallaan (muu sivu
+himmenee, korostus liukuu kohteesta toiseen): Omat, Varaa (paikka/päivä/kesto, vapaat ajat), Omat
+varaukset -nappi ja -sivu, hallin henkilökunnan nappi, päivän aikajana, laskutus, Peliseura ja lopuksi
+Profiilin *Näytä opastus*, josta opastuksen saa uudelleen. Askeleet `tourSteps.js` (kohteet
+`data-tour`-attribuutteina tai luokkina), tila `tourState.js` (suljettu = localStorage
+`krossi_demo_tour_done`). Ei avaudu etusivun puhelinkehyksessä (iframe); `?opastus=1` avaa aina,
+`?opastus=0` ei koskaan.

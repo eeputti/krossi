@@ -378,10 +378,11 @@ export function BookingScreen({ params, query, route }) {
               label={upcoming.length ? `Omat varaukset (${upcoming.length} tulossa)` : 'Omat varaukset'}
               badge={upcoming.length || undefined}
               className="bk-mine-btn"
+              data-tour="bk-mine"
               onClick={() => navigate('/pelaa/omat-varaukset')}
             />
             {venue.isStaff && (
-              <IconButton icon="grid" label="Hallin näkymä" onClick={() => navigate(`/pelaa/halli/${encodeURIComponent(venue.slug)}`)} />
+              <IconButton icon="grid" label="Hallin näkymä" data-tour="bk-hall" onClick={() => navigate(`/pelaa/halli/${encodeURIComponent(venue.slug)}`)} />
             )}
           </>
         )}
@@ -420,7 +421,7 @@ export function BookingScreen({ params, query, route }) {
           </div>
         )}
 
-        <section className="bk-controls" aria-label="Valitse aika">
+        <section className="bk-controls" aria-label="Valitse aika" data-tour="bk-controls">
           {sports.length > 1 && (
             <Segmented
               ariaLabel="Laji"

@@ -166,7 +166,7 @@ export function MyBookingsScreen({ query }) {
     <>
       <TopBar title="Omat varaukset" back={`/pelaa/varaa/${encodeURIComponent(venue.slug)}`} />
       <Page className="bk-page ss-page">
-        <section className="bk-section" aria-labelledby="ss-upcoming">
+        <section className="bk-section" aria-labelledby="ss-upcoming" data-tour="mb-upcoming">
           <div className="ss-section-head">
             <h2 className="bk-h" id="ss-upcoming">Tulevat vuorot</h2>
             <Button variant="soft" size="sm" icon="calendar" onClick={() => navigate(`/pelaa/varaa/${encodeURIComponent(venue.slug)}`)}>Varaa</Button>

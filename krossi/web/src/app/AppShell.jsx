@@ -6,6 +6,7 @@ import { useIsDesktop, useResync } from './hooks.js';
 import { Link, navigate, navigationType, savedScroll, useRoute } from './router.js';
 import { matchRoute, PHONE_TABS, TABS, tabRoot } from './routes.js';
 import { SCREENS, NotFoundScreen } from './screens.js';
+import { DemoTour } from '../screens/tour/DemoTour.jsx';
 import { useSession } from './session.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -41,7 +42,7 @@ const tabIcon = (name, isActive) => (isActive && ICON_NAMES.includes(`${name}-fi
 // Phones: Omat · Varaa · Peliseura · Viestit (Profiili is the avatar on Omat).
 function TabBar({ active, unread }) {
   const item = (t) => (
-    <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
+    <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined} data-tour={`tab-${t.id}`}>
       <span className="tabbar-icon">
         <Icon name={tabIcon(t.icon, active === t.id)} size={23} strokeWidth={1.9} />
         {t.id === 'viestit' && unread > 0 && <span className="tabbar-badge">{unread > 9 ? '9+' : unread}</span>}
@@ -63,7 +64,7 @@ function SideNav({ active, unread }) {
       <Link to="/pelaa/koti" className="sidenav-logo" aria-label="Krossi — omat">Krossi</Link>
       <nav className="sidenav-links" aria-label="Päävalikko">
         {TABS.map((t) => (
-          <Link key={t.id} to={t.path} className={cx('sidenav-link', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
+          <Link key={t.id} to={t.path} className={cx('sidenav-link', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined} data-tour={`tab-${t.id}`}>
             <Icon name={tabIcon(t.icon, active === t.id)} size={20} />
             <span>{t.label}</span>
             {t.id === 'viestit' && unread > 0 && <span className="sidenav-badge">{unread > 9 ? '9+' : unread}</span>}
@@ -142,6 +143,7 @@ export function AppShell() {
       </div>
       {overlay && renderScreen({ name: route.name, params: route.params, route: route.route }, { query: route.query })}
       {!isDesktop && !hideChrome && <TabBar active={activeTab} unread={unread} />}
+      {isDemo && <DemoTour />}
     </div>
   );
 }
