@@ -54,6 +54,14 @@ export function weekDates(w) {
   return Array.from({ length: 7 }, (_, i) => koutsiAddDays(first, i));
 }
 
+/** "12.–18.10.2026", or "28.9.–4.10.2026" across a month: Viikkohallinta's and the planner's week head. */
+export function weekRangeLabel(w) {
+  const dates = weekDates(w);
+  const [a, b] = [dates[0], dates[6]];
+  const dm = (d) => `${Number(d.slice(8))}.${Number(d.slice(5, 7))}.`;
+  return a.slice(5, 7) === b.slice(5, 7) ? `${Number(a.slice(8))}.–${dm(b)}${b.slice(0, 4)}` : `${dm(a)}–${dm(b)}${b.slice(0, 4)}`;
+}
+
 /** "ti 14.10." */
 export function shortDay(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);

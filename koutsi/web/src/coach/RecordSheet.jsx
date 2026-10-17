@@ -1,5 +1,5 @@
-// RecordSheet — a coach's note ("Huomio") or homework for one player or many: who it's for
-// (picked from a group in one tap), the text, and a health-data reminder. Each player gets
+// RecordSheet — a coach's note ("Huomio") or homework for one player or many: the text, a
+// health-data reminder, and who it's for (picked from a group in one tap). Each player gets
 // their own copy on their timeline and their own notification; homework is ticked off by each
 // player separately. Editing one existing entry stays in playerForms' TextEntrySheet.
 import { useEffect, useState } from 'react';
@@ -66,14 +66,15 @@ export function RecordSheet({ open, kind, initialIds = [], onClose }) {
           <Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>{ids.length > 1 ? `Lähetä ${ids.length} pelaajalle` : 'Lähetä'}</Button>
         </div>
       )}>
+      {/* The text first: the player list can be long, and the field must never sink under it. */}
       <div className="stack-4">
-        <Field label={`Kenelle${ids.length ? ` (${ids.length})` : ''}`}>
-          <RecipientPicker students={state.students} groups={state.groups} value={ids} onChange={setIds} open={open} />
-        </Field>
         <Field label={kind === 'homework' ? 'Läksy' : 'Huomio'} htmlFor="record-text">
           <Textarea id="record-text" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={k.placeholder} maxLength={4000} />
         </Field>
         <p className="k-warn-text">{HEALTH_NOTE}</p>
+        <Field label={`Kenelle${ids.length ? ` (${ids.length})` : ''}`}>
+          <RecipientPicker students={state.students} groups={state.groups} value={ids} onChange={setIds} open={open} />
+        </Field>
       </div>
     </Sheet>
   );

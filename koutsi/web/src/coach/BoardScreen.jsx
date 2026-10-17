@@ -18,7 +18,7 @@ import {
   koutsiAddIsoWeeks, koutsiCompareIsoWeeks, koutsiCurrentIsoWeek, koutsiIsoWeekOfDateStr, koutsiTimeRangeLabel, koutsiTodayStr,
   KOUTSI_EVENT_KINDS,
 } from '../domain/core.js';
-import { parseWeekParam, themeWeekRelative, weekDates, weekParam } from '../domain/week.js';
+import { parseWeekParam, themeWeekRelative, weekDates, weekParam, weekRangeLabel } from '../domain/week.js';
 import { weekBoard } from '../domain/board.js';
 import { GroupRow } from './parts.jsx';
 import { AddSheet, BoardItemSheet, WeekPickerSheet } from './boardSheets.jsx';
@@ -37,13 +37,6 @@ const BASE = '/valmentaja/ryhmat';
 export const dayMonth = (date) => `${Number(date.slice(8))}.${Number(date.slice(5, 7))}.`;
 const kindLabel = (k) => KOUTSI_EVENT_KINDS.find((x) => x.value === k)?.label || 'Tapahtuma';
 const plural = (n, one, many) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
-
-/** "12.–18.10.2026", or "28.9.–4.10.2026" across a month. */
-function weekRange(dates) {
-  const [a, b] = [dates[0], dates[6]];
-  const year = b.slice(0, 4);
-  return a.slice(5, 7) === b.slice(5, 7) ? `${Number(a.slice(8))}.–${dayMonth(b)}${year}` : `${dayMonth(a)}–${dayMonth(b)}${year}`;
-}
 
 /** A point on the grid: `calc(hours * hour height + folds * fold height)`. */
 const y = ({ h, g }) => `calc(${h.toFixed(4)} * var(--wb-hour) + ${g} * var(--wb-fold))`;
@@ -208,8 +201,8 @@ export function BoardScreen({ query }) {
             <IconButton icon="chevron-right" label="Seuraava viikko" variant="soft" onClick={() => setWeek(koutsiAddIsoWeeks(week, 1))} />
           </div>
           <div className="wb-meta">
-            <button type="button" className="wb-range" onClick={() => setSheet({ kind: 'pick' })} aria-label={`${weekRange(dates)} — valitse viikko`}>
-              <span className="t-num">{weekRange(dates)}</span><Icon name="chevron-down" size={14} />
+            <button type="button" className="wb-range" onClick={() => setSheet({ kind: 'pick' })} aria-label={`${weekRangeLabel(week)} — valitse viikko`}>
+              <span className="t-num">{weekRangeLabel(week)}</span><Icon name="chevron-down" size={14} />
             </button>
             <span className="wb-counts">{plural(state.groups.length, 'ryhmä', 'ryhmää')} · {plural(board.sessions, 'treeni', 'treeniä')}</span>
           </div>
