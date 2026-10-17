@@ -102,7 +102,24 @@ export function gridHours(intervals) {
   return { startH, endH, rows: merged, at, hours: merged.reduce((n, r) => n + (r.type === 'hours' ? r.to - r.from : 0), 0), folds: merged.filter((r) => r.type === 'fold').length };
 }
 
-/** Club events of the week as bars over the days: { event, from, to (day index 0–6), row }. */
+const WEEKDAY_SHORT = ['su', 'ma', 'ti', 'ke', 'to', 'pe', 'la'];
+
+/** An event's days: "la 24.10.", "pe 16.–su 18.10." or "to 29.10.–su 1.11.". */
+export function eventRangeLabel(event) {
+  const part = (date) => {
+    const [y, m, d] = date.split('-').map(Number);
+    return { dow: WEEKDAY_SHORT[new Date(y, m - 1, d).getDay()], d, m };
+  };
+  const a = part(event.date);
+  if (!event.endDate || event.endDate === event.date) return `${a.dow} ${a.d}.${a.m}.`;
+  const b = part(event.endDate);
+  return a.m === b.m ? `${a.dow} ${a.d}.–${b.dow} ${b.d}.${b.m}.` : `${a.dow} ${a.d}.${a.m}.–${b.dow} ${b.d}.${b.m}.`;
+}
+
+/**
+ * Club events of the week as bars over the days: { event, from, to (day index 0–6), row,
+ * before, after } — before/after when the event goes on past this week's edge.
+ */
 export function weekEvents(state, dates) {
   const first = dates[0];
   const last = dates[6];
@@ -114,6 +131,8 @@ export function weekEvents(state, dates) {
       event,
       from: Math.max(0, dates.indexOf(event.date < first ? first : event.date)),
       to: Math.min(6, dates.indexOf((event.endDate || event.date) > last ? last : (event.endDate || event.date))),
+      before: event.date < first,
+      after: (event.endDate || event.date) > last,
     }));
   const rowEnds = [];
   for (const b of bars) {

@@ -5,9 +5,10 @@
 // Below, Monday to Sunday on a time grid — hour lines, times on the left — with every session
 // as a block at its time: light lime when all is set, light clay with a warning sign when
 // something is missing (no theme, no players, the calendar runs out), grey once held, dashed
-// when a group's usual session is missing that week. Club events run over the days above the
-// grid. A tap on a block opens everything that can be done for that session. A phone swipes
-// one day at a time, with a day strip to jump.
+// when a group's usual session is missing that week. Club events are dark bars over the days
+// they cover, right under the day heads — kind, name and days in each. A tap on a block opens
+// everything that can be done for that session. A phone shows one day at a time under a day
+// strip (dark lines under the days an event covers), the day's name, and its events as cards.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useData } from '../app/data.jsx';
 import { useIsDesktop, useNow } from '../app/hooks.js';
@@ -19,12 +20,12 @@ import {
   KOUTSI_EVENT_KINDS,
 } from '../domain/core.js';
 import { parseWeekParam, themeWeekRelative, weekDates, weekParam, weekRangeLabel } from '../domain/week.js';
-import { weekBoard } from '../domain/board.js';
+import { eventRangeLabel, weekBoard } from '../domain/board.js';
 import { GroupRow } from './parts.jsx';
 import { AddSheet, BoardItemSheet, WeekPickerSheet } from './boardSheets.jsx';
 import { GroupFormSheet } from './groupForms.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
-import { EventSheet, TrainingSheet } from './trainingForms.jsx';
+import { EVENT_ICON, EventSheet, TrainingSheet } from './trainingForms.jsx';
 import { openPlanner } from './nav.js';
 import { track } from './usage.js';
 
@@ -88,11 +89,19 @@ function BoardBlock({ item, grid, onOpen }) {
   );
 }
 
+/** A club event: its kind's icon, its name, and its kind and days under it. */
 function EventBar({ bar, onOpen, style }) {
   const { event } = bar;
+  const label = `${event.title} · ${kindLabel(event.kind)} · ${eventRangeLabel(event)}`;
   return (
-    <button type="button" className="wb-event" style={style} onClick={() => onOpen(event)} title={`${event.title} · ${kindLabel(event.kind)}`}>
-      <Icon name="flag" size={13} /><span className="wb-event-title">{event.title}</span><span className="wb-event-kind">{kindLabel(event.kind)}</span>
+    <button type="button" className={cx('wb-event', bar.before && 'is-before', bar.after && 'is-after')} style={style}
+      onClick={() => onOpen(event)} aria-label={`${label} — muokkaa`} title={label}>
+      <span className="wb-event-icon"><Icon name={EVENT_ICON[event.kind] || 'flag'} size={14} strokeWidth={2.2} /></span>
+      <span className="wb-event-text">
+        <span className="wb-event-title">{event.title}</span>
+        <span className="wb-event-sub">{kindLabel(event.kind)}<span className="wb-event-range"> · <span className="t-num">{eventRangeLabel(event)}</span></span></span>
+      </span>
+      <Icon name="chevron-right" size={16} className="wb-event-go" />
     </button>
   );
 }
@@ -190,6 +199,10 @@ export function BoardScreen({ query }) {
   const showNow = isCurrent && nowMin >= grid.startH * 60 && nowMin <= grid.endH * 60;
   const gridStyle = { '--wb-hours': grid.hours, '--wb-folds': grid.folds };
   const phoneEvents = board.events.bars.filter((b) => b.from <= active && b.to >= active);
+  const activeDay = board.days[active];
+  const activeSessions = activeDay.items.filter((it) => it.training).length;
+  const openEvent = (event) => setSheet({ kind: 'event', editing: event });
+  const addOn = (date) => { track('viikko.lisaa-treeni'); setSheet({ kind: 'training', date }); };
   return (
     <Page width="full" className="wb-page">
       <header className="wb-head">
@@ -220,34 +233,43 @@ export function BoardScreen({ query }) {
             <span className={cx('wb-strip-dot', d.items.some((it) => it.tone === 'issue') ? 'has-issue' : d.items.some((it) => it.training) && 'has-sessions')} aria-hidden="true" />
           </button>
         ))}
+        {board.events.bars.map((b) => (
+          <span key={b.event.id} className={cx('wb-strip-ev', b.before && 'is-before', b.after && 'is-after')} aria-hidden="true"
+            style={{ gridColumn: `${b.from + 1} / ${b.to + 2}`, gridRow: b.row + 2 }} />
+        ))}
+      </div>
+
+      <div className="wb-dayline">
+        <h2 className="wb-dayline-title">{DAY_LONG[active]} <span className="t-num">{dayMonth(activeDay.date)}</span></h2>
+        <span className="wb-dayline-sub">
+          {activeDay.date === today && <span className="wb-dayline-today">Tänään</span>}
+          {activeSessions ? plural(activeSessions, 'treeni', 'treeniä') : 'Ei treenejä'}
+        </span>
       </div>
 
       <div className="wb-cal" style={gridStyle}>
-        <div className="wb-heads" style={{ gridTemplateColumns: `var(--wb-axis) ${columns}` }}>
-          <span className="wb-corner" aria-hidden="true" />
-          {board.days.map((d, i) => (
-            <div key={d.date} className={cx('wb-dayhead', d.date === today && 'is-today', d.date < today && 'is-past')}>
-              <span className="wb-dayhead-dow">{DAY_SHORT[i]}</span>
-              <span className="wb-dayhead-date t-num">{dayMonth(d.date)}</span>
-            </div>
-          ))}
-        </div>
-
-        {board.events.bars.length > 0 && (
-          <>
+        <div className="wb-top">
+          <div className="wb-heads" style={{ gridTemplateColumns: `var(--wb-axis) ${columns}` }}>
+            <span className="wb-corner" aria-hidden="true" />
+            {board.days.map((d, i) => (
+              <div key={d.date} className={cx('wb-dayhead', d.date === today && 'is-today', d.date < today && 'is-past')}>
+                <span className="wb-dayhead-dow">{DAY_SHORT[i]}</span>
+                <span className="wb-dayhead-date t-num">{dayMonth(d.date)}</span>
+              </div>
+            ))}
+          </div>
+          {board.events.bars.length > 0 && (
             <div className="wb-allday" style={{ gridTemplateColumns: `var(--wb-axis) ${columns}` }}>
-              <span className="wb-corner wb-allday-label" style={{ gridRow: `1 / ${board.events.rows + 1}` }}>Tapah&shy;tumat</span>
               {board.events.bars.map((b) => (
-                <EventBar key={b.event.id} bar={b} onOpen={(event) => setSheet({ kind: 'event', editing: event })}
-                  style={{ gridColumn: `${b.from + 2} / ${b.to + 3}`, gridRow: b.row + 1 }} />
+                <EventBar key={b.event.id} bar={b} onOpen={openEvent} style={{ gridColumn: `${b.from + 2} / ${b.to + 3}`, gridRow: b.row + 1 }} />
               ))}
             </div>
-            {phoneEvents.length > 0 && (
-              <div className="wb-allday-phone">
-                {phoneEvents.map((b) => <EventBar key={b.event.id} bar={b} onOpen={(event) => setSheet({ kind: 'event', editing: event })} />)}
-              </div>
-            )}
-          </>
+          )}
+        </div>
+        {phoneEvents.length > 0 && (
+          <div className="wb-allday-phone">
+            {phoneEvents.map((b) => <EventBar key={b.event.id} bar={b} onOpen={openEvent} />)}
+          </div>
         )}
 
         <div className="wb-main">
@@ -268,7 +290,16 @@ export function BoardScreen({ query }) {
               {board.days.map((d, i) => (
                 <section key={d.date} aria-label={`${DAY_LONG[i]} ${dayMonth(d.date)}`}
                   className={cx('wb-day', d.date === today && 'is-today', d.date < today && 'is-past')}>
-                  {d.items.length === 0 && <p className="wb-day-empty">Ei treenejä</p>}
+                  {d.items.length === 0 && (
+                    <div className="wb-day-empty">
+                      <span className="wb-day-empty-text">Ei treenejä</span>
+                      {d.date >= today && (
+                        <button type="button" className="wb-day-add" onClick={() => addOn(d.date)} aria-label={`Lisää treeni: ${DAY_LONG[i]} ${dayMonth(d.date)}`}>
+                          <Icon name="plus" size={15} strokeWidth={2.4} />Lisää treeni
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {d.items.map((it) => <BoardBlock key={it.key} item={it} grid={grid} onOpen={openItem} />)}
                   {showNow && d.date === today && <span className="wb-now" style={{ top: y(grid.at(nowMin)) }} aria-hidden="true" />}
                 </section>
