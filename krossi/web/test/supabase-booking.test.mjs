@@ -263,7 +263,7 @@ test('listMine maps both lists; cancel returns the refunded amount', async () =>
   assert.deepEqual(fake.log.rpc, [{ name: 'krossi_my_bookings', args: {} }]);
   assert.deepEqual(mine.upcoming, [BOOKING_ROW]);
   assert.equal(mine.past[0].cancelledAt, '2026-10-13T08:00:00.000Z'); // normalised to toISOString()
-  assert.deepEqual(await booking.cancel(BOOKING), { refundedCents: 3000, creditCents: 0, creditMinutes: 0 });
+  assert.deepEqual(await booking.cancel(BOOKING), { refundedCents: 3000, feeCents: 0, creditCents: 0, creditMinutes: 0 });
   assert.deepEqual(fake.log.invoked.at(-1), { name: 'krossi-booking', body: { action: 'cancel', bookingId: BOOKING } });
 
   setClientForTests(fakeClient({ invoke: () => functionError('Peruutusaika on mennyt. Ota yhteyttä halliin.') }));

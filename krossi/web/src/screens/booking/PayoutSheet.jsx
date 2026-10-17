@@ -88,7 +88,7 @@ export function PayoutSheet({ open, onClose, venue, status }) {
         <p className="bk-fine">
           Kulut maksua kohden: Stripe {rateLabel(fee.stripeBps, fee.stripeFixedCents)}
           {margin ? ` ja Krossi ${rateLabel(fee.marginBps, fee.marginFixedCents)}` : ''}. Jaetussa maksussa jokainen osuus on oma maksunsa.
-          Peruttu tai palautettu maksu palautuu pelaajalle kokonaan; sen kulut eivät palaudu.
+          Kun pelaaja peruu, 1 € peruutuskulu jää hallille; kun halli peruu, pelaaja saa kaiken takaisin. Palautetun maksun kulut eivät palaudu.
           {status.state === 'ready' ? ' Stripe maksaa rahat hallin pankkitilille maanantaisin.' : ''}
         </p>
       </div>

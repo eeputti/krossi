@@ -1,9 +1,11 @@
 // BookingTerms — "Varausehdot": the court booking rules in a few short lines, in a sheet (from the
 // booking page's link and the booking sheet's "Maksamalla hyväksyt varausehdot"). Every rule is one
-// the app itself follows, with the hall's own numbers (hold time, free cancellation); split payment
-// and resale show only where the server has them.
+// the app itself follows, with the hall's own numbers (hold time, cancellation limit) and the 1 €
+// peruutuskulu (features/booking.js CANCEL_FEE_CENTS); split payment and resale show only where the
+// server has them.
 //
 //   <BookingTermsSheet open onClose venue />
+import { CANCEL_FEE_CENTS, centsLabel } from '../../features/booking.js';
 import { SUPPORT_EMAIL } from '../../lib/constants.js';
 import { Button, Sheet } from '../../ui/index.js';
 
@@ -11,9 +13,9 @@ import { Button, Sheet } from '../../ui/index.js';
 export function bookingTerms(venue) {
   return [
     ['Varaus', `Vuoro on sinun, kun maksu on mennyt läpi. Aika pidetään sinulle ${venue?.holdMinutes ?? 10} minuuttia maksamisen ajan. Hinnat sisältävät ALV:n.`],
-    ['Peruutus', `Voit perua maksutta ${venue?.cancelLimitHours ?? 24} h ennen vuoron alkua. Rahat palautuvat maksutavallesi ja sarja- tai lahjakortin saldo kortille.`],
+    ['Peruutus', `Voit perua vuoron ${venue?.cancelLimitHours ?? 24} h ennen sen alkua. Peruutuskulu on ${centsLabel(CANCEL_FEE_CENTS)}, ja loput palautuvat maksutavallesi. Sarjakortin tunnit ja lahjakorttisaldo palautuvat kokonaan. Jos halli peruu vuoron, saat kaiken takaisin.`],
     ...(venue?.resale ? [
-      ['Et pääsekään?', 'Peruutusajan jälkeen voit laittaa vuoron myyntiin. Kun joku varaa sen, saat kaiken takaisin.'],
+      ['Et pääsekään?', `Peruutusajan jälkeen voit laittaa vuoron myyntiin. Kun joku varaa sen, saat rahat takaisin peruutuskulua (${centsLabel(CANCEL_FEE_CENTS)}) lukuun ottamatta.`],
     ] : []),
     ...(venue?.splitPay ? [
       ['Jaettu maksu', 'Varaaja maksaa koko vuoron ja voi jakaa kavereille maksulinkin. Kun kaveri maksaa osuutensa, sama summa palautuu varaajalle. Jos vuoro perutaan, jokainen saa maksamansa takaisin.'],

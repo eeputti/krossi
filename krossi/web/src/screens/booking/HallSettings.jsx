@@ -328,7 +328,7 @@ function PricesAndRules({ venue }) {
     ['Aukiolo', `klo ${hoursLabel(venue.openFrom, venue.openUntil)}`],
     ['Vuoron kesto', venue.durations.map(durationLabel).join(' · ')],
     ['Varattavissa', `${venue.daysAhead} päivää eteenpäin`],
-    ['Maksuton peruutus', `${venue.cancelLimitHours} h ennen alkua, raha takaisin kortille`],
+    ['Peruutus', `${venue.cancelLimitHours} h ennen alkua, peruutuskulu 1 € jää hallille`],
     ['Maksun pitoaika', `${venue.holdMinutes} min`],
     ['Viime hetken ale', deal ? `−${deal.percent} %, kun alkuun on alle ${deal.hours} h` : 'Ei käytössä'],
   ];

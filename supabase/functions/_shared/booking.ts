@@ -12,22 +12,23 @@
 //                          booker told (krossi-notify booking_split_paid)
 //   refundParts            every paid part of a cancelled or sold booking back to where it came
 //                          from — what is left of the booker's payment and each friend's whole
-//                          payment — recorded with krossi_booking_parts_refunded
+//                          payment — recorded with krossi_booking_parts_refunded. When the booker
+//                          gave it up themselves (paysCancelFee), the peruutuskulu stays (fees.ts)
 //   cancelPendingShares    payments friends started on a cancelled or sold booking are cancelled
 //   afterBookingPaid       a confirmed booking: the on-sale bookings it took over are refunded and
 //                          their sellers told
 //
 // Refunds use idempotency keys that are the same in every function (`krossi-booking-refund-<payment
-// intent>` for a whole payment or what is left of it, `krossi-split-booker-refund-<share>` for a
-// share's amount back to the booker), so a refund happens once even when the webhook and the app
-// race. Stripe never refunds more than a payment has left, so a cancellation racing a share's
+// intent>` for a whole payment or what is left of it, `krossi-booking-cancel-refund-<payment
+// intent>-<cents>` for what is left of it minus the peruutuskulu, `krossi-split-booker-refund-<share>` for a share's
+// amount back to the booker), so a refund happens once even when the webhook and the app race. Stripe never refunds more than a payment has left, so a cancellation racing a share's
 // refund to the booker can't refund too much: whichever lands second gets what remains, or nothing.
 // Emails go through krossi-notify with the service-role key (internal events only it accepts).
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import type Stripe from 'npm:stripe@17.7.0';
-import { PAYEE_COLUMNS, type PayeeVenue, refundConnect } from './fees.ts';
+import { PAYEE_COLUMNS, type PayeeVenue, cancelFeeOf, refundConnect } from './fees.ts';
 
-export { HALL_NOT_CONNECTED, HallNotConnected, connectParams, takesPayments } from './fees.ts';
+export { CANCEL_FEE_CENTS, HALL_NOT_CONNECTED, HallNotConnected, cancelFeeOf, connectParams, takesPayments } from './fees.ts';
 
 type Admin = SupabaseClient;
 
@@ -57,6 +58,7 @@ export interface BookingRow {
   cancelled_by: string | null;
   gift_cents: number;
   pass_minutes: number;
+  resold_by: string | null;
 }
 
 export interface VenueRow extends PayeeVenue {
@@ -68,7 +70,15 @@ export interface VenueRow extends PayeeVenue {
 }
 
 export const BOOKING_COLUMNS = 'id, venue_id, court_id, starts_at, ends_at, kind, status, booked_by, price_cents, ' +
-  'payment_status, hold_expires_at, stripe_payment_intent_id, cancelled_by, gift_cents, pass_minutes';
+  'payment_status, hold_expires_at, stripe_payment_intent_id, cancelled_by, gift_cents, pass_minutes, resold_by';
+
+/**
+ * The booker gave the booking up themselves: cancelled it, or it was sold on after they put it on
+ * sale. Then the peruutuskulu stays of their own payment (fees.ts); a booking the hall cancelled
+ * gives everything back.
+ */
+export const paysCancelFee = (b: Pick<BookingRow, 'cancelled_by' | 'booked_by' | 'resold_by'>) =>
+  Boolean(b.resold_by) || (Boolean(b.cancelled_by) && b.cancelled_by === b.booked_by);
 
 export async function loadBooking(admin: Admin, id: string): Promise<BookingRow | null> {
   const { data, error } = await admin.from('booking_reservations').select(BOOKING_COLUMNS).eq('id', id).maybeSingle();
@@ -155,11 +165,35 @@ interface PaidPart {
   cents: number;
 }
 
+/** What a payment has left to refund: its amount minus every refund that didn't fail. */
+async function leftOf(stripe: Stripe, intent: Stripe.PaymentIntent) {
+  const { data } = await stripe.refunds.list({ payment_intent: intent.id, limit: 100 });
+  const refunded = data.filter((r) => r.status !== 'failed' && r.status !== 'canceled').reduce((n, r) => n + r.amount, 0);
+  return Math.max(0, intent.amount - refunded);
+}
+
+/**
+ * What is left of the booker's own payment minus the peruutuskulu (none left: no refund, null).
+ * Deterministic, so a retry (the cron) refunds the same amount or, when it went through already,
+ * finds nothing left to refund.
+ */
+async function refundKeepingFee(stripe: Stripe, intent: Stripe.PaymentIntent, bookingId: string): Promise<{ refund: Stripe.Refund | null; fee: number }> {
+  const left = await leftOf(stripe, intent);
+  const fee = cancelFeeOf(left);
+  if (left - fee <= 0) return { refund: null, fee };
+  const refund = await stripe.refunds.create(
+    refundParams(intent, { ...bookingRefundMetadata(bookingId), cancel_fee_cents: String(fee) }, left - fee),
+    { idempotencyKey: `krossi-booking-cancel-refund-${intent.id}-${left - fee}` },
+  );
+  return { refund, fee };
+}
+
 /**
  * Refunds every paid part of a cancelled or sold booking (`parts`, or krossi_booking_paid_parts)
- * and records what went back. Throws when a refund failed — what is left stays due
- * (refund_due_at) and krossi-booking-cron finishes it. → { total, own } refunded cents, own = the
- * booker's.
+ * and records what went back; the booker's own part keeps the peruutuskulu when they gave the
+ * booking up themselves (paysCancelFee). Throws when a refund failed — what is left stays due
+ * (refund_due_at) and krossi-booking-cron finishes it. → { total, own, fee } cents: refunded in
+ * all, refunded to the booker, kept as the peruutuskulu.
  */
 export async function refundParts(stripe: Stripe, admin: Admin, bookingId: string, parts?: PaidPart[]) {
   let due = parts;
@@ -168,13 +202,24 @@ export async function refundParts(stripe: Stripe, admin: Admin, bookingId: strin
     if (error) throw new Error(`krossi_booking_paid_parts failed: ${error.message}`);
     due = (Array.isArray(data) ? data : []) as PaidPart[];
   }
+  const booking = due.some((p) => p.kind === 'own') ? await loadBooking(admin, bookingId) : null;
+  const keepFee = Boolean(booking && paysCancelFee(booking));
   const refunds: { shareId: string | null; refundId: string }[] = [];
   let total = 0;
   let own = 0;
+  let fee = 0;
   let failure: unknown = null;
   for (const part of due) {
     try {
       const intent = await stripe.paymentIntents.retrieve(part.paymentIntentId);
+      if (part.kind === 'own' && keepFee) {
+        const kept = await refundKeepingFee(stripe, intent, bookingId);
+        refunds.push({ shareId: null, refundId: kept.refund?.id ?? '' });
+        fee += kept.fee;
+        total += kept.refund?.amount ?? 0;
+        own += kept.refund?.amount ?? 0;
+        continue;
+      }
       const refund = await refundIntent(stripe, intent,
         part.shareId ? shareRefundMetadata(bookingId, part.shareId) : bookingRefundMetadata(bookingId));
       refunds.push({ shareId: part.shareId, refundId: refund.id });
@@ -190,7 +235,7 @@ export async function refundParts(stripe: Stripe, admin: Admin, bookingId: strin
     if (error) throw new Error(`krossi_booking_parts_refunded failed: ${error.message}`);
   }
   if (failure) throw failure;
-  return { total, own };
+  return { total, own, fee };
 }
 
 /**
@@ -314,6 +359,12 @@ export async function settleSplitPayment(stripe: Stripe, admin: Admin, intent: S
  * krossi-booking-cron tries again with the same idempotency key.
  */
 export async function refundBooker(stripe: Stripe, admin: Admin, due: BookerRefund): Promise<boolean> {
+  // Cancelled or sold meanwhile: its refunds covered this (and must not take the peruutuskulu back).
+  const current = await loadBooking(admin, due.bookingId);
+  if (current && (current.status !== 'confirmed' || current.payment_status !== 'paid')) {
+    console.error('booker refund not needed: the booking was refunded whole', due.shareId);
+    return false;
+  }
   let refund: Stripe.Refund;
   try {
     const intent = await stripe.paymentIntents.retrieve(due.bookerIntentId);

@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { CANCEL_FEE_CENTS } from '../src/features/booking.js';
 import { feeExamples, hourPrices, paymentFee, payoutStateLabel, percentLabel, rateLabel } from '../src/features/payouts.js';
 
 const FEES_TS = new URL('../../../supabase/functions/_shared/fees.ts', import.meta.url);
@@ -15,6 +16,9 @@ test('the app and the server use the same Stripe estimate, and the demo shows it
   assert.deepEqual([Number(m[1]), Number(m[2])], [FEE.stripeBps, FEE.stripeFixedCents]);
   assert.match(source, /Math\.ceil\(\(amount \* bps\) \/ 10_000\) \+ STRIPE_COST\.fixedCents \+ \(venue\.platform_fee_fixed_cents \|\| 0\)/);
   assert.match(source, /return Math\.min\(amount, fee\);/);
+  // The peruutuskulu: the same 1 € in the app (giveBackOf, terms) and in the refunds.
+  assert.match(source, /export const CANCEL_FEE_CENTS = 100;/);
+  assert.equal(CANCEL_FEE_CENTS, 100);
   const { backend } = await import('../src/api/demo/index.js');
   const demoVenue = (await backend.booking.listVenues())[0];
   // Krossi's margin is 1 % for every hall (migration 20261017160000): the demo shows the same.

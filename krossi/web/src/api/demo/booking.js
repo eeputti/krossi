@@ -188,13 +188,13 @@ export async function cancel(bookingId) {
     row.status = 'cancelled';
     row.cancelledAt = nowIso();
     row.listedAt = null;
-    return refundEverything(row);
+    return refundEverything(row, 'Peruttu', { fee: true });
   });
 }
 
 // ── Laita myyntiin ───────────────────────────────────────────────────────────
 
-/** In the demo somebody books an on-sale slot a little later; the seller gets everything back. */
+/** In the demo somebody books an on-sale slot a little later; the seller gets their money back minus the peruutuskulu. */
 function scheduleBuyer(bookingId) {
   later(12_000, 20_000, () => {
     const row = db.booking.rows.find((r) => r.id === bookingId);

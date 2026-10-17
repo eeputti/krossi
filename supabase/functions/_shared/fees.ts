@@ -19,15 +19,25 @@
 // numbers in step with Stripe's price list; the hall sees them in Hallin asetukset → Verkkomaksut.
 //
 // Refunds (cancellations, a jaettu maksu share back to the booker, lost or duplicate payments):
-// the money comes back from the hall (reverse_transfer) and the player gets all of it, but Krossi
-// keeps its fee (no refund_application_fee): Stripe doesn't return its own fee on a refund, so
-// returning Krossi's would make Krossi pay for the payment. A partial refund reverses the same
-// share of the transfer.
+// the money comes back from the hall (reverse_transfer) and Krossi keeps its fee (no
+// refund_application_fee): Stripe doesn't return its own fee on a refund, so returning Krossi's
+// would make Krossi pay for the payment. A partial refund reverses the same share of the transfer.
+// When the player gives up their own booking (cancels it, or it is sold on after they put it on
+// sale), CANCEL_FEE_CENTS of their card / MobilePay money stays with the hall: a round 1 € in the
+// booking terms, about what the payment cost. Everything else comes back whole — a booking the
+// hall cancels, the friends' shares of a split booking, series card minutes and gift balance.
+// Nothing is ever added on top of a price: a friend pays exactly their share.
 //
 // A hall without a ready account takes no online payments once it is public (HallNotConnected);
 // a hidden hall without an account (only its staff and Krossi's admins see it) still charges on
 // Krossi's own account, for testing before the hall is connected.
 import type Stripe from 'npm:stripe@17.7.0';
+
+/** Peruutuskulu: what stays of the player's card money when they give up their own booking (see above). */
+export const CANCEL_FEE_CENTS = 100;
+
+/** The peruutuskulu out of `cents` refundable by card (never more than there is). */
+export const cancelFeeOf = (cents: number) => Math.max(0, Math.min(CANCEL_FEE_CENTS, cents));
 
 /** Stripe's estimated cost of one payment (see above). */
 export const STRIPE_COST = { bps: 175, fixedCents: 36 } as const;

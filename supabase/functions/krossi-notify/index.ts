@@ -43,6 +43,7 @@
 //
 // Response: { sent, skipped } — a failing recipient is counted as skipped, never a 500.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { cancelFeeOf } from "../_shared/fees.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const publishableKeys = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
@@ -714,10 +715,15 @@ async function planBookingResold(
   const minutes = settled && row.pass_id ? Number(row.pass_minutes) || 0 : 0;
   const gift = settled && !row.pass_id ? Number(row.gift_cents) || 0 : 0;
   const backAlready = (shares ?? []).filter((s) => s.booker_refunded_at).reduce((n, s) => n + Number(s.cents), 0);
-  const own = settled && !row.pass_id ? Math.max(0, Number(row.price_cents) - gift - backAlready) : 0;
+  const left = settled && !row.pass_id ? Math.max(0, Number(row.price_cents) - gift - backAlready) : 0;
+  // The peruutuskulu stays of the card money (../_shared/fees.ts), as when cancelling.
+  const fee = cancelFeeOf(left);
+  const own = left - fee;
   const friendsPaid = (shares ?? []).some((s) => s.status === "paid" || s.status === "refunded");
   const back = [
-    ...(own > 0 ? [`Saat ${euros(own)} takaisin maksutavallesi. Palautus näkyy tililläsi yleensä muutamassa päivässä.`] : []),
+    ...(own > 0
+      ? [`Saat ${euros(own)} takaisin maksutavallesi (peruutuskulu ${euros(fee)}). Palautus näkyy tililläsi yleensä muutamassa päivässä.`]
+      : []),
     ...(gift > 0 ? [`${euros(gift)} palautui lahjakorttisaldoosi.`] : []),
     ...(minutes > 0 ? [`${hoursLabel(minutes)} palautui sarjakortillesi.`] : []),
   ];

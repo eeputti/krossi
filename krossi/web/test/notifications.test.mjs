@@ -171,7 +171,7 @@ describe('court booking in the bell', () => {
     });
     assert.deepEqual(items.map((i) => [i.kind, i.id]), [['sold', 'sold:bk1']]);
     assert.equal(items[0].title, 'Vuorosi myytiin');
-    assert.equal(items[0].body, '30 € palautetaan · Huomenna klo 18.00 · Tennis 2');
+    assert.equal(items[0].body, '29 € palautetaan · Huomenna klo 18.00 · Tennis 2', 'the 1 € peruutuskulu stays');
     assert.equal(items[0].to, '/pelaa/varaa');
   });
 });

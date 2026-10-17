@@ -299,6 +299,7 @@ export async function cancel(bookingId) {
   const data = await edge('cancel', { bookingId }, CANCEL_FAIL);
   return {
     refundedCents: number(data?.refundedCents),
+    feeCents: number(data?.feeCents),
     creditCents: number(data?.creditCents),
     creditMinutes: number(data?.creditMinutes),
   };

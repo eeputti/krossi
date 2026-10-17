@@ -64,8 +64,8 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
     });
     if (!ok) return;
     await run(async () => {
-      const { refundedCents, creditCents, creditMinutes } = await api.booking.cancel(booking.id);
-      const backNow = giveBackText({ cardCents: refundedCents, giftCents: creditCents, minutes: creditMinutes });
+      const { refundedCents, feeCents, creditCents, creditMinutes } = await api.booking.cancel(booking.id);
+      const backNow = giveBackText({ cardCents: refundedCents, feeCents, giftCents: creditCents, minutes: creditMinutes });
       toast(backNow ? `Vuoro peruttu. ${backNow}.` : 'Vuoro peruttu.', { icon: 'check' });
       onChanged?.();
       onClose();
@@ -168,7 +168,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
           {booking.status === 'confirmed' && !ended && !booking.forSale && (
             <div>
               <dt>Peruutus</dt>
-              <dd>{canCancel ? `Maksuton ${timeInSentence(booking.cancellableUntil)} asti` : canSell ? 'Maksuton peruutus on mennyt — voit laittaa vuoron myyntiin.' : 'Peruutusaika on mennyt — ota yhteyttä halliin.'}</dd>
+              <dd>{canCancel ? `Onnistuu ${timeInSentence(booking.cancellableUntil)} asti${back.feeCents ? `, peruutuskulu ${centsLabel(back.feeCents)}` : ''}` : canSell ? 'Peruutusaika on mennyt — voit laittaa vuoron myyntiin.' : 'Peruutusaika on mennyt — ota yhteyttä halliin.'}</dd>
             </div>
           )}
         </dl>

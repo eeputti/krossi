@@ -15,8 +15,10 @@
 //   { action: 'verify', bookingId, paymentIntentId }   -> { confirmed, status } (+ error when the court was lost)
 //   { action: 'confirmed', bookingId }                 -> { ok }   after a series card / gift balance confirmed my booking
 //                                                         (krossi_wallet_pay_booking / _use_gift): refunds what it took over
-//   { action: 'cancel', bookingId }                    -> { refundedCents, creditCents, creditMinutes }   the player, before the cancellation limit
-//   { action: 'staffCancel', bookingId, refund }       -> { refundedCents, creditCents, creditMinutes }   hall staff; refund defaults to true
+//   { action: 'cancel', bookingId }                    -> { refundedCents, feeCents, creditCents, creditMinutes }   the player, before the
+//                                                         cancellation limit; feeCents = the peruutuskulu kept of the card money
+//   { action: 'staffCancel', bookingId, refund }       -> { refundedCents, feeCents, creditCents, creditMinutes }   hall staff; refund defaults
+//                                                         to true; everything goes back (feeCents 0)
 //   { action: 'freed', bookingId }                     -> { notified }        after krossi_release_booking / _unblock / _put_on_sale
 //
 // Jaettu maksu — no sign-in needed, the split's secret token is the key:
@@ -41,7 +43,8 @@
 // payment went through while the player was away) and in stripe-webhook, through the shared
 // functions in ../_shared/booking.ts. Cancelling refunds what is left of the booker's payment and
 // every friend's paid share; krossi_booking_cancel gives credit back (a series card's minutes, the
-// gift share to the balance).
+// gift share to the balance). The player's own cancellation keeps the peruutuskulu (1 €, fees.ts)
+// of their card money; the hall's gives everything back.
 //
 // Stripe Connect (../_shared/fees.ts): every payment is a destination charge to the hall's account
 // with the hall as the seller (on_behalf_of) and Krossi's fee = Stripe's estimated cost + the
@@ -64,8 +67,8 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
 import {
   BOOKING_PRODUCT, SPLIT_PRODUCT, LOST, type BookingRow, type SplitRefundReason, HALL_NOT_CONNECTED, HallNotConnected,
-  afterBookingPaid, cancelPendingShares, connectParams, describeBooking, loadBooking, loadPlace, loadVenue, refundBooker,
-  refundParts, settleBookingPayment, settleSplitPayment, takesPayments, type Outcome,
+  afterBookingPaid, cancelFeeOf, cancelPendingShares, connectParams, describeBooking, loadBooking, loadPlace, loadVenue,
+  paysCancelFee, refundBooker, refundParts, settleBookingPayment, settleSplitPayment, takesPayments, type Outcome,
 } from '../_shared/booking.ts';
 
 // Apple Pay / Google Pay only show on domains registered with Stripe (per mode: test and live).
@@ -304,11 +307,13 @@ async function settleSplit(admin: SupabaseClient, intent: Stripe.PaymentIntent) 
 }
 
 /**
- * Cancels the booking (krossi_booking_cancel) and refunds every paid part. A refund Stripe
- * doesn't take now stays due and krossi-booking-cron finishes it: the answer still tells what
- * goes back to the booker. Payments friends started can't be finished any more. → { total, own } cents.
+ * Cancels the booking (krossi_booking_cancel) and refunds every paid part (the booker's own
+ * cancellation keeps the peruutuskulu). A refund Stripe doesn't take now stays due and
+ * krossi-booking-cron finishes it: the answer still tells what goes back to the booker. Payments
+ * friends started can't be finished any more. → { total, own, fee } cents.
  */
-async function cancelAndRefund(admin: SupabaseClient, bookingId: string, by: string, refund: boolean) {
+async function cancelAndRefund(admin: SupabaseClient, booking: BookingRow, by: string, refund: boolean) {
+  const bookingId = booking.id;
   const { data, error } = await admin.rpc('krossi_booking_cancel', { booking_id_input: bookingId, by_input: by, refund_input: refund });
   if (error) throw new Error(`krossi_booking_cancel failed: ${error.message}`);
   inBackground(cancelPendingShares(stripe, admin, bookingId));
@@ -318,7 +323,9 @@ async function cancelAndRefund(admin: SupabaseClient, bookingId: string, by: str
   } catch (err) {
     console.error('refunds left for the cron', bookingId, (err as Error).message);
     const sum = (list: typeof parts) => list.reduce((n, p) => n + p.cents, 0);
-    return { total: sum(parts), own: sum(parts.filter((p) => p.kind === 'own')) };
+    const own = sum(parts.filter((p) => p.kind === 'own'));
+    const fee = paysCancelFee({ cancelled_by: by, booked_by: booking.booked_by, resold_by: null }) ? cancelFeeOf(own) : 0;
+    return { total: sum(parts) - fee, own: own - fee, fee };
   }
 }
 
@@ -515,9 +522,9 @@ Deno.serve(async (req: Request) => {
       if (booking.status !== 'confirmed') throw new Reply(409, NOT_CANCELLABLE);
       const venue = await loadVenue(admin, booking.venue_id);
       if (Date.now() >= Date.parse(booking.starts_at) - venue.cancel_limit_hours * 3_600_000) throw new Reply(409, TOO_LATE);
-      const { own } = await cancelAndRefund(admin, booking.id, user.id, true);
+      const { own, fee } = await cancelAndRefund(admin, booking, user.id, true);
       inBackground(notifyWatchers(admin, asUser, booking.id, user.id));
-      return json(req, { refundedCents: own, ...creditBack(booking, true) });
+      return json(req, { refundedCents: own, feeCents: fee, ...creditBack(booking, true) });
     }
 
     if (body.action === 'staffCancel') {
@@ -529,15 +536,15 @@ Deno.serve(async (req: Request) => {
       if (isStaff !== true) throw new Reply(403, STAFF_ONLY);
 
       ({ booking } = await settleStored(admin, booking));
-      if (booking.status !== 'confirmed' && !holdIsLive(booking)) return json(req, { refundedCents: 0, creditCents: 0, creditMinutes: 0 });
+      if (booking.status !== 'confirmed' && !holdIsLive(booking)) return json(req, { refundedCents: 0, feeCents: 0, creditCents: 0, creditMinutes: 0 });
       if (booking.payment_status === 'unpaid' && booking.stripe_payment_intent_id) {
         // A hold the hall cancels must not be payable any more (a late payment would be refunded anyway).
         await stripe.paymentIntents.cancel(booking.stripe_payment_intent_id, { cancellation_reason: 'abandoned' }).catch((err) =>
           console.error('cancelling the payment of a cancelled hold failed', (err as Error).message));
       }
-      const { total } = await cancelAndRefund(admin, booking.id, user.id, body.refund !== false);
+      const { total, fee } = await cancelAndRefund(admin, booking, user.id, body.refund !== false);
       inBackground(notifyWatchers(admin, asUser, booking.id, user.id));
-      return json(req, { refundedCents: total, ...creditBack(booking, body.refund !== false) });
+      return json(req, { refundedCents: total, feeCents: fee, ...creditBack(booking, body.refund !== false) });
     }
 
     if (body.action === 'freed') {

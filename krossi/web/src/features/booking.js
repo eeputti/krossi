@@ -287,22 +287,36 @@ export function canPutOnSale(booking, now = Date.now()) {
 }
 
 /**
- * What the booker gets back when their booking is cancelled or sold: { cardCents, giftCents,
- * minutes } — card money (a split booking: the price minus the friends' parts, which already went
- * back to the booker when they were paid; the friends get theirs), the gift balance and series card
- * minutes it was paid with (BookingCredit). Reads the same before and after the money went back.
+ * Peruutuskulu: when the player gives up their own booking (cancels it, or it is sold on after they
+ * put it on sale), 1 € of their card / MobilePay money stays — about what the payment cost, a round
+ * sum in the booking terms (supabase/functions/_shared/fees.ts CANCEL_FEE_CENTS). Series card hours
+ * and gift balance come back whole, friends get all of their shares, and a booking the hall
+ * cancels gives everything back. Nothing is ever added on top of a price.
+ */
+export const CANCEL_FEE_CENTS = 100;
+
+/**
+ * What the booker gets back when they cancel their booking or it is sold: { cardCents, giftCents,
+ * minutes, feeCents } — card money minus the peruutuskulu (feeCents; a split booking: the price
+ * minus the friends' parts, which already went back to the booker when they were paid; the friends
+ * get theirs), the gift balance and series card minutes it was paid with (BookingCredit). Reads the
+ * same before and after the money went back.
  */
 export function giveBackOf(booking) {
-  const none = { cardCents: 0, giftCents: 0, minutes: 0 };
+  const none = { cardCents: 0, giftCents: 0, minutes: 0, feeCents: 0 };
   if (!booking) return none;
+  const keepFee = (back) => {
+    const feeCents = Math.min(CANCEL_FEE_CENTS, back.cardCents);
+    return { ...back, cardCents: back.cardCents - feeCents, feeCents };
+  };
   if (booking.split) {
     if (!['paid', 'refunded'].includes(booking.paymentStatus)) return none;
-    return { ...none, cardCents: Math.max(0, booking.priceCents - backToBooker(booking.split)) };
+    return keepFee({ ...none, cardCents: Math.max(0, booking.priceCents - backToBooker(booking.split)) });
   }
   if (!['paid', 'credit', 'refunded'].includes(booking.paymentStatus)) return none;
   if (booking.credit?.kind === 'pass') return { ...none, minutes: booking.credit.minutes };
   const giftCents = booking.credit?.kind === 'gift' ? booking.credit.cents : 0;
-  return { cardCents: Math.max(0, booking.priceCents - giftCents), giftCents, minutes: 0 };
+  return keepFee({ ...none, cardCents: Math.max(0, booking.priceCents - giftCents), giftCents });
 }
 
 /** Friends paid their parts of a split booking (they get them back themselves). */
@@ -314,10 +328,14 @@ const backParts = ({ cardCents = 0, giftCents = 0, minutes = 0 }) => ({
   hours: minutes > 0 ? durationLabel(minutes) : null,
 });
 
-/** 'Saat takaisin 15 € maksutavallesi ja 5 € lahjakorttisaldoosi' (giveBackOf, or a cancel's answer); null = nothing. */
+/**
+ * 'Saat takaisin 14 € maksutavallesi (peruutuskulu 1 €) ja 5 € lahjakorttisaldoosi' (giveBackOf, or
+ * a cancel's answer); null = nothing.
+ */
 export function giveBackText(back) {
   const { card, gift, hours } = backParts(back || {});
-  const parts = [card && `${card} maksutavallesi`, gift && `${gift} lahjakorttisaldoosi`, hours && `${hours} sarjakortillesi`].filter(Boolean);
+  const fee = back?.feeCents > 0 && card ? ` (peruutuskulu ${centsLabel(back.feeCents)})` : '';
+  const parts = [card && `${card} maksutavallesi${fee}`, gift && `${gift} lahjakorttisaldoosi`, hours && `${hours} sarjakortillesi`].filter(Boolean);
   if (!parts.length) return null;
   return `Saat takaisin ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} ja ${parts.at(-1)}` : parts[0]}`;
 }

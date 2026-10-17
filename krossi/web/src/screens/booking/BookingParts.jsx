@@ -295,7 +295,7 @@ export function bookingIcs(booking, { cancellableUntil, url } = {}) {
   const what = `${sportLabel(booking.sport)} – ${booking.courtName}`;
   const notes = [
     'Varattu Krossissa.',
-    cancellableUntil && `Maksuton peruutus ${formatGameTime(cancellableUntil)} asti.`,
+    cancellableUntil && `Peruutus ${formatGameTime(cancellableUntil)} asti, peruutuskulu 1 €.`,
     url,
   ].filter(Boolean).join('\n');
   return [

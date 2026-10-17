@@ -8,7 +8,7 @@ import { db, resetStore } from '../src/api/demo/store.js';
 import { backend as api } from '../src/api/demo/index.js';
 import { outdoorUntil } from '../src/api/demo/bookingSeed.js';
 import {
-  addDays, backToBooker, bookingDays, canPutOnSale, cancelDeadline, centsLabel, courtStatesAt, dateKey, discounted,
+  CANCEL_FEE_CENTS, addDays, backToBooker, bookingDays, canPutOnSale, cancelDeadline, centsLabel, courtStatesAt, dateKey, discounted,
   durationLabel, findCourt, fitsAvailability, freeSlots, friendsPaid, giveBackOf, giveBackShort, giveBackText, isTaken,
   lastMinutePercent, localDate, priceOf, shareRequestOf, splitBlocker, splitCents, splitCounts, sportsOf, startTimes,
   bookingFitsGame, bookingForGame, gameForBooking, gamesAndCourts, needsPartner,
@@ -151,7 +151,8 @@ test('hold → pay → listed as upcoming → cancel refunds', async () => {
   assert.equal(mine.paymentStatus, 'paid');
   assert.deepEqual(upcoming.map((b) => b.startsAt), [...upcoming.map((b) => b.startsAt)].sort());
 
-  assert.deepEqual(await api.booking.cancel(held.id), { refundedCents: slot.cents, creditCents: 0, creditMinutes: 0 });
+  // The player's own cancellation keeps the 1 € peruutuskulu of the card money.
+  assert.deepEqual(await api.booking.cancel(held.id), { refundedCents: slot.cents - 100, feeCents: 100, creditCents: 0, creditMinutes: 0 });
   const after = await api.booking.listMine();
   assert.ok(!after.upcoming.some((b) => b.id === held.id));
   assert.equal(after.past.find((b) => b.id === held.id).paymentStatus, 'refunded');
@@ -348,8 +349,8 @@ test('split: my paid booking gets a link; anybody with it pays a part, which goe
   await assert.rejects(api.booking.split(booking.id, 1), (err) => err.code === 'not_splittable' && /jo maksanut/.test(err.userMessage));
 
   // Cancelling: I get the price minus the part that already came back; the friend gets hers.
-  assert.deepEqual(giveBackOf(paid), { cardCents: booking.priceCents - perCents, giftCents: 0, minutes: 0 });
-  assert.deepEqual(await api.booking.cancel(booking.id), { refundedCents: booking.priceCents - perCents, creditCents: 0, creditMinutes: 0 });
+  assert.deepEqual(giveBackOf(paid), { cardCents: booking.priceCents - perCents - 100, giftCents: 0, minutes: 0, feeCents: 100 });
+  assert.deepEqual(await api.booking.cancel(booking.id), { refundedCents: booking.priceCents - perCents - 100, feeCents: 100, creditCents: 0, creditMinutes: 0 });
   const gone = (await api.booking.listMine()).past.find((b) => b.id === booking.id);
   assert.deepEqual(gone.split.lines.map((l) => l.status), ['refunded', 'refunded']);
   assert.equal((await api.booking.splitPublic(token)).state, 'cancelled');
@@ -477,13 +478,17 @@ test('buying somebody\'s on-sale slot takes it over at the full price; a partial
   assert.deepEqual(busy.map((b) => [b.id, b.mine, b.forSale]), [[held.id, true, false]]);
 });
 
-test('what comes back when a booking is cancelled or sold: card money, gift balance, series card hours', () => {
+test('what comes back when a booking is cancelled or sold: card money minus the 1 € peruutuskulu, gift balance, series card hours', () => {
+  assert.equal(CANCEL_FEE_CENTS, 100);
   const card = { priceCents: 3000, paymentStatus: 'paid', credit: null, split: null };
-  assert.deepEqual(giveBackOf(card), { cardCents: 3000, giftCents: 0, minutes: 0 });
-  assert.equal(giveBackText(giveBackOf(card)), 'Saat takaisin 30 € maksutavallesi');
-  assert.equal(giveBackShort(giveBackOf({ ...card, paymentStatus: 'refunded' })), '30 € palautetaan', 'the same once it went back');
+  assert.deepEqual(giveBackOf(card), { cardCents: 2900, giftCents: 0, minutes: 0, feeCents: 100 });
+  assert.equal(giveBackText(giveBackOf(card)), 'Saat takaisin 29 € maksutavallesi (peruutuskulu 1 €)');
+  assert.equal(giveBackShort(giveBackOf({ ...card, paymentStatus: 'refunded' })), '29 € palautetaan', 'the same once it went back');
   const gift = { ...card, credit: { kind: 'gift', cents: 500, minutes: 0, name: null } };
-  assert.equal(giveBackText(giveBackOf(gift)), 'Saat takaisin 25 € maksutavallesi ja 5 € lahjakorttisaldoosi');
+  assert.equal(giveBackText(giveBackOf(gift)), 'Saat takaisin 24 € maksutavallesi (peruutuskulu 1 €) ja 5 € lahjakorttisaldoosi');
+  // A card part under 1 € is kept whole, never more.
+  assert.deepEqual(giveBackOf({ ...card, credit: { kind: 'gift', cents: 2950, minutes: 0, name: null } }),
+    { cardCents: 0, giftCents: 2950, minutes: 0, feeCents: 50 });
   const allGift = { ...card, paymentStatus: 'credit', credit: { kind: 'gift', cents: 3000, minutes: 0, name: null } };
   assert.equal(giveBackText(giveBackOf(allGift)), 'Saat takaisin 30 € lahjakorttisaldoosi');
   const pass = { ...card, paymentStatus: 'credit', credit: { kind: 'pass', cents: 3000, minutes: 90, name: 'Tennis 10 × 1 h' } };
@@ -493,7 +498,7 @@ test('what comes back when a booking is cancelled or sold: card money, gift bala
   assert.equal(giveBackText(giveBackOf({ ...card, paymentStatus: 'unpaid' })), null);
   const line = (kind, status, cents) => ({ id: null, kind, person: null, name: null, cents, status, paidAt: null });
   const split = { ...card, split: { parts: 4, perCents: 750, ownCents: 750, token: null, lines: [line('own', 'refunded', 750), line('friend', 'refunded', 750), line('friend', 'refunded', 750), line('friend', 'open', 750)] } };
-  assert.deepEqual(giveBackOf(split), { cardCents: 1500, giftCents: 0, minutes: 0 }, 'the price minus the friends\' parts, which already came back');
+  assert.deepEqual(giveBackOf(split), { cardCents: 1400, giftCents: 0, minutes: 0, feeCents: 100 }, 'the price minus the friends\' parts, which already came back, minus the peruutuskulu');
   assert.equal(friendsPaid(split), true);
   assert.equal(friendsPaid(card), false);
   assert.equal(giveBackText({ cardCents: 1500, giftCents: 200, minutes: 60 }), 'Saat takaisin 15 € maksutavallesi, 2 € lahjakorttisaldoosi ja 1 h sarjakortillesi');

@@ -825,7 +825,8 @@ export const API_CONTRACT = {
     'createPaymentIntent', // (bookingId) -> { paid: true } | { clientSecret, paymentIntentId }
     'verifyPayment',       // (bookingId, paymentIntentId) -> { confirmed: boolean, status }   confirms the booking once Stripe says succeeded
     'listMine',            // () -> { upcoming: Booking[], past: Booking[] }   upcoming = held|confirmed, not ended, soonest first; past = newest first, max 30
-    'cancel',              // (bookingId) -> { refundedCents, creditCents, creditMinutes }   only before cancellableUntil; money back to the original payment method (friends' paid parts to theirs), credit back to the series card / gift balance
+    'cancel',              // (bookingId) -> { refundedCents, feeCents, creditCents, creditMinutes }   only before cancellableUntil; money back to the original payment method minus the
+                           //   1 € peruutuskulu (feeCents; friends' paid parts whole to theirs), credit back to the series card / gift balance
     'putOnSale',           // (bookingId) -> Booking   "Laita myyntiin": my confirmed booking after cancellableUntil, before the start ('Voit vielä perua…' before the limit).
                            //   Others can book the slot; when somebody does, everything paid is refunded and I'm told. Watchers of the time are told at once.
     'takeOffSale',         // (bookingId) -> Booking   back to just mine ('Joku on juuri varaamassa…' while a buyer is paying)

@@ -362,7 +362,7 @@ test('wallet: buy a series card, pay a booking with it, cancel gives the hour ba
   await assert.rejects(api.wallet.payBooking(held.id, bought.id), /jo maksettu/);
 
   const result = await api.booking.cancel(held.id);
-  assert.deepEqual(result, { refundedCents: 0, creditCents: 0, creditMinutes: 90 });
+  assert.deepEqual(result, { refundedCents: 0, feeCents: 0, creditCents: 0, creditMinutes: 90 }, 'no card money, no peruutuskulu');
   const back = (await api.wallet.get(v.id)).passes.find((p) => p.id === bought.id);
   assert.equal(back.minutesLeft, 1200);
   assert.equal(back.history[0].kind, 'refund');
@@ -404,7 +404,7 @@ test('wallet: a gift card is bought, redeemed once, and pays part of a booking',
   await api.booking.createPaymentIntent(held.id);
   assert.equal((await api.wallet.get(v.id)).giftCents, 0);
   const cancelled = await api.booking.cancel(held.id);
-  assert.deepEqual(cancelled, { refundedCents: held.priceCents - 4500, creditCents: 4500, creditMinutes: 0 });
+  assert.deepEqual(cancelled, { refundedCents: held.priceCents - 4500 - 100, feeCents: 100, creditCents: 4500, creditMinutes: 0 }, 'the gift balance back whole, 1 € of the card money stays');
   assert.equal((await api.wallet.get(v.id)).giftCents, 4500);
 
   // Enough balance confirms a booking on the spot.

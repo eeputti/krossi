@@ -8,7 +8,7 @@ import { ApiError } from '../errors.js';
 import { ME } from './rows.js';
 import { newId } from './runtime.js';
 import { db, nowIso, personLite } from './store.js';
-import { addDays, cancelDeadline, findCourt, localDate, splitCents } from '../../features/booking.js';
+import { CANCEL_FEE_CENTS, addDays, cancelDeadline, findCourt, localDate, splitCents } from '../../features/booking.js';
 import { creditEventLabel } from '../../features/seasons.js';
 
 export const MIN = 60_000;
@@ -250,8 +250,14 @@ export function returnCredit(row, why = 'Peruttu') {
  * friend part to its payer; open parts are dropped. Returns what the booker gets back:
  * { refundedCents (card), creditCents, creditMinutes }.
  */
-export function refundEverything(row, why = 'Peruttu') {
+/**
+ * A cancelled or sold booking gives its money and credit back (friends' paid shares go back to
+ * them). `fee`: the booker gave it up themselves — the 1 € peruutuskulu stays of their card money
+ * (CANCEL_FEE_CENTS), as on the server. → { refundedCents, feeCents, creditCents, creditMinutes }
+ */
+export function refundEverything(row, why = 'Peruttu', { fee = false } = {}) {
   let refundedCents = 0;
+  let feeCents = 0;
   let credit = { creditCents: 0, creditMinutes: 0 };
   const parts = sharesOf(row.id);
   if (row.paymentStatus === 'paid' || row.paymentStatus === 'credit') {
@@ -259,6 +265,10 @@ export function refundEverything(row, why = 'Peruttu') {
     if (row.paymentStatus === 'paid') {
       const back = parts.filter((s) => s.status === 'paid').reduce((n, s) => n + s.cents, 0);
       refundedCents = row.priceCents - (row.giftCents || 0) - back;
+      if (fee) {
+        feeCents = Math.min(CANCEL_FEE_CENTS, refundedCents);
+        refundedCents -= feeCents;
+      }
     }
     row.paymentStatus = 'refunded';
   }
@@ -266,7 +276,7 @@ export function refundEverything(row, why = 'Peruttu') {
     if (s.status === 'paid') s.status = 'refunded';
     else if (s.status !== 'refunded') s.status = 'cancelled';
   }
-  return { refundedCents, ...credit };
+  return { refundedCents, feeCents, ...credit };
 }
 
 /** A confirmed booking takes over the on-sale bookings it covers: they are sold, their payers refunded. */
@@ -278,6 +288,6 @@ export function takeOverSales(row) {
     sold.cancelledAt = nowIso();
     sold.resoldBy = row.id;
     sold.resoldAt = nowIso();
-    refundEverything(sold, 'Myyty');
+    refundEverything(sold, 'Myyty', { fee: true });
   }
 }

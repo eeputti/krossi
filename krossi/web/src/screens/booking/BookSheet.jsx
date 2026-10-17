@@ -284,7 +284,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
             {booking.paymentStatus === 'credit'
               ? `Maksettu ${booking.credit?.kind === 'pass' ? 'sarjakortilla' : 'lahjakorttisaldolla'}.`
               : payConfig.data?.demo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi.'}
-            {!lateBooking && ` Maksuton peruutus ${timeInSentence(booking.cancellableUntil || deadline)} asti.`}
+            {!lateBooking && ` Peruutus ${timeInSentence(booking.cancellableUntil || deadline)} asti${booking.paymentStatus === 'credit' ? '' : ', peruutuskulu 1 €'}.`}
           </p>
         </div>
       </Sheet>
@@ -414,7 +414,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
             <br />
             <span className="bk-court-line-sub">
               {chosen.resale ? 'Toisen pelaajan myyntiin laittama vuoro, normaalihinta. ' : ''}
-              {lateBooking ? 'Ei maksutonta peruutusta' : `Maksuton peruutus ${timeInSentence(deadline)} asti`}
+              {lateBooking ? 'Peruutusaika on jo mennyt' : `Peruutus ${timeInSentence(deadline)} asti, kulu 1 €`}
             </span>
           </p>
         )}
