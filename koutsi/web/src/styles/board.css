@@ -205,6 +205,7 @@
 .ms-row.is-danger .ms-row-icon { background: var(--clay-100); color: var(--clay); }
 .cal-cell.is-week { background: var(--lime-100); }
 .cal-cell.is-week:hover { background: var(--lime-200); }
+.cal-blank { aspect-ratio: 1; min-height: 40px; } /* holds an empty sixth row at full height */
 
 /* ── Koti: today's timeline ──────────────────────────────── */
 .tt-summary { font-size: 13px; font-weight: 650; color: var(--muted); white-space: nowrap; }
