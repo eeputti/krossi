@@ -5,7 +5,7 @@
 // court (free — no paywall); "Etsi peliseuraa" is for one who needs somebody, and opens a small
 // sheet: what is going on near me ("Ajankohtaista": a booked court with nobody on it, an invite
 // waiting, players who play now, open games this week), the three players who fit me best with
-// the reason why (demo only for now, features/matching.js), then create a game, open games, players.
+// the reason why (features/matching.js), then create a game, open games, players.
 // Each side leads to the other: a court with nobody on it shows "Puuttuu pelikaveri" and the
 // partner sheet offers to open it to others; a game page offers "Varaa kenttä tälle pelille".
 // On top: my next games and court bookings ("Tulossa"). Below the doors: Pelaan nyt, Kirjaa tulos,
@@ -15,7 +15,7 @@
 // partner options sit in the menu itself, so nobody taps through a door that leads nowhere.
 // Mounted once by App.jsx; anything opens it with openPlayMenu() (AppShell.jsx).
 import { useEffect, useMemo, useState } from 'react';
-import { api, isDemo } from '../../api/index.js';
+import { api } from '../../api/index.js';
 import { openCreateGame, PLAY_MENU_OPEN } from '../../app/AppShell.jsx';
 import { useAsync, useNow } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
@@ -222,7 +222,7 @@ export function PlayMenu() {
   const open = useAsync(() => (load ? api.games.listOpen() : Promise.resolve(null)), [opened]);
   const invites = useAsync(() => (load ? api.games.listInvites() : Promise.resolve(null)), [opened]);
   const players = useAsync(() => (load && paid && city ? api.players.list({ city }) : Promise.resolve(null)), [opened, paid, city]);
-  const partners = useAsync(() => (load && paid && isDemo ? api.players.listPartners() : Promise.resolve(null)), [opened, paid]);
+  const partners = useAsync(() => (load && paid ? api.players.listPartners() : Promise.resolve(null)), [opened, paid]);
   const bookings = useAsync(() => (load && hall ? api.booking.listMine() : Promise.resolve(null)), [opened, hall?.id]);
   const hallDay = useAsync(() => (load && hall ? api.booking.day(hall.id, dateKey(new Date())) : Promise.resolve(null)), [opened, hall?.id]);
 
@@ -233,9 +233,8 @@ export function PlayMenu() {
   const playingNow = (players.data || []).filter((p) => isPlayingNow(p, now));
   const freeThisWeek = (players.data || []).filter((p) => p.playingThisWeek && !isPlayingNow(p, now));
   const active = isPlayingNow(profile, now);
-  // Demo only until it is approved for real players.
   const suggested = useMemo(
-    () => (isDemo && profile && players.data ? suggestPlayers(profile, players.data, { now, partners: partners.data }) : []),
+    () => (profile && players.data ? suggestPlayers(profile, players.data, { now, partners: partners.data }) : []),
     [profile, players.data, partners.data, now],
   );
   const myGames = (mine.data?.upcoming || []).filter((g) => g.status !== 'cancelled');
