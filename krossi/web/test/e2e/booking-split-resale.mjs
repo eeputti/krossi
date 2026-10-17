@@ -18,8 +18,9 @@ const toasts = async () => (await h.state(page)).toasts;
 
 await page.goto(h.url('/demo/varaa'), { waitUntil: 'networkidle0' });
 await h.wait(900);
-h.check('one row says payments are waiting', (await text('.bk-unpaid-row'))[0]?.includes('Maksamattomat maksut'), await text('.bk-unpaid-row'));
-await h.tapText(page, 'Maksamattomat maksut', { selector: '.bk-unpaid-row' });
+h.check('one row says who asks for a payment', (await text('.bk-unpaid-row'))[0]?.includes('Mikko pyytää osuuttasi'), await text('.bk-unpaid-row'));
+h.check('a friend asking is a plain row, not a warning', await page.$eval('.bk-unpaid-row', (e) => e.classList.contains('is-request')), 'no is-request');
+await h.tapText(page, 'Mikko pyytää osuuttasi', { selector: '.bk-unpaid-row' });
 await h.wait(900);
 const owe = await text('.bk-owe');
 h.check('its sheet lists them, each with its own pay button', owe.some((t) => t.includes('Mikko pyytää osuuttasi') && t.includes('Maksa 15 €')), owe);

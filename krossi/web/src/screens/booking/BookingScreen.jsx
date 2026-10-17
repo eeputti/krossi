@@ -25,7 +25,7 @@ import {
   minutesOf, giveBackOf, giveBackText, priceOf, sportsOf,
 } from '../../features/booking.js';
 import {
-  Button, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Sheet, Skeleton, TennisBall, TopBar, useToast,
+  Avatar, Button, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Sheet, Skeleton, TennisBall, TopBar, useToast,
 } from '../../ui/index.js';
 import { BookSheet } from './BookSheet.jsx';
 import { BookingExtras } from './BookingExtras.jsx';
@@ -91,7 +91,7 @@ export function BookingScreen({ params, query }) {
   }, [query?.liiga, query?.ottelu, user?.id]);
   const watches = useAsync(() => (venue ? api.booking.listWatches() : Promise.resolve([])), [venue?.id]);
   // Shares waiting for my payment (friends' bookings, a rest my card didn't cover) and failed
-  // kausivuoro months: the "Maksamattomat maksut" row.
+  // kausivuoro months: the payments row on top.
   const shares = useAsync(() => (venue ? api.booking.listShares() : Promise.resolve([])), [venue?.id]);
   const seasonSlots = useAsync(() => (venue ? api.seasons.listMine().catch(() => []) : Promise.resolve([])), [venue?.id]);
   useResync(() => {
@@ -270,6 +270,11 @@ export function BookingScreen({ params, query }) {
     .filter((slot) => slot.venueId === venue.id && slot.status === 'active')
     .flatMap((slot) => slot.charges.filter((c) => c.status === 'failed').map((c) => ({ ...c, slot })));
   const unpaidCents = owed.reduce((n, s) => n + s.cents, 0) + failedMonths.reduce((n, c) => n + c.amountCents, 0);
+  // A friend asking for my part is a plain row that says who asks. A rest my card didn't cover or
+  // a failed kausivuoro month is a problem: red, "Maksamattomat maksut".
+  const unpaidProblem = owed.some((s) => s.kind === 'rest') || failedMonths.length > 0;
+  const unpaidTitle = unpaidProblem ? 'Maksamattomat maksut'
+    : owed.length === 1 ? `${firstName(owed[0].booker.name)} pyytää osuuttasi` : `${owed.length} maksupyyntöä`;
   // Somebody else's booking on sale today: bookable at exactly its time and length (the rule of
   // krossi_hold_booking), so they get their own list whatever length the stepper shows.
   const forSale = busy
@@ -351,9 +356,11 @@ export function BookingScreen({ params, query }) {
       />
       <Page className="bk-page">
         {unpaidCents > 0 && (
-          <button type="button" className="bk-unpaid-row" onClick={() => setPaymentsOpen(true)}>
-            <span className="bk-unpaid-icon" aria-hidden="true"><Icon name="alert" size={18} strokeWidth={2.4} /></span>
-            <span className="bk-unpaid-title">Maksamattomat maksut</span>
+          <button type="button" className={unpaidProblem ? 'bk-unpaid-row' : 'bk-unpaid-row is-request'} onClick={() => setPaymentsOpen(true)}>
+            {!unpaidProblem && owed.length === 1
+              ? <Avatar person={owed[0].booker} size={26} />
+              : <span className="bk-unpaid-icon" aria-hidden="true"><Icon name={unpaidProblem ? 'alert' : 'users'} size={18} strokeWidth={2.4} /></span>}
+            <span className="bk-unpaid-title">{unpaidTitle}</span>
             <span className="bk-unpaid-total t-num">{centsLabel(unpaidCents)}</span>
             <Icon name="chevron-right" size={18} />
           </button>
@@ -413,7 +420,7 @@ export function BookingScreen({ params, query }) {
         <button type="button" className="bk-terms-link" onClick={() => setTermsOpen(true)}>Varausehdot</button>
       </Page>
 
-      <Sheet open={paymentsOpen} onClose={() => setPaymentsOpen(false)} size="sm" title="Maksamattomat maksut">
+      <Sheet open={paymentsOpen} onClose={() => setPaymentsOpen(false)} size="sm" title={unpaidProblem ? 'Maksamattomat maksut' : 'Maksupyynnöt'}>
         <UnpaidPayments
           shares={owed}
           months={failedMonths}

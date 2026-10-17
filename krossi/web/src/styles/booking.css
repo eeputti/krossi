@@ -289,6 +289,11 @@
 .bk-unpaid-icon { display: grid; color: var(--danger); }
 .bk-unpaid-title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 800; color: var(--ink); }
 .bk-unpaid-total { flex-shrink: 0; font-size: 14.5px; font-weight: 800; color: var(--danger); }
+/* Only friends asking for their part: an ordinary row, not a warning. */
+.bk-unpaid-row.is-request { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); padding: 10px 12px 10px 12px; }
+.bk-unpaid-row.is-request .bk-unpaid-icon { color: var(--green-700); }
+.bk-unpaid-row.is-request .bk-unpaid-total { color: var(--ink); }
+.bk-unpaid-row.is-request > svg:last-child { color: var(--muted); }
 .bk-unpaid { display: grid; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); overflow: hidden; }
 .bk-owe { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 10px 10px 12px; background: var(--surface); color: var(--ink); }
 .bk-owe + .bk-owe { border-top: 1px solid var(--line); }
