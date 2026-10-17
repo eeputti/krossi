@@ -8,8 +8,8 @@
 //   outcome   a game of mine is over, no answer yet    -> "Pelasitteko?"
 //   soon      a game I'm in starts within 24 hours     -> the game
 //   newGame   someone opened a game in my cities (7 d) -> the game
-//   share     a friend asked me to pay my share of a court they booked -> the share
-//   rest      my saved card didn't cover the rest of a split booking   -> the share (pay it)
+//   share     a friend sent me the payment link of a court they booked -> the link (pay my part)
+//   splitPaid a friend paid their part of my court (7 d), it came back to me -> Omat varaukset
 //   sold      a booking I put on sale was booked by somebody (7 d)     -> Varaa kenttä
 // `at` orders the list and decides what is new: whatever came after the bell was last opened.
 
@@ -21,6 +21,7 @@ const HOUR = 3_600_000;
 const SOON_MS = 24 * HOUR;
 const NEW_GAME_MS = 7 * 24 * HOUR;
 const SOLD_MS = 7 * 24 * HOUR;
+const SPLIT_PAID_MS = 7 * 24 * HOUR;
 const MAX_NEW_GAMES = 5;
 export const MAX_NOTIFICATIONS = 30;
 
@@ -44,34 +45,28 @@ function messagePreview(last) {
 }
 
 /**
- * buildNotifications({ invites, requests, conversations, outcomes, upcoming, open, areas, shares, bookings, uid, now })
+ * buildNotifications({ invites, requests, conversations, outcomes, upcoming, open, areas, bookings, uid, now })
  *   invites: GameInvite[]   requests: PlayRequest[]   conversations: Conversation[]
  *   outcomes: Game[] (pendingOutcomes)   upcoming: Game[] (listMine().upcoming)   open: Game[] (listOpen)
- *   areas: string[] my cities   shares: BookingShare[] (booking.listShares)   bookings: Booking[]
+ *   areas: string[] my cities   bookings: Booking[] (booking.listMine, upcoming and past)
  *   (booking.listMine().past)   uid: my id
  * -> [{ id, kind, at, title, body, person, game?, to? }]  newest first, at most MAX_NOTIFICATIONS
  */
 export function buildNotifications({
-  invites = [], requests = [], conversations = [], outcomes = [], upcoming = [], open = [], areas = [], shares = [], bookings = [],
+  invites = [], requests = [], conversations = [], outcomes = [], upcoming = [], open = [], areas = [], bookings = [],
   uid = null, now = Date.now(),
 } = {}) {
   const items = [];
   const cities = new Set(areas.map(norm).filter(Boolean));
 
-  for (const s of shares) {
-    if (!s.payable) continue;
-    const when = formatGameTime(s.booking.startsAt, new Date(now));
-    if (s.kind === 'rest') {
+  for (const b of bookings) {
+    for (const l of b.split?.lines || []) {
+      if (l.kind !== 'friend' || l.status !== 'paid' || !l.paidAt || now - ms(l.paidAt) > SPLIT_PAID_MS) continue;
+      const who = l.person ? firstName(l.person.name) : l.name || 'Kaveri';
       items.push({
-        id: `rest:${s.id}`, kind: 'rest', at: Math.min(ms(s.deadline) || now, now), person: null, to: `/pelaa/osuus/${s.id}`,
-        title: `Loppuosuus maksamatta: ${centsLabel(s.cents)}`,
-        body: join('Kortiltasi ei voitu veloittaa', when),
-      });
-    } else {
-      items.push({
-        id: `share:${s.id}`, kind: 'share', at: ms(s.booking.createdAt) || now, person: s.booker, to: `/pelaa/osuus/${s.id}`,
-        title: `${firstName(s.booker?.name)} pyytää osuuttasi kenttävuorosta`,
-        body: join(centsLabel(s.cents), when, s.booking.locationName),
+        id: `splitPaid:${l.id}`, kind: 'splitPaid', at: ms(l.paidAt), person: l.person || null, to: '/pelaa/omat-varaukset',
+        title: `${who} maksoi osuutensa ${centsLabel(l.cents)}`,
+        body: join('Summa palautetaan sinulle', formatGameTime(b.startsAt, new Date(now)), b.courtName),
       });
     }
   }
@@ -107,8 +102,17 @@ export function buildNotifications({
   for (const c of conversations) {
     const last = c.lastMessage;
     if (!c.unread || !last || (uid && last.senderId === uid)) continue;
-    if (last.kind === 'text' && shareRequestOf(last.text)) continue; // the share item below says it better
     const sender = (c.participants || []).find((p) => p.id === last.senderId) || c.participants?.[0] || null;
+    const link = last.kind === 'text' ? shareRequestOf(last.text) : null;
+    if (link) {
+      // A court's payment link: straight to paying my part.
+      items.push({
+        id: `share:${link.token}`, kind: 'share', at: ms(last.createdAt) || now, person: sender, to: `/pelaa/maksa/${link.token}`,
+        title: `${firstName(sender?.name || c.title)} pyytää osuuttasi kenttävuorosta`,
+        body: link.text,
+      });
+      continue;
+    }
     items.push({
       id: `message:${c.id}:${last.createdAt}`, kind: 'message', at: ms(last.createdAt) || ms(c.updatedAt) || now,
       person: sender, to: `/pelaa/viestit/${c.id}`,

@@ -234,37 +234,30 @@
 .bk-match-text { display: grid; gap: 2px; }
 .bk-match-text b { color: var(--ink); font-size: 14.5px; }
 
-/* ── Jaettu maksu ── */
-.bk-pay-modes { width: 100%; }
-.bk-pick-hint { font-size: 13px; font-weight: 700; color: var(--ink-2); }
-.bk-friends { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 4px; margin: 0 -2px; scrollbar-width: none; }
-.bk-friends::-webkit-scrollbar { display: none; }
-.bk-friend {
-  flex: 0 0 68px; display: grid; justify-items: center; gap: 4px; padding: 8px 4px 6px; border-radius: var(--r-md);
-  background: var(--surface); border: 1.5px solid var(--line); color: var(--ink);
-  transition: border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
-}
-.bk-friend:hover:not(:disabled) { border-color: var(--line-strong); }
-.bk-friend:disabled { opacity: 0.45; }
-.bk-friend.is-on { border-color: var(--green-800); background: var(--lime-100); }
-.bk-friend-face { position: relative; display: inline-flex; }
-.bk-friend-check {
-  position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--green-800); color: var(--lime); box-shadow: 0 0 0 2px var(--surface);
-}
-.bk-friend-name { max-width: 60px; font-size: 12.5px; font-weight: 750; }
+/* ── Jaettu maksu: the booker's card (done view, own booking's sheet) ── */
+.bk-splitcard { width: 100%; display: grid; gap: 10px; padding: 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); text-align: left; }
+.bk-splitcard-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.bk-splitcard-title { margin: 0; font-size: 15px; font-weight: 800; color: var(--ink); }
+.bk-splitcard-count { flex-shrink: 0; font-size: 12.5px; font-weight: 800; color: var(--green-700); }
+.bk-splitcard-parts { width: 100%; }
+.bk-splitcard-each { margin: 2px 0 0; font-size: 14px; font-weight: 700; color: var(--muted); }
+.bk-splitcard-each b { font-size: 28px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; margin-right: 2px; }
+.bk-splitcard-actions { display: grid; gap: 6px; }
+.bk-splitcard-undo { justify-self: center; padding: 4px 8px; font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.bk-splitlist { list-style: none; margin: 0; padding: 0; display: grid; }
+.bk-splitrow { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.bk-splitrow + .bk-splitrow { border-top: 1px solid var(--line); }
+.bk-splitrow-dot { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--sand); color: var(--muted); }
+.bk-splitrow-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 750; color: var(--ink); }
+.bk-splitrow.is-open .bk-splitrow-name { color: var(--muted); font-weight: 650; }
+.bk-splitrow-state { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.bk-splitrow.is-paid .bk-splitrow-state { color: var(--success); }
 
-.bk-split { list-style: none; margin: 0; padding: 0; display: grid; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
-.bk-split-line { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
-.bk-split-line + .bk-split-line { border-top: 1px solid var(--line); }
-.bk-split-line.is-rest { background: var(--surface-2); }
-.bk-split-who { flex: 1; min-width: 0; display: grid; gap: 1px; }
-.bk-split-name { font-size: 14px; font-weight: 750; color: var(--ink); }
-.bk-split-role { font-size: 12px; color: var(--muted); }
-.bk-split-cents { font-size: 14px; font-weight: 800; color: var(--ink); }
-.bk-split-line > .chip { min-width: 96px; justify-content: center; }
-.bk-done-split { width: 100%; display: grid; gap: 10px; text-align: left; }
-.bk-done-split .bk-done-text { text-align: center; }
+/* the booking sheet: the place switch above the map and the court's one line */
+.bk-place-tabs { width: 100%; }
+.bk-court-line { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.bk-court-line b { color: var(--ink); font-weight: 800; }
+.bk-court-line-sub { font-size: 13px; color: var(--muted); }
 
 /* notices in the booking sheets and the share page */
 .bk-alert, .bk-info {
@@ -289,11 +282,6 @@
 .bk-unpaid-icon { display: grid; color: var(--danger); }
 .bk-unpaid-title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 800; color: var(--ink); }
 .bk-unpaid-total { flex-shrink: 0; font-size: 14.5px; font-weight: 800; color: var(--danger); }
-/* Only friends asking for their part: an ordinary row, not a warning. */
-.bk-unpaid-row.is-request { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); padding: 10px 12px 10px 12px; }
-.bk-unpaid-row.is-request .bk-unpaid-icon { color: var(--green-700); }
-.bk-unpaid-row.is-request .bk-unpaid-total { color: var(--ink); }
-.bk-unpaid-row.is-request > svg:last-child { color: var(--muted); }
 .bk-unpaid { display: grid; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); overflow: hidden; }
 .bk-owe { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 10px 10px 10px 12px; background: var(--surface); color: var(--ink); }
 .bk-owe + .bk-owe { border-top: 1px solid var(--line); }
@@ -304,21 +292,30 @@
 .bk-owe-text b { font-size: 13.5px; font-weight: 750; line-height: 1.25; color: var(--ink); }
 .bk-owe-cta { flex-shrink: 0; padding: 7px 11px; border-radius: var(--r-pill); background: var(--lime); color: var(--ink); font-size: 13px; font-weight: 800; white-space: nowrap; }
 
-/* the share page (/pelaa/osuus/:id) */
-.bk-share-head { display: flex; align-items: center; gap: 12px; }
-.bk-share-head-text { min-width: 0; display: grid; gap: 2px; }
-.bk-share-head-text .eyebrow { color: var(--muted); }
-.bk-share-head-title { font-size: var(--fs-h2); font-weight: 800; color: var(--ink); letter-spacing: -0.01em; }
-.bk-share-head-sub { font-size: 13.5px; color: var(--ink-2); }
-.bk-share-amount { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.bk-share-amount-label { font-size: 14px; font-weight: 750; color: var(--muted); }
-.bk-share-amount-value { font-size: 28px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
-.bk-share-done { display: grid; justify-items: center; text-align: center; gap: 8px; padding: 8px 0; }
-.bk-share-done .bk-done-check { width: 56px; height: 56px; }
-.bk-share-title { margin: 0; font-size: var(--fs-h2); font-weight: 800; color: var(--ink); }
+/* the payment link (/pelaa/maksa/:token): a page of its own without an account, or in the app */
+.splitpay { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; background: var(--bg); color: var(--ink); }
+.splitpay-top { padding: 18px 20px 6px; max-width: 520px; width: 100%; margin: 0 auto; }
+.splitpay-logo { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--green-800); text-decoration: none; }
+.splitpay-main { padding: 10px 20px 24px; max-width: 520px; width: 100%; margin: 0 auto; }
+.splitpay-foot { padding: 0 20px calc(24px + env(safe-area-inset-bottom)); max-width: 520px; width: 100%; margin: 0 auto; display: grid; }
+.splitpay-card { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
+.splitpay-card-text { min-width: 0; display: grid; gap: 1px; font-size: 13.5px; color: var(--muted); }
+.splitpay-card-text b { font-size: 16px; font-weight: 800; color: var(--ink); }
+.splitpay-amount { display: grid; gap: 2px; padding-top: 6px; }
+.splitpay-amount .eyebrow { color: var(--green-700); }
+.splitpay-amount-value { font-size: 44px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; color: var(--ink); }
+.splitpay-paid { justify-self: start; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; padding: 5px 10px; border-radius: var(--r-pill); background: var(--success-bg); color: var(--success); font-size: 12.5px; font-weight: 800; }
+.splitpay-name { display: grid; gap: 6px; }
+.splitpay-name-label { font-size: 13px; font-weight: 750; color: var(--ink-2); }
+.splitpay-name-label small { font-weight: 600; color: var(--muted); }
+.splitpay-done { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 12px 0 4px; }
+.splitpay-done .bk-done-check { width: 56px; height: 56px; }
+.splitpay-done-title { margin: 0; font-size: var(--fs-h2); font-weight: 800; color: var(--ink); }
+.splitpay-invite { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 18px; padding: 12px; font-size: 14.5px; font-weight: 800; color: var(--green-700); text-decoration: none; }
+.splitpay-invite:hover { color: var(--green-800); }
 
 @media (prefers-reduced-motion: reduce) {
-  .bk-friend, .bk-owe { transition: none; }
+  .bk-owe { transition: none; }
 }
 
 /* keeps "15 €" on one line */

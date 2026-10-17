@@ -68,15 +68,16 @@ describe('mergeSnapshot', () => {
   });
 });
 
-test('a court-share request: the link at the end becomes the share id, the rest stays as text', async () => {
+test('a court\'s payment link: the link at the end becomes the token, the rest stays as text', async () => {
   const { shareRequestOf } = await import('../src/screens/messages/chatUtils.js');
-  const text = 'Varasin meille kentän: Tennis 2, Janus-Areena, to 16.10. klo 18.00–19.30. Osuutesi on 11,25 € — maksa se Krossissa '
-    + 'viimeistään to 16.10. klo 16.00: https://krossi.app/pelaa/osuus/0b8d1c2e-0000-4000-8000-000000000001';
+  const text = 'Varasin meille kentän: Tennis 2, Janus-Areena, to 16.10. klo 18.00–19.30. Osuutesi on 11,25 € — maksa se tästä: '
+    + 'https://krossi.app/pelaa/maksa/Kq3vT9xLm2Pz8RwYb4Nc7d';
   assert.deepEqual(shareRequestOf(text), {
-    text: 'Varasin meille kentän: Tennis 2, Janus-Areena, to 16.10. klo 18.00–19.30. Osuutesi on 11,25 € — maksa se Krossissa viimeistään to 16.10. klo 16.00',
-    shareId: '0b8d1c2e-0000-4000-8000-000000000001',
+    text: 'Varasin meille kentän: Tennis 2, Janus-Areena, to 16.10. klo 18.00–19.30. Osuutesi on 11,25 € — maksa se tästä',
+    token: 'Kq3vT9xLm2Pz8RwYb4Nc7d',
   });
-  assert.equal(shareRequestOf('Katso https://krossi.app/pelaa/osuus/abc ja sano'), null, 'only a link at the very end');
+  assert.equal(shareRequestOf('Maksa: https://krossi.app/demo/maksa/abc_DEF-123').token, 'abc_DEF-123', 'the demo\'s links too');
+  assert.equal(shareRequestOf('Katso https://krossi.app/pelaa/maksa/abc ja sano'), null, 'only a link at the very end');
   assert.equal(shareRequestOf('https://krossi.app/pelaa/peli/abc'), null);
   assert.equal(shareRequestOf(null), null);
 });

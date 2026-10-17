@@ -5,18 +5,17 @@
 // joined Krossi, and the prices here are made up.
 //
 // Jaettu maksu and "Laita myyntiin" have something to show from the start: Alex's nelinpeli
-// (the seeded "Iltanelinpeli Januksessa" game) is split with Mikko, Laura and Ville, one of them
-// still to pay; Mikko has asked Alex for a share of his court; one booking of Alex's is inside the
-// 24-hour limit, so it can go on sale; somebody else's evening slot is on sale; and a past split
-// booking shows the deadline at work — the share nobody paid was charged to Alex's card. (No card
-// that said no: the demo is shown to halls, and an unpaid rest on top of the page reads as a bug.)
+// (the seeded "Iltanelinpeli Januksessa" game) is split by link — Mikko and Laura have paid their
+// parts (and the money went back to Alex), one part is still open; Mikko split his revanssi with
+// Alex and sent the link in their chat; one booking of Alex's is inside the 24-hour limit, so it can
+// go on sale; somebody else's evening slot is on sale; and a past split booking was paid by both.
 //
 // Same fixed-seed approach as seed.js: the layout is relative to `now`, so the demo always
 // shows "tomorrow 18.00" instead of a date that went stale.
 
 import { ME } from './rows.js';
 import { createHallSeed } from './hallSeed.js';
-import { addDays, dateKey, localDate, priceOf, shareDeadline, splitCents } from '../../features/booking.js';
+import { addDays, dateKey, localDate, priceOf, splitCents } from '../../features/booking.js';
 import { WEEKDAYS_SHORT, formatEuro } from '../../lib/format.js';
 
 const MIN = 60_000;
@@ -102,7 +101,8 @@ function buildVenue(now) {
     durations: [60, 90, 120, 150, 180, 210, 240], // 1–4 h in half hours
     daysAhead: 14,
     cancelLimitHours: 24,
-    shareDeadlineHours: 2,
+    splitPay: true,
+    resale: true,
     holdMinutes: 10,
     payOnline: true,
     lastMinute: null, // no last-minute deals until the hall agrees to them (the rule stays: { hours, percent })
@@ -138,14 +138,14 @@ function exactWhen(iso) {
   return `${WEEKDAYS_SHORT[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}. klo ${d.getHours()}.${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-/** The link a share request carries in the chat (the chat shows it as a "Maksa osuutesi" button). */
-export const shareLink = (shareId) => `https://krossi.app/pelaa/osuus/${encodeURIComponent(shareId)}`;
+/** The payment link of a split booking (the chat shows it as a "Maksa osuutesi" button). */
+export const splitUrl = (token) => `https://krossi.app/pelaa/maksa/${encodeURIComponent(token)}`;
 
-/** What the booker's chat message to a friend says (same text as krossi_booking_share_message in SQL). */
-export function shareMessage({ courtName, locationName, startsAt, endsAt, cents, deadline, shareId }) {
+/** What a booker's message with the link says (the share sheet's text, see BookSheet). */
+export function shareMessage({ courtName, locationName, startsAt, endsAt, cents, token }) {
   const end = new Date(endsAt);
   return `Varasin meille kentän: ${courtName}, ${locationName}, ${exactWhen(startsAt)}–${end.getHours()}.${String(end.getMinutes()).padStart(2, '0')}. `
-    + `Osuutesi on ${formatEuro(cents / 100)} — maksa se Krossissa viimeistään ${exactWhen(deadline)}: ${shareLink(shareId)}`;
+    + `Osuutesi on ${formatEuro(cents / 100)} — maksa se tästä: ${splitUrl(token)}`;
 }
 
 export function createBookingSeed(now) {
@@ -168,33 +168,25 @@ export function createBookingSeed(now) {
     return full;
   };
   let s = 0;
-  const share = (row, fields) => {
-    s += 1;
-    const out = {
-      id: `sh-${s}`, bookingId: row.id, kind: 'friend', status: 'pending', paidAt: null, invitedAt: row.createdAt,
-      declinedAt: null, chargeError: null, coveredBy: null, createdAt: row.createdAt, ...fields,
-    };
-    shares.push(out);
-    return out;
-  };
-  /** Jaettu maksu for `row`: `friends` = [{ key, status }]. */
-  const split = (row, parts, friends) => {
-    const { ownCents, friendCents } = splitCents(row.priceCents, parts);
-    row.split = { parts, ownCents, deadline: shareDeadline(row.startsAt, venue) };
-    return friends.map((f) => share(row, {
-      userId: pid(f.key), cents: friendCents, status: f.status,
-      paidAt: f.status === 'paid' ? new Date(Date.parse(row.createdAt) + (s + 2) * 3_600_000).toISOString() : null,
-    }));
-  };
-  /** The deadline came: the unpaid friend shares became the booker's rest share (charged, or the card said no). */
-  const rest = (row, { status, chargeError = null }) => {
-    const unpaid = shares.filter((x) => x.bookingId === row.id && x.kind === 'friend' && ['pending', 'declined'].includes(x.status));
-    const out = share(row, {
-      userId: row.bookedBy, kind: 'rest', cents: unpaid.reduce((sum, x) => sum + x.cents, 0), status,
-      paidAt: status === 'paid' ? row.split.deadline : null, invitedAt: null, chargeError, createdAt: row.split.deadline,
+  /**
+   * Jaettu maksu for `row` by link: `payers` = one entry per friend part, a player key ('mikko')
+   * who paid signed in, { name } who paid without an account, or null for a part still open.
+   */
+  const split = (row, parts, payers, token) => {
+    const { friendCents } = splitCents(row.priceCents, parts);
+    row.split = { parts, perCents: friendCents, token };
+    return payers.map((payer, i) => {
+      s += 1;
+      const paid = payer != null;
+      const out = {
+        id: `sh-${s}`, bookingId: row.id, kind: 'friend', cents: friendCents, status: paid ? 'paid' : 'open',
+        userId: typeof payer === 'string' ? pid(payer) : null, name: payer?.name || null,
+        paidAt: paid ? new Date(Date.parse(row.createdAt) + (i + 2) * 3_600_000).toISOString() : null,
+        claimUntil: null, createdAt: row.createdAt,
+      };
+      shares.push(out);
+      return out;
     });
-    for (const x of unpaid) { x.status = 'covered'; x.coveredBy = out.id; }
-    return out;
   };
   const today = dateKey(new Date(now));
   const at = (key, hhmm) => {
@@ -221,8 +213,8 @@ export function createBookingSeed(now) {
   }
 
   // Alex's own bookings: one inside the 24-hour limit (it can go on sale), one tomorrow evening, the
-  // nelinpeli split with Mikko, Laura and Ville, one later this week, and two in the past — one paid
-  // with the series card (hallSeed.js marks it), one split.
+  // nelinpeli split by link, one later this week, and two in the past — one paid with the series
+  // card (hallSeed.js marks it), one split with a friend who paid without an account.
   const courtAt = (loc, mapId) => venue.locations[loc].courts.find((x) => x.mapId === mapId);
   const book = ({ start, minutes, loc, mapId, bookedBy = ME }) => {
     const c = courtAt(loc, mapId);
@@ -238,22 +230,21 @@ export function createBookingSeed(now) {
   book({ start: soon, minutes: 60, loc: 0, mapId: 'te1' });
   book({ start: at(addDays(today, 1), '18:00'), minutes: 90, loc: 0, mapId: 'te2' });
   const nelinpeli = book({ start: at(addDays(today, 2), '18:30'), minutes: 120, loc: 0, mapId: 'te1' });
-  split(nelinpeli, 4, [{ key: 'mikko', status: 'paid' }, { key: 'laura', status: 'paid' }, { key: 'ville', status: 'pending' }]);
+  split(nelinpeli, 4, ['mikko', 'laura', null], 'nelinpeliJanus2Ke7Rt4Wq');
   book({ start: at(addDays(today, 4), '07:00'), minutes: 60, loc: 1, mapId: 'te1' });
   book({ start: at(addDays(today, -2), '19:00'), minutes: 60, loc: 0, mapId: 'te4' });
-  const charged = book({ start: at(addDays(today, -6), '17:30'), minutes: 90, loc: 0, mapId: 'te1' });
-  split(charged, 2, [{ key: 'laura', status: 'pending' }]);
-  rest(charged, { status: 'paid' });
+  const lastWeek = book({ start: at(addDays(today, -6), '17:30'), minutes: 90, loc: 0, mapId: 'te1' });
+  split(lastWeek, 2, [{ name: 'Sanna' }], 'kaksinpeliJanus9Pm3Xv8Z');
 
-  // Mikko booked the revanssi and asked Alex for half; the request is the newest line in their chat.
+  // Mikko booked the revanssi, split it with Alex and sent the link: the newest line in their chat.
   const revanssi = book({ start: at(addDays(today, 3), '19:00'), minutes: 60, loc: 0, mapId: 'te4', bookedBy: pid('mikko') });
   revanssi.createdAt = new Date(now - 3 * 3_600_000).toISOString();
   revanssi.paidAt = revanssi.createdAt;
-  const [toAlex] = split(revanssi, 2, [{ key: 'me', status: 'pending' }]);
+  const [toAlex] = split(revanssi, 2, [null], 'revanssiMikkoT4Hd6Lx2Bn');
   seedMessages.push({
     conversationId: 'c-mikko', senderId: pid('mikko'), createdAt: revanssi.createdAt,
     text: shareMessage({ courtName: 'Tennis 4', locationName: 'Janus-Areena', startsAt: revanssi.startsAt, endsAt: revanssi.endsAt,
-      cents: toAlex.cents, deadline: revanssi.split.deadline, shareId: toAlex.id }),
+      cents: toAlex.cents, token: revanssi.split.token }),
   });
 
   // Kausivuorot, invoices, series and gift cards (hallSeed.js): the season weeks go in before

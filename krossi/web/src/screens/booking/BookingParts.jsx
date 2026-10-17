@@ -1,10 +1,10 @@
 // BookingParts.jsx — small pieces of the court-booking screens: the place cards, the day strip,
-// the length stepper, the start-time rows, unpaid payments, a booking's state, who has paid a
-// split booking, the hold countdown and the calendar file for a booking.
+// the length stepper, the start-time rows, unpaid kausivuoro months, a booking's state, the hold
+// countdown and the calendar file for a booking.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { MONTHS, WEEKDAYS_SHORT, dayLabel, firstName, formatGameTime, formatTime } from '../../lib/format.js';
+import { MONTHS, WEEKDAYS_SHORT, dayLabel, formatGameTime, formatTime } from '../../lib/format.js';
 import { SPORTS, centsLabel, durationLabel, localDate } from '../../features/booking.js';
-import { Avatar, Chip, Icon, TennisBall } from '../../ui/index.js';
+import { Icon, TennisBall } from '../../ui/index.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -133,26 +133,12 @@ export function PlacePicker({ places, value, onChange, freeTimes = {}, loading =
 // ── Unpaid payments ──────────────────────────────────────────────────────────
 
 /**
- * Maksamattomat maksut, one row each with its amount on the pay button: a friend asking for my
- * part ("Mikko pyytää osuuttasi"), a rest my saved card didn't cover ("Loppuosuus maksamatta") and
- * a kausivuoro month that failed (`months`: CardCharge & { slot }). `onOpen(share)` /
- * `onOpenMonth(charge)` take the player to the payment.
+ * Maksamattomat maksut: kausivuoro months that failed (`months`: CardCharge & { slot }), one row
+ * each with its amount on the pay button; `onOpenMonth(charge)` takes the player to the payment.
  */
-export function UnpaidPayments({ shares = [], months = [], onOpen, onOpenMonth, now = new Date() }) {
+export function UnpaidPayments({ months = [], onOpenMonth }) {
   return (
     <div className="bk-unpaid">
-      {shares.map((s) => (
-        <button key={s.id} type="button" className="bk-owe" onClick={() => onOpen(s)}>
-          {s.kind === 'rest'
-            ? <span className="bk-owe-icon" aria-hidden="true"><Icon name="alert" size={16} strokeWidth={2.4} /></span>
-            : <Avatar person={s.booker} size={34} />}
-          <span className="bk-owe-text">
-            <b>{s.kind === 'rest' ? 'Loppuosuus maksamatta' : `${firstName(s.booker.name)} pyytää osuuttasi`}</b>
-            <span className="truncate">{whenLabel(s.booking.startsAt, s.booking.endsAt, now)} · {s.booking.courtName}</span>
-          </span>
-          <span className="bk-owe-cta">Maksa <span className="t-num bk-nowrap">{centsLabel(s.cents)}</span></span>
-        </button>
-      ))}
       {months.map((c) => {
         const [year, month] = c.month.split('-').map(Number);
         return (
@@ -265,64 +251,8 @@ export function bookingStateText(booking) {
   if (booking.status === 'expired') return 'Vanhentunut';
   if (booking.status === 'held') return 'Maksamatta';
   if (booking.forSale) return 'Myynnissä';
-  if (sharesOpen(booking)) return 'Osuuksia maksamatta';
   if (booking.paymentStatus === 'paid') return 'Maksettu';
   return 'Vahvistettu';
-}
-
-/** Friends of a split booking still to pay (or who said they can't make it). */
-export function sharesOpen(booking) {
-  return Boolean(booking.split?.lines.some((l) => l.status === 'pending' || l.status === 'declined'));
-}
-
-// ── Jaettu maksu ─────────────────────────────────────────────────────────────
-
-/** The booker's unpaid rest share of a split booking (the card said no), or null. */
-export function restOwed(booking) {
-  if (booking?.status !== 'confirmed') return null;
-  return booking.split?.lines.find((l) => l.kind === 'rest' && l.status === 'pending') || null;
-}
-
-const LINE_STATES = {
-  paid: ['Maksettu', 'success'],
-  pending: ['Odottaa', 'neutral'],
-  declined: ['Ei pääse', 'warn'],
-  covered: ['Siirtyi varaajalle', 'neutral'],
-  refunded: ['Palautettu', 'neutral'],
-  cancelled: ['Peruttu', 'neutral'],
-};
-
-/** Chip text and tone for one payer of a split booking. */
-export function lineState(line) {
-  if (line.kind === 'rest' && line.status === 'pending') return ['Maksamatta', 'danger'];
-  return LINE_STATES[line.status] || ['Odottaa', 'neutral'];
-}
-
-/**
- * Who pays what and who has paid: the booker first, then the friends in the order picked, then
- * the rest the booker's card took over after the deadline. `meId` shows as "Sinä".
- */
-export function SplitLines({ split, meId }) {
-  return (
-    <ul className="bk-split" aria-label="Maksut">
-      {split.lines.map((line, i) => {
-        const [label, tone] = lineState(line);
-        const me = Boolean(meId) && line.person.id === meId;
-        const who = me ? 'Sinä' : firstName(line.person.name);
-        return (
-          <li key={line.id || `own-${i}`} className={cx('bk-split-line', line.kind === 'rest' && 'is-rest')}>
-            <Avatar person={line.person} size={34} />
-            <span className="bk-split-who">
-              <span className="bk-split-name truncate">{who}</span>
-              <span className="bk-split-role">{line.kind === 'own' ? 'Varaaja' : line.kind === 'rest' ? 'Maksamatta jääneet osuudet' : 'Pelikaveri'}</span>
-            </span>
-            <span className="bk-split-cents t-num">{centsLabel(line.cents)}</span>
-            <Chip tone={tone} size="sm">{label}</Chip>
-          </li>
-        );
-      })}
-    </ul>
-  );
 }
 
 // ── Hold countdown ───────────────────────────────────────────────────────────

@@ -1,14 +1,14 @@
 // bookingCore.js (demo) — what the demo's booking domains share: the venue and reservation rows
 // of bookingSeed.js / hallSeed.js, the Booking shape, staff checks, the credit ledger (series
 // card minutes and gift balance) behind sarjakortit and lahjakortit, and the money of jaettu maksu
-// and "Laita myyntiin" (shares, refunds, taking over an on-sale slot). Not a contract module:
+// and "Laita myyntiin" (friend parts, refunds, taking over an on-sale slot). Not a contract module:
 // booking.js, seasons.js, billing.js and wallet.js export the API functions.
 
 import { ApiError } from '../errors.js';
 import { ME } from './rows.js';
 import { newId } from './runtime.js';
 import { db, nowIso, personLite } from './store.js';
-import { addDays, cancelDeadline, findCourt, localDate } from '../../features/booking.js';
+import { addDays, cancelDeadline, findCourt, localDate, splitCents } from '../../features/booking.js';
 import { creditEventLabel } from '../../features/seasons.js';
 
 export const MIN = 60_000;
@@ -83,28 +83,47 @@ export function salesCovered(courtId, startMs, endMs, forUser = ME) {
 }
 
 // ── Jaettu maksu: a split booking's lines ────────────────────────────────────
+// row.split = { parts, perCents, token }; db.booking.shares holds its friend parts: { id, bookingId,
+// kind: 'friend', cents, status: 'open'|'pending'|'paid'|'refunded'|'cancelled', userId (a payer who
+// was signed in), name (one who wasn't), paidAt, claimUntil, createdAt }.
 
 export const sharesOf = (bookingId) => db.booking.shares
   .filter((s) => s.bookingId === bookingId)
-  .sort((a, b) => (a.kind === 'rest') - (b.kind === 'rest') || a.createdAt.localeCompare(b.createdAt)); // stable: friends in the order picked
+  .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
 
-function ownStatus(row) {
-  if (['paid', 'free', 'credit'].includes(row.paymentStatus)) return 'paid';
-  if (row.paymentStatus === 'refunded') return 'refunded';
-  return row.status === 'held' && isLive(row) ? 'pending' : 'cancelled';
+/** A part's status as the contract says it: a claim that ran out is open again; a cancelled one too. */
+export function partStatus(share, now = Date.now()) {
+  if (share.status === 'pending') return Date.parse(share.claimUntil) > now ? 'pending' : 'open';
+  if (share.status === 'cancelled') return 'open';
+  return share.status;
 }
 
-const toLine = (s) => ({ id: s.id, kind: s.kind, person: personLite(s.userId), cents: s.cents, status: s.status, paidAt: s.paidAt });
+/** A link's secret: url-safe and long enough not to be guessed. */
+export function newToken() {
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  let out = '';
+  for (let i = 0; i < 22; i += 1) out += abc[Math.floor(Math.random() * abc.length)];
+  return out;
+}
 
 function splitOf(row) {
   if (!row.split) return null;
+  const { parts, perCents, token } = row.split;
+  const { ownCents } = splitCents(row.priceCents, parts);
   return {
-    parts: row.split.parts,
-    ownCents: row.split.ownCents,
-    deadline: row.split.deadline,
+    parts,
+    perCents,
+    ownCents,
+    token: row.bookedBy === ME ? token : null,
     lines: [
-      { id: null, kind: 'own', person: personLite(row.bookedBy), cents: row.split.ownCents, status: ownStatus(row), paidAt: row.paidAt ?? null },
-      ...sharesOf(row.id).map(toLine),
+      {
+        id: null, kind: 'own', person: personLite(row.bookedBy), name: null, cents: ownCents,
+        status: row.paymentStatus === 'refunded' ? 'refunded' : 'paid', paidAt: row.paidAt ?? null,
+      },
+      ...sharesOf(row.id).map((s) => ({
+        id: s.id, kind: 'friend', person: s.userId ? personLite(s.userId) : null, name: s.userId ? null : (s.name || null),
+        cents: s.cents, status: partStatus(s), paidAt: s.paidAt ?? null,
+      })),
     ],
   };
 }
@@ -226,25 +245,26 @@ export function returnCredit(row, why = 'Peruttu') {
 // ── Refunds and "Laita myyntiin" ─────────────────────────────────────────────
 
 /**
- * Everything paid for `row` goes back: the booker's card part and series card / gift credit, the
- * friends' shares and the rest; unpaid shares are dropped. Returns what the booker gets back:
- * { refundedCents (card: own part + rest), creditCents, creditMinutes }.
+ * Everything paid for `row` goes back: the booker's card payment (minus the friends' parts, which
+ * already went back to the booker when they were paid) and series card / gift credit, and every
+ * friend part to its payer; open parts are dropped. Returns what the booker gets back:
+ * { refundedCents (card), creditCents, creditMinutes }.
  */
 export function refundEverything(row, why = 'Peruttu') {
   let refundedCents = 0;
   let credit = { creditCents: 0, creditMinutes: 0 };
+  const parts = sharesOf(row.id);
   if (row.paymentStatus === 'paid' || row.paymentStatus === 'credit') {
     credit = returnCredit(row, why);
-    if (row.paymentStatus === 'paid') refundedCents = row.split ? row.split.ownCents : row.priceCents - (row.giftCents || 0);
+    if (row.paymentStatus === 'paid') {
+      const back = parts.filter((s) => s.status === 'paid').reduce((n, s) => n + s.cents, 0);
+      refundedCents = row.priceCents - (row.giftCents || 0) - back;
+    }
     row.paymentStatus = 'refunded';
   }
-  for (const s of sharesOf(row.id)) {
-    if (s.status === 'paid') {
-      if (s.kind === 'rest') refundedCents += s.cents;
-      s.status = 'refunded';
-    } else if (['pending', 'declined'].includes(s.status)) {
-      s.status = 'cancelled';
-    }
+  for (const s of parts) {
+    if (s.status === 'paid') s.status = 'refunded';
+    else if (s.status !== 'refunded') s.status = 'cancelled';
   }
   return { refundedCents, ...credit };
 }

@@ -8,9 +8,9 @@ import { db, resetStore } from '../src/api/demo/store.js';
 import { backend as api } from '../src/api/demo/index.js';
 import { outdoorUntil } from '../src/api/demo/bookingSeed.js';
 import {
-  addDays, bookingDays, canPutOnSale, cancelDeadline, centsLabel, chargeErrorText, courtStatesAt, dateKey, discounted,
+  addDays, backToBooker, bookingDays, canPutOnSale, cancelDeadline, centsLabel, courtStatesAt, dateKey, discounted,
   durationLabel, findCourt, fitsAvailability, freeSlots, friendsPaid, giveBackOf, giveBackShort, giveBackText, isTaken,
-  lastMinutePercent, localDate, priceOf, shareDeadline, splitBlocker, splitCents, sportsOf, startTimes,
+  lastMinutePercent, localDate, priceOf, shareRequestOf, splitBlocker, splitCents, splitCounts, sportsOf, startTimes,
 } from '../src/features/booking.js';
 
 configureTiming({ latencyMin: 0, latencyMax: 0, autoScale: 0.001 });
@@ -24,7 +24,7 @@ const BOOKING_KEYS = [
 ];
 const VENUE_KEYS = [
   'id', 'slug', 'name', 'city', 'openFrom', 'openUntil', 'slotMinutes', 'durations', 'daysAhead', 'cancelLimitHours',
-  'holdMinutes', 'payOnline', 'lastMinute', 'isStaff', 'locations', 'prices', 'shareDeadlineHours',
+  'holdMinutes', 'payOnline', 'lastMinute', 'isStaff', 'locations', 'prices', 'splitPay', 'resale',
 ];
 
 /** Next weekday (ISO 1–7) from tomorrow on, as 'YYYY-MM-DD'. */
@@ -209,8 +209,8 @@ test('staff: day with names, block atomically, unblock, cancel with refund', asy
   const booking = items.find((i) => i.kind === 'booking' && i.bookedBy);
   assert.ok(booking.bookedBy.name);
   assert.deepEqual(Object.keys(booking).sort(), [
-    'bookedBy', 'courtId', 'credit', 'endsAt', 'forSale', 'id', 'kind', 'parts', 'paymentStatus', 'priceCents', 'seasonSlotId', 'startsAt',
-    'status', 'title', 'unpaidCents',
+    'bookedBy', 'courtId', 'credit', 'endsAt', 'forSale', 'id', 'kind', 'paymentStatus', 'priceCents', 'seasonSlotId', 'startsAt',
+    'status', 'title',
   ]);
 
   const kispiTennis = v.locations[1].courts.filter((c) => c.sport === 'tennis').map((c) => c.id);
@@ -292,146 +292,123 @@ test('watch a full time: limits, duplicates, already free, and the demo frees it
 
 // ── Jaettu maksu (demo) ──────────────────────────────────────────────────────
 
-const LINE_KEYS = ['cents', 'id', 'kind', 'paidAt', 'person', 'status'];
-const SHARE_KEYS = ['booker', 'booking', 'cents', 'chargeError', 'deadline', 'id', 'kind', 'paidAt', 'payable', 'status'];
+const LINE_KEYS = ['cents', 'id', 'kind', 'name', 'paidAt', 'person', 'status'];
+const PUBLIC_KEYS = [
+  'bookerAvatarUrl', 'bookerFirstName', 'courtName', 'endsAt', 'locationName', 'openCount', 'paidCount', 'parts', 'perCents',
+  'sport', 'startsAt', 'state', 'token', 'venueName',
+];
 const messagesWith = async (userId) => {
   const conversation = (await api.messages.listConversations()).find((c) => !c.isGroup && c.participants.some((p) => p.id === userId));
   return conversation ? api.messages.listMessages(conversation.id) : [];
 };
 
-test('split: pelikaverit to pick from, the price split in whole cents, my part paid first', async () => {
-  const friends = await api.booking.shareFriends();
-  const ids = friends.map((p) => p.id);
-  assert.ok(['p-mikko', 'p-laura', 'p-ville'].every((id) => ids.includes(id)));
-  assert.ok(!ids.includes('demo-user'));
-  assert.ok(friends.every((p) => Object.keys(p).sort().join() === 'ageRange,avatarColor,avatarUrl,id,name,skillLevel'));
-
+/** A paid booking of mine on a free tennis court `daysAhead` days from today. */
+async function paidBooking(daysAhead) {
   const v = await venue();
-  const slot = await freeTennis(v, addDays(dateKey(new Date()), 5));
-  const held = await api.booking.hold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, friendIds: ['p-mikko', 'p-laura', 'p-ville'] });
-  assert.equal(held.status, 'held');
-  assert.equal(held.split.parts, 4);
-  const { ownCents, friendCents } = splitCents(held.priceCents, 4);
-  assert.equal(held.split.ownCents, ownCents);
-  assert.equal(ownCents + 3 * friendCents, held.priceCents);
-  assert.equal(held.split.deadline, shareDeadline(held.startsAt, v));
-  assert.deepEqual(held.split.lines.map((l) => [l.kind, l.status]), [['own', 'pending'], ['friend', 'pending'], ['friend', 'pending'], ['friend', 'pending']]);
-  held.split.lines.forEach((l) => assert.deepEqual(Object.keys(l).sort(), LINE_KEYS));
-  assert.deepEqual(await api.booking.checkoutConfig(held.id), { demo: true, amount: ownCents, currency: 'eur' });
-
-  // Nobody is asked before I have paid my part.
-  assert.ok(!(await messagesWith('p-ville')).some((m) => /Osuutesi/.test(m.text || '')));
+  const slot = await freeTennis(v, addDays(dateKey(new Date()), daysAhead));
+  const held = await api.booking.hold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60 });
+  assert.equal(held.split, null, 'a hold is never split: the booker pays it all');
   assert.deepEqual(await api.booking.createPaymentIntent(held.id), { paid: true });
-  for (const friend of ['p-mikko', 'p-laura', 'p-ville']) {
-    const asked = (await messagesWith(friend)).find((m) => m.senderId === 'demo-user' && /Osuutesi on/.test(m.text || ''));
-    assert.ok(asked, `${friend} got the request`);
-    assert.match(asked.text, /https:\/\/krossi\.app\/pelaa\/osuus\/sh-new-\d+$/);
-  }
+  return (await api.booking.listMine()).upcoming.find((b) => b.id === held.id);
+}
 
-  await tick(80); // two of the three pay within moments in the demo; the last leaves it for later
-  const mine = (await api.booking.listMine()).upcoming.find((b) => b.id === held.id);
-  assert.deepEqual(mine.split.lines.map((l) => l.status), ['paid', 'paid', 'paid', 'pending']);
-  assert.ok(mine.split.lines.slice(1, 3).every((l) => l.paidAt));
-  assert.ok((await messagesWith('p-mikko')).some((m) => m.senderId === 'p-mikko' && /Maksoin osuuteni/.test(m.text)));
+test('split: my paid booking gets a link; anybody with it pays a part, which goes back to me; cancelling gives everybody theirs', async () => {
+  assert.deepEqual(await api.booking.payConfig(), { demo: true });
+  const booking = await paidBooking(5);
+  const four = await api.booking.split(booking.id, 4);
+  const { ownCents, friendCents } = splitCents(booking.priceCents, 4);
+  assert.deepEqual([four.split.parts, four.split.perCents, four.split.ownCents], [4, friendCents, ownCents]);
+  assert.ok(/^[A-Za-z0-9]{22}$/.test(four.split.token));
+  assert.deepEqual(four.split.lines.map((l) => [l.kind, l.status]), [['own', 'paid'], ['friend', 'open'], ['friend', 'open'], ['friend', 'open']]);
+  four.split.lines.forEach((l) => assert.deepEqual(Object.keys(l).sort(), LINE_KEYS));
+
+  // Nobody has paid: kaksinpeli instead, same link.
+  const two = await api.booking.split(booking.id, 2);
+  assert.deepEqual([two.split.parts, two.split.token, two.split.lines.length], [2, four.split.token, 2]);
+  const { token, perCents } = two.split;
+
+  const link = await api.booking.splitPublic(token);
+  assert.deepEqual(Object.keys(link).sort(), PUBLIC_KEYS);
+  assert.deepEqual([link.state, link.paidCount, link.openCount, link.bookerFirstName, link.perCents], ['open', 0, 1, 'Alex', perCents]);
+  assert.deepEqual(await api.booking.splitCheckoutConfig(token), { demo: true, amount: perCents, currency: 'eur' });
+
+  // Alex opens his own link to show a friend: the part is paid in the friend's name.
+  assert.deepEqual(await api.booking.createSplitPaymentIntent(token, { name: '  Sanna  ' }), { paid: true });
+  assert.deepEqual(await api.booking.verifySplitPayment(token, 'pi_demo'), { paid: true, status: 'succeeded' });
+  const paid = (await api.booking.listMine()).upcoming.find((b) => b.id === booking.id);
+  const part = paid.split.lines[1];
+  assert.deepEqual([part.status, part.name, part.person], ['paid', 'Sanna', null]);
+  assert.ok(part.paidAt);
+  assert.deepEqual(splitCounts(paid.split), { paid: 1, open: 0, total: 1 });
+  assert.equal(backToBooker(paid.split), perCents);
+  assert.deepEqual([(await api.booking.splitPublic(token)).state, (await api.booking.splitPublic(token)).paidCount], ['full', 1]);
+  assert.deepEqual(await api.booking.createSplitPaymentIntent(token, {}), { full: true });
+  assert.deepEqual(await api.booking.splitCheckoutConfig(token), { full: true });
+  await assert.rejects(api.booking.split(booking.id, 1), (err) => err.code === 'not_splittable' && /jo maksanut/.test(err.userMessage));
+
+  // Cancelling: I get the price minus the part that already came back; the friend gets hers.
+  assert.deepEqual(giveBackOf(paid), { cardCents: booking.priceCents - perCents, giftCents: 0, minutes: 0 });
+  assert.deepEqual(await api.booking.cancel(booking.id), { refundedCents: booking.priceCents - perCents, creditCents: 0, creditMinutes: 0 });
+  const gone = (await api.booking.listMine()).past.find((b) => b.id === booking.id);
+  assert.deepEqual(gone.split.lines.map((l) => l.status), ['refunded', 'refunded']);
+  assert.equal((await api.booking.splitPublic(token)).state, 'cancelled');
+  await assert.rejects(api.booking.splitCheckoutConfig(token), (err) => err.code === 'cancelled');
 });
 
-test('split: the rules for whom and when', async () => {
-  const v = await venue();
-  const key = addDays(dateKey(new Date()), 6);
-  const slot = await freeTennis(v, key);
-  const reject = (friendIds, re) => assert.rejects(api.booking.hold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, friendIds }),
-    (err) => err instanceof ApiError && re.test(err.userMessage));
-  await reject(['p-mikko', 'p-laura'], /kaksinpeliin yksi ja nelinpeliin kolme/);
-  await reject(['p-mikko', 'p-mikko'], /kaksinpeliin yksi ja nelinpeliin kolme/);
-  await reject(['demo-user'], /pelikavereidesi/);
-  const friends = new Set((await api.booking.shareFriends()).map((p) => p.id));
-  const stranger = (await api.players.list({ city: 'Lahti' })).find((p) => !friends.has(p.id));
-  if (stranger) await reject([stranger.id], /pelikavereidesi/);
-  // nothing was held by the refused attempts
-  assert.ok(!(await api.booking.listMine()).upcoming.some((b) => b.startsAt === slot.startsAt && b.courtId === slot.court.id));
-
-  const now = Date.now();
-  assert.match(splitBlocker(v, new Date(now + 2.25 * 3_600_000).toISOString(), 3000, 2, now), /ei ehdi enää/);
-  assert.equal(splitBlocker(v, new Date(now + 3 * 3_600_000).toISOString(), 3000, 2, now), null);
-  assert.match(splitBlocker(v, new Date(now + 30 * 3_600_000).toISOString(), 150, 4, now), /liian edullinen/);
+test('split: the rules — paid with money, not on sale, not started, until somebody pays, not too cheap', async () => {
+  const at = (h) => new Date(Date.now() + h * 3_600_000).toISOString();
+  const base = { status: 'confirmed', paymentStatus: 'paid', credit: null, forSale: false, startsAt: at(30), priceCents: 3000, split: null };
+  assert.equal(splitBlocker(base, 2), null);
+  assert.match(splitBlocker({ ...base, status: 'held', paymentStatus: 'unpaid' }, 2), /Vain maksetun/);
+  assert.match(splitBlocker({ ...base, paymentStatus: 'credit', credit: { kind: 'pass' } }, 2), /Sarja- tai lahjakortilla/);
+  assert.match(splitBlocker({ ...base, credit: { kind: 'gift', cents: 500 } }, 2), /Sarja- tai lahjakortilla/);
+  assert.match(splitBlocker({ ...base, forSale: true }, 2), /Myynnissä/);
+  assert.match(splitBlocker({ ...base, startsAt: at(-1) }, 2), /alkanut/);
+  assert.match(splitBlocker({ ...base, priceCents: 150 }, 4), /liian edullinen/);
+  const paidPart = { kind: 'friend', status: 'paid' };
+  assert.match(splitBlocker({ ...base, split: { lines: [{ kind: 'own', status: 'paid' }, paidPart] } }, 1), /jo maksanut/);
   assert.deepEqual(splitCents(2250, 4), { ownCents: 564, friendCents: 562 });
   assert.deepEqual(splitCents(3000, 2), { ownCents: 1500, friendCents: 1500 });
-});
 
-test('a friend\'s side: Mikko asked for my share — it is listed, can be declined and still paid', async () => {
-  const shares = await api.booking.listShares();
-  const fromMikko = shares.find((s) => s.kind === 'friend' && s.booker.id === 'p-mikko');
-  assert.ok(fromMikko, 'the seeded request from Mikko');
-  assert.deepEqual(Object.keys(fromMikko).sort(), SHARE_KEYS);
-  assert.equal(fromMikko.payable, true);
-  assert.equal(fromMikko.status, 'pending');
-  assert.equal(fromMikko.cents, 1500);
-  assert.deepEqual(Object.keys(fromMikko.booking).sort(), [...BOOKING_KEYS].sort());
-  assert.deepEqual(fromMikko.booking.split.lines.map((l) => [l.kind, l.person.id, l.status]),
-    [['own', 'p-mikko', 'paid'], ['friend', 'demo-user', 'pending']]);
-  assert.ok(shares.indexOf(fromMikko) <= shares.findIndex((s) => !s.payable) || shares.every((s) => s.payable), 'payable first');
-  assert.ok((await messagesWith('p-mikko')).some((m) => m.senderId === 'p-mikko' && m.text.includes(`/pelaa/osuus/${fromMikko.id}`)));
-
-  assert.deepEqual(await api.booking.getShare(fromMikko.id), fromMikko);
-  assert.deepEqual(await api.booking.shareCheckoutConfig(fromMikko.id), { demo: true, amount: 1500, currency: 'eur' });
-  await api.booking.declineShare(fromMikko.id);
-  const declined = await api.booking.getShare(fromMikko.id);
-  assert.equal(declined.status, 'declined');
-  assert.equal(declined.payable, true, 'declined is still owed until the deadline');
-  assert.ok((await messagesWith('p-mikko')).some((m) => m.senderId === 'demo-user' && /En pääse valitettavasti mukaan/.test(m.text)));
-
-  assert.deepEqual(await api.booking.createSharePaymentIntent(fromMikko.id), { paid: true });
-  assert.deepEqual(await api.booking.verifySharePayment(fromMikko.id, 'pi_demo'), { paid: true, status: 'succeeded' });
-  assert.equal((await api.booking.getShare(fromMikko.id)).status, 'paid');
-  assert.deepEqual(await api.booking.shareCheckoutConfig(fromMikko.id), { paid: true });
-  await assert.rejects(api.booking.declineShare(fromMikko.id), /jo maksettu/);
-
-  assert.equal(await api.booking.getShare('nope'), null);
-  await assert.rejects(api.booking.shareCheckoutConfig('nope'), (err) => err.code === 'not_found');
-});
-
-test('the deadline: unpaid shares become my rest, charged; a card that said no leaves a rest to pay', async () => {
-  const shares = await api.booking.listShares();
-  assert.equal(shares.some((s) => s.kind === 'rest' && s.payable), false, 'the demo starts without an unpaid rest');
-
-  // Alex's nelinpeli: Ville hasn't paid. Once its deadline passes, Ville's share is charged to Alex.
-  const nelinpeli = (await api.booking.listMine()).upcoming.find((b) => b.split?.parts === 4);
-  assert.deepEqual(nelinpeli.split.lines.map((l) => l.status), ['paid', 'paid', 'paid', 'pending']);
-  db.booking.rows.find((r) => r.id === nelinpeli.id).split.deadline = new Date(Date.now() - 60_000).toISOString();
-  const after = (await api.booking.listMine()).upcoming.find((b) => b.id === nelinpeli.id);
-  const ville = after.split.lines[3];
-  const rest = after.split.lines.at(-1);
-  assert.deepEqual([ville.status, rest.kind, rest.status, rest.cents, rest.person.id], ['covered', 'rest', 'paid', ville.cents, 'demo-user']);
-
-  // Had the card said no, the rest stays for Alex to pay in Krossi.
-  const restRow = db.booking.shares.find((s) => s.bookingId === nelinpeli.id && s.kind === 'rest');
-  Object.assign(restRow, { status: 'pending', paidAt: null, chargeError: 'card_declined' });
-  const failed = (await api.booking.listShares()).find((s) => s.id === restRow.id);
-  assert.equal(failed.payable, true);
-  assert.equal(chargeErrorText(failed.chargeError), 'Kortti hylättiin');
-  assert.equal(failed.booker.id, 'demo-user');
-  assert.deepEqual(failed.booking.split.lines.map((l) => [l.kind, l.status]).slice(-2), [['friend', 'covered'], ['rest', 'pending']]);
-  await api.booking.createSharePaymentIntent(failed.id);
-  assert.equal((await api.booking.getShare(failed.id)).status, 'paid');
-
-  // A friend share past its deadline can't be paid any more: the booker has covered it.
-  const fromMikko = shares.find((s) => s.kind === 'friend' && s.booker.id === 'p-mikko');
-  db.booking.rows.find((r) => r.id === fromMikko.booking.id).split.deadline = new Date(Date.now() - 60_000).toISOString();
-  await assert.rejects(api.booking.shareCheckoutConfig(fromMikko.id), (err) => err.code === 'closed' && /Mikko maksaa osuutesi/.test(err.userMessage));
-  assert.equal((await api.booking.getShare(fromMikko.id)).status, 'covered');
-});
-
-test('cancelling a split booking before the limit gives everybody their part back', async () => {
+  const booking = await paidBooking(6);
+  await assert.rejects(api.booking.split(booking.id, 3), /kaksin- tai nelinpeli/);
+  // A series card's booking stays the card's.
   const v = await venue();
-  const slot = await freeTennis(v, addDays(dateKey(new Date()), 7));
-  const held = await api.booking.hold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, friendIds: ['p-laura'] });
-  await api.booking.createPaymentIntent(held.id);
-  await tick(40); // Laura pays
-  assert.deepEqual((await api.booking.listMine()).upcoming.find((b) => b.id === held.id).split.lines.map((l) => l.status), ['paid', 'paid']);
-  assert.deepEqual(await api.booking.cancel(held.id), { refundedCents: held.split.ownCents, creditCents: 0, creditMinutes: 0 });
-  const gone = (await api.booking.listMine()).past.find((b) => b.id === held.id);
-  assert.deepEqual([gone.status, gone.paymentStatus], ['cancelled', 'refunded']);
-  assert.deepEqual(gone.split.lines.map((l) => l.status), ['refunded', 'refunded']);
+  const slot = await freeTennis(v, addDays(dateKey(new Date()), 8));
+  const held = await api.booking.hold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60 });
+  const pass = (await api.wallet.get(v.id)).passes.find((p) => p.status === 'active');
+  db.booking.passes.find((p) => p.id === pass.id).minutesLeft = 600;
+  await api.wallet.payBooking(held.id, pass.id);
+  await assert.rejects(api.booking.split(held.id, 2), /Sarja- tai lahjakortilla/);
+});
+
+test('a friend\'s side: Mikko sent his link in our chat — Alex pays his part signed in', async () => {
+  const token = 'revanssiMikkoT4Hd6Lx2Bn';
+  const message = (await messagesWith('p-mikko')).find((m) => m.senderId === 'p-mikko' && m.text.includes(`/pelaa/maksa/${token}`));
+  assert.ok(message, 'the seeded link from Mikko');
+  assert.deepEqual(shareRequestOf(message.text).token, token);
+  const link = await api.booking.splitPublic(token);
+  assert.deepEqual([link.bookerFirstName, link.perCents, link.parts, link.openCount, link.state], ['Mikko', 1500, 2, 1, 'open']);
+  assert.deepEqual(await api.booking.createSplitPaymentIntent(token, { name: 'ignored' }), { paid: true });
+  const part = db.booking.shares.find((s) => s.bookingId === db.booking.rows.find((r) => r.split?.token === token).id);
+  assert.deepEqual([part.status, part.userId, part.name], ['paid', 'demo-user', null]);
+  assert.equal((await api.booking.splitPublic(token)).state, 'full');
+  assert.equal(await api.booking.splitPublic('nope-nope-nope-nope'), null);
+  await assert.rejects(api.booking.splitCheckoutConfig('nope-nope-nope-nope'), (err) => err.code === 'not_found');
+});
+
+test('the demo: Alex\'s nelinpeli has two parts paid; a new nelinpeli gets one paid by a friend a little later', async () => {
+  const seeded = (await api.booking.listMine()).upcoming.find((b) => b.split?.parts === 4);
+  assert.deepEqual(seeded.split.lines.map((l) => [l.kind, l.status, l.person?.id ?? null]),
+    [['own', 'paid', 'demo-user'], ['friend', 'paid', 'p-mikko'], ['friend', 'paid', 'p-laura'], ['friend', 'open', null]]);
+  assert.equal(friendsPaid(seeded), true);
+
+  const booking = await paidBooking(9);
+  await api.booking.split(booking.id, 4);
+  await tick(40);
+  const after = (await api.booking.listMine()).upcoming.find((b) => b.id === booking.id);
+  assert.deepEqual(splitCounts(after.split), { paid: 1, open: 2, total: 3 });
+  assert.ok(after.split.lines.find((l) => l.status === 'paid').person, 'a Krossi friend paid it');
 });
 
 // ── Laita myyntiin (demo) ────────────────────────────────────────────────────
@@ -513,23 +490,12 @@ test('what comes back when a booking is cancelled or sold: card money, gift bala
   assert.equal(giveBackShort(giveBackOf(pass)), '1,5 h sarjakortille');
   assert.equal(giveBackText(giveBackOf({ ...card, paymentStatus: 'free' })), null);
   assert.equal(giveBackText(giveBackOf({ ...card, paymentStatus: 'unpaid' })), null);
-  const line = (kind, status, cents) => ({ id: null, kind, person: null, cents, status, paidAt: null });
-  const split = { ...card, split: { parts: 4, ownCents: 750, lines: [line('own', 'refunded', 750), line('friend', 'refunded', 750), line('friend', 'covered', 750), line('rest', 'refunded', 1500)] } };
-  assert.deepEqual(giveBackOf(split), { cardCents: 2250, giftCents: 0, minutes: 0 }, 'my part and the rest; friends get their own');
+  const line = (kind, status, cents) => ({ id: null, kind, person: null, name: null, cents, status, paidAt: null });
+  const split = { ...card, split: { parts: 4, perCents: 750, ownCents: 750, token: null, lines: [line('own', 'refunded', 750), line('friend', 'refunded', 750), line('friend', 'refunded', 750), line('friend', 'open', 750)] } };
+  assert.deepEqual(giveBackOf(split), { cardCents: 1500, giftCents: 0, minutes: 0 }, 'the price minus the friends\' parts, which already came back');
   assert.equal(friendsPaid(split), true);
   assert.equal(friendsPaid(card), false);
   assert.equal(giveBackText({ cardCents: 1500, giftCents: 200, minutes: 60 }), 'Saat takaisin 15 € maksutavallesi, 2 € lahjakorttisaldoosi ja 1 h sarjakortillesi');
-});
-
-test('a split booking is paid by card: no series card or gift balance on it', async () => {
-  const v = await venue();
-  const slot = await freeTennis(v, addDays(dateKey(new Date()), 8));
-  const held = await api.booking.hold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, friendIds: ['p-laura'] });
-  const pass = (await api.wallet.get(v.id)).passes.find((p) => p.status === 'active');
-  assert.ok(pass, 'the seed gives Alex a series card');
-  await assert.rejects(api.wallet.payBooking(held.id, pass.id), /Jaetun vuoron osuudet maksetaan kortilla/);
-  await assert.rejects(api.wallet.useGift(held.id, true), /Jaetun vuoron osuudet maksetaan kortilla/);
-  assert.deepEqual(await api.booking.checkoutConfig(held.id), { demo: true, amount: held.split.ownCents, currency: 'eur' });
 });
 
 test('a series card buys somebody\'s on-sale slot: taken over at once, the seller refunded', async () => {
@@ -579,11 +545,11 @@ test('my series-card booking on sale: when it sells, the hours go back to the ca
   assert.match(after.history[0].label, /^Myyty: /);
 });
 
-test('staff see what is on sale and what is still unpaid', async () => {
+test('staff see what is on sale; a split booking is paid in full like any other', async () => {
   const v = await venue();
   const nelinpeli = (await api.booking.listMine()).upcoming.find((b) => b.split?.parts === 4);
   const items = await api.booking.staffDay(v.id, dateKey(new Date(nelinpeli.startsAt)));
   const item = items.find((i) => i.id === nelinpeli.id);
-  assert.deepEqual([item.parts, item.unpaidCents, item.forSale], [4, nelinpeli.split.lines[3].cents, false]);
-  assert.ok(items.filter((i) => i.kind !== 'booking').every((i) => i.unpaidCents === 0 && i.parts === null));
+  assert.deepEqual([item.paymentStatus, item.priceCents, item.forSale], ['paid', nelinpeli.priceCents, false]);
+  assert.ok(items.every((i) => !('unpaidCents' in i) && !('parts' in i)));
 });

@@ -226,52 +226,56 @@ export function cancelDeadline(startsAt, venue) {
 }
 
 // ── Jaettu maksu ─────────────────────────────────────────────────────────────
+// The booker pays the whole court. "Jaa maksu" then makes a link: anyone with it pays one friend
+// part (no account needed), and the same sum goes back to the booker's payment method.
 
-/** Payers per match type, the booker included: friends to pick = parts − 1. */
+/** Payers per match type, the booker included: friend parts = parts − 1. */
 export const SPLIT_PARTS = { kaksinpeli: 2, nelinpeli: 4 };
-/** Friends need at least this long to pay before the deadline, or there is no point asking. */
-export const SPLIT_MIN_LEAD_MINUTES = 30;
-/** Stripe's smallest euro charge: every share has to be at least this. */
+/** Stripe's smallest euro charge: every part has to be at least this. */
 export const MIN_SHARE_CENTS = 50;
 
 /**
- * Even shares in whole cents, like krossi_hold_booking: every friend pays floor(total / parts),
- * the booker pays the rest (so an odd cent is theirs). → { ownCents, friendCents }
+ * Even parts in whole cents, like krossi_split_booking: every friend pays floor(total / parts),
+ * the booker the rest (so an odd cent is theirs). → { ownCents, friendCents }
  */
 export function splitCents(totalCents, parts) {
   const friendCents = Math.floor(totalCents / parts);
   return { ownCents: totalCents - friendCents * (parts - 1), friendCents };
 }
 
-/** When friends have to have paid: startsAt − venue.shareDeadlineHours, as ISO. */
-export function shareDeadline(startsAt, venue) {
-  return new Date(Date.parse(startsAt) - (venue?.shareDeadlineHours ?? 2) * 3_600_000).toISOString();
-}
+/** A friend part somebody has paid (or paid and got back when the booking was cancelled). */
+const settledPart = (line) => line.kind === 'friend' && (line.status === 'paid' || line.status === 'refunded');
 
 /**
- * Whether a booking at `startsAt` costing `cents` can still be split in `parts`: the friends get
- * at least SPLIT_MIN_LEAD_MINUTES before the deadline and every share reaches MIN_SHARE_CENTS.
- * → null when it can, else the reason in Finnish (the server says the same).
+ * Whether my booking can be split in `parts` (2 or 4) now, or the split changed: paid with money
+ * (not a series card or gift balance), not on sale, not started, and while no friend part is paid
+ * or being paid. → null when it can, else the reason in Finnish (the server says the same).
  */
-export function splitBlocker(venue, startsAt, cents, parts, now = Date.now()) {
-  if (Date.parse(shareDeadline(startsAt, venue)) - now < SPLIT_MIN_LEAD_MINUTES * MINUTE) {
-    return 'Jaettu maksu ei ehdi enää — vuoro alkaa pian. Maksa vuoro itse.';
+export function splitBlocker(booking, parts, now = Date.now()) {
+  if (!booking || booking.status !== 'confirmed' || booking.paymentStatus !== 'paid') {
+    return booking?.paymentStatus === 'credit' ? 'Sarja- tai lahjakortilla maksettua vuoroa ei voi jakaa.' : 'Vain maksetun vuoron voi jakaa.';
   }
-  if (splitCents(cents, parts).friendCents < MIN_SHARE_CENTS) return 'Vuoro on liian edullinen jaettavaksi.';
+  if (booking.credit) return 'Sarja- tai lahjakortilla maksettua vuoroa ei voi jakaa.';
+  if (booking.forSale) return 'Myynnissä olevaa vuoroa ei voi jakaa.';
+  if (Date.parse(booking.startsAt) <= now) return 'Vuoro on jo alkanut.';
+  if (booking.split?.lines.some((l) => l.kind === 'friend' && l.status !== 'open')) return 'Joku on jo maksanut osuutensa — jakoa ei voi enää muuttaa.';
+  if (parts > 1 && splitCents(booking.priceCents, parts).friendCents < MIN_SHARE_CENTS) return 'Vuoro on liian edullinen jaettavaksi.';
   return null;
 }
 
-const CHARGE_ERRORS = {
-  card_declined: 'Kortti hylättiin',
-  insufficient_funds: 'Kortilla ei ollut katetta',
-  expired_card: 'Kortti on vanhentunut',
-  authentication_required: 'Pankki halusi vahvistaa maksun',
-  no_card: 'Tallennettua korttia ei löytynyt',
-};
+/** Friend parts of a split: { paid, open, total } (a part somebody is paying counts as neither). */
+export function splitCounts(split) {
+  const friends = (split?.lines || []).filter((l) => l.kind === 'friend');
+  return {
+    paid: friends.filter(settledPart).length,
+    open: friends.filter((l) => l.status === 'open').length,
+    total: friends.length,
+  };
+}
 
-/** A rest share's chargeError (Stripe's decline code) in Finnish. */
-export function chargeErrorText(code) {
-  return CHARGE_ERRORS[code] || 'Veloitus ei onnistunut';
+/** What has gone back to the booker from friends' parts so far. */
+export function backToBooker(split) {
+  return (split?.lines || []).filter(settledPart).reduce((n, l) => n + l.cents, 0);
 }
 
 // ── Laita myyntiin ───────────────────────────────────────────────────────────
@@ -282,19 +286,18 @@ export function canPutOnSale(booking, now = Date.now()) {
     && Date.parse(booking.cancellableUntil) <= now && Date.parse(booking.startsAt) > now;
 }
 
-const counted = (status) => status === 'paid' || status === 'refunded';
-
 /**
  * What the booker gets back when their booking is cancelled or sold: { cardCents, giftCents,
- * minutes } — card money (a split booking: their own part and a rest share; the friends get their
- * own), the gift balance and series card minutes it was paid with (BookingCredit). Reads the same
- * before and after the money went back.
+ * minutes } — card money (a split booking: the price minus the friends' parts, which already went
+ * back to the booker when they were paid; the friends get theirs), the gift balance and series card
+ * minutes it was paid with (BookingCredit). Reads the same before and after the money went back.
  */
 export function giveBackOf(booking) {
   const none = { cardCents: 0, giftCents: 0, minutes: 0 };
   if (!booking) return none;
   if (booking.split) {
-    return { ...none, cardCents: booking.split.lines.filter((l) => l.kind !== 'friend' && counted(l.status)).reduce((n, l) => n + l.cents, 0) };
+    if (!['paid', 'refunded'].includes(booking.paymentStatus)) return none;
+    return { ...none, cardCents: Math.max(0, booking.priceCents - backToBooker(booking.split)) };
   }
   if (!['paid', 'credit', 'refunded'].includes(booking.paymentStatus)) return none;
   if (booking.credit?.kind === 'pass') return { ...none, minutes: booking.credit.minutes };
@@ -302,8 +305,8 @@ export function giveBackOf(booking) {
   return { cardCents: Math.max(0, booking.priceCents - giftCents), giftCents, minutes: 0 };
 }
 
-/** Friends paid their shares of a split booking (they get them back themselves). */
-export const friendsPaid = (booking) => Boolean(booking?.split?.lines.some((l) => l.kind === 'friend' && counted(l.status)));
+/** Friends paid their parts of a split booking (they get them back themselves). */
+export const friendsPaid = (booking) => Boolean(booking?.split?.lines.some(settledPart));
 
 const backParts = ({ cardCents = 0, giftCents = 0, minutes = 0 }) => ({
   card: cardCents > 0 ? centsLabel(cardCents) : null,
@@ -376,17 +379,17 @@ export function fitsAvailability(availability, startsAt) {
 
 // ── Chat ─────────────────────────────────────────────────────────────────────
 
-// A court-share request ends with its link (krossi_booking_share_message / the demo's shareMessage).
-const SHARE_LINK_RE = /:?\s*https:\/\/krossi\.app\/pelaa\/osuus\/([A-Za-z0-9-]+)\s*$/;
+// A payment link at the end of a chat message (the demo's shareMessage, or pasted by the booker).
+const SPLIT_LINK_RE = /:?\s*https:\/\/krossi\.app\/(?:pelaa|demo)\/maksa\/([A-Za-z0-9_-]+)\s*$/;
 
 /**
- * "Varasin meille kentän … Osuutesi on 15 € — maksa se Krossissa viimeistään …: <link>" →
- * { text: the message without the link, shareId }, else null. The chat shows the link as a button
- * that opens the share in the app (other clients just see the link).
+ * "Varasin meille kentän … Osuutesi on 15 € — maksa se tästä: <link>" → { text: the message
+ * without the link, token }, else null. The chat shows the link as a "Maksa osuutesi" button
+ * (other apps just see the link).
  */
 export function shareRequestOf(text) {
   const s = String(text || '');
-  const m = SHARE_LINK_RE.exec(s);
+  const m = SPLIT_LINK_RE.exec(s);
   if (!m) return null;
-  return { text: s.slice(0, m.index).trim(), shareId: m[1] };
+  return { text: s.slice(0, m.index).trim(), token: m[1] };
 }

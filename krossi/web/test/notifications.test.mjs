@@ -131,30 +131,38 @@ describe('court booking in the bell', () => {
     id: 'bk1', courtName: 'Tennis 2', locationName: 'Janus-Areena', startsAt: iso(2026, 10, 15, 18), endsAt: iso(2026, 10, 15, 19),
     createdAt: iso(2026, 10, 14, 9), priceCents: 3000, paymentStatus: 'paid', soldAt: null, split: null, ...extra,
   });
-  const share = (extra = {}) => ({
-    id: 's1', kind: 'friend', cents: 1500, status: 'pending', payable: true, deadline: iso(2026, 10, 15, 16), chargeError: null,
-    booker: person('b', 'Mikko Mallikas'), booking: booking(), ...extra,
-  });
 
-  test('a friend\'s request to pay my share, and a rest my card did not cover, open the share', () => {
+  test('a friend\'s payment link in our chat opens the payment page; a friend\'s paid part of my court says it came back', () => {
+    const link = 'Varasin meille kentän: Tennis 2, Janus-Areena, to 15.10. klo 18.00–19.00. Osuutesi on 15 € — maksa se tästä: '
+      + 'https://krossi.app/pelaa/maksa/Kq3vT9xLm2Pz8RwYb4Nc7d';
+    const line = (extra) => ({ id: 'sh1', kind: 'friend', person: person('l', 'Laura Lahtinen'), name: null, cents: 1500, status: 'paid', paidAt: iso(2026, 10, 14, 10), ...extra });
     const items = buildNotifications({
       uid: 'me', now: NOW,
-      shares: [share(), share({ id: 's2', kind: 'rest', booker: person('me', 'Minä'), deadline: iso(2026, 10, 13, 16), chargeError: 'card_declined' })],
+      conversations: [{
+        id: 'c-mikko', isGroup: false, title: 'Mikko Mallikas', participants: [person('m', 'Mikko Mallikas')], unread: true, updatedAt: iso(2026, 10, 14, 11),
+        lastMessage: { text: link, senderId: 'm', createdAt: iso(2026, 10, 14, 11), kind: 'text' },
+      }],
+      bookings: [booking({ split: { parts: 4, perCents: 1500, ownCents: 1500, token: 't', lines: [
+        { id: null, kind: 'own', person: person('me', 'Minä'), name: null, cents: 1500, status: 'paid', paidAt: null },
+        line(), line({ id: 'sh2', person: null, name: 'Sanna', paidAt: iso(2026, 10, 14, 9) }),
+        line({ id: 'sh3', person: null, status: 'open', paidAt: null }),
+        line({ id: 'sh4', paidAt: iso(2026, 10, 1, 9) }),
+      ] } })],
     });
-    const byKind = Object.fromEntries(items.map((i) => [i.kind, i]));
-    assert.equal(byKind.share.title, 'Mikko pyytää osuuttasi kenttävuorosta');
-    assert.equal(byKind.share.body, '15 € · Huomenna klo 18.00 · Janus-Areena');
-    assert.equal(byKind.share.to, '/pelaa/osuus/s1');
-    assert.equal(byKind.share.person.name, 'Mikko Mallikas');
-    assert.equal(byKind.rest.title, 'Loppuosuus maksamatta: 15 €');
-    assert.equal(byKind.rest.to, '/pelaa/osuus/s2');
-    assert.equal(byKind.rest.at, local(2026, 10, 13, 16).getTime());
+    const share = items.find((i) => i.kind === 'share');
+    assert.equal(share.title, 'Mikko pyytää osuuttasi kenttävuorosta');
+    assert.equal(share.to, '/pelaa/maksa/Kq3vT9xLm2Pz8RwYb4Nc7d');
+    assert.match(share.body, /^Varasin meille kentän/);
+    assert.ok(!items.some((i) => i.kind === 'message'), 'the link is not said twice');
+    const paid = items.filter((i) => i.kind === 'splitPaid');
+    assert.deepEqual(paid.map((i) => i.title), ['Laura maksoi osuutensa 15 €', 'Sanna maksoi osuutensa 15 €'], 'the last week only, newest first');
+    assert.equal(paid[0].body, 'Summa palautetaan sinulle · Huomenna klo 18.00 · Tennis 2');
+    assert.equal(paid[0].to, '/pelaa/omat-varaukset');
   });
 
-  test('only payable shares count; a sold booking of the last week says what comes back', () => {
+  test('a sold booking of the last week says what comes back', () => {
     const items = buildNotifications({
       uid: 'me', now: NOW,
-      shares: [share({ payable: false, status: 'paid' })],
       bookings: [
         booking({ soldAt: iso(2026, 10, 14, 10), status: 'cancelled', paymentStatus: 'refunded' }),
         booking({ id: 'old', soldAt: iso(2026, 10, 1, 10) }),

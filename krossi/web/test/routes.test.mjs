@@ -28,7 +28,7 @@ test('every app URL resolves to the intended route', () => {
     ['/pelaa/varaa', 'booking', {}],
     ['/pelaa/varaa/lahden-tennis-ja-squash', 'bookingVenue', { venue: 'lahden-tennis-ja-squash' }],
     ['/pelaa/halli/lahden-tennis-ja-squash', 'hall', { venue: 'lahden-tennis-ja-squash' }],
-    ['/pelaa/osuus/sh-1', 'share', { id: 'sh-1' }],
+    ['/pelaa/maksa/Kq3vT9xLm2Pz8RwYb4Nc7d', 'splitPay', { token: 'Kq3vT9xLm2Pz8RwYb4Nc7d' }],
     ['/pelaa/omat-varaukset', 'myBookings', {}],
     ['/pelaa/lasku/inv-1001', 'invoice', { id: 'inv-1001' }],
     ['/pelaa/pelit/', 'games', {}],

@@ -3,10 +3,11 @@
 //   <Checkout config={{ publishableKey, amount, currency, email }} onPaid={() => …} onHosted={() => …} />
 //
 // The same checkout pays court bookings: pass `createIntent` / `verify` (both default to the 8,99 €
-// unlock in api.payments), the `returnPath` redirect methods come back to, and `pendingText`.
+// unlock in api.payments), the `returnPath` redirect methods come back to (a function is asked at
+// the moment of paying — the booking sheet only knows its booking then), and `pendingText`.
 // `verify` resolves to { paid, status }. Without `onHosted` there is no hosted-page fallback.
-// `config.setupFutureUsage: 'off_session'` (a split court booking) saves the card for later: the
-// Elements must say the same as the PaymentIntent, and only methods that can be saved are offered.
+// `compact`: the methods as tabs (MobilePay first, card fields only when chosen) for a sheet that
+// also shows other things.
 //
 // Top: one-tap wallet buttons (Apple Pay / Google Pay, Express Checkout Element). Below: the
 // Payment Element (MobilePay first, then card and whatever else is enabled in the Stripe
@@ -65,7 +66,7 @@ function rememberWhereWeWere() {
 const UNLOCK_PENDING = 'Maksu on vielä kesken. Krossi aukeaa heti, kun pankki vahvistaa sen — voit sulkea tämän.';
 
 export function Checkout({
-  config, onPaid, onHosted, createIntent, verify, returnPath = RETURN_PATH, pendingText = UNLOCK_PENDING,
+  config, onPaid, onHosted, createIntent, verify, returnPath = RETURN_PATH, pendingText = UNLOCK_PENDING, compact = false,
 }) {
   const expressBox = useRef(null);
   const paymentBox = useRef(null);
@@ -113,7 +114,7 @@ export function Checkout({
       const { error: payError, paymentIntent } = await ctx.stripe.confirmPayment({
         elements: ctx.elements,
         clientSecret: intent.clientSecret,
-        confirmParams: { return_url: window.location.origin + returnPath },
+        confirmParams: { return_url: window.location.origin + (typeof returnPath === 'function' ? returnPath() : returnPath) },
         redirect: 'if_required',
       });
       if (payError) { stop(payError.message || FAIL); return; }
@@ -155,7 +156,6 @@ export function Checkout({
           mode: 'payment',
           amount: config.amount,
           currency: config.currency,
-          ...(config.setupFutureUsage ? { setupFutureUsage: config.setupFutureUsage } : {}),
           appearance: APPEARANCE,
           locale: 'fi',
         });
@@ -178,7 +178,7 @@ export function Checkout({
         express.mount(expressBox.current);
 
         payment = elements.create('payment', {
-          layout: { type: 'accordion', defaultCollapsed: false, radios: true, spacedAccordionItems: true },
+          layout: compact ? { type: 'tabs' } : { type: 'accordion', defaultCollapsed: false, radios: true, spacedAccordionItems: true },
           paymentMethodOrder: ['mobilepay', 'card'],
           wallets: { applePay: 'never', googlePay: 'never' }, // they're the big buttons above
           defaultValues: { billingDetails: { email: config.email || undefined } },
@@ -204,7 +204,7 @@ export function Checkout({
       payment?.destroy();
       stripeRef.current = null;
     };
-  }, [config.publishableKey, config.amount, config.currency, config.email, config.setupFutureUsage, attempt]);
+  }, [config.publishableKey, config.amount, config.currency, config.email, compact, attempt]);
 
   if (loadError) {
     return (
