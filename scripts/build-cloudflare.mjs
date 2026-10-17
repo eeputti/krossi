@@ -93,7 +93,7 @@ if (missingBuildOutputs.length) {
 }
 const requiredKoutsiOutputs = [
   ...koutsiWebShells.map((file) => `${KOUTSI_WEB_DIST}/${file}`),
-  ...['valmentaja.js', 'pelaaja.js', 'valmentaja-demo.js', 'pelaaja-demo.js', 'koutsi.css'].map((file) => `${KOUTSI_WEB_DIST}/koutsi-uusi/${file}`),
+  ...['valmentaja.js', 'pelaaja.js', 'valmentaja-demo.js', 'pelaaja-demo.js', 'koutsi.css', 'drills.json'].map((file) => `${KOUTSI_WEB_DIST}/koutsi-uusi/${file}`),
 ];
 const missingKoutsiOutputs = requiredKoutsiOutputs.filter((path) => !existsSync(join(root, path)));
 if (missingKoutsiOutputs.length) {

@@ -12,6 +12,7 @@ import {
   koutsiThemeForDate, koutsiMonthlySummary, KOUTSI_MONTHS,
 } from '../domain/core.js';
 import { themePath } from '../domain/player.js';
+import { DRILL_COUNT } from '../shared/drills/useLibrary.js';
 import { usePlayerActions } from './PlayerApp.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -117,7 +118,7 @@ export function ProgressScreen() {
           <span className="k-ex-icon"><Icon name="play" size={16} /></span>
           <span className="k-row-main">
             <span className="k-row-title">Harjoitteet ja videot</span>
-            <span className="k-row-sub">{state.exercises.length ? `Valmentajan ${state.exercises.length} harjoitetta ja omat videosi` : 'Omat videosi ja valmentajan jakamat'}</span>
+            <span className="k-row-sub">{`${DRILL_COUNT} harjoitetta, valmentajan videot ja omat videosi`}</span>
           </span>
           <Icon name="chevron-right" size={18} className="k-chevron" />
         </Link>
