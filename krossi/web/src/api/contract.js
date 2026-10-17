@@ -665,6 +665,18 @@
 // @property {boolean} ready                   seller name and IBAN filled: invoiced slots can be approved
 // @property {string|null} updatedAt
 //
+// @typedef {Object} PayoutStatus              billing.payoutStatus: the hall's own Stripe account (Stripe Connect Express)
+// @property {'none'|'pending'|'ready'} state   none = no account; pending = Stripe still needs details or checks them;
+//                                              ready = players' payments go to the hall's account
+// @property {boolean} chargesEnabled
+// @property {boolean} payoutsEnabled
+// @property {boolean} detailsSubmitted         the hall has gone through Stripe's form (its dashboard opens)
+// @property {number} dueCount                 details Stripe still needs
+// @property {boolean} canConnect               the caller may connect / continue the account (Krossi's admins)
+// @property {{ stripeBps: number, stripeFixedCents: number, marginBps: number, marginFixedCents: number }} fee
+//                                              Krossi's share of a payment: ceil(amount × (stripeBps + marginBps) / 10 000)
+//                                              + stripeFixedCents + marginFixedCents (features/payouts.js paymentFee)
+//
 // @typedef {Object} BillingSettingsInput      billing.saveSettings: the BillingSettings fields staff edit
 // @property {string} sellerName
 // @property {string|null} businessId          check digit checked; '12345671' / 'FI12345671' are fine too
@@ -864,6 +876,9 @@ export const API_CONTRACT = {
     'verifyCharge',        // (chargeId, paymentIntentId) -> { paid, status }   demo: paymentIntentId null pays it
     'getSettings',         // (venueId) -> BillingSettings   staff
     'saveSettings',        // (venueId, BillingSettingsInput) -> BillingSettings   staff; Y-tunnus, IBAN and BIC are checked, stored normalized
+    'payoutStatus',        // (venueId) -> PayoutStatus   staff: the hall's Stripe account and what a payment costs it
+    'connectStripe',       // (venueId) -> { url } | { demo: true }   Krossi's admins: Stripe's onboarding page for the hall's account (created on first use)
+    'stripeDashboard',     // (venueId) -> { url } | { demo: true }   staff: a one-time login to the hall's Stripe Express dashboard
   ],
   wallet: [
     'products',            // (venueId) -> { passes: PassProduct[], gift: { amounts:number[], minCents, maxCents, validDays }|null }   works without a session; gift null = no gift cards sold

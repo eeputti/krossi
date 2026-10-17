@@ -241,3 +241,34 @@ export async function saveSettings(venueId, input = {}) {
     return toSettings(venue);
   });
 }
+
+// ── The hall's own Stripe account ────────────────────────────────────────────
+// The demo hall is connected already: the table of what a payment costs shows the real rule
+// (Stripe's estimate as in supabase/functions/_shared/fees.ts, no margin). Nothing opens Stripe.
+
+const DEMO_FEE = Object.freeze({ stripeBps: 175, stripeFixedCents: 36, marginBps: 0, marginFixedCents: 0 });
+
+export async function payoutStatus(venueId) {
+  return run(() => {
+    const venue = venueRow(venueId);
+    requireStaff(venue);
+    return {
+      state: 'ready', chargesEnabled: true, payoutsEnabled: true, detailsSubmitted: true, dueCount: 0, canConnect: false,
+      fee: { ...DEMO_FEE },
+    };
+  });
+}
+
+export async function connectStripe(venueId) {
+  return run(() => {
+    requireStaff(venueRow(venueId));
+    return { demo: true };
+  });
+}
+
+export async function stripeDashboard(venueId) {
+  return run(() => {
+    requireStaff(venueRow(venueId));
+    return { demo: true };
+  });
+}

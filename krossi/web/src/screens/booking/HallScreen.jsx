@@ -8,7 +8,8 @@
 // ?nakyma=kausivuorot | laskutus | kortit switches from the day to the hall's kausivuorot
 // (HallSeasons), invoices and card charges (HallBilling) or series / gift cards sold (HallCards).
 // ?nakyma=asetukset (the gear in the top bar, pushed so back returns here) is Hallin asetukset
-// (HallSettings): seasons, series card products, gift cards and the invoicing details.
+// (HallSettings): verkkomaksut, seasons, series card products, gift cards and the invoicing
+// details; &tili=valmis | uusi is Stripe's onboarding coming back to it.
 // Only venue staff get in (venue.isStaff; api.booking.staffDay refuses everyone else too).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -243,7 +244,7 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
         {view === 'kausivuorot' && <HallSeasons venue={venue} onChanged={() => requests.reload({ silent: true })} />}
         {view === 'laskutus' && <HallBilling venue={venue} />}
         {view === 'kortit' && <HallCards venue={venue} />}
-        {settings && <HallSettings venue={venue} sports={sportsOf(allCourts)} />}
+        {settings && <HallSettings venue={venue} sports={sportsOf(allCourts)} stripeReturn={['valmis', 'uusi'].includes(query.tili) ? query.tili : null} />}
 
         {view === 'paiva' && (
           <>

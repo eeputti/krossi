@@ -18,8 +18,8 @@
 // payments and transfers; weekly payouts on Mondays, since every payout costs Krossi 0,10 €) and
 // stores its id in booking_venues.stripe_account_id at once, so a second tap or a retry continues
 // the same account. Then an Account Link — single use, valid for a few minutes — that returns to
-// /pelaa/halli/<slug>?nakyma=asetukset&stripe=valmis, or to …&stripe=uusi when the link ran out
-// (the app asks for a new one). Stripe asks the hall for everything it will need (eventually_due),
+// /pelaa/halli/<slug>?nakyma=asetukset&tili=valmis, or to …&tili=uusi when the link ran out
+// (the app asks for a new one). Not ?stripe=: the app's paywall return already reads that. Stripe asks the hall for everything it will need (eventually_due),
 // so the account isn't stopped later for missing details.
 //
 // Why Express: Stripe hosts the onboarding and identity checks, and the hall gets a light
@@ -221,7 +221,7 @@ Deno.serve(async (req: Request) => {
 
     if (body.action === 'onboard') {
       const account = await ensureAccount(admin, venue);
-      const back = `${appBase(req)}/pelaa/halli/${venue.slug}?nakyma=asetukset&stripe=`;
+      const back = `${appBase(req)}/pelaa/halli/${venue.slug}?nakyma=asetukset&tili=`;
       const link = await stripe.accountLinks.create({
         account,
         type: 'account_onboarding',

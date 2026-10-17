@@ -2,7 +2,8 @@
 // monthly season charges, the charges themselves and the hall's invoicing details (Hallin
 // asetukset). Reading and marking invoices and the details go through SECURITY DEFINER RPCs;
 // everything that touches Stripe or sends mail goes through the krossi-billing edge function
-// (SetupIntent, off-session PaymentIntents, invoice e-mail).
+// (SetupIntent, off-session PaymentIntents, invoice e-mail). The hall's own Stripe account (Stripe
+// Connect, Hallin asetukset → Verkkomaksut) goes through krossi-connect.
 
 import { db, isMissingFunction, isUuid, requireUid } from './client.js';
 import { DATE_RE, call, callOrEmpty, edgeCall, fail, list, number, rpcError, text } from './bookingCore.js';
@@ -156,4 +157,51 @@ export async function saveSettings(venueId, {
     next_invoice_number_input: nextInvoiceNumber ?? null,
   }, 'Laskutustietojen tallennus epäonnistui. Yritä hetken päästä uudelleen.');
   return mapBillingSettings(data, venueId);
+}
+
+// ── The hall's own Stripe account (krossi-connect) ───────────────────────────
+
+const PAYOUT_FAIL = 'Verkkomaksujen tietoja ei voitu ladata.';
+const STATES = ['none', 'pending', 'ready'];
+
+/** PayoutStatus: krossi-connect reads the account from Stripe and stores what it says. */
+export async function payoutStatus(venueId) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  const data = await edgeCall('krossi-connect', 'status', { venueId }, PAYOUT_FAIL);
+  const fee = data?.fee || {};
+  return {
+    state: STATES.includes(data?.state) ? data.state : 'none',
+    chargesEnabled: Boolean(data?.chargesEnabled),
+    payoutsEnabled: Boolean(data?.payoutsEnabled),
+    detailsSubmitted: Boolean(data?.detailsSubmitted),
+    dueCount: number(data?.dueCount),
+    canConnect: Boolean(data?.canConnect),
+    fee: {
+      stripeBps: number(fee.stripeBps), stripeFixedCents: number(fee.stripeFixedCents),
+      marginBps: number(fee.marginBps), marginFixedCents: number(fee.marginFixedCents),
+    },
+  };
+}
+
+const stripeUrl = (data, fallback) => {
+  const url = text(data?.url);
+  if (!url || !/^https:\/\/([a-z0-9-]+\.)*stripe\.com\//.test(url)) throw fail(fallback);
+  return { url };
+};
+
+/** Krossi's admins: Stripe's onboarding page for the hall (the account is made on first use). */
+export async function connectStripe(venueId) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  const failed = 'Stripe-tilin yhdistäminen ei nyt onnistu. Yritä hetken päästä uudelleen.';
+  return stripeUrl(await edgeCall('krossi-connect', 'onboard', { venueId }, failed), failed);
+}
+
+/** Hall staff: a one-time login to the hall's Stripe Express dashboard. */
+export async function stripeDashboard(venueId) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  const failed = 'Stripen avaaminen ei nyt onnistu. Yritä hetken päästä uudelleen.';
+  return stripeUrl(await edgeCall('krossi-connect', 'dashboard', { venueId }, failed), failed);
 }

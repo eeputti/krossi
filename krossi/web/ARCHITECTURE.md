@@ -305,6 +305,16 @@ normaalihintaan, ja kaikki maksut palautetaan (toast + kello). Tietokanta:
 `supabase/migrations/20261017124527_krossi_booking_split_and_resale.sql`, raha:
 `supabase/functions/_shared/booking.ts`.
 
+**Hallin oma Stripe-tili (Stripe Connect Express):** jokainen maksu (varaus, kaverin osuus, kausivuoron kuukausi,
+sarja- ja lahjakortti) on destination charge hallin tilille, halli myyjänä (`on_behalf_of`; ei off-session-kuukausissa,
+koska kortti on tallennettu Krossin tilille). Stripe ottaa kulunsa Krossin saldosta, joten Krossin osuus =
+Stripen arvioitu kulu (1,75 % + 0,36 €) + hallin kate (`platform_fee_bps` + `platform_fee_fixed_cents`); palautuksessa
+raha palaa hallilta ja Krossin osuus jää (`supabase/functions/_shared/fees.ts`). Julkinen halli ilman valmista tiliä ei
+ota maksuja, eikä hallia voi avata pelaajille ennen kuin tili on valmis (trigger). Krossin ylläpito yhdistää tilin
+Hallin asetuksista → *Verkkomaksut* (`PayoutSheet`, edge-funktio `krossi-connect`: Account Link, paluu
+`?nakyma=asetukset&tili=valmis|uusi`), ja sama sheet näyttää hallille, mitä maksu maksaa sen omilla hinnoilla
+(`features/payouts.js`). Tietokanta: `supabase/migrations/20261017160000_krossi_booking_connect_fees.sql`.
+
 **Auth & onboarding:** näyttävä tumma kirjautumisnäkymä (kenttäviivat, pallo), Google/Apple/
 sähköposti, rekisteröinti/kirjautuminen/salasanan palautus. Onboarding yhdellä ruudulla:
 kuva, nimi, ikä, kotikaupunki, taso (+ kilpailuluokka), pelimuodot — loput myöhemmin

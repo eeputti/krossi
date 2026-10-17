@@ -1,20 +1,28 @@
 // HallSettings — Hallin näkymä → Hallin asetukset (?nakyma=asetukset, the gear in the top bar):
 // what the hall runs Krossi with, edited in the app instead of SQL. On top, read-only, the price
-// list and booking rules players book by (Hinnat ja säännöt, set up with Krossi). Seasons (dates, holidays,
+// list and booking rules players book by (Hinnat ja säännöt, set up with Krossi), then Verkkomaksut:
+// the hall's own Stripe account and what a payment costs (PayoutSheet). Seasons (dates, holidays,
 // season discount, requests open), series card products (for sale or hidden), gift card amounts,
 // and the invoicing details every new invoice carries. Each row opens its editor sheet
 // (SeasonSettingsSheet, PassProductSheet, GiftSettingsSheet, BillingSettingsSheet). Changes apply
 // to new requests, approvals, purchases and invoices; what was already agreed stays as it is.
-import { useState } from 'react';
+//
+// Stripe's onboarding comes back here with &tili=valmis (the sheet opens on the account's new
+// state) or &tili=uusi (the link ran out: a new one is asked for at once); the parameter is
+// taken off the URL so a reload doesn't repeat it. (Not ?stripe=: App.jsx's paywall return owns it.)
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
+import { navigate } from '../../app/router.js';
 import { centsLabel, dateKey, durationLabel } from '../../features/booking.js';
+import { payoutStateLabel, rateLabel } from '../../features/payouts.js';
 import { dayMonth, formatIban } from '../../features/seasons.js';
 import { plural } from '../../lib/format.js';
 import { Button, Chip, Disclosure, ErrorState, Icon, Skeleton, useToast } from '../../ui/index.js';
 import { BillingSettingsSheet } from './BillingSettingsSheet.jsx';
 import { GiftSettingsSheet } from './GiftSettingsSheet.jsx';
 import { PassProductSheet } from './PassProductSheet.jsx';
+import { PayoutSheet } from './PayoutSheet.jsx';
 import { SeasonSettingsSheet } from './SeasonSettingsSheet.jsx';
 import { numberToInput, validityLabel } from './hallSettingsForm.js';
 import { hoursLabel, priceTable } from './priceTable.js';
@@ -31,8 +39,9 @@ function slotsText(season) {
 /** '26 €/h' for a series card. */
 const perHour = (p) => `${centsLabel(Math.round(p.priceCents / ((p.uses * p.minutesPerUse) / 60)))}/h`;
 
-export function HallSettings({ venue, sports }) {
+export function HallSettings({ venue, sports, stripeReturn = null }) {
   const toast = useToast();
+  const payouts = useAsync(() => api.billing.payoutStatus(venue.id), [venue.id]);
   const seasons = useAsync(() => api.seasons.staffSeasons(venue.id), [venue.id]);
   const products = useAsync(() => api.wallet.staffProducts(venue.id), [venue.id]);
   const billing = useAsync(() => api.billing.getSettings(venue.id), [venue.id]);
@@ -58,9 +67,31 @@ export function HallSettings({ venue, sports }) {
   const gift = products.data?.gift;
   const wait = <Skeleton h={64} r={16} />;
 
+  // Back from Stripe's onboarding.
+  const returned = useRef(stripeReturn);
+  useEffect(() => {
+    if (!returned.current) return;
+    navigate(`/pelaa/halli/${venue.slug}?nakyma=asetukset`, { replace: true });
+    if (returned.current === 'uusi') {
+      returned.current = null;
+      api.billing.connectStripe(venue.id)
+        .then((result) => { if (result.url) window.location.assign(result.url); })
+        .catch((err) => toast(err));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (returned.current !== 'valmis' || !payouts.data) return;
+    returned.current = null;
+    edit('payouts', payouts.data);
+    toast(payouts.data.state === 'ready' ? 'Stripe-tili on valmis. Pelaajien maksut menevät hallille.' : 'Tiedot tallennettu. Stripe tarkistaa vielä hallin tiedot.',
+      { icon: 'check' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payouts.data]);
+
   return (
     <div className="bhall-view hset">
-      <p className="hset-lead">Hinnat, kaudet, sarja- ja lahjakortit sekä laskutustiedot. Muutokset koskevat uusia hakemuksia, ostoja ja laskuja; jo sovitut pysyvät ennallaan.</p>
+      <p className="hset-lead">Hinnat, verkkomaksut, kaudet, sarja- ja lahjakortit sekä laskutustiedot. Muutokset koskevat uusia hakemuksia, ostoja ja laskuja; jo sovitut pysyvät ennallaan.</p>
 
       {settings && !settings.ready && (
         <div className="hset-notice" role="status">
@@ -71,6 +102,20 @@ export function HallSettings({ venue, sports }) {
       )}
 
       <PricesAndRules venue={venue} />
+
+      <section className="hset-section" aria-labelledby="hset-payouts">
+        <div className="hset-head">
+          <div>
+            <h2 className="bhall-subhead" id="hset-payouts">Verkkomaksut</h2>
+            <p className="hset-help">Pelaajien maksut menevät hallin omalle Stripe-tilille, ja Stripe maksaa ne hallin pankkitilille.</p>
+          </div>
+        </div>
+        {payouts.loading && !payouts.data ? wait : payouts.error && !payouts.data ? (
+          <ErrorState error={payouts.error} onRetry={() => payouts.reload()} compact />
+        ) : (
+          <PayoutRow status={payouts.data} onOpen={() => edit('payouts', payouts.data)} />
+        )}
+      </section>
 
       <section className="hset-section" aria-labelledby="hset-seasons">
         <div className="hset-head">
@@ -189,6 +234,12 @@ export function HallSettings({ venue, sports }) {
         )}
       </section>
 
+      <PayoutSheet
+        open={open && sheet.kind === 'payouts'}
+        onClose={() => setOpen(false)}
+        venue={venue}
+        status={sheet.kind === 'payouts' ? sheet.item : null}
+      />
       <SeasonSettingsSheet
         open={open && sheet.kind === 'season'}
         onClose={() => setOpen(false)}
@@ -219,6 +270,30 @@ export function HallSettings({ venue, sports }) {
         onDone={done(billing.reload)}
       />
     </div>
+  );
+}
+
+/** Stripe-tili · its state · the fee rule. */
+function PayoutRow({ status, onOpen }) {
+  const label = payoutStateLabel(status);
+  const { fee } = status;
+  const total = rateLabel(fee.stripeBps + fee.marginBps, fee.stripeFixedCents + fee.marginFixedCents);
+  return (
+    <ul className="hset-list">
+      <li>
+        <button type="button" className={cx('hset-row', status.state !== 'ready' && 'is-warn')} onClick={onOpen}>
+          <span className="hset-row-main">
+            <b>Stripe-tili</b>
+            <small>{label.text}</small>
+            <small className="t-num">Kulut {total} maksulta</small>
+          </span>
+          <span className="hset-row-side">
+            <Chip size="sm" tone={label.tone}>{label.chip}</Chip>
+          </span>
+          <Icon name="chevron-right" size={18} className="hset-row-chevron" />
+        </button>
+      </li>
+    </ul>
   );
 }
 

@@ -98,3 +98,15 @@
   .hset-rules > div:nth-child(odd) { border-right: 0; }
   .hset-price-row { grid-template-columns: 1fr; gap: 4px; }
 }
+
+/* ── Verkkomaksut (PayoutSheet): what one payment costs the hall ── */
+.hset-fees { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; font-size: 14px; }
+.hset-fees th, .hset-fees td { padding: 10px 14px; text-align: left; border-top: 1px solid var(--line); }
+.hset-fees thead th { border-top: 0; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--surface-2); }
+.hset-fees tbody th { font-weight: 700; color: var(--ink); }
+.hset-fees td { font-weight: 700; color: var(--ink-2); text-align: right; white-space: nowrap; }
+.hset-fees thead th:not(:first-child) { text-align: right; }
+.hset-pay-actions { display: grid; gap: 8px; }
+@media (max-width: 480px) {
+  .hset-fees th, .hset-fees td { padding: 9px 10px; }
+}
