@@ -37,7 +37,9 @@ export function TrainingsScreen() {
   const first = new Date(cursor.y, cursor.m, 1);
   const lead = (first.getDay() + 6) % 7;
   const days = new Date(cursor.y, cursor.m + 1, 0).getDate();
+  // Always six rows: a 5-row month must not shift the day list below when you page through months.
   const cells = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => `${prefix}-${koutsiPad(i + 1)}`)];
+  while (cells.length < 42) cells.push(null);
   const move = (n) => setCursor(({ y, m }) => { const d = new Date(y, m + n, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
 
   const dayTrainings = mine.filter((t) => t.date === selected);
@@ -60,7 +62,7 @@ export function TrainingsScreen() {
           <div className="cal-grid">
             {['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'].map((d) => <span key={d} className="cal-dow">{d}</span>)}
             {cells.map((date, i) => {
-              if (!date) return <span key={`e${i}`} />;
+              if (!date) return <span key={`e${i}`} className="cal-blank" aria-hidden="true" />;
               const set = marks.get(date);
               return (
                 <button key={date} type="button" className={cx('cal-cell', date === today && 'is-today', date === selected && 'is-selected')} onClick={() => setSelected(date)}>
