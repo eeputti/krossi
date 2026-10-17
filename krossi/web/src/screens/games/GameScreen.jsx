@@ -1,5 +1,7 @@
 // GameScreen — /pelaa/peli/:id. Dark hero (date, time, venue, countdown), details, players with
 // empty slots, and a floating action bar: join / waitlist / chat / invite + share + calendar.
+// Under Paikka the game's creator gets "Varaa kenttä tälle pelille" when the game's city has a
+// bookable hall — or "Kenttä varattu" once a booking of theirs is this game's court.
 import { useState } from 'react';
 import { api } from '../../api/index.js';
 import { openCreateGame } from '../../app/AppShell.jsx';
@@ -14,6 +16,8 @@ import {
 import { dayLabel, firstName, formatTime } from '../../lib/format.js';
 import { downloadIcs } from '../../lib/ics.js';
 import { SKILL_LEVELS, labelOf } from '../../lib/constants.js';
+import { bookingForGame } from '../../features/booking.js';
+import { useBookingHall } from '../booking/useBookingHall.js';
 import {
   countdownRelative, gameTitle, isFull, isOver, levelLabel, levelShort, locationShort, mapsUrl, matchDesc, matchLabel,
   notifyGamesChanged, placeLine, playersIn, priceLabel, shareText, spotsLabel, surfaceLabel, totalPlayers, venueName,
@@ -21,6 +25,35 @@ import {
 import { InviteToGameSheet } from './InviteToGameSheet.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
+
+/** The game's court: book one at the city's hall, or the booking that already is this game's court. */
+function GameCourt({ game, now }) {
+  const { hall } = useBookingHall([game.city]);
+  const mine = useAsync(() => (hall && game.isMine ? api.booking.listMine() : Promise.resolve(null)), [hall?.id, game.isMine]);
+  if (!hall || !game.isMine) return null;
+  if (game.scheduledAt && Date.parse(game.scheduledAt) <= now) return null;
+  if (mine.loading && !mine.data) return <Skeleton h={64} r={12} className="games-court" />;
+  const booked = bookingForGame(mine.data?.upcoming, game);
+  return (
+    <div className="list-group games-court">
+      {booked ? (
+        <ListRow
+          icon="check-circle"
+          title="Kenttä varattu"
+          subtitle={`${booked.courtName} · ${booked.locationName}, klo ${formatTime(booked.startsAt)}–${formatTime(booked.endsAt)}`}
+          onClick={() => navigate(`/pelaa/omat-varaukset?vuoro=${encodeURIComponent(booked.id)}`)}
+        />
+      ) : (
+        <ListRow
+          icon="court"
+          title="Varaa kenttä tälle pelille"
+          subtitle={game.scheduledAt ? `${hall.name} · klo ${formatTime(game.scheduledAt)}` : hall.name}
+          onClick={() => navigate(`/pelaa/varaa/${encodeURIComponent(hall.slug)}?peli=${encodeURIComponent(game.id)}`)}
+        />
+      )}
+    </div>
+  );
+}
 
 /** Unpaid visitors may not be able to read the full row — fall back to the public preview. */
 async function loadGame(id, paid) {
@@ -265,6 +298,7 @@ export function GameScreen({ params }) {
             <Button as="a" href={mapsUrl(game)} target="_blank" rel="noopener noreferrer" variant="outline" size="sm" iconRight="arrow-up-right">Avaa kartassa</Button>
           )}
         </Card>
+        {!over && <GameCourt game={game} now={now} />}
       </Section>
 
       {game.description && (

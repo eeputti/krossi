@@ -6,6 +6,9 @@
 // account needed — each part goes back to the booker), "Etsi pelikaveri tähän vuoroon" and the
 // calendar file. Opened from a start-time row; the length was chosen on the page.
 //
+// Booking for somebody (`target`: a hallisarja match, a game or a chat — see BookingScreen): once
+// paid, "Lähetä aika" sends the court to their chat (or a button leads back to where it started).
+//
 // A server without payConfig (krossi-booking before phase 4) can't show the payment before a hold:
 // there "Varaa ja maksa" holds first and the same checkout opens under the court.
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -13,7 +16,7 @@ import { api, ApiError } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
 import { Checkout } from '../../app/checkout.jsx';
 import { navigate } from '../../app/router.js';
-import { WEEKDAYS_SHORT, firstName, formatDayMonth, formatTime } from '../../lib/format.js';
+import { WEEKDAYS_SHORT, formatDayMonth, formatTime } from '../../lib/format.js';
 import {
   cancelDeadline, centsLabel, courtsOf, coversSale, discounted, isTaken, lastMinutePercent, priceOf,
 } from '../../features/booking.js';
@@ -67,7 +70,7 @@ function mapStates(location, free, busy, startsAt, minutes, chosenId, sport) {
   return states;
 }
 
-export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes, courtId: firstCourtId, locationId, onBooked, onChanged, match = null }) {
+export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes, courtId: firstCourtId, locationId, onBooked, onChanged, target = null }) {
   const toast = useToast();
   const [courtId, setCourtId] = useState(firstCourtId || null);
   const [placeId, setPlaceId] = useState(null);
@@ -227,14 +230,13 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
     }
   };
 
-  // Hallisarja: the booked time goes straight to the match chat with the opponent.
-  const sendToOpponent = async () => {
+  // A hallisarja match, a game or a chat: the booked time goes straight to that chat.
+  const sendToTarget = async () => {
     setSending(true);
     try {
-      const conversationId = await api.leagues.openFixtureChat(match.fixtureId);
-      await api.messages.send(conversationId,
-        `Varasin meille kentän hallisarjan otteluun: ${booking.courtName}, ${booking.locationName}, ${exactWhen(booking)}. Nähdään kentällä!`);
-      toast(`Aika lähetetty: ${firstName(match.opponent?.name)}`, { icon: 'check' });
+      const conversationId = await target.openChat();
+      await api.messages.send(conversationId, target.message(`${booking.courtName}, ${booking.locationName}, ${exactWhen(booking)}`));
+      toast(target.sentText, { icon: 'check' });
       onClose();
       navigate(`/pelaa/viestit/${encodeURIComponent(conversationId)}`);
     } catch (err) {
@@ -267,14 +269,15 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
             <b>{booking.courtName}</b> · {booking.locationName}<br />
             {whenLabel(booking.startsAt, booking.endsAt)}
           </p>
-          {!match && <SplitShare venue={venue} booking={booking} onChanged={(next) => { setBooking(next); onChanged?.(); }} />}
+          <SplitShare venue={venue} booking={booking} onChanged={(next) => { setBooking(next); onChanged?.(); }} />
           <div className="bk-done-actions">
-            {match && (
-              <Button variant="dark" icon="send" block loading={sending} onClick={sendToOpponent}>
-                Lähetä aika: {firstName(match.opponent?.name)}
-              </Button>
+            {target?.openChat && (
+              <Button variant="dark" icon="send" block loading={sending} onClick={sendToTarget}>{target.sendLabel}</Button>
             )}
-            {!match && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
+            {target && !target.openChat && target.backTo && (
+              <Button variant="dark" icon="arrow-left" block onClick={() => { onClose(); navigate(target.backTo); }}>{target.backLabel}</Button>
+            )}
+            {!target && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
             <Button variant="soft" icon="calendar" block onClick={() => downloadBookingIcs(booking, { cancellableUntil: booking.cancellableUntil })}>Lisää kalenteriin</Button>
           </div>
           <p className="bk-fine">

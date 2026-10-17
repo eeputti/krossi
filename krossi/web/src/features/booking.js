@@ -377,6 +377,54 @@ export function fitsAvailability(availability, startsAt) {
   });
 }
 
+// ── Games and courts ─────────────────────────────────────────────────────────
+// A game (challenges row) and a court booking aren't linked in the data: a booking of mine
+// "is" a game's court when the game starts inside it (or up to half an hour before it starts:
+// a 18.00 booking for a game posted as 17.45). Pelataanko? and the game page use this to say
+// "Kenttä varattu" or offer "Varaa kenttä tälle pelille".
+
+const LIVE_BOOKING = new Set(['held', 'confirmed']);
+
+/** True when `game` (with a time) is played on `booking`. */
+export function bookingFitsGame(booking, game) {
+  if (!booking || !game?.scheduledAt || !LIVE_BOOKING.has(booking.status)) return false;
+  const t = Date.parse(game.scheduledAt);
+  return Date.parse(booking.startsAt) - 30 * MINUTE <= t && t < Date.parse(booking.endsAt);
+}
+
+/** My booking that is the court of `game`, or null. */
+export function bookingForGame(bookings, game) {
+  return (bookings || []).find((b) => bookingFitsGame(b, game)) || null;
+}
+
+/** My game that is played on `booking`, or null. */
+export function gameForBooking(games, booking) {
+  return (games || []).find((g) => g.status !== 'cancelled' && bookingFitsGame(booking, g)) || null;
+}
+
+/** "Kenttä varattu" / "Puuttuu pelikaveri": a booking with nobody to play with is one with no game and no split. */
+export function needsPartner(booking, games) {
+  return !booking.split && !gameForBooking(games, booking);
+}
+
+const NO_TIME = Number.MAX_SAFE_INTEGER; // "aika sovitaan" games sort last
+
+/**
+ * My coming games and courts in time order — Koti's "Seuraava pelisi", Pelit → Omat pelit and
+ * Pelataanko?'s "Tulossa": [{ kind: 'game', id, at, game } | { kind: 'court', id, at, booking, empty }].
+ * A confirmed booking that is one of my games' court shows as that game; the others are courts of
+ * their own, `empty` when nobody plays on them yet (needsPartner). Held bookings (still being paid)
+ * stay out.
+ */
+export function gamesAndCourts(games, bookings) {
+  const list = games || [];
+  const courts = (bookings || []).filter((b) => b.status === 'confirmed' && !gameForBooking(list, b));
+  return [
+    ...list.map((g) => ({ kind: 'game', id: g.id, at: g.scheduledAt ? Date.parse(g.scheduledAt) : NO_TIME, game: g })),
+    ...courts.map((b) => ({ kind: 'court', id: b.id, at: Date.parse(b.startsAt), booking: b, empty: !b.split })),
+  ].sort((a, b) => a.at - b.at);
+}
+
 // ── Chat ─────────────────────────────────────────────────────────────────────
 
 // A payment link at the end of a chat message (the demo's shareMessage, or pasted by the booker).

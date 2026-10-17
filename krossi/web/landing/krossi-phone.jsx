@@ -6,7 +6,7 @@ const KP = {
     return (
       <div style={{
         width: size, height: size, borderRadius: '50%', flexShrink: 0,
-        background: `radial-gradient(120% 120% at 30% 20%, hsl(${hue} 55% 62%), hsl(${hue + 24} 60% 38%))`,
+        background: `hsl(${hue} 48% 46%)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: '#fff', fontWeight: 700, fontSize: size * 0.4,
         boxShadow: ring ? '0 0 0 2px var(--lime)' : 'none', letterSpacing: 0.3,
@@ -15,13 +15,13 @@ const KP = {
   },
   Chip({ children, variant = 'outline' }) {
     const base = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', lineHeight: 1 };
-    if (variant === 'lime') return <span style={{ ...base, background: 'var(--lime)', color: '#101a08' }}>{children}</span>;
+    if (variant === 'lime') return <span style={{ ...base, background: 'var(--lime)', color: 'var(--ink)' }}>{children}</span>;
     if (variant === 'active') return (
-      <span style={{ ...base, background: 'rgba(70,166,109,0.1)', color: '#2d7a4d', border: '1px solid rgba(70,166,109,0.3)' }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#46a66d' }} />{children}
+      <span style={{ ...base, background: 'var(--success-bg)', color: 'var(--success)' }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)' }} />{children}
       </span>
     );
-    return <span style={{ ...base, background: '#f4f2ec', color: '#6b665c', border: '1px solid var(--line)' }}>{children}</span>;
+    return <span style={{ ...base, background: 'var(--sand)', color: 'var(--ink-2)' }}>{children}</span>;
   },
 };
 
@@ -59,7 +59,7 @@ const KP_BUBBLES = [
 function KPHeader({ title, action }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 18px 14px' }}>
-      <h3 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--green-deep)', letterSpacing: -0.5 }}>{title}</h3>
+      <h3 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: 'var(--ink)', letterSpacing: -0.5 }}>{title}</h3>
       {action}
     </div>
   );
@@ -71,7 +71,7 @@ function KPFilters({ onFilter }) {
       <button onClick={onFilter} style={{ width: 40, height: 34, borderRadius: 999, border: '1px solid var(--line)', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <svg width="15" height="11" viewBox="0 0 15 11"><g stroke="#111" strokeWidth="1.6" strokeLinecap="round"><path d="M1 2h13M3 5.5h9M5 9h5" /></g></svg>
       </button>
-      {items.map((x) => <span key={x} style={{ padding: '8px 15px', borderRadius: 999, border: '1px solid var(--line)', color: '#3c382f', fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{x}</span>)}
+      {items.map((x) => <span key={x} style={{ padding: '8px 15px', borderRadius: 999, border: '1px solid var(--line)', color: 'var(--ink-2)', fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>{x}</span>)}
     </div>
   );
 }
@@ -82,9 +82,9 @@ function KPPlayers({ onOpen, onFilter }) {
     <div>
       <KPHeader title="Pelaajat" />
       <KPFilters onFilter={onFilter} />
-      <div style={{ margin: '0 18px 14px', padding: '13px 16px', borderRadius: 16, border: '1.5px solid var(--lime)', background: 'rgba(207,228,20,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      <div style={{ margin: '0 18px 14px', padding: '13px 16px', borderRadius: 12, background: 'var(--lime-100)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <span style={{ color: '#111', fontSize: 14.5, fontWeight: 600 }}>Etsitään peliä tänään?</span>
-        <span style={{ background: 'var(--lime)', color: '#101a08', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>Pelataanko?</span>
+        <span style={{ background: 'var(--lime)', color: 'var(--ink)', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>Pelataanko?</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
         {KP_PLAYERS.map((p) => (
@@ -93,9 +93,9 @@ function KPPlayers({ onOpen, onFilter }) {
               <KP.Avatar initial={p.initial} hue={p.hue} size={46} />
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ color: '#111', fontWeight: 700, fontSize: 17 }}>{p.name}, {p.age}</div>
-                <div style={{ color: '#8a857a', fontSize: 13.5 }}>{p.loc}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 13.5 }}>{p.loc}</div>
               </div>
-              <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#c5c0b5" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="var(--faint)" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
               {p.now ? <KP.Chip variant="lime">⚡ Pelaa nyt</KP.Chip> : p.active && <KP.Chip variant="active">Tällä viikolla</KP.Chip>}
@@ -112,7 +112,7 @@ function KPPlayers({ onOpen, onFilter }) {
 function KPGames({ onFilter }) {
   return (
     <div>
-      <KPHeader title="Pelit" action={<span style={{ background: 'var(--lime)', color: '#101a08', fontSize: 13, fontWeight: 700, padding: '8px 14px', borderRadius: 999 }}>+ Uusi peli</span>} />
+      <KPHeader title="Pelit" action={<span style={{ background: 'var(--lime)', color: 'var(--ink)', fontSize: 13, fontWeight: 700, padding: '8px 14px', borderRadius: 999 }}>+ Uusi peli</span>} />
       <KPFilters onFilter={onFilter} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
         {KP_GAMES.map((g, i) => {
@@ -127,10 +127,10 @@ function KPGames({ onFilter }) {
                 <KP.Avatar initial={p.initial} hue={p.hue} size={42} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: '#111', fontWeight: 700, fontSize: 16 }}>{p.name}</div>
-                  <div style={{ color: '#8a857a', fontSize: 13 }}>{g.place}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 13 }}>{g.place}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 5 }}>
-                  {Array.from({ length: g.slots }).map((_, k) => <span key={k} style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px dashed #c5c0b5' }} />)}
+                  {Array.from({ length: g.slots }).map((_, k) => <span key={k} style={{ width: 24, height: 24, borderRadius: '50%', border: '1.5px dashed var(--faint)' }} />)}
                 </div>
               </div>
             </div>
@@ -146,7 +146,7 @@ function KPMessages({ onConvo, onReply }) {
     <div>
       <KPHeader title="Viestit" />
       <div style={{ padding: '0 18px' }}>
-        <div style={{ color: 'var(--green-deep)', fontSize: 15, fontWeight: 800, margin: '0 2px 10px' }}>Uudet pelipyynnöt</div>
+        <div style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 800, margin: '0 2px 10px' }}>Uudet pelipyynnöt</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 22 }}>
           {KP_REQUESTS.map((r, i) => {
             const p = KP_PLAYERS[r.p];
@@ -156,16 +156,16 @@ function KPMessages({ onConvo, onReply }) {
                   <KP.Avatar initial={p.initial} hue={p.hue} size={34} />
                   <span style={{ color: '#111', fontWeight: 700, fontSize: 15 }}>{p.name}</span>
                 </div>
-                <p style={{ margin: '0 0 12px', color: '#3c382f', fontSize: 14, lineHeight: 1.4 }}>{r.text}</p>
+                <p style={{ margin: '0 0 12px', color: 'var(--ink-2)', fontSize: 14, lineHeight: 1.4 }}>{r.text}</p>
                 <div style={{ display: 'flex', gap: 9 }}>
-                  <button onClick={() => onReply(r.p)} style={{ flex: 1, background: 'var(--lime)', color: '#101a08', border: 'none', borderRadius: 999, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Vastaa</button>
-                  <button style={{ flex: 1, background: '#f0ede6', color: '#111', border: '1px solid var(--line)', borderRadius: 999, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Ohita</button>
+                  <button onClick={() => onReply(r.p)} style={{ flex: 1, background: 'var(--lime)', color: 'var(--ink)', border: 'none', borderRadius: 999, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Vastaa</button>
+                  <button style={{ flex: 1, background: 'var(--sand)', color: '#111', border: '1px solid var(--line)', borderRadius: 999, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Ohita</button>
                 </div>
               </div>
             );
           })}
         </div>
-        <div style={{ color: 'var(--green-deep)', fontSize: 15, fontWeight: 800, margin: '0 2px 10px' }}>Keskustelut</div>
+        <div style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 800, margin: '0 2px 10px' }}>Keskustelut</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {KP_CONVOS.map((c, i) => {
             const p = KP_PLAYERS[c.p];
@@ -174,10 +174,10 @@ function KPMessages({ onConvo, onReply }) {
                 <KP.Avatar initial={p.initial} hue={p.hue} size={44} ring={c.unread} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: '#111', fontWeight: 700, fontSize: 15.5 }}>{p.name}</div>
-                  <div style={{ color: '#8a857a', fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.last}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.last}</div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
-                  <span style={{ color: '#9a958a', fontSize: 12 }}>{c.time}</span>
+                  <span style={{ color: 'var(--faint)', fontSize: 12 }}>{c.time}</span>
                   {c.unread && <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--lime)' }} />}
                 </div>
               </button>
@@ -197,26 +197,26 @@ function KPProfile({ liveOn, setLiveOn }) {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '0 18px 16px' }}>
         <KP.Avatar initial="A" hue={150} size={86} ring />
         <div style={{ color: '#111', fontWeight: 800, fontSize: 22 }}>Aleksi</div>
-        <div style={{ color: '#8a857a', fontSize: 14 }}>Aina valmis matsiin!</div>
+        <div style={{ color: 'var(--muted)', fontSize: 14 }}>Aina valmis matsiin!</div>
       </div>
       <div style={{ padding: '0 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <button onClick={() => setLiveOn(!liveOn)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: '15px 16px', borderRadius: 16, border: `1.5px solid ${liveOn ? 'rgba(70,166,109,0.4)' : 'var(--line)'}`, background: liveOn ? 'rgba(70,166,109,0.1)' : '#f4f2ec', width: '100%' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 9, color: liveOn ? '#2d7a4d' : '#6b665c', fontWeight: 700, fontSize: 15 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: liveOn ? '#46a66d' : '#c5c0b5' }} />Pelaan tällä viikolla</span>
-          <span style={{ color: liveOn ? '#2d7a4d' : '#8a857a', fontWeight: 700, fontSize: 14 }}>{liveOn ? 'Päällä' : 'Pois'}</span>
+        <button onClick={() => setLiveOn(!liveOn)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', padding: '15px 16px', borderRadius: 12, border: 'none', background: liveOn ? 'var(--success-bg)' : 'var(--sand)', width: '100%' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 9, color: liveOn ? 'var(--success)' : 'var(--muted)', fontWeight: 700, fontSize: 15 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: liveOn ? 'var(--success)' : 'var(--faint)' }} />Pelaan tällä viikolla</span>
+          <span style={{ color: liveOn ? 'var(--success)' : 'var(--muted)', fontWeight: 700, fontSize: 14 }}>{liveOn ? 'Päällä' : 'Pois'}</span>
         </button>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {cities.map((c, i) => <span key={c} style={{ textAlign: 'center', padding: '9px 14px', borderRadius: 14, fontWeight: 700, fontSize: 13.5, border: i === 0 ? 'none' : '1px solid var(--line)', background: i === 0 ? 'var(--lime)' : 'transparent', color: i === 0 ? '#101a08' : '#6b665c' }}>{c}</span>)}
+          {cities.map((c, i) => <span key={c} style={{ textAlign: 'center', padding: '9px 14px', borderRadius: 999, fontWeight: 700, fontSize: 13.5, border: i === 0 ? 'none' : '1px solid var(--line)', background: i === 0 ? 'var(--lime)' : 'transparent', color: i === 0 ? 'var(--ink)' : 'var(--muted)' }}>{c}</span>)}
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           {[['Pelitaso', 'Keskitaso'], ['Pelimuodot', 'Kaikki käy']].map(([k, v]) => (
             <div key={k} className="kp-card" style={{ flex: 1, padding: '14px 15px' }}>
-              <div style={{ color: '#8a857a', fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 5 }}>{k}</div>
+              <div style={{ color: 'var(--muted)', fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 5 }}>{k}</div>
               <div style={{ color: '#111', fontWeight: 700, fontSize: 16 }}>{v}</div>
             </div>
           ))}
         </div>
         <div className="kp-card" style={{ padding: '14px 16px' }}>
-          <div style={{ color: '#8a857a', fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 8 }}>Ajankohdat</div>
+          <div style={{ color: 'var(--muted)', fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 8 }}>Ajankohdat</div>
           {['Arkiaamut 9–12', 'Arki-illat 18–21', 'Viikonloput 10–14'].map((t) => <div key={t} style={{ color: '#111', fontSize: 14.5, padding: '4px 0' }}>{t}</div>)}
         </div>
       </div>
@@ -230,20 +230,20 @@ function KPDetail({ player, onBack, onRequest }) {
   const Field = ({ label, children }) => (
     <div style={{ marginBottom: 16 }}>
       <div style={{ color: '#111', fontWeight: 800, fontSize: 14.5, marginBottom: 4 }}>{label}</div>
-      <div style={{ color: '#3c382f', fontSize: 14.5, lineHeight: 1.45 }}>{children}</div>
+      <div style={{ color: 'var(--ink-2)', fontSize: 14.5, lineHeight: 1.45 }}>{children}</div>
     </div>
   );
   return (
     <div className="kp-light kp-overlay" style={{ position: 'absolute', inset: 0, zIndex: 50, display: 'flex', flexDirection: 'column', borderRadius: 'inherit', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '46px 16px 6px' }}>
-        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#f0ede6', border: '1px solid var(--line)', color: '#111', fontSize: 14, fontWeight: 600, padding: '8px 14px', borderRadius: 999, cursor: 'pointer' }}>← Takaisin</button>
-        <span style={{ width: 36, height: 36, borderRadius: '50%', background: '#f0ede6', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="18" height="5" viewBox="0 0 18 5"><g fill="#111"><circle cx="2.5" cy="2.5" r="2" /><circle cx="9" cy="2.5" r="2" /><circle cx="15.5" cy="2.5" r="2" /></g></svg></span>
+        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--sand)', border: '1px solid var(--line)', color: '#111', fontSize: 14, fontWeight: 600, padding: '8px 14px', borderRadius: 999, cursor: 'pointer' }}>← Takaisin</button>
+        <span style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--sand)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="18" height="5" viewBox="0 0 18 5"><g fill="#111"><circle cx="2.5" cy="2.5" r="2" /><circle cx="9" cy="2.5" r="2" /><circle cx="15.5" cy="2.5" r="2" /></g></svg></span>
       </div>
       <div className="kp-screen" style={{ flex: 1, overflowY: 'auto', padding: '6px 20px 96px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 22 }}>
           <KP.Avatar initial={player.initial} hue={player.hue} size={92} ring />
           <div style={{ color: '#111', fontWeight: 800, fontSize: 24 }}>{player.name}, {player.age}</div>
-          <div style={{ color: '#8a857a', fontSize: 15 }}>{player.loc}</div>
+          <div style={{ color: 'var(--muted)', fontSize: 15 }}>{player.loc}</div>
           {player.active && <div style={{ marginTop: 2 }}><KP.Chip variant="active">Tällä viikolla</KP.Chip></div>}
         </div>
         <Field label="Pelitaso">{player.level}</Field>
@@ -253,7 +253,7 @@ function KPDetail({ player, onBack, onRequest }) {
         <Field label="Bio">{player.bio}</Field>
       </div>
       <div style={{ position: 'absolute', left: 18, right: 18, bottom: 18 }}>
-        <button onClick={onRequest} style={{ width: '100%', background: 'var(--lime)', color: '#101a08', border: 'none', borderRadius: 999, padding: '16px 0', fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 8px 24px -8px rgba(20,20,10,0.25)' }}>Pyydä pelaamaan</button>
+        <button onClick={onRequest} style={{ width: '100%', background: 'var(--lime)', color: 'var(--ink)', border: 'none', borderRadius: 999, padding: '16px 0', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>Pyydä pelaamaan</button>
       </div>
     </div>
   );
@@ -264,11 +264,11 @@ function KPRequestModal({ player, onClose, onSend }) {
   if (!player) return null;
   return (
     <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end', borderRadius: 'inherit', overflow: 'hidden' }}>
-      <div onClick={(e) => e.stopPropagation()} className="kp-sheet" style={{ width: '100%', background: '#F4F2EC', borderRadius: '24px 24px 0 0', padding: '22px 18px calc(18px + env(safe-area-inset-bottom))' }}>
+      <div onClick={(e) => e.stopPropagation()} className="kp-sheet" style={{ width: '100%', background: '#fff', borderRadius: '18px 18px 0 0', padding: '22px 18px calc(18px + env(safe-area-inset-bottom))' }}>
         <h4 style={{ margin: '0 0 14px', fontSize: 18, fontWeight: 800, color: '#111' }}>Pyyntö pelaajalle {player.name}</h4>
-        <textarea value={val} onChange={(e) => setVal(e.target.value)} rows={3} style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #d8d4ca', borderRadius: 14, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 12, background: '#fff' }} />
-        <button onClick={onClose} style={{ width: '100%', background: '#e9e6df', color: '#111', border: 'none', borderRadius: 14, padding: '14px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer', marginBottom: 10 }}>Peruuta</button>
-        <button onClick={onSend} style={{ width: '100%', background: 'var(--green-deep)', color: '#fff', border: 'none', borderRadius: 14, padding: '14px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Lähetä viesti</button>
+        <textarea value={val} onChange={(e) => setVal(e.target.value)} rows={3} style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--line-strong)', borderRadius: 12, padding: '13px 14px', fontSize: 14.5, fontFamily: 'inherit', color: '#111', resize: 'none', marginBottom: 12, background: '#fff' }} />
+        <button onClick={onClose} style={{ width: '100%', background: 'var(--sand)', color: '#111', border: 'none', borderRadius: 999, padding: '14px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer', marginBottom: 10 }}>Peruuta</button>
+        <button onClick={onSend} style={{ width: '100%', background: 'var(--dark)', color: '#fff', border: 'none', borderRadius: 999, padding: '14px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Lähetä viesti</button>
       </div>
     </div>
   );
@@ -282,26 +282,26 @@ function KPFilterSheet({ onClose }) {
   const [ageRanges, setAgeRanges] = React.useState(['20–30', '30–40']);
   const toggle = (arr, set, v) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   const Pill = ({ on, children, onClick }) => (
-    <button onClick={onClick} style={{ padding: '11px 18px', borderRadius: 999, border: on ? 'none' : '1px solid var(--line)', background: on ? 'var(--lime)' : '#fff', color: on ? '#101a08' : '#3c382f', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>{children}</button>
+    <button onClick={onClick} style={{ padding: '11px 18px', borderRadius: 999, border: on ? 'none' : '1px solid var(--line)', background: on ? 'var(--lime)' : '#fff', color: on ? 'var(--ink)' : 'var(--ink-2)', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>{children}</button>
   );
   const Group = ({ label, children }) => (
-    <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 20, padding: '16px 14px', marginBottom: 14 }}>
-      {label && <div style={{ color: 'var(--green-deep)', fontSize: 12.5, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>{label}</div>}
+    <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: '16px 14px', marginBottom: 14 }}>
+      {label && <div style={{ color: 'var(--ink)', fontSize: 12.5, fontWeight: 800, letterSpacing: 1, marginBottom: 12 }}>{label}</div>}
       {children}
     </div>
   );
   return (
     <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end', borderRadius: 'inherit', overflow: 'hidden' }}>
-      <div onClick={(e) => e.stopPropagation()} className="kp-sheet" style={{ width: '100%', height: '90%', background: '#F7F5EF', borderRadius: '26px 26px 0 0', display: 'flex', flexDirection: 'column' }}>
+      <div onClick={(e) => e.stopPropagation()} className="kp-sheet" style={{ width: '100%', height: '90%', background: 'var(--surface-2)', borderRadius: '18px 18px 0 0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}><span style={{ width: 40, height: 5, borderRadius: 99, background: 'rgba(0,0,0,0.15)' }} /></div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 18px 14px' }}>
           <h4 style={{ margin: 0, fontSize: 21, fontWeight: 800, color: '#111' }}>Suodata pelaajia</h4>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--green-deep)', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Sulje</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink)', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Sulje</button>
         </div>
         <div className="kp-screen" style={{ flex: 1, overflowY: 'auto', padding: '0 18px 12px' }}>
           <Group>
-            <div style={{ display: 'flex', background: '#f0ede6', borderRadius: 999, padding: 4, marginBottom: 12 }}>
-              {['Kaupunki', 'Säde'].map((s) => <button key={s} onClick={() => setTab(s)} style={{ flex: 1, padding: '9px 0', borderRadius: 999, border: 'none', background: tab === s ? 'var(--lime)' : 'transparent', color: tab === s ? '#101a08' : '#6b665c', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{s}</button>)}
+            <div style={{ display: 'flex', background: 'var(--sand)', borderRadius: 999, padding: 4, marginBottom: 12 }}>
+              {['Kaupunki', 'Säde'].map((s) => <button key={s} onClick={() => setTab(s)} style={{ flex: 1, padding: '9px 0', borderRadius: 999, border: 'none', background: tab === s ? 'var(--lime)' : 'transparent', color: tab === s ? 'var(--ink)' : 'var(--muted)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>{s}</button>)}
             </div>
             <div className="kp-scroll-x" style={{ display: 'flex', gap: 9, overflowX: 'auto' }}>
               {['Kaikki', 'Lahti', 'Turku', 'Helsinki', 'Tampere', 'Oulu', 'Jyväskylä', 'Pori', 'Kuopio', 'Rovaniemi', 'Mikkeli'].map((c) => <Pill key={c} on={city === c} onClick={() => setCity(c)}>{c}</Pill>)}
@@ -324,8 +324,8 @@ function KPFilterSheet({ onClose }) {
           </Group>
         </div>
         <div style={{ display: 'flex', gap: 10, padding: '12px 18px calc(14px + env(safe-area-inset-bottom))', borderTop: '1px solid var(--line)' }}>
-          <button onClick={onClose} style={{ flex: 1, background: '#f0ede6', color: '#111', border: '1px solid var(--line)', borderRadius: 999, padding: '15px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Tyhjennä</button>
-          <button onClick={onClose} style={{ flex: 1.4, background: 'var(--lime)', color: '#101a08', border: 'none', borderRadius: 999, padding: '15px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Näytä pelaajat</button>
+          <button onClick={onClose} style={{ flex: 1, background: 'var(--sand)', color: '#111', border: '1px solid var(--line)', borderRadius: 999, padding: '15px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Tyhjennä</button>
+          <button onClick={onClose} style={{ flex: 1.4, background: 'var(--lime)', color: 'var(--ink)', border: 'none', borderRadius: 999, padding: '15px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>Näytä pelaajat</button>
         </div>
       </div>
     </div>
@@ -339,15 +339,15 @@ function KPConvo({ player, onBack }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '46px 16px 12px', borderBottom: '1px solid var(--line)' }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#111', cursor: 'pointer', padding: 0, fontSize: 22, lineHeight: 1 }}>←</button>
         <KP.Avatar initial={player.initial} hue={player.hue} size={38} ring />
-        <div><div style={{ color: '#111', fontWeight: 700, fontSize: 16 }}>{player.name}</div><div style={{ color: '#2d7a4d', fontSize: 12, fontWeight: 600 }}>● Paikalla</div></div>
+        <div><div style={{ color: '#111', fontWeight: 700, fontSize: 16 }}>{player.name}</div><div style={{ color: 'var(--success)', fontSize: 12, fontWeight: 600 }}>● Paikalla</div></div>
       </div>
       <div className="kp-screen" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 18 }}>
         {KP_BUBBLES.map((m, i) => (
-          <div key={i} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', maxWidth: '78%', padding: '10px 14px', borderRadius: 18, fontSize: 14.5, lineHeight: 1.35, background: m.me ? 'var(--lime)' : '#f0ede6', color: m.me ? '#101a08' : '#111', borderBottomRightRadius: m.me ? 5 : 18, borderBottomLeftRadius: m.me ? 18 : 5, fontWeight: m.me ? 600 : 500 }}>{m.text}</div>
+          <div key={i} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', maxWidth: '78%', padding: '10px 14px', borderRadius: 18, fontSize: 14.5, lineHeight: 1.35, background: m.me ? 'var(--lime)' : 'var(--sand)', color: m.me ? 'var(--ink)' : '#111', borderBottomRightRadius: m.me ? 5 : 18, borderBottomLeftRadius: m.me ? 18 : 5, fontWeight: m.me ? 600 : 500 }}>{m.text}</div>
         ))}
       </div>
       <div style={{ display: 'flex', gap: 9, padding: '10px 16px calc(14px + env(safe-area-inset-bottom))', alignItems: 'center' }}>
-        <div style={{ flex: 1, padding: '11px 16px', borderRadius: 999, background: '#f0ede6', border: '1px solid var(--line)', color: '#8a857a', fontSize: 14 }}>Kirjoita viesti…</div>
+        <div style={{ flex: 1, padding: '11px 16px', borderRadius: 999, background: 'var(--sand)', border: '1px solid var(--line)', color: 'var(--muted)', fontSize: 14 }}>Kirjoita viesti…</div>
         <span style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--lime)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><svg width="20" height="20" viewBox="0 0 22 22"><path d="M20 2L2 9.5l7 2.5 2.5 7L20 2z" fill="none" stroke="#101a08" strokeWidth="1.8" strokeLinejoin="round" /></svg></span>
       </div>
     </div>
@@ -356,7 +356,7 @@ function KPConvo({ player, onBack }) {
 
 function KPToast({ show, text }) {
   return (
-    <div style={{ position: 'absolute', top: 52, left: '50%', transform: `translateX(-50%) translateY(${show ? 0 : -20}px)`, opacity: show ? 1 : 0, transition: 'all .3s', zIndex: 90, background: 'var(--lime)', color: '#101a08', padding: '10px 18px', borderRadius: 999, fontWeight: 700, fontSize: 13.5, boxShadow: '0 8px 24px -8px rgba(20,20,10,0.3)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>{text}</div>
+    <div style={{ position: 'absolute', top: 52, left: '50%', transform: `translateX(-50%) translateY(${show ? 0 : -20}px)`, opacity: show ? 1 : 0, transition: 'all .3s', zIndex: 90, background: 'var(--lime)', color: 'var(--ink)', padding: '10px 18px', borderRadius: 999, fontWeight: 700, fontSize: 13.5, boxShadow: '0 4px 14px -8px rgba(0,0,0,0.14)', pointerEvents: 'none', whiteSpace: 'nowrap' }}>{text}</div>
   );
 }
 
@@ -365,7 +365,7 @@ const KP_TABS = [{ id: 'players', label: 'Pelaajat' }, { id: 'games', label: 'Pe
 const KP_TAB_ICON = { players: 'assets/ball-tight.png', games: 'assets/avoimet-tight.png', messages: 'assets/viestit-tight.png' };
 function KPTabIcon({ id, on }) {
   if (id === 'profile') {
-    return <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'radial-gradient(120% 120% at 30% 20%, hsl(150 55% 62%), hsl(174 60% 38%))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11, boxShadow: on ? '0 0 0 2px var(--lime)' : 'none', opacity: on ? 1 : 0.6 }}>A</div>;
+    return <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'hsl(150 48% 46%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11, boxShadow: on ? '0 0 0 2px var(--lime)' : 'none', opacity: on ? 1 : 0.6 }}>A</div>;
   }
   return <img src={KP_TAB_ICON[id]} alt="" style={{ width: 24, height: 24, objectFit: 'contain', opacity: on ? 1 : 0.5, filter: on ? 'none' : 'grayscale(0.3)', transition: 'opacity .15s' }} />;
 }
@@ -409,13 +409,13 @@ function KrossiPhone({ startTab = 'players', width = 300, onScrollEl }) {
           {tab === 'profile' && <KPProfile liveOn={liveOn} setLiveOn={setLiveOn} />}
         </div>
 
-        <div style={{ position: 'absolute', left: 10, right: 10, bottom: 10, height: 62, borderRadius: 22, background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid var(--line)', display: 'flex', zIndex: 30, boxShadow: '0 8px 24px -12px rgba(0,0,0,0.18)' }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 70, paddingBottom: 8, boxSizing: 'border-box', background: 'rgba(255,255,255,0.94)', backdropFilter: 'saturate(180%) blur(18px)', WebkitBackdropFilter: 'saturate(180%) blur(18px)', borderTop: '1px solid var(--line)', display: 'flex', zIndex: 30 }}>
           {KP_TABS.map((t) => {
             const on = tab === t.id;
             return (
               <button key={t.id} onClick={() => goTab(t.id)} style={{ flex: 1, border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: 0 }}>
                 <KPTabIcon id={t.id} on={on} />
-                <span style={{ fontSize: 10.5, fontWeight: on ? 700 : 500, color: on ? 'var(--green-deep)' : '#9a958a' }}>{t.label}</span>
+                <span style={{ fontSize: 10.5, fontWeight: on ? 700 : 500, color: on ? 'var(--ink)' : 'var(--faint)' }}>{t.label}</span>
               </button>
             );
           })}

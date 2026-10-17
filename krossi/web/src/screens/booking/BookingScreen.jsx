@@ -9,8 +9,11 @@
 // player's usual play times carry a lime dot; a full time takes a bell ("Ilmoita kun vapautuu");
 // somebody's booking on sale is its own row. Changing the day spins a ball while the times load.
 //
-// From a hallisarja fixture (?liiga=<leagueId>&ottelu=<fixtureId>) the page says whose match it
-// is, and after paying the booking sheet sends the time to the opponent's chat in one tap.
+// Booking for somebody: a hallisarja fixture (?liiga=<leagueId>&ottelu=<fixtureId>), a game
+// (?peli=<gameId>, "Varaa kenttä tälle pelille") or a chat (?chat=<conversationId>). The page says
+// who the court is for, and after paying the booking sheet sends the time to their chat in one tap.
+// A game's day is picked for the player and, if a court is free when the game starts, the sheet
+// opens at that time; a game I already have a court for says so instead.
 //
 // Redirect payment methods (MobilePay on a phone) come back here with
 // ?varaus=<bookingId>&payment_intent=…; that is confirmed below and the query is dropped.
@@ -21,7 +24,7 @@ import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
 import { firstName, formatGameTime, formatTime } from '../../lib/format.js';
 import {
-  addDays, bookingDays, centsLabel, dateKey, durationLabel, findCourt, fitsAvailability, freeSlots, locationsFor,
+  addDays, bookingDays, bookingForGame, centsLabel, dateKey, durationLabel, findCourt, fitsAvailability, freeSlots, locationsFor,
   minutesOf, giveBackOf, giveBackText, priceOf, sportsOf,
 } from '../../features/booking.js';
 import {
@@ -30,12 +33,14 @@ import {
 import { BookSheet } from './BookSheet.jsx';
 import { BookingTermsSheet } from './BookingTerms.jsx';
 import { DateStrip, DurationStepper, PlacePicker, TimeRows, UnpaidPayments } from './BookingParts.jsx';
+import { gameTitle } from '../games/gameUtils.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ALL = 'kaikki';
 
 const SHORT_PLACE = { 'Kisapuiston ulkokentät': 'Ulkokentät' };
 const shortPlace = (name) => SHORT_PLACE[name] || name;
+const squash = (s) => String(s || '').toLocaleLowerCase('fi').replace(/[^a-z0-9åäö]/g, '');
 
 const sameWatch = (w, { sport, startsAt, minutes, locationId }) => w.sport === sport && w.startsAt === startsAt
   && w.minutes === minutes && (w.locationId || null) === (locationId || null);
@@ -79,15 +84,9 @@ export function BookingScreen({ params, query }) {
   const day = useAsync(() => (venue && key ? api.booking.day(venue.id, key) : Promise.resolve(null)), [venue?.id, key]);
   // Only once a hall is visible: before the booking tables exist the list is just empty.
   const mine = useAsync(() => (venue ? api.booking.listMine() : Promise.resolve(null)), [venue?.id]);
-  // Booking for a hallisarja match: who the opponent is (the sheet sends them the time).
-  const match = useAsync(async () => {
-    if (!query?.liiga || !query?.ottelu) return null;
-    const league = await api.leagues.get(query.liiga);
-    const fixture = league?.fixtures?.find((f) => f.id === query.ottelu);
-    if (!fixture) return null;
-    const opponent = fixture.playerA?.id === user?.id ? fixture.playerB : fixture.playerA;
-    return { leagueId: league.id, leagueName: league.seasonLabel, fixtureId: fixture.id, opponent };
-  }, [query?.liiga, query?.ottelu, user?.id]);
+  // Booking for somebody (a hallisarja match, a game, a chat): who it is for and where the sheet
+  // sends the time once the court is paid.
+  const target = useAsync(() => bookingTarget(query, user?.id), [query?.liiga, query?.ottelu, query?.peli, query?.chat, user?.id]);
   const watches = useAsync(() => (venue ? api.booking.listWatches() : Promise.resolve([])), [venue?.id]);
   // Failed kausivuoro months: the payments row on top.
   const seasonSlots = useAsync(() => (venue ? api.seasons.listMine().catch(() => []) : Promise.resolve([])), [venue?.id]);
@@ -236,6 +235,35 @@ export function BookingScreen({ params, query }) {
 
   const openPick = (next) => { setPick(next); setBookOpen(true); };
 
+  // A game's court: go to the game's day, then open the sheet at the game's start (the grid start
+  // just before it when the game is at, say, 18.15). Once per game; not when I already have its
+  // court. A full time just says so: a court starting earlier or later isn't this game's court.
+  const game = target.data?.kind === 'game' ? target.data.game : null;
+  const already = game ? bookingForGame(mine.data?.upcoming, game) : null;
+  const presetFor = useRef(null);
+  const [aim, setAim] = useState(null);
+  useEffect(() => {
+    if (!venue || !game?.scheduledAt || !mine.data || presetFor.current === game.id) return;
+    presetFor.current = game.id;
+    if (already || Date.parse(game.scheduledAt) <= Date.now()) return;
+    const want = dateKey(new Date(game.scheduledAt));
+    if (!days.includes(want)) { toast(`Vuoroja voi varata ${venue.daysAhead} päivän päähän.`, { tone: 'info' }); return; }
+    setDayKey(want);
+    setAim(game.scheduledAt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venue?.id, game?.id, mine.data]);
+  useEffect(() => {
+    if (!aim || settling || day.loading || day.data?.date !== dateKey(new Date(aim))) return;
+    setAim(null);
+    const t = Date.parse(aim);
+    const start = slots.filter((slot) => Date.parse(slot.startsAt) <= t && t - Date.parse(slot.startsAt) < 30 * 60_000).pop();
+    // The game's own hall first when its place names one of the venue's (Kispi Areena = Kispi-Areena).
+    const at = venue.locations.find((l) => squash(l.name) === squash(game?.locationName));
+    if (start?.options.length) openPick({ startsAt: start.startsAt, courtId: null, locationId: at?.id || locationId });
+    else toast(`Klo ${formatTime(aim)} kentät on varattu — valitse toinen aika.`, { tone: 'info', duration: 4200 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aim, settling, day.loading, day.data, slots]);
+
   // ── The venue itself: loading / failed / none visible yet ──
   if (venues.loading && !venues.data) {
     return (
@@ -378,12 +406,14 @@ export function BookingScreen({ params, query }) {
           </div>
         ))}
 
-        {match.data && (
+        {target.data && (
           <div className="bk-match" role="note">
-            <span className="bk-match-icon" aria-hidden="true"><Icon name="trophy" size={18} /></span>
+            <span className="bk-match-icon" aria-hidden="true"><Icon name={target.data.icon} size={18} /></span>
             <span className="bk-match-text">
-              <b>{match.data.leagueName}: ottelu vs. {firstName(match.data.opponent?.name)}</b>
-              Varaa kenttä, niin voit lähettää ajan vastustajallesi yhdellä napautuksella.
+              <b>{target.data.title}</b>
+              {already
+                ? `Sinulla on jo kenttä tähän peliin: ${already.courtName}, ${already.locationName} klo ${formatTime(already.startsAt)}–${formatTime(already.endsAt)}.`
+                : target.data.text}
             </span>
           </div>
         )}
@@ -437,8 +467,68 @@ export function BookingScreen({ params, query }) {
         locationId={pick?.locationId || locationId}
         onBooked={refresh}
         onChanged={refresh}
-        match={match.data || null}
+        target={target.data || null}
       />
     </>
   );
+}
+
+/**
+ * Who a booking is for, from the page's query: a hallisarja match, a game or a chat — or null.
+ * The sheet puts `peopleIds` first in the split list and, once paid, sends `message(where)` to
+ * the chat `openChat()` opens (a game nobody has joined yet has no chat: "Takaisin peliin").
+ */
+async function bookingTarget(query, meId) {
+  if (query?.liiga && query?.ottelu) {
+    const league = await api.leagues.get(query.liiga);
+    const fixture = league?.fixtures?.find((f) => f.id === query.ottelu);
+    if (!fixture) return null;
+    const opponent = fixture.playerA?.id === meId ? fixture.playerB : fixture.playerA;
+    const name = firstName(opponent?.name);
+    return {
+      kind: 'league', icon: 'trophy',
+      title: `${league.seasonLabel}: ottelu vs. ${name}`,
+      text: 'Varaa kenttä, niin voit lähettää ajan vastustajallesi yhdellä napautuksella.',
+      peopleIds: [opponent?.id].filter(Boolean),
+      sendLabel: `Lähetä aika: ${name}`,
+      sentText: `Aika lähetetty: ${name}`,
+      openChat: () => api.leagues.openFixtureChat(fixture.id),
+      message: (where) => `Varasin meille kentän hallisarjan otteluun: ${where}. Nähdään kentällä!`,
+    };
+  }
+  if (query?.peli) {
+    const game = await api.games.get(query.peli);
+    if (!game || game.status === 'cancelled') return null;
+    const players = [game.creator, ...game.participants].filter((p) => p?.id && p.id !== meId);
+    return {
+      kind: 'game', icon: 'racket', game,
+      title: `Kenttä peliin: ${gameTitle(game)} ${game.scheduledAt ? formatGameTime(game.scheduledAt).replace(/^\S+/, (w) => w.toLowerCase()) : ''}`.trim(),
+      text: game.conversationId
+        ? 'Kun kenttä on maksettu, aika lähtee pelin chattiin yhdellä napautuksella.'
+        : 'Kun kenttä on maksettu, peli näyttää sen varattuna.',
+      peopleIds: players.map((p) => p.id),
+      sendLabel: 'Lähetä aika pelin chattiin',
+      sentText: 'Aika lähetetty pelin chattiin',
+      openChat: game.conversationId ? async () => game.conversationId : null,
+      backTo: `/pelaa/peli/${encodeURIComponent(game.id)}`,
+      backLabel: 'Takaisin peliin',
+      message: (where) => `Varasin kentän peliin: ${where}. Nähdään kentällä!`,
+    };
+  }
+  if (query?.chat) {
+    const chat = await api.messages.getConversation(query.chat);
+    if (!chat) return null;
+    const name = chat.isGroup ? chat.title : firstName(chat.participants[0]?.name);
+    return {
+      kind: 'chat', icon: 'chat',
+      title: chat.isGroup ? `Kenttä porukalle: ${name}` : `Pelikaverina ${name}`,
+      text: 'Kun kenttä on maksettu, aika lähtee keskusteluun yhdellä napautuksella.',
+      peopleIds: chat.participants.map((p) => p.id),
+      sendLabel: chat.isGroup ? 'Lähetä aika keskusteluun' : `Lähetä aika: ${name}`,
+      sentText: chat.isGroup ? 'Aika lähetetty keskusteluun' : `Aika lähetetty: ${name}`,
+      openChat: async () => chat.id,
+      message: (where) => `Varasin meille kentän: ${where}. Nähdään kentällä!`,
+    };
+  }
+  return null;
 }

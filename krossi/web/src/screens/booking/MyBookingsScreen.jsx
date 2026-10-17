@@ -4,6 +4,8 @@
 // balance and history, the gift balance and gift cards bought, the card kept on file for the
 // monthly charges, and past bookings. Factual, no decoration: these are receipts.
 //
+// ?vuoro=<bookingId> opens that booking's sheet (a court in Pelataanko?'s "Tulossa").
+//
 // Redirect payment methods come back here: ?tilaus=<pass|gift>:<id>&payment_intent=… (a series or
 // gift card) and ?kuukausi=<chargeId>&payment_intent=… (a month of a kausivuoro).
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -93,6 +95,17 @@ export function MyBookingsScreen({ query }) {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query?.tilaus, query?.kuukausi, venue?.id]);
+
+  // ?vuoro=<bookingId> (a court in Pelataanko?'s "Tulossa") opens that booking once the list is in.
+  const shownBooking = useRef(null);
+  useEffect(() => {
+    const id = query?.vuoro;
+    if (!id || shownBooking.current === id || !mine.data) return;
+    shownBooking.current = id;
+    const booking = [...mine.data.upcoming, ...mine.data.past].find((b) => b.id === id);
+    if (booking) setOpenBooking(booking);
+    navigate('/pelaa/omat-varaukset', { replace: true });
+  }, [query?.vuoro, mine.data]);
 
   const upcoming = mine.data?.upcoming || [];
   const past = mine.data?.past || [];
