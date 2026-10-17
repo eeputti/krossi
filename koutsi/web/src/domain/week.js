@@ -177,6 +177,77 @@ export function lastActivityDays(state, student, today = koutsiTodayStr()) {
   return Math.max(0, Math.round(ms / 86400000));
 }
 
+// A session's start as a local Date (built from numbers: Safari 14 reads "…T17:00" as UTC).
+function startOf(training) {
+  const [y, m, d] = training.date.split('-').map(Number);
+  const [h, min] = String(training.time || '00:00').split(':').map(Number);
+  return new Date(y, m - 1, d, h || 0, min || 0);
+}
+
+const HOUR_MS = 3600000;
+export const PLAYER_SECTIONS_PAST_HOURS = 24;
+export const PLAYER_SECTIONS_AHEAD_DAYS = 7;
+
+/**
+ * Pelaajat, the most current players first. The coach-run sessions from the last 24 hours
+ * (counted from their end) to a week ahead, nearest to now first: the one going on, then by
+ * how long ago it ended or how soon it starts. Under each, the players not already listed under
+ * a nearer one, by name — whether they were (or will be) away, and their next session after it.
+ * `rest`: everyone in none of those sessions, by name, with their next session (if any).
+ *   → { sections: [{ training, group, student, status, end, minutesAgo, minutesUntil, players: [{ student, absent, next }] }],
+ *       rest: [{ student, next }] }
+ */
+export function playerSections(state, now = new Date()) {
+  const sessions = state.trainings
+    .filter((t) => t.loggedBy !== 'player' && t.date)
+    .map((training) => {
+      const group = training.groupId ? koutsiGroupById(state, training.groupId) : null;
+      const start = startOf(training);
+      const stop = new Date(start.getTime() + (training.durationMinutes || group?.durationMinutes || 60) * 60000);
+      const ids = group ? group.memberIds : training.studentId ? [training.studentId] : [];
+      return { training, group, start, stop, ids };
+    })
+    .sort((a, b) => a.start - b.start);
+  const nextAfter = (studentId, after) => sessions.find((s) => s.start > after && s.ids.includes(studentId))?.training || null;
+  const from = now.getTime() - PLAYER_SECTIONS_PAST_HOURS * HOUR_MS;
+  const until = now.getTime() + PLAYER_SECTIONS_AHEAD_DAYS * 24 * HOUR_MS;
+  const distance = (s) => (s.stop <= now ? now - s.stop : s.start > now ? s.start - now : 0);
+  const near = sessions.filter((s) => s.stop.getTime() > from && s.start.getTime() <= until)
+    .sort((a, b) => distance(a) - distance(b) || a.start - b.start);
+  const byName = (a, b) => a.name.localeCompare(b.name, 'fi');
+  const placed = new Set();
+  const sections = [];
+  for (const s of near) {
+    const players = s.ids.filter((id) => !placed.has(id)).map((id) => koutsiStudentById(state, id)).filter(Boolean).sort(byName);
+    if (!players.length) continue;
+    players.forEach((p) => placed.add(p.id));
+    const status = s.stop <= now ? 'past' : s.start <= now ? 'now' : 'upcoming';
+    const absent = new Set((s.training.absences || []).map((a) => a.studentId));
+    sections.push({
+      training: s.training,
+      group: s.group,
+      student: s.training.studentId ? koutsiStudentById(state, s.training.studentId) : null,
+      status,
+      end: sessionEnd(s.training, s.group),
+      minutesAgo: status === 'past' ? Math.round((now - s.stop) / 60000) : null,
+      minutesUntil: status === 'upcoming' ? Math.round((s.start - now) / 60000) : null,
+      players: players.map((student) => ({ student, absent: absent.has(student.id), next: nextAfter(student.id, s.start) })),
+    });
+  }
+  const rest = state.students.filter((s) => !placed.has(s.id)).sort(byName)
+    .map((student) => ({ student, next: nextAfter(student.id, now) }));
+  return { sections, rest };
+}
+
+/** "tänään 18:30", "huomenna 16:30", "to 18:00" (within a week), "ti 3.11. 17:00" — when a session is. */
+export function sessionWhen(training, today = koutsiTodayStr()) {
+  const time = training.time || '';
+  if (training.date === today) return `tänään ${time}`;
+  if (training.date === koutsiAddDays(today, 1)) return `huomenna ${time}`;
+  const short = shortDay(training.date);
+  return `${training.date < koutsiAddDays(today, 7) && training.date > today ? short.split(' ')[0] : short} ${time}`;
+}
+
 /** The ISO week a date falls in is the current one. */
 export function inCurrentWeek(dateStr) {
   return koutsiCompareIsoWeeks(koutsiIsoWeekOfDateStr(dateStr), koutsiCurrentIsoWeek()) === 0;
