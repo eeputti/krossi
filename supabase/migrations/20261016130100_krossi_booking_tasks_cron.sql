@@ -1,8 +1,8 @@
--- Krossi: kenttävarauksen ajastetut tehtävät viiden minuutin välein (krossi-booking-cron).
---   * jaettu maksu: maksuajan jälkeen maksamattomat kaverien osuudet veloitetaan varaajan
---     tallennetulta kortilta (krossi_booking_due_rests)
---   * kesken jääneet palautukset (peruttu tai myyty vuoro) viedään loppuun
---     (krossi_booking_refunds_due)
+-- Krossi: kenttävarauksen kesken jääneet palautukset viiden minuutin välein (krossi-booking-cron).
+--   * jaettu maksu: kaverin maksaman osuuden summa varaajalle, jos se ei heti mennyt läpi
+--     (krossi_split_refunds_due)
+--   * peruttu tai myyty vuoro: varaajan ja kavereiden maksut (krossi_booking_refunds_due)
+-- Sovellus ja stripe-webhook tekevät palautukset heti; tämä viimeistelee vain sen, mikä jäi kesken.
 --
 -- Same pattern as krossi_dispatch_game_reminders (20261005120000_krossi_game_reminders): pg_cron
 -- runs krossi_dispatch_booking_tasks(), which POSTs to the krossi-booking-cron edge function with

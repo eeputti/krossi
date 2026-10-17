@@ -3,13 +3,13 @@
 // this endpoint directly — the function must be deployed with verify_jwt disabled.
 //
 // Also confirms court bookings (payment_intent.succeeded with metadata.product 'krossi_booking',
-// paid in krossi-booking) and records share payments (metadata.product 'krossi_booking_share':
-// a friend's share of a split booking, or a booker's rest share — also krossi-booking-cron's
-// off-session charges). The shared functions in ../_shared/booking.ts do what krossi-booking does:
-// a payment whose court went to somebody else meanwhile ('lost') or that paid an already paid
-// booking or share is refunded — with the same idempotency key as krossi-booking, so a payment is
-// never refunded twice — and a confirmed booking refunds the on-sale bookings it took over and
-// emails the split's friends.
+// paid in krossi-booking) and records a friend's share of a split booking (metadata.product
+// 'krossi_split_share', metadata.split_share_id). The shared functions in ../_shared/booking.ts do
+// what krossi-booking does: a payment whose court went to somebody else meanwhile ('lost') or that
+// paid an already paid booking is refunded, and so is a share payment the split can't take any
+// more — with the same idempotency keys as krossi-booking, so a payment is never refunded twice. A
+// confirmed booking refunds the on-sale bookings it took over; a paid share's amount goes back to
+// the booker before this answers 200, so Stripe retries the event when that refund fails.
 //
 // Phase 2 (krossi-billing): series cards and gift cards (metadata.product 'krossi_pass' /
 // 'krossi_gift') are activated with krossi_wallet_order_paid — an order already paid by another
@@ -18,7 +18,7 @@
 // fails (payment_intent.payment_failed).
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
-import { BOOKING_PRODUCT, SHARE_PRODUCT, afterBookingPaid, settleBookingPayment, settleSharePayment } from '../_shared/booking.ts';
+import { BOOKING_PRODUCT, SPLIT_PRODUCT, afterBookingPaid, refundBooker, settleBookingPayment, settleSplitPayment } from '../_shared/booking.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -53,22 +53,29 @@ async function settleBooking(admin: SupabaseClient, intent: Stripe.PaymentIntent
   if (outcome === 'confirmed') await afterBookingPaid(stripe, admin, bookingId);
 }
 
-/** Records a share payment; throws when it should be retried. */
-async function settleShare(admin: SupabaseClient, intent: Stripe.PaymentIntent) {
-  const shareId = intent.metadata?.share_id ?? '';
-  if (!UUID_RE.test(shareId)) {
-    console.error('share payment without a share id', intent.id);
+/**
+ * Records a friend's share payment and gives its amount back to the booker; throws when it should
+ * be retried (the share stays recorded, so a retry only finishes the refund).
+ */
+async function settleSplit(admin: SupabaseClient, intent: Stripe.PaymentIntent) {
+  const bookingId = intent.metadata?.booking_id ?? '';
+  const shareId = intent.metadata?.split_share_id ?? '';
+  if (!UUID_RE.test(bookingId) || !UUID_RE.test(shareId)) {
+    console.error('share payment without a booking or share id', intent.id);
     return;
   }
+  let settled;
   try {
-    await settleSharePayment(stripe, admin, intent);
+    settled = await settleSplitPayment(stripe, admin, intent);
   } catch (err) {
-    if (/Osuutta ei löytynyt/.test((err as Error).message)) {
-      console.error('share payment for an unknown share', intent.id, shareId);
+    // A booking this database doesn't have (another environment): the money is not touched.
+    if (/Varausta ei löytynyt/.test((err as Error).message)) {
+      console.error('share payment for an unknown booking', intent.id, bookingId);
       return;
     }
     throw err;
   }
+  if (settled.outcome === 'paid' && settled.bookerRefund) await refundBooker(stripe, admin, settled.bookerRefund);
 }
 
 /** A paid series card / gift card order (same as krossi-billing's settleOrder). Throws to be retried. */
@@ -159,14 +166,14 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // Kenttävaraus ja osuudet (krossi-booking) — erillään avausmaksusta alla.
+  // Kenttävaraus ja jaetun vuoron osuudet (krossi-booking) — erillään avausmaksusta alla.
   if (event.type === 'payment_intent.succeeded') {
     const intent = event.data.object as Stripe.PaymentIntent;
     const product = intent.metadata?.product;
-    if (product === BOOKING_PRODUCT || product === SHARE_PRODUCT) {
+    if (product === BOOKING_PRODUCT || product === SPLIT_PRODUCT) {
       try {
         if (product === BOOKING_PRODUCT) await settleBooking(admin, intent);
-        else await settleShare(admin, intent);
+        else await settleSplit(admin, intent);
       } catch (err) {
         console.error('booking update failed', (err as Error).message);
         // Forget the event so Stripe's retry gets another go instead of being skipped as a duplicate.

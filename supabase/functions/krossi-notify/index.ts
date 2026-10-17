@@ -25,11 +25,9 @@
 // Court-booking events from the booking functions themselves (krossi-booking, krossi-booking-cron,
 // stripe-webhook), only accepted with the service-role key and only for what the database says
 // happened just now:
-//   booking_share_request  { shareId }    a friend's share of a split booking: the booker paid
-//                                         their part and asked them (invited_at < 10 min ago)
-//   booking_rest_failed    { shareId }    the booker's saved card was declined for the rest
-//                                         (charge_attempted_at < 60 min ago) — a billing notice,
-//                                         sent even with email notifications off
+//   booking_split_paid     { shareId }    a friend paid their share of a split booking and its
+//                                         amount went back to the booker (booker_refunded_at
+//                                         < 60 min ago)
 //   booking_resold         { bookingId }  somebody booked the slot the booker put on sale
 //                                         (resold_at < 60 min ago): the money is on its way back
 //
@@ -89,8 +87,7 @@ type NotifyEvent =
   | { type: "challenge_cancelled"; challengeId: string; creatorId: string }
   | { type: "account_report"; reportId: string; reporterId: string; reportedId: string }
   | { type: "booking_slot_free"; watchId: string; freedById: string }
-  | { type: "booking_share_request"; shareId: string }
-  | { type: "booking_rest_failed"; shareId: string }
+  | { type: "booking_split_paid"; shareId: string }
   | { type: "booking_resold"; bookingId: string };
 
 type EventType = NotifyEvent["type"];
@@ -107,13 +104,12 @@ const REQUIRED_IDS: Record<EventType, string[]> = {
   challenge_cancelled: ["challengeId", "creatorId"],
   account_report: ["reportId", "reporterId", "reportedId"],
   booking_slot_free: ["watchId", "freedById"],
-  booking_share_request: ["shareId"],
-  booking_rest_failed: ["shareId"],
+  booking_split_paid: ["shareId"],
   booking_resold: ["bookingId"],
 };
 
 // Sent by Krossi's own booking functions with the service-role key, never by an app.
-const INTERNAL_EVENTS: EventType[] = ["booking_share_request", "booking_rest_failed", "booking_resold"];
+const INTERNAL_EVENTS: EventType[] = ["booking_split_paid", "booking_resold"];
 const isInternalEvent = (event: NotifyEvent) => INTERNAL_EVENTS.includes(event.type);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -136,8 +132,7 @@ function parseEvent(body: unknown): NotifyEvent | null {
 
 function actorIdOf(event: NotifyEvent): string | null {
   switch (event.type) {
-    case "booking_share_request":
-    case "booking_rest_failed":
+    case "booking_split_paid":
     case "booking_resold":
       return null;
     case "play_request":
@@ -593,24 +588,15 @@ async function planBookingSlotFree(
   };
 }
 
-// ── Court booking: shares and sales ─────────────────────────────────────────
+// ── Court booking: split payments and sales ─────────────────────────────────
 
-const BOOKING_NOTIFY_WINDOW_MINUTES = { invite: 10, charge: 60, sale: 60 };
+const BOOKING_NOTIFY_WINDOW_MINUTES = { split: 60, sale: 60 };
 const DAY_MINUTES = 24 * 60;
-const CHARGE_ERRORS: Record<string, string> = {
-  card_declined: "Kortti hylättiin",
-  insufficient_funds: "Kortilla ei ollut katetta",
-  expired_card: "Kortti on vanhentunut",
-  authentication_required: "Pankki halusi vahvistaa maksun",
-  no_card: "Tallennettua korttia ei löytynyt",
-};
 
 interface BookingFacts {
   id: string;
   status: string;
   bookedBy: string | null;
-  splitParts: number | null;
-  shareDeadline: string | null;
   startsAt: string;
   endsAt: string;
   slug: string;
@@ -622,7 +608,7 @@ interface BookingFacts {
 async function bookingFacts(admin: Admin, reservationId: string): Promise<BookingFacts | null> {
   const { data: booking, error } = await admin
     .from("booking_reservations")
-    .select("id, venue_id, court_id, status, booked_by, split_parts, share_deadline, starts_at, ends_at, resold_at, own_cents, price_cents, payment_status")
+    .select("id, venue_id, court_id, status, booked_by, starts_at, ends_at")
     .eq("id", reservationId)
     .maybeSingle();
   if (error) throw error;
@@ -642,8 +628,6 @@ async function bookingFacts(admin: Admin, reservationId: string): Promise<Bookin
     id: booking.id as string,
     status: booking.status as string,
     bookedBy: (booking.booked_by as string | null) ?? null,
-    splitParts: (booking.split_parts as number | null) ?? null,
-    shareDeadline: (booking.share_deadline as string | null) ?? null,
     startsAt: booking.starts_at as string,
     endsAt: booking.ends_at as string,
     slug: venue.slug as string,
@@ -666,89 +650,41 @@ function hoursLabel(minutes: number): string {
   return `${Number.isInteger(hours) ? hours : String(hours).replace(".", ",")} h`;
 }
 
-async function planBookingShareRequest(
+// "Mikko maksoi osuutensa 7,50 € — se palautettiin sinulle": to the booker, once the share's
+// amount went back to them.
+async function planBookingSplitPaid(
   admin: Admin,
-  event: Extract<NotifyEvent, { type: "booking_share_request" }>,
+  event: Extract<NotifyEvent, { type: "booking_split_paid" }>,
 ): Promise<Delivery | null> {
   const { data: share, error } = await admin
     .from("booking_shares")
-    .select("id, reservation_id, user_id, kind, cents, status, invited_at")
+    .select("id, reservation_id, cents, status, payer_name, payer_user_id, booker_refunded_at")
     .eq("id", event.shareId)
     .maybeSingle();
   if (error) throw error;
-  if (!share || share.kind !== "friend" || share.status !== "pending" || !share.user_id) return null;
-  if (!within(share.invited_at, BOOKING_NOTIFY_WINDOW_MINUTES.invite)) return null;
+  if (!share || share.status !== "paid" || !within(share.booker_refunded_at, BOOKING_NOTIFY_WINDOW_MINUTES.split)) return null;
   const booking = await bookingFacts(admin, share.reservation_id as string);
-  if (!booking || booking.status !== "confirmed" || !booking.bookedBy || !booking.shareDeadline) return null;
-
-  const { data: players, error: playersError } = await admin
-    .from("booking_shares")
-    .select("user_id")
-    .eq("reservation_id", booking.id)
-    .eq("kind", "friend");
-  if (playersError) throw playersError;
-  const names = await Promise.all(
-    [booking.bookedBy, ...(players ?? []).map((p) => p.user_id as string).filter(Boolean)].map((id) => fetchFirstName(admin, id)),
-  );
-  const booker = names[0];
+  if (!booking || !booking.bookedBy) return null;
+  const payer = share.payer_user_id
+    ? await fetchFirstName(admin, share.payer_user_id as string)
+    : share.payer_name ? firstName(share.payer_name) : "Kaveri";
   const amount = euros(Number(share.cents));
-  const deadline = formatSlot(booking.shareDeadline).label;
-  const game = booking.splitParts === 4 ? "nelinpeliin" : "kaksinpeliin";
   return {
-    recipientIds: [share.user_id as string],
+    recipientIds: [booking.bookedBy],
     audience: "player",
     prefColumn: "email_enabled",
-    throttle: { kinds: ["booking_share_request"], refId: share.id as string, windowMinutes: DAY_MINUTES },
-    logRefId: share.id as string,
-    blockActor: booking.bookedBy,
-    content: {
-      subject: `${booker} varasi kentän — osuutesi ${amount}`,
-      preheader: `${booking.when} · ${booking.place}`,
-      heading: `${booker} varasi kentän ${game}`,
-      paragraphs: [
-        `${booker} jakoi vuoron maksun pelaajien kesken. Osuutesi on ${amount}.`,
-        `Maksa se Krossissa viimeistään ${deadline}. Sen jälkeen maksamatta jääneet osuudet veloitetaan varaajalta.`,
-      ],
-      details: [`🗓 ${booking.when}`, `📍 ${booking.place}`, `👥 ${names.join(", ")}`],
-      cta: { label: "Maksa osuutesi", path: `/pelaa/osuus/${share.id}` },
-    },
-  };
-}
-
-async function planBookingRestFailed(
-  admin: Admin,
-  event: Extract<NotifyEvent, { type: "booking_rest_failed" }>,
-): Promise<Delivery | null> {
-  const { data: share, error } = await admin
-    .from("booking_shares")
-    .select("id, reservation_id, user_id, kind, cents, status, charge_error, charge_attempted_at")
-    .eq("id", event.shareId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!share || share.kind !== "rest" || share.status !== "pending" || !share.charge_error || !share.user_id) return null;
-  if (!within(share.charge_attempted_at, BOOKING_NOTIFY_WINDOW_MINUTES.charge)) return null;
-  const booking = await bookingFacts(admin, share.reservation_id as string);
-  if (!booking || booking.status !== "confirmed") return null;
-  const amount = euros(Number(share.cents));
-  const reason = CHARGE_ERRORS[share.charge_error as string] ?? "Veloitus ei onnistunut";
-  return {
-    recipientIds: [share.user_id as string],
-    audience: "player",
-    // A billing notice: it goes out even with email notifications switched off.
-    prefColumn: null,
-    throttle: { kinds: ["booking_rest_failed"], refId: share.id as string, windowMinutes: DAY_MINUTES },
+    throttle: { kinds: ["booking_split_paid"], refId: share.id as string, windowMinutes: DAY_MINUTES },
     logRefId: share.id as string,
     blockActor: null,
     content: {
-      subject: `Kortiltasi ei voitu veloittaa loppuosuutta (${amount})`,
+      subject: `${payer} maksoi osuutensa ${amount} — se palautettiin sinulle`,
       preheader: `${booking.when} · ${booking.place}`,
-      heading: "Kenttävuoron loppuosuus on maksamatta",
+      heading: `${payer} maksoi osuutensa`,
       paragraphs: [
-        `Kaikki kaverit eivät maksaneet osuuttaan ajoissa, joten yritimme veloittaa loput ${amount} tallennetulta kortiltasi. ${reason}.`,
-        "Maksa loppuosuus Krossissa, niin vuoro on kokonaan maksettu.",
+        `${payer} maksoi osuutensa vuorosta, ${amount}. Palautimme saman summan sinulle — palautus näkyy tililläsi yleensä muutamassa päivässä.`,
       ],
       details: [`🗓 ${booking.when}`, `📍 ${booking.place}`],
-      cta: { label: `Maksa ${amount}`, path: `/pelaa/osuus/${share.id}` },
+      cta: { label: "Katso vuorosi", path: "/pelaa/omat-varaukset" },
     },
   };
 }
@@ -759,7 +695,7 @@ async function planBookingResold(
 ): Promise<Delivery | null> {
   const { data: row, error } = await admin
     .from("booking_reservations")
-    .select("id, status, booked_by, resold_at, own_cents, price_cents, payment_status, split_parts, gift_cents, pass_id, pass_minutes")
+    .select("id, status, booked_by, resold_at, price_cents, payment_status, gift_cents, pass_id, pass_minutes")
     .eq("id", event.bookingId)
     .maybeSingle();
   if (error) throw error;
@@ -768,19 +704,18 @@ async function planBookingResold(
   if (!booking) return null;
   const { data: shares, error: sharesError } = await admin
     .from("booking_shares")
-    .select("kind, cents, status")
+    .select("cents, status, booker_refunded_at")
     .eq("reservation_id", row.id);
   if (sharesError) throw sharesError;
-  const paid = (s: { status: string }) => s.status === "paid" || s.status === "refunded";
-  // What went back to the seller: card money (their part of a split booking and a rest share), and
-  // the series card minutes or gift balance it was paid with (given back at once).
+  // What goes back to the seller now: what is left of their payment (friends' shares already went
+  // back to them as the friends paid), and the series card minutes or gift balance it was paid with
+  // (given back at once).
   const settled = ["paid", "refunded", "credit"].includes(row.payment_status as string);
   const minutes = settled && row.pass_id ? Number(row.pass_minutes) || 0 : 0;
   const gift = settled && !row.pass_id ? Number(row.gift_cents) || 0 : 0;
-  const ownCard = settled && !row.pass_id
-    ? Math.max(0, Number(row.split_parts ? row.own_cents : row.price_cents) - gift) : 0;
-  const own = ownCard + (shares ?? []).filter((s) => s.kind === "rest" && paid(s)).reduce((n, s) => n + Number(s.cents), 0);
-  const friendsPaid = (shares ?? []).some((s) => s.kind === "friend" && paid(s));
+  const backAlready = (shares ?? []).filter((s) => s.booker_refunded_at).reduce((n, s) => n + Number(s.cents), 0);
+  const own = settled && !row.pass_id ? Math.max(0, Number(row.price_cents) - gift - backAlready) : 0;
+  const friendsPaid = (shares ?? []).some((s) => s.status === "paid" || s.status === "refunded");
   const back = [
     ...(own > 0 ? [`Saat ${euros(own)} takaisin maksutavallesi. Palautus näkyy tililläsi yleensä muutamassa päivässä.`] : []),
     ...(gift > 0 ? [`${euros(gift)} palautui lahjakorttisaldoosi.`] : []),
@@ -828,10 +763,8 @@ function planDelivery(admin: Admin, event: NotifyEvent): Promise<Delivery | null
       return planAccountReport(admin, event);
     case "booking_slot_free":
       return planBookingSlotFree(admin, event);
-    case "booking_share_request":
-      return planBookingShareRequest(admin, event);
-    case "booking_rest_failed":
-      return planBookingRestFailed(admin, event);
+    case "booking_split_paid":
+      return planBookingSplitPaid(admin, event);
     case "booking_resold":
       return planBookingResold(admin, event);
   }
