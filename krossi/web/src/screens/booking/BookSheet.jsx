@@ -411,11 +411,12 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
           <p className="bk-court-line">
             <b>{chosen.court.name}</b>{chosen.court.surface ? ` · ${surfaceLabel(chosen.court.surface).toLowerCase()}` : ''}
             {weather ? <span className={cx('bk-weather', weather.wet && 'is-wet')}> · {weather.symbol} {weather.text}</span> : null}
-            <br />
-            <span className="bk-court-line-sub">
-              {chosen.resale ? 'Toisen pelaajan myyntiin laittama vuoro, normaalihinta. ' : ''}
-              {lateBooking ? 'Peruutusaika on jo mennyt' : `Peruutus ${timeInSentence(deadline)} asti, kulu 1 €`}
-            </span>
+            {chosen.resale && (
+              <>
+                <br />
+                <span className="bk-court-line-sub">Toisen pelaajan myyntiin laittama vuoro, normaalihinta.</span>
+              </>
+            )}
           </p>
         )}
 
@@ -444,6 +445,8 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
 
         {chosen && (
           <p className="bk-fine bk-fine-center">
+            {lateBooking ? 'Peruutusaika on jo mennyt.' : `Peruutus ${timeInSentence(deadline)} asti, kulu 1 €.`}
+            <br />
             Maksamalla hyväksyt <button type="button" className="bk-terms-inline" onClick={() => setTermsOpen(true)}>varausehdot</button>.
           </p>
         )}
