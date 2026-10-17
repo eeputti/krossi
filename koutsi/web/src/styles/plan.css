@@ -1,0 +1,70 @@
+/* plan.css — "treenin runko" (coach/SessionPlan.jsx, shared/drills/plan.jsx): the numbered
+   parts, a drill row with its court picture on a dark tile, the add button, the item sheet's
+   controls and the player's links to the plan. */
+
+.tp, .tp-parts, .tp-part, .tp-list { grid-template-columns: minmax(0, 1fr); }
+/* Viikkohallinta → Treenin runko scrolls here: clear the top bar and the beta/demo banner. */
+.tp { scroll-margin-top: calc(var(--safe-top) + var(--topbar-h) + 48px); }
+.tp-over { color: var(--warn); font-weight: 650; }
+.tp-parts { display: grid; gap: 18px; }
+.tp-part { display: grid; gap: 8px; }
+.tp-part-head { display: flex; align-items: center; gap: 9px; }
+.tp-part-n {
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
+  background: var(--green-800); color: var(--lime); font-size: 12.5px; font-weight: 800;
+}
+.tp-part-title { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; }
+.tp-part-min { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--muted); }
+.tp-list { display: grid; gap: 8px; }
+
+.tp-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 10px 8px 8px; text-align: left;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line);
+  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2);
+}
+.tp-row:hover { border-color: var(--line-strong); }
+.tp-row:active { transform: scale(0.99); }
+.tp-thumb {
+  flex-shrink: 0; display: grid; place-items: center; overflow: hidden;
+  width: 88px; height: 48px; border-radius: 9px; background: var(--green-800); color: var(--lime);
+}
+.tp-thumb.is-lg { width: 112px; height: 62px; border-radius: 10px; }
+.tp-court { width: 100%; height: 100%; max-height: none; }
+.tp-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tp-row-title {
+  font-weight: 750; font-size: 15px; line-height: 1.25; color: var(--ink);
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.tp-row-meta { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-row-chev { color: var(--faint); flex-shrink: 0; }
+
+.tp-add {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 14px;
+  border-radius: var(--r-lg); border: 1.5px dashed var(--line-strong); background: transparent;
+  font-size: 14px; font-weight: 700; color: var(--ink); text-align: left;
+  transition: background-color var(--dur-2), border-color var(--dur-2);
+}
+.tp-add:hover { background: var(--surface-2); border-color: var(--ink); }
+
+/* the item sheet */
+.tp-controls { display: flex; flex-wrap: wrap; gap: 14px 24px; }
+.tp-control { display: grid; gap: 6px; }
+.tp-minutes { display: flex; align-items: center; gap: 8px; }
+.tp-minutes-unit { font-size: 14px; font-weight: 700; color: var(--muted); }
+.tp-remove { justify-self: start; color: var(--danger); margin-top: -6px; }
+.tp-back { justify-self: start; margin-left: -8px; }
+.tp-lead { font-size: 14px; color: var(--muted); line-height: 1.45; }
+
+/* the player's ways in: the next-session card and a session row */
+.tp-link {
+  display: flex; align-items: center; gap: 9px; width: 100%; min-height: 44px; padding: 0 12px; text-align: left;
+  border-radius: var(--r-md); background: var(--green-800); color: #fff; font-size: 14px;
+}
+.tp-link .grow { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-link strong { color: var(--lime); font-weight: 800; }
+.tp-inline {
+  display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 4px; padding: 3px 0; text-align: left; white-space: nowrap;
+  font-size: 13px; font-weight: 750; color: var(--ink); text-decoration: underline; text-decoration-color: var(--lime);
+  text-decoration-thickness: 2px; text-underline-offset: 3px;
+}
+.tp-inline.is-text { display: inline; margin: 0; padding: 0; font-size: inherit; }

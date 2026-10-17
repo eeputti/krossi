@@ -25,11 +25,13 @@ const SHELF = 4;
  *   onOpen(item)
  *   track(event) — counts which filters get used (coach only); events are 'pankki.<name>'
  *   loading / failed / onRetry — the library's download (own drills show meanwhile)
+ *   initial — starting filters instead of the remembered ones (a picker: the session's group,
+ *             level and topic); its choices are then not remembered for the drill bank
  */
-export function DrillBrowser({ items, role = 'coach', groups = [], onOpen, track = () => {}, loading, failed, onRetry }) {
-  const [f, setF] = useState(() => ({ ...EMPTY, ...remembered[role] }));
+export function DrillBrowser({ items, role = 'coach', groups = [], onOpen, track = () => {}, loading, failed, onRetry, initial }) {
+  const [f, setF] = useState(() => ({ ...EMPTY, ...(initial || remembered[role]) }));
   const [sheet, setSheet] = useState(null);
-  useEffect(() => { remembered[role] = f; }, [role, f]);
+  useEffect(() => { if (!initial) remembered[role] = f; }, [role, f, initial]);
   // A search counts once per visit, not per keystroke.
   const [searched, setSearched] = useState(false);
   const set = (patch) => {
@@ -113,7 +115,7 @@ export function DrillBrowser({ items, role = 'coach', groups = [], onOpen, track
                 <span className="dl-shelf-icon"><DrillIcon cat={cat.id} size={18} /></span>
                 <h2 className="dl-shelf-title">{cat.label}</h2>
                 <span className="dl-shelf-count t-num">{rows.length}</span>
-                {rows.length > SHELF && <button type="button" className="dl-shelf-all" onClick={() => { set({ cat: cat.id }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Näytä kaikki</button>}
+                {rows.length > SHELF && <button type="button" className="dl-shelf-all" onClick={(e) => { set({ cat: cat.id }); (e.currentTarget.closest('.sheet-body') || window).scrollTo({ top: 0, behavior: 'smooth' }); }}>Näytä kaikki</button>}
               </header>
               <div className="dl-list">
                 {rows.slice(0, SHELF).map((it) => <DrillRow key={it.key} item={it} role={role} onOpen={onOpen} />)}

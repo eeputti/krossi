@@ -10,6 +10,7 @@ import {
   koutsiCurrentIsoWeek, koutsiAddIsoWeeks, koutsiTodayStr, koutsiAddDays, koutsiNextWeekday, koutsiWeeklyDates,
   koutsiHueFromId, koutsiInitialOf, koutsiSplitThemes, koutsiFmtShortDate,
 } from '../../domain/core.js';
+import { writePlan } from '../../domain/plan.js';
 
 export const COACH = 'demo-coach';
 export const COACH2 = 'demo-coach-2';
@@ -161,6 +162,20 @@ export function seed() {
   absent('demo-g-ti-aik1', 3, PLAYER);
   absent('demo-g-ke-jun', 2, 'demo-s-leo');
   absent('demo-g-to-aik', 1, 'demo-s-jussi');
+
+  // A training plan on Maria's next Tuesday session (this week's theme: kakkossyöttö).
+  const own = (name) => `demo-e-${STARTER_EXERCISES.findIndex((e) => e.name === name)}`;
+  const planned = trainings.find((t) => t.groupId === 'demo-g-ti-aik1' && t.date >= koutsiTodayStr());
+  if (planned) {
+    planned.notes = writePlan({ note: '', items: [
+      { part: 'lammittely', ref: own('Minitennis ristiin'), lib: 'lam-11', name: 'Minitennis ristiin', cat: 'lammittely', minutes: 10 },
+      { part: 'harjoitteet', ref: own('Kakkossyöttö + suunta'), lib: 'syo-08', name: 'Kakkossyöttö + suunta', cat: 'syotto', minutes: 15 },
+      { part: 'harjoitteet', ref: 'k-syo-09', lib: 'syo-09', name: 'Syöttö + ensimmäinen lyönti', cat: 'syotto', minutes: 15 },
+      { part: 'harjoitteet', ref: 'k-syo-15', lib: 'syo-15', name: 'Ristiinpeli: kaksoisvirhe maksaa kaksi', cat: 'syotto', minutes: 20 },
+      { part: 'peli', ref: own('Pistepeli 7 pisteeseen'), lib: 'pis-03', name: 'Pistepeli 7 pisteeseen', cat: 'pistepeli', minutes: 15 },
+      { part: 'loppu', ref: own('Jäähdyttely ja venyttely'), lib: 'fys-03', name: 'Jäähdyttely ja venyttely', cat: 'fysiikka', minutes: 8 },
+    ] });
+  }
 
   trainings.push(
     { id: 'tr-private-1', date: day(2), time: '15:30', type: 'Yksityistunti', durationMinutes: 60, loggedBy: 'coach', notes: '', endDate: null, studentId: PLAYER, groupId: null, coachId: COACH, seriesId: null, absences: [] },

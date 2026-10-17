@@ -11,6 +11,7 @@ import {
   koutsiTimeRangeLabel, koutsiFmtShortDate, KOUTSI_MONTHS, KOUTSI_EVENT_KINDS,
 } from '../domain/core.js';
 import { sessionStatus, shortDay } from '../domain/week.js';
+import { readPlan } from '../domain/plan.js';
 import { usePlayerActions } from './PlayerApp.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -103,6 +104,7 @@ export function TrainingsScreen() {
               const start = new Date(`${t.date}T${t.time || '00:00'}:00`);
               const askMood = status === 'past' && !absent && t.date >= koutsiAddDays(today, -3)
                 && !(student.moods || []).some((m) => new Date(m.at) >= start);
+              const plan = own ? null : readPlan(t.notes);
               return (
                 <div key={t.id} className={cx('p-session', own && 'is-own', absent && 'is-absent')}>
                   <span className="p-session-time t-num">{t.type === 'Turnaus' ? '—' : t.time}</span>
@@ -112,6 +114,11 @@ export function TrainingsScreen() {
                       {own ? [t.durationMinutes ? `${t.durationMinutes} min` : '', t.endDate && t.endDate !== t.date ? `– ${koutsiFmtShortDate(t.endDate)}` : '', t.notes].filter(Boolean).join(' · ')
                         : [koutsiTimeRangeLabel(t.time, t.durationMinutes || group?.durationMinutes), theme ? `Teema: ${theme.title}` : ''].filter(Boolean).join(' · ')}
                     </span>
+                    {plan?.items.length > 0 && (
+                      <button type="button" className="tp-inline" onClick={() => actions.openPlan(t)}>
+                        <Icon name="list" size={14} />Treenin runko
+                      </button>
+                    )}
                   </span>
                   {own && <IconButton icon="trash" label="Poista" size="sm" onClick={() => removeOwn(t)} />}
                   {!own && absent && (upcoming

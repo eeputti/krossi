@@ -11,6 +11,7 @@ import {
   koutsiRoundTimeToQuarterHour, koutsiRoundToQuarterHourMinutes, koutsiClampGroupTrainingWeeks,
   KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX, koutsiAddDays,
 } from '../../domain/core.js';
+import { writePlan } from '../../domain/plan.js';
 
 let role = 'coach';
 let state = null;
@@ -428,6 +429,12 @@ export const backend = {
     async countSeriesRemaining(seriesId, fromDate) {
       const floor = fromDate || koutsiTodayStr();
       return S().trainings.filter((t) => t.seriesId === seriesId && t.date >= floor).length;
+    },
+    async setPlan(id, plan) {
+      await wait();
+      const t = S().trainings.find((x) => x.id === id && x.loggedBy === 'coach');
+      if (!t) throw new ApiError('Treeniä ei löytynyt. Se on ehkä poistettu.', { code: 'not_found' });
+      t.notes = writePlan(plan) || '';
     },
   },
 

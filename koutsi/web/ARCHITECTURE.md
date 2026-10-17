@@ -109,6 +109,16 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   "Tallenna omiin" kirjoittaa tavallisen rivin (`savedFields`), joten videot, muokkaus ja vanha
   sovellus toimivat kuten ennen. Kenttäkuvat: `domain/drills/court.js` (metrit, nimetyt pisteet)
   ja `shared/drills/art.jsx`; uuden harjoitteen muoto ja säännöt tarkistaa `test/drills.test.mjs`.
+- Treenin runko (`domain/plan.js`, `coach/SessionPlan.jsx`, `shared/drills/plan.jsx`): valmentaja kokoaa
+  treenin pankista neljään osaan (Lämmittely → Harjoitteet → Peli → Loppu), näkee minuutit treenin
+  kestoa vasten ja voi siirtää, poistaa (Kumoa) ja vaihtaa kestoa; valitsin on `DrillBrowser`
+  (`initial` = osan aihe + treenin ryhmän koko ja taso, yksityistunnilla 1 pelaaja). Runko tallennetaan
+  JSONina treenirivin vapaatekstikenttään `koutsi_trainings.notes` (`api.trainings.setPlan`): kenttä on
+  valmentajan treeneillä käyttämätön (vanha ja uusi sovellus näyttävät sen vain pelaajan omille
+  kirjauksille), ryhmän pelaajat voivat jo lukea sen (RLS), päivitys ei laukaise ilmoitusta (vain
+  insert/delete-triggerit), eikä migraatiota tarvita. Aiempi teksti säilyy (`teksti`) ja palaa, kun
+  runko tyhjennetään. Pelaaja näkee rungon Kodin seuraavan treenin kortista ja Treenit-päivältä
+  (`PlanSheet`, kenttäkuvat, napautus → harjoite). Vanha Koutsi ei näytä runkoa.
 
 ## 5. Reitit
 

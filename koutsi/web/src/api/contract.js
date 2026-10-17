@@ -46,7 +46,8 @@ export const API_CONTRACT = {
   // save(rows: [{ groupId, year, week, title, lead }], { onlyNew }) → rows written.
   themes: ['save', 'remove'],
 
-  trainings: ['add', 'update', 'updateSeries', 'remove', 'removeSeries', 'countSeriesRemaining'],
+  // setPlan(trainingId, plan) — "treenin runko" (domain/plan.js), kept in the session row's notes.
+  trainings: ['add', 'update', 'updateSeries', 'remove', 'removeSeries', 'countSeriesRemaining', 'setPlan'],
 
   // set(trainingIds, studentId, 'paikalla' | 'poissa')
   attendance: ['set'],

@@ -8,6 +8,7 @@ import { navigate } from '../app/router.js';
 import { Icon, IconButton, Sheet } from '../ui/index.js';
 import { koutsiPad, koutsiTimeRangeLabel, koutsiTodayStr, koutsiClubEventsOnDate, KOUTSI_MONTHS } from '../domain/core.js';
 import { presentPlayerIds, sessionRoster, weekDates } from '../domain/week.js';
+import { planSummary, readPlan } from '../domain/plan.js';
 import { groupPath, playerPath, sessionPath } from './nav.js';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { AddMembersSheet, ExtendCalendarSheet } from './groupForms.jsx';
@@ -94,6 +95,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
   const { group, student, training, tone, issues, theme } = item;
   // the live training (attendance changes while the sheet is open)
   const live = training ? state.trainings.find((t) => t.id === training.id) || training : null;
+  const livePlan = readPlan(live?.notes);
   const name = group?.name || student?.name || training?.type || 'Treeni';
   const time = koutsiTimeRangeLabel(item.time, item.durationMinutes);
   const then = (fn) => () => { onClose(); fn(); };
@@ -154,6 +156,8 @@ export function BoardItemSheet({ open, item, week, onClose }) {
     { id: 'lisaa', icon: 'calendar-plus', title: 'Lisää treeni tälle päivälle', sub: `${weekdayOf(item.date)} ${dayMonth(item.date)} klo ${item.time}`, run: action('add') },
     { id: 'ryhma', icon: 'users', title: 'Avaa ryhmä', sub: name, run: then(() => navigate(groupPath(group.id))) },
   ] : [
+    live && { id: 'runko', icon: 'list', title: 'Treenin runko', sub: livePlan.items.length ? planSummary(livePlan) : 'Valitse harjoitteet pankista',
+      run: then(() => { track('viikko.runko'); navigate(`${sessionPath(live.id)}?runko=1`); }) },
     group && theme && { id: 'teema', icon: 'sparkles', title: 'Vaihda teema', sub: theme.title, run: action('theme') },
     { id: 'muokkaa', icon: 'edit', title: 'Muokkaa treeniä', sub: 'Siirrä toiseen aikaan tai päivään', run: action('edit') },
     group && { id: 'ryhma', icon: 'users', title: 'Avaa ryhmä', sub: name, run: then(() => navigate(groupPath(group.id))) },
