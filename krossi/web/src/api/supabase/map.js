@@ -288,17 +288,31 @@ export function lastMessagePreview(content, { senderId = null, createdAt = null,
 
 // ── Results ──────────────────────────────────────────────────────────────────
 
-export function mapMatchResult(row) {
+/**
+ * match_results row -> StoredResult (features/resultLinks.js): the creator's point of view and
+ * the linked player ids. viewResult() turns it into the MatchResult a given player sees. The
+ * link and confirmation columns come with migration 20261017140000; before it they read null.
+ */
+export function mapStoredResult(row) {
   return {
     id: row.id,
     createdAt: row.created_at,
+    createdBy: row.created_by,
     gameType: row.game_type,
     format: row.format,
     partnerName: row.partner_name ?? null,
     opponentName: row.opponent_name ?? null,
     oppPartnerName: row.opp_partner_name ?? null,
+    partnerId: row.partner_id ?? null,
+    opponentId: row.opponent_id ?? null,
+    oppPartnerId: row.opp_partner_id ?? null,
     sets: Array.isArray(row.sets) ? row.sets.map((s) => ({ my: Number(s.my) || 0, opp: Number(s.opp) || 0 })) : [],
     won: Boolean(row.won),
+    confirmation: row.confirmation ?? null,
+    confirmedBy: row.confirmed_by ?? null,
+    confirmedAt: row.confirmed_at ?? null,
+    disputedBy: row.disputed_by ?? null,
+    disputedAt: row.disputed_at ?? null,
   };
 }
 

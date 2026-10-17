@@ -229,6 +229,17 @@ export function scheduleFixtureConfirmation(fixtureId) {
   });
 }
 
+/** The Krossi player Alex named in a result confirms it (the bell then says so). */
+export function scheduleResultAnswer(resultId) {
+  later(4000, 7000, () => {
+    const row = db.results.get(resultId);
+    if (!row || row.createdBy !== ME || row.confirmation !== 'pending') return;
+    const by = [row.opponentId, row.oppPartnerId].find((id) => id && profileOf(id) && !isBlocked(id));
+    if (!by) return;
+    Object.assign(row, { confirmation: 'confirmed', confirmedBy: by, confirmedAt: nowIso(), disputedBy: null, disputedAt: null });
+  });
+}
+
 /** After Alex accepts a play request, the sender follows up in the new chat. */
 export function scheduleRequestFollowUp(conversationId, senderId) {
   later(3000, 5000, () => {

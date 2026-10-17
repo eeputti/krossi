@@ -386,8 +386,10 @@ function buildResult(rng, entry, playedAt, n) {
   const doubles = entry.type === 'nelinpeli';
   const name = (key) => PEOPLE.find((p) => p.key === key).name;
   return {
+    ...UNLINKED,
     id: `r-${String(n).padStart(2, '0')}`,
     createdAt: iso(playedAt + 2 * HOUR + rng.int(0, 40) * MIN),
+    createdBy: ME,
     gameType,
     format: doubles ? 'doubles' : 'singles',
     partnerName: doubles ? name(entry.with[0]) : null,
@@ -396,6 +398,52 @@ function buildResult(rng, entry, playedAt, n) {
     sets: matchSets(rng, gameType, won),
     won,
   };
+}
+
+// Result rows are StoredResult (features/resultLinks.js): the logger's view + linked players.
+const UNLINKED = {
+  partnerId: null, opponentId: null, oppPartnerId: null,
+  confirmation: null, confirmedBy: null, confirmedAt: null, disputedBy: null, disputedAt: null,
+};
+
+/**
+ * Krossi players named in results (the opponent confirms them): a few of Alex's own results
+ * are linked — confirmed, and one disputed for Alex to correct — Joonas logged a confirmed one
+ * with Alex, and Mikko's result from two days ago still waits for Alex's answer on Koti.
+ */
+function linkResults(results, now) {
+  const key = (name) => PEOPLE.find((p) => p.name === name)?.key;
+  const answered = (r, by, status) => {
+    const at = iso(Date.parse(r.createdAt) + 3 * HOUR);
+    return status === 'confirmed'
+      ? { ...r, confirmation: 'confirmed', confirmedBy: by, confirmedAt: at }
+      : { ...r, confirmation: 'disputed', disputedBy: by, disputedAt: at };
+  };
+  const latestSingles = results
+    .filter((r) => r.format === 'singles' && key(r.opponentName))
+    .sort((x, y) => y.createdAt.localeCompare(x.createdAt))
+    .slice(0, 3);
+  const linked = results.map((r) => {
+    const order = latestSingles.indexOf(r) + 1; // 1 = Alex's latest singles result
+    if (!order) return r;
+    const opponentId = pid(key(r.opponentName));
+    return answered({ ...r, opponentId }, opponentId, order === 3 ? 'disputed' : 'confirmed');
+  });
+  const twoDaysAgo = atTime(addDays(startOfDay(now), -2), '20:10');
+  return [
+    ...linked,
+    {
+      ...UNLINKED, id: 'r-mikko-vahvista', createdAt: iso(twoDaysAgo), createdBy: pid('mikko'),
+      gameType: 'sets', format: 'singles', partnerName: null, opponentName: 'Alex', oppPartnerName: null,
+      sets: [{ my: 6, opp: 4 }, { my: 3, opp: 6 }, { my: 6, opp: 3 }], won: true,
+      opponentId: ME, confirmation: 'pending',
+    },
+    answered({
+      ...UNLINKED, id: 'r-joonas', createdAt: iso(atTime(addDays(startOfDay(now), -17), '21:05')), createdBy: pid('joonas'),
+      gameType: 'tiebreak', format: 'singles', partnerName: null, opponentName: 'Alex', oppPartnerName: null,
+      sets: [{ my: 8, opp: 10 }], won: false, opponentId: ME,
+    }, ME, 'confirmed'),
+  ];
 }
 
 // ── Past games that aren't part of the played history ────────────────────────
@@ -764,7 +812,7 @@ export function createSeed(now) {
       ['pr-kaisa', { id: 'pr-kaisa', fromId: pid('kaisa'), toId: ME, status: 'pending', createdAt: at(28),
         message: 'Hei! Olen Lahdessa töissä tiistaisin — olisiko sinulla aikaa pelata iltapäivällä?' }],
     ]),
-    results: new Map(history.results.map((r) => [r.id, r])),
+    results: new Map(linkResults(history.results, now).map((r) => [r.id, r])),
     leagues: new Map(league.leagues.map((l) => [l.id, l])),
     leagueMembers: league.members,
     leagueRounds: league.rounds,

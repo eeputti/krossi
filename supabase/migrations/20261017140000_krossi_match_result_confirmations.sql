@@ -149,7 +149,7 @@ begin
 
   select * into r from public.match_results where id = result_id_input for update;
   if not found or (uid is distinct from r.opponent_id and uid is distinct from r.opp_partner_id) then
-    raise exception 'Vain tuloksen vastustaja voi vahvistaa sen' using errcode = '42501';
+    raise exception 'Vain tuloksen vastustaja voi vastata tähän tulokseen' using errcode = '42501';
   end if;
 
   update public.match_results

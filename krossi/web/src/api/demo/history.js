@@ -3,14 +3,22 @@
 // api/supabase/history.js.
 
 import { ME } from './rows.js';
-import { db, personLite, isMember } from './store.js';
+import { db, personLite, isMember, isBlocked } from './store.js';
+import { roleOf } from '../../features/resultLinks.js';
 import { toMatchResult } from './views.js';
 
-/** My logged match results, newest first. */
+/** Results with me in a linked slot that someone else logged. */
+export function linkedResults() {
+  return [...db.results.values()].filter((r) => r.createdBy !== ME && roleOf(r, ME) && !isBlocked(r.createdBy));
+}
+
+/** My results, newest first: the ones I logged and others' with me in them once confirmed. */
 export function matchResults() {
+  const confirmed = new Set(linkedResults().filter((r) => r.confirmation === 'confirmed'));
   return [...db.results.values()]
+    .filter((r) => r.createdBy === ME || confirmed.has(r))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-    .map(toMatchResult);
+    .map((r) => toMatchResult(r));
 }
 
 /** Games with outcome 'played' that I created or joined, newest first. */

@@ -81,10 +81,29 @@
 /* ── MatchResultSheet (shared) ────────────────────────────── */
 .match-result { display: flex; flex-direction: column; gap: var(--s5); padding-top: 4px; }
 .match-result-names { display: grid; gap: var(--s3); }
+.match-result-names > * { min-width: 0; }
 @media (min-width: 600px) {
   .match-result-names.is-doubles { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .match-result-names.is-doubles > :last-child { grid-column: 1 / -1; }
 }
+/* A name field can link a Krossi player: suggestion chips under the input, a face row once picked. */
+.match-result-picks { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.match-result-picks::-webkit-scrollbar { display: none; }
+.match-result-pick {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; max-width: 150px; min-height: 34px;
+  padding: 4px 12px 4px 5px; border-radius: var(--r-pill); border: 1px solid var(--line); background: var(--surface);
+  font-size: 13.5px; font-weight: 700; color: var(--ink);
+  transition: border-color var(--dur-1) var(--ease-out), background-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.match-result-pick:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.match-result-pick:active { transform: scale(0.97); }
+.match-result-linked {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 6px 6px 8px;
+  border-radius: var(--r-md); border: 1px solid var(--line-strong); background: var(--surface-2);
+}
+.match-result-linked-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.match-result-linked-name { font-size: 15px; font-weight: 750; }
+.match-result-linked-hint { font-size: 12.5px; color: var(--muted); }
 .match-result-sets { display: flex; flex-direction: column; gap: 8px; }
 .match-result-sets-head, .match-result-set {
   display: grid; grid-template-columns: minmax(44px, 1fr) 106px 14px 106px 32px; align-items: center; column-gap: 4px;
@@ -253,6 +272,9 @@
 .profile-result-kind { flex: 1; font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .profile-result-date { font-size: 12px; font-weight: 600; color: var(--faint); white-space: nowrap; }
 .profile-result-edit { color: var(--faint); }
+.profile-result-status { display: flex; align-items: center; gap: 6px; margin-top: 9px; font-size: 12.5px; font-weight: 650; color: var(--muted); }
+.profile-result-status.is-success { color: var(--success); }
+.profile-result-status.is-danger { color: var(--danger); }
 .profile-score { padding: 4px 6px 4px 10px; border-radius: var(--r-md); background: var(--green-800); color: var(--on-dark); }
 .profile-score-row { display: flex; align-items: center; gap: 8px; min-height: 40px; }
 .profile-score-row + .profile-score-row { border-top: 1px solid rgba(255, 255, 255, 0.1); }

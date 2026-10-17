@@ -68,3 +68,30 @@ export function headlineScore(sets) {
   const t = tally(list);
   return `${t.won}–${t.lost}`;
 }
+
+/** Fired after a result is saved, confirmed or disputed, so the bell and the profile reload. */
+export const RESULTS_CHANGED = 'krossi:results-changed';
+export function notifyResultsChanged() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(RESULTS_CHANGED));
+}
+
+const firstOf = (name) => String(name || '').trim().split(/\s+/)[0] || '';
+
+/**
+ * The confirmation line under a result, or null when nobody from Krossi is on the other side:
+ * { tone: 'muted'|'success'|'danger', icon, text }.
+ */
+export function confirmationLine(result) {
+  if (!result) return null;
+  if (!result.isMine) {
+    const by = firstOf(result.loggedBy?.name) || 'Pelikaveri';
+    if (result.confirmation === 'pending') return { tone: 'muted', icon: 'clock', text: `Kirjasi ${by} · odottaa vastaustasi` };
+    if (result.confirmation === 'disputed') return { tone: 'danger', icon: 'alert', text: `Kirjasi ${by} · ei pidä paikkaansa` };
+    return { tone: 'success', icon: 'check', text: `Kirjasi ${by} · vahvistettu` };
+  }
+  const asked = firstOf(result.answeredBy?.name || result.opponent?.name || result.oppPartner?.name || result.opponentName) || 'Vastustaja';
+  if (result.confirmation === 'pending') return { tone: 'muted', icon: 'clock', text: `Odottaa, että ${asked} vahvistaa` };
+  if (result.confirmation === 'confirmed') return { tone: 'success', icon: 'check', text: `${asked} vahvisti tuloksen` };
+  if (result.confirmation === 'disputed') return { tone: 'danger', icon: 'alert', text: `${asked}: ei pidä paikkaansa — korjaa tulos` };
+  return null;
+}
