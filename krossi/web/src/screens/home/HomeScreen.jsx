@@ -1,8 +1,9 @@
 // HomeScreen — Omat (/pelaa/koti), the first tab: what is mine and what waits on me.
 //
 //   head        greeting, the next thing in one line, bell (Ilmoitukset), avatar (Profiili on phones)
-//   attention   pending game invites (Liity / Ei kiitos), play requests and "Pelasitteko?" about past
-//               games — a card here instead of a sheet popping up over the screen
+//   attention   pending game invites (Liity / Ei kiitos), play requests, "Pelasitteko?" about past
+//               games and "Vahvistatko tuloksen?" about results others logged with me — a card here
+//               instead of a sheet popping up over the screen
 //   tulevat     my games and my courts no game is played on, soonest first (gamesAndCourts), or the
 //               two doors (Varaa kenttä / Etsi peliseuraa) when there is nothing yet
 //   menneet     my latest past games with their outcome, the rest behind "Näytä kaikki"
@@ -25,7 +26,8 @@ import { isPlayingNow } from '../players/playerInfo.js';
 import { CourtCard } from '../shared/CourtCard.jsx';
 import { GameCard, GameDateTile } from '../shared/GameCard.jsx';
 import { NotificationsButton, useNotificationFeed } from './Notifications.jsx';
-import { askOutcome } from './PendingOutcomeCheck.jsx';
+import { RESULTS_CHANGED } from '../profile/matchResult.js';
+import { askOutcome, askResult } from './PendingOutcomeCheck.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const PAST_PREVIEW = 3;
@@ -154,6 +156,20 @@ function OutcomeCard({ game, uid, style }) {
   );
 }
 
+// A result another player logged with me as their opponent: tapping it asks "Vahvistatko tuloksen?".
+function ConfirmResultCard({ result, style }) {
+  const score = (result.sets || []).map((s) => `${s.my}–${s.opp}`).join(' ');
+  return (
+    <RowCard
+      people={result.loggedBy ? [result.loggedBy] : []}
+      title="Vahvistatko tuloksen?"
+      sub={`${firstName(result.loggedBy?.name)} kirjasi · ${score}`}
+      onClick={() => askResult(result)}
+      style={style}
+    />
+  );
+}
+
 function InlineError({ text, onRetry }) {
   return (
     <div className="home-inline-error" role="alert">
@@ -164,12 +180,13 @@ function InlineError({ text, onRetry }) {
   );
 }
 
-function AttentionSection({ invites, requests, outcomes }) {
+function AttentionSection({ invites, requests, outcomes, toConfirm }) {
   const { user } = useSession();
   const inviteList = invites.data || [];
   const requestList = requests.data || [];
   const outcomeList = outcomes.data || [];
-  const count = inviteList.length + (requestList.length ? 1 : 0) + outcomeList.length;
+  const confirmList = toConfirm.data || [];
+  const count = inviteList.length + (requestList.length ? 1 : 0) + outcomeList.length + confirmList.length;
   const failed = invites.error || requests.error;
   if (!count && !failed) return null;
   let i = 0;
@@ -181,6 +198,7 @@ function AttentionSection({ invites, requests, outcomes }) {
         ))}
         {requestList.length > 0 && <RequestsCard requests={requestList} style={{ '--i': i++ }} />}
         {outcomeList.map((g) => <OutcomeCard key={g.id} game={g} uid={user?.id} style={{ '--i': i++ }} />)}
+        {confirmList.map((r) => <ConfirmResultCard key={r.id} result={r} style={{ '--i': i++ }} />)}
         {invites.error && <InlineError text="Pelikutsuja ei saatu ladattua." onRetry={invites.reload} />}
         {requests.error && <InlineError text="Pelipyyntöjä ei saatu ladattua." onRetry={requests.reload} />}
       </div>
@@ -280,7 +298,8 @@ export function HomeScreen() {
   const invites = useAsync(() => api.games.listInvites(), []);
   const requests = useAsync(() => api.messages.listRequests(), []);
   const outcomes = useAsync(() => api.games.pendingOutcomes(), []);
-  const feed = useNotificationFeed({ open, mine, invites, requests, areas: myCities });
+  const toConfirm = useAsync(() => api.results.listToConfirm(), []);
+  const feed = useNotificationFeed({ open, mine, invites, requests, toConfirm, areas: myCities });
   // Court bookings join Tulevat where a hall is bookable (the demo and admins, for now).
   const { hall, loading: hallLoading } = useBookingHall(myCities, { anyCity: true });
   const bookings = useAsync(() => (hall ? api.booking.listMine() : Promise.resolve(null)), [hall?.id]);
@@ -305,13 +324,19 @@ export function HomeScreen() {
     window.addEventListener(GAMES_CHANGED, refresh);
     return () => window.removeEventListener(GAMES_CHANGED, refresh);
   }, [refresh]);
+  const { reload: reloadToConfirm } = toConfirm;
+  useEffect(() => {
+    const onChange = () => reloadToConfirm({ silent: true });
+    window.addEventListener(RESULTS_CHANGED, onChange);
+    return () => window.removeEventListener(RESULTS_CHANGED, onChange);
+  }, [reloadToConfirm]);
 
   return (
     <Page className="home">
       <div className="home-layout">
         <HomeHead next={plan[0]} loading={planLoading} feed={feed} />
         <div className="home-main">
-          <AttentionSection invites={invites} requests={requests} outcomes={outcomes} />
+          <AttentionSection invites={invites} requests={requests} outcomes={outcomes} toConfirm={toConfirm} />
           <PlanSection mine={mine} bookings={bookings} plan={plan} loading={planLoading} />
           <PastSection past={mine.data?.past || []} />
         </div>

@@ -1,14 +1,19 @@
 // MatchResultSheet — SHARED component. Owner: profile agent (wave 2). Other screens import it with exactly this interface:
-//   <MatchResultSheet open onClose={fn} onSaved={fn} initial={MatchResult|{format, opponentName}|null} title='Lisää tulos' />  — saves via api.results.save(initial?.id ?? null, …)
+//   <MatchResultSheet open onClose={fn} onSaved={fn} initial={MatchResult|{format, opponentName, opponent?}|null} title='Lisää tulos' />  — saves via api.results.save(initial?.id ?? null, …)
 //
 // `initial` with an `id` edits that result; without one it only prefills (e.g. from a played game).
 // onSaved(result) is called after a successful save (result = the saved fields + id|null); the sheet
 // then closes itself through onClose. A win fires confetti.
+// Names can be Krossi players (PlayerNameField: pelikaverit first): a linked opponent is asked to
+// confirm the result (api.results.save makes it 'pending' and notifies them).
 import { useEffect, useId, useState } from 'react';
 import { api } from '../../api/index.js';
-import { useBusy } from '../../app/hooks.js';
-import { Button, ChipSelect, Field, Icon, IconButton, Input, Segmented, Sheet, Stepper, confetti, useToast } from '../../ui/index.js';
-import { MAX_SETS, RESULT_FORMATS, RESULT_GAME_TYPES, computeWon, headlineScore, tally } from '../profile/matchResult.js';
+import { useAsync, useBusy } from '../../app/hooks.js';
+import { useSession } from '../../app/session.jsx';
+import { firstName } from '../../lib/format.js';
+import { Button, ChipSelect, Field, Icon, IconButton, Segmented, Sheet, Stepper, confetti, useToast } from '../../ui/index.js';
+import { MAX_SETS, RESULT_FORMATS, RESULT_GAME_TYPES, computeWon, headlineScore, notifyResultsChanged, tally } from '../profile/matchResult.js';
+import { PlayerNameField } from './PlayerNameField.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -18,12 +23,14 @@ function initialState(initial) {
   const sets = Array.isArray(i.sets) && i.sets.length
     ? i.sets.map((s) => ({ my: Number(s.my) || 0, opp: Number(s.opp) || 0 }))
     : [{ my: 0, opp: 0 }];
+  // The typed name wins (a linked person can read 'Pelaaja' without profile access).
+  const who = (person, name) => ({ name: name || person?.name || '', person: person?.id ? person : null });
   return {
     format: i.format === 'doubles' ? 'doubles' : 'singles',
     gameType,
-    opponentName: i.opponentName || '',
-    partnerName: i.partnerName || '',
-    oppPartnerName: i.oppPartnerName || '',
+    opponent: who(i.opponent, i.opponentName),
+    partner: who(i.partner, i.partnerName),
+    oppPartner: who(i.oppPartner, i.oppPartnerName),
     sets: gameType === 'tiebreak' ? sets.slice(0, 1) : sets.slice(0, MAX_SETS),
   };
 }
@@ -52,7 +59,13 @@ export function MatchResultSheet({ open, onClose, onSaved, initial = null, title
   const [busy, run] = useBusy();
   const toast = useToast();
   const ids = useId();
+  const { profile } = useSession();
   const editing = Boolean(initial?.id);
+  // Krossi players to pick from. A failure only means no suggestions: names can still be typed.
+  const { data: candidates } = useAsync(
+    () => (open ? api.results.candidates({ city: profile?.city || null }) : Promise.resolve(null)),
+    [open, profile?.city],
+  );
 
   useEffect(() => {
     if (open) { setForm(initialState(initial)); setError(''); }
@@ -64,7 +77,9 @@ export function MatchResultSheet({ open, onClose, onSaved, initial = null, title
   const doubles = form.format === 'doubles';
   const maxScore = tiebreak ? 50 : 20;
   const preview = previewOf(form);
-  const oppShort = form.opponentName.trim().split(/\s+/)[0] || (doubles ? 'Vastustajat' : 'Vastustaja');
+  const oppShort = form.opponent.name.trim().split(/\s+/)[0] || (doubles ? 'Vastustajat' : 'Vastustaja');
+  const linkedIds = (except) => ['opponent', 'oppPartner', 'partner'].filter((k) => k !== except && (doubles || k === 'opponent'))
+    .map((k) => form[k].person?.id).filter(Boolean);
 
   const set = (key, value) => { setForm((f) => ({ ...f, [key]: value })); setError(''); };
   const setGameType = (gameType) => {
@@ -85,26 +100,35 @@ export function MatchResultSheet({ open, onClose, onSaved, initial = null, title
       return;
     }
     const won = computeWon(sets);
+    const name = (key) => form[key].name.trim() || null;
+    const idOf = (key) => form[key].person?.id ?? null;
     const payload = {
       gameType: form.gameType,
       format: form.format,
-      partnerName: doubles ? form.partnerName.trim() || null : null,
-      opponentName: form.opponentName.trim() || null,
-      oppPartnerName: doubles ? form.oppPartnerName.trim() || null : null,
+      partnerName: doubles ? name('partner') : null,
+      opponentName: name('opponent'),
+      oppPartnerName: doubles ? name('oppPartner') : null,
+      partnerId: doubles ? idOf('partner') : null,
+      opponentId: idOf('opponent'),
+      oppPartnerId: doubles ? idOf('oppPartner') : null,
       sets,
       won,
     };
+    let saved;
     try {
-      await api.results.save(initial?.id ?? null, payload);
+      saved = await api.results.save(initial?.id ?? null, payload);
     } catch (err) {
       setError(err?.userMessage || 'Tuloksen tallennus epäonnistui. Yritä uudelleen.');
       return;
     }
+    notifyResultsChanged();
     const t = tally(sets);
     const realWin = won && t.my !== t.opp;
     if (realWin && !(editing && initial?.won)) confetti();
-    toast(editing ? 'Tulos päivitetty' : realWin ? 'Voitto kirjattu!' : 'Tulos tallennettu', { icon: realWin ? 'trophy' : undefined });
-    onSaved?.({ id: initial?.id ?? null, ...payload });
+    const asked = saved?.confirmation === 'pending' ? (form.opponent.person || form.oppPartner.person) : null;
+    const headline = editing ? 'Tulos päivitetty' : realWin ? 'Voitto kirjattu!' : 'Tulos tallennettu';
+    toast(asked ? `${headline} ${firstName(asked.name)} saa pyynnön vahvistaa sen.` : headline, { icon: realWin ? 'trophy' : undefined });
+    onSaved?.({ id: saved?.id ?? initial?.id ?? null, ...payload });
     onClose?.();
   });
 
@@ -134,18 +158,21 @@ export function MatchResultSheet({ open, onClose, onSaved, initial = null, title
         </Field>
 
         <div className={cx('match-result-names', doubles && 'is-doubles')}>
-          <Field label="Vastustaja" htmlFor={`${ids}-opp`}>
-            <Input id={`${ids}-opp`} icon="user" placeholder="Vastustajan nimi" value={form.opponentName} maxLength={60} autoComplete="off" onChange={(e) => set('opponentName', e.target.value)} />
-          </Field>
+          <PlayerNameField
+            id={`${ids}-opp`} label="Vastustaja" placeholder="Vastustajan nimi" value={form.opponent} onChange={(v) => set('opponent', v)}
+            candidates={candidates} excludeIds={linkedIds('opponent')} linkedHint="Saa pyynnön vahvistaa tuloksen"
+          />
           {doubles && (
-            <Field label="Vastustajan pari" optional htmlFor={`${ids}-opp2`}>
-              <Input id={`${ids}-opp2`} icon="user" placeholder="Parin nimi" value={form.oppPartnerName} maxLength={60} autoComplete="off" onChange={(e) => set('oppPartnerName', e.target.value)} />
-            </Field>
+            <PlayerNameField
+              id={`${ids}-opp2`} label="Vastustajan pari" optional placeholder="Parin nimi" value={form.oppPartner} onChange={(v) => set('oppPartner', v)}
+              candidates={candidates} excludeIds={linkedIds('oppPartner')} linkedHint="Voi myös vahvistaa tuloksen"
+            />
           )}
           {doubles && (
-            <Field label="Parisi" optional htmlFor={`${ids}-partner`}>
-              <Input id={`${ids}-partner`} icon="heart" placeholder="Kenen kanssa pelasit?" value={form.partnerName} maxLength={60} autoComplete="off" onChange={(e) => set('partnerName', e.target.value)} />
-            </Field>
+            <PlayerNameField
+              id={`${ids}-partner`} label="Parisi" optional icon="heart" placeholder="Kenen kanssa pelasit?" value={form.partner} onChange={(v) => set('partner', v)}
+              candidates={candidates} excludeIds={linkedIds('partner')} linkedHint="Tulos näkyy hänelläkin, kun se on vahvistettu"
+            />
           )}
         </div>
 

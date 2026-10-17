@@ -28,7 +28,10 @@ const GAME_KEYS = [
 ];
 const CONVERSATION_KEYS = ['id', 'isGroup', 'title', 'participants', 'lastMessage', 'updatedAt', 'unread', 'gameId'];
 const MESSAGE_KEYS = ['id', 'conversationId', 'senderId', 'sender', 'kind', 'text', 'imageUrl', 'createdAt', 'meta'];
-const RESULT_KEYS = ['id', 'createdAt', 'gameType', 'format', 'partnerName', 'opponentName', 'oppPartnerName', 'sets', 'won'];
+const RESULT_KEYS = [
+  'id', 'createdAt', 'gameType', 'format', 'partnerName', 'opponentName', 'oppPartnerName', 'sets', 'won',
+  'partner', 'opponent', 'oppPartner', 'confirmation', 'answeredBy', 'answeredAt', 'isMine', 'loggedBy',
+];
 const ACTIVITY_GAME_KEYS = ['id', 'playedAt', 'matchType', 'kind', 'locationName', 'locationType', 'city', 'isOrganizer', 'people'];
 const LEAGUE_MATCH_KEYS = ['id', 'playedAt', 'won', 'opponent', 'sets', 'leagueId'];
 const LEAGUE_SUMMARY_KEYS = [

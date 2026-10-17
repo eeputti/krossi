@@ -37,7 +37,8 @@ krossi/
       app/                sovelluksen runko: App.jsx, AppShell.jsx, router.js, routes.js, session.jsx, paywall.jsx, checkout.jsx
       ui/                 design system -komponentit (index.js vie kaiken)
       features/           puhtaat funktiot: gamification.js (putket, merkit), recap.js (koosteet),
-                          booking.js (kenttävaraus), seasons.js (kausivuorot, laskut, krediitit)
+                          booking.js (kenttävaraus), seasons.js (kausivuorot, laskut, krediitit),
+                          resultLinks.js (tulosten pelaajat ja vahvistus)
       lib/                constants.js, format.js (päivämäärät, nimet), geo.js, image.js, ics.js, share.js, stripe.js
       screens/<alue>/     näkymät alueittain (home, games, players, messages, profile, leagues, recap, auth, admin)
       styles/             tokens.css, base.css, ui.css, shell.css + yksi tiedosto per näkymäalue
@@ -140,10 +141,12 @@ Reittitaulu on `app/routes.js`. Polut:
   ("Varaa kenttä tälle pelille" järjestäjälle tai "Kenttä varattu") ja chatin ⋯-valikko.
 - **Ilmoitukset** (kello Kodin yläkulmassa, `screens/home/Notifications.jsx`): lista kootaan
   olemassa olevasta datasta (`features/notifications.js`: pelikutsut, pelipyynnöt, lukemattomat
-  viestit, "Pelasitteko?", alle vuorokauden päästä alkavat pelit, uudet pelit omissa kaupungeissa);
+  viestit, "Pelasitteko?", vahvistettavat tulokset ja vastaukset omiin tuloksiin, alle vuorokauden
+  päästä alkavat pelit, uudet pelit omissa kaupungeissa);
   omaa taulua ei ole. "Nähty" = localStorage `krossi_notifs_seen:<uid>`.
 - Globaalit: `ToastHost`, `ConfirmHost`, `PaywallSheet`, `PendingOutcomeCheck`
-  (kysyy menneistä peleistä "Pelasitteko?" ja tarjoaa tuloksen kirjaamista), demotilan banneri.
+  (Omat-välilehden kortista tai kellosta: "Pelasitteko?" + tuloksen kirjaaminen, ja muiden kirjaamista
+  tuloksista "Vahvistatko tuloksen?"; ei avaudu itsestään), demotilan banneri.
 
 ## 6. Design system
 
@@ -226,6 +229,17 @@ voitot), putki, merkit-rivi → Merkit-sivu, pelihistoria + "Lisää tulos", pel
 kuukauden/kauden kooste. Muokkaa profiilia (kaikki kentät + kuvan vaihto), Asetukset
 (sähköposti-ilmoitukset, näkyvyys, kirjautumistavat, ehdot, evästeet, estetyt, kirjaudu ulos,
 poista tili, admin: maksutilan kytkin).
+
+**Tulokset ja vahvistus:** tuloksen nimet voivat olla Krossin pelaajia (`MatchResultSheet` →
+`PlayerNameField`: pelikaverit ensin, sitten kaupungin pelaajat, kirjoitettu nimi käy edelleen;
+"Pelasitteko?" esitäyttää kaksinpelin vastustajan). Linkitetty vastustaja saa pyynnön
+(`match_result_logged`, `krossi-notify`) ja vastaa Omat-välilehden kortista (Odottaa vastaustasi) tai kellosta: Vahvista / Ei pidä paikkaansa
+(`results.confirm` / `dispute`). Kiistetyn tuloksen kirjaaja korjaa muokkaamalla, jolloin vastustajalta
+kysytään uudelleen. Vahvistettu tulos näkyy myös vastustajan ja parin pelihistoriassa (`isMine: false`,
+vain luku, oma puoli on "my"). Tulostaulu kertoo tilan (`confirmationLine`). Tasolaskennan pohja:
+`ratedMatches(activity)` (vahvistetut linkitetyt tulokset + liigaottelut) ja SQL-näkymä
+`krossi_rated_matches`. Tietokanta: `supabase/migrations/20261017140000_krossi_match_result_confirmations.sql`
+(trigger päättää tilan, `krossi_answer_match_result`, `krossi_linked_match_results`).
 
 **Koosteet (recap):** `/pelaa/kooste/2026-09` ja `/pelaa/kooste/kausi-2026` — tarinamainen
 koko ruudun diaesitys (napauta eteenpäin): pelit, voitot, eniten pelattu kaveri, suosikkihalli,
@@ -323,7 +337,7 @@ funktioita, testit `test/gamification.test.mjs`. UI näyttää merkit `BadgeMeda
 
 `api.notifications.emit(event)` lähettää saman tapahtuman sekä mobiilin push-funktiolle
 (`send-push-notification`) että sähköpostifunktiolle (`krossi-notify`). Datakerros kutsuu
-emitiä itse (create/join/leave/cancel/send/sendPlayRequest/invite) — näkymät eivät.
+emitiä itse (create/join/leave/cancel/send/sendPlayRequest/invite, results.save) — näkymät eivät.
 
 ## 10. Demotila
 

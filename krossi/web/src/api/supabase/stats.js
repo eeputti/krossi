@@ -2,8 +2,7 @@
 // computed from in features/. No scoring logic lives here.
 
 import { db, requireUid } from './client.js';
-import { mapMatchResult } from './map.js';
-import { loadPlayedGames, loadConfirmedLeagueMatches } from './history.js';
+import { loadPlayedGames, loadConfirmedLeagueMatches, loadMyResults } from './history.js';
 import { toApiError, unwrap } from '../errors.js';
 
 const FAIL = 'Tilastoja ei voitu ladata.';
@@ -19,7 +18,7 @@ export async function myActivity() {
   const uid = await requireUid();
   const [games, results, leagueMatches, organized, joinedCount, me] = await Promise.all([
     loadPlayedGames(uid),
-    db().from('match_results').select('*').eq('created_by', uid).order('created_at', { ascending: false }).limit(1000),
+    loadMyResults(uid, 1000),
     loadConfirmedLeagueMatches(uid),
     db().from('challenges').select('id', { count: 'exact', head: true }).eq('creator_id', uid).neq('status', 'cancelled'),
     invitesJoined(),
@@ -29,7 +28,7 @@ export async function myActivity() {
 
   return {
     games,
-    results: (unwrap(results, FAIL) || []).map(mapMatchResult),
+    results,
     leagueMatches,
     organizedCount: organized.count || 0,
     invitesJoined: joinedCount,
