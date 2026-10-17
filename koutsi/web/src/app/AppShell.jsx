@@ -97,7 +97,7 @@ function BetaBanner() {
   return (
     <div className="top-banner top-banner-beta" role="note">
       <span className="top-banner-tag">Beta</span>
-      <span>Koutsin uusi ilme!</span>
+      <span>Koutsilla uusi ilme!</span>
       <a href={`${canonBase()}?uusi=0`} className="top-banner-cta">Palaa vanhaan <Icon name="arrow-right" size={14} /></a>
     </div>
   );
@@ -114,7 +114,7 @@ function renderScreen(screens, NotFound, match, query) {
  *   badges: { tabId: count }   cta: node (side nav)   extraLinks: [{ to, label, icon, pages: [route names] }]
  *   center: { label, icon, onClick } — the phone tab bar's big middle button
  *   me: { person, sub, to }   roleLabel   banner: node shown above the page (acting mode etc.)
- *   signupUrl: where the demo banner points   beta: show the "Koutsin uusi ilme!" bar instead
+ *   signupUrl: where the demo banner points   beta: show the "Koutsilla uusi ilme!" bar instead
  */
 export function AppShell({ tabs, screens, NotFound, badges, cta, center, extraLinks, me, roleLabel, banner, signupUrl, beta = false }) {
   const route = useRoute();

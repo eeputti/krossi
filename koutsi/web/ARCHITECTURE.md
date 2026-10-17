@@ -33,7 +33,7 @@ mutta vain selaimelle, jolla on eväste `koutsi_uusi=1`:
   samat kutsulinkit (`/pelaaja?koodi=…&oppilas=…`) ja ilmoitusten `link_path`-arvot.
 - Toimii myös demossa: `demo.koutsi.krossi.app/valmentaja?uusi=1`.
 - Uudessa sovelluksessa Profiili → "Palaa vanhaan Koutsiin" (`?uusi=0`).
-- Beta-palkki ("Beta · Koutsin uusi ilme! · Palaa vanhaan") näkyy kaikille uuden Koutsin käyttäjille.
+- Beta-palkki "[BETA] Koutsilla uusi ilme! Palaa vanhaan →" (ei erotinpisteitä) näkyy kaikille uuden Koutsin käyttäjille.
   Ylläpitäjän Valmentaja | Pelaaja -vaihto poistettiin 17.10.2026 molemmista sovelluksista;
   RPC `koutsi_admin_join_own_groups` jäi tietokantaan, mutta sovellus ei kutsu sitä.
 
