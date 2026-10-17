@@ -6,7 +6,8 @@
 -- (platform_fee_bps + platform_fee_fixed_cents). Kate on 1 % jokaiselle hallille (oletus uusillekin):
 -- se kattaa myös kalliimpien korttien (premium 2,8 %) lisäkulun ja Connectin kuukausimaksut, joten
 -- Krossi ei maksa Stripen kuluja omastaan. Katetta voi muuttaa hallikohtaisesti. Palautuksessa
--- Krossin osuus jää (Stripe ei palauta omaa kuluaan); pelaaja saa koko summan takaisin.
+-- Krossin osuus jää (Stripe ei palauta omaa kuluaan). Kun pelaaja peruu vuoronsa itse, 1 €:n
+-- peruutuskulu jää hallille (krossi-booking); hallin perumasta pelaaja saa kaiken takaisin.
 --
 -- krossi-connect luo hallin Express-tilin ja tallentaa stripe_account_id:n; se ja stripe-webhook
 -- (account.updated) pitävät stripe_charges_enabled-, _payouts_enabled- ja _details_submitted-tiedot
