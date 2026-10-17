@@ -20,7 +20,7 @@ import { useAsync, useNow } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
 import { navigate, useRoute } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
-import { dateKey, freeSlots, gameForBooking, sportsOf } from '../../features/booking.js';
+import { dateKey, freeSlots, gameForBooking, gamesAndCourts, sportsOf } from '../../features/booking.js';
 import { dayLabel, firstName, formatGameTime, formatTime, plural } from '../../lib/format.js';
 import { AvatarStack, Icon, Sheet, Skeleton, useToast } from '../../ui/index.js';
 import { useBookingHall } from '../booking/useBookingHall.js';
@@ -34,7 +34,6 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_MS = 86_400_000;
 const MAX_UPCOMING = 6;
 const MAX_NEWS = 2;
-const LATER = Number.MAX_SAFE_INTEGER; // "aika sovitaan" games sort last
 const norm = (s) => String(s || '').trim().toLocaleLowerCase('fi');
 const gamePath = (id) => `/pelaa/peli/${id}`;
 
@@ -54,11 +53,7 @@ function emptyCourts(games, bookings) {
 function Upcoming({ mine, bookings, hall, now, onOpenGame, onOpenBooking, onAll }) {
   const games = (mine.data?.upcoming || []).filter((g) => g.status !== 'cancelled');
   // A booking that is one of my games' court shows as that game; the rest are courts of their own.
-  const courts = (bookings || []).filter((b) => b.status === 'confirmed' && !gameForBooking(games, b));
-  const items = [
-    ...games.map((g) => ({ kind: 'game', id: g.id, at: g.scheduledAt ? Date.parse(g.scheduledAt) : LATER, game: g })),
-    ...courts.map((b) => ({ kind: 'court', id: b.id, at: Date.parse(b.startsAt), booking: b })),
-  ].sort((a, b) => a.at - b.at);
+  const items = gamesAndCourts(games, bookings);
   const shown = items.slice(0, MAX_UPCOMING);
   const when = (iso) => `${dayLabel(iso, new Date(now))} ${formatTime(iso)}`;
 
@@ -75,7 +70,7 @@ function Upcoming({ mine, bookings, hall, now, onOpenGame, onOpenBooking, onAll 
         {shown.map((item) => {
           if (item.kind === 'court') {
             const b = item.booking;
-            const empty = !b.split;
+            const { empty } = item;
             return (
               <button key={`c-${b.id}`} type="button" className={cx('play-chip', 'is-court', empty && 'is-empty')} onClick={() => onOpenBooking(b)}>
                 <span className="play-chip-time t-num">{when(b.startsAt)}</span>

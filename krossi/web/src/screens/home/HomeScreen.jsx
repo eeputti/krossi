@@ -4,7 +4,8 @@
 //                big "Pelataanko?" (opens the play menu, like the tab bar's middle button)
 //   unlock       (unpaid) striking unlock card instead of the gated sections
 //   attention    pending game invites (Liity / Ei kiitos) and play requests
-//   next game    listMine().upcoming[0] as the shared hero GameCard, or a friendly empty card
+//   next game    my next game as the shared hero GameCard — or, where a hall is bookable, my next court
+//                no game is played on as a plain CourtCard (gamesAndCourts) — or a friendly empty card
 //   progress     streak, games this month, win streak, latest badge + next goal
 //   open games   horizontal scroller of open games in my city
 //   players      who plays now / this week (paid)
@@ -17,6 +18,7 @@ import { useAsync, useMediaQuery, useNow } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
 import { Link, navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
+import { gamesAndCourts } from '../../features/booking.js';
 import { playDates } from '../../features/gamification.js';
 import { PRICE_LABEL } from '../../lib/constants.js';
 import { MONTHS, WEEKDAYS, capitalize, firstName, formatGameTime, formatTime, greeting, plural } from '../../lib/format.js';
@@ -24,8 +26,10 @@ import {
   Avatar, AvatarStack, BadgeMedal, Button, Card, CountUp, EmptyState, ErrorState, Icon, Illustration,
   Page, ProgressBar, Section, Skeleton, Toggle, confetti, useToast,
 } from '../../ui/index.js';
+import { useBookingHall } from '../booking/useBookingHall.js';
 import { GAMES_CHANGED, gameTitle, notifyGamesChanged, placeLine } from '../games/gameUtils.js';
 import { cityIn, isPlayingNow, timeLeft } from '../players/playerInfo.js';
+import { CourtCard } from '../shared/CourtCard.jsx';
 import { GameCard } from '../shared/GameCard.jsx';
 import { InviteSheet } from '../shared/InviteSheet.jsx';
 import { PlayerCard } from '../shared/PlayerCard.jsx';
@@ -279,17 +283,19 @@ function AttentionSection({ invites, requests }) {
 
 // ── next game ────────────────────────────────────────────────────────────────
 
-function NextGameSection({ mine }) {
+// My next game, or my next court nobody has a game on (a booking that is a game's court shows as
+// that game). Courts count only where a hall is bookable (`bookings` stays empty otherwise).
+function NextGameSection({ mine, bookings, plan, loading }) {
   const { requirePaid } = usePaywall();
-  const upcoming = mine.data?.upcoming || [];
-  const next = upcoming[0];
-  const action = upcoming.length > 1
-    ? { label: `Kaikki omat (${upcoming.length})`, onClick: () => navigate('/pelaa/pelit?nakyma=omat') }
+  const next = plan[0];
+  const action = plan.length > 1
+    ? { label: `Kaikki omat (${plan.length})`, onClick: () => navigate('/pelaa/pelit?nakyma=omat') }
     : undefined;
   let body;
-  if (mine.loading) body = <Skeleton h={200} r={24} className="home-skel-hero" />;
+  if (loading) body = <Skeleton h={200} r={24} className="home-skel-hero" />;
   else if (mine.error) body = <Card><ErrorState compact error={mine.error} onRetry={mine.reload} title="Pelejäsi ei saatu ladattua" /></Card>;
-  else if (next) body = <div className="home-next rise"><GameCard game={next} variant="hero" onClick={() => navigate(openPath(next.id))} /></div>;
+  else if (next?.kind === 'court') body = <div className="home-next rise"><CourtCard booking={next.booking} empty={next.empty} /></div>;
+  else if (next) body = <div className="home-next rise"><GameCard game={next.game} variant="hero" onClick={() => navigate(openPath(next.id))} /></div>;
   else {
     body = (
       <Card padding="none" className="home-empty-next rise">
@@ -305,7 +311,12 @@ function NextGameSection({ mine }) {
       </Card>
     );
   }
-  return <Section title="Seuraava pelisi" action={action}>{body}</Section>;
+  return (
+    <Section title="Seuraava pelisi" action={action}>
+      {body}
+      {!loading && bookings.error && <InlineError text="Kenttävarauksiasi ei saatu ladattua." onRetry={bookings.reload} />}
+    </Section>
+  );
 }
 
 // ── progress ─────────────────────────────────────────────────────────────────
@@ -526,18 +537,26 @@ export function HomeScreen() {
   const act = useActivity();
   const myCities = useMemo(() => [...(profile?.areas || []), profile?.city].filter(Boolean), [profile?.areas, profile?.city]);
   const feed = useNotificationFeed({ open, mine, invites, requests, areas: myCities });
+  // Court bookings join "Seuraava pelisi" where a hall is bookable (the demo and admins, for now).
+  const { hall, loading: hallLoading } = useBookingHall(myCities, { anyCity: true });
+  const bookings = useAsync(() => (hall ? api.booking.listMine() : Promise.resolve(null)), [hall?.id]);
+  const plan = useMemo(() => gamesAndCourts(mine.data?.upcoming, bookings.data?.upcoming), [mine.data, bookings.data]);
+  // With a hall, wait for its bookings too, so the card doesn't swap from a game to a court.
+  const planLoading = mine.loading || hallLoading || Boolean(hall && !bookings.data && !bookings.error);
 
   // Refresh what an overlay (create game, invite reply, outcome check) may have changed.
   const { reload: reloadOpen } = open;
   const { reload: reloadMine } = mine;
   const { reload: reloadInvites } = invites;
   const { reload: reloadAct } = act;
+  const { reload: reloadBookings } = bookings;
   const refresh = useCallback(() => {
     reloadOpen({ silent: true });
     reloadMine({ silent: true });
     reloadInvites({ silent: true });
     reloadAct({ silent: true });
-  }, [reloadOpen, reloadMine, reloadInvites, reloadAct]);
+    reloadBookings({ silent: true });
+  }, [reloadOpen, reloadMine, reloadInvites, reloadAct, reloadBookings]);
   useEffect(() => {
     window.addEventListener(GAMES_CHANGED, refresh);
     return () => window.removeEventListener(GAMES_CHANGED, refresh);
@@ -554,7 +573,7 @@ export function HomeScreen() {
   }, [players.data, now]);
   const nowCount = activePlayers.filter((p) => isPlayingNow(p, now)).length;
 
-  const hasUpcoming = (mine.data?.upcoming || []).length > 0;
+  const hasUpcoming = plan.length > 0;
   const showOpen = paid || (!open.error && !open.loading && nearby.length > 0);
 
   const progress = <ProgressSection act={act} />;
@@ -569,7 +588,7 @@ export function HomeScreen() {
         <div className="home-main">
           {!paid && <UnlockCard city={city} openCount={nearby.length} />}
           <AttentionSection invites={invites} requests={requests} />
-          {(paid || hasUpcoming) && <NextGameSection mine={mine} />}
+          {(paid || hasUpcoming) && <NextGameSection mine={mine} bookings={bookings} plan={plan} loading={planLoading} />}
           {!wide && progress}
           {showOpen && <OpenGamesSection open={open} games={nearby} city={city} />}
           {paid && <PlayersSection players={players} list={activePlayers} nowCount={nowCount} />}

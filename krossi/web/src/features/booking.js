@@ -404,6 +404,24 @@ export function needsPartner(booking, games) {
   return !booking.split && !gameForBooking(games, booking);
 }
 
+const NO_TIME = Number.MAX_SAFE_INTEGER; // "aika sovitaan" games sort last
+
+/**
+ * My coming games and courts in time order — Koti's "Seuraava pelisi", Pelit → Omat pelit and
+ * Pelataanko?'s "Tulossa": [{ kind: 'game', id, at, game } | { kind: 'court', id, at, booking, empty }].
+ * A confirmed booking that is one of my games' court shows as that game; the others are courts of
+ * their own, `empty` when nobody plays on them yet (needsPartner). Held bookings (still being paid)
+ * stay out.
+ */
+export function gamesAndCourts(games, bookings) {
+  const list = games || [];
+  const courts = (bookings || []).filter((b) => b.status === 'confirmed' && !gameForBooking(list, b));
+  return [
+    ...list.map((g) => ({ kind: 'game', id: g.id, at: g.scheduledAt ? Date.parse(g.scheduledAt) : NO_TIME, game: g })),
+    ...courts.map((b) => ({ kind: 'court', id: b.id, at: Date.parse(b.startsAt), booking: b, empty: !b.split })),
+  ].sort((a, b) => a.at - b.at);
+}
+
 // ── Chat ─────────────────────────────────────────────────────────────────────
 
 // A court-share request ends with its link (krossi_booking_share_message / the demo's shareMessage).

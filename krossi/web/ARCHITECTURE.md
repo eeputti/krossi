@@ -196,11 +196,13 @@ versioita. Jos jokin puuttuu, lisää se oman alueesi kansioon, ei `ui/`:hin.
 ## 7. Näkymät (screens/)
 
 **Koti (home):** tumma hero ("Moi, Eelis!", Pelaan tällä viikolla -kytkin, ⚡ Pelaan nyt,
-iso "Pelataanko?"), Seuraava pelisi -kortti, pelikutsut ja pelipyynnöt, putki + kuukauden
+iso "Pelataanko?"), Seuraava pelisi -kortti (seuraava peli tai, kun halli on varattavissa, seuraava
+oma kenttävuoro, jolla ei ole peliä: `CourtCard`), pelikutsut ja pelipyynnöt, putki + kuukauden
 pelit + uusin merkki, lähialueen avoimet pelit vaakarullana, kuukauden kooste -kortti,
 kutsu kaveri -kortti. Maksamattomalle: avauskortti.
 
-**Pelit (games):** Segmented Avoimet / Omat pelit / Kartta. Suodattimet (pelityyppi,
+**Pelit (games):** Segmented Avoimet / Omat pelit / Kartta (Omat pelit → Tulevat: pelit ja
+kenttävuorot, joilla ei ole peliä, aikajärjestyksessä). Suodattimet (pelityyppi,
 sisällä/ulkona, pinta, taso) sheetissä, "Lähin ensin". Pelikortti: päivä-"lappu" (pe 3.10.),
 kellonaika, paikka, tyyppi, vapaat paikat pisteinä, etäisyys. Pelin sivu: osallistujat,
 liity / jonota / poistu / peru, jaa linkki, lisää kalenteriin (.ics), kutsu pelikavereita,
@@ -255,7 +257,12 @@ tähän vuoroon" (avaa Luo peli -sheetin `?varaus=<id>`, täytettynä). Kenelle 
 sheet aukeaa pelin alkuaikaan, jos kenttä on vapaana; jo varattu peli sanoo sen) tai chat
 (`?chat=<id>`) — maksun jälkeen "Lähetä aika" vie ajan sen chattiin. Peliä ja varausta ei linkitetä
 datassa: `bookingFitsGame` (features/booking.js) pitää varausta pelin kenttänä, kun peli alkaa sen
-aikana tai enintään 30 min ennen. Peruutus maksutta
+aikana tai enintään 30 min ennen. `gamesAndCourts(games, bookings)` kokoaa tulevat pelit ja vahvistetut
+vuorot, joilla ei ole peliä, aikajärjestykseen — samaa listaa käyttävät Kodin Seuraava pelisi, Pelit →
+Omat pelit ja Pelataanko?:n Tulossa. Pelin kenttä näkyy pelinä; muu vuoro on `CourtCard`
+(`screens/shared/`, luokat `ccard-*`): kenttä, paikka, aika — napautus avaa varauksen
+(`/pelaa/omat-varaukset?vuoro=<id>`), ja tyhjällä vuorolla "Puuttuu pelikaveri" + "Avaa vuoro muille"
+(Luo peli -sheet `?varaus=<id>`, maksumuurin takana). Peruutus maksutta
 `cancelLimitHours` ennen (raha takaisin maksutavalle). Säännöt (aloitusajat,
 puolen tunnin hinnoittelu, vapaat kentät) ovat `features/booking.js`:ssä; palvelin
 (`krossi_hold_booking`, edge-funktio `krossi-booking`) päättää. Hallin henkilökunta: `/pelaa/halli/:venue`

@@ -11,7 +11,7 @@ import {
   addDays, bookingDays, canPutOnSale, cancelDeadline, centsLabel, chargeErrorText, courtStatesAt, dateKey, discounted,
   durationLabel, findCourt, fitsAvailability, freeSlots, friendsPaid, giveBackOf, giveBackShort, giveBackText, isTaken,
   lastMinutePercent, localDate, priceOf, shareDeadline, splitBlocker, splitCents, sportsOf, startTimes,
-  bookingFitsGame, bookingForGame, gameForBooking, needsPartner,
+  bookingFitsGame, bookingForGame, gameForBooking, gamesAndCourts, needsPartner,
 } from '../src/features/booking.js';
 
 configureTiming({ latencyMin: 0, latencyMax: 0, autoScale: 0.001 });
@@ -616,4 +616,28 @@ test('bookingForGame / gameForBooking / needsPartner pair my courts with my game
   assert.equal(needsPartner(court, [game]), false);
   assert.equal(needsPartner(other, [game, cancelled]), true);
   assert.equal(needsPartner({ ...other, split: { parts: 2, lines: [] } }, []), false, 'a split court has its players');
+});
+
+test('gamesAndCourts lists my games and the courts no game is played on, soonest first', () => {
+  const booking = (id, startsAt, endsAt, extra = {}) => ({ id, status: 'confirmed', split: null, startsAt, endsAt, ...extra });
+  const game = { id: 'g1', status: 'open', scheduledAt: '2026-10-20T15:00:00.000Z' };
+  const later = { id: 'g2', status: 'open', scheduledAt: null };
+  const gameCourt = booking('b1', '2026-10-20T15:00:00.000Z', '2026-10-20T16:30:00.000Z');
+  const empty = booking('b2', '2026-10-19T06:00:00.000Z', '2026-10-19T07:00:00.000Z');
+  const split = booking('b3', '2026-10-22T16:00:00.000Z', '2026-10-22T18:00:00.000Z', { split: { parts: 4, lines: [] } });
+  const held = booking('b4', '2026-10-18T15:00:00.000Z', '2026-10-18T16:00:00.000Z', { status: 'held' });
+
+  const items = gamesAndCourts([game, later], [gameCourt, empty, split, held]);
+  assert.deepEqual(items.map((i) => `${i.kind}:${i.id}`), ['court:b2', 'game:g1', 'court:b3', 'game:g2']);
+  assert.equal(items[0].booking, empty);
+  assert.deepEqual(items.filter((i) => i.kind === 'court').map((i) => i.empty), [true, false], 'a split court has its players');
+  assert.equal(items[1].game, game);
+
+  assert.deepEqual(gamesAndCourts(null, null), []);
+  assert.deepEqual(gamesAndCourts([game], null).map((i) => i.id), ['g1'], 'no hall: just the games');
+  assert.deepEqual(
+    gamesAndCourts([{ ...game, status: 'cancelled' }], [gameCourt]).map((i) => `${i.kind}:${i.id}`),
+    ['game:g1', 'court:b1'],
+    'a cancelled game leaves its court empty',
+  );
 });

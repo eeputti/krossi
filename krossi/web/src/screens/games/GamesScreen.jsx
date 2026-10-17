@@ -1,5 +1,6 @@
 // GamesScreen — /pelaa/pelit. Avoimet (day sections, filters, nearest first) | Omat pelit
 // (Tulevat / Menneet) | Kartta (MapLibre). View synced to ?nakyma=omat|kartta.
+// Tulevat also lists my courts no game is played on (gamesAndCourts), where a hall is bookable.
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/index.js';
 import { openCreateGame } from '../../app/AppShell.jsx';
@@ -7,12 +8,15 @@ import { useAsync, useLocalState } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
 import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
+import { gamesAndCourts } from '../../features/booking.js';
 import {
   Button, Chip, EmptyState, ErrorState, Icon, IconButton, Page, PageHeader, Segmented, Skeleton, Spinner, useToast,
 } from '../../ui/index.js';
 import { CITIES, COURT_SURFACES, MATCH_TYPES, SKILL_LEVELS, labelOf } from '../../lib/constants.js';
 import { formatGameTime } from '../../lib/format.js';
 import { cityCenter, requestPosition, withDistance } from '../../lib/geo.js';
+import { useBookingHall } from '../booking/useBookingHall.js';
+import { CourtCard } from '../shared/CourtCard.jsx';
 import { GameCard, GameDateTile } from '../shared/GameCard.jsx';
 import { FiltersSheet } from './FiltersSheet.jsx';
 import { GamesMap } from './MapView.jsx';
@@ -93,9 +97,16 @@ export function GamesScreen({ query }) {
   const [mineWanted, setMineWanted] = useState(view === 'omat');
   useEffect(() => { if (view === 'omat') setMineWanted(true); }, [view]);
   const mine = useAsync(() => (mineWanted ? api.games.listMine() : Promise.resolve(null)), [mineWanted]);
+  // My courts join Omat pelit where a hall is bookable (the demo and admins, for now).
+  const { hall, loading: hallLoading } = useBookingHall([homeCity, ...(profile?.areas || [])], { anyCity: true });
+  const bookings = useAsync(() => (mineWanted && hall ? api.booking.listMine() : Promise.resolve(null)), [mineWanted, hall?.id]);
+  const plan = useMemo(() => gamesAndCourts(mine.data?.upcoming, bookings.data?.upcoming), [mine.data, bookings.data]);
 
   useEffect(() => {
-    const refresh = () => { open.reload({ silent: true }); if (mineWanted) mine.reload({ silent: true }); };
+    const refresh = () => {
+      open.reload({ silent: true });
+      if (mineWanted) { mine.reload({ silent: true }); bookings.reload({ silent: true }); }
+    };
     window.addEventListener(GAMES_CHANGED, refresh);
     return () => window.removeEventListener(GAMES_CHANGED, refresh);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -190,7 +201,16 @@ export function GamesScreen({ query }) {
       );
     }
   } else if (view === 'omat') {
-    body = <MyGames state={mine} onOpen={(g) => navigate(`/pelaa/peli/${g.id}`)} onBrowse={() => setView('avoimet')} />;
+    body = (
+      <MyGames
+        state={mine}
+        bookings={bookings}
+        plan={plan}
+        loading={hallLoading || Boolean(hall && !bookings.data && !bookings.error)}
+        onOpen={(g) => navigate(`/pelaa/peli/${g.id}`)}
+        onBrowse={() => setView('avoimet')}
+      />
+    );
   } else {
     body = open.loading ? <div className="games-map-skel"><Skeleton w="100%" h="100%" r={24} /></div>
       : open.error ? <ErrorState error={open.error} onRetry={() => open.reload()} />
@@ -205,7 +225,7 @@ export function GamesScreen({ query }) {
         );
   }
 
-  const upcomingCount = mine.data?.upcoming?.length || 0;
+  const upcomingCount = mine.data ? plan.length : 0;
   return (
     <Page className={cx('games-page', `games-view-${view}`)}>
       <PageHeader
@@ -254,17 +274,18 @@ export function GamesScreen({ query }) {
   );
 }
 
-function MyGames({ state, onOpen, onBrowse }) {
+// Tulevat = my games and my courts with no game on them, soonest first (`plan`); Menneet = games.
+function MyGames({ state, bookings, plan, loading, onOpen, onBrowse }) {
   const [showAll, setShowAll] = useState(false);
-  if (state.loading || state.data === null) return <CardSkeletons count={3} />;
+  if (state.loading || state.data === null || loading) return <CardSkeletons count={3} />;
   if (state.error) return <ErrorState error={state.error} onRetry={() => state.reload()} />;
-  const { upcoming = [], past = [] } = state.data || {};
+  const { past = [] } = state.data || {};
   const pastShown = showAll ? past : past.slice(0, PAST_PREVIEW);
   return (
     <>
       <section className="games-day">
-        <h2 className="games-day-title">Tulevat<span className="games-day-count">{upcoming.length}</span></h2>
-        {upcoming.length === 0 ? (
+        <h2 className="games-day-title">Tulevat<span className="games-day-count">{plan.length}</span></h2>
+        {plan.length === 0 ? (
           <EmptyState
             compact
             art="calendar"
@@ -274,8 +295,17 @@ function MyGames({ state, onOpen, onBrowse }) {
           />
         ) : (
           <div className="games-list stagger">
-            {upcoming.map((g, i) => <div key={g.id} style={{ '--i': i }}><GameCard game={g} onClick={() => onOpen(g)} /></div>)}
+            {plan.map((item, i) => (
+              <div key={`${item.kind}-${item.id}`} style={{ '--i': i }}>
+                {item.kind === 'court'
+                  ? <CourtCard booking={item.booking} empty={item.empty} />
+                  : <GameCard game={item.game} onClick={() => onOpen(item.game)} />}
+              </div>
+            ))}
           </div>
+        )}
+        {bookings.error && (
+          <ErrorState compact error={bookings.error} onRetry={() => bookings.reload()} title="Kenttävarauksiasi ei saatu ladattua" />
         )}
       </section>
       {past.length > 0 && (
