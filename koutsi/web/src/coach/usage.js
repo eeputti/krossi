@@ -46,6 +46,22 @@ export const USAGE_SECTIONS = [
     ],
   },
   {
+    title: 'Viikkohallinta',
+    events: [
+      ['viikko.treeni', 'Treeni avattu viikkonäkymästä'],
+      ['viikko.lasnaolo', 'Treeni → Läsnäolo'],
+      ['viikko.huomio', 'Treeni → Huomio'],
+      ['viikko.laksy', 'Treeni → Kotiläksy'],
+      ['viikko.video', 'Treeni → Video'],
+      ['viikko.lisaa', 'Plus-nappi avattu'],
+      ['viikko.lisaa-ryhma', 'Lisää ryhmä'],
+      ['viikko.lisaa-treeni', 'Lisää treeni'],
+      ['viikko.lisaa-tapahtuma', 'Lisää tapahtuma'],
+      ['viikko.lisaa-teema', 'Lisää teema'],
+      ['viikko.lisaa-monta', 'Monta ryhmää ja pelaajaa kerralla'],
+    ],
+  },
+  {
     title: 'Tallennettu',
     events: [
       ['tallennettu.huomio', 'Huomio lähetetty'],

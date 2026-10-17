@@ -31,7 +31,7 @@ export function SessionScreen({ params }) {
   if (!training) {
     return (
       <>
-        <TopBar title="Treeni" back="/valmentaja/kalenteri" />
+        <TopBar title="Treeni" back="/valmentaja/ryhmat" />
         <Page><EmptyState art="calendar" title="Treeniä ei löytynyt" text="Se on ehkä poistettu tai siirretty." /></Page>
       </>
     );
@@ -71,12 +71,12 @@ export function SessionScreen({ params }) {
   };
 
   const remove = async () => {
-    if (await removeTraining(training, label)) goBack('/valmentaja/kalenteri');
+    if (await removeTraining(training, label)) goBack('/valmentaja/ryhmat');
   };
 
   return (
     <>
-      <TopBar title={group ? group.name : training.type} back="/valmentaja/kalenteri" actions={(
+      <TopBar title={group ? group.name : training.type} back="/valmentaja/ryhmat" actions={(
         <>
           <IconButton icon="edit" label="Muokkaa treeniä" onClick={() => setEditOpen(true)} />
           <IconButton icon="trash" label="Poista treeni" onClick={remove} />

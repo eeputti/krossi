@@ -127,7 +127,7 @@ function MerkitseSheet({ open, onClose, onPick, pickedId, onPickSession }) {
     { id: 'laksy', icon: 'check-circle', tone: 'green', title: titles.laksy, sub: recordSub, run: () => onPick({ kind: 'homework', ids: preset }) },
     { id: 'video', icon: 'play', tone: 'clay', title: titles.video, sub: recordSub, run: () => onPick({ kind: 'video', ids: preset }) },
     { id: 'lasnaolo', icon: 'user-check', tone: 'sand', title: 'Läsnäolo', sub: attendSub,
-      run: () => { onClose(); navigate(attend ? sessionPath(attend.training.id) : '/valmentaja/kalenteri'); } },
+      run: () => { onClose(); navigate(attend ? sessionPath(attend.training.id) : '/valmentaja/ryhmat'); } },
   ];
   const others = [
     summaryRow(state, ctx, now, onPick),
