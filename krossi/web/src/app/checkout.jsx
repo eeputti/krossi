@@ -34,23 +34,23 @@ export const APPEARANCE = {
   theme: 'night',
   variables: {
     colorPrimary: '#CFE414',          // --lime
-    colorBackground: '#0A2C20',       // --green-900: fields sit a shade deeper than the sheet
+    colorBackground: '#1F1F1F',       // a shade lighter than the --green-800 sheet
     colorText: '#FFFFFF',
-    colorTextSecondary: '#B9C9C1',
-    colorTextPlaceholder: '#7E968B',
-    colorIcon: '#B9C9C1',
+    colorTextSecondary: '#B3B3B3',
+    colorTextPlaceholder: '#7A7A7A',
+    colorIcon: '#B3B3B3',
     colorDanger: '#FF9F8F',
     fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif',
     fontSizeBase: '15px',
-    borderRadius: '14px',             // --r-md
+    borderRadius: '10px',             // --r-md
     spacingUnit: '4px',
     focusBoxShadow: '0 0 0 2px rgba(207, 228, 20, 0.5)',
     focusOutline: 'none',
   },
   rules: {
-    '.Input': { border: '1px solid #2B5A48', boxShadow: 'none' },
+    '.Input': { border: '1px solid #3E3E3E', boxShadow: 'none' },
     '.Input:focus': { borderColor: '#CFE414' },
-    '.AccordionItem': { border: '1px solid #2B5A48', boxShadow: 'none' },
+    '.AccordionItem': { border: '1px solid #3E3E3E', boxShadow: 'none' },
     '.Label': { fontWeight: '600' },
   },
 };

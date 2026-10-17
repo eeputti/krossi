@@ -141,7 +141,6 @@
   animation: k-pop 480ms var(--ease-spring) 180ms both; transition: transform var(--dur-1) var(--ease-out);
 }
 .games-fab .icon { transition: transform var(--dur-3) var(--ease-spring); }
-.games-fab:hover .icon { transform: rotate(90deg); }
 .games-fab:active { transform: scale(0.92); }
 
 /* ── map ─────────────────────────────────────────────────── */
@@ -396,7 +395,6 @@
 
 /* ── public shared-link page ─────────────────────────────── */
 .games-public { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: var(--green-800); color: var(--on-dark); }
-.games-public.court-lines::before { width: 420px; height: 560px; opacity: 0.1; }
 .games-public-top {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 560px;
   margin: 0 auto; padding: calc(16px + var(--safe-top)) 20px 8px;
@@ -411,7 +409,7 @@
 .games-public-intro { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
 .games-public-avatar { position: relative; margin-bottom: 6px; animation: k-pop 520ms var(--ease-spring) both; }
 .games-public-avatar-ball {
-  position: absolute; right: -7px; bottom: -5px; line-height: 0; animation: k-bounce 1.6s var(--ease-in-out) infinite;
+  position: absolute; right: -7px; bottom: -5px; line-height: 0;
 }
 .games-public-title { font-size: 30px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; color: var(--on-dark); }
 .games-public-lead { max-width: 380px; font-size: 15px; line-height: 1.5; color: var(--on-dark-muted); }

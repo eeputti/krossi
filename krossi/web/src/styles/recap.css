@@ -11,15 +11,15 @@
 }
 .recap-bg-lime {
   --recap-bg: var(--lime); --recap-fg: var(--green-900); --recap-muted: var(--ink-2);
-  --recap-accent: var(--green-800); --recap-chip: rgba(10, 44, 32, 0.1); --recap-track: rgba(10, 44, 32, 0.2); --recap-fill: var(--green-900);
+  --recap-accent: var(--green-800); --recap-chip: rgba(0, 0, 0, 0.1); --recap-track: rgba(0, 0, 0, 0.2); --recap-fill: var(--green-900);
 }
 .recap-bg-clay {
   --recap-bg: var(--clay); --recap-fg: var(--green-900); --recap-muted: var(--ink);
-  --recap-accent: var(--green-900); --recap-chip: rgba(10, 44, 32, 0.12); --recap-track: rgba(10, 44, 32, 0.22); --recap-fill: var(--green-900);
+  --recap-accent: var(--green-900); --recap-chip: rgba(0, 0, 0, 0.12); --recap-track: rgba(0, 0, 0, 0.22); --recap-fill: var(--green-900);
 }
 .recap-bg-sand {
   --recap-bg: var(--sand); --recap-fg: var(--ink); --recap-muted: var(--muted);
-  --recap-accent: var(--green-800); --recap-chip: rgba(20, 15, 5, 0.07); --recap-track: rgba(20, 15, 5, 0.14); --recap-fill: var(--green-800);
+  --recap-accent: var(--green-800); --recap-chip: rgba(0, 0, 0, 0.07); --recap-track: rgba(0, 0, 0, 0.14); --recap-fill: var(--green-800);
 }
 
 /* ── stage ───────────────────────────────────────────────── */
@@ -192,7 +192,7 @@
 /* summary */
 .recap-summary { gap: var(--s2); }
 .recap-summary .recap-title { margin-bottom: var(--s2); }
-.recap-summary-card { width: 100%; padding: 12px; border-radius: var(--r-xl); background: rgba(10, 44, 32, 0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), var(--shadow-3); }
+.recap-summary-card { width: 100%; padding: 12px; border-radius: var(--r-xl); background: rgba(0, 0, 0, 0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), var(--shadow-3); }
 .recap-summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .recap-summary-tile { display: flex; flex-direction: column; gap: 2px; padding: 14px 14px 12px; border-radius: var(--r-md); background: rgba(255, 255, 255, 0.07); }
 .recap-summary-tile.is-hero { background: var(--lime); color: var(--ink); }

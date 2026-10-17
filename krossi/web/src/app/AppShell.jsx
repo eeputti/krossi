@@ -1,7 +1,7 @@
 // AppShell.jsx — navigation chrome (tab bar / side nav), route rendering, transitions.
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { api, isDemo } from '../api/index.js';
-import { Avatar, Button, Icon } from '../ui/index.js';
+import { Avatar, Button, Icon, ICON_NAMES } from '../ui/index.js';
 import { useIsDesktop, useResync } from './hooks.js';
 import { Link, navigate, navigationType, savedScroll, useRoute } from './router.js';
 import { matchRoute, PHONE_TABS, TABS, tabRoot } from './routes.js';
@@ -41,12 +41,15 @@ export function openPlayMenu() {
   window.dispatchEvent(new CustomEvent(PLAY_MENU_OPEN));
 }
 
+// The active tab shows the filled twin of its icon (outline = not active), when there is one.
+const tabIcon = (name, isActive) => (isActive && ICON_NAMES.includes(`${name}-fill`) ? `${name}-fill` : name);
+
 // Phones: four tabs and the big lime "Pelataanko?" in the middle, as in Koutsi.
 function TabBar({ active, unread }) {
   const item = (t) => (
     <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
       <span className="tabbar-icon">
-        <Icon name={t.icon} size={23} strokeWidth={active === t.id ? 2.3 : 1.9} />
+        <Icon name={tabIcon(t.icon, active === t.id)} size={23} strokeWidth={1.9} />
         {t.id === 'viestit' && unread > 0 && <span className="tabbar-badge">{unread > 9 ? '9+' : unread}</span>}
       </span>
       <span className="tabbar-label">{t.label}</span>
@@ -74,7 +77,7 @@ function SideNav({ active, unread }) {
       <nav className="sidenav-links" aria-label="Päävalikko">
         {TABS.map((t) => (
           <Link key={t.id} to={t.path} className={cx('sidenav-link', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
-            <Icon name={t.icon} size={20} />
+            <Icon name={tabIcon(t.icon, active === t.id)} size={20} />
             <span>{t.label}</span>
             {t.id === 'viestit' && unread > 0 && <span className="sidenav-badge">{unread > 9 ? '9+' : unread}</span>}
           </Link>
@@ -99,7 +102,7 @@ function SideNav({ active, unread }) {
 function DemoBanner() {
   return (
     <div className="demo-banner" role="note">
-      <Icon name="sparkles" size={15} />
+      <Icon name="info" size={15} />
       <span>Demotila — mikään ei tallennu</span>
       <a href="/pelaa" className="demo-banner-cta">Luo oma tili <Icon name="arrow-right" size={14} /></a>
     </div>

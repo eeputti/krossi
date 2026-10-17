@@ -143,32 +143,41 @@ Reittitaulu on `app/routes.js`. Polut:
 ## 6. Design system
 
 ### Tokenit (`styles/tokens.css`)
-- Brändi: `--green-900 #0A2C20`, `--green-800 #0E3B2C` (pääväri), `--green-700 #155440`,
-  `--green-600 #1E6B52`, `--lime #CFE414` (korostus/CTA), `--lime-300 #DDEE5A`,
-  `--lime-100 #F4F8CF`, `--clay #D9734A` (tennismassa, putket/liekit), `--sky #3F7DFF` (oma sijainti).
-- Pinnat: `--bg #F7F5EF` (sovelluksen tausta), `--surface #FFFFFF`, `--surface-2 #FBFAF6`,
-  `--sand #EFECE3`, `--line #E5E1D7`, `--line-strong #D3CEC2`.
-- Teksti: `--ink #121212`, `--ink-2 #3A372F`, `--muted #6B665C`, `--faint #9A958A`,
-  `--on-dark #FFFFFF`, `--on-dark-muted rgba(255,255,255,.72)`.
-- Tilat: `--success #2D7A4D`, `--success-bg`, `--danger #B23B2E`, `--danger-bg`, `--warn #9A6B00`, `--warn-bg`.
+Ilme (2026-10-17): litteä ja kontrastikas "Spotify valkoisella" — valkoinen sivu, neutraalit harmaat,
+lähes musta tummille pinnoille ja lime ainoana korostusvärinä. Ei varjoja korteissa, ei koristekuvioita.
+- Brändi: `--green-*`-nimet ovat jääneet ensimmäisestä (metsänvihreästä) paletista; ne ovat nyt tummat
+  pinnat: `--green-900 #000`, `--green-800 #121212` (pääväri), `--green-700 #2A2A2A`, `--green-600 #3E3E3E`.
+  `--lime #CFE414` (korostus/CTA), `--lime-300 #DBEE45`, `--lime-100 #F4F8D9`, `--clay #E0592A`
+  (merkkipallot, putket), `--sky #2E77F0` (oma sijainti).
+- Pinnat: `--bg #FFFFFF`, `--surface #FFFFFF`, `--surface-2 #F7F7F7`, `--sand #F1F1F1`,
+  `--line #E8E8E8`, `--line-strong #D4D4D4`.
+- Teksti: `--ink #121212`, `--ink-2 #333`, `--muted #6A6A6A`, `--faint #969696`,
+  `--on-dark #FFFFFF`, `--on-dark-muted rgba(255,255,255,.7)`.
+- Tilat: `--success #16794A`, `--success-bg`, `--danger #D22F27`, `--danger-bg`, `--warn #8A6100`, `--warn-bg`.
+- Avatarit: tasavärit `--av-blue/yellow/red/green` (ei liukuvärejä).
 - **Lime ei koskaan ole tekstiväri vaalealla pohjalla** (kontrasti). Limeä käytetään taustana
-  (tummalla tekstillä `--ink`) tai tekstinä tummanvihreällä pohjalla.
-- Välit `--s1 4px … --s8 48px`; säteet `--r-sm 10px`, `--r-md 14px`, `--r-lg 18px`,
-  `--r-xl 24px`, `--r-pill 999px`; varjot `--shadow-1/2/3`, `--shadow-lift`.
-- Typografia: järjestelmäfontti (SF Pro / Segoe). `--fs-display 34px/800/-0.03em`,
+  (tummalla tekstillä `--ink`) tai tekstinä tummalla pohjalla.
+- Välit `--s1 4px … --s8 48px`; säteet `--r-xs 6px`, `--r-sm 8px`, `--r-md 10px`, `--r-lg 12px`,
+  `--r-xl 14px`, `--r-2xl 18px`, `--r-pill 999px` (vain napit ja chipit). Varjot: `--shadow-1` ja
+  `--shadow-lift` ovat tyhjiä (reunat kantavat rakenteen), `--shadow-2/3` vain päällä leijuville.
+- Typografia: järjestelmäfontti (SF Pro / Segoe), myös numeroissa (ei pyöristettyä). `--fs-display 34px/800/-0.03em`,
   `--fs-title 24px/800`, `--fs-h2 19px/750`, `--fs-h3 16px/700`, `--fs-body 15px`,
   `--fs-small 13px`, `--fs-micro 11px` (eyebrow: uppercase, 700, .08em).
-- Liike: `--ease-out cubic-bezier(.22,1,.36,1)`, `--ease-spring cubic-bezier(.34,1.56,.64,1)`,
+- Liike: `--ease-out cubic-bezier(.22,1,.36,1)`; `--ease-spring` on sama käyrä ilman yliheilahdusta,
   `--dur-1 140ms`, `--dur-2 220ms`, `--dur-3 360ms`.
 
 ### Liike ja tunnelma
 - Sivun vaihto: uusi sivu liukuu 16 px oikealta + fade (`.route-enter`), välilehti vaihtuu fadella.
 - Listat ilmestyvät porrastetusti: `<div className="stagger">` ja lapsille `style={{'--i': index}}`.
-- Napit: painallus skaalaa 0.97, hover nostaa 1 px. Kortit: hover nostaa 2 px + varjo.
-- Sheet nousee alhaalta jousella, taustan blur+fade, raahaamalla alas sulkeutuu.
+- Napit: painallus skaalaa 0.97, hover vaihtaa värin. Kortit: hover tummentaa reunan (ei nostoa).
+- Sheet nousee alhaalta, taustan blur+fade, raahaamalla alas sulkeutuu.
 - Onnistumiset: `confetti()` kun peli täyttyy / liityt / saat merkin; check-animaatio toasteissa.
-- Lataus: shimmer-skeletonit, ei pelkkiä spinnereitä listoissa. Splash: pomppiva pallo.
-- Tummanvihreät "hero"-pinnat käyttävät kenttäviivakuviota (`.court-lines`-tausta) ja limeä.
+- Lataus: shimmer-skeletonit, ei pelkkiä spinnereitä listoissa.
+- Ei jatkuvia pomppu-, heilunta- tai liekkianimaatioita tavallisissa näkymissä (koosteiden diat poikkeus).
+- Tummat "hero"-pinnat ovat tasaisen mustia ja käyttävät limeä; `.court-lines` on enää asemointikonteksti.
+- Navigaatio: aktiivinen välilehti näyttää ikonin täytettynä (`home-fill` jne.), muut ääriviivoina.
+- Kuvitukset (`ui/illustrations.jsx`): litteät geometriset muodot harmaalla kiekolla, musta + paperi + lime
+  pallo, ei kipinöitä/konfetteja/animaatiota; värit `--ill-*`-muuttujista, kääntyvät `.on-dark`-pinnoilla.
 
 ### UI-komponentit (`ui/index.js`)
 `Icon`, `Button`, `IconButton`, `Avatar`, `AvatarStack`, `Chip`, `ChipSelect`, `Segmented`,
