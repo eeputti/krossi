@@ -95,10 +95,10 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/kooste/:period` (`2026-09` tai `kausi-2026`) | recap | profiili | full |
 | `/pelaa/liigat` | leagues | pelit | page |
 | `/pelaa/liiga/:id` | league | pelit | page (kirjautumaton: julkinen sarjataulukko) |
-| `/pelaa/varaa`, `/pelaa/varaa/:venue` | booking, bookingVenue | pelit | page |
+| `/pelaa/varaa`, `/pelaa/varaa/:venue` (`?peli=<id>`, `?chat=<id>`, `?liiga=&ottelu=`) | booking, bookingVenue | pelit | page |
 | `/pelaa/halli/:venue` (`?nakyma=kausivuorot\|laskutus\|kortit\|asetukset`) | hall | pelit | page (hallin henkilökunta) |
 | `/pelaa/osuus/:id` | share | pelit | page (osuus jaetusta kenttävuorosta; ei vaadi avausmaksua) |
-| `/pelaa/omat-varaukset` | myBookings | pelit | page (vuorot, kausivuorot, sarja- ja lahjakortit) |
+| `/pelaa/omat-varaukset` (`?vuoro=<id>` avaa varauksen) | myBookings | pelit | page (vuorot, kausivuorot, sarja- ja lahjakortit) |
 | `/pelaa/lasku/:id` | invoice | pelit | full (tulostettava lasku: henkilökunta ja haltija) |
 | `/pelaa/kutsu/:code` | invite | — | public |
 | `/pelaa/yllapito` | admin | profiili | page (vain admin) |
@@ -130,9 +130,14 @@ Reittitaulu on `app/routes.js`. Polut:
   Koutsin "Merkitse") — Profiili on mobiilissa Kodin avatar. Työpöydällä vasen **SideNav**
   (logo, kaikki viisi kohdetta, iso lime "Pelataanko?" -nappi, oma profiilichippi). Keskellä
   sisältö max 720 px (Koti: 1080 px kahdella palstalla ≥ 1200 px).
-- **Pelataanko?-valikko** (`screens/play/PlayMenu.jsx`, avataan `openPlayMenu()`): Tulossa
-  (omat tulevat pelit), Ajankohtaista (kutsu peliin, pelaa nyt, avoimet pelit tällä viikolla)
-  ja ruudut Luo peli · Pelaan nyt · Avoimet pelit · Etsi pelikaveri · Kirjaa tulos · Kutsu kaveri.
+- **Pelataanko?-valikko** (`screens/play/PlayMenu.jsx`, avataan `openPlayMenu()`): kaksi ovea,
+  yksi kierto. Tulossa (omat tulevat pelit + kenttävaraukset; vuoro, jolla ei ole peliä eikä
+  jakoa, on "Puuttuu pelikaveri"), sitten **Varaa kenttä** (tumma; vapaat ajat tänään) ja **Etsi
+  peliseuraa** (lime; avaa sheetin: Ajankohtaista — tyhjä vuoro "Avaa vuoro muille", kutsu peliin,
+  pelaa nyt, avoimet pelit — ja Luo peli · Avoimet pelit · Etsi pelikaveri), alla pikanapit Pelaan nyt ·
+  Kirjaa tulos · Kutsu · Liigat (+ Tapahtuma). Ilman varattavaa hallia (`useBookingHall`) ei ole
+  kenttäovea: peliseuran vaihtoehdot ovat suoraan valikossa. Toinen suunta: pelisivun Paikka-osio
+  ("Varaa kenttä tälle pelille" järjestäjälle tai "Kenttä varattu") ja chatin ⋯-valikko.
 - **Ilmoitukset** (kello Kodin yläkulmassa, `screens/home/Notifications.jsx`): lista kootaan
   olemassa olevasta datasta (`features/notifications.js`: pelikutsut, pelipyynnöt, lukemattomat
   viestit, "Pelasitteko?", alle vuorokauden päästä alkavat pelit, uudet pelit omissa kaupungeissa);
@@ -245,12 +250,17 @@ maksut rivistä sheetiin, omat varaukset yläpalkista (`/pelaa/omat-varaukset`),
 ruuduista, varausehdot linkistä (`BookingTermsSheet`). BookSheet: kesto →
 kenttä (kartta + chipit) → pito (`holdMinutes`, laskuri) → maksu (sama Stripe-`Checkout` kuin
 avausmaksussa, `createIntent`/`verify`-propseilla) → "Kenttä varattu!" + kalenteri + "Etsi pelikaveri
-tähän vuoroon" (avaa Luo peli -sheetin `?varaus=<id>`, täytettynä). Peruutus maksutta
+tähän vuoroon" (avaa Luo peli -sheetin `?varaus=<id>`, täytettynä). Kenelle varataan
+(`bookingTarget`): hallisarjan ottelu (`?liiga=&ottelu=`), peli (`?peli=<id>`: pelin päivä valitaan ja
+sheet aukeaa pelin alkuaikaan, jos kenttä on vapaana; jo varattu peli sanoo sen) tai chat
+(`?chat=<id>`) — maksun jälkeen "Lähetä aika" vie ajan sen chattiin. Peliä ja varausta ei linkitetä
+datassa: `bookingFitsGame` (features/booking.js) pitää varausta pelin kenttänä, kun peli alkaa sen
+aikana tai enintään 30 min ennen. Peruutus maksutta
 `cancelLimitHours` ennen (raha takaisin maksutavalle). Säännöt (aloitusajat,
 puolen tunnin hinnoittelu, vapaat kentät) ovat `features/booking.js`:ssä; palvelin
 (`krossi_hold_booking`, edge-funktio `krossi-booking`) päättää. Hallin henkilökunta: `/pelaa/halli/:venue`
 (päivän aikajana nimillä, esteet kuten Hallisarja, peruutus + hyvitys). Näkyy toistaiseksi vain
-demossa ja adminille (PlayMenu: `isDemo || isAdmin`).
+demossa ja adminille (`screens/booking/useBookingHall.js`, LeagueScreen: `isDemo || isAdmin`).
 
 **Kausivuorot, laskutus, sarja- ja lahjakortit (vaihe 2):** domainit `seasons`, `billing` ja `wallet`
 (contract.js), säännöt `features/seasons.js` (kauden viikot ja pyhät, kausihinta kuukausittain

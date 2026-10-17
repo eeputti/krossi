@@ -374,6 +374,36 @@ export function fitsAvailability(availability, startsAt) {
   });
 }
 
+// ── Games and courts ─────────────────────────────────────────────────────────
+// A game (challenges row) and a court booking aren't linked in the data: a booking of mine
+// "is" a game's court when the game starts inside it (or up to half an hour before it starts:
+// a 18.00 booking for a game posted as 17.45). Pelataanko? and the game page use this to say
+// "Kenttä varattu" or offer "Varaa kenttä tälle pelille".
+
+const LIVE_BOOKING = new Set(['held', 'confirmed']);
+
+/** True when `game` (with a time) is played on `booking`. */
+export function bookingFitsGame(booking, game) {
+  if (!booking || !game?.scheduledAt || !LIVE_BOOKING.has(booking.status)) return false;
+  const t = Date.parse(game.scheduledAt);
+  return Date.parse(booking.startsAt) - 30 * MINUTE <= t && t < Date.parse(booking.endsAt);
+}
+
+/** My booking that is the court of `game`, or null. */
+export function bookingForGame(bookings, game) {
+  return (bookings || []).find((b) => bookingFitsGame(b, game)) || null;
+}
+
+/** My game that is played on `booking`, or null. */
+export function gameForBooking(games, booking) {
+  return (games || []).find((g) => g.status !== 'cancelled' && bookingFitsGame(booking, g)) || null;
+}
+
+/** "Kenttä varattu" / "Puuttuu pelikaveri": a booking with nobody to play with is one with no game and no split. */
+export function needsPartner(booking, games) {
+  return !booking.split && !gameForBooking(games, booking);
+}
+
 // ── Chat ─────────────────────────────────────────────────────────────────────
 
 // A court-share request ends with its link (krossi_booking_share_message / the demo's shareMessage).

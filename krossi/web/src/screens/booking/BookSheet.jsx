@@ -7,6 +7,9 @@
 // players picked by face. The booker pays their own part now and the card is saved; each friend
 // gets a chat message with "Maksa osuutesi", and whatever is unpaid at the deadline is charged to
 // the saved card.
+//
+// Booking for somebody (`target`: a hallisarja match, a game or a chat — see BookingScreen): those
+// players come first in the split list, and once paid "Lähetä aika" sends the court to their chat.
 import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
@@ -102,7 +105,7 @@ function mapStates(location, free, busy, startsAt, minutes, chosenId, sport) {
   return states;
 }
 
-export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes: firstMinutes, courtId: firstCourtId, locationId, onBooked, onChanged, match = null }) {
+export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes: firstMinutes, courtId: firstCourtId, locationId, onBooked, onChanged, target = null }) {
   const toast = useToast();
   const confirm = useConfirm();
   const { user } = useSession();
@@ -159,8 +162,9 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
   const splitProblem = chosen && splitting ? splitBlocker(venue, startsAt, chosen.cents, parts) : null;
   const picked = splitting ? friendIds.length : 0;
   const ready = Boolean(chosen) && (!splitting || (!splitProblem && picked === parts - 1));
-  // A hallisarja opponent is the obvious one to split with: first in the list.
-  const friendList = (friends.data || []).slice().sort((a, b) => (b.id === match?.opponent?.id) - (a.id === match?.opponent?.id));
+  // The players the court is for (a hallisarja opponent, the game's players) come first in the list.
+  const firstIds = new Set(target?.peopleIds || []);
+  const friendList = (friends.data || []).slice().sort((a, b) => firstIds.has(b.id) - firstIds.has(a.id));
 
   const changePayMode = (mode) => {
     setPayMode(mode);
@@ -252,14 +256,13 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
     return { paid: result.confirmed, status: result.status };
   };
 
-  // Hallisarja: the booked time goes straight to the match chat with the opponent.
-  const sendToOpponent = async () => {
+  // A hallisarja match, a game or a chat: the booked time goes straight to that chat.
+  const sendToTarget = async () => {
     setSending(true);
     try {
-      const conversationId = await api.leagues.openFixtureChat(match.fixtureId);
-      await api.messages.send(conversationId,
-        `Varasin meille kentän hallisarjan otteluun: ${booking.courtName}, ${booking.locationName}, ${exactWhen(booking)}. Nähdään kentällä!`);
-      toast(`Aika lähetetty: ${firstName(match.opponent?.name)}`, { icon: 'check' });
+      const conversationId = await target.openChat();
+      await api.messages.send(conversationId, target.message(`${booking.courtName}, ${booking.locationName}, ${exactWhen(booking)}`));
+      toast(target.sentText, { icon: 'check' });
       onClose();
       navigate(`/pelaa/viestit/${encodeURIComponent(conversationId)}`);
     } catch (err) {
@@ -299,13 +302,14 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
           <VenueMap compact mapKey={location.mapKey} courts={location.courts} states={{ [booking.courtId]: 'mine' }} className="bk-done-map" />
         )}
         <div className="bk-done-actions">
-          {match && (
-            <Button variant="dark" icon="send" block loading={sending} onClick={sendToOpponent}>
-              Lähetä aika: {firstName(match.opponent?.name)}
-            </Button>
+          {target?.openChat && (
+            <Button variant="dark" icon="send" block loading={sending} onClick={sendToTarget}>{target.sendLabel}</Button>
           )}
-          <Button variant={match ? 'outline' : 'dark'} icon="calendar" block onClick={() => downloadBookingIcs(booking, { cancellableUntil: booking.cancellableUntil })}>Lisää kalenteriin</Button>
-          {!match && !booking.split && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
+          {target && !target.openChat && target.backTo && (
+            <Button variant="dark" icon="arrow-left" block onClick={() => { onClose(); navigate(target.backTo); }}>{target.backLabel}</Button>
+          )}
+          <Button variant={target ? 'outline' : 'dark'} icon="calendar" block onClick={() => downloadBookingIcs(booking, { cancellableUntil: booking.cancellableUntil })}>Lisää kalenteriin</Button>
+          {!target && !booking.split && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
         </div>
         <p className="bk-fine">
           {booking.paymentStatus === 'credit'
