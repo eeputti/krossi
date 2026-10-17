@@ -4,7 +4,8 @@
 // Two doors, one loop. "Varaa kenttä" is for a player who has somebody to play with and needs a
 // court (free — no paywall); "Etsi peliseuraa" is for one who needs somebody, and opens a small
 // sheet: what is going on near me ("Ajankohtaista": a booked court with nobody on it, an invite
-// waiting, players who play now, open games this week), then create a game, open games, players.
+// waiting, players who play now, open games this week), the three players who fit me best with
+// the reason why (demo only for now, features/matching.js), then create a game, open games, players.
 // Each side leads to the other: a court with nobody on it shows "Puuttuu pelikaveri" and the
 // partner sheet offers to open it to others; a game page offers "Varaa kenttä tälle pelille".
 // On top: my next games and court bookings ("Tulossa"). Below the doors: Pelaan nyt, Kirjaa tulos,
@@ -14,19 +15,20 @@
 // partner options sit in the menu itself, so nobody taps through a door that leads nowhere.
 // Mounted once by App.jsx; anything opens it with openPlayMenu() (AppShell.jsx).
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../api/index.js';
+import { api, isDemo } from '../../api/index.js';
 import { openCreateGame, PLAY_MENU_OPEN } from '../../app/AppShell.jsx';
 import { useAsync, useNow } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
 import { navigate, useRoute } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
 import { dateKey, freeSlots, gameForBooking, gamesAndCourts, sportsOf } from '../../features/booking.js';
+import { reasonTexts, suggestPlayers } from '../../features/matching.js';
 import { dayLabel, firstName, formatGameTime, formatTime, plural } from '../../lib/format.js';
-import { AvatarStack, Icon, Sheet, Skeleton, useToast } from '../../ui/index.js';
+import { Avatar, AvatarStack, Icon, Sheet, Skeleton, useToast } from '../../ui/index.js';
 import { useBookingHall } from '../booking/useBookingHall.js';
 import { gameTitle, isFull, notifyGamesChanged, placeLine, spotsLabel, whenText } from '../games/gameUtils.js';
 import { PlayingNowSheet } from '../home/PlayingNowSheet.jsx';
-import { cityIn, isPlayingNow } from '../players/playerInfo.js';
+import { cityIn, isPlayingNow, levelText, playerStatus } from '../players/playerInfo.js';
 import { InviteSheet } from '../shared/InviteSheet.jsx';
 import { MatchResultSheet } from '../shared/MatchResultSheet.jsx';
 
@@ -120,8 +122,43 @@ function NewsCard({ news }) {
   );
 }
 
-/** "Etsi peliseuraa": what is going on near me, then the three ways to get somebody to play with. */
-function PartnerOptions({ news, loaded, tiles }) {
+/** "Sopivat sinulle": the players who fit me best, each with why. */
+function Suggestions({ suggested, now, onOpen, onAll }) {
+  return (
+    <div className="play-suggest">
+      <div className="play-head">
+        <span className="eyebrow">Sopivat sinulle</span>
+        <button type="button" className="play-textlink" onClick={onAll}>Kaikki pelaajat</button>
+      </div>
+      <div className="play-suggest-list">
+        {suggested.map(({ player: p, reasons }) => {
+          // The level is printed beside the name; when nothing else is left, say it anyway.
+          const why = reasonTexts(reasons, { skip: ['level'] });
+          return (
+            <button key={p.id} type="button" className="play-suggest-row" onClick={() => onOpen(p)}>
+              <Avatar person={p} size={42} status={playerStatus(p, now)} />
+              <span className="play-suggest-main">
+                <span className="play-suggest-name">
+                  <span className="truncate">{p.name}</span>
+                  <span className="play-suggest-level">{levelText(p, { short: true })}</span>
+                </span>
+                <span className="play-suggest-why">
+                  {(why.length ? why : reasonTexts(reasons)).map((t, i) => (
+                    <span key={t}>{i > 0 && ' · '}<span className="play-suggest-reason">{t}</span></span>
+                  ))}
+                </span>
+              </span>
+              <Icon name="chevron-right" size={18} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** "Etsi peliseuraa": what is going on near me, who fits me, then the three ways to get somebody to play with. */
+function PartnerOptions({ news, loaded, tiles, suggestions }) {
   return (
     <>
       {(news.length > 0 || !loaded) && (
@@ -132,6 +169,7 @@ function PartnerOptions({ news, loaded, tiles }) {
             : <Skeleton h={68} r={18} />}
         </div>
       )}
+      {suggestions}
       <div className="play-grid">
         {tiles.map((t) => (
           <button key={t.id} type="button" className={cx('play-tile', t.primary && 'is-primary', t.wide && 'is-wide')} onClick={t.run}>
@@ -184,6 +222,7 @@ export function PlayMenu() {
   const open = useAsync(() => (load ? api.games.listOpen() : Promise.resolve(null)), [opened]);
   const invites = useAsync(() => (load ? api.games.listInvites() : Promise.resolve(null)), [opened]);
   const players = useAsync(() => (load && paid && city ? api.players.list({ city }) : Promise.resolve(null)), [opened, paid, city]);
+  const partners = useAsync(() => (load && paid && isDemo ? api.players.listPartners() : Promise.resolve(null)), [opened, paid]);
   const bookings = useAsync(() => (load && hall ? api.booking.listMine() : Promise.resolve(null)), [opened, hall?.id]);
   const hallDay = useAsync(() => (load && hall ? api.booking.day(hall.id, dateKey(new Date())) : Promise.resolve(null)), [opened, hall?.id]);
 
@@ -194,6 +233,11 @@ export function PlayMenu() {
   const playingNow = (players.data || []).filter((p) => isPlayingNow(p, now));
   const freeThisWeek = (players.data || []).filter((p) => p.playingThisWeek && !isPlayingNow(p, now));
   const active = isPlayingNow(profile, now);
+  // Demo only until it is approved for real players.
+  const suggested = useMemo(
+    () => (isDemo && profile && players.data ? suggestPlayers(profile, players.data, { now, partners: partners.data }) : []),
+    [profile, players.data, partners.data, now],
+  );
   const myGames = (mine.data?.upcoming || []).filter((g) => g.status !== 'cancelled');
   const myCourts = bookings.data?.upcoming || [];
   const lonely = emptyCourts(myGames, myCourts)[0] || null;
@@ -264,7 +308,8 @@ export function PlayMenu() {
       run: () => go('/pelaa/pelit'),
     });
   }
-  if (freeThisWeek.length > 0) {
+  // "Sopivat sinulle" already names the best of them.
+  if (freeThisWeek.length > 0 && suggested.length === 0) {
     news.push({
       id: 'viikko', tone: 'soft', people: freeThisWeek,
       eyebrow: 'Vapaana tällä viikolla',
@@ -307,7 +352,10 @@ export function PlayMenu() {
     : [playingNow.length > 0 && `${playingNow.length} pelaa nyt`, openWeek.length > 0 && plural(openWeek.length, 'avoin peli', 'avointa peliä')]
       .filter(Boolean).join(' · ') || 'Luo peli tai liity avoimeen';
   const courtSub = freeToday ? `Tänään ${plural(freeToday, 'vapaa aika', 'vapaata aikaa')} · ${hall?.city}` : hall?.name;
-  const partner = <PartnerOptions news={news} loaded={loaded} tiles={tiles} />;
+  const suggestions = suggested.length > 0 && (
+    <Suggestions suggested={suggested} now={now} onOpen={(p) => go(`/pelaa/pelaaja/${p.id}`)} onAll={() => go('/pelaa/pelaajat')} />
+  );
+  const partner = <PartnerOptions news={news} loaded={loaded} tiles={tiles} suggestions={suggestions} />;
 
   return (
     <>

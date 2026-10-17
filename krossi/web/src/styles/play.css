@@ -58,6 +58,23 @@
 @keyframes play-pulse { 0% { box-shadow: 0 0 0 0 rgba(207, 228, 20, 0.6); } 100% { box-shadow: 0 0 0 8px rgba(207, 228, 20, 0); } }
 @media (prefers-reduced-motion: reduce) { .play-live { animation: none; } }
 
+/* Sopivat sinulle: the three players who fit me best, each with why */
+.play-suggest { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
+.play-suggest-list { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.play-suggest-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; text-align: left; color: var(--faint);
+  -webkit-tap-highlight-color: transparent; transition: background-color var(--dur-2);
+}
+.play-suggest-row + .play-suggest-row { border-top: 1px solid var(--line); }
+.play-suggest-row:hover { background: var(--surface-2); }
+.play-suggest-row:active { background: var(--surface-2); }
+.play-suggest-row .avatar { flex-shrink: 0; }
+.play-suggest-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.play-suggest-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 15px; font-weight: 800; color: var(--ink); }
+.play-suggest-level { flex-shrink: 0; font-size: 12.5px; font-weight: 650; color: var(--muted); }
+.play-suggest-why { font-size: 13px; line-height: 1.35; color: var(--ink-2); }
+.play-suggest-reason { white-space: nowrap; } /* a line breaks between reasons, never inside one */
+
 /* the two doors: a court (I have somebody), or somebody to play with (I need somebody) */
 .play-doors { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
 .play-door {

@@ -1,12 +1,15 @@
 // PlayersScreen — /pelaa/pelaajat: players in my city, grouped by who plays now / this week,
 // with name search, a level scroller and more filters in a sheet. Unpaid users see a teaser.
+// In the demo the list is ordered by how well each player fits me (features/matching.js), with
+// the reasons on the card: who plays now first, then the best fits.
 import { useState } from 'react';
-import { api } from '../../api/index.js';
+import { api, isDemo } from '../../api/index.js';
 import { openCreateGame } from '../../app/AppShell.jsx';
 import { useAsync, useLocalState, useNow } from '../../app/hooks.js';
 import { LockedPreview, usePaywall } from '../../app/paywall.jsx';
 import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
+import { rankPlayers, reasonLine } from '../../features/matching.js';
 import { AVAILABILITY_SLOTS, CITIES, GENDERS, PLAY_STYLES, SKILL_LEVELS } from '../../lib/constants.js';
 import { plural } from '../../lib/format.js';
 import {
@@ -58,6 +61,12 @@ export function PlayersScreen() {
   const q = normalize(query);
   const all = list.data || [];
   const filtered = all.filter((p) => matches(p, filters, q, now));
+  // Best fits first — demo only until it is approved for real players. (isDemo is set when the
+  // backend is installed, after this module loads, so it is read here and not at the top.)
+  const byFit = isDemo;
+  const ranked = byFit
+    ? rankPlayers(profile, filtered, { now, partners: partners.data })
+    : filtered.map((player) => ({ player, reasons: [] }));
   const sheetCount = (filters.styles.length ? 1 : 0) + (filters.gender ? 1 : 0) + (filters.slots.length ? 1 : 0)
     + (filters.thisWeek ? 1 : 0) + (city !== homeCity ? 1 : 0);
   const anyFilter = sheetCount > 0 || !!filters.level || !!q;
@@ -127,7 +136,7 @@ export function PlayersScreen() {
       />
     );
   } else {
-    body = <PlayerGroups players={filtered} grouped={!q} now={now} />;
+    body = <PlayerGroups ranked={ranked} grouped={!q} byFit={byFit} now={now} />;
   }
 
   return (
@@ -184,37 +193,44 @@ export function PlayersScreen() {
   );
 }
 
-function PlayerGroups({ players, grouped, now }) {
+function PlayerGroups({ ranked, grouped, byFit, now }) {
   const open = (p) => navigate(`/pelaa/pelaaja/${p.id}`);
+  // Why this player fits me, in place of the availability line; a Pelaan nyt note still wins.
+  const card = ({ player: p, reasons }, i) => {
+    const why = isPlayingNow(p, now) && p.playingNowNote ? '' : reasonLine(reasons);
+    return <PlayerCard key={p.id} player={p} onClick={() => open(p)} subtitle={why || undefined} style={{ '--i': i }} />;
+  };
   if (!grouped) {
     return (
       <section className="players-group">
-        <h2 className="players-group-title">{plural(players.length, 'osuma', 'osumaa')}</h2>
-        <div className="players-list stagger">
-          {players.map((p, i) => <PlayerCard key={p.id} player={p} onClick={() => open(p)} style={{ '--i': i }} />)}
-        </div>
+        <h2 className="players-group-title">{plural(ranked.length, 'osuma', 'osumaa')}</h2>
+        <div className="players-list stagger">{ranked.map(card)}</div>
       </section>
     );
   }
-  const nowList = players.filter((p) => isPlayingNow(p, now));
-  const week = players.filter((p) => !isPlayingNow(p, now) && p.playingThisWeek);
-  const rest = players.filter((p) => !isPlayingNow(p, now) && !p.playingThisWeek);
-  const groups = [
-    { key: 'now', title: 'Pelaa nyt', live: true, items: nowList },
-    { key: 'week', title: 'Pelaa tällä viikolla', items: week },
-    { key: 'rest', title: nowList.length || week.length ? 'Muut pelaajat' : 'Kaikki pelaajat', items: rest },
-  ].filter((g) => g.items.length);
+  const live = (r) => isPlayingNow(r.player, now);
+  const nowList = ranked.filter(live);
+  const groups = byFit
+    ? [
+      { key: 'now', title: 'Pelaa nyt', live: true, items: nowList },
+      { key: 'fit', title: 'Sopivimmat sinulle', items: ranked.filter((r) => !live(r)) },
+    ]
+    : [
+      { key: 'now', title: 'Pelaa nyt', live: true, items: nowList },
+      { key: 'week', title: 'Pelaa tällä viikolla', items: ranked.filter((r) => !live(r) && r.player.playingThisWeek) },
+      { key: 'rest', title: 'Muut pelaajat', items: ranked.filter((r) => !live(r) && !r.player.playingThisWeek) },
+    ];
+  const shown = groups.filter((g) => g.items.length);
+  if (!byFit && shown.length === 1 && shown[0].key === 'rest') shown[0].title = 'Kaikki pelaajat';
   let i = 0;
-  return groups.map((g) => (
+  return shown.map((g) => (
     <section key={g.key} className={`players-group players-group-${g.key}`}>
       <h2 className="players-group-title">
         {g.live && <span className="players-live" aria-hidden="true"><Icon name="bolt" size={13} strokeWidth={2.6} /></span>}
         {g.title}
         <span className="players-group-count t-num">{g.items.length}</span>
       </h2>
-      <div className="players-list stagger">
-        {g.items.map((p) => <PlayerCard key={p.id} player={p} onClick={() => open(p)} style={{ '--i': i++ }} />)}
-      </div>
+      <div className="players-list stagger">{g.items.map((r) => card(r, i++))}</div>
     </section>
   ));
 }
