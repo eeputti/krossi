@@ -198,12 +198,11 @@ export async function redeem(code) {
 
 // ── Paying a booking with credit ─────────────────────────────────────────────
 
-/** My held, still-live, unpaid booking (not a split one: its shares are paid by card). */
+/** My held, still-live, unpaid booking. */
 function payableRow(bookingId) {
   const row = myRow(bookingId);
   if (['paid', 'free', 'credit'].includes(row.paymentStatus) && row.status === 'confirmed') throw fail('Varaus on jo maksettu.');
   if (row.status !== 'held' || !isLive(row)) throw fail(EXPIRED, 'expired');
-  if (row.split) throw fail('Jaetun vuoron osuudet maksetaan kortilla.');
   return row;
 }
 

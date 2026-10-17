@@ -1,4 +1,4 @@
-/* games.css — Pelit: GameCard (gcard-*), games list, map, game page, create sheet, public page. */
+/* games.css — Pelit: GameCard (gcard-*), CourtCard (ccard-*), games list, map, game page, create sheet, public page. */
 
 /* ── GameCard ────────────────────────────────────────────── */
 .gcard { overflow: hidden; }
@@ -64,6 +64,30 @@
 .gcard-hero-spots { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: var(--on-dark-muted); }
 .gcard-hero-cta { flex-shrink: 0; }
 .gcard-hero:hover .gcard-hero-cta { background: var(--lime-300); }
+
+/* ── CourtCard (ccard-*): my court with no game on it — the list card's shape, plain ── */
+.ccard { display: flex; flex-direction: column; overflow: hidden; transition: border-color var(--dur-2); }
+.ccard:has(.ccard-main:hover) { border-color: var(--line-strong); }
+.ccard-main {
+  display: flex; align-items: flex-start; gap: 14px; width: 100%; padding: 14px 14px 12px; text-align: left;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.ccard-main:active { transform: scale(0.99); }
+.ccard-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.ccard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; }
+.ccard-title { font-size: 16px; font-weight: 750; letter-spacing: -0.012em; color: var(--ink); }
+.ccard-meta { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 13.5px; color: var(--muted); min-width: 0; }
+.ccard-time, .ccard-place { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
+.ccard-time { color: var(--ink-2); font-weight: 700; }
+.ccard-time .icon, .ccard-place .icon { color: var(--faint); }
+.ccard-foot {
+  display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 8px 14px;
+  border-top: 1px solid var(--line); background: var(--surface-2);
+}
+.ccard-state { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.ccard-state .icon { flex-shrink: 0; color: var(--faint); }
+.ccard.is-empty .ccard-state { color: var(--ink-2); }
+.ccard-foot .btn { flex-shrink: 0; }
 
 /* ── games list screen ───────────────────────────────────── */
 .games-segmented { margin-bottom: 12px; }
@@ -141,7 +165,6 @@
   animation: k-pop 480ms var(--ease-spring) 180ms both; transition: transform var(--dur-1) var(--ease-out);
 }
 .games-fab .icon { transition: transform var(--dur-3) var(--ease-spring); }
-.games-fab:hover .icon { transform: rotate(90deg); }
 .games-fab:active { transform: scale(0.92); }
 
 /* ── map ─────────────────────────────────────────────────── */
@@ -292,6 +315,8 @@
 .games-venue-text { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .games-venue-name { font-size: 16px; font-weight: 750; }
 .games-venue-sub { font-size: 13px; color: var(--muted); }
+/* the game's court under Paikka (GameCourt) */
+.games-court { margin-top: var(--s3); }
 
 .games-desc { display: flex; align-items: flex-start; gap: 12px; }
 .games-desc-who { font-size: 12.5px; font-weight: 700; color: var(--muted); }
@@ -396,7 +421,6 @@
 
 /* ── public shared-link page ─────────────────────────────── */
 .games-public { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; background: var(--green-800); color: var(--on-dark); }
-.games-public.court-lines::before { width: 420px; height: 560px; opacity: 0.1; }
 .games-public-top {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 560px;
   margin: 0 auto; padding: calc(16px + var(--safe-top)) 20px 8px;
@@ -411,7 +435,7 @@
 .games-public-intro { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
 .games-public-avatar { position: relative; margin-bottom: 6px; animation: k-pop 520ms var(--ease-spring) both; }
 .games-public-avatar-ball {
-  position: absolute; right: -7px; bottom: -5px; line-height: 0; animation: k-bounce 1.6s var(--ease-in-out) infinite;
+  position: absolute; right: -7px; bottom: -5px; line-height: 0;
 }
 .games-public-title { font-size: 30px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; color: var(--on-dark); }
 .games-public-lead { max-width: 380px; font-size: 15px; line-height: 1.5; color: var(--on-dark-muted); }

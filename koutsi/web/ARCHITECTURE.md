@@ -154,8 +154,10 @@ Tilin poisto: kirjoita nimi; JSON-vienti. Suomenkieliset virheet. Demo ei kirjoi
 
 ## 8. Design
 
-Krossin tokenit (`styles/tokens.css`) sellaisinaan: tummanvihreä + lime, `--muted` (#6B665C,
-AA-kontrasti) tekstille. Ei inline-tyylejä muuhun kuin aidosti dynaamisiin arvoihin; luokat
+Krossin tokenit (`styles/tokens.css`) sellaisinaan, samoin `base.css`, `ui.css`, `illustrations.css`,
+`ui/illustrations.jsx` ja `ui/effects.js` (kopioi Krossista, kun ne muuttuvat). Ilme 2026-10-17: litteä,
+valkoinen sivu, lähes musta tummille pinnoille ja lime ainoana korostuksena, `--muted` (#6A6A6A,
+AA-kontrasti) tekstille; aktiivinen välilehti täytettynä ikonina. Ks. krossi/web/ARCHITECTURE.md §6. Ei inline-tyylejä muuhun kuin aidosti dynaamisiin arvoihin; luokat
 prefiksoidaan alueella (`.week-`, `.group-`, `.player-`, `.cal-`, `.tl-`). Lataukselle aina
 kolme tilaa (skeleton / ErrorState + Yritä uudelleen / data tai EmptyState). Ei `alert`/`confirm`:
 `useToast`, `useConfirm`. Kieli: suomi, sinuttelu, lyhyesti.

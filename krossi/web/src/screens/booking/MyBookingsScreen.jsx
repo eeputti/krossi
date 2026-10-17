@@ -4,6 +4,8 @@
 // balance and history, the gift balance and gift cards bought, the card kept on file for the
 // monthly charges, and past bookings. Factual, no decoration: these are receipts.
 //
+// ?vuoro=<bookingId> opens that booking's sheet (a court in Pelataanko?'s "Tulossa").
+//
 // Redirect payment methods come back here: ?tilaus=<pass|gift>:<id>&payment_intent=… (a series or
 // gift card) and ?kuukausi=<chargeId>&payment_intent=… (a month of a kausivuoro).
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -17,7 +19,6 @@ import {
   Button, Disclosure, EmptyState, ErrorState, Icon, Page, Skeleton, TopBar, useConfirm, useToast,
 } from '../../ui/index.js';
 import { MyBookingSheet } from './MyBookingSheet.jsx';
-import { restOwed, sharesOpen } from './BookingParts.jsx';
 import { ChargePaySheet } from './ChargePaySheet.jsx';
 import { SaveCard } from './SaveCard.jsx';
 import { SeasonRequestSheet } from './SeasonRequestSheet.jsx';
@@ -33,8 +34,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export function paidWith(b) {
   if (b.status === 'held') return 'Maksamatta';
   if (b.forSale) return 'Myynnissä';
-  if (restOwed(b)) return 'Loppuosuus maksamatta';
-  if (sharesOpen(b)) return 'Osuuksia maksamatta';
   if (b.paymentStatus === 'refunded') return 'Hyvitetty';
   if (b.paymentStatus === 'free') return 'Maksuton';
   if (b.credit?.kind === 'pass') return `Sarjakortti · ${b.credit.minutes} min`;
@@ -96,6 +95,17 @@ export function MyBookingsScreen({ query }) {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query?.tilaus, query?.kuukausi, venue?.id]);
+
+  // ?vuoro=<bookingId> (a court in Pelataanko?'s "Tulossa") opens that booking once the list is in.
+  const shownBooking = useRef(null);
+  useEffect(() => {
+    const id = query?.vuoro;
+    if (!id || shownBooking.current === id || !mine.data) return;
+    shownBooking.current = id;
+    const booking = [...mine.data.upcoming, ...mine.data.past].find((b) => b.id === id);
+    if (booking) setOpenBooking(booking);
+    navigate('/pelaa/omat-varaukset', { replace: true });
+  }, [query?.vuoro, mine.data]);
 
   const upcoming = mine.data?.upcoming || [];
   const past = mine.data?.past || [];
@@ -172,7 +182,7 @@ export function MyBookingsScreen({ query }) {
                       <b>{formatGameTime(b.startsAt, new Date(now))}</b>
                       <small>{b.courtName} · {b.locationName}</small>
                     </span>
-                    <span className={cx('ss-row-side', (b.status === 'held' || restOwed(b)) && 'is-warn')}>{paidWith(b)}</span>
+                    <span className={cx('ss-row-side', b.status === 'held' && 'is-warn')}>{paidWith(b)}</span>
                     <Icon name="chevron-right" size={18} />
                   </button>
                 </li>

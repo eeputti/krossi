@@ -8,6 +8,7 @@ import { OnboardingScreen } from '../screens/auth/OnboardingScreen.jsx';
 import { InviteScreen } from '../screens/auth/InviteScreen.jsx';
 import { PublicGameScreen } from '../screens/games/PublicGameScreen.jsx';
 import { PublicLeagueScreen } from '../screens/leagues/PublicLeagueScreen.jsx';
+import { SplitPayScreen } from '../screens/booking/SplitPayScreen.jsx';
 import { PendingOutcomeCheck } from '../screens/home/PendingOutcomeCheck.jsx';
 import { PlayMenu } from '../screens/play/PlayMenu.jsx';
 import { SetPasswordSheet } from '../screens/auth/SetPasswordSheet.jsx';
@@ -104,9 +105,9 @@ function useStripeReturn() {
   const handled = useRef(false);
   useEffect(() => {
     const { stripe: hosted, payment_intent: intentId, redirect_status: redirectStatus } = route.query;
-    // Court bookings come back with ?varaus=<id> and shares to /pelaa/osuus/<id>: BookingScreen and
-    // ShareScreen confirm those themselves.
-    if ((!hosted && !intentId) || route.query.varaus || route.name === 'share' || !user || handled.current) return;
+    // Court bookings come back with ?varaus=<id> and payment links to /pelaa/maksa/<token>:
+    // BookingScreen and SplitPayScreen confirm those themselves.
+    if ((!hosted && !intentId) || route.query.varaus || route.name === 'splitPay' || !user || handled.current) return;
     handled.current = true;
     const unlocked = () => {
       toast('Krossi on nyt auki — pelit voi alkaa! 🎾', { icon: 'sparkles', duration: 4200 });
@@ -178,6 +179,10 @@ function Gate() {
   }, [session.user, session.profile, session.needsOnboarding]);
 
   if (session.loading) return <Splash />;
+  // A court's payment link works without an account (and before onboarding).
+  if (route.name === 'splitPay' && (!session.user || session.needsOnboarding)) {
+    return <SplitPayScreen params={route.params} query={route.query} standalone />;
+  }
   if (!session.user) {
     if (route.name === 'game') return <PublicGameScreen params={route.params} query={route.query} />;
     if (route.name === 'league') return <PublicLeagueScreen params={route.params} />;

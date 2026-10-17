@@ -142,24 +142,32 @@ export function mapCredit(raw) {
 const NOBODY = { id: '', name: 'Pelaaja', avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: null };
 export const linePerson = (raw) => mapBooker(raw) || { ...NOBODY };
 
+const LINE_STATUSES = ['open', 'pending', 'paid', 'refunded'];
+
+/** One payer of a split booking: the booker ('own'), or a friend part (a payer without an account has a name only). */
 function mapLine(raw) {
+  const own = raw.kind === 'own';
   return {
     id: text(raw.id),
-    kind: raw.kind,
-    person: linePerson(raw.person),
+    kind: own ? 'own' : 'friend',
+    person: own ? linePerson(raw.person) : mapBooker(raw.person),
+    name: text(raw.name),
     cents: number(raw.cents),
-    status: raw.status,
+    status: LINE_STATUSES.includes(raw.status) ? raw.status : 'open',
     paidAt: iso(raw.paidAt),
   };
 }
 
-/** BookingSplit (jaettu maksu) or null. */
-function mapSplit(raw) {
+/** BookingSplit (jaettu maksu by link) or null; ownCents follows from the price if the server leaves it out. */
+function mapSplit(raw, priceCents) {
   if (!raw || typeof raw !== 'object') return null;
+  const parts = number(raw.parts, 2);
+  const perCents = number(raw.perCents);
   return {
-    parts: number(raw.parts, 2),
-    ownCents: number(raw.ownCents),
-    deadline: iso(raw.deadline),
+    parts,
+    perCents,
+    ownCents: raw.ownCents != null ? number(raw.ownCents) : Math.max(0, priceCents - perCents * (parts - 1)),
+    token: text(raw.token),
     lines: list(raw.lines).map(mapLine),
   };
 }
@@ -187,7 +195,7 @@ export function mapBooking(raw) {
     credit: mapCredit(raw.credit),
     forSale: raw.forSale === true,
     soldAt: iso(raw.soldAt),
-    split: mapSplit(raw.split),
+    split: mapSplit(raw.split, number(raw.priceCents)),
   };
 }
 

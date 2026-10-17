@@ -14,8 +14,9 @@
 /* ── demo banner ─────────────────────────────────────────── */
 .demo-banner {
   position: sticky; top: 0; z-index: 60; display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: calc(7px + var(--safe-top)) 12px 7px; background: var(--lime); color: #101A08; font-size: 12.5px; font-weight: 700;
+  padding: calc(7px + var(--safe-top)) 12px 7px; background: var(--green-800); color: var(--on-dark); font-size: 12.5px; font-weight: 700;
 }
+.demo-banner > svg { color: var(--lime); }
 .demo-banner-cta { display: inline-flex; align-items: center; gap: 3px; text-decoration: underline; text-underline-offset: 2px; margin-left: 4px; }
 @media (min-width: 900px) { .demo-banner { grid-column: 1 / -1; } }
 
@@ -23,12 +24,12 @@
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 80; display: grid; grid-template-columns: repeat(5, 1fr);
   height: calc(var(--tabbar-h) + var(--safe-bottom)); padding: 6px 6px var(--safe-bottom);
-  background: rgba(255, 255, 255, 0.86); backdrop-filter: saturate(180%) blur(18px); -webkit-backdrop-filter: saturate(180%) blur(18px);
-  border-top: 1px solid rgba(20, 15, 5, 0.07); box-shadow: 0 -8px 24px -16px rgba(20, 15, 5, 0.18);
+  background: rgba(255, 255, 255, 0.94); backdrop-filter: saturate(180%) blur(18px); -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-top: 1px solid var(--line);
 }
 .tabbar-item {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  color: var(--faint); font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em; border-radius: 14px;
+  color: var(--faint); font-size: 10.5px; font-weight: 650; letter-spacing: 0.01em; border-radius: var(--r-md);
   transition: color var(--dur-2);
 }
 .tabbar-item:active .tabbar-icon { transform: scale(0.88); }
@@ -36,13 +37,11 @@
   position: relative; display: grid; place-items: center; width: 52px; height: 30px; border-radius: 999px;
   transition: background-color var(--dur-3) var(--ease-out), transform var(--dur-2) var(--ease-spring);
 }
-.tabbar-item.is-active { color: var(--green-800); }
-.tabbar-item.is-active .tabbar-icon { background: var(--lime); color: #101A08; animation: k-tab-pop 360ms var(--ease-spring); }
-@keyframes k-tab-pop { 0% { transform: scale(0.82); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.tabbar-item.is-active { color: var(--ink); font-weight: 800; }
 .tabbar-badge {
   position: absolute; top: -3px; right: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
   background: var(--clay); color: #fff; font-size: 10.5px; font-weight: 800; display: grid; place-items: center;
-  box-shadow: 0 0 0 2px #fff; animation: k-pop 360ms var(--ease-spring);
+  box-shadow: 0 0 0 2px #fff;
 }
 /* the big lime "Pelataanko?" in the middle, lifted half out of the bar (as Koutsi's "Merkitse") */
 .tabbar.has-center { overflow: visible; }
@@ -53,12 +52,12 @@
 }
 .tabbar-center-btn {
   width: 58px; height: 58px; margin-top: -30px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--lime); color: #101A08; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.95), var(--shadow-lime);
+  background: var(--lime); color: var(--ink); box-shadow: 0 0 0 4px #fff;
   transition: transform var(--dur-2) var(--ease-spring);
 }
 .tabbar-center:active .tabbar-center-btn { transform: scale(0.9); }
 .tabbar-center:focus-visible { outline: none; }
-.tabbar-center:focus-visible .tabbar-center-btn { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.95), 0 0 0 7px var(--green-700); }
+.tabbar-center:focus-visible .tabbar-center-btn { box-shadow: 0 0 0 4px #fff, 0 0 0 6px var(--ink); }
 
 /* ── side nav (desktop) ──────────────────────────────────── */
 .sidenav {
@@ -70,7 +69,7 @@
 .sidenav-cta { margin-top: 4px; }
 .sidenav-links { display: flex; flex-direction: column; gap: 3px; }
 .sidenav-link {
-  position: relative; display: flex; align-items: center; gap: 12px; height: 46px; padding: 0 14px; border-radius: 14px;
+  position: relative; display: flex; align-items: center; gap: 12px; height: 46px; padding: 0 14px; border-radius: var(--r-md);
   color: var(--on-dark-muted); font-weight: 650; font-size: 15px; transition: background-color var(--dur-2), color var(--dur-2);
 }
 .sidenav-link:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
@@ -78,9 +77,9 @@
 .sidenav-link.is-active::before { content: ""; position: absolute; left: -18px; top: 11px; bottom: 11px; width: 4px; border-radius: 0 4px 4px 0; background: var(--lime); }
 .sidenav-link-sub { height: 40px; font-size: 14px; }
 .sidenav-link-sub:first-of-type { margin-top: 10px; }
-.sidenav-badge { margin-left: auto; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--lime); color: #101A08; font-size: 11.5px; font-weight: 800; display: grid; place-items: center; }
+.sidenav-badge { margin-left: auto; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--lime); color: var(--ink); font-size: 11.5px; font-weight: 800; display: grid; place-items: center; }
 .sidenav-me {
-  margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 16px;
+  margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: var(--r-lg);
   background: rgba(255, 255, 255, 0.07); transition: background-color var(--dur-2);
 }
 .sidenav-me:hover { background: rgba(255, 255, 255, 0.12); }
@@ -91,24 +90,24 @@
 /* ── top bar (pushed pages) ──────────────────────────────── */
 .topbar {
   position: sticky; top: 0; z-index: 50; padding-top: var(--safe-top);
-  background: rgba(247, 245, 239, 0.82); backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px);
+  background: rgba(255, 255, 255, 0.82); backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px);
   transition: box-shadow var(--dur-2), background-color var(--dur-2);
 }
 .has-demo-banner .topbar { top: calc(33px + var(--safe-top)); padding-top: 0; }
-.topbar.is-scrolled { box-shadow: 0 1px 0 rgba(20, 15, 5, 0.08); }
+.topbar.is-scrolled { box-shadow: 0 1px 0 var(--line); }
 .topbar-inner { display: flex; align-items: center; gap: 4px; height: var(--topbar-h); padding: 0 8px; max-width: calc(var(--content-w) + 2 * var(--gutter)); margin: 0 auto; }
 .topbar-back { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); transition: background-color var(--dur-1), transform var(--dur-1); }
-.topbar-back:hover { background: rgba(20, 15, 5, 0.06); }
+.topbar-back:hover { background: rgba(0, 0, 0, 0.06); }
 .topbar-back:active { transform: scale(0.9); }
 .topbar-spacer { width: 8px; }
 .topbar-title { flex: 1; font-weight: 750; font-size: 16.5px; letter-spacing: -0.01em; text-align: center; padding: 0 4px; }
 .topbar-actions { display: flex; align-items: center; gap: 2px; min-width: 44px; justify-content: flex-end; }
-.topbar-dark { background: rgba(14, 59, 44, 0.92); color: #fff; }
+.topbar-dark { background: rgba(18, 18, 18, 0.94); color: #fff; }
 .topbar-dark .topbar-back { color: #fff; }
 .topbar-dark .topbar-back:hover { background: rgba(255, 255, 255, 0.1); }
 .topbar-transparent { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .topbar-transparent .topbar-title { opacity: 0; transition: opacity var(--dur-2); }
-.topbar-transparent.is-scrolled { background: rgba(247, 245, 239, 0.88); backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px); }
+.topbar-transparent.is-scrolled { background: rgba(255, 255, 255, 0.88); backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px); }
 .topbar-transparent.is-scrolled .topbar-title { opacity: 1; }
 @media (min-width: 900px) { .topbar-inner { padding: 0 calc(var(--gutter) - 10px); } }
 
@@ -142,13 +141,13 @@
 /* Perks stay compact on phones so the wallet buttons are visible without scrolling. */
 .paywall-perks { margin: 18px 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
 .paywall-perk { display: flex; gap: 10px; align-items: center; }
-.paywall-perk-icon { width: 32px; height: 32px; border-radius: 11px; display: grid; place-items: center; background: rgba(207, 228, 20, 0.14); color: var(--lime); flex-shrink: 0; }
+.paywall-perk-icon { width: 32px; height: 32px; border-radius: var(--r-sm); display: grid; place-items: center; background: rgba(207, 228, 20, 0.14); color: var(--lime); flex-shrink: 0; }
 .paywall-perk-title { display: block; font-weight: 750; font-size: 13.5px; line-height: 1.25; color: #fff; }
 .paywall-perk-text { display: none; font-size: 13px; color: var(--on-dark-muted); margin-top: 2px; }
 @media (min-width: 600px) {
   .paywall-perks { gap: 14px 16px; }
   .paywall-perk { align-items: flex-start; }
-  .paywall-perk-icon { width: 36px; height: 36px; border-radius: 12px; }
+  .paywall-perk-icon { width: 36px; height: 36px; border-radius: var(--r-sm); }
   .paywall-perk-title { font-size: 14.5px; }
   .paywall-perk-text { display: block; }
 }
@@ -160,7 +159,7 @@
 .paywall-done-check {
   width: 84px; height: 84px; margin: 0 auto 16px; border-radius: 50%; display: grid; place-items: center;
   background: var(--lime); color: var(--green-900); box-shadow: 0 0 0 10px rgba(207, 228, 20, 0.14);
-  animation: k-pop var(--dur-3) var(--ease-spring) both;
+  animation: k-fade-in var(--dur-3) var(--ease-out) both;
 }
 .paywall-done .btn { margin-top: 24px; }
 
@@ -195,12 +194,12 @@
 .locked-content { filter: blur(6px) saturate(0.9); pointer-events: none; user-select: none; opacity: 0.9; }
 .locked-overlay {
   position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 16px;
-  background: linear-gradient(180deg, rgba(247, 245, 239, 0) 0%, rgba(247, 245, 239, 0.7) 34%, var(--bg) 74%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.7) 34%, var(--bg) 74%);
 }
 .locked-card {
   width: 100%; max-width: 380px; padding: 22px 20px 18px; text-align: center; border-radius: var(--r-xl);
   background: var(--green-800); color: #fff; box-shadow: var(--shadow-3);
 }
-.locked-icon { width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; background: var(--lime); color: #101A08; }
+.locked-icon { width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; background: var(--lime); color: var(--ink); }
 .locked-title { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
 .locked-text { margin: 6px 0 16px; font-size: 13.5px; color: var(--on-dark-muted); line-height: 1.5; }

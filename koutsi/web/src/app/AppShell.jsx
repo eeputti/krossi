@@ -4,12 +4,15 @@
 
 import { useLayoutEffect } from 'react';
 import { isDemo } from '../api/index.js';
-import { Avatar, Icon } from '../ui/index.js';
+import { Avatar, Icon, ICON_NAMES } from '../ui/index.js';
 import { useIsDesktop } from './hooks.js';
 import { RoleSwitch } from '../shared/roleSwitch.jsx';
 import { Link, canonBase, matchRoute, navigationType, savedScroll, useRoute, homePath } from './router.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
+
+// The active tab shows the filled twin of its icon (outline = not active), when there is one.
+const tabIcon = (name, isActive) => (isActive && ICON_NAMES.includes(`${name}-fill`) ? `${name}-fill` : name);
 
 // `center` ({ label, icon, onClick }) puts one big round action in the middle of the bar, between
 // the two halves of the tabs (the coach's "Merkitse").
@@ -17,7 +20,7 @@ function TabBar({ tabs, active, badges, center }) {
   const item = (t) => (
     <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
       <span className="tabbar-icon">
-        <Icon name={t.icon} size={23} strokeWidth={active === t.id ? 2.3 : 1.9} />
+        <Icon name={tabIcon(t.icon, active === t.id)} size={23} strokeWidth={1.9} />
         {badges?.[t.id] > 0 && <span className="tabbar-badge">{badges[t.id] > 9 ? '9+' : badges[t.id]}</span>}
       </span>
       <span className="tabbar-label">{t.label}</span>
@@ -54,7 +57,7 @@ function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel })
       <nav className="sidenav-links" aria-label="Päävalikko">
         {tabs.map((t) => (
           <Link key={t.id} to={t.path} className={cx('sidenav-link', tabOn === t.id && 'is-active')} aria-current={tabOn === t.id ? 'page' : undefined}>
-            <Icon name={t.icon} size={20} />
+            <Icon name={tabIcon(t.icon, tabOn === t.id)} size={20} />
             <span>{t.label}</span>
             {badges?.[t.id] > 0 && <span className="sidenav-badge">{badges[t.id] > 9 ? '9+' : badges[t.id]}</span>}
           </Link>
@@ -82,7 +85,7 @@ function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel })
 function DemoBanner({ signupUrl }) {
   return (
     <div className="top-banner" role="note">
-      <Icon name="sparkles" size={15} />
+      <Icon name="info" size={15} />
       <span>Demo — mikään ei tallennu</span>
       <a href={signupUrl} className="top-banner-cta">Ota käyttöön <Icon name="arrow-right" size={14} /></a>
     </div>

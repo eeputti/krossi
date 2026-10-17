@@ -1,36 +1,34 @@
 // booking.js (demo) — court booking against the in-memory hall in bookingSeed.js, with the
 // rules of the booking RPCs (krossi_hold_booking & co.) and the krossi-booking edge function.
-// Payments don't go anywhere: checkoutConfig answers { demo: true } and the "payment" confirms
-// the booking at once. Series cards and gift balance (wallet.js) pay through the same rows; a
-// cancelled booking gives its credit back (bookingCore.refundEverything).
+// Payments don't go anywhere: payConfig / checkoutConfig answer { demo: true } and the "payment"
+// confirms the booking at once. Series cards and gift balance (wallet.js) pay through the same rows;
+// a cancelled booking gives its credit back (bookingCore.refundEverything).
 //
-// Jaettu maksu: a booking held with friendIds is split. Once Alex has "paid" his part, every
-// friend gets a chat message from him with a "Maksa osuutesi" link, and the friends answer a
-// little later (one pays, then another; somebody always leaves it to the last minute). After the
-// deadline (startsAt − shareDeadlineHours) the unpaid shares become the booker's rest share; in the
-// demo the saved card always says yes. Laita myyntiin: a booking past its free cancellation goes
-// on sale, somebody books the slot a little later and everything that was paid goes back.
+// Jaettu maksu: the booker pays the whole court, then split() makes a link (/pelaa/maksa/<token>).
+// Anyone with it pays one friend part without an account, and the same sum goes back to the
+// booker. In the demo one friend of a nelinpeli pays by himself a little later, so the booker sees
+// it happen; the other parts are there for whoever opens the link. Laita myyntiin: a booking past
+// its free cancellation goes on sale, somebody books the slot a little later and everything that
+// was paid goes back.
 
 import { ME } from './rows.js';
 import { later, run, newId } from './runtime.js';
-import { db, nowIso, personLite, profileOf, isBlocked, isMember, myConversations, conversationRow } from './store.js';
-import { findOrCreateDirect, postMessage } from './actions.js';
-import { shareMessage } from './bookingSeed.js';
+import { db, nowIso, personLite, profileOf } from './store.js';
 import {
   addDays, cancelDeadline, courtsOf, dateKey, discounted, findCourt, lastMinutePercent, minutesOf,
-  priceOf, shareDeadline, splitBlocker, splitCents,
+  priceOf, splitBlocker, splitCents,
 } from '../../features/booking.js';
-import { WEEKDAYS_SHORT, firstName, formatTime } from '../../lib/format.js';
+import { firstName } from '../../lib/format.js';
 import {
-  MIN, blockers, creditOf, dayRange, expireStaleHolds, fail, inRange, isLive, liveRows, myRow, onSale, overlapping,
-  refundEverything, requireStaff, salesCovered, sharesOf, spendGift, takeOverSales, toBooking, venueRow,
+  MIN, blockers, creditOf, dayRange, expireStaleHolds, fail, inRange, isLive, liveRows, myRow, newToken, onSale, overlapping,
+  partStatus, refundEverything, requireStaff, salesCovered, sharesOf, spendGift, takeOverSales, toBooking, venueRow,
 } from './bookingCore.js';
 
 const MAX_HOLDS = 2;
 const MAX_WATCHES = 5;
 const TAKEN = 'Joku ehti varata tämän ajan juuri ennen sinua. Valitse toinen aika.';
-const SHARE_NOT_FOUND = 'Osuutta ei löytynyt.';
-const FRIENDS_ONLY = 'Voit jakaa maksun vain pelikavereidesi kanssa.';
+const LINK_NOT_FOUND = 'Maksulinkkiä ei löytynyt. Pyydä varaajalta uusi linkki.';
+const LINK_CANCELLED = 'Vuoro on peruttu — osuutta ei tarvitse maksaa.';
 const BUYER_PAYING = 'Joku on juuri varaamassa vuoroa. Jos maksu ei mene läpi, voit perua myynnin hetken päästä.';
 // The other players' booking names in the demo, for the buyer of an on-sale slot.
 const BUYERS = ['p-joonas', 'p-teemu', 'p-emilia', 'p-riikka', 'p-olli'];
@@ -40,94 +38,6 @@ function toVenue(v) {
   return { ...rest, isStaff: staffIds.includes(ME) };
 }
 
-// ── Shapes ───────────────────────────────────────────────────────────────────
-
-function shareRow(shareId) {
-  return db.booking.shares.find((s) => s.id === shareId) || null;
-}
-
-function bookingOfShare(share) {
-  return db.booking.rows.find((r) => r.id === share.bookingId) || null;
-}
-
-function isPayable(share, row, now = Date.now()) {
-  if (!['pending', 'declined'].includes(share.status) || row?.status !== 'confirmed') return false;
-  return share.kind === 'rest' || now < Date.parse(row.split.deadline);
-}
-
-function toShare(share) {
-  const row = bookingOfShare(share);
-  return {
-    id: share.id,
-    kind: share.kind,
-    cents: share.cents,
-    status: share.status,
-    paidAt: share.paidAt,
-    deadline: row.split.deadline,
-    payable: isPayable(share, row),
-    chargeError: share.kind === 'rest' ? share.chargeError : null,
-    booker: personLite(row.bookedBy),
-    booking: toBooking(row),
-  };
-}
-
-// ── The deadline and money moving (what krossi-booking-cron and the refunds do) ──────────
-
-/**
- * Split bookings whose deadline has passed: the unpaid friend shares become the booker's rest
- * share, charged to the saved card — which in the demo always works. Runs lazily on every read.
- */
-function settleDueShares(now = Date.now()) {
-  for (const row of db.booking.rows) {
-    if (!row.split || row.status !== 'confirmed' || row.paymentStatus !== 'paid' || Date.parse(row.split.deadline) > now) continue;
-    const shares = sharesOf(row.id);
-    if (shares.some((s) => s.kind === 'rest')) continue;
-    const unpaid = shares.filter((s) => s.kind === 'friend' && ['pending', 'declined'].includes(s.status));
-    if (!unpaid.length) continue;
-    const rest = {
-      id: newId('sh'), bookingId: row.id, userId: row.bookedBy, kind: 'rest', cents: unpaid.reduce((sum, s) => sum + s.cents, 0),
-      status: 'paid', paidAt: nowIso(), invitedAt: null, declinedAt: null, chargeError: null, coveredBy: null, createdAt: nowIso(),
-    };
-    db.booking.shares.push(rest);
-    for (const s of unpaid) { s.status = 'covered'; s.coveredBy = rest.id; }
-  }
-}
-
-/** 'to 17.10. klo 19.00' — chat messages are read later, so no "huomenna". */
-const exactWhen = (iso) => `${WEEKDAYS_SHORT[new Date(iso).getDay()]} ${localDateLabel(iso)} klo ${formatTime(iso)}`;
-function localDateLabel(iso) {
-  const d = new Date(iso);
-  return `${d.getDate()}.${d.getMonth() + 1}.`;
-}
-
-/** Friends are told in their own chat with the booker, then answer a little later. */
-function inviteShares(row) {
-  const venue = venueRow(row.venueId);
-  const found = findCourt(venue, row.courtId);
-  const friends = sharesOf(row.id).filter((s) => s.kind === 'friend' && !s.invitedAt);
-  friends.forEach((s, i) => {
-    s.invitedAt = nowIso();
-    const conversation = findOrCreateDirect(s.userId);
-    postMessage(conversation.id, row.bookedBy, {
-      text: shareMessage({
-        courtName: found?.court.name || 'Kenttä', locationName: found?.location.name || '', startsAt: row.startsAt, endsAt: row.endsAt,
-        cents: s.cents, deadline: row.split.deadline, shareId: s.id,
-      }),
-    });
-    // Everybody but the last of a nelinpeli pays within half a minute; the last one leaves it for later.
-    if (friends.length > 1 && i === friends.length - 1) return;
-    later(8000 + i * 9000, 12000 + i * 9000, () => {
-      const current = shareRow(s.id);
-      const booking = current && bookingOfShare(current);
-      if (!current || current.status !== 'pending' || !isPayable(current, booking) || !profileOf(current.userId)) return;
-      current.status = 'paid';
-      current.paidAt = nowIso();
-      const chat = conversationRow(conversation.id);
-      if (chat) postMessage(chat.id, current.userId, { text: i === 0 ? 'Maksoin osuuteni, kiitos varauksesta! 🎾' : 'Maksettu 👍 Nähdään kentällä!' });
-    });
-  });
-}
-
 function confirmPaid(row) {
   row.status = 'confirmed';
   row.paymentStatus = 'paid';
@@ -135,48 +45,6 @@ function confirmPaid(row) {
   row.holdExpiresAt = null;
   spendGift(row);
   takeOverSales(row);
-  if (row.split) inviteShares(row);
-}
-
-// ── Friends to split with ────────────────────────────────────────────────────
-
-/** Who counts as a pelikaveri for jaettu maksu: shares a chat or a game with Alex, or a league match. */
-function friendTimes() {
-  const seen = new Map();
-  const note = (id, iso) => {
-    if (!id || id === ME || !profileOf(id) || isBlocked(id)) return;
-    const ms = Date.parse(iso) || 0;
-    if (!seen.has(id) || seen.get(id) < ms) seen.set(id, ms);
-  };
-  for (const c of myConversations()) for (const id of c.participantIds) note(id, c.updatedAt);
-  for (const g of db.games.values()) {
-    if (g.status === 'cancelled' || !isMember(g)) continue;
-    for (const id of [g.creatorId, ...g.participantIds]) note(id, g.scheduledAt || g.createdAt);
-  }
-  for (const f of db.fixtures.values()) {
-    if (f.playerAId === ME) note(f.playerBId, f.result?.confirmedAt || f.createdAt);
-    if (f.playerBId === ME) note(f.playerAId, f.result?.confirmedAt || f.createdAt);
-  }
-  return seen;
-}
-
-export async function shareFriends() {
-  return run(() => [...friendTimes().entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([id]) => personLite(id)));
-}
-
-function checkFriends(friendIds, row, venue) {
-  const ids = [...new Set((friendIds || []).filter(Boolean))];
-  if (ids.length !== (friendIds || []).length || ![1, 3].includes(ids.length)) {
-    throw fail('Valitse kaksinpeliin yksi ja nelinpeliin kolme pelikaveria.');
-  }
-  const friends = friendTimes();
-  if (ids.some((id) => id === ME || !friends.has(id))) throw fail(FRIENDS_ONLY);
-  const parts = ids.length + 1;
-  const blocker = splitBlocker(venue, row.startsAt, row.priceCents, parts);
-  if (blocker) throw fail(blocker);
-  return { ids, parts };
 }
 
 // ── Public calendar ──────────────────────────────────────────────────────────
@@ -210,7 +78,7 @@ export async function day(venueId, key) {
 
 // ── Booking and paying ───────────────────────────────────────────────────────
 
-export async function hold({ courtId, startsAt, minutes, friendIds = [] } = {}) {
+export async function hold({ courtId, startsAt, minutes } = {}) {
   return run(() => {
     const venue = db.booking.venues.find((v) => findCourt(v, courtId));
     if (!venue) throw fail('Kenttää ei löytynyt.', 'not_found');
@@ -235,8 +103,6 @@ export async function hold({ courtId, startsAt, minutes, friendIds = [] } = {}) 
     // Taking over an on-sale booking costs the full price: its seller gets back what they paid.
     const resale = salesCovered(courtId, start.getTime(), endMs).length > 0;
     const cents = resale ? fullCents : discounted(fullCents, lastMinutePercent(venue, start.toISOString(), now));
-    const draft = { startsAt: start.toISOString(), priceCents: cents };
-    const split = (friendIds || []).length ? checkFriends(friendIds, draft, venue) : null;
     const myHolds = db.booking.rows.filter((r) => r.bookedBy === ME && r.status === 'held');
     if (myHolds.length >= MAX_HOLDS) throw fail('Sinulla on jo kaksi maksamatonta varausta. Maksa tai peru ne ensin.');
     if (blockers(courtId, start.getTime(), endMs).length) throw fail(TAKEN, 'taken');
@@ -247,16 +113,6 @@ export async function hold({ courtId, startsAt, minutes, friendIds = [] } = {}) 
       paymentStatus: free ? 'free' : 'unpaid', holdExpiresAt: free ? null : new Date(now + venue.holdMinutes * MIN).toISOString(),
       createdAt: nowIso(), cancelledAt: null, paidAt: free ? nowIso() : null, split: null, listedAt: null, resoldBy: null, resoldAt: null,
     };
-    if (split) {
-      const { ownCents, friendCents } = splitCents(cents, split.parts);
-      row.split = { parts: split.parts, ownCents, deadline: shareDeadline(row.startsAt, venue) };
-      for (const userId of split.ids) {
-        db.booking.shares.push({
-          id: newId('sh'), bookingId: row.id, userId, kind: 'friend', cents: friendCents, status: 'pending', paidAt: null,
-          invitedAt: null, declinedAt: null, chargeError: null, coveredBy: null, createdAt: nowIso(),
-        });
-      }
-    }
     db.booking.rows.push(row);
     if (free) takeOverSales(row);
     return toBooking(row);
@@ -278,11 +134,16 @@ function payable(row) {
   return null;
 }
 
+/** The booking sheet shows the payment methods before anything is held: the demo has nothing to load. */
+export async function payConfig() {
+  return run(() => ({ demo: true }));
+}
+
 export async function checkoutConfig(bookingId) {
   return run(() => {
     const row = myRow(bookingId);
-    // A split booking's own part, or what a gift balance on the hold leaves for the card.
-    return payable(row) || { demo: true, amount: row.split ? row.split.ownCents : row.priceCents - (row.giftCents || 0), currency: 'eur' };
+    // What a gift balance on the hold leaves for the card.
+    return payable(row) || { demo: true, amount: row.priceCents - (row.giftCents || 0), currency: 'eur' };
   });
 }
 
@@ -307,7 +168,6 @@ export async function verifyPayment(bookingId) {
 export async function listMine() {
   return run(() => {
     const now = Date.now();
-    settleDueShares(now);
     const mine = db.booking.rows.filter((r) => r.kind === 'booking' && r.bookedBy === ME);
     const upcoming = mine.filter((r) => isLive(r, now) && Date.parse(r.endsAt) > now)
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -388,107 +248,121 @@ export async function takeOffSale(bookingId) {
   });
 }
 
-// ── Jaettu maksu: shares ─────────────────────────────────────────────────────
+// ── Jaettu maksu: the link ───────────────────────────────────────────────────
 
-/** A friend sees their share once the booker has paid and asked (a rest share is the booker's own). */
-const asked = (share) => share.kind === 'rest' || Boolean(share.invitedAt);
+const FRIEND_PAYERS = ['p-mikko', 'p-laura', 'p-ville'];
 
-/** My share (to pay), or any share of my own booking (to look at). */
-function visibleShare(shareId) {
-  const share = shareRow(shareId);
-  const row = share && bookingOfShare(share);
-  if (!share || !row) return null;
-  if (row.bookedBy === ME) return share;
-  return share.userId === ME && asked(share) ? share : null;
-}
-
-function myShare(shareId) {
-  settleDueShares();
-  const share = shareRow(shareId);
-  if (!share || share.userId !== ME || !asked(share)) throw fail(SHARE_NOT_FOUND, 'not_found');
-  return share;
-}
-
-/** Why a share of mine can't be paid now, or null when it can. */
-function shareBlocker(share) {
-  const row = bookingOfShare(share);
-  if (share.status === 'paid') return null;
-  if (share.status === 'covered') return fail(`Maksuaika päättyi — ${firstName(personLite(row.bookedBy).name)} maksaa osuutesi.`, 'closed');
-  if (share.status === 'cancelled' || share.status === 'refunded' || row.status !== 'confirmed') return fail('Vuoro on peruttu — osuutta ei tarvitse maksaa.', 'cancelled');
-  if (!isPayable(share, row)) return fail('Maksuaika päättyi.', 'closed');
-  return null;
-}
-
-export async function listShares() {
-  return run(() => {
-    const now = Date.now();
-    settleDueShares(now);
-    const recent = now - 30 * 86_400_000;
-    const mine = db.booking.shares
-      .filter((s) => s.userId === ME && asked(s))
-      .filter((s) => {
-        const row = bookingOfShare(s);
-        return row && (isPayable(s, row, now) || Date.parse(row.endsAt) > recent);
-      })
-      .map(toShare);
-    const payable = mine.filter((s) => s.payable).sort((a, b) => a.deadline.localeCompare(b.deadline));
-    const rest = mine.filter((s) => !s.payable).sort((a, b) => b.booking.startsAt.localeCompare(a.booking.startsAt));
-    return [...payable, ...rest];
+/** In the demo one friend of a nelinpeli pays by himself a little later; the rest wait for the link. */
+function scheduleFriendPaying(row) {
+  if (row.split.parts < 4) return;
+  later(10_000, 16_000, () => {
+    const current = db.booking.rows.find((r) => r.id === row.id);
+    if (!current?.split || current.status !== 'confirmed') return;
+    const part = sharesOf(current.id).find((s) => partStatus(s) === 'open');
+    const payer = FRIEND_PAYERS.find((id) => profileOf(id) && !sharesOf(current.id).some((s) => s.userId === id));
+    if (!part || !payer) return;
+    Object.assign(part, { status: 'paid', paidAt: nowIso(), userId: payer, name: null, claimUntil: null });
   });
 }
 
-export async function getShare(shareId) {
+export async function split(bookingId, parts) {
   return run(() => {
-    settleDueShares();
-    const share = visibleShare(shareId);
-    return share ? toShare(share) : null;
-  });
-}
-
-export async function shareCheckoutConfig(shareId) {
-  return run(() => {
-    const share = myShare(shareId);
-    const blocked = shareBlocker(share);
-    if (blocked) throw blocked;
-    if (share.status === 'paid') return { paid: true };
-    return { demo: true, amount: share.cents, currency: 'eur' };
-  });
-}
-
-export async function createSharePaymentIntent(shareId) {
-  return run(() => {
-    const share = myShare(shareId);
-    const blocked = shareBlocker(share);
-    if (blocked) throw blocked;
-    if (share.status !== 'paid') {
-      share.status = 'paid';
-      share.paidAt = nowIso();
-      share.chargeError = null;
+    const row = myRow(bookingId);
+    const n = Number(parts);
+    if (![1, 2, 4].includes(n)) throw fail('Valitse kaksin- tai nelinpeli.');
+    const blocked = splitBlocker(toBooking(row), n);
+    if (blocked) throw fail(blocked, 'not_splittable');
+    if ((row.split?.parts || 1) === n) return toBooking(row);
+    db.booking.shares = db.booking.shares.filter((s) => s.bookingId !== row.id);
+    if (n === 1) {
+      row.split = null;
+      return toBooking(row);
     }
+    const { friendCents } = splitCents(row.priceCents, n);
+    row.split = { parts: n, perCents: friendCents, token: row.split?.token || newToken() };
+    for (let i = 1; i < n; i += 1) {
+      db.booking.shares.push({
+        id: newId('sh'), bookingId: row.id, kind: 'friend', cents: friendCents, status: 'open', userId: null, name: null,
+        paidAt: null, claimUntil: null, createdAt: nowIso(),
+      });
+    }
+    scheduleFriendPaying(row);
+    return toBooking(row);
+  });
+}
+
+function rowOfToken(token) {
+  return db.booking.rows.find((r) => r.split && r.split.token === token) || null;
+}
+
+/** 'open' | 'full' | 'over' | 'cancelled' for a split booking's link. */
+function linkState(row, now = Date.now()) {
+  if (row.status !== 'confirmed') return 'cancelled';
+  if (Date.parse(row.startsAt) <= now) return 'over';
+  return sharesOf(row.id).some((s) => partStatus(s, now) === 'open') ? 'open' : 'full';
+}
+
+export async function splitPublic(token) {
+  return run(() => {
+    const row = rowOfToken(token);
+    if (!row) return null;
+    const venue = venueRow(row.venueId);
+    const found = findCourt(venue, row.courtId);
+    const booker = personLite(row.bookedBy);
+    const parts = sharesOf(row.id).map((s) => partStatus(s));
+    return {
+      token, venueName: venue.name, locationName: found?.location.name || '', courtName: found?.court.name || 'Kenttä',
+      sport: found?.court.sport || 'tennis', startsAt: row.startsAt, endsAt: row.endsAt,
+      bookerFirstName: firstName(booker.name), bookerAvatarUrl: booker.avatarUrl || null,
+      parts: row.split.parts, perCents: row.split.perCents,
+      paidCount: parts.filter((x) => x === 'paid').length, openCount: parts.filter((x) => x === 'open').length,
+      state: linkState(row),
+    };
+  });
+}
+
+/** The row behind a link that can take a payment now, or the reason it can't. */
+function payableLink(token) {
+  const row = rowOfToken(token);
+  if (!row) throw fail(LINK_NOT_FOUND, 'not_found');
+  const state = linkState(row);
+  if (state === 'cancelled') throw fail(LINK_CANCELLED, 'cancelled');
+  return { row, state };
+}
+
+export async function splitCheckoutConfig(token) {
+  return run(() => {
+    const { row, state } = payableLink(token);
+    if (state === 'over') return { over: true };
+    if (state === 'full') return { full: true };
+    return { demo: true, amount: row.split.perCents, currency: 'eur' };
+  });
+}
+
+/** The demo has no card form: paying one part happens on the spot, and its sum goes back to the booker. */
+export async function createSplitPaymentIntent(token, { name = '' } = {}) {
+  return run(() => {
+    const { row, state } = payableLink(token);
+    if (state === 'over') throw fail('Vuoro on jo alkanut — osuutta ei voi enää maksaa linkistä.', 'over');
+    const part = state === 'open' && sharesOf(row.id).find((s) => partStatus(s) === 'open');
+    if (!part) return { full: true };
+    // Signed in, the profile's name shows to the booker — unless it is the booker paying a part
+    // themselves (showing the link to a friend in the demo), who counts as the name given.
+    const asMe = row.bookedBy !== ME;
+    Object.assign(part, {
+      status: 'paid', paidAt: nowIso(), claimUntil: null,
+      userId: asMe ? ME : null, name: asMe ? null : (String(name || '').trim().slice(0, 40) || null),
+    });
     return { paid: true };
   });
 }
 
-export async function verifySharePayment(shareId) {
+export async function verifySplitPayment(token) {
   return run(() => {
-    const share = myShare(shareId);
-    return { paid: share.status === 'paid', status: share.status === 'paid' ? 'succeeded' : 'requires_payment_method' };
-  });
-}
-
-export async function declineShare(shareId) {
-  return run(() => {
-    const share = myShare(shareId);
-    if (share.kind !== 'friend') throw fail(SHARE_NOT_FOUND, 'not_found');
-    if (share.status === 'paid') throw fail('Osuutesi on jo maksettu. Jos et pääse, kerro siitä viestillä.');
-    const blocked = shareBlocker(share);
-    if (blocked) throw blocked;
-    if (share.status === 'declined') return;
-    share.status = 'declined';
-    share.declinedAt = nowIso();
-    const row = bookingOfShare(share);
-    const conversation = findOrCreateDirect(row.bookedBy);
-    postMessage(conversation.id, ME, { text: `En pääse valitettavasti mukaan vuoroon ${exactWhen(row.startsAt)}.` });
+    const row = rowOfToken(token);
+    if (!row) throw fail(LINK_NOT_FOUND, 'not_found');
+    if (row.status !== 'confirmed') return { paid: false, status: 'refunded', message: LINK_CANCELLED };
+    return { paid: true, status: 'succeeded' };
   });
 }
 
@@ -582,19 +456,10 @@ export async function listWatches() {
 
 // ── Hall staff ───────────────────────────────────────────────────────────────
 
-/** Not paid yet: friend shares still open, and a rest share the card didn't cover. */
-function unpaidCents(row) {
-  if (!row.split) return 0;
-  return sharesOf(row.id)
-    .filter((s) => ['pending', 'declined'].includes(s.status))
-    .reduce((sum, s) => sum + s.cents, 0);
-}
-
 export async function staffDay(venueId, key) {
   return run(() => {
     const venue = venueRow(venueId);
     requireStaff(venue);
-    settleDueShares();
     const range = dayRange(key);
     return liveRows()
       .filter((r) => r.venueId === venue.id && inRange(r, range))
@@ -607,7 +472,7 @@ export async function staffDay(venueId, key) {
           bookedBy: (r.kind === 'booking' || r.kind === 'season') && r.bookedBy ? personLite(r.bookedBy) : null,
           priceCents: r.priceCents, paymentStatus: r.paymentStatus,
           seasonSlotId: r.seasonSlotId || null, credit: creditOf(r),
-          forSale: onSale(r), unpaidCents: unpaidCents(r), parts: r.split?.parts ?? null,
+          forSale: onSale(r),
         };
       });
   });
@@ -663,7 +528,7 @@ export async function staffCancel(bookingId, { refund = true } = {}) {
     if (refund) {
       refundEverything(row);
     } else {
-      for (const s of sharesOf(row.id)) if (['pending', 'declined'].includes(s.status)) s.status = 'cancelled';
+      for (const s of sharesOf(row.id)) if (s.status !== 'paid') s.status = 'cancelled';
     }
   });
 }

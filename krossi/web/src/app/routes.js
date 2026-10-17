@@ -26,7 +26,7 @@ export const ROUTES = [
   { name: 'booking', pattern: '/pelaa/varaa', tab: 'pelit', type: 'page' },
   { name: 'bookingVenue', pattern: '/pelaa/varaa/:venue', tab: 'pelit', type: 'page' },
   { name: 'hall', pattern: '/pelaa/halli/:venue', tab: 'pelit', type: 'page' },
-  { name: 'share', pattern: '/pelaa/osuus/:id', tab: 'pelit', type: 'page' },
+  { name: 'splitPay', pattern: '/pelaa/maksa/:token', tab: 'pelit', type: 'page', public: true },
   { name: 'myBookings', pattern: '/pelaa/omat-varaukset', tab: 'pelit', type: 'page' },
   { name: 'invoice', pattern: '/pelaa/lasku/:id', tab: 'pelit', type: 'full' },
   { name: 'players', pattern: '/pelaa/pelaajat', tab: 'pelaajat', type: 'tab' },

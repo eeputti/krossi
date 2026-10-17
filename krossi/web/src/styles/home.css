@@ -19,16 +19,13 @@
   position: relative; margin: 0 calc(var(--gutter) * -1);
   padding: calc(var(--safe-top) + 14px) calc(var(--gutter) + 4px) 18px;
   color: var(--on-dark); border-radius: 0 0 var(--r-2xl) var(--r-2xl);
-  background:
-    radial-gradient(120% 90% at 100% 0%, var(--green-600) 0%, transparent 55%),
-    linear-gradient(170deg, var(--green-800) 0%, var(--green-900) 100%);
-  box-shadow: var(--shadow-2);
+  background: var(--green-800);
 }
 .has-demo-banner .home-hero { padding-top: 14px; }
 
 
 .home-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
-.home-hero-me { border-radius: 50%; transition: transform var(--dur-2) var(--ease-spring); }
+.home-hero-me { border-radius: 50%; transition: transform var(--dur-2) var(--ease-out); }
 .home-hero-me:active { transform: scale(0.92); }
 
 .home-hero-title {
@@ -54,8 +51,6 @@
 .home-hero-actions.is-single { grid-template-columns: 1fr; }
 .home-hero-actions .btn { min-width: 0; padding: 0 16px; }
 .home-hero-cta { font-size: 17px; font-weight: 800; }
-.home-hero-cta svg { transition: transform var(--dur-3) var(--ease-spring); }
-.home-hero-cta:hover svg { transform: rotate(90deg); }
 .home-hero-now-btn svg { color: var(--lime); }
 /* the narrower of the two: a smaller font so "Pelaan nyt" fits whole on a phone */
 .home-hero-actions .home-hero-now-btn { padding: 0 10px; gap: 6px; font-size: 15px; }
@@ -75,7 +70,7 @@
 }
 .home-now-icon {
   width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
-  background: var(--lime); color: var(--green-900); animation: home-live 1.8s ease-out infinite;
+  background: var(--lime); color: var(--green-900);
 }
 .home-now-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .home-now-title { font-weight: 750; font-size: 15px; color: var(--lime); }
@@ -120,7 +115,7 @@
 }
 
 /* ── attention: invites + requests ───────────────────────── */
-.home-invite { overflow: hidden; border-color: var(--lime-300); box-shadow: 0 0 0 3px var(--lime-100), var(--shadow-1); }
+.home-invite { overflow: hidden; border-color: var(--line-strong); box-shadow: inset 4px 0 0 var(--lime); }
 .home-invite-main {
   display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 14px 12px; text-align: left;
   transition: background-color var(--dur-1);
@@ -129,7 +124,7 @@
 .home-invite-avatar { position: relative; flex-shrink: 0; display: flex; }
 .home-invite-badge {
   position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--lime); color: var(--green-900); border: 2px solid var(--surface); animation: k-pop 420ms 200ms var(--ease-spring) both;
+  background: var(--lime); color: var(--green-900); border: 2px solid var(--surface);
 }
 .home-invite-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .home-invite-title { font-size: 15px; color: var(--ink); line-height: 1.3; }
@@ -145,9 +140,9 @@
 .home-requests-msg { font-size: 13px; color: var(--muted); }
 .home-requests-go {
   width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
-  background: var(--sand); color: var(--green-800); transition: transform var(--dur-2) var(--ease-spring), background-color var(--dur-2);
+  background: var(--sand); color: var(--green-800); transition: background-color var(--dur-2);
 }
-.home-requests:hover .home-requests-go { transform: translateX(3px); background: var(--lime); color: var(--green-900); }
+.home-requests:hover .home-requests-go { background: var(--sand-2); }
 
 .home-inline-error {
   display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--r-md);
@@ -181,7 +176,7 @@
 .home-stat + .home-stat { border-left: 1px solid var(--line); }
 .home-stat-value { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; color: var(--ink); }
 .home-stat-value-row { display: inline-flex; align-items: center; gap: 2px; }
-.home-stat-hot { color: var(--clay); animation: k-flame 1.6s ease-in-out infinite; }
+.home-stat-hot { color: var(--clay); }
 .home-stat-label { font-size: 12px; font-weight: 650; line-height: 1.25; color: var(--muted); }
 
 .home-goal {
@@ -241,24 +236,22 @@ button.home-goal:active { background: var(--sand); }
 .home-more-tile:active { transform: scale(0.97); }
 .home-more-icon {
   width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--green-800); color: var(--lime); transition: transform var(--dur-2) var(--ease-spring);
+  background: var(--green-800); color: var(--lime);
 }
-.home-more-tile:hover .home-more-icon { transform: translateX(3px); }
 .home-more-label { font-size: 14.5px; font-weight: 800; }
 .home-more-sub { font-size: 12px; color: var(--muted); }
 
 .home-empty-card { padding: 4px 8px 10px; }
 
 /* ── invite a friend ─────────────────────────────────────── */
-.home-friend { container-type: inline-size; background: var(--lime-100); border-color: var(--lime-200); }
+.home-friend { container-type: inline-size; background: var(--surface-2); border-color: var(--line); }
 .home-friend-inner {
   display: grid; grid-template-columns: 50px minmax(0, 1fr); align-items: center; gap: 14px; padding: 16px;
 }
 .home-friend-art {
   width: 50px; height: 50px; border-radius: var(--r-md); display: grid; place-items: center;
-  background: var(--lime); color: var(--green-900); box-shadow: var(--shadow-lime);
+  background: var(--green-800); color: var(--lime);
 }
-.home-friend:hover .home-friend-art { animation: k-wiggle 520ms var(--ease-out); }
 .home-friend-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .home-friend-title { font-size: 15.5px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
 .home-friend-sub { font-size: 13px; line-height: 1.4; color: var(--ink-2); }
@@ -276,7 +269,7 @@ button.home-goal:active { background: var(--sand); }
 }
 .home-pn-bolt {
   width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
-  background: var(--lime); color: var(--green-900); animation: home-live 1.8s ease-out infinite;
+  background: var(--lime); color: var(--green-900);
 }
 .home-pn-preview-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .home-pn-preview-title { font-size: 15px; font-weight: 750; }
@@ -288,7 +281,6 @@ button.home-goal:active { background: var(--sand); }
 .home-outcome-ball {
   position: absolute; right: -12px; bottom: -6px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
   background: var(--lime); color: var(--green-900); border: 3px solid var(--surface);
-  animation: k-bounce 1.6s var(--ease-in-out) infinite;
 }
 .home-outcome-title { font-size: 28px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; }
 .home-outcome-game { margin-top: 6px; font-size: 15.5px; font-weight: 700; color: var(--ink-2); }
@@ -311,10 +303,10 @@ button.home-goal:active { background: var(--sand); }
 }
 .home-notif:hover { background: var(--surface-2); }
 .home-notif:active { transform: scale(0.99); }
-.home-notif.is-new { background: var(--surface); box-shadow: var(--shadow-1); }
+.home-notif.is-new { background: var(--surface-2); }
 .home-notif-art { position: relative; flex-shrink: 0; }
 .home-notif-icon { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--sand); color: var(--green-800); }
-.home-notif-icon.is-outcome { background: var(--lime-100); color: #4A5605; }
+.home-notif-icon.is-outcome { background: var(--lime-100); color: var(--ink-2); }
 .home-notif-icon.is-soon { background: var(--green-800); color: var(--lime); }
 .home-notif-kind {
   position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
@@ -322,7 +314,7 @@ button.home-goal:active { background: var(--sand); }
 }
 .home-notif.is-new .home-notif-kind { box-shadow: 0 0 0 2px var(--surface); }
 .home-notif-kind.is-request { background: var(--clay); color: #fff; }
-.home-notif-kind.is-newGame { background: var(--lime); color: #101A08; }
+.home-notif-kind.is-newGame { background: var(--lime); color: var(--ink); }
 .home-notif-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-top: 2px; }
 .home-notif-title { font-size: 14.5px; font-weight: 750; line-height: 1.3; color: var(--ink); }
 .home-notif-body {

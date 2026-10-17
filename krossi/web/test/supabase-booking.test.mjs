@@ -70,7 +70,8 @@ const VENUE_ROW = {
   durations: [60, 90, 120],
   daysAhead: 14,
   cancelLimitHours: 24,
-  shareDeadlineHours: 2,
+  splitPay: true,
+  resale: true,
   holdMinutes: 10,
   payOnline: true,
   lastMinute: { hours: 4, percent: 30 },
@@ -122,12 +123,12 @@ test('listVenues answers [] while the booking migration is not deployed', async 
 });
 
 test('listVenues fills in what an older server leaves out', async () => {
-  const { lastMinute, isStaff, shareDeadlineHours, ...older } = VENUE_ROW;
+  const { lastMinute, isStaff, splitPay, resale, ...older } = VENUE_ROW;
   setClientForTests(fakeClient({ rpc: () => ({ data: [{ ...older, locations: [{ ...older.locations[0], lat: undefined, lng: undefined }] }], error: null }) }));
   const [venue] = await booking.listVenues();
   assert.equal(venue.lastMinute, null);
   assert.equal(venue.isStaff, false);
-  assert.equal(venue.shareDeadlineHours, null, 'no split payments or resale on a phase 1 server');
+  assert.deepEqual([venue.splitPay, venue.resale], [false, false], 'no split payments or resale on a phase 1 server');
   assert.equal(venue.locations[0].lat, null);
   assert.equal(venue.locations[0].lng, null);
 });
@@ -216,7 +217,7 @@ test('checkout: config, intent and verify go to krossi-booking with the booking 
   };
   const fake = fakeClient({ invoke: (body) => answers[body.action] });
   setClientForTests(fake);
-  assert.deepEqual(await booking.checkoutConfig(BOOKING), { publishableKey: 'pk_test_x', amount: 3000, currency: 'eur', email: 'me@example.com', setupFutureUsage: null });
+  assert.deepEqual(await booking.checkoutConfig(BOOKING), { publishableKey: 'pk_test_x', amount: 3000, currency: 'eur', email: 'me@example.com' });
   assert.deepEqual(await booking.createPaymentIntent(BOOKING), { clientSecret: 'pi_1_secret_2', paymentIntentId: 'pi_1' });
   assert.deepEqual(await booking.verifyPayment(BOOKING, 'pi_1'), { confirmed: true, status: 'succeeded' });
   assert.deepEqual(fake.log.invoked, [
@@ -381,47 +382,101 @@ test('staffCancel refunds by default and resolves to nothing', async () => {
 const SHARE = '88888888-8888-4888-8888-888888888888';
 const FRIEND = '99999999-9999-4999-8999-999999999999';
 const RAW_PERSON = { id: FRIEND, name: 'Bertta Kaveri', avatarUrl: 'avatars/b.jpg', avatarColor: 'red', ageRange: null, skillLevel: 'kilpapelaaja,B1' };
+const TOKEN = 'Kq3vT9xLm2Pz8RwYb4Nc7d';
 const SPLIT_ROW = {
   ...BOOKING_ROW, status: 'confirmed', paymentStatus: 'paid', holdExpiresAt: null,
   split: {
-    parts: 2, ownCents: 1500, deadline: '2026-10-20T13:00:00+00:00',
+    parts: 4, perCents: 750, token: TOKEN,
     lines: [
-      { id: null, kind: 'own', person: { id: UID, name: 'Minä', avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: '' }, cents: 1500, status: 'paid', paidAt: '2026-10-14T18:01:00.000Z' },
-      { id: SHARE, kind: 'friend', person: RAW_PERSON, cents: 1500, status: 'pending', paidAt: null },
-      { id: WATCH, kind: 'rest', person: { id: null, name: 'Pelaaja', avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: null }, cents: 1500, status: 'pending', paidAt: null },
+      { id: null, kind: 'own', person: { id: UID, name: 'Minä', avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: '' }, name: null, cents: 750, status: 'paid', paidAt: '2026-10-14T18:01:00.000Z' },
+      { id: SHARE, kind: 'friend', person: RAW_PERSON, name: null, cents: 750, status: 'paid', paidAt: '2026-10-14T19:00:00+00:00', refundedToBookerAt: '2026-10-14T19:00:01+00:00' },
+      { id: WATCH, kind: 'friend', person: null, name: 'Sanna', cents: 750, status: 'pending', paidAt: null },
+      { id: FRIEND, kind: 'friend', person: null, name: null, cents: 750, status: 'weird', paidAt: null },
     ],
   },
 };
 
-test('hold sends friend_ids_input only for a split, and never a malformed id', async () => {
+test('hold never sends friends: the booker pays the whole court', async () => {
+  const fake = fakeClient({ rpc: () => ({ data: BOOKING_ROW, error: null }) });
+  setClientForTests(fake);
+  await booking.hold({ courtId: COURT, startsAt: BOOKING_ROW.startsAt, minutes: 60, friendIds: [FRIEND] });
+  assert.deepEqual(fake.log.rpc, [{ name: 'krossi_hold_booking', args: { court_id_input: COURT, starts_at_input: BOOKING_ROW.startsAt, minutes_input: 60 } }]);
+});
+
+test('payConfig: what the sheet needs before a hold; an older krossi-booking means hold first', async () => {
+  const fake = fakeClient({ invoke: () => ({ data: { publishableKey: 'pk_test_x', currency: 'eur', email: 'me@example.com' }, error: null }) });
+  setClientForTests(fake);
+  assert.deepEqual(await booking.payConfig(), { publishableKey: 'pk_test_x', currency: 'eur', email: 'me@example.com' });
+  assert.deepEqual(fake.log.invoked, [{ name: 'krossi-booking', body: { action: 'payConfig' } }]);
+  setClientForTests(fakeClient({ invoke: () => functionError('Tuntematon toiminto.', 400) }));
+  assert.deepEqual(await booking.payConfig(), { legacy: true });
+  setClientForTests(fakeClient({ invoke: () => functionError('Kenttävarausten verkkomaksu ei ole vielä käytössä.', 503) }));
+  await assert.rejects(booking.payConfig(), (err) => err.userMessage === 'Kenttävarausten verkkomaksu ei ole vielä käytössä.');
+});
+
+test('split: krossi_split_booking with the parts; the answer maps the link\'s lines', async () => {
   const fake = fakeClient({ rpc: () => ({ data: SPLIT_ROW, error: null }) });
   setClientForTests(fake);
-  await booking.hold({ courtId: COURT, startsAt: BOOKING_ROW.startsAt, minutes: 60, friendIds: [] });
-  assert.deepEqual(Object.keys(fake.log.rpc[0].args), ['court_id_input', 'starts_at_input', 'minutes_input']);
-  const held = await booking.hold({ courtId: COURT, startsAt: BOOKING_ROW.startsAt, minutes: 60, friendIds: [FRIEND] });
-  assert.deepEqual(fake.log.rpc[1].args.friend_ids_input, [FRIEND]);
-  // the split is mapped: ISO deadline, PersonLite with a full avatar URL and a parsed level, 'Pelaaja' for a deleted account
-  assert.equal(held.split.deadline, '2026-10-20T13:00:00.000Z');
-  assert.deepEqual(held.split.lines.map((l) => [l.id, l.kind, l.status, l.cents]),
-    [[null, 'own', 'paid', 1500], [SHARE, 'friend', 'pending', 1500], [WATCH, 'rest', 'pending', 1500]]);
-  assert.deepEqual(held.split.lines[1].person, {
+  const split = (await booking.split(BOOKING, 4)).split;
+  assert.deepEqual(fake.log.rpc, [{ name: 'krossi_split_booking', args: { p_booking_id: BOOKING, p_parts: 4 } }]);
+  assert.deepEqual([split.parts, split.perCents, split.ownCents, split.token], [4, 750, 750, TOKEN], 'ownCents follows from the price');
+  assert.deepEqual(split.lines.map((l) => [l.id, l.kind, l.status, l.name]),
+    [[null, 'own', 'paid', null], [SHARE, 'friend', 'paid', null], [WATCH, 'friend', 'pending', 'Sanna'], [FRIEND, 'friend', 'open', null]]);
+  assert.deepEqual(split.lines[1].person, {
     id: FRIEND, name: 'Bertta Kaveri', avatarUrl: `${SUPABASE_URL}/storage/v1/object/public/profile-avatars/avatars/b.jpg`,
     avatarColor: 'red', ageRange: null, skillLevel: 'kilpapelaaja',
   });
-  assert.deepEqual(held.split.lines[2].person, { id: '', name: 'Pelaaja', avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: null });
-  await assert.rejects(booking.hold({ courtId: COURT, startsAt: BOOKING_ROW.startsAt, minutes: 60, friendIds: ['Bertta'] }),
-    (err) => err.userMessage === 'Voit jakaa maksun vain pelikavereidesi kanssa.');
-  assert.equal(fake.log.rpc.length, 2);
-  setClientForTests(fakeClient({ rpc: () => raised('Jaettu maksu ei ehdi enää — vuoro alkaa pian. Maksa vuoro itse.') }));
-  await assert.rejects(booking.hold({ courtId: COURT, startsAt: BOOKING_ROW.startsAt, minutes: 60, friendIds: [FRIEND] }),
-    (err) => err.userMessage === 'Jaettu maksu ei ehdi enää — vuoro alkaa pian. Maksa vuoro itse.');
+  assert.equal(split.lines[2].person, null, 'paid without an account: a name only');
+  assert.equal(split.lines[1].paidAt, '2026-10-14T19:00:00.000Z');
+  assert.ok(split.lines.every((l) => !('refundedToBookerAt' in l)));
+  await assert.rejects(booking.split(BOOKING, 3), (err) => err.code === 'invalid');
+  await assert.rejects(booking.split('x', 2), (err) => err.code === 'not_found');
+  assert.equal(fake.log.rpc.length, 1);
+  setClientForTests(fakeClient({ rpc: () => raised('Joku on jo maksanut osuutensa — jakoa ei voi enää muuttaa.') }));
+  await assert.rejects(booking.split(BOOKING, 1), (err) => err.userMessage === 'Joku on jo maksanut osuutensa — jakoa ei voi enää muuttaa.');
 });
 
-test('checkoutConfig passes setupFutureUsage for a split booking', async () => {
-  setClientForTests(fakeClient({ invoke: () => ({ data: { publishableKey: 'pk_test_x', amount: 1500, currency: 'eur', email: null, setupFutureUsage: 'off_session' }, error: null }) }));
-  assert.deepEqual(await booking.checkoutConfig(BOOKING), { publishableKey: 'pk_test_x', amount: 1500, currency: 'eur', email: null, setupFutureUsage: 'off_session' });
-  setClientForTests(fakeClient({ invoke: () => ({ data: { publishableKey: 'pk_test_x', amount: 1500, currency: 'eur', setupFutureUsage: 'on_session' }, error: null }) }));
-  assert.equal((await booking.checkoutConfig(BOOKING)).setupFutureUsage, null, 'only off_session is passed on');
+test('the payment link works without a session: splitPublic, then config, intent and verify in krossi-booking', async () => {
+  const PUBLIC = {
+    token: TOKEN, venueName: 'Lahden Tennis- ja Squashkeskus', locationName: 'Janus-Areena', courtName: 'Tennis 1', sport: 'tennis',
+    startsAt: '2026-10-20T15:00:00+00:00', endsAt: '2026-10-20T16:00:00+00:00', bookerFirstName: 'Eelis', bookerAvatarUrl: null,
+    parts: 4, perCents: 750, paidCount: 2, openCount: 1, state: 'open',
+  };
+  const answers = {
+    splitConfig: { data: { publishableKey: 'pk_test_x', amount: 750, currency: 'eur' }, error: null },
+    splitIntent: { data: { clientSecret: 'pi_9_secret_9', paymentIntentId: 'pi_9' }, error: null },
+    splitVerify: { data: { paid: true, status: 'succeeded' }, error: null },
+  };
+  const fake = fakeClient({ signedIn: false, rpc: () => ({ data: PUBLIC, error: null }), invoke: (body) => answers[body.action] });
+  setClientForTests(fake);
+  const link = await booking.splitPublic(TOKEN);
+  assert.deepEqual(fake.log.rpc, [{ name: 'krossi_split_public', args: { p_token: TOKEN } }]);
+  assert.deepEqual({ ...link, startsAt: null, endsAt: null }, { ...PUBLIC, startsAt: null, endsAt: null });
+  assert.equal(link.startsAt, '2026-10-20T15:00:00.000Z');
+  assert.deepEqual(await booking.splitCheckoutConfig(TOKEN), { publishableKey: 'pk_test_x', amount: 750, currency: 'eur' });
+  assert.deepEqual(await booking.createSplitPaymentIntent(TOKEN, { name: '  Sanna Virtanen  ' }), { clientSecret: 'pi_9_secret_9', paymentIntentId: 'pi_9' });
+  assert.deepEqual(await booking.verifySplitPayment(TOKEN, 'pi_9'), { paid: true, status: 'succeeded', message: null });
+  assert.deepEqual(fake.log.invoked.map((c) => c.body), [
+    { action: 'splitConfig', token: TOKEN }, { action: 'splitIntent', token: TOKEN, name: 'Sanna Virtanen' },
+    { action: 'splitVerify', token: TOKEN, paymentIntentId: 'pi_9' },
+  ]);
+
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => ({ data: { full: true }, error: null }) }));
+  assert.deepEqual(await booking.splitCheckoutConfig(TOKEN), { full: true });
+  assert.deepEqual(await booking.createSplitPaymentIntent(TOKEN, {}), { full: true });
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => ({ data: { paid: false, status: 'refunded', message: 'Vuoro peruttiin — maksu palautettiin.' }, error: null }) }));
+  assert.deepEqual(await booking.verifySplitPayment(TOKEN, 'pi_9'), { paid: false, status: 'refunded', message: 'Vuoro peruttiin — maksu palautettiin.' });
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => functionError('Vuoro on peruttu — osuutta ei tarvitse maksaa.') }));
+  await assert.rejects(booking.splitCheckoutConfig(TOKEN), (err) => err.userMessage === 'Vuoro on peruttu — osuutta ei tarvitse maksaa.');
+
+  // A malformed token never reaches the server; no phase 4 yet = no such link.
+  const quiet = fakeClient({ signedIn: false });
+  setClientForTests(quiet);
+  assert.equal(await booking.splitPublic('../x'), null);
+  await assert.rejects(booking.splitCheckoutConfig('x'), (err) => err.code === 'not_found');
+  assert.deepEqual([quiet.log.rpc.length, quiet.log.invoked.length], [0, 0]);
+  setClientForTests(fakeClient({ signedIn: false, rpc: () => ({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.krossi_split_public(p_token) in the schema cache' } }) }));
+  assert.equal(await booking.splitPublic(TOKEN), null);
 });
 
 test('putOnSale / takeOffSale: the RPCs, then the watchers are told; their messages and codes reach the UI', async () => {
@@ -443,74 +498,13 @@ test('putOnSale / takeOffSale: the RPCs, then the watchers are told; their messa
   await assert.rejects(booking.putOnSale('x'), (err) => err.code === 'not_found');
 });
 
-test('shareFriends and listShares answer [] and getShare null while the phase 4 migration is not deployed', async () => {
-  const missing = { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.krossi_booking_my_shares without parameters' } };
-  setClientForTests(fakeClient({ rpc: () => missing }));
-  assert.deepEqual(await booking.shareFriends(), []);
-  assert.deepEqual(await booking.listShares(), []);
-  assert.equal(await booking.getShare(SHARE), null, 'the share page then says the share was not found');
-  setClientForTests(fakeClient({ rpc: () => ({ data: [RAW_PERSON, { id: null }], error: null }) }));
-  assert.deepEqual((await booking.shareFriends()).map((p) => [p.id, p.skillLevel]), [[FRIEND, 'kilpapelaaja']]);
-});
-
-test('listShares / getShare map a BookingShare; a malformed id is just not found', async () => {
-  const raw = {
-    id: SHARE, kind: 'friend', cents: 1500, status: 'pending', paidAt: null, deadline: '2026-10-20T13:00:00.000Z', payable: true,
-    chargeError: null, booker: { id: UID, name: 'Minä', avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: null }, booking: SPLIT_ROW,
-  };
-  const fake = fakeClient({ rpc: (name) => ({ data: name === 'krossi_booking_my_shares' ? [raw] : raw, error: null }) });
-  setClientForTests(fake);
-  const [s] = await booking.listShares();
-  assert.deepEqual(Object.keys(s).sort(), ['booker', 'booking', 'cents', 'chargeError', 'deadline', 'id', 'kind', 'paidAt', 'payable', 'status']);
-  assert.deepEqual(Object.keys(s.booking).sort(), [...BOOKING_KEYS].sort());
-  assert.equal(s.booker.name, 'Minä');
-  assert.equal(s.booking.split.parts, 2);
-  assert.deepEqual(await booking.getShare(SHARE), s);
-  assert.deepEqual(fake.log.rpc.map((c) => c.name), ['krossi_booking_my_shares', 'krossi_booking_share']);
-  assert.deepEqual(fake.log.rpc[1].args, { share_id_input: SHARE });
-  assert.equal(await booking.getShare('nope'), null);
-  setClientForTests(fakeClient({ rpc: () => ({ data: null, error: null }) }));
-  assert.equal(await booking.getShare(SHARE), null);
-});
-
-test('paying a share goes to krossi-booking; "Maksuaika päättyi" and refunds reach the UI', async () => {
-  const answers = {
-    shareConfig: { data: { publishableKey: 'pk_test_x', amount: 1500, currency: 'eur', email: 'me@example.com', setupFutureUsage: null }, error: null },
-    shareIntent: { data: { clientSecret: 'pi_7_secret_7', paymentIntentId: 'pi_7' }, error: null },
-    shareVerify: { data: { paid: true, status: 'succeeded' }, error: null },
-  };
-  const fake = fakeClient({ invoke: (body) => answers[body.action] });
-  setClientForTests(fake);
-  assert.equal((await booking.shareCheckoutConfig(SHARE)).amount, 1500);
-  assert.deepEqual(await booking.createSharePaymentIntent(SHARE), { clientSecret: 'pi_7_secret_7', paymentIntentId: 'pi_7' });
-  assert.deepEqual(await booking.verifySharePayment(SHARE, 'pi_7'), { paid: true, status: 'succeeded' });
-  assert.deepEqual(fake.log.invoked.map((c) => c.body), [
-    { action: 'shareConfig', shareId: SHARE }, { action: 'shareIntent', shareId: SHARE },
-    { action: 'shareVerify', shareId: SHARE, paymentIntentId: 'pi_7' },
-  ]);
-  setClientForTests(fakeClient({ invoke: () => functionError('Maksuaika päättyi — Aino maksaa osuutesi.') }));
-  await assert.rejects(booking.shareCheckoutConfig(SHARE), (err) => err.code === 'closed' && err.userMessage === 'Maksuaika päättyi — Aino maksaa osuutesi.');
-  setClientForTests(fakeClient({ invoke: () => ({ data: { paid: false, status: 'refunded', error: 'Osuutesi oli jo maksettu — tämä maksu palautettiin.' }, error: null }) }));
-  assert.deepEqual(await booking.verifySharePayment(SHARE, 'pi_8'), { paid: false, status: 'refunded', message: 'Osuutesi oli jo maksettu — tämä maksu palautettiin.' });
-  await assert.rejects(booking.createSharePaymentIntent('x'), (err) => err.code === 'not_found');
-});
-
-test('declineShare calls the RPC; its Finnish message reaches the player', async () => {
-  const fake = fakeClient();
-  setClientForTests(fake);
-  await booking.declineShare(SHARE);
-  assert.deepEqual(fake.log.rpc, [{ name: 'krossi_booking_decline_share', args: { share_id_input: SHARE } }]);
-  setClientForTests(fakeClient({ rpc: () => raised('Osuutesi on jo maksettu. Jos et pääse, kerro siitä viestillä.') }));
-  await assert.rejects(booking.declineShare(SHARE), (err) => err.userMessage === 'Osuutesi on jo maksettu. Jos et pääse, kerro siitä viestillä.');
-});
-
-test('day and staffDay carry forSale, unpaidCents and parts', async () => {
+test('day and staffDay carry forSale', async () => {
   setClientForTests(fakeClient({
     rpc: (name) => (name === 'krossi_booking_day'
       ? { data: { date: '2026-10-20', busy: [{ id: BOOKING, courtId: COURT, startsAt: '2026-10-20T15:00:00Z', endsAt: '2026-10-20T16:00:00Z', kind: 'booking', mine: false, title: null, forSale: true }] }, error: null }
-      : { data: [{ id: BOOKING, courtId: COURT, startsAt: '2026-10-20T15:00:00Z', endsAt: '2026-10-20T16:00:00Z', kind: 'booking', status: 'confirmed', title: null, bookedBy: null, priceCents: 3000, paymentStatus: 'paid', forSale: true, unpaidCents: '750', parts: 4 }], error: null }),
+      : { data: [{ id: BOOKING, courtId: COURT, startsAt: '2026-10-20T15:00:00Z', endsAt: '2026-10-20T16:00:00Z', kind: 'booking', status: 'confirmed', title: null, bookedBy: null, priceCents: 3000, paymentStatus: 'paid', forSale: true }], error: null }),
   }));
   assert.equal((await booking.day(VENUE, '2026-10-20')).busy[0].forSale, true);
   const [item] = await booking.staffDay(VENUE, '2026-10-20');
-  assert.deepEqual([item.forSale, item.unpaidCents, item.parts], [true, 750, 4]);
+  assert.equal(item.forSale, true);
 });

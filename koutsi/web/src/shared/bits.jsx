@@ -54,7 +54,7 @@ export function QrCode({ text, size = 168 }) {
   return (
     <svg className="k-qr" width={size} height={size} viewBox={`0 0 ${dim} ${dim}`} shapeRendering="crispEdges" role="img" aria-label="QR-koodi liittymislinkkiin">
       <rect width={dim} height={dim} fill="#fff" />
-      <path d={d} fill="#0E3B2C" />
+      <path d={d} fill="#121212" />
     </svg>
   );
 }

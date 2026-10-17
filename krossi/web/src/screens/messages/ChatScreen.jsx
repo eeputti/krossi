@@ -2,6 +2,8 @@
 // Sticky header (+ pinned game card in game chats), grouped bubbles with day separators,
 // optimistic sending, realtime with dedupe, "Uusia viestejä" pill, image lightbox and a
 // composer pinned to the bottom of a visual-viewport-sized column (keyboard friendly).
+// The ⋯ menu has "Varaa kenttä" when there is a bookable hall: once paid, the booking page sends
+// the court's time back to this chat (a game chat books the game's court, for its creator).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync, useResync } from '../../app/hooks.js';
@@ -13,6 +15,7 @@ import {
   Avatar, AvatarStack, Button, Chip, EmptyState, ErrorState, Icon, IconButton, ListRow, Sheet, Skeleton, useConfirm, useToast,
 } from '../../ui/index.js';
 import { levelText } from '../players/playerInfo.js';
+import { useBookingHall } from '../booking/useBookingHall.js';
 import { buildTimeline, mergeMessage, mergeSnapshot } from './chatUtils.js';
 import { ChatSkeleton, Composer, DaySeparator, MessageGroup, PinnedGame, SystemPill } from './ChatParts.jsx';
 
@@ -59,6 +62,16 @@ export function ChatScreen({ params }) {
   const gameId = conversation?.gameId || null;
   const game = useAsync(() => (gameId ? api.games.get(gameId) : Promise.resolve(null)), [gameId]);
   const other = conversation && !conversation.isGroup ? conversation.participants[0] || null : null;
+  // "Varaa kenttä" (menu): a game chat books the game's court — its creator only, the game still
+  // ahead — any other chat a court whose time comes back here. A game's court is in the game's city.
+  const { hall } = useBookingHall(gameId ? [game.data?.city] : [profile?.city, ...(profile?.areas || [])]);
+  const gameAhead = game.data && game.data.status !== 'cancelled' && (!game.data.scheduledAt || Date.parse(game.data.scheduledAt) > Date.now());
+  let courtPath = null;
+  if (hall && conversation) {
+    const at = `/pelaa/varaa/${encodeURIComponent(hall.slug)}`;
+    if (!gameId) courtPath = `${at}?chat=${encodeURIComponent(id)}`;
+    else if (game.data?.isMine && gameAhead) courtPath = `${at}?peli=${encodeURIComponent(gameId)}`;
+  }
   // Header subtitle enrichment only (city); the header works without it, so failures fall back quietly.
   const otherProfile = useAsync(() => (other && paid ? api.players.get(other.id).catch(() => null) : Promise.resolve(null)), [other?.id, paid]);
   const archived = useAsync(() => api.messages.getArchived(), [id]);
@@ -402,6 +415,14 @@ export function ChatScreen({ params }) {
               ? <ListRow icon="users" title="Osallistujat" subtitle={`${peopleCount} pelaajaa`} onClick={() => { setMenuOpen(false); setPeopleOpen(true); }} />
               : <ListRow icon="user" title="Näytä profiili" onClick={() => { setMenuOpen(false); openPlayer(other); }} />}
             {gameId && <ListRow icon="calendar" title="Avaa peli" onClick={() => { setMenuOpen(false); openGame(); }} />}
+            {courtPath && (
+              <ListRow
+                icon="court"
+                title={gameId ? 'Varaa kenttä tälle pelille' : 'Varaa kenttä'}
+                subtitle={`${hall.name} · aika tulee tähän keskusteluun`}
+                onClick={() => { setMenuOpen(false); navigate(courtPath); }}
+              />
+            )}
             <ListRow icon={isArchived ? 'undo' : 'archive'} title={isArchived ? 'Palauta arkistosta' : 'Arkistoi keskustelu'} subtitle={isArchived ? undefined : 'Piilottaa sen Viesteistä tällä laitteella'} onClick={toggleArchive} chevron={false} />
             <ListRow icon="trash" title="Poista keskustelu" subtitle="Poistuu kaikilta osallistujilta" tone="danger" onClick={deleteChat} chevron={false} />
           </div>

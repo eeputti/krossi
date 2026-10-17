@@ -21,11 +21,11 @@ function Bubble({ m, pos, isNew, onImage, onImageLoad, mine }) {
   const cls = cx('chat-bubble', `is-${pos}`, m.local && !m.failed && 'is-pending', m.failed && 'is-failed', isNew && 'is-new');
   const share = m.kind === 'text' ? shareRequestOf(m.text) : null;
   if (share) {
-    // A court-share request: the friend pays from here, the booker sees who has paid.
+    // A court's payment link: the friend pays from here, the booker sees how many have paid.
     return (
       <div className={cx(cls, 'chat-share')}>
         <span>{share.text}</span>
-        <button type="button" className="chat-share-btn" onClick={() => navigate(`/pelaa/osuus/${encodeURIComponent(share.shareId)}`)}>
+        <button type="button" className="chat-share-btn" onClick={() => navigate(`/pelaa/maksa/${encodeURIComponent(share.token)}`)}>
           <Icon name={mine ? 'users' : 'lock'} size={15} />{mine ? 'Katso maksut' : 'Maksa osuutesi'}
         </button>
       </div>

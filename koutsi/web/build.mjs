@@ -98,7 +98,7 @@ async function writeShells() {
   for (const [name, label, start] of [['valmentaja', 'Koutsi', '/valmentaja'], ['pelaaja', 'Koutsi', '/pelaaja']]) {
     const manifest = {
       name: 'Krossi Koutsi', short_name: label, lang: 'fi', start_url: start, scope: '/', display: 'standalone',
-      background_color: '#F7F5EF', theme_color: '#0E3B2C',
+      background_color: '#FFFFFF', theme_color: '#121212',
       icons: [
         { src: '/assets/krossi-icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
         { src: '/assets/krossi-icon.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },

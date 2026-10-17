@@ -2,7 +2,7 @@
 // buy a gift card for someone (its code is shown once paid, to copy or share), and redeem a gift
 // card's code onto your own balance. Paying uses the same Stripe checkout as court bookings
 // (Checkout with api.wallet.createPaymentIntent / verifyPayment); the demo pays at once.
-// Series cards and gift balance are then offered at booking checkout (CreditPay).
+// Series cards and gift balance are then offered in the booking sheet.
 import { useEffect, useState } from 'react';
 import { api } from '../../api/index.js';
 import { Checkout } from '../../app/checkout.jsx';

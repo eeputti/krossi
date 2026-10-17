@@ -15,11 +15,11 @@ function tokens() {
   const css = getComputedStyle(document.documentElement);
   const v = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
   return {
-    green900: v('--green-900', '#0A2C20'),
-    green800: v('--green-800', '#0E3B2C'),
-    green700: v('--green-700', '#155440'),
+    green900: v('--green-900', '#000000'),
+    green800: v('--green-800', '#121212'),
+    green700: v('--green-700', '#2A2A2A'),
     lime: v('--lime', '#CFE414'),
-    clay: v('--clay', '#D9734A'),
+    clay: v('--clay', '#E0592A'),
     ink: v('--ink', '#121212'),
     font: v('--font', 'system-ui, sans-serif'),
     fontNum: v('--font-num', 'system-ui, sans-serif'),

@@ -95,10 +95,10 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/kooste/:period` (`2026-09` tai `kausi-2026`) | recap | profiili | full |
 | `/pelaa/liigat` | leagues | pelit | page |
 | `/pelaa/liiga/:id` | league | pelit | page (kirjautumaton: julkinen sarjataulukko) |
-| `/pelaa/varaa`, `/pelaa/varaa/:venue` | booking, bookingVenue | pelit | page |
+| `/pelaa/varaa`, `/pelaa/varaa/:venue` (`?peli=<id>`, `?chat=<id>`, `?liiga=&ottelu=`) | booking, bookingVenue | pelit | page |
 | `/pelaa/halli/:venue` (`?nakyma=kausivuorot\|laskutus\|kortit\|asetukset`) | hall | pelit | page (hallin henkilökunta) |
 | `/pelaa/osuus/:id` | share | pelit | page (osuus jaetusta kenttävuorosta; ei vaadi avausmaksua) |
-| `/pelaa/omat-varaukset` | myBookings | pelit | page (vuorot, kausivuorot, sarja- ja lahjakortit) |
+| `/pelaa/omat-varaukset` (`?vuoro=<id>` avaa varauksen) | myBookings | pelit | page (vuorot, kausivuorot, sarja- ja lahjakortit) |
 | `/pelaa/lasku/:id` | invoice | pelit | full (tulostettava lasku: henkilökunta ja haltija) |
 | `/pelaa/kutsu/:code` | invite | — | public |
 | `/pelaa/yllapito` | admin | profiili | page (vain admin) |
@@ -130,9 +130,14 @@ Reittitaulu on `app/routes.js`. Polut:
   Koutsin "Merkitse") — Profiili on mobiilissa Kodin avatar. Työpöydällä vasen **SideNav**
   (logo, kaikki viisi kohdetta, iso lime "Pelataanko?" -nappi, oma profiilichippi). Keskellä
   sisältö max 720 px (Koti: 1080 px kahdella palstalla ≥ 1200 px).
-- **Pelataanko?-valikko** (`screens/play/PlayMenu.jsx`, avataan `openPlayMenu()`): Tulossa
-  (omat tulevat pelit), Ajankohtaista (kutsu peliin, pelaa nyt, avoimet pelit tällä viikolla)
-  ja ruudut Luo peli · Pelaan nyt · Avoimet pelit · Etsi pelikaveri · Kirjaa tulos · Kutsu kaveri.
+- **Pelataanko?-valikko** (`screens/play/PlayMenu.jsx`, avataan `openPlayMenu()`): kaksi ovea,
+  yksi kierto. Tulossa (omat tulevat pelit + kenttävaraukset; vuoro, jolla ei ole peliä eikä
+  jakoa, on "Puuttuu pelikaveri"), sitten **Varaa kenttä** (tumma; vapaat ajat tänään) ja **Etsi
+  peliseuraa** (lime; avaa sheetin: Ajankohtaista — tyhjä vuoro "Avaa vuoro muille", kutsu peliin,
+  pelaa nyt, avoimet pelit — ja Luo peli · Avoimet pelit · Etsi pelikaveri), alla pikanapit Pelaan nyt ·
+  Kirjaa tulos · Kutsu · Liigat (+ Tapahtuma). Ilman varattavaa hallia (`useBookingHall`) ei ole
+  kenttäovea: peliseuran vaihtoehdot ovat suoraan valikossa. Toinen suunta: pelisivun Paikka-osio
+  ("Varaa kenttä tälle pelille" järjestäjälle tai "Kenttä varattu") ja chatin ⋯-valikko.
 - **Ilmoitukset** (kello Kodin yläkulmassa, `screens/home/Notifications.jsx`): lista kootaan
   olemassa olevasta datasta (`features/notifications.js`: pelikutsut, pelipyynnöt, lukemattomat
   viestit, "Pelasitteko?", alle vuorokauden päästä alkavat pelit, uudet pelit omissa kaupungeissa);
@@ -143,32 +148,41 @@ Reittitaulu on `app/routes.js`. Polut:
 ## 6. Design system
 
 ### Tokenit (`styles/tokens.css`)
-- Brändi: `--green-900 #0A2C20`, `--green-800 #0E3B2C` (pääväri), `--green-700 #155440`,
-  `--green-600 #1E6B52`, `--lime #CFE414` (korostus/CTA), `--lime-300 #DDEE5A`,
-  `--lime-100 #F4F8CF`, `--clay #D9734A` (tennismassa, putket/liekit), `--sky #3F7DFF` (oma sijainti).
-- Pinnat: `--bg #F7F5EF` (sovelluksen tausta), `--surface #FFFFFF`, `--surface-2 #FBFAF6`,
-  `--sand #EFECE3`, `--line #E5E1D7`, `--line-strong #D3CEC2`.
-- Teksti: `--ink #121212`, `--ink-2 #3A372F`, `--muted #6B665C`, `--faint #9A958A`,
-  `--on-dark #FFFFFF`, `--on-dark-muted rgba(255,255,255,.72)`.
-- Tilat: `--success #2D7A4D`, `--success-bg`, `--danger #B23B2E`, `--danger-bg`, `--warn #9A6B00`, `--warn-bg`.
+Ilme (2026-10-17): litteä ja kontrastikas "Spotify valkoisella" — valkoinen sivu, neutraalit harmaat,
+lähes musta tummille pinnoille ja lime ainoana korostusvärinä. Ei varjoja korteissa, ei koristekuvioita.
+- Brändi: `--green-*`-nimet ovat jääneet ensimmäisestä (metsänvihreästä) paletista; ne ovat nyt tummat
+  pinnat: `--green-900 #000`, `--green-800 #121212` (pääväri), `--green-700 #2A2A2A`, `--green-600 #3E3E3E`.
+  `--lime #CFE414` (korostus/CTA), `--lime-300 #DBEE45`, `--lime-100 #F4F8D9`, `--clay #E0592A`
+  (merkkipallot, putket), `--sky #2E77F0` (oma sijainti).
+- Pinnat: `--bg #FFFFFF`, `--surface #FFFFFF`, `--surface-2 #F7F7F7`, `--sand #F1F1F1`,
+  `--line #E8E8E8`, `--line-strong #D4D4D4`.
+- Teksti: `--ink #121212`, `--ink-2 #333`, `--muted #6A6A6A`, `--faint #969696`,
+  `--on-dark #FFFFFF`, `--on-dark-muted rgba(255,255,255,.7)`.
+- Tilat: `--success #16794A`, `--success-bg`, `--danger #D22F27`, `--danger-bg`, `--warn #8A6100`, `--warn-bg`.
+- Avatarit: tasavärit `--av-blue/yellow/red/green` (ei liukuvärejä).
 - **Lime ei koskaan ole tekstiväri vaalealla pohjalla** (kontrasti). Limeä käytetään taustana
-  (tummalla tekstillä `--ink`) tai tekstinä tummanvihreällä pohjalla.
-- Välit `--s1 4px … --s8 48px`; säteet `--r-sm 10px`, `--r-md 14px`, `--r-lg 18px`,
-  `--r-xl 24px`, `--r-pill 999px`; varjot `--shadow-1/2/3`, `--shadow-lift`.
-- Typografia: järjestelmäfontti (SF Pro / Segoe). `--fs-display 34px/800/-0.03em`,
+  (tummalla tekstillä `--ink`) tai tekstinä tummalla pohjalla.
+- Välit `--s1 4px … --s8 48px`; säteet `--r-xs 6px`, `--r-sm 8px`, `--r-md 10px`, `--r-lg 12px`,
+  `--r-xl 14px`, `--r-2xl 18px`, `--r-pill 999px` (vain napit ja chipit). Varjot: `--shadow-1` ja
+  `--shadow-lift` ovat tyhjiä (reunat kantavat rakenteen), `--shadow-2/3` vain päällä leijuville.
+- Typografia: järjestelmäfontti (SF Pro / Segoe), myös numeroissa (ei pyöristettyä). `--fs-display 34px/800/-0.03em`,
   `--fs-title 24px/800`, `--fs-h2 19px/750`, `--fs-h3 16px/700`, `--fs-body 15px`,
   `--fs-small 13px`, `--fs-micro 11px` (eyebrow: uppercase, 700, .08em).
-- Liike: `--ease-out cubic-bezier(.22,1,.36,1)`, `--ease-spring cubic-bezier(.34,1.56,.64,1)`,
+- Liike: `--ease-out cubic-bezier(.22,1,.36,1)`; `--ease-spring` on sama käyrä ilman yliheilahdusta,
   `--dur-1 140ms`, `--dur-2 220ms`, `--dur-3 360ms`.
 
 ### Liike ja tunnelma
 - Sivun vaihto: uusi sivu liukuu 16 px oikealta + fade (`.route-enter`), välilehti vaihtuu fadella.
 - Listat ilmestyvät porrastetusti: `<div className="stagger">` ja lapsille `style={{'--i': index}}`.
-- Napit: painallus skaalaa 0.97, hover nostaa 1 px. Kortit: hover nostaa 2 px + varjo.
-- Sheet nousee alhaalta jousella, taustan blur+fade, raahaamalla alas sulkeutuu.
+- Napit: painallus skaalaa 0.97, hover vaihtaa värin. Kortit: hover tummentaa reunan (ei nostoa).
+- Sheet nousee alhaalta, taustan blur+fade, raahaamalla alas sulkeutuu.
 - Onnistumiset: `confetti()` kun peli täyttyy / liityt / saat merkin; check-animaatio toasteissa.
-- Lataus: shimmer-skeletonit, ei pelkkiä spinnereitä listoissa. Splash: pomppiva pallo.
-- Tummanvihreät "hero"-pinnat käyttävät kenttäviivakuviota (`.court-lines`-tausta) ja limeä.
+- Lataus: shimmer-skeletonit, ei pelkkiä spinnereitä listoissa.
+- Ei jatkuvia pomppu-, heilunta- tai liekkianimaatioita tavallisissa näkymissä (koosteiden diat poikkeus).
+- Tummat "hero"-pinnat ovat tasaisen mustia ja käyttävät limeä; `.court-lines` on enää asemointikonteksti.
+- Navigaatio: aktiivinen välilehti näyttää ikonin täytettynä (`home-fill` jne.), muut ääriviivoina.
+- Kuvitukset (`ui/illustrations.jsx`): litteät geometriset muodot harmaalla kiekolla, musta + paperi + lime
+  pallo, ei kipinöitä/konfetteja/animaatiota; värit `--ill-*`-muuttujista, kääntyvät `.on-dark`-pinnoilla.
 
 ### UI-komponentit (`ui/index.js`)
 `Icon`, `Button`, `IconButton`, `Avatar`, `AvatarStack`, `Chip`, `ChipSelect`, `Segmented`,
@@ -182,11 +196,13 @@ versioita. Jos jokin puuttuu, lisää se oman alueesi kansioon, ei `ui/`:hin.
 ## 7. Näkymät (screens/)
 
 **Koti (home):** tumma hero ("Moi, Eelis!", Pelaan tällä viikolla -kytkin, ⚡ Pelaan nyt,
-iso "Pelataanko?"), Seuraava pelisi -kortti, pelikutsut ja pelipyynnöt, putki + kuukauden
+iso "Pelataanko?"), Seuraava pelisi -kortti (seuraava peli tai, kun halli on varattavissa, seuraava
+oma kenttävuoro, jolla ei ole peliä: `CourtCard`), pelikutsut ja pelipyynnöt, putki + kuukauden
 pelit + uusin merkki, lähialueen avoimet pelit vaakarullana, kuukauden kooste -kortti,
 kutsu kaveri -kortti. Maksamattomalle: avauskortti.
 
-**Pelit (games):** Segmented Avoimet / Omat pelit / Kartta. Suodattimet (pelityyppi,
+**Pelit (games):** Segmented Avoimet / Omat pelit / Kartta (Omat pelit → Tulevat: pelit ja
+kenttävuorot, joilla ei ole peliä, aikajärjestyksessä). Suodattimet (pelityyppi,
 sisällä/ulkona, pinta, taso) sheetissä, "Lähin ensin". Pelikortti: päivä-"lappu" (pe 3.10.),
 kellonaika, paikka, tyyppi, vapaat paikat pisteinä, etäisyys. Pelin sivu: osallistujat,
 liity / jonota / poistu / peru, jaa linkki, lisää kalenteriin (.ics), kutsu pelikavereita,
@@ -236,12 +252,22 @@ maksut rivistä sheetiin, omat varaukset yläpalkista (`/pelaa/omat-varaukset`),
 ruuduista, varausehdot linkistä (`BookingTermsSheet`). BookSheet: kesto →
 kenttä (kartta + chipit) → pito (`holdMinutes`, laskuri) → maksu (sama Stripe-`Checkout` kuin
 avausmaksussa, `createIntent`/`verify`-propseilla) → "Kenttä varattu!" + kalenteri + "Etsi pelikaveri
-tähän vuoroon" (avaa Luo peli -sheetin `?varaus=<id>`, täytettynä). Peruutus maksutta
+tähän vuoroon" (avaa Luo peli -sheetin `?varaus=<id>`, täytettynä). Kenelle varataan
+(`bookingTarget`): hallisarjan ottelu (`?liiga=&ottelu=`), peli (`?peli=<id>`: pelin päivä valitaan ja
+sheet aukeaa pelin alkuaikaan, jos kenttä on vapaana; jo varattu peli sanoo sen) tai chat
+(`?chat=<id>`) — maksun jälkeen "Lähetä aika" vie ajan sen chattiin. Peliä ja varausta ei linkitetä
+datassa: `bookingFitsGame` (features/booking.js) pitää varausta pelin kenttänä, kun peli alkaa sen
+aikana tai enintään 30 min ennen. `gamesAndCourts(games, bookings)` kokoaa tulevat pelit ja vahvistetut
+vuorot, joilla ei ole peliä, aikajärjestykseen — samaa listaa käyttävät Kodin Seuraava pelisi, Pelit →
+Omat pelit ja Pelataanko?:n Tulossa. Pelin kenttä näkyy pelinä; muu vuoro on `CourtCard`
+(`screens/shared/`, luokat `ccard-*`): kenttä, paikka, aika — napautus avaa varauksen
+(`/pelaa/omat-varaukset?vuoro=<id>`), ja tyhjällä vuorolla "Puuttuu pelikaveri" + "Avaa vuoro muille"
+(Luo peli -sheet `?varaus=<id>`, maksumuurin takana). Peruutus maksutta
 `cancelLimitHours` ennen (raha takaisin maksutavalle). Säännöt (aloitusajat,
 puolen tunnin hinnoittelu, vapaat kentät) ovat `features/booking.js`:ssä; palvelin
 (`krossi_hold_booking`, edge-funktio `krossi-booking`) päättää. Hallin henkilökunta: `/pelaa/halli/:venue`
 (päivän aikajana nimillä, esteet kuten Hallisarja, peruutus + hyvitys). Näkyy toistaiseksi vain
-demossa ja adminille (PlayMenu: `isDemo || isAdmin`).
+demossa ja adminille (`screens/booking/useBookingHall.js`, LeagueScreen: `isDemo || isAdmin`).
 
 **Kausivuorot, laskutus, sarja- ja lahjakortit (vaihe 2):** domainit `seasons`, `billing` ja `wallet`
 (contract.js), säännöt `features/seasons.js` (kauden viikot ja pyhät, kausihinta kuukausittain

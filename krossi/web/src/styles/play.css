@@ -25,6 +25,10 @@
 .play-chip.is-live .play-chip-time { color: var(--lime); }
 .play-chip.is-live .play-chip-name { color: #fff; }
 .play-chip.is-live .play-chip-place, .play-chip.is-live .play-chip-state { color: var(--on-dark-muted); }
+/* a court of mine that is no game's court: "Puuttuu pelikaveri" (clay) or a split "Kenttä varattu" */
+.play-chip.is-court .play-chip-time { color: var(--ink); }
+.play-chip.is-court.is-empty { border-color: var(--clay); }
+.play-chip.is-court.is-empty .play-chip-state { color: #A8401A; }
 
 /* Ajankohtaista */
 .play-news-list { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); }
@@ -37,10 +41,11 @@
 .play-news.is-strong:hover { background: var(--green-700); }
 .play-news.is-soft { background: var(--lime-100); color: var(--ink); border: 1px solid rgba(180, 205, 20, 0.45); }
 .play-news .avatar-stack { flex-shrink: 0; }
+.play-news-icon { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--lime); color: var(--green-800); }
 .play-news-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .play-news-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .play-news.is-strong .play-news-eyebrow { color: var(--lime); }
-.play-news.is-soft .play-news-eyebrow { color: #4A5605; }
+.play-news.is-soft .play-news-eyebrow { color: var(--ink-2); }
 .play-news-title { font-size: 15.5px; font-weight: 800; }
 .play-news-sub { font-size: 13px; }
 .play-news.is-strong .play-news-sub { color: var(--on-dark-muted); }
@@ -53,9 +58,29 @@
 @keyframes play-pulse { 0% { box-shadow: 0 0 0 0 rgba(207, 228, 20, 0.6); } 100% { box-shadow: 0 0 0 8px rgba(207, 228, 20, 0); } }
 @media (prefers-reduced-motion: reduce) { .play-live { animation: none; } }
 
-/* the ways to get a game, two by two (three on a desktop) */
+/* the two doors: a court (I have somebody), or somebody to play with (I need somebody) */
+.play-doors { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
+.play-door {
+  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 78px; padding: 14px 16px; text-align: left;
+  border-radius: var(--r-xl); -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-2);
+}
+.play-door:active { transform: scale(0.98); }
+.play-door.is-court { background: var(--green-800); color: #fff; }
+.play-door.is-court:hover { background: var(--green-700); }
+.play-door.is-partner { background: var(--lime); color: var(--ink); }
+.play-door.is-partner:hover { background: var(--lime-300); }
+.play-door-icon { flex-shrink: 0; width: 46px; height: 46px; border-radius: var(--r-lg); display: grid; place-items: center; }
+.play-door.is-court .play-door-icon { background: var(--lime); color: var(--green-800); }
+.play-door.is-partner .play-door-icon { background: var(--green-800); color: var(--lime); }
+.play-door-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.play-door-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+.play-door-sub { font-size: 13px; }
+.play-door.is-court .play-door-sub { color: var(--on-dark-muted); }
+.play-door.is-partner .play-door-sub { color: #3B4500; }
+
+/* the ways to get somebody to play with: Luo peli as a full row, then two side by side */
 .play-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-@media (min-width: 900px) { .play-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .play-tile {
   display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 112px; padding: 14px; text-align: left;
   border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
@@ -64,7 +89,7 @@
 .play-tile:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); }
 .play-tile:active { transform: scale(0.97); }
 .play-tile.is-primary { background: var(--lime); border-color: var(--lime); box-shadow: var(--shadow-lime); }
-/* a full-width row (court booking): icon on the left, text beside it */
+/* a full-width row (Luo peli): icon on the left, text beside it */
 .play-tile.is-wide { grid-column: 1 / -1; display: grid; grid-template-columns: 40px 1fr; column-gap: 12px; align-items: center; min-height: 0; }
 .play-tile.is-wide .play-tile-icon { grid-row: span 2; margin-bottom: 0; }
 .play-tile-icon { width: 40px; height: 40px; margin-bottom: 6px; border-radius: 12px; display: grid; place-items: center; }
@@ -73,17 +98,20 @@
 .play-tile-icon.is-sky { background: #E8F0FC; color: #2A5D94; }
 .play-tile-icon.is-green { background: var(--success-bg); color: var(--success); }
 .play-tile-icon.is-sand { background: var(--sand); color: var(--green-800); }
-.play-tile-icon.is-lime { background: var(--lime-100); color: #4A5605; }
+.play-tile-icon.is-lime { background: var(--lime-100); color: var(--ink-2); }
 .play-tile-title { font-size: 15px; font-weight: 800; color: var(--ink); }
 .play-tile-sub { font-size: 12.5px; line-height: 1.35; color: var(--muted); }
-.play-tile.is-primary .play-tile-title { color: #101A08; }
+.play-tile.is-primary .play-tile-title { color: var(--ink); }
 .play-tile.is-primary .play-tile-sub { color: #3B4500; }
 
-.play-links { display: flex; flex-wrap: wrap; gap: 8px; }
-.play-link {
-  display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: var(--r-pill);
-  background: var(--surface); border: 1px solid var(--line); font-size: 13.5px; font-weight: 700; color: var(--green-800);
-  transition: border-color var(--dur-2), transform var(--dur-1) var(--ease-out);
+/* small shortcuts under the doors: Pelaan nyt, Kirjaa tulos, Kutsu kaveri, Liigat (+ Tapahtuma) */
+.play-shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(66px, 1fr)); gap: 4px; }
+.play-shortcut {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 2px; border-radius: var(--r-md);
+  font-size: 12.5px; font-weight: 700; line-height: 1.2; color: var(--ink-2); text-align: center; -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--dur-2), transform var(--dur-1) var(--ease-out);
 }
-.play-link:hover { border-color: var(--line-strong); }
-.play-link:active { transform: scale(0.97); }
+.play-shortcut:hover { background: var(--surface-2); }
+.play-shortcut:active { transform: scale(0.96); }
+.play-shortcut .play-tile-icon { margin-bottom: 0; }
+.play-shortcut.is-on .play-tile-icon { background: var(--clay); color: #fff; }
