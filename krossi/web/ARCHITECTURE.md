@@ -145,8 +145,8 @@ Reittitaulu on `app/routes.js`. Polut:
   päästä alkavat pelit, uudet pelit omissa kaupungeissa);
   omaa taulua ei ole. "Nähty" = localStorage `krossi_notifs_seen:<uid>`.
 - Globaalit: `ToastHost`, `ConfirmHost`, `PaywallSheet`, `PendingOutcomeCheck`
-  (kysyy menneistä peleistä "Pelasitteko?" ja tarjoaa tuloksen kirjaamista, sitten muiden kirjaamista
-  tuloksista "Vahvistatko tuloksen?"), demotilan banneri.
+  (Omat-välilehden kortista tai kellosta: "Pelasitteko?" + tuloksen kirjaaminen, ja muiden kirjaamista
+  tuloksista "Vahvistatko tuloksen?"; ei avaudu itsestään), demotilan banneri.
 
 ## 6. Design system
 
@@ -233,7 +233,7 @@ poista tili, admin: maksutilan kytkin).
 **Tulokset ja vahvistus:** tuloksen nimet voivat olla Krossin pelaajia (`MatchResultSheet` →
 `PlayerNameField`: pelikaverit ensin, sitten kaupungin pelaajat, kirjoitettu nimi käy edelleen;
 "Pelasitteko?" esitäyttää kaksinpelin vastustajan). Linkitetty vastustaja saa pyynnön
-(`match_result_logged`, `krossi-notify`) ja vastaa Kodissa tai kellosta: Vahvista / Ei pidä paikkaansa
+(`match_result_logged`, `krossi-notify`) ja vastaa Omat-välilehden kortista (Odottaa vastaustasi) tai kellosta: Vahvista / Ei pidä paikkaansa
 (`results.confirm` / `dispute`). Kiistetyn tuloksen kirjaaja korjaa muokkaamalla, jolloin vastustajalta
 kysytään uudelleen. Vahvistettu tulos näkyy myös vastustajan ja parin pelihistoriassa (`isMine: false`,
 vain luku, oma puoli on "my"). Tulostaulu kertoo tilan (`confirmationLine`). Tasolaskennan pohja:

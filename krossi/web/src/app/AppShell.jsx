@@ -1,7 +1,7 @@
 // AppShell.jsx — navigation chrome (tab bar / side nav), route rendering, transitions.
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { api, isDemo } from '../api/index.js';
-import { Avatar, Button, Icon, ICON_NAMES } from '../ui/index.js';
+import { Avatar, Icon, ICON_NAMES } from '../ui/index.js';
 import { useIsDesktop, useResync } from './hooks.js';
 import { Link, navigate, navigationType, savedScroll, useRoute } from './router.js';
 import { matchRoute, PHONE_TABS, TABS, tabRoot } from './routes.js';
@@ -35,16 +35,10 @@ export function openCreateGame(query = '') {
   navigate(`/pelaa/uusi-peli${query}`, { overlay: true });
 }
 
-// "Pelataanko?" opens the play menu (screens/play/PlayMenu.jsx, mounted once by App.jsx).
-export const PLAY_MENU_OPEN = 'krossi:play-menu';
-export function openPlayMenu() {
-  window.dispatchEvent(new CustomEvent(PLAY_MENU_OPEN));
-}
-
 // The active tab shows the filled twin of its icon (outline = not active), when there is one.
 const tabIcon = (name, isActive) => (isActive && ICON_NAMES.includes(`${name}-fill`) ? `${name}-fill` : name);
 
-// Phones: four tabs and the big lime "Pelataanko?" in the middle, as in Koutsi.
+// Phones: Omat · Varaa · Peliseura · Viestit (Profiili is the avatar on Omat).
 function TabBar({ active, unread }) {
   const item = (t) => (
     <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
@@ -55,15 +49,9 @@ function TabBar({ active, unread }) {
       <span className="tabbar-label">{t.label}</span>
     </Link>
   );
-  const half = Math.ceil(PHONE_TABS.length / 2);
   return (
-    <nav className="tabbar has-center" aria-label="Päävalikko">
-      {PHONE_TABS.slice(0, half).map(item)}
-      <button type="button" className="tabbar-center" onClick={openPlayMenu}>
-        <span className="tabbar-center-btn"><Icon name="plus" size={28} strokeWidth={2.5} /></span>
-        <span className="tabbar-label">Pelataanko?</span>
-      </button>
-      {PHONE_TABS.slice(half).map(item)}
+    <nav className="tabbar" aria-label="Päävalikko" style={{ '--tabs': PHONE_TABS.length }}>
+      {PHONE_TABS.map(item)}
     </nav>
   );
 }
@@ -72,8 +60,7 @@ function SideNav({ active, unread }) {
   const { profile, isAdmin } = useSession();
   return (
     <aside className="sidenav on-dark court-lines">
-      <Link to="/pelaa/koti" className="sidenav-logo" aria-label="Krossi — koti">Krossi</Link>
-      <Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={openPlayMenu}>Pelataanko?</Button>
+      <Link to="/pelaa/koti" className="sidenav-logo" aria-label="Krossi — omat">Krossi</Link>
       <nav className="sidenav-links" aria-label="Päävalikko">
         {TABS.map((t) => (
           <Link key={t.id} to={t.path} className={cx('sidenav-link', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
@@ -82,7 +69,6 @@ function SideNav({ active, unread }) {
             {t.id === 'viestit' && unread > 0 && <span className="sidenav-badge">{unread > 9 ? '9+' : unread}</span>}
           </Link>
         ))}
-        <Link to="/pelaa/liigat" className={cx('sidenav-link', 'sidenav-link-sub')}><Icon name="trophy" size={20} /><span>Liigat</span></Link>
         {isAdmin && <Link to="/pelaa/yllapito" className="sidenav-link sidenav-link-sub"><Icon name="shield" size={20} /><span>Ylläpito</span></Link>}
       </nav>
       {profile && (

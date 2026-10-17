@@ -1,6 +1,6 @@
-// PlayersScreen — /pelaa/pelaajat: players in my city — who plays now first, then the best fits
-// for me (features/matching.js) with the reasons on the card — with name search, a level scroller
-// and more filters in a sheet. Unpaid users see a teaser.
+// PlayersScreen — /pelaa/pelaajat, the Peliseura tab's first view (PeliseuraHeader): players in my
+// city — who plays now first, then the best fits for me (features/matching.js) with the reasons on
+// the card — with name search, a level scroller and more filters in a sheet. Unpaid users see a teaser.
 import { useState } from 'react';
 import { api } from '../../api/index.js';
 import { openCreateGame } from '../../app/AppShell.jsx';
@@ -12,11 +12,12 @@ import { rankPlayers, reasonLine } from '../../features/matching.js';
 import { AVAILABILITY_SLOTS, CITIES, GENDERS, PLAY_STYLES, SKILL_LEVELS } from '../../lib/constants.js';
 import { plural } from '../../lib/format.js';
 import {
-  AvatarStack, Button, Card, ChipSelect, EmptyState, ErrorState, Field, Icon, IconButton, Input, Page, PageHeader,
+  AvatarStack, Button, Card, ChipSelect, EmptyState, ErrorState, Field, Icon, IconButton, Input, Page,
   Select, Sheet, Skeleton, SkeletonList, Toggle,
 } from '../../ui/index.js';
 import { InviteSheet } from '../shared/InviteSheet.jsx';
 import { PlayerCard } from '../shared/PlayerCard.jsx';
+import { PeliseuraHeader } from './PeliseuraHeader.jsx';
 import { cityIn, isPlayingNow, lockedPreviewPlayers, normalize } from './playerInfo.js';
 
 const DEFAULT_FILTERS = { level: '', styles: [], gender: '', slots: [], thisWeek: false, city: '' };
@@ -69,8 +70,8 @@ export function PlayersScreen() {
   const createOpenGame = () => requirePaid(() => openCreateGame(), 'Luo avoin peli');
 
   const header = (
-    <PageHeader
-      title="Pelaajat"
+    <PeliseuraHeader
+      view="pelaajat"
       subtitle={(
         <button type="button" className="players-city" onClick={() => setSheetOpen(true)} aria-label={`Kaupunki: ${city}. Vaihda`}>
           <Icon name="pin" size={15} />

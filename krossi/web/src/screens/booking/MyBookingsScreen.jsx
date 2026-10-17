@@ -132,7 +132,7 @@ export function MyBookingsScreen({ query }) {
   if (!venue) {
     return (
       <>
-        <TopBar title="Omat varaukset" back="/pelaa/pelit" />
+        <TopBar title="Omat varaukset" back="/pelaa/varaa" />
         <Page><EmptyState art="court" title="Kenttävaraus on tulossa" text="Kun halli aukeaa Krossissa, varauksesi, kausivuorosi ja korttisi näkyvät tässä." /></Page>
       </>
     );

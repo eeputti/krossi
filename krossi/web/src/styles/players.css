@@ -276,3 +276,23 @@ button.players-card-main { cursor: pointer; }
 @media (min-width: 900px) {
   .players-page .players-partners-list { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ── Peliseura header (PeliseuraHeader.jsx): Haen peliseuraa + view switch ── */
+.ps-head { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+.ps-head .page-header { padding-bottom: 0; }
+.ps-seek-btn { font-size: 16.5px; font-weight: 800; }
+.ps-seek {
+  display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: var(--r-lg);
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.ps-seek.is-on { background: var(--lime-100); border-color: color-mix(in srgb, var(--lime) 55%, var(--line)); }
+.ps-seek-icon {
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
+  background: var(--green-800); color: var(--lime);
+}
+.ps-seek-icon.is-now { background: var(--lime); color: var(--green-900); }
+.ps-seek-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ps-seek-title { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.ps-seek-sub { font-size: 12.5px; color: var(--ink-2); }
+.ps-views .segmented-btn { flex: 1; justify-content: center; }
+.ps-when { display: grid; gap: 4px; margin: 0 -8px; }

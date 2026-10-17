@@ -4,6 +4,7 @@ import { api, isDemo } from '../api/index.js';
 import { AppShell } from '../app/AppShell.jsx';
 import { DataProvider, useData } from '../app/data.jsx';
 import { navigate, useRoute } from '../app/router.js';
+import { useIsDesktop } from '../app/hooks.js';
 import { GateError, Splash } from '../shared/gates.jsx';
 import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
 import { koutsiCurrentIsoWeek } from '../domain/core.js';
@@ -11,23 +12,23 @@ import { recapWeekDue } from '../domain/week.js';
 import { markRecapSeen, previewRecap, recapSeen, WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { useCoach } from './CoachRoot.jsx';
-import { TABS } from './routes.js';
+import { PHONE_TABS, TABS } from './routes.js';
 import { WeekScreen } from './WeekScreen.jsx';
 import { PlannerSheet } from './PlannerSheet.jsx';
-import { GroupsScreen } from './GroupsScreen.jsx';
+import { BoardScreen } from './BoardScreen.jsx';
 import { GroupScreen } from './GroupScreen.jsx';
 import { PlayersScreen } from './PlayersScreen.jsx';
 import { PlayerScreen } from './PlayerScreen.jsx';
 import { InvitesSheet } from './InvitesSheet.jsx';
-import { CalendarScreen } from './CalendarScreen.jsx';
 import { SessionScreen } from './SessionScreen.jsx';
 import { ExercisesScreen, ExerciseScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
 import { AdminScreen } from './AdminScreen.jsx';
 import { RecordProvider, useRecord } from './merkitse.jsx';
 
-function LegacyRedirect({ route }) {
-  useEffect(() => { navigate(route.redirect, { replace: true }); }, [route.redirect]);
+function LegacyRedirect({ route, query }) {
+  const to = route.keepWeek && query.vko ? `${route.redirect}?vko=${encodeURIComponent(query.vko)}` : route.redirect;
+  useEffect(() => { navigate(to, { replace: true }); }, [to]);
   return null;
 }
 
@@ -41,11 +42,11 @@ function NotFound() {
 }
 
 const SCREENS = {
-  week: WeekScreen, planner: PlannerSheet, groups: GroupsScreen, group: GroupScreen,
+  week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen,
   players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet,
-  calendar: CalendarScreen, session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen,
+  session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen,
   profile: ProfileScreen, admin: AdminScreen,
-  legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect,
+  legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect, legacyCalendar: LegacyRedirect,
 };
 
 function ActingBanner({ name, onExit }) {
@@ -65,7 +66,7 @@ function WelcomeSheet() {
   const close = () => { setOpen(false); run(() => api.coach.markWelcomeSeen(ownerId), null); };
   const steps = [
     ['sparkles', 'Viikon teemat', 'Kirjoita teema kerran ja valitse ryhmät — tai jatka viime viikon teemoilla yhdellä napautuksella.'],
-    ['calendar', 'Treenit ja läsnäolo', 'Tämän päivän treenit näkyvät Koti-sivulla. Merkitse poissaolijat napauttamalla.'],
+    ['calendar', 'Viikkohallinta', 'Koko viikko kalenterina: ryhmät, treenit ja tapahtumat. Punertava kortti kertoo, että jotain puuttuu.'],
     ['plus', 'Merkitse', 'Iso Merkitse-nappi: huomio, kotiläksy tai video yhdelle pelaajalle tai koko ryhmälle — treenin jälkeen ryhmä on valmiina.'],
     ['users', 'Pelaajat mukaan', 'Lähetä jokaiselle oma liittymislinkki WhatsAppiin. Pelaaja näkee teeman ja oman kehityksensä.'],
   ];
@@ -90,6 +91,7 @@ function CoachShell() {
   const { acting, exitActing, isAdmin, adminChecked, coachId } = useCoach();
   const { openMenu } = useRecord();
   const route = useRoute();
+  const isDesktop = useIsDesktop();
   // What opens by itself, at most one thing, decided once: the welcome for a new account > the
   // renewed-look note > "Viikko paketissa" after the week's last session (never while acting).
   const [startup] = useState(() => {
@@ -116,7 +118,7 @@ function CoachShell() {
   return (
     <>
       <AppShell
-        tabs={TABS}
+        tabs={isDesktop ? TABS : PHONE_TABS}
         screens={SCREENS}
         NotFound={NotFound}
         roleLabel="Valmentaja"

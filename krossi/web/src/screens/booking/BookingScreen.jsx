@@ -52,7 +52,9 @@ function firstDay(venue, now = new Date()) {
   return now.getHours() * 60 + now.getMinutes() >= lastStart ? addDays(today, 1) : today;
 }
 
-export function BookingScreen({ params, query }) {
+export function BookingScreen({ params, query, route }) {
+  // The Varaa tab's root has no back arrow; a venue page, or a booking opened from a game or a chat, does.
+  const back = route?.name === 'booking' && !query?.peli && !query?.chat ? false : route?.name === 'bookingVenue' ? '/pelaa/varaa' : '/pelaa/koti';
   const toast = useToast();
   const { profile, user } = useSession();
   const now = useNow(60_000);
@@ -268,7 +270,7 @@ export function BookingScreen({ params, query }) {
   if (venues.loading && !venues.data) {
     return (
       <>
-        <TopBar title="Varaa kenttä" back="/pelaa/pelit" />
+        <TopBar title="Varaa kenttä" back={back} />
         <Page className="bk-page">
           <div className="bk-skel-places">{[0, 1, 2, 3].map((i) => <Skeleton key={i} h={62} r={16} />)}</div>
           <div className="bk-skel-row">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} h={68} r={16} />)}</div>
@@ -280,7 +282,7 @@ export function BookingScreen({ params, query }) {
   if (venues.error && !venues.data) {
     return (
       <>
-        <TopBar title="Varaa kenttä" back="/pelaa/pelit" />
+        <TopBar title="Varaa kenttä" back={back} />
         <Page><ErrorState error={venues.error} onRetry={() => venues.reload()} /></Page>
       </>
     );
@@ -288,13 +290,13 @@ export function BookingScreen({ params, query }) {
   if (!venue) {
     return (
       <>
-        <TopBar title="Varaa kenttä" back="/pelaa/pelit" />
+        <TopBar title="Varaa kenttä" back={back} />
         <Page>
           <EmptyState
             art="court"
             title="Kenttävaraus on tulossa"
             text="Pian varaat hallien vuorot ja maksat suoraan Krossissa. Kerromme, kun ensimmäinen halli aukeaa."
-            action={<Button variant="dark" onClick={() => navigate('/pelaa/pelit')}>Takaisin peleihin</Button>}
+            action={<Button variant="dark" icon="users" onClick={() => navigate('/pelaa/pelaajat')}>Etsi peliseuraa</Button>}
           />
         </Page>
       </>
@@ -368,7 +370,7 @@ export function BookingScreen({ params, query }) {
     <>
       <TopBar
         title={venue.name}
-        back="/pelaa/pelit"
+        back={back}
         actions={(
           <>
             <IconButton

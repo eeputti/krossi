@@ -102,22 +102,21 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 
 ## 5. Reitit
 
-**Valmentaja** (`/valmentaja`, välilehdet: Viikko · Ryhmät · Pelaajat · Kalenteri · Profiili)
+**Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)
 
 | Polku | Nimi | Tyyppi |
 |---|---|---|
 | `/valmentaja/koti` | week | tab (etusivu, ent. `/valmentaja/viikko` → uudelleenohjaus) |
 | `/valmentaja/teemat` (`?vko=2026-42`) | planner | overlay (Sheet) |
-| `/valmentaja/ryhmat` | groups | tab |
+| `/valmentaja/ryhmat` (`?vko=2026-42`) | groups — Viikkohallinta: viikko aikaruudukkona (ryhmät, yksityistunnit, tapahtumat, puutteet), plus-nappi | tab |
 | `/valmentaja/ryhma/:id` | group | page |
 | `/valmentaja/pelaajat` | players | tab |
 | `/valmentaja/pelaaja/:id` | player | page |
 | `/valmentaja/kutsut` | invites | overlay |
-| `/valmentaja/kalenteri` (`?vko=` / `?kk=`) | calendar | tab |
 | `/valmentaja/treeni/:id` | session | page |
 | `/valmentaja/harjoitteet`, `/valmentaja/harjoite/:id` | exercises, exercise | page |
 | `/valmentaja/profiili`, `/valmentaja/yllapito` | profile, admin | tab / page |
-| `/valmentaja/oppilaat`, `/ryhmat`, `/treenit`, `/harjoitteet` | vanhat osoitteet | ohjaus uusiin |
+| `/valmentaja/oppilaat`, `/treenit`, `/kalenteri` | vanhat osoitteet | ohjaus uusiin (`/kalenteri?vko=` säilyttää viikon) |
 
 **Pelaaja** (`/pelaaja`, välilehdet: Koti · Kehitys · Treenit · Ryhmä · Profiili)
 

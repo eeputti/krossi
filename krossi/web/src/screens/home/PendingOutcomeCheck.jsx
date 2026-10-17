@@ -1,8 +1,8 @@
 // PendingOutcomeCheck — mounted once by App.jsx for signed-in players.
 //
-// ~1.5 s after mount it asks api.games.pendingOutcomes() for past games whose outcome is still
-// open and api.results.listToConfirm() for results others logged with me as their opponent, and,
-// one at a time (games first), shows:
+// It never pops up by itself: past games whose outcome is still open, and results other players
+// logged with me as their opponent, are cards in Omat → "Odottaa vastaustasi" (and in the bell).
+// Tapping one calls askOutcome(game) / askResult(result), which shows its sheet here:
 //   "Pelasitteko?"
 //     Kyllä, pelattiin  -> recordOutcome('played') + confetti, then offers <MatchResultSheet> ("Kirjaa tulos?", skippable;
 //                          in a singles game the opponent comes prefilled as a Krossi player, who is then asked to confirm)
@@ -10,9 +10,8 @@
 //   "Vahvistatko tuloksen?" (ResultConfirm)
 //     Vahvista            -> results.confirm: the result joins my history too
 //     Ei pidä paikkaansa  -> results.dispute: the logger sees it and can correct it (then I'm asked again)
-//   closing a sheet -> snoozes that question for 24 h (localStorage 'krossi_outcome_snoozed'; results as 'r:<id>')
+//   closing a sheet -> nothing is recorded; the card stays in Omat
 // It waits while an overlay or a full-screen page (chat, recap) is open so it never stacks on them.
-// askOutcome(game) / askResult(result) ask right away, snoozed or not (the bell's items).
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useRoute } from '../../app/router.js';
@@ -24,9 +23,6 @@ import { notifyResultsChanged } from '../profile/matchResult.js';
 import { MatchResultSheet } from '../shared/MatchResultSheet.jsx';
 import { ResultConfirm } from './ResultConfirm.jsx';
 
-const SNOOZE_KEY = 'krossi_outcome_snoozed';
-const SNOOZE_MS = 24 * 60 * 60 * 1000;
-const FIRST_CHECK_MS = 1500;
 const NEXT_DELAY_MS = 650;
 const SHEET_EXIT_MS = 280;
 const RETRY_MS = 2000;
@@ -36,33 +32,13 @@ const ASK = 'krossi:ask-outcome';
 const gameItem = (game) => ({ key: game.id, kind: 'game', game });
 const resultItem = (result) => ({ key: `r:${result.id}`, kind: 'result', result });
 
-/** Put "Pelasitteko?" about this game first in line (shown on Koti once no sheet is open). */
+/** Put "Pelasitteko?" about this game first in line (shown on Omat once no sheet is open). */
 export function askOutcome(game) {
   window.dispatchEvent(new CustomEvent(ASK, { detail: gameItem(game) }));
 }
 /** Put "Vahvistatko tuloksen?" about this result first in line. */
 export function askResult(result) {
   window.dispatchEvent(new CustomEvent(ASK, { detail: resultItem(result) }));
-}
-
-function readSnoozed() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(SNOOZE_KEY) || '{}');
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {}; // storage blocked or corrupt — treat as nothing snoozed
-  }
-}
-
-function snooze(id) {
-  const now = Date.now();
-  const kept = Object.fromEntries(Object.entries(readSnoozed()).filter(([, until]) => Number(until) > now));
-  kept[id] = now + SNOOZE_MS;
-  try {
-    localStorage.setItem(SNOOZE_KEY, JSON.stringify(kept));
-  } catch {
-    // Private mode etc.: the question simply comes back on the next visit.
-  }
 }
 
 /** Everyone in the game except me. */
@@ -75,7 +51,7 @@ export function PendingOutcomeCheck() {
   const route = useRoute();
   const toast = useToast();
   const uid = user?.id || null;
-  // Only ask on Koti: popping a question over whatever the player is doing feels like a freeze.
+  // Only ask on Omat: popping a question over whatever the player is doing feels like a freeze.
   const blocked = route.name !== 'home' || BLOCKING_ROUTE_TYPES.has(route.route?.type);
 
   const [queue, setQueue] = useState([]); // { key, kind: 'game'|'result', game?, result? }
@@ -88,25 +64,6 @@ export function PendingOutcomeCheck() {
   const [retry, setRetry] = useState(0);
   const afterAsk = useRef('next'); // 'next' | 'result'
   const askedOnce = useRef(false);
-
-  // Load the pending games and results once per signed-in user (games first in line).
-  useEffect(() => {
-    if (!uid) return undefined;
-    let alive = true;
-    const t = setTimeout(() => {
-      const load = (fetch, toItem, what) => fetch()
-        .then((list) => (list || []).map(toItem))
-        .catch((err) => { console.warn(`[PendingOutcomeCheck] ${what} failed`, err); return []; });
-      Promise.all([load(api.games.pendingOutcomes, gameItem, 'pendingOutcomes'), load(api.results.listToConfirm, resultItem, 'listToConfirm')])
-        .then(([games, results]) => {
-          if (!alive) return;
-          const snoozed = readSnoozed();
-          const now = Date.now();
-          setQueue((q) => [...q, ...[...games, ...results].filter((i) => !(Number(snoozed[i.key]) > now) && !q.some((x) => x.key === i.key))]);
-        });
-    }, FIRST_CHECK_MS);
-    return () => { alive = false; clearTimeout(t); };
-  }, [uid]);
 
   useEffect(() => {
     const onAsk = (e) => {
@@ -145,14 +102,12 @@ export function PendingOutcomeCheck() {
 
   const dismiss = () => {
     if (!game || busy) return;
-    snooze(current.key);
     afterAsk.current = 'next';
     setAskOpen(false);
   };
 
   const dismissResult = () => {
     if (!result || busy) return;
-    snooze(current.key);
     setConfirmOpen(false);
   };
 

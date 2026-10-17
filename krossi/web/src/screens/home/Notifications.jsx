@@ -37,20 +37,18 @@ function writeSeen(uid, at) {
   }
 }
 
-/** The notification list for Koti: takes Koti's useAsync results so nothing is fetched twice. */
-export function useNotificationFeed({ open, mine, invites, requests, areas }) {
+/** The notification list for Omat: takes Omat's useAsync results (incl. results to confirm) so nothing is fetched twice. */
+export function useNotificationFeed({ open, mine, invites, requests, toConfirm, areas }) {
   const { user } = useSession();
   const conversations = useAsync(() => api.messages.listConversations(), []);
   const outcomes = useAsync(() => api.games.pendingOutcomes(), []);
   // Court booking: friends' paid parts and sold bookings. A player who never booked gets nothing here.
   const bookings = useAsync(() => api.booking.listMine().catch(() => null), []);
-  // Results: others' waiting for my answer, and answers to mine.
-  const toConfirm = useAsync(() => api.results.listToConfirm(), []);
+  // Results: answers to mine (the ones waiting for my answer come from Omat's own query).
   const results = useAsync(() => api.results.listMine(), []);
   const { reload: reloadConversations } = conversations;
   const { reload: reloadOutcomes } = outcomes;
   const { reload: reloadRequests } = requests;
-  const { reload: reloadToConfirm } = toConfirm;
   const { reload: reloadResults } = results;
 
   useEffect(() => {
@@ -66,10 +64,10 @@ export function useNotificationFeed({ open, mine, invites, requests, areas }) {
     return () => window.removeEventListener(GAMES_CHANGED, onChange);
   }, [reloadOutcomes]);
   useEffect(() => {
-    const onChange = () => { reloadToConfirm({ silent: true }); reloadResults({ silent: true }); };
+    const onChange = () => reloadResults({ silent: true });
     window.addEventListener(RESULTS_CHANGED, onChange);
     return () => window.removeEventListener(RESULTS_CHANGED, onChange);
-  }, [reloadToConfirm, reloadResults]);
+  }, [reloadResults]);
 
   const now = useNow(60_000);
   const items = useMemo(() => buildNotifications({
@@ -81,11 +79,11 @@ export function useNotificationFeed({ open, mine, invites, requests, areas }) {
     open: open.data || [],
     areas,
     bookings: [...(bookings.data?.upcoming || []), ...(bookings.data?.past || [])],
-    toConfirm: toConfirm.data || [],
+    toConfirm: toConfirm?.data || [],
     results: results.data || [],
     uid: user?.id,
     now,
-  }), [invites.data, requests.data, conversations.data, outcomes.data, mine.data, open.data, areas, bookings.data, toConfirm.data, results.data, user?.id, now]);
+  }), [invites.data, requests.data, conversations.data, outcomes.data, mine.data, open.data, areas, bookings.data, toConfirm?.data, results.data, user?.id, now]);
   const loading = [conversations, outcomes, invites, requests].some((q) => q.loading && q.data === undefined);
   return { items, loading };
 }

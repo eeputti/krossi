@@ -1,121 +1,210 @@
-/* board.css — the coach's day and week at a glance: the Ryhmät week board (gb-), today's
+/* board.css — the coach's day and week at a glance: Viikkohallinta's time grid (wb-), today's
    timeline on Koti (tt-) and the session strip in the Merkitse menu (ms-). Only tokens. */
 
-/* ── Ryhmät: the week board ──────────────────────────────── */
+/* ── Viikkohallinta: the week as a time grid ─────────────── */
 .page-full { max-width: calc(1480px + 2 * var(--gutter)); }
-.gb-page { padding-bottom: 24px; }
-.gb-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; padding: calc(16px + var(--safe-top)) 0 4px; }
-.has-top-banner .gb-head { padding-top: 14px; }
-.gb-week { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.gb-week-text { min-width: 0; display: grid; gap: 2px; }
-.gb-week-title { font-size: 30px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
-.gb-week-range { font-size: 14px; font-weight: 650; color: var(--muted); }
-.gb-back { justify-self: start; margin-top: 2px; font-size: 13px; }
-.gb-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.gb-sub { margin: 8px 0 14px; font-size: 13.5px; color: var(--muted); }
+.wb-page { --wb-hour: 84px; --wb-fold: 22px; --wb-axis: 46px; --wb-gap: 6px; --wb-sticky: 0px; padding-bottom: 32px; }
+.has-top-banner .wb-page { --wb-sticky: calc(33px + var(--safe-top)); }
 
-.gb-board { display: grid; gap: 10px; align-items: start; }
-.gb-day { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 8px; min-width: 0; }
-.gb-day-head {
-  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; padding: 4px 2px 8px;
-  border-bottom: 2px solid var(--line);
+.wb-head { padding: calc(16px + var(--safe-top)) 0 12px; }
+.has-top-banner .wb-head { padding-top: 14px; }
+.wb-eyebrow { margin-bottom: 6px; }
+.wb-head-row { display: flex; align-items: center; gap: 10px 20px; min-width: 0; }
+.wb-head-row.is-empty { justify-content: space-between; padding-top: 8px; }
+.wb-week { display: flex; align-items: center; gap: 8px; }
+.wb-title { min-width: 4.9em; text-align: center; font-size: 36px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wb-head-row.is-empty .wb-title { min-width: 0; text-align: left; font-size: 30px; }
+.wb-meta { display: grid; gap: 2px; min-width: 0; }
+.wb-range {
+  display: inline-flex; align-items: center; gap: 3px; justify-self: start; margin: -2px -6px; padding: 2px 6px; border-radius: var(--r-sm);
+  font-size: 14px; font-weight: 700; color: var(--ink-2); transition: background-color var(--dur-2);
 }
-.gb-day-name { font-size: 14px; font-weight: 800; letter-spacing: 0.02em; color: var(--ink); }
-.gb-day-long { display: none; }
-.gb-day-date { font-size: 12.5px; font-weight: 650; color: var(--muted); }
-.gb-day.is-today .gb-day-head { border-bottom-color: var(--lime); }
-.gb-day.is-today .gb-day-name { color: var(--green-700); }
-.gb-today {
-  display: inline-flex; align-items: center; height: 20px; padding: 0 8px; margin-left: auto; border-radius: var(--r-pill);
-  background: var(--lime); color: var(--ink); font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+.wb-range:hover { background: var(--surface-2); }
+.wb-range svg { color: var(--muted); }
+.wb-counts { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.wb-today-btn {
+  height: 34px; padding: 0 14px; border-radius: var(--r-pill); background: var(--lime); color: var(--ink);
+  font-size: 13px; font-weight: 800; white-space: nowrap; transition: transform var(--dur-1) var(--ease-out);
 }
-.gb-day.is-past .gb-card:not(.is-missing) { background: var(--surface-2); }
-.gb-day-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-.gb-empty { padding: 10px 2px; font-size: 12.5px; color: var(--faint); }
+.wb-today-btn:active { transform: scale(0.96); }
+.wb-add-slot { margin-left: auto; }
+.wb-add {
+  width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--green-800); color: #fff;
+  transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-2);
+}
+.wb-add:hover { background: var(--green-700); }
+.wb-add:active { transform: scale(0.94); }
 
-.gb-card {
-  display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 10px 11px 11px; border-radius: var(--r-md);
-  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); color: var(--ink);
-  transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2), box-shadow var(--dur-2);
+/* day heads and club events: the same columns as the grid, the time axis first */
+.wb-heads, .wb-allday { display: grid; column-gap: var(--wb-gap); }
+.wb-heads {
+  position: sticky; top: var(--wb-sticky); z-index: 6; background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
 }
-.gb-card:hover { border-color: var(--line-strong); }
-.gb-card:active { transform: scale(0.98); }
-.gb-card.is-now { border-color: var(--line-strong); box-shadow: inset 4px 0 0 var(--lime); }
-.gb-card.is-missing { background: transparent; border-style: dashed; box-shadow: none; color: var(--muted); }
-.gb-card-time { font-size: 13px; font-weight: 800; color: var(--green-800); }
-.gb-card.is-missing .gb-card-time { color: var(--faint); }
-.gb-card-name { font-size: 14.5px; font-weight: 750; line-height: 1.25; overflow-wrap: anywhere; }
-.gb-card.is-missing .gb-card-name { color: var(--muted); }
-.gb-card-meta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
-.gb-card-theme { display: flex; align-items: flex-start; gap: 4px; margin-top: 2px; font-size: 12.5px; font-weight: 650; line-height: 1.3; }
-.gb-card-theme svg { flex-shrink: 0; margin-top: 1px; }
-.gb-card-theme-text { min-width: 0; overflow-wrap: anywhere; }
-.gb-card-theme.has-theme { color: var(--success); }
-.gb-card-theme.no-theme { color: var(--warn); font-weight: 600; }
-.gb-card-note { margin-top: 2px; font-size: 12px; font-style: italic; color: var(--faint); }
-.gb-card-live { display: inline-flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; font-weight: 800; color: var(--ink-2); }
-.gb-card-absent { margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--warn); }
-
-/* the day strip only exists on a phone, where the board scrolls a day at a time */
-.gb-strip { display: none; }
-.gb-loose { margin-top: 24px; }
-.gb-bulk { margin-top: 18px; }
-
-@media (min-width: 900px) {
-  .gb-head { padding-top: 32px; }
-  .gb-week-title { font-size: 36px; }
-  .gb-board { grid-auto-flow: column; }
+.wb-dayhead { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 8px 4px; border-bottom: 2px solid var(--line); white-space: nowrap; overflow: hidden; }
+.wb-dayhead-dow { font-size: 14px; font-weight: 800; color: var(--ink); }
+.wb-dayhead-date { font-size: 12.5px; font-weight: 650; color: var(--muted); }
+.wb-dayhead.is-past .wb-dayhead-dow { color: var(--muted); }
+.wb-dayhead.is-today { border-bottom-color: var(--lime); }
+.wb-allday { grid-auto-rows: 28px; row-gap: 4px; padding: 8px 0 2px; }
+.wb-allday-label { align-self: center; font-size: 10.5px; font-weight: 750; line-height: 1.15; text-align: right; color: var(--faint); hyphens: manual; }
+.wb-allday-phone { display: none; }
+.wb-event {
+  display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 10px; border-radius: var(--r-sm); text-align: left;
+  background: var(--sand); color: var(--ink); font-size: 12.5px; font-weight: 700; transition: background-color var(--dur-2);
 }
-/* narrow desktop: seven columns still fit, with a smaller card */
+.wb-event:hover { background: var(--sand-2); }
+.wb-event svg { flex-shrink: 0; color: var(--clay); }
+.wb-event-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-event-kind { margin-left: auto; padding-left: 6px; font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+
+/* the grid: times on the left, an hour line per hour, the days over the lines */
+.wb-main { display: grid; grid-template-columns: var(--wb-axis) minmax(0, 1fr); column-gap: var(--wb-gap); padding-top: 12px; }
+.wb-axis, .wb-area { position: relative; height: calc(var(--wb-hours) * var(--wb-hour) + var(--wb-folds) * var(--wb-fold)); }
+.wb-area { min-width: 0; }
+.wb-axis-label { position: absolute; right: 2px; transform: translateY(-50%); font-size: 11.5px; font-weight: 650; line-height: 1; color: var(--faint); }
+.wb-axis-fold { position: absolute; right: 6px; height: var(--wb-fold); display: grid; place-items: center; font-size: 13px; letter-spacing: 1px; color: var(--faint); }
+.wb-lines { position: absolute; inset: 0; pointer-events: none; }
+.wb-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--line); }
+.wb-fold { position: absolute; left: 0; right: 0; height: var(--wb-fold); background: repeating-linear-gradient(-45deg, var(--surface-2) 0 5px, transparent 5px 10px); }
+.wb-days { position: absolute; inset: 0; display: grid; grid-auto-flow: column; column-gap: var(--wb-gap); }
+.wb-day { position: relative; min-width: 0; height: 100%; }
+.wb-day.is-today { border-radius: var(--r-sm); background: rgba(207, 228, 20, 0.07); }
+.wb-day-empty { position: absolute; top: 10px; left: 0; right: 0; padding: 0 4px; text-align: center; font-size: 12px; color: var(--faint); }
+.wb-now { position: absolute; z-index: 3; left: 0; right: 0; height: 2px; margin-top: -1px; border-radius: 2px; background: var(--clay); pointer-events: none; }
+.wb-now::before { content: ""; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--clay); }
+
+/* a session: light lime when all is set, light clay when something is missing, grey once held,
+   dashed when the group's usual session isn't on the calendar this week */
+.wb-block {
+  position: absolute; z-index: 1; display: block; padding: 0; overflow: hidden; text-align: left; container-type: size;
+  border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  transition: transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2), border-color var(--dur-2);
+}
+.wb-block::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: transparent; }
+.wb-block:hover { z-index: 2; box-shadow: var(--shadow-2); }
+.wb-block:active { transform: scale(0.98); }
+.wb-block:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.wb-block.is-ok { background: var(--lime-100); border-color: var(--lime-200); }
+.wb-block.is-ok::before { background: var(--lime); }
+.wb-block.is-issue { background: var(--clay-100); border-color: rgba(224, 89, 42, 0.3); }
+.wb-block.is-issue::before { background: var(--clay); }
+.wb-block.is-past { background: var(--surface-2); border-color: var(--line); color: var(--muted); }
+.wb-block.is-past::before { background: var(--line-strong); }
+.wb-block.is-missing { background: rgba(255, 255, 255, 0.8); border-style: dashed; border-color: var(--line-strong); color: var(--muted); }
+.wb-block.is-missing::before { display: none; }
+.wb-block.is-missing.is-issue { background: rgba(251, 230, 220, 0.55); border-color: rgba(224, 89, 42, 0.5); }
+.wb-block.is-now { box-shadow: 0 0 0 2px var(--lime); }
+
+.wb-b { display: flex; flex-direction: column; gap: 2px; height: 100%; min-width: 0; padding: 5px 7px 6px 10px; line-height: 1.25; }
+.wb-b > * { flex-shrink: 0; }
+.wb-b-top { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.wb-b-time { min-width: 0; overflow: hidden; white-space: nowrap; font-size: 11.5px; font-weight: 800; color: var(--ink-2); }
+.wb-b-alert { flex-shrink: 0; margin-left: auto; color: var(--clay); }
+.wb-b-live { flex-shrink: 0; margin-left: auto; }
+.wb-b-name {
+  font-size: 13.5px; font-weight: 750; line-height: 1.2; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.wb-b-meta { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.wb-b-meta svg { flex-shrink: 0; }
+.wb-b-level { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wb-b-absent {
+  flex-shrink: 0; margin-left: auto; padding: 0 6px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--line);
+  font-size: 11px; font-weight: 750; line-height: 16px; color: var(--ink-2);
+}
+.wb-b-line { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11.5px; font-weight: 650; color: var(--muted); }
+.wb-b-line.is-issue { color: var(--ink-2); font-weight: 750; }
+.wb-b-issue { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-b-line.is-theme { color: var(--ink-2); }
+.wb-b-line svg { flex-shrink: 0; }
+.wb-b-theme { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-block.is-past .wb-b-time, .wb-block.is-past .wb-b-line, .wb-block.is-missing .wb-b-time { color: var(--muted); }
+.wb-block.is-missing .wb-b-name { font-weight: 650; }
+.wb-block.is-missing .wb-b-line { font-style: italic; }
+
+/* what shows inside follows the block's size: a short session keeps its name, a narrow one its start */
+@container (max-height: 100px) { .wb-b .wb-b-name { -webkit-line-clamp: 1; } }
+@container (max-height: 72px) { .wb-b .wb-b-line { display: none; } }
+@container (max-height: 54px) { .wb-b .wb-b-meta { display: none; } }
+@container (max-height: 38px) { .wb-b { justify-content: center; padding-block: 2px; } .wb-b .wb-b-top { display: none; } }
+@container (max-width: 64px) { .wb-b .wb-b-time, .wb-b .wb-b-meta { display: none; } .wb-b .wb-b-name { -webkit-line-clamp: 3; } }
+@container (max-width: 112px) { .wb-b .wb-b-end, .wb-b .wb-b-level { display: none; } .wb-b { padding-inline: 8px 5px; } .wb-b .wb-b-name { font-size: 12.5px; } }
+
+.wb-loose { margin-top: 28px; }
+.wb-strip { display: none; }
+
+/* narrow desktop: seven columns still fit, with a tighter gap */
 @media (min-width: 900px) and (max-width: 1180px) {
-  .gb-board { gap: 6px; }
-  .gb-card { padding: 8px 8px 9px; }
-  .gb-card-name { font-size: 13.5px; }
-  .gb-today { display: none; }
+  .wb-page { --wb-gap: 4px; --wb-axis: 40px; }
+  .wb-dayhead { padding-inline: 2px; }
 }
 
 @media (max-width: 899px) {
-  .gb-week { flex: 1 1 auto; }
-  .gb-week-text { flex: 1; }
-  .gb-week-title { font-size: 28px; }
-  .gb-actions { width: 100%; }
-  .gb-actions > :last-child { margin-left: auto; }
-  .gb-sub { margin: 6px 0 10px; }
-  .gb-strip {
-    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; position: sticky; z-index: 3;
-    top: calc(var(--safe-top) + 0px); margin: 0 calc(-1 * var(--gutter)) 10px; padding: 8px var(--gutter);
-    background: rgba(255, 255, 255, 0.92); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
+  .wb-page { --wb-hour: 84px; --wb-axis: 42px; }
+  .wb-head-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "week add" "meta today"; gap: 8px 10px; }
+  .wb-head-row.is-empty { display: flex; }
+  .wb-week { grid-area: week; }
+  .wb-title { min-width: 4.7em; font-size: 28px; }
+  .wb-meta { grid-area: meta; display: flex; align-items: center; flex-wrap: wrap; gap: 2px 10px; }
+  .wb-today-btn { grid-area: today; justify-self: end; height: 30px; padding: 0 12px; }
+  .wb-add-slot { grid-area: add; justify-self: end; margin-left: 0; }
+  .wb-add { width: 44px; height: 44px; }
+  .wb-heads, .wb-allday { display: none; }
+  .wb-allday-phone { display: grid; gap: 6px; margin: 2px 0 6px calc(var(--wb-axis) + var(--wb-gap)); }
+  .wb-strip {
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; position: sticky; z-index: 6;
+    top: var(--wb-sticky); margin: 0 calc(-1 * var(--gutter)) 6px; padding: 8px var(--gutter);
+    background: rgba(255, 255, 255, 0.94); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
   }
-  .has-top-banner .gb-strip { top: calc(33px + var(--safe-top)); }
-  .gb-strip-day {
+  .wb-strip-day {
     display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 0 5px; border-radius: var(--r-md);
     color: var(--muted); -webkit-tap-highlight-color: transparent; transition: background-color var(--dur-2), color var(--dur-2);
   }
-  .gb-strip-dow { font-size: 11px; font-weight: 750; letter-spacing: 0.04em; text-transform: uppercase; }
-  .gb-strip-num { font-size: 17px; font-weight: 800; color: var(--ink); }
-  .gb-strip-dot { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
-  .gb-strip-dot.has-groups { background: var(--green-600); }
-  .gb-strip-day.is-today .gb-strip-dow { color: var(--green-700); }
-  .gb-strip-day.is-today .gb-strip-num { color: var(--green-700); }
-  .gb-strip-day.is-active { background: var(--green-800); color: var(--on-dark-muted); }
-  .gb-strip-day.is-active .gb-strip-num { color: #fff; }
-  .gb-strip-day.is-active .gb-strip-dow { color: var(--on-dark-muted); }
-  .gb-strip-day.is-active.is-today .gb-strip-dow { color: var(--lime); }
-  .gb-strip-day.is-active .gb-strip-dot.has-groups { background: var(--lime); }
+  .wb-strip-dow { font-size: 11px; font-weight: 750; letter-spacing: 0.04em; text-transform: uppercase; }
+  .wb-strip-num { font-size: 17px; font-weight: 800; color: var(--ink); }
+  .wb-strip-dot { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
+  .wb-strip-dot.has-sessions { background: var(--lime); }
+  .wb-strip-dot.has-issue { background: var(--clay); }
+  .wb-strip-day.is-today .wb-strip-num { text-decoration: underline 2px var(--lime); text-underline-offset: 4px; }
+  .wb-strip-day.is-active { background: var(--green-800); color: var(--on-dark-muted); }
+  .wb-strip-day.is-active .wb-strip-num { color: #fff; }
 
-  /* one day per screen, the next one peeking in from the right */
-  .gb-board {
-    display: flex; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory;
-    margin: 0 calc(-1 * var(--gutter)); padding: 0 var(--gutter) 4px; scroll-padding-inline: var(--gutter); scrollbar-width: none;
+  /* one day per screen beside the times, the next one peeking in from the right */
+  .wb-days {
+    display: flex; gap: 10px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none;
   }
-  .gb-board::-webkit-scrollbar { display: none; }
-  .gb-day { flex: 0 0 86%; scroll-snap-align: start; }
-  .gb-day-short { display: none; }
-  .gb-day-long { display: inline; }
-  .gb-day-name { font-size: 16px; }
-  .gb-card { padding: 12px 14px; }
-  .gb-card-name { font-size: 15.5px; }
+  .wb-days::-webkit-scrollbar { display: none; }
+  .wb-day { flex: 0 0 88%; scroll-snap-align: start; }
+  .wb-day.is-today { background: transparent; }
+  .wb-b-name { font-size: 14.5px; }
 }
+
+/* Viikkohallinta's pop-ups: a session's state and its fixes, the facts, the week picker */
+.wb-status { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface-2); }
+.wb-status:not(.is-issue) { flex-direction: row; align-items: flex-start; gap: 10px; }
+.wb-status.is-ok { background: var(--lime-100); border-color: var(--lime-200); }
+.wb-status.is-issue { background: var(--clay-100); border-color: rgba(224, 89, 42, 0.3); }
+.wb-status.is-missing { background: var(--surface); border-style: dashed; border-color: var(--line-strong); }
+.wb-status-row { display: flex; align-items: center; gap: 10px; }
+.wb-status .grow { display: grid; gap: 1px; min-width: 0; }
+.wb-status strong { font-size: 14.5px; font-weight: 800; color: var(--ink); }
+.wb-status-text { font-size: 13px; line-height: 1.4; color: var(--muted); }
+.wb-status.is-issue .wb-status-text { color: var(--ink-2); }
+.wb-status-icon { flex-shrink: 0; margin-top: 1px; color: var(--ink-2); }
+.wb-status.is-issue .wb-status-icon { color: var(--clay); }
+.wb-status.is-past .wb-status-icon, .wb-status.is-missing .wb-status-icon { color: var(--muted); }
+.wb-status-fix {
+  flex-shrink: 0; height: 34px; padding: 0 14px; border-radius: var(--r-pill); background: var(--green-800); color: #fff;
+  font-size: 13px; font-weight: 750; white-space: nowrap; transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-2);
+}
+.wb-status-fix:hover { background: var(--green-700); }
+.wb-status-fix:active { transform: scale(0.96); }
+.wb-facts { display: flex; flex-wrap: wrap; gap: 6px; }
+.wb-fact { padding: 4px 10px; border-radius: var(--r-pill); background: var(--sand); font-size: 12.5px; font-weight: 650; color: var(--ink-2); }
+.ms-row.is-danger .ms-row-icon { background: var(--clay-100); color: var(--clay); }
+.cal-cell.is-week { background: var(--lime-100); }
+.cal-cell.is-week:hover { background: var(--lime-200); }
 
 /* ── Koti: today's timeline ──────────────────────────────── */
 .tt-summary { font-size: 13px; font-weight: 650; color: var(--muted); white-space: nowrap; }

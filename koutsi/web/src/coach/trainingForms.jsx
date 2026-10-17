@@ -13,7 +13,7 @@ import { useCoach } from './CoachRoot.jsx';
 const cx = (...c) => c.filter(Boolean).join(' ');
 
 /** New session for a player or a group (optionally weekly for a year), or edit one. */
-export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGroupId }) {
+export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGroupId, defaultTime }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const isEdit = Boolean(editing);
@@ -33,10 +33,10 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
     setStudentId(editing?.studentId || null);
     setGroupId(editing?.groupId || defaultGroupId || null);
     setDate(editing?.date || defaultDate || koutsiTodayStr());
-    setTime(editing?.time || '');
+    setTime(editing?.time || defaultTime || '');
     setType(editing?.type || (state.groups.length ? 'Ryhmätreeni' : 'Yksityistunti'));
     setRepeat(false); setQuery('');
-  }, [open, editing, defaultDate, defaultGroupId, state.groups.length]);
+  }, [open, editing, defaultDate, defaultGroupId, defaultTime, state.groups.length]);
   useEffect(() => { if (!isEdit) setType(target === 'group' ? 'Ryhmätreeni' : 'Yksityistunti'); }, [target, isEdit]);
   const types = TRAINING_TYPES[target];
   const repeatUntil = repeat && date ? koutsiAddDays(date, 365) : null;

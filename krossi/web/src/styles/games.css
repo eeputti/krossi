@@ -90,7 +90,6 @@
 .ccard-foot .btn { flex-shrink: 0; }
 
 /* ── games list screen ───────────────────────────────────── */
-.games-segmented { margin-bottom: 12px; }
 .games-toolbar {
   display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
   margin: 0 calc(var(--gutter) * -1) 14px; padding: 2px var(--gutter);
@@ -158,14 +157,6 @@
 .games-past-meta { font-size: 12.5px; color: var(--muted); }
 .games-past-more { display: flex; margin: 10px auto 0; }
 
-.games-fab {
-  position: fixed; right: 18px; bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 16px); z-index: 70;
-  width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--lime); color: var(--ink); box-shadow: var(--shadow-lime), var(--shadow-2);
-  animation: k-pop 480ms var(--ease-spring) 180ms both; transition: transform var(--dur-1) var(--ease-out);
-}
-.games-fab .icon { transition: transform var(--dur-3) var(--ease-spring); }
-.games-fab:active { transform: scale(0.92); }
 
 /* ── map ─────────────────────────────────────────────────── */
 .games-map-skel { height: clamp(380px, calc(100vh - 330px), 680px); height: clamp(380px, calc(100dvh - 330px), 680px); }

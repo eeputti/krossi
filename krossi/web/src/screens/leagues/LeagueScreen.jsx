@@ -5,7 +5,7 @@
 //   finished the final standings
 // A hallisarja keeps every round: a round picker shows the earlier rounds' tables.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, isDemo } from '../../api/index.js';
+import { api } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
 import { LockedPreview, usePaywall } from '../../app/paywall.jsx';
 import { appUrl, navigate } from '../../app/router.js';
@@ -15,6 +15,7 @@ import {
   Button, Chip, ChipSelect, Disclosure, EmptyState, ErrorState, Icon, IconButton, Page, ProgressBar, ProgressRing,
   Segmented, Skeleton, SkeletonList, Toggle, TopBar, confetti, useConfirm, useShare, useToast,
 } from '../../ui/index.js';
+import { useBookingHall } from '../booking/useBookingHall.js';
 import { AdminCard, FakeStandings, FixtureCard, MemberList, StandingsTable } from './LeagueParts.jsx';
 import { burstOrigin } from './LeaguesScreen.jsx';
 import { ReportResultSheet } from './ReportResultSheet.jsx';
@@ -37,14 +38,15 @@ const shortDate = (day) => {
 
 export function LeagueScreen({ params }) {
   const id = params?.id;
-  const { user, isAdmin } = useSession();
-  const bookingOn = isDemo || isAdmin; // court booking: demo + admins until the first hall is live
+  const { user } = useSession();
   const meId = user?.id;
   const { paid, requirePaid } = usePaywall();
   const toast = useToast();
   const confirm = useConfirm();
   const shareLink = useShare();
   const { data: league, error, loading, reload, setData } = useAsync(() => api.leagues.get(id), [id]);
+  // "Varaa kenttä ottelulle" where the league's city has a hall this player can book.
+  const { hall: courtHall } = useBookingHall(league?.city ? [league.city] : []);
   const [busy, setBusy] = useState(null); // 'join' | 'start' | 'close' | 'leave' | 'continues' | fixtureId
   const [reporting, setReporting] = useState(null);
   const [adminFixture, setAdminFixture] = useState(null);
@@ -257,7 +259,7 @@ export function LeagueScreen({ params }) {
                   onConfirm={confirmResult}
                   onChat={openChat}
                   onAdmin={league.canManage ? (f) => setAdminFixture(f) : null}
-                  onBook={hall && bookingOn
+                  onBook={hall && courtHall
                     ? (f) => navigate(`/pelaa/varaa?liiga=${encodeURIComponent(league.id)}&ottelu=${encodeURIComponent(f.id)}`)
                     : null}
                 />
