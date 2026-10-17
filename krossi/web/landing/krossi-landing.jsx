@@ -252,7 +252,6 @@ function Nav() {
         <a href="#top" className="nav-logo"><Wordmark size={21} /></a>
         <nav className="nav-links">
           <a href="#ominaisuudet">Ominaisuudet</a>
-          <a href="#hinta">Hinta</a>
           <a href="/demo">Demo</a>
           <a href="#halleille">Halleille</a>
           <a href="https://koutsi.krossi.app">Valmentajille</a>
@@ -264,74 +263,15 @@ function Nav() {
 }
 
 function Hero({ t }) {
-  const heroRef = React.useRef(null);
-  const phoneElRef = React.useRef(null);
-  const phoneVisualRef = React.useRef(null);
-
-  const handleScrollEl = React.useCallback((el) => {
-    phoneElRef.current = el;
-  }, []);
-
-  // All screens: drive phone scroll based on how far hero section has scrolled past
-  React.useEffect(() => {
-    const onScroll = () => {
-      const section = heroRef.current;
-      const phoneEl = phoneElRef.current;
-      if (!section || !phoneEl) return;
-      const rect = section.getBoundingClientRect();
-      const progress = Math.max(0, Math.min(1, -rect.top / section.offsetHeight));
-      phoneEl.scrollTop = progress * (phoneEl.scrollHeight - phoneEl.clientHeight);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  // Mobile: intercept touch swipes on the phone visual to scroll phone content
-  React.useEffect(() => {
-    const wrapper = phoneVisualRef.current;
-    if (!wrapper) return;
-
-    let startY = 0;
-    let startScrollTop = 0;
-
-    const onTouchStart = (e) => {
-      const phoneEl = phoneElRef.current;
-      if (!phoneEl) return;
-      startY = e.touches[0].clientY;
-      startScrollTop = phoneEl.scrollTop;
-    };
-
-    const onTouchMove = (e) => {
-      if (window.innerWidth >= 940) return;
-      const phoneEl = phoneElRef.current;
-      if (!phoneEl) return;
-      const deltaY = startY - e.touches[0].clientY;
-      const maxScroll = phoneEl.scrollHeight - phoneEl.clientHeight;
-      const atTop = phoneEl.scrollTop <= 0 && deltaY < 0;
-      const atBottom = phoneEl.scrollTop >= maxScroll - 1 && deltaY > 0;
-      if (!atTop && !atBottom) {
-        e.preventDefault();
-        phoneEl.scrollTop = Math.max(0, Math.min(startScrollTop + deltaY, maxScroll));
-      }
-    };
-
-    wrapper.addEventListener('touchstart', onTouchStart, { passive: true });
-    wrapper.addEventListener('touchmove', onTouchMove, { passive: false });
-    return () => {
-      wrapper.removeEventListener('touchstart', onTouchStart);
-      wrapper.removeEventListener('touchmove', onTouchMove);
-    };
-  }, []);
-
   return (
-    <section className="hero hero-single" id="lataa" ref={heroRef}>
+    <section className="hero hero-single" id="lataa">
         <div className="hero-copy">
           <span className="hero-badge"><span className="hero-badge-tag">Uusi</span>Krossi toimii nyt selaimessa</span>
           <h1 className="hero-title">
-            Uutta{' '}
-            {t.highlight ? <span className="hl">peliseuraa?</span> : <span>peliseuraa?</span>}
+            Varaa kenttä.<br />
+            Löydä {t.highlight ? <span className="hl">pelikaveri.</span> : <span>pelikaveri.</span>}
           </h1>
-          <p className="hero-sub">Löydä oman tasoisesi pelikaverit ja sovi peli muutamalla napautuksella. Krossi toimii suoraan selaimessa ilman latausta — ja iPhonessa.</p>
+          <p className="hero-sub">Katso vapaat vuorot, varaa kenttä ja sovi peli oman tasoisesi pelikaverin kanssa muutamalla napautuksella. Krossi toimii suoraan selaimessa ilman latausta — ja iPhonessa.</p>
           <div className="hero-cta">
             <a href="/pelaa" className="btn-lime btn-lg">Aloita pelit</a>
             <a href="/demo" className="btn-ghost btn-lg">Kokeile demoa <span className="btn-note">— ilman tiliä</span></a>
@@ -346,10 +286,10 @@ function Hero({ t }) {
             </li>
           </ul>
         </div>
-        <div className="hero-visual" ref={phoneVisualRef}>
+        <div className="hero-visual">
           <p className="demo-label">Kurkista sisään — puhelinta voi selata</p>
           <div className="hero-stage">
-            <div className="phone-front"><KrossiPhone startTab="players" width={290} onScrollEl={handleScrollEl} /></div>
+            <KrossiAppPhone src="/demo/pelaajat" />
           </div>
         </div>
     </section>
@@ -465,7 +405,6 @@ function Features() {
   return (
     <section className="features" id="ominaisuudet">
       <div className="features-header">
-        <span className="eyebrow"><span className="ball-dot" /> Ominaisuudet</span>
         <h2 className="sec-title">Vähemmän viestittelyä, enemmän pelejä.</h2>
       </div>
       <div className="feat-zig">
@@ -480,45 +419,6 @@ function Features() {
           </article>
         ))}
       </div>
-    </section>
-  );
-}
-
-const PAID_PERKS = [
-  'Kaikki pelaajat, tasot ja milloin he ehtivät pelata',
-  'Pelien luominen ja niihin liittyminen',
-  'Viestit ja pelipyynnöt',
-  'Liigat, putket ja merkit',
-];
-const FREE_PERKS = ['Demo ilman tiliä', 'Tilin luominen', 'Sovelluksen selaaminen esikatseluna'];
-
-function Pricing() {
-  return (
-    <section className="pricing" id="hinta">
-      <div className="pricing-header">
-        <span className="eyebrow">Hinta</span>
-        <h2 className="sec-title">Yksi maksu. Ei tilausta.</h2>
-        <p className="pricing-sub">Krossin voi kokeilla ja tilin luoda maksutta. Pelaaminen avautuu yhdellä kertamaksulla — ei kuukausimaksua eikä toistuvaa laskutusta.</p>
-      </div>
-      <div className="pricing-grid">
-        <div className="price-card">
-          <span className="price-name">Maksutta</span>
-          <span className="price-amount">0 €</span>
-          <ul className="price-list">
-            {FREE_PERKS.map((p) => <li key={p}><LandIcon name="check" size={15} />{p}</li>)}
-          </ul>
-          <a href="/demo" className="btn-ghost btn-md">Kokeile demoa</a>
-        </div>
-        <div className="price-card price-card-main">
-          <span className="price-name">Krossi</span>
-          <span className="price-amount">8,99 €<small>kertamaksu</small></span>
-          <ul className="price-list">
-            {PAID_PERKS.map((p) => <li key={p}><LandIcon name="check" size={15} />{p}</li>)}
-          </ul>
-          <a href="/pelaa" className="btn-lime btn-md">Aloita pelit</a>
-        </div>
-      </div>
-      <p className="pricing-note">Maksu hoidetaan Stripen kautta, eikä Krossi näe korttitietojasi. Kuitti tulee sähköpostiin.</p>
     </section>
   );
 }
@@ -655,7 +555,6 @@ function App() {
       <Hero t={t} />
       <UpcomingMatches />
       <Features />
-      <Pricing />
       <Trust />
       <Clubs />
       <DemoBand />
