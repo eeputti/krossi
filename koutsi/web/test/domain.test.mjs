@@ -221,3 +221,26 @@ test('the Ryhmät week board puts every group under the days it trains, and show
   assert.equal(later.days[0].items[0].group.id, 'g3');
   assert.equal(later.days[0].items[0].why, 'week');
 });
+
+test('a homework from the drill bank: drills for the theme first, then ones done alone, as one line', async () => {
+  const { homeworkSuggestions, exerciseHomeworkText } = await import('../src/domain/exercises.js');
+  const week = koutsiCurrentIsoWeek();
+  const g = { ...group, memberIds: ['s1'], themes: [{ year: week.year, week: week.week, title: 'Kakkossyöttö', lead: 'Kierre ennen vauhtia' }] };
+  const exercises = [
+    { id: 'e1', name: 'Minitennis ristiin', goal: 'Pehmeä aloitus.', playerCount: 2, tags: ['lammittely'] },
+    { id: 'e2', name: 'Split step -ajoitus', goal: 'Ajoitus ennen nopeutta.', playerCount: 1, tags: ['liikkuminen'] },
+    { id: 'e3', name: 'Ensimmäinen syöttö', goal: '20 ykkössyöttöä.', playerCount: 1, tags: ['syotto'] },
+    { id: 'e4', name: 'Kakkossyöttö + suunta', goal: 'Kymmenen ulos, kymmenen keskelle.', playerCount: 1, tags: ['syotto'] },
+  ];
+  const state = { groups: [g], exercises };
+  const picked = homeworkSuggestions(state, ['s1'], { date: koutsiTodayStr() });
+  // the theme in the drill's name beats a matching topic
+  assert.deepEqual(picked.items.map((i) => [i.exercise.id, i.reason]), [['e4', 'teema'], ['e3', 'teema'], ['e2', 'yksin'], ['e1', null]]);
+  assert.equal(picked.theme, 'Kakkossyöttö');
+  // nobody picked yet: no theme to go by, drills done alone come first (by name)
+  const none = homeworkSuggestions(state, [], { limit: 3 });
+  assert.deepEqual(none.items.map((i) => i.exercise.id), ['e3', 'e4', 'e2']);
+  assert.equal(none.theme, null);
+  assert.equal(exerciseHomeworkText({ name: 'Seinä', goal: ' 30 lyöntiä\n seinään. ' }), 'Seinä: 30 lyöntiä seinään.');
+  assert.equal(exerciseHomeworkText({ name: 'Seinä', goal: '' }), 'Seinä');
+});

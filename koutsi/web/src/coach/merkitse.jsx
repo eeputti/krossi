@@ -34,7 +34,7 @@ const average = (x) => x.toFixed(1).replace('.', ',');
 const KIND_EVENT = { note: 'huomio', homework: 'laksy', video: 'video' };
 
 const RecordContext = createContext(null);
-/** { openMenu({ trainingId? }), open('note' | 'homework' | 'video', { ids, source: 'treeni' | 'ryhma' | 'pelaaja' }) } */
+/** { openMenu({ trainingId? }), open('note' | 'homework' | 'video', { ids, source: 'treeni' | 'ryhma' | 'pelaaja' | 'harjoite', text? }) } */
 export function useRecord() {
   const ctx = useContext(RecordContext);
   if (!ctx) throw new Error('useRecord must be used inside RecordProvider');
@@ -207,9 +207,9 @@ export function RecordProvider({ children }) {
     setSheet((s) => (s && (s.kind === 'menu' || s.kind === 'day' || s.kind === 'week') ? null : s));
   }, [route.path]);
 
-  const open = useCallback((kind, { ids = [], source } = {}) => {
+  const open = useCallback((kind, { ids = [], source, text = '' } = {}) => {
     if (source) track(`${source}.${KIND_EVENT[kind]}`);
-    setSheet({ kind, ids });
+    setSheet({ kind, ids, text });
   }, []);
   // The menu opens on the session asked for, else the one on now, just over or next today.
   const stateRef = useRef(state);
@@ -236,7 +236,7 @@ export function RecordProvider({ children }) {
     <RecordContext.Provider value={value}>
       {children}
       <MerkitseSheet open={kind === 'menu'} onClose={close} onPick={setSheet} pickedId={last.current.menu?.trainingId || null} onPickSession={pickSession} />
-      <RecordSheet open={kind === 'note' || kind === 'homework'} kind={last.current.record?.kind || 'note'} initialIds={sheet?.ids || []} onClose={close} />
+      <RecordSheet open={kind === 'note' || kind === 'homework'} kind={last.current.record?.kind || 'note'} initialIds={sheet?.ids || []} initialText={sheet?.text || ''} onClose={close} />
       <VideoShareSheet open={kind === 'video'} onClose={close} recipients={state.students} initialIds={sheet?.ids || []} groups={state.groups} onSave={shareVideo} />
       <DaySummarySheet open={kind === 'day'} date={last.current.day?.date} onClose={close} />
       <WeekRecapSheet open={kind === 'week'} week={last.current.week?.week} onClose={close} />

@@ -670,3 +670,19 @@
 .admin-usage-bar { height: 6px; border-radius: 999px; background: var(--sand); overflow: hidden; }
 .admin-usage-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--green-700); min-width: 2px; }
 .admin-usage-meta { font-size: 12px; }
+
+/* ── a homework from the drill bank (RecordSheet) ─────────── */
+.k-hw-suggest-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.k-hw-suggest-head .field-label { margin: 0; min-width: 0; }
+.k-hw-suggest-head .k-textlink { flex-shrink: 0; }
+.k-hw-suggest { display: grid; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.k-hw-suggest-row {
+  display: flex; align-items: center; gap: 10px; min-width: 0; padding: 11px 12px; text-align: left;
+  font-size: 14px; font-weight: 700; background: var(--surface); transition: background-color var(--dur-2);
+}
+.k-hw-suggest-row + .k-hw-suggest-row { border-top: 1px solid var(--line); }
+.k-hw-suggest-row:hover { background: var(--surface-2); }
+.k-hw-suggest-icon { flex-shrink: 0; color: var(--green-800); }
+.k-hw-suggest-why { flex-shrink: 0; padding: 2px 8px; border-radius: var(--r-pill); background: var(--lime-100); font-size: 11.5px; font-weight: 750; color: var(--ink-2); }
+.k-hw-suggest-add { flex-shrink: 0; color: var(--muted); }
+.k-ex-homework { justify-self: start; }

@@ -1,5 +1,6 @@
 // ExercisesScreen — the coach's drill bank (reachable from Profiili and the side nav; it is a
-// tool, not something a coach opens every week). List with filters, detail with video.
+// tool, not something a coach opens every week). List with filters, detail with video, and
+// "Anna kotiläksyksi": the Kotiläksy sheet opens with the drill written in, players to pick.
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
@@ -8,7 +9,9 @@ import { Button, ChipSelect, EmptyState, Field, Icon, IconButton, Input, Page, S
 import { Quiet } from '../shared/bits.jsx';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
 import { KOUTSI_TAGS, KOUTSI_TAG_LABELS } from '../domain/core.js';
+import { exerciseFacts, exerciseHomeworkText } from '../domain/exercises.js';
 import { useCoach } from './CoachRoot.jsx';
+import { useRecord } from './merkitse.jsx';
 import { exercisePath } from './nav.js';
 
 const COUNTS = [{ value: 'all', label: 'Kaikki' }, { value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }, { value: '4', label: '4+' }];
@@ -86,7 +89,7 @@ export function ExercisesScreen() {
                     <span className="k-ex-icon">{e.video ? <Icon name="play" size={16} /> : <Icon name="racket" size={16} />}</span>
                     <span className="k-row-main">
                       <span className="k-row-title truncate">{e.name}</span>
-                      <span className="k-row-sub truncate">{[e.players && `${e.players} pel.`, e.duration, e.level, ...(e.tags || []).map((t) => KOUTSI_TAG_LABELS[t])].filter(Boolean).join(' · ')}</span>
+                      <span className="k-row-sub truncate">{exerciseFacts(e)}</span>
                     </span>
                     <Icon name="chevron-right" size={18} className="k-chevron" />
                   </Link>
@@ -109,6 +112,7 @@ export function ExerciseScreen({ params }) {
   const [editOpen, setEditOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
   const [playing, setPlaying] = useState(null);
+  const record = useRecord();
   const ex = state.exercises.find((e) => e.id === params.id);
   if (!ex) return (<><TopBar title="Harjoite" back="/valmentaja/harjoitteet" /><Page><EmptyState art="search" title="Harjoitetta ei löytynyt" /></Page></>);
   const remove = async () => {
@@ -136,6 +140,7 @@ export function ExerciseScreen({ params }) {
           {(ex.tags || []).map((t) => <span key={t} className="chip chip-md chip-lime">{KOUTSI_TAG_LABELS[t] || t}</span>)}
         </div>
         {ex.goal && <p className="k-body-text">{ex.goal}</p>}
+        <Button variant="lime" icon="check-circle" className="k-ex-homework" onClick={() => record.open('homework', { source: 'harjoite', text: exerciseHomeworkText(ex) })}>Anna kotiläksyksi</Button>
         <div className="stack-2">
           <div className="field-label">Video</div>
           {ex.video ? (
