@@ -5084,7 +5084,6 @@ function Sidebar({ tab, setTab, coach, onSignOut, nav, acting }) {
         })}
       </nav>
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.14)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {!acting && <window.KoutsiRoleSwitch role="valmentaja" uid={coach.id} />}
         <window.KoutsiNewAppLink role="valmentaja" />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 6px 8px' }}>
           <Avatar src={coach.avatarUrl} initial={coach.initial} hue={coach.hue} size={34} />
@@ -5120,10 +5119,7 @@ function MobileTopBar({ coach, acting, onProfile, onSignOut }) {
           <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {(() => {
-            const tag = <span style={{ padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.5)', color: 'var(--lime)', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6 }}>VALMENTAJA</span>;
-            return acting ? tag : <window.KoutsiRoleSwitch role="valmentaja" uid={coach.id} variant="pill" fallback={tag} />;
-          })()}
+          <span style={{ padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.5)', color: 'var(--lime)', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6 }}>VALMENTAJA</span>
           <window.KoutsiNewAppLink role="valmentaja" variant="pill" />
         </div>
       </div>

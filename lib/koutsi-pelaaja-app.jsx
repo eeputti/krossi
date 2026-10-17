@@ -1560,7 +1560,6 @@ function Sidebar({ tab, setTab, student, onSignOut }) {
         })}
       </nav>
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.14)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <window.KoutsiRoleSwitch role="pelaaja" uid={student.id} />
         <window.KoutsiNewAppLink role="pelaaja" />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 6px 8px' }}>
           <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={34} />
@@ -1595,8 +1594,7 @@ function MobileTopBar({ student, onProfile, onSignOut }) {
           <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Koutsi</span>
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <window.KoutsiRoleSwitch role="pelaaja" uid={student.id} variant="pill"
-            fallback={<span style={{ padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.5)', color: 'var(--lime)', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, flexShrink: 0 }}>PELAAJA</span>} />
+          <span style={{ padding: '4px 11px', borderRadius: 999, background: 'rgba(207,228,20,0.12)', border: '1px solid rgba(207,228,20,0.5)', color: 'var(--lime)', fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, flexShrink: 0 }}>PELAAJA</span>
           <window.KoutsiNewAppLink role="pelaaja" variant="pill" />
         </div>
       </div>

@@ -556,57 +556,6 @@ function KoutsiNewAppLink({ role, variant = 'sidebar' }) {
   );
 }
 
-// The Koutsi admin's switch between their own coach and player views: one account can be both
-// once it has joined its own groups as a player (koutsi_admin_join_own_groups, done from the new
-// Koutsi's switch). Shown only to an admin whose player row is linked to their own coaching —
-// nobody else, never in the demos, never while acting as another coach (callers leave it out).
-// `?esikatsele=rooli` on localhost previews it in the demos.
-const koutsiRoleSwitchPreview = () => ['localhost', '127.0.0.1'].includes(window.location.hostname)
-  && new URLSearchParams(window.location.search).get('esikatsele') === 'rooli';
-const koutsiRoleSwitchChecks = new Map(); // uid → Promise<boolean>, shared by the side menu and the phone bar
-function koutsiRoleSwitchAllowed(uid) {
-  if (!koutsiRoleSwitchChecks.has(uid)) {
-    koutsiRoleSwitchChecks.set(uid, Promise.all([window.koutsiIsAdmin(), window.koutsiFetchCoachLinksForStudent(uid)])
-      .then(([admin, links]) => Boolean(admin) && links.some((l) => l.coach_id === uid))
-      .catch(() => false));
-  }
-  return koutsiRoleSwitchChecks.get(uid);
-}
-
-// role: 'valmentaja' | 'pelaaja' (the app it sits in). variant: 'sidebar' | 'pill' (phone top bar,
-// in place of the role tag — `fallback` is that tag for everyone else).
-function KoutsiRoleSwitch({ role, uid, variant = 'sidebar', fallback = null }) {
-  const [allowed, setAllowed] = React.useState(koutsiRoleSwitchPreview);
-  React.useEffect(() => {
-    if (window.KOUTSI_DEMO_ROLE || !uid) return undefined;
-    let alive = true;
-    koutsiRoleSwitchAllowed(uid).then((ok) => { if (alive) setAllowed(ok); });
-    return () => { alive = false; };
-  }, [uid]);
-  if (!allowed) return fallback;
-  const preview = koutsiRoleSwitchPreview() ? '?esikatsele=rooli' : '';
-  const roles = [
-    { id: 'valmentaja', label: 'Valmentaja', href: `${window.KOUTSI_DEMO_ROLE ? '/koutsi-valmentaja-demo.html' : '/valmentaja'}${preview}` },
-    { id: 'pelaaja', label: 'Pelaaja', href: `${window.KOUTSI_DEMO_ROLE ? '/koutsi-pelaaja-demo.html' : '/pelaaja'}${preview}` },
-  ];
-  const pill = variant === 'pill';
-  return (
-    <div role="group" aria-label="Näkymä" style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 999, background: 'rgba(255,255,255,0.1)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.16)', alignSelf: pill ? 'auto' : 'stretch', flexShrink: 0 }}>
-      {roles.map((r) => {
-        const on = r.id === role;
-        const style = {
-          flex: pill ? 'none' : 1, textAlign: 'center', padding: pill ? '3px 8px' : '7px 10px', borderRadius: 999,
-          fontSize: pill ? 10.5 : 13, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap',
-          background: on ? 'var(--lime)' : 'transparent', color: on ? '#101a08' : 'rgba(255,255,255,0.78)',
-        };
-        return on
-          ? <span key={r.id} aria-current="page" style={style}>{r.label}</span>
-          : <a key={r.id} href={r.href} style={style}>{r.label}</a>;
-      })}
-    </div>
-  );
-}
-
 // ── Views as addresses ───────────────────────────────────────
 // Both apps kept the open view in a single useState, so every view shared one address:
 // a refresh dropped you back on the first tab, a link could not point at anything in
@@ -796,7 +745,7 @@ Object.assign(window, {
   KoutsiAttendanceBadge, KoutsiAttendanceModal,
   KoutsiQrCode, KoutsiCopyButton, koutsiCopyText,
   KoutsiNotificationBell, KoutsiEmailPrefToggle,
-  KoutsiDeleteAccountButton, KoutsiLegalLinks, KoutsiNewAppLink, KoutsiRoleSwitch,
+  KoutsiDeleteAccountButton, KoutsiLegalLinks, KoutsiNewAppLink,
   useKoutsiTabRoute,
   KoutsiWelcomeModal, KoutsiFeedbackModal,
 });

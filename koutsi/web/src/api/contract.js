@@ -29,8 +29,7 @@ export const API_CONTRACT = {
 
   // Coach role: fetchRow(uid) → { id } | null; load(coachId) → CoachState; subscribe(coachId, cb) → unsubscribe.
   // saveWeekNote(coachId, { year, week, score, note }) — the coach's private weekly diary.
-  // joinOwnGroups(groupIds) — admin only: be a player in your own groups (the role switch) → { groups }.
-  coach: ['fetchRow', 'load', 'redeemKey', 'markWelcomeSeen', 'saveProfile', 'saveWeekNote', 'joinOwnGroups', 'subscribe'],
+  coach: ['fetchRow', 'load', 'redeemKey', 'markWelcomeSeen', 'saveProfile', 'saveWeekNote', 'subscribe'],
 
   // Player role: fetchRow(uid) → { id } | null; load(studentId) → PlayerState; and the player's own writes.
   // addMood → { id }; updateMood(moodId, { score?, note?, hiddenFromCoach? }).
