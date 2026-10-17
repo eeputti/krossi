@@ -53,6 +53,7 @@ export const USAGE_SECTIONS = [
     events: [
       ['viikko.treeni', 'Treeni avattu viikkonäkymästä'],
       ['viikko.lasnaolo', 'Treeni → Läsnäolo'],
+      ['viikko.runko', 'Treeni → Treenin runko'],
       ['viikko.huomio', 'Treeni → Huomio'],
       ['viikko.laksy', 'Treeni → Kotiläksy'],
       ['viikko.video', 'Treeni → Video'],
@@ -79,6 +80,16 @@ export const USAGE_SECTIONS = [
       ['pankki.lisaa', 'Suodatin: omatoimiset tai videolliset'],
       ['pankki.lahde', 'Omat / Krossin kirjasto vaihdettu'],
       ['pankki.haku', 'Haku käytetty'],
+    ],
+  },
+  {
+    title: 'Treenin runko',
+    events: [
+      ['runko.avaa', 'Harjoitepankki avattu runkoon'],
+      ['runko.lisaa', 'Harjoite lisätty runkoon'],
+      ['runko.kesto', 'Harjoitteen kesto muutettu'],
+      ['runko.siirra', 'Harjoite siirretty'],
+      ['runko.poista', 'Harjoite poistettu rungosta'],
     ],
   },
   {

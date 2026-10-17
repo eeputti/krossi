@@ -16,6 +16,7 @@ import {
 import { relativeDay, shortDay, themeWeekShort } from '../domain/week.js';
 import { activityStreak, checkInCandidate, homeThemeCards, ownThisWeek, upcomingSessions } from '../domain/player.js';
 import { koutsiFmtEventDate } from '../domain/timeline.js';
+import { planSummary, readPlan } from '../domain/plan.js';
 import { firstName } from '../domain/roster.js';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { MoodPicker } from './sheets.jsx';
@@ -69,6 +70,7 @@ function NextSession({ state, student }) {
   const coach = koutsiCoachById(state, next.coachId);
   const theme = group ? koutsiThemeForDate(group, next.date) : null;
   const absent = (next.absences || []).some((a) => a.studentId === student.id);
+  const plan = readPlan(next.notes);
   return (
     <Card className={cx('next-session', absent && 'is-absent')}>
       <div className="eyebrow">{relativeDay(next.date) === 'Tänään' ? 'Tänään' : 'Seuraava treeni'}</div>
@@ -78,6 +80,11 @@ function NextSession({ state, student }) {
       </div>
       <div className="next-session-what">{next.type}{group ? ` · ${group.name}` : ''}{coach ? ` · ${coach.name}` : ''}</div>
       {theme && <div className="next-session-theme"><Icon name="sparkles" size={14} /> {theme.title}</div>}
+      {plan.items.length > 0 && (
+        <button type="button" className="tp-link" onClick={() => actions.openPlan(next)}>
+          <Icon name="list" size={16} /><span className="grow"><strong>Treenin runko</strong> · {planSummary(plan)}</span><Icon name="chevron-right" size={16} />
+        </button>
+      )}
       <div className="row wrap">
         {absent ? (
           <>
@@ -90,7 +97,13 @@ function NextSession({ state, student }) {
         <ul className="next-session-rest">
           {upcoming.slice(1, 3).map((t) => {
             const g = t.groupId ? koutsiGroupById(state, t.groupId) : null;
-            return <li key={t.id}><span className="t-num">{shortDay(t.date)} {t.time}</span> · {t.type}{g ? ` · ${g.name}` : ''}</li>;
+            const hasRunko = readPlan(t.notes).items.length > 0;
+            return (
+              <li key={t.id}>
+                <span className="t-num">{shortDay(t.date)} {t.time}</span> · {t.type}{g ? ` · ${g.name}` : ''}
+                {hasRunko && <> · <button type="button" className="tp-inline is-text" onClick={() => actions.openPlan(t)}>Runko</button></>}
+              </li>
+            );
           })}
         </ul>
       )}

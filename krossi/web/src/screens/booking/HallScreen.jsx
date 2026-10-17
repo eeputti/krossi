@@ -265,7 +265,7 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
             {location && <DayStats summary={summary} failed={Boolean(day.error) && !fresh} />}
 
             {location ? (
-              <section className="bhall-board" aria-label={`${location.name}: kentät ja varaukset`}>
+              <section className="bhall-board" aria-label={`${location.name}: kentät ja varaukset`} data-tour="hall-board">
                 {day.error && !fresh ? (
                   <ErrorState error={day.error} onRetry={() => reloadDay()} compact />
                 ) : (

@@ -12,6 +12,7 @@ import {
   koutsiRoundTimeToQuarterHour, koutsiRoundToQuarterHourMinutes,
   KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX,
 } from '../../domain/core.js';
+import { writePlan } from '../../domain/plan.js';
 
 const from = (table) => db().from(table);
 
@@ -340,6 +341,13 @@ export const trainings = {
       .eq('series_id', seriesId).gte('date', fromDate || koutsiTodayStr());
     if (error) throw error;
     return count || 0;
+  },
+  // The plan lives in the coach's session row's notes (see domain/plan.js). RLS lets only the
+  // coach write it, so a row that did not change means the session is gone or not theirs.
+  async setPlan(trainingId, plan) {
+    const rows = must(await from('koutsi_trainings').update({ notes: writePlan(plan) })
+      .eq('id', trainingId).eq('logged_by', 'coach').select('id'));
+    if (!rows || rows.length === 0) throw new ApiError('Treeniä ei löytynyt. Se on ehkä poistettu.', { code: 'not_found' });
   },
 };
 

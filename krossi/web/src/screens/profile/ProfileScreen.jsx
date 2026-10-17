@@ -1,6 +1,6 @@
 // ProfileScreen — /pelaa/profiili: who I am, how I play and everything I've earned.
 import { useState } from 'react';
-import { api } from '../../api/index.js';
+import { api, isDemo } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
 import { Link, navigate } from '../../app/router.js';
@@ -17,6 +17,7 @@ import { MatchResultSheet } from '../shared/MatchResultSheet.jsx';
 import { RecapTeaser } from '../shared/RecapTeaser.jsx';
 import { StreakBadge } from '../shared/StreakBadge.jsx';
 import { useActivity } from '../shared/useActivity.js';
+import { TourRestartRow } from '../tour/DemoTour.jsx';
 import { MatchHistorySheet } from './MatchHistorySheet.jsx';
 import { ResultCard } from './ResultCard.jsx';
 
@@ -314,6 +315,7 @@ export function ProfileScreen() {
 
       <ProfileHero profile={profile} />
       {!paid && <UnlockCard />}
+      {isDemo && <TourRestartRow />}
 
       <div className="profile-columns">
         <div className="profile-col">

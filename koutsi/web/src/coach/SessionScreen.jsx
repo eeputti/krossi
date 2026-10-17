@@ -1,11 +1,11 @@
 // SessionScreen — one session: when, attendance, a note / homework / video for the players who
-// came (or, before it, for everyone expected), and the week's theme. Attendance is a tap per
-// player (on the name, or Paikalla ↔ Poissa); presence is "no row", so nothing needs saving for
-// the players who came. A tap shows immediately and is saved in the background.
-import { useState } from 'react';
+// came (or, before it, for everyone expected), the training plan (SessionPlan) and the week's
+// theme. Attendance is a tap per player (on the name, or Paikalla ↔ Poissa); presence is
+// "no row", so nothing needs saving for the players who came. A tap shows immediately and is saved in the background.
+import { useEffect, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { goBack, Link } from '../app/router.js';
+import { dropQueryParam, goBack, Link, useRoute } from '../app/router.js';
 import { Avatar, Button, Card, EmptyState, Icon, IconButton, Page, TopBar, useToast } from '../ui/index.js';
 import { Block, ThemeCard } from '../shared/bits.jsx';
 import {
@@ -16,6 +16,7 @@ import { groupPath } from './nav.js';
 import { TrainingSheet, useTrainingDelete } from './trainingForms.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { useRecord } from './merkitse.jsx';
+import { SessionPlan } from './SessionPlan.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -27,6 +28,16 @@ export function SessionScreen({ params }) {
   const [editOpen, setEditOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [pending, setPending] = useState(() => new Set());
+  // ?runko=1 (Viikkohallinta → Treenin runko): scroll to the plan once the sheet has closed.
+  const route = useRoute();
+  useEffect(() => {
+    if (!route.query.runko) return undefined;
+    const t = setTimeout(() => {
+      document.getElementById('runko')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      dropQueryParam('runko');
+    }, 320);
+    return () => clearTimeout(t);
+  }, [route.query.runko]);
   const training = state.trainings.find((t) => t.id === params.id);
   if (!training) {
     return (
@@ -132,6 +143,8 @@ export function SessionScreen({ params }) {
             <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: recipients, source: 'treeni' })}>Video</Button>
           </div>
         )}
+
+        {training.loggedBy !== 'player' && <SessionPlan training={training} group={group} />}
 
         {group && (theme ? (
           <ThemeCard theme={theme} week={week} eyebrow={`Teema · vko ${week.week}`}>

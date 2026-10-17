@@ -20,11 +20,12 @@ import { ExercisesScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
 import { AbsenceSheet, MatchNoteSheet, MoodSheet, PlayerTextSheet, SelfTrainingSheet } from './sheets.jsx';
 import { CheckInSheet } from './CheckInSheet.jsx';
+import { PlanSheet } from '../shared/drills/plan.jsx';
 import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } from './checkin.js';
 
 const ActionsContext = createContext(null);
 /** openSelfTraining(date?), openMood(score?), openCheckIn(training?), openMatch({ editing?, date? }), openAbsence(training),
- *  openText(kind), openVideo(), playVideo(video) */
+ *  openText(kind), openVideo(), playVideo(video), openPlan(training) */
 export function usePlayerActions() { return useContext(ActionsContext); }
 
 function NotFound() {
@@ -97,6 +98,7 @@ function PlayerShell({ banner }) {
     openText: (kind) => setSheet({ kind: 'text', textKind: kind }),
     openVideo: () => setSheet({ kind: 'video' }),
     playVideo: (v) => setVideo(v),
+    openPlan: (training) => setSheet({ kind: 'plan', trainingId: training.id }),
   }), []);
   const saveOwnVideo = useCallback(async (payload) => {
     await api.videos.share({ ...payload, studentIds: [ownerId], addedById: ownerId });
@@ -118,6 +120,7 @@ function PlayerShell({ banner }) {
     dropQueryParam('toive');
   }, [route.query.fiilis, route.query.toive]); // eslint-disable-line react-hooks/exhaustive-deps
   const checkInTraining = checkIn?.trainingId ? state.trainings.find((t) => t.id === checkIn.trainingId) || null : null;
+  const planTraining = sheet?.kind === 'plan' ? state.trainings.find((t) => t.id === sheet.trainingId) || null : null;
   const textInitial = sheet?.kind === 'text' ? { goal: student.goal, wish: student.playerWish, note: student.playerNote }[sheet.textKind] : '';
   return (
     <ActionsContext.Provider value={actions}>
@@ -139,6 +142,8 @@ function PlayerShell({ banner }) {
       <AbsenceSheet open={sheet?.kind === 'absence'} training={sheet?.training} onClose={close} />
       <PlayerTextSheet open={sheet?.kind === 'text'} kind={sheet?.textKind} initial={textInitial} onClose={close} />
       <VideoShareSheet open={sheet?.kind === 'video'} onClose={close} title="Lisää oma video" onSave={saveOwnVideo} />
+      <PlanSheet open={Boolean(planTraining)} training={planTraining} group={planTraining?.groupId ? state.groups.find((g) => g.id === planTraining.groupId) : null}
+        onClose={close} onPlayVideo={(v) => setVideo(v)} />
       <VideoPlayerSheet video={video} onClose={() => setVideo(null)} />
       <CheckInSheet open={Boolean(checkIn)} training={checkInTraining} initialScore={checkIn?.score ?? null}
         onClose={() => setCheckIn(null)} onWish={() => actions.openText('wish')} onSelfTraining={() => actions.openSelfTraining()} />

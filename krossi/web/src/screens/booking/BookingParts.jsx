@@ -172,7 +172,7 @@ export function TimeRows({ slots, sales = [], onPick, onPickSale, onWatch, watch
     ...sales.map((sale) => ({ at: sale.startsAt, sale })),
   ].sort((a, b) => a.at.localeCompare(b.at) || (a.sale ? 1 : 0) - (b.sale ? 1 : 0));
   return (
-      <div className="bk-times stagger" aria-label="Vapaat ajat">
+      <div className="bk-times stagger" aria-label="Vapaat ajat" data-tour="bk-times">
         {items.map(({ slot, sale }, i) => {
           if (sale) {
             const length = durationLabel(sale.minutes);
