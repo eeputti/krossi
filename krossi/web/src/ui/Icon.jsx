@@ -85,6 +85,7 @@ const P = {
   // Filled twins of the navigation icons, shown for the active tab (outline = inactive).
   'home-fill': <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" fill="currentColor" />,
   'calendar-fill': <><path d="M5.5 4h13A3 3 0 0 1 21.5 7v12a3 3 0 0 1-3 3h-13a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zM5 10.6v8.4c0 .3.2.5.5.5h13c.3 0 .5-.2.5-.5v-8.4z" fill="currentColor" fillRule="evenodd" stroke="none" /><path d="M16 2.5v3.5M8 2.5v3.5" /><path d="M7 13h2.4v2.4H7zM10.8 13h2.4v2.4h-2.4zM14.6 13H17v2.4h-2.4zM7 16.6h2.4V19H7zM10.8 16.6h2.4V19h-2.4z" fill="currentColor" stroke="none" /></>,
+  'court-fill': <><rect x="3" y="3.5" width="18" height="17" rx="1.5" fill="currentColor" /><path d="M6.5 5.2v13.6M17.5 5.2v13.6M6.5 8.5h11M6.5 15.5h11M12 8.5v7" stroke="#fff" strokeWidth="1.6" /></>,
   'users-fill': <><circle cx="9" cy="7" r="4" fill="currentColor" /><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2z" fill="currentColor" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
   'chat-fill': <path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3.5 20.5l1.4-4.9A8.5 8.5 0 1 1 21 11.5z" fill="currentColor" />,
   'user-fill': <><circle cx="12" cy="8" r="4" fill="currentColor" /><path d="M4 21a8 8 0 0 1 16 0z" fill="currentColor" /></>,

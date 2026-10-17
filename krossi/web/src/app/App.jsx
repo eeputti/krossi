@@ -10,7 +10,6 @@ import { PublicGameScreen } from '../screens/games/PublicGameScreen.jsx';
 import { PublicLeagueScreen } from '../screens/leagues/PublicLeagueScreen.jsx';
 import { SplitPayScreen } from '../screens/booking/SplitPayScreen.jsx';
 import { PendingOutcomeCheck } from '../screens/home/PendingOutcomeCheck.jsx';
-import { PlayMenu } from '../screens/play/PlayMenu.jsx';
 import { SetPasswordSheet } from '../screens/auth/SetPasswordSheet.jsx';
 import { AppShell } from './AppShell.jsx';
 import { AFTER_PAYMENT_KEY } from './checkout.jsx';
@@ -200,7 +199,6 @@ function Gate() {
   return (
     <>
       <AppShell />
-      <PlayMenu />
       <PendingOutcomeCheck />
       <SetPasswordSheet />
     </>
