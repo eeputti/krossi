@@ -24,7 +24,7 @@
 //
 // match_result_logged { resultId, creatorId } asks the Krossi players on the other side of a
 // logged result (opponent_id, opp_partner_id) to confirm it. Only for a result the caller
-// logged that is still 'pending' (migration 20261017140000); master switch only; one mail per
+// logged that is still 'pending' (migration 20261017130234); master switch only; one mail per
 // result per recipient per 12 h, so editing a result doesn't spam the opponent.
 //
 // Court-booking events from the booking functions themselves (krossi-booking, krossi-booking-cron,

@@ -1,5 +1,5 @@
 // results.js (demo) — Alex's match results, mirroring api/supabase/results.js and the
-// confirmation rules of migration 20261017140000 (the trigger + krossi_answer_match_result).
+// confirmation rules of migration 20261017130234 (the trigger + krossi_answer_match_result).
 
 import { ApiError } from '../errors.js';
 import { ME } from './rows.js';

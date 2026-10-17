@@ -1,5 +1,5 @@
 // The demo backend's match results with Krossi players in them: linking, the opponent's
-// confirmation (the same rules as migration 20261017140000) and the seed the demo shows.
+// confirmation (the same rules as migration 20261017130234) and the seed the demo shows.
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 import { ApiError } from '../src/api/errors.js';

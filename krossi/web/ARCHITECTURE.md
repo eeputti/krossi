@@ -238,7 +238,7 @@ poista tili, admin: maksutilan kytkin).
 kysytään uudelleen. Vahvistettu tulos näkyy myös vastustajan ja parin pelihistoriassa (`isMine: false`,
 vain luku, oma puoli on "my"). Tulostaulu kertoo tilan (`confirmationLine`). Tasolaskennan pohja:
 `ratedMatches(activity)` (vahvistetut linkitetyt tulokset + liigaottelut) ja SQL-näkymä
-`krossi_rated_matches`. Tietokanta: `supabase/migrations/20261017140000_krossi_match_result_confirmations.sql`
+`krossi_rated_matches`. Tietokanta: `supabase/migrations/20261017130234_krossi_match_result_confirmations.sql`
 (trigger päättää tilan, `krossi_answer_match_result`, `krossi_linked_match_results`).
 
 **Koosteet (recap):** `/pelaa/kooste/2026-09` ja `/pelaa/kooste/kausi-2026` — tarinamainen

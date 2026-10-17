@@ -1,5 +1,5 @@
 // api/supabase/results.js against a fake supabase-js client: what reaches the database, the
-// match_result_logged notification, and the behaviour before migration 20261017140000.
+// match_result_logged notification, and the behaviour before migration 20261017130234.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setClientForTests } from '../src/api/supabase/client.js';

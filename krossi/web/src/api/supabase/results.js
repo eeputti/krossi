@@ -3,7 +3,7 @@
 //
 // match_results is readable by every signed-in user (results show on other people's
 // profiles in the mobile app), so every query here must filter by me explicitly. The player
-// links (opponent_id …) and the confirmation come with migration 20261017140000; until it is
+// links (opponent_id …) and the confirmation come with migration 20261017130234; until it is
 // applied results save with typed names only and nothing waits for an answer.
 
 import { db, requireUid, isUuid, isMissingColumn, isMissingFunction } from './client.js';
@@ -67,7 +67,7 @@ export async function save(id, result) {
     : table().insert({ ...payload, created_by: uid }).select('*'));
 
   let { data, error } = await write(row);
-  // Migration 20261017140000 not applied yet: keep saving the typed names.
+  // Migration 20261017130234 not applied yet: keep saving the typed names.
   if (error && missingLinks(error)) ({ data, error } = await write(withoutLinks(row)));
   if (error) throw toApiError(error, fail);
 

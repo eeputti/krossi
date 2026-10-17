@@ -291,7 +291,7 @@ export function lastMessagePreview(content, { senderId = null, createdAt = null,
 /**
  * match_results row -> StoredResult (features/resultLinks.js): the creator's point of view and
  * the linked player ids. viewResult() turns it into the MatchResult a given player sees. The
- * link and confirmation columns come with migration 20261017140000; before it they read null.
+ * link and confirmation columns come with migration 20261017130234; before it they read null.
  */
 export function mapStoredResult(row) {
   return {
