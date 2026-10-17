@@ -11,7 +11,8 @@ import { RecipientPicker } from './recipients.jsx';
  * VideoShareSheet
  *   recipients: [{ id, name, … }] to pick from (coach) — omit for "own video" (player)
  *   initialIds: preselected recipients     groups: for the one-tap group picks
- *   The date (today) and topics are tucked under "Lisätiedot": they are rarely changed.
+ *   The date (today) and topics are tucked under "Lisätiedot": they are rarely changed. Who it's
+ *   for comes last, so the long player list never pushes the other fields out of sight.
  *   onSave({ shareId, title, date, tags, studentIds, file, externalUrl, onProgress }) → Promise
  */
 export function VideoShareSheet({ open, onClose, recipients, initialIds = [], groups = [], onSave, title: sheetTitle = 'Jaa video' }) {
@@ -78,11 +79,6 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
         {busy && source === 'file' && <ProgressBar value={progress / 100} label="Latauksen eteneminen" />}
         {error && <p className="field-msg field-msg-error" role="alert">{error}</p>}
         <Field label="Otsikko" htmlFor="v-title"><Input id="v-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Syöttöanalyysi" maxLength={120} /></Field>
-        {recipients && (
-          <Field label={`Kenelle (${ids.length} valittu)`}>
-            <RecipientPicker students={recipients} groups={groups} value={ids} onChange={setIds} open={open} />
-          </Field>
-        )}
         <Disclosure title="Lisätiedot" summary={`${date === koutsiTodayStr() ? 'Tänään' : koutsiFmtShortDate(date)}${tags.length ? ` · ${tags.map((t) => KOUTSI_TAG_LABELS[t]).join(', ')}` : ''}`} icon="sliders">
           <div className="stack-4">
             <Field label="Päivä" htmlFor="v-date"><Input id="v-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
@@ -91,6 +87,11 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
             </Field>
           </div>
         </Disclosure>
+        {recipients && (
+          <Field label={`Kenelle (${ids.length} valittu)`}>
+            <RecipientPicker students={recipients} groups={groups} value={ids} onChange={setIds} open={open} />
+          </Field>
+        )}
       </div>
     </Sheet>
   );

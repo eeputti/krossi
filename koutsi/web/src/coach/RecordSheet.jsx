@@ -1,12 +1,15 @@
-// RecordSheet — a coach's note ("Huomio") or homework for one player or many: who it's for
-// (picked from a group in one tap), the text, and a health-data reminder. Each player gets
+// RecordSheet — a coach's note ("Huomio") or homework for one player or many: the text, a
+// health-data reminder, and who it's for (picked from a group in one tap). Each player gets
 // their own copy on their timeline and their own notification; homework is ticked off by each
-// player separately. Editing one existing entry stays in playerForms' TextEntrySheet.
-import { useEffect, useState } from 'react';
+// player separately. A homework can start from the drill bank: a few drills that suit the
+// picked players' theme this week (or can be done alone) are offered while the field is empty,
+// and "Kaikki harjoitteet" opens the whole bank. Editing one existing entry stays in playerForms' TextEntrySheet.
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { Button, Field, Sheet, Textarea } from '../ui/index.js';
+import { Button, Field, Icon, Input, Sheet, Textarea } from '../ui/index.js';
 import { RecipientPicker } from '../shared/recipients.jsx';
+import { exerciseFacts, exerciseHomeworkText, homeworkSuggestions } from '../domain/exercises.js';
 import { useCoach } from './CoachRoot.jsx';
 import { track } from './usage.js';
 
@@ -29,19 +32,59 @@ const KINDS = {
   },
 };
 
-/** open, kind: 'note' | 'homework', initialIds, onClose() */
-export function RecordSheet({ open, kind, initialIds = [], onClose }) {
+/** The whole drill bank to pick one from: a search and a list. onPick(exercise) */
+function ExercisePickerSheet({ open, exercises, onPick, onClose }) {
+  const [query, setQuery] = useState('');
+  useEffect(() => { if (open) setQuery(''); }, [open]);
+  const list = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase('fi');
+    return exercises
+      .filter((e) => !q || `${e.name} ${e.goal}`.toLocaleLowerCase('fi').includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name, 'fi'));
+  }, [exercises, query]);
+  return (
+    <Sheet open={open} onClose={onClose} title="Harjoitepankki" subtitle="Valitse harjoite kotiläksyksi. Voit muokata tekstiä ennen lähettämistä." size="md">
+      <div className="stack-3">
+        {exercises.length > 8 && <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae harjoitetta" aria-label="Hae harjoitetta" />}
+        <div className="k-list">
+          {list.map((e) => (
+            <button key={e.id} type="button" className="k-row" onClick={() => onPick(e)}>
+              <span className="k-ex-icon">{e.video ? <Icon name="play" size={16} /> : <Icon name="racket" size={16} />}</span>
+              <span className="k-row-main">
+                <span className="k-row-title truncate">{e.name}</span>
+                <span className="k-row-sub truncate">{exerciseFacts(e)}</span>
+              </span>
+            </button>
+          ))}
+          {list.length === 0 && <p className="k-quiet">Ei osumia.</p>}
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/** open, kind: 'note' | 'homework', initialIds, initialText (e.g. a drill), onClose() */
+export function RecordSheet({ open, kind, initialIds = [], initialText = '', onClose }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const [ids, setIds] = useState(initialIds);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [bankOpen, setBankOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
     setIds(initialIds);
-    setText('');
+    setText(initialText);
+    setBankOpen(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const k = KINDS[kind] || KINDS.note;
+  const offer = kind === 'homework' && !text.trim() && state.exercises.length > 0;
+  const suggested = useMemo(() => (offer ? homeworkSuggestions(state, ids, { limit: 3 }) : null), [offer, state, ids]);
+  const pickExercise = (ex, how) => {
+    track(`laksy.${how}`);
+    setText(exerciseHomeworkText(ex));
+    setBankOpen(false);
+  };
   const dirty = Boolean(text.trim());
   const ready = text.trim() && ids.length > 0 && !busy;
 
@@ -59,22 +102,44 @@ export function RecordSheet({ open, kind, initialIds = [], onClose }) {
   };
 
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={k.title} subtitle={k.subtitle} size="md" dismissible={!busy && !dirty}
-      footer={(
-        <div className="sheet-actions">
-          <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
-          <Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>{ids.length > 1 ? `Lähetä ${ids.length} pelaajalle` : 'Lähetä'}</Button>
+    <>
+      <Sheet open={open} onClose={() => !busy && onClose()} title={k.title} subtitle={k.subtitle} size="md" dismissible={!busy && !dirty}
+        footer={(
+          <div className="sheet-actions">
+            <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
+            <Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>{ids.length > 1 ? `Lähetä ${ids.length} pelaajalle` : 'Lähetä'}</Button>
+          </div>
+        )}>
+        {/* The text first: the player list can be long, and the field must never sink under it. */}
+        <div className="stack-4">
+          <Field label={kind === 'homework' ? 'Läksy' : 'Huomio'} htmlFor="record-text">
+            <Textarea id="record-text" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={k.placeholder} maxLength={4000} />
+          </Field>
+          {suggested && (
+            <div className="stack-2">
+              <div className="k-hw-suggest-head">
+                <span className="field-label">{suggested.theme ? `Harjoitepankista · teemaan ${suggested.theme}` : 'Harjoitepankista'}</span>
+                <button type="button" className="k-textlink" onClick={() => setBankOpen(true)}>Kaikki harjoitteet</button>
+              </div>
+              <div className="k-hw-suggest" role="group" aria-label="Ehdotetut harjoitteet">
+                {suggested.items.map(({ exercise, reason }) => (
+                  <button key={exercise.id} type="button" className="k-hw-suggest-row" onClick={() => pickExercise(exercise, 'ehdotus')}>
+                    <Icon name={exercise.video ? 'play' : 'racket'} size={15} className="k-hw-suggest-icon" />
+                    <span className="grow truncate">{exercise.name}</span>
+                    {reason && <span className="k-hw-suggest-why">{reason}</span>}
+                    <Icon name="plus" size={16} className="k-hw-suggest-add" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="k-warn-text">{HEALTH_NOTE}</p>
+          <Field label={`Kenelle${ids.length ? ` (${ids.length})` : ''}`}>
+            <RecipientPicker students={state.students} groups={state.groups} value={ids} onChange={setIds} open={open} />
+          </Field>
         </div>
-      )}>
-      <div className="stack-4">
-        <Field label={`Kenelle${ids.length ? ` (${ids.length})` : ''}`}>
-          <RecipientPicker students={state.students} groups={state.groups} value={ids} onChange={setIds} open={open} />
-        </Field>
-        <Field label={kind === 'homework' ? 'Läksy' : 'Huomio'} htmlFor="record-text">
-          <Textarea id="record-text" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={k.placeholder} maxLength={4000} />
-        </Field>
-        <p className="k-warn-text">{HEALTH_NOTE}</p>
-      </div>
-    </Sheet>
+      </Sheet>
+      <ExercisePickerSheet open={open && bankOpen} exercises={state.exercises} onPick={(ex) => pickExercise(ex, 'pankista')} onClose={() => setBankOpen(false)} />
+    </>
   );
 }

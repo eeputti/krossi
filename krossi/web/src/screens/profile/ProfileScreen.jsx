@@ -222,7 +222,7 @@ function History({ query, onAdd, onEdit, onShowAll }) {
         </Card>
       ) : (
         <div className="profile-results stagger">
-          {latest.map((r, i) => <ResultCard key={r.id} result={r} style={{ '--i': i }} onClick={() => onEdit(r)} />)}
+          {latest.map((r, i) => <ResultCard key={r.id} result={r} style={{ '--i': i }} onClick={r.isMine === false ? undefined : () => onEdit(r)} />)}
         </div>
       )}
       <Button variant="soft" block icon="plus" onClick={onAdd} className="profile-add-result">Lisää tulos</Button>

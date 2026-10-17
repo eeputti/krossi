@@ -22,6 +22,11 @@
 // email_enabled only (the watch itself is the opt-in) and skips the block check: the mail
 // never says who freed the court.
 //
+// match_result_logged { resultId, creatorId } asks the Krossi players on the other side of a
+// logged result (opponent_id, opp_partner_id) to confirm it. Only for a result the caller
+// logged that is still 'pending' (migration 20261017130234); master switch only; one mail per
+// result per recipient per 12 h, so editing a result doesn't spam the opponent.
+//
 // Court-booking events from the booking functions themselves (krossi-booking, krossi-booking-cron,
 // stripe-webhook), only accepted with the service-role key and only for what the database says
 // happened just now:
@@ -89,7 +94,8 @@ type NotifyEvent =
   | { type: "account_report"; reportId: string; reporterId: string; reportedId: string }
   | { type: "booking_slot_free"; watchId: string; freedById: string }
   | { type: "booking_split_paid"; shareId: string }
-  | { type: "booking_resold"; bookingId: string };
+  | { type: "booking_resold"; bookingId: string }
+  | { type: "match_result_logged"; resultId: string; creatorId: string };
 
 type EventType = NotifyEvent["type"];
 
@@ -107,6 +113,7 @@ const REQUIRED_IDS: Record<EventType, string[]> = {
   booking_slot_free: ["watchId", "freedById"],
   booking_split_paid: ["shareId"],
   booking_resold: ["bookingId"],
+  match_result_logged: ["resultId", "creatorId"],
 };
 
 // Sent by Krossi's own booking functions with the service-role key, never by an app.
@@ -748,6 +755,48 @@ async function planBookingResold(
   };
 }
 
+// ── Match results ────────────────────────────────────────────────────────────
+
+const RESULT_ASK_WINDOW_MINUTES = 12 * 60;
+
+async function planMatchResultLogged(
+  admin: Admin,
+  event: Extract<NotifyEvent, { type: "match_result_logged" }>,
+): Promise<Delivery | null> {
+  const { data: result, error } = await admin
+    .from("match_results")
+    .select("id, created_by, opponent_id, opp_partner_id, confirmation, sets, game_type")
+    .eq("id", event.resultId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!result || result.created_by !== event.creatorId || result.confirmation !== "pending") return null;
+  const recipientIds = [result.opponent_id, result.opp_partner_id].filter((id): id is string => typeof id === "string");
+  if (recipientIds.length === 0) return null;
+
+  const creator = await fetchFirstName(admin, event.creatorId);
+  // Stored from the logger's side; the reader is on the other side, so their games come first.
+  const sets = Array.isArray(result.sets) ? result.sets as { my?: number; opp?: number }[] : [];
+  const score = sets.map((s) => `${Number(s.opp) || 0}–${Number(s.my) || 0}`).join(" ");
+  return {
+    recipientIds,
+    audience: "player",
+    prefColumn: "email_enabled",
+    throttle: { kinds: ["match_result_logged"], refId: result.id, windowMinutes: RESULT_ASK_WINDOW_MINUTES },
+    logRefId: result.id,
+    content: {
+      subject: `${creator} kirjasi tuloksen kanssasi — vahvistatko?`,
+      preheader: `Tulos ${score}. Vahvista se Krossissa.`,
+      heading: `${creator} kirjasi ottelunne tuloksen`,
+      paragraphs: [
+        "Vahvista tulos Krossissa, niin se näkyy myös sinun pelihistoriassasi.",
+        `Jos tulos ei pidä paikkaansa, kerro se — ${creator} voi korjata sen.`,
+      ],
+      details: score ? [`Tulos (sinun pelisi ensin): ${score}`] : [],
+      cta: { label: "Vahvista tulos", path: "/pelaa" },
+    },
+  };
+}
+
 function planDelivery(admin: Admin, event: NotifyEvent): Promise<Delivery | null> {
   switch (event.type) {
     case "play_request":
@@ -773,6 +822,8 @@ function planDelivery(admin: Admin, event: NotifyEvent): Promise<Delivery | null
       return planBookingSplitPaid(admin, event);
     case "booking_resold":
       return planBookingResold(admin, event);
+    case "match_result_logged":
+      return planMatchResultLogged(admin, event);
   }
 }
 

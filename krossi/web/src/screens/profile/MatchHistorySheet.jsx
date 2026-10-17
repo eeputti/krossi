@@ -1,4 +1,4 @@
-// MatchHistorySheet — every logged result with edit / delete, plus "Lisää tulos".
+// MatchHistorySheet — every logged result with edit / delete (my own; others' are read-only), plus "Lisää tulos".
 //   <MatchHistorySheet open onClose results={MatchResult[]} onEdit={(result) => …} onDelete={(result) => Promise} onAdd={fn} />
 import { useMemo, useState } from 'react';
 import { Button, EmptyState, Segmented, Sheet } from '../../ui/index.js';
@@ -46,7 +46,7 @@ export function MatchHistorySheet({ open, onClose, results = [], onEdit, onDelet
               key={r.id}
               result={r}
               style={{ '--i': i }}
-              actions={(
+              actions={r.isMine === false ? null : (
                 <>
                   <Button variant="ghost" size="sm" icon="edit" onClick={() => onEdit?.(r)}>Muokkaa</Button>
                   <Button variant="ghost" size="sm" icon="trash" className="profile-danger-text" loading={deleting === r.id} onClick={() => remove(r)}>Poista</Button>

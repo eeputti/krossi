@@ -11,6 +11,9 @@ import { TRAINING_TYPES } from '../lib/constants.js';
 import { useCoach } from './CoachRoot.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
+/** Each event kind's icon, in the form's chips and on Viikkohallinta's event bars. */
+export const EVENT_ICON = { kilpailu: 'trophy', leiri: 'compass', seura: 'users', muu: 'flag' };
+const EVENT_KIND_OPTIONS = KOUTSI_EVENT_KINDS.map((k) => ({ ...k, icon: EVENT_ICON[k.value] }));
 
 /** New session for a player or a group (optionally weekly for a year), or edit one. */
 export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGroupId, defaultTime }) {
@@ -185,7 +188,7 @@ export function EventSheet({ open, onClose, editing, defaultDate }) {
       footer={<div className="sheet-actions">{editing ? <Button variant="ghost" size="lg" onClick={remove}>Poista</Button> : <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>}<Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="ev-title"><Input id="ev-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Seuran syyskisat" maxLength={120} /></Field>
-        <Field label="Laji"><ChipSelect size="sm" options={KOUTSI_EVENT_KINDS} value={kind} onChange={(v) => v && setKind(v)} ariaLabel="Laji" /></Field>
+        <Field label="Laji"><ChipSelect size="sm" options={EVENT_KIND_OPTIONS} value={kind} onChange={(v) => v && setKind(v)} ariaLabel="Laji" /></Field>
         <div className="k-two">
           <Field label="Alkaa" htmlFor="ev-start"><Input id="ev-start" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
           <Field label="Päättyy" optional htmlFor="ev-end" error={endDate && endDate < date ? 'Ennen alkua' : null}><Input id="ev-end" type="date" value={endDate} min={date} onChange={(e) => setEndDate(e.target.value)} /></Field>

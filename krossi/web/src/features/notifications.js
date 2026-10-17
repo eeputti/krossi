@@ -11,6 +11,8 @@
 //   share     a friend sent me the payment link of a court they booked -> the link (pay my part)
 //   splitPaid a friend paid their part of my court (7 d), it came back to me -> Omat varaukset
 //   sold      a booking I put on sale was booked by somebody (7 d)     -> Varaa kenttä
+//   resultConfirm  someone logged a result with me as their opponent       -> "Vahvistatko tuloksen?"
+//   resultAnswered the opponent confirmed / disputed a result I logged (7 d) -> Profiili
 // `at` orders the list and decides what is new: whatever came after the bell was last opened.
 
 import { GAME_DURATION_HOURS } from '../lib/constants.js';
@@ -22,6 +24,7 @@ const SOON_MS = 24 * HOUR;
 const NEW_GAME_MS = 7 * 24 * HOUR;
 const SOLD_MS = 7 * 24 * HOUR;
 const SPLIT_PAID_MS = 7 * 24 * HOUR;
+const ANSWERED_MS = 7 * 24 * HOUR;
 const MAX_NEW_GAMES = 5;
 export const MAX_NOTIFICATIONS = 30;
 
@@ -44,20 +47,45 @@ function messagePreview(last) {
   return last.text || '';
 }
 
+/** "6–4 3–6 6–3": my games first. */
+function scoreText(sets) {
+  return (sets || []).map((s) => `${s.my}–${s.opp}`).join(' ');
+}
+
 /**
- * buildNotifications({ invites, requests, conversations, outcomes, upcoming, open, areas, bookings, uid, now })
+ * buildNotifications({ invites, requests, conversations, outcomes, upcoming, open, areas, bookings, toConfirm, results, uid, now })
  *   invites: GameInvite[]   requests: PlayRequest[]   conversations: Conversation[]
  *   outcomes: Game[] (pendingOutcomes)   upcoming: Game[] (listMine().upcoming)   open: Game[] (listOpen)
  *   areas: string[] my cities   bookings: Booking[] (booking.listMine, upcoming and past)
- *   (booking.listMine().past)   uid: my id
+ *   (booking.listMine().past)   toConfirm: MatchResult[] (results.listToConfirm)   results: MatchResult[] (results.listMine)
+ *   uid: my id
  * -> [{ id, kind, at, title, body, person, game?, to? }]  newest first, at most MAX_NOTIFICATIONS
  */
 export function buildNotifications({
   invites = [], requests = [], conversations = [], outcomes = [], upcoming = [], open = [], areas = [], bookings = [],
-  uid = null, now = Date.now(),
+  toConfirm = [], results = [], uid = null, now = Date.now(),
 } = {}) {
   const items = [];
   const cities = new Set(areas.map(norm).filter(Boolean));
+
+  for (const r of toConfirm) {
+    items.push({
+      id: `resultConfirm:${r.id}`, kind: 'resultConfirm', at: ms(r.createdAt) || now, person: r.loggedBy || null, result: r,
+      title: `${firstName(r.loggedBy?.name)} kirjasi tuloksen kanssasi`,
+      body: join(scoreText(r.sets), 'vahvista tai kerro, ettei pidä paikkaansa'),
+    });
+  }
+
+  for (const r of results) {
+    if (!r.isMine || !r.answeredAt || !['confirmed', 'disputed'].includes(r.confirmation) || now - ms(r.answeredAt) > ANSWERED_MS) continue;
+    const who = firstName(r.answeredBy?.name || r.opponentName);
+    const disputed = r.confirmation === 'disputed';
+    items.push({
+      id: `resultAnswered:${r.id}:${r.answeredAt}`, kind: 'resultAnswered', at: ms(r.answeredAt), person: r.answeredBy || null, to: '/pelaa/profiili',
+      title: disputed ? `${who}: tulos ei pidä paikkaansa` : `${who} vahvisti tuloksen`,
+      body: join(scoreText(r.sets), disputed ? 'korjaa tulos profiilissasi' : ''),
+    });
+  }
 
   for (const b of bookings) {
     for (const l of b.split?.lines || []) {

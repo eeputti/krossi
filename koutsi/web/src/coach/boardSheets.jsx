@@ -204,7 +204,9 @@ export function WeekPickerSheet({ open, week, onClose, onPick }) {
   }, [state.trainings, prefix]);
   const lead = (new Date(y, m, 1).getDay() + 6) % 7;
   const days = new Date(y, m + 1, 0).getDate();
+  // Always six rows: a 5-row month must not shrink the sheet when you page through months.
   const cells = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => `${prefix}-${koutsiPad(i + 1)}`)];
+  while (cells.length < 42) cells.push(null);
   const monthName = KOUTSI_MONTHS[m];
   return (
     <Sheet open={open} onClose={() => { setCursor(null); onClose(); }} title="Siirry viikkoon" size="sm">
@@ -217,7 +219,7 @@ export function WeekPickerSheet({ open, week, onClose, onPick }) {
         <div className="cal-grid" role="grid">
           {['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'].map((d) => <span key={d} className="cal-dow">{d}</span>)}
           {cells.map((date, i) => {
-            if (!date) return <span key={`e${i}`} />;
+            if (!date) return <span key={`e${i}`} className="cal-blank" aria-hidden="true" />;
             const n = counts.get(date) || 0;
             const ev = koutsiClubEventsOnDate(state, date).length;
             return (

@@ -1,9 +1,11 @@
-// history.js — what I have actually played: games marked 'played' and confirmed league
-// matches. Internal module shared by stats.myActivity and players.listPartners.
+// history.js — what I have actually played: games marked 'played', confirmed league matches
+// and logged match results. Internal module shared by stats.myActivity, players.listPartners
+// and results.
 
-import { db, selectIn } from './client.js';
-import { PERSON_COLUMNS, mapPerson, leagueSetsFor } from './map.js';
-import { unwrap } from '../errors.js';
+import { db, isMissingFunction, selectIn } from './client.js';
+import { PERSON_COLUMNS, mapPerson, mapStoredResult, leagueSetsFor } from './map.js';
+import { toApiError, unwrap } from '../errors.js';
+import { viewResult } from '../../features/resultLinks.js';
 
 const FAIL = 'Pelihistoriaa ei voitu ladata.';
 const PLAYED_GAME_COLUMNS = 'id, creator_id, challenge_type, match_type, location, location_type, city, scheduled_at, outcome_recorded_at, created_at';
@@ -100,4 +102,49 @@ export async function loadConfirmedLeagueMatches(uid) {
       };
     })
     .sort((a, b) => String(b.playedAt).localeCompare(String(a.playedAt)));
+}
+
+// ── Logged match results ─────────────────────────────────────────────────────
+
+const RESULTS_FAIL = 'Tuloksia ei voitu ladata.';
+const ID_FIELDS = ['partnerId', 'opponentId', 'oppPartnerId', 'confirmedBy', 'disputedBy'];
+
+/** Results other players logged with me in them, each with its creator (RPC; [] before the migration). */
+export async function loadLinkedResults() {
+  const { data, error } = await db().rpc('krossi_linked_match_results');
+  if (error) {
+    if (isMissingFunction(error)) return [];
+    throw toApiError(error, RESULTS_FAIL);
+  }
+  return (Array.isArray(data) ? data : []).map((row) => ({ stored: mapStoredResult(row), creator: row.creator || null }));
+}
+
+/** PersonLite for every linked id of the results (profiles are readable once paid; else 'Pelaaja'). */
+export async function peopleOfResults(stored, creators = []) {
+  const people = new Map();
+  for (const c of creators) if (c?.id) people.set(c.id, mapPerson(c));
+  const ids = stored.flatMap((r) => ID_FIELDS.map((f) => r[f])).filter((id) => id && !people.has(id));
+  const rows = await selectIn(ids, (chunk) => db().from('profiles').select(PERSON_COLUMNS).in('id', chunk), RESULTS_FAIL);
+  for (const row of rows) people.set(row.id, mapPerson(row));
+  return people;
+}
+
+const newestFirst = (a, b) => String(b.createdAt).localeCompare(String(a.createdAt));
+
+/**
+ * My results as MatchResult[], newest first: the ones I logged and the ones others logged with
+ * me that have been confirmed. Shared by results.listMine and stats.myActivity.
+ */
+export async function loadMyResults(uid, limit = 100) {
+  const [own, linked] = await Promise.all([
+    db().from('match_results').select('*').eq('created_by', uid).order('created_at', { ascending: false }).limit(limit),
+    loadLinkedResults(),
+  ]);
+  const mine = (unwrap(own, RESULTS_FAIL) || []).map(mapStoredResult);
+  const confirmed = linked.filter((l) => l.stored.confirmation === 'confirmed');
+  const people = await peopleOfResults([...mine, ...confirmed.map((l) => l.stored)], confirmed.map((l) => l.creator));
+  return [...mine, ...confirmed.map((l) => l.stored)]
+    .map((row) => viewResult(row, uid, people))
+    .sort(newestFirst)
+    .slice(0, limit);
 }

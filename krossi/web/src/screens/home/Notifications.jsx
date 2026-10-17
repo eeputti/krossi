@@ -12,12 +12,14 @@ import { buildNotifications, countNew } from '../../features/notifications.js';
 import { relativeShort } from '../../lib/format.js';
 import { Avatar, EmptyState, Icon, IconButton, Sheet, SkeletonList } from '../../ui/index.js';
 import { GAMES_CHANGED } from '../games/gameUtils.js';
-import { askOutcome } from './PendingOutcomeCheck.jsx';
+import { RESULTS_CHANGED } from '../profile/matchResult.js';
+import { askOutcome, askResult } from './PendingOutcomeCheck.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const SEEN_KEY = 'krossi_notifs_seen';
 const KIND_ICON = {
   invite: 'mail', request: 'racket', message: 'chat', outcome: 'ball', soon: 'clock', newGame: 'sparkles', share: 'euro', splitPaid: 'check', sold: 'check',
+  resultConfirm: 'trophy', resultAnswered: 'check',
 };
 
 function readSeen(uid) {
@@ -35,16 +37,19 @@ function writeSeen(uid, at) {
   }
 }
 
-/** The notification list for Koti: takes Koti's useAsync results so nothing is fetched twice. */
-export function useNotificationFeed({ open, mine, invites, requests, areas }) {
+/** The notification list for Omat: takes Omat's useAsync results (incl. results to confirm) so nothing is fetched twice. */
+export function useNotificationFeed({ open, mine, invites, requests, toConfirm, areas }) {
   const { user } = useSession();
   const conversations = useAsync(() => api.messages.listConversations(), []);
   const outcomes = useAsync(() => api.games.pendingOutcomes(), []);
   // Court booking: friends' paid parts and sold bookings. A player who never booked gets nothing here.
   const bookings = useAsync(() => api.booking.listMine().catch(() => null), []);
+  // Results: answers to mine (the ones waiting for my answer come from Omat's own query).
+  const results = useAsync(() => api.results.listMine(), []);
   const { reload: reloadConversations } = conversations;
   const { reload: reloadOutcomes } = outcomes;
   const { reload: reloadRequests } = requests;
+  const { reload: reloadResults } = results;
 
   useEffect(() => {
     const unsubscribe = api.messages.subscribeInbox(() => {
@@ -58,6 +63,11 @@ export function useNotificationFeed({ open, mine, invites, requests, areas }) {
     window.addEventListener(GAMES_CHANGED, onChange);
     return () => window.removeEventListener(GAMES_CHANGED, onChange);
   }, [reloadOutcomes]);
+  useEffect(() => {
+    const onChange = () => reloadResults({ silent: true });
+    window.addEventListener(RESULTS_CHANGED, onChange);
+    return () => window.removeEventListener(RESULTS_CHANGED, onChange);
+  }, [reloadResults]);
 
   const now = useNow(60_000);
   const items = useMemo(() => buildNotifications({
@@ -69,9 +79,11 @@ export function useNotificationFeed({ open, mine, invites, requests, areas }) {
     open: open.data || [],
     areas,
     bookings: [...(bookings.data?.upcoming || []), ...(bookings.data?.past || [])],
+    toConfirm: toConfirm?.data || [],
+    results: results.data || [],
     uid: user?.id,
     now,
-  }), [invites.data, requests.data, conversations.data, outcomes.data, mine.data, open.data, areas, bookings.data, user?.id, now]);
+  }), [invites.data, requests.data, conversations.data, outcomes.data, mine.data, open.data, areas, bookings.data, toConfirm?.data, results.data, user?.id, now]);
   const loading = [conversations, outcomes, invites, requests].some((q) => q.loading && q.data === undefined);
   return { items, loading };
 }
@@ -106,6 +118,7 @@ export function NotificationsButton({ feed }) {
   // While the sheet is open the dots still show what was new when it was opened.
   const [shownSince, setShownSince] = useState(seenAt);
   const [outcomeGame, setOutcomeGame] = useState(null);
+  const [confirmResult, setConfirmResult] = useState(null);
   const now = useNow(60_000);
   const fresh = countNew(feed.items, seenAt);
 
@@ -123,15 +136,22 @@ export function NotificationsButton({ feed }) {
       setOpen(false);
       return;
     }
+    if (item.kind === 'resultConfirm') {
+      setConfirmResult(item.result);
+      setOpen(false);
+      return;
+    }
     setOpen(false);
     if (item.to) navigate(item.to);
     else if (item.game) requirePaid(() => navigate(`/pelaa/peli/${item.game.id}`), 'Avaa peli');
   };
 
-  // "Pelasitteko?" is its own sheet: ask once this one has gone.
+  // "Pelasitteko?" and "Vahvistatko tuloksen?" are their own sheets: ask once this one has gone.
   const onClosed = () => {
     if (outcomeGame) askOutcome(outcomeGame);
+    if (confirmResult) askResult(confirmResult);
     setOutcomeGame(null);
+    setConfirmResult(null);
   };
 
   return (

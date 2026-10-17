@@ -1,6 +1,7 @@
 // recipients.jsx — who a note, homework or video is for. One tap per group adds its players (a
 // second tap takes them off again), a name search, and a checkbox per player. With players
 // already picked (after a session, from a group's page) it starts folded to one summary line.
+// It goes last in its sheet, and its list grows with the sheet instead of scrolling inside it.
 import { useEffect, useMemo, useState } from 'react';
 import { Avatar, Input } from '../ui/index.js';
 import { koutsiSortGroupsBySchedule } from '../domain/core.js';
@@ -71,7 +72,7 @@ export function RecipientPicker({ students, groups = [], value, onChange, open =
         </div>
       )}
       {students.length > 8 && <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae nimellä" aria-label="Hae pelaajaa" />}
-      <div className="k-pick-list">
+      <div className="k-pick-list k-recipient-list">
         {list.map((s) => (
           <label key={s.id} className={cx('k-pick', picked.has(s.id) && 'is-on')}>
             <input type="checkbox" checked={picked.has(s.id)} onChange={() => toggle(s.id)} />

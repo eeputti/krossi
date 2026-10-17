@@ -13,7 +13,7 @@ const SEEN_KEY = 'koutsi_uusi_ilme_nahty';
 export const previewRenewed = process.env.NODE_ENV !== 'production'
   && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('esikatsele');
 
-/** Show the "Käytät uutta Koutsia" bar: in the real apps, or when previewing in dev. A
+/** Show the "Koutsilla uusi ilme!" bar: in the real apps, or when previewing in dev. A
  *  function, not a constant: isDemo is set when the entry installs its backend, after the
  *  modules have loaded. */
 export function showBetaBar() {

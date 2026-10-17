@@ -1,14 +1,17 @@
 // ResultCard — a logged match as a little scoreboard (profile + history sheet).
-//   <ResultCard result={MatchResult} onClick={fn} actions={node} />
+//   <ResultCard result={MatchResult} onClick={fn} actions={node} hideStatus />
+// Under the score: who confirmed it (or that the opponent hasn't yet / said it isn't right).
+// Someone else's result is read-only, so callers pass no onClick for it.
 import { Chip, Icon, TennisBall } from '../../ui/index.js';
 import { formatDate } from '../../lib/format.js';
-import { OUTCOME_LABEL, OUTCOME_TONE, labelOfFormat, labelOfGameType, resultOutcome, sideNames } from './matchResult.js';
+import { OUTCOME_LABEL, OUTCOME_TONE, confirmationLine, labelOfFormat, labelOfGameType, resultOutcome, sideNames } from './matchResult.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
-export function ResultCard({ result, onClick, actions, className, style }) {
+export function ResultCard({ result, onClick, actions, hideStatus = false, className, style }) {
   const outcome = resultOutcome(result);
   const names = sideNames(result);
+  const status = hideStatus ? null : confirmationLine(result);
   const sets = Array.isArray(result.sets) ? result.sets : [];
   const Tag = onClick ? 'button' : 'div';
   const row = (side) => {
@@ -41,6 +44,11 @@ export function ResultCard({ result, onClick, actions, className, style }) {
           {row('mine')}
           {row('theirs')}
         </div>
+        {status && (
+          <span className={cx('profile-result-status', `is-${status.tone}`)}>
+            <Icon name={status.icon} size={13} strokeWidth={2.4} />{status.text}
+          </span>
+        )}
       </Tag>
       {actions && <div className="profile-result-actions">{actions}</div>}
     </div>

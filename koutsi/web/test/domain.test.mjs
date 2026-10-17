@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { koutsiTodayStr, koutsiAddDays, koutsiCurrentIsoWeek, koutsiAddIsoWeeks } from '../src/domain/core.js';
 import {
   sessionStatus, calendarEndings, themeWeekRelative, themeWeekLabel, merkitseContext, attendanceSession, presentPlayerIds,
-  todayTimeline, minutesLabel, groupWeekBoard, weekDates,
+  todayTimeline, minutesLabel, groupWeekBoard, weekDates, playerSections, sessionWhen,
 } from '../src/domain/week.js';
 import { upcomingSessions, checkInCandidate } from '../src/domain/player.js';
 import { koutsiBuildTimeline } from '../src/domain/timeline.js';
@@ -220,4 +220,67 @@ test('the Ryhmät week board puts every group under the days it trains, and show
   assert.deepEqual(later.days[1].items.map((it) => `${it.group.id}:${it.why}`), ['g1:week'], 'a calendar that ran out shows on the day');
   assert.equal(later.days[0].items[0].group.id, 'g3');
   assert.equal(later.days[0].items[0].why, 'week');
+});
+
+test('a homework from the drill bank: drills for the theme first, then ones done alone, as one line', async () => {
+  const { homeworkSuggestions, exerciseHomeworkText } = await import('../src/domain/exercises.js');
+  const week = koutsiCurrentIsoWeek();
+  const g = { ...group, memberIds: ['s1'], themes: [{ year: week.year, week: week.week, title: 'Kakkossyöttö', lead: 'Kierre ennen vauhtia' }] };
+  const exercises = [
+    { id: 'e1', name: 'Minitennis ristiin', goal: 'Pehmeä aloitus.', playerCount: 2, tags: ['lammittely'] },
+    { id: 'e2', name: 'Split step -ajoitus', goal: 'Ajoitus ennen nopeutta.', playerCount: 1, tags: ['liikkuminen'] },
+    { id: 'e3', name: 'Ensimmäinen syöttö', goal: '20 ykkössyöttöä.', playerCount: 1, tags: ['syotto'] },
+    { id: 'e4', name: 'Kakkossyöttö + suunta', goal: 'Kymmenen ulos, kymmenen keskelle.', playerCount: 1, tags: ['syotto'] },
+  ];
+  const state = { groups: [g], exercises };
+  const picked = homeworkSuggestions(state, ['s1'], { date: koutsiTodayStr() });
+  // the theme in the drill's name beats a matching topic
+  assert.deepEqual(picked.items.map((i) => [i.exercise.id, i.reason]), [['e4', 'teema'], ['e3', 'teema'], ['e2', 'yksin'], ['e1', null]]);
+  assert.equal(picked.theme, 'Kakkossyöttö');
+  // nobody picked yet: no theme to go by, drills done alone come first (by name)
+  const none = homeworkSuggestions(state, [], { limit: 3 });
+  assert.deepEqual(none.items.map((i) => i.exercise.id), ['e3', 'e4', 'e2']);
+  assert.equal(none.theme, null);
+  assert.equal(exerciseHomeworkText({ name: 'Seinä', goal: ' 30 lyöntiä\n seinään. ' }), 'Seinä: 30 lyöntiä seinään.');
+  assert.equal(exerciseHomeworkText({ name: 'Seinä', goal: '' }), 'Seinä');
+});
+
+test('Pelaajat lists each player once, under the session nearest to now, with their next one', () => {
+  const g = (id, memberIds, time = '17:00') => ({ id, name: id, day: 'Ti', time, durationMinutes: 90, memberIds, slots: [], themes: [] });
+  const t = (id, groupId, offset, time, extra = {}) => session(id, koutsiAddDays(today, offset), time, { groupId, ...extra });
+  const person = (id, name) => ({ id, name });
+  const state = {
+    groups: [g('early', ['s1', 's2']), g('late', ['s3', 's1'], '18:30'), g('weekly', ['s4'])],
+    students: [person('s5', 'Eero'), person('s4', 'Daniel'), person('s3', 'Cecilia'), person('s2', 'Bea'), person('s1', 'Aino')],
+    trainings: [
+      t('ended', 'early', 0, '17:00', { absences: [{ studentId: 's2' }] }),
+      t('running', 'late', 0, '18:30'),
+      t('soon', 'late', 2, '18:30'),
+      t('nextWeek', 'early', 7, '17:00'),
+      t('yesterdayMorning', 'weekly', -1, '10:00'),
+      t('farAway', 'weekly', 8, '17:00'),
+      { ...t('own', null, 0, '18:00'), loggedBy: 'player', studentId: 's5' },
+    ],
+  };
+  const { sections, rest } = playerSections(state, at('18:45'));
+  assert.deepEqual(sections.map((s) => [s.training.id, s.status, s.players.map((p) => p.student.name)]), [
+    ['running', 'now', ['Aino', 'Cecilia']],
+    ['ended', 'past', ['Bea']],
+  ], 'the session going on first; a later one whose players are all listed already is left out');
+  assert.equal(sections[1].minutesAgo, 15);
+  assert.equal(sections[1].players[0].absent, true);
+  assert.equal(sections[0].players[0].next.id, 'soon', "Aino's next session after the running one");
+  assert.equal(sections[1].players[0].next.id, 'nextWeek');
+  assert.deepEqual(rest.map((r) => [r.student.name, r.next?.id || null]), [['Daniel', 'farAway'], ['Eero', null]],
+    'a session that ended over a day ago and a player\'s own log do not count');
+  const earlier = playerSections(state, at('16:00')).sections;
+  assert.deepEqual(earlier.map((s) => [s.training.id, s.status, s.minutesUntil]), [['ended', 'upcoming', 60], ['running', 'upcoming', 150]]);
+});
+
+test('when a session is, said the way a coach says it', () => {
+  const on = (offset, time = '17:00') => ({ date: koutsiAddDays(today, offset), time });
+  assert.equal(sessionWhen(on(0, '18:30'), today), 'tänään 18:30');
+  assert.equal(sessionWhen(on(1), today), 'huomenna 17:00');
+  assert.match(sessionWhen(on(3), today), /^(ma|ti|ke|to|pe|la|su) 17:00$/);
+  assert.match(sessionWhen(on(9), today), /^(ma|ti|ke|to|pe|la|su) \d{1,2}\.\d{1,2}\. 17:00$/);
 });

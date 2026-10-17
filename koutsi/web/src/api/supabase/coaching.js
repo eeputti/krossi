@@ -68,15 +68,6 @@ export const coach = {
     }
     if (error) throw error;
   },
-  // The admin's role switch: join your own groups as a player (koutsi_admin_join_own_groups).
-  async joinOwnGroups(groupIds) {
-    const { data, error } = await db().rpc('koutsi_admin_join_own_groups', { group_ids_input: groupIds || [] });
-    if (error && isMissingFunction(error)) {
-      throw new ApiError('Pelaajanäkymä otetaan käyttöön pian.', { code: 'not_deployed' });
-    }
-    if (error) throw error;
-    return data;
-  },
   subscribe(coachId, cb) { return subscribeTables(`koutsi-coach-${coachId}`, cb); },
 };
 

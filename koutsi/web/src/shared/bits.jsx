@@ -5,8 +5,7 @@ import { useMemo, useState } from 'react';
 import { Button, Icon, IconButton, useToast } from '../ui/index.js';
 import { copyText } from '../ui/effects.js';
 import { koutsiQrMatrix } from '../lib/qr.js';
-import { themeWeekRelative, themeWeekShort } from '../domain/week.js';
-import { koutsiIsoWeekRangeLabel } from '../domain/core.js';
+import { themeWeekRelative, weekRangeLabel } from '../domain/week.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -73,19 +72,22 @@ export function ThemeCard({ theme, week, eyebrow, note, groups, compact, classNa
   );
 }
 
-/** ‹ TÄMÄ VIIKKO / vko 42 · 13.10.–19.10. › */
+/** Viikkohallinta's week head, for the planner: ENSI VIIKKO / ‹ Viikko 43 › / 19.–25.10.2026 · sub */
 export function WeekStepper({ week, onPrev, onNext, sub, onToday, isCurrent }) {
   const relative = themeWeekRelative(week);
   return (
     <div className="k-week-stepper">
-      <IconButton icon="chevron-left" label="Edellinen viikko" variant="soft" onClick={onPrev} />
-      <div className="k-week-stepper-text">
-        {relative && <div className="eyebrow k-week-stepper-rel">{relative}</div>}
-        <div className="k-week-stepper-label">{themeWeekShort(week)} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</div>
-        {sub && <div className="k-week-stepper-sub">{sub}</div>}
-        {!isCurrent && onToday && <button type="button" className="k-textlink" onClick={onToday}>Takaisin tähän viikkoon</button>}
+      {relative && <div className="eyebrow">{relative}</div>}
+      <div className="k-week-stepper-row">
+        <IconButton icon="chevron-left" label="Edellinen viikko" variant="soft" onClick={onPrev} />
+        <div className="k-week-stepper-title">Viikko {week.week}</div>
+        <IconButton icon="chevron-right" label="Seuraava viikko" variant="soft" onClick={onNext} />
+        {!isCurrent && onToday && <button type="button" className="wb-today-btn k-week-stepper-today" onClick={onToday}>Tämä viikko</button>}
       </div>
-      <IconButton icon="chevron-right" label="Seuraava viikko" variant="soft" onClick={onNext} />
+      <div className="k-week-stepper-meta">
+        <span className="k-week-stepper-range t-num">{weekRangeLabel(week)}</span>
+        {sub && <span className="k-week-stepper-sub">{sub}</span>}
+      </div>
     </div>
   );
 }

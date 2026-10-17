@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { koutsiAddIsoWeeks, koutsiIsoWeekOfDateStr, koutsiTodayStr, koutsiAddDays } from '../src/domain/core.js';
 import { weekDates } from '../src/domain/week.js';
-import { assignLanes, gridHours, weekBoard, weekEvents } from '../src/domain/board.js';
+import { assignLanes, eventRangeLabel, gridHours, weekBoard, weekEvents } from '../src/domain/board.js';
 
 // a week that is wholly ahead, so nothing in it counts as held yet
 const week = koutsiAddIsoWeeks(koutsiIsoWeekOfDateStr(koutsiTodayStr()), 2);
@@ -98,4 +98,13 @@ test('club events become bars over the days they cover, stacked when they overla
   ] }, dates);
   assert.deepEqual(bars.map((b) => [b.event.id, b.from, b.to, b.row]), [['camp', 0, 1, 0], ['cup', 0, 0, 1]]);
   assert.equal(rows, 2);
+  // the camp began last week, so its bar says it goes on from the left edge
+  assert.deepEqual(bars.map((b) => [b.before, b.after]), [[true, false], [false, false]]);
+});
+
+test('an event names its days, the month once when both ends share it', () => {
+  assert.equal(eventRangeLabel({ date: '2026-10-24', endDate: null }), 'la 24.10.');
+  assert.equal(eventRangeLabel({ date: '2026-10-16', endDate: '2026-10-18' }), 'pe 16.–su 18.10.');
+  assert.equal(eventRangeLabel({ date: '2026-10-29', endDate: '2026-11-01' }), 'to 29.10.–su 1.11.');
+  assert.equal(eventRangeLabel({ date: '2026-10-24', endDate: '2026-10-24' }), 'la 24.10.');
 });

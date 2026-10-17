@@ -35,28 +35,42 @@
 .wb-add:hover { background: var(--green-700); }
 .wb-add:active { transform: scale(0.94); }
 
-/* day heads and club events: the same columns as the grid, the time axis first */
-.wb-heads, .wb-allday { display: grid; column-gap: var(--wb-gap); }
-.wb-heads {
+/* day heads and club events: the same columns as the grid, the time axis first; both stay in
+   sight while the grid scrolls */
+.wb-top {
   position: sticky; top: var(--wb-sticky); z-index: 6; background: rgba(255, 255, 255, 0.94);
   backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
 }
+.wb-heads, .wb-allday { display: grid; column-gap: var(--wb-gap); }
 .wb-dayhead { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 8px 4px; border-bottom: 2px solid var(--line); white-space: nowrap; overflow: hidden; }
 .wb-dayhead-dow { font-size: 14px; font-weight: 800; color: var(--ink); }
 .wb-dayhead-date { font-size: 12.5px; font-weight: 650; color: var(--muted); }
 .wb-dayhead.is-past .wb-dayhead-dow { color: var(--muted); }
 .wb-dayhead.is-today { border-bottom-color: var(--lime); }
-.wb-allday { grid-auto-rows: 28px; row-gap: 4px; padding: 8px 0 2px; }
-.wb-allday-label { align-self: center; font-size: 10.5px; font-weight: 750; line-height: 1.15; text-align: right; color: var(--faint); hyphens: manual; }
+.wb-allday { grid-auto-rows: 40px; row-gap: 4px; padding: 8px 0 0; }
 .wb-allday-phone { display: none; }
+
+/* a club event: dark with a lime icon, so it never reads as a session (light lime / grey) or as
+   something missing (clay) — its kind's icon, its name, its kind and days; square on the side
+   where it goes on past the week */
 .wb-event {
-  display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 10px; border-radius: var(--r-sm); text-align: left;
-  background: var(--sand); color: var(--ink); font-size: 12.5px; font-weight: 700; transition: background-color var(--dur-2);
+  position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; height: 40px; padding: 0 10px 0 7px;
+  border-radius: var(--r-sm); background: var(--green-800); color: #fff; text-align: left; container-type: inline-size;
+  transition: background-color var(--dur-2), transform var(--dur-1) var(--ease-out);
 }
-.wb-event:hover { background: var(--sand-2); }
-.wb-event svg { flex-shrink: 0; color: var(--clay); }
-.wb-event-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wb-event-kind { margin-left: auto; padding-left: 6px; font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.wb-event:hover { background: var(--green-700); }
+.wb-event:active { transform: scale(0.985); }
+.wb-event:focus-visible { outline: 2px solid var(--lime); outline-offset: 1px; }
+.wb-event.is-before { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.wb-event.is-after { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.wb-event-icon { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--lime); color: var(--green-800); }
+.wb-event-text { display: grid; gap: 1px; min-width: 0; line-height: 1.2; }
+.wb-event-title { font-size: 13px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-event-sub { font-size: 11.5px; font-weight: 600; color: var(--on-dark-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-event-go { display: none; }
+/* a narrow bar keeps the name and the kind; its days show once there is room for them */
+@container (max-width: 132px) { .wb-event-icon { display: none; } }
+@container (max-width: 190px) { .wb-event-range { display: none; } }
 
 /* the grid: times on the left, an hour line per hour, the days over the lines */
 .wb-main { display: grid; grid-template-columns: var(--wb-axis) minmax(0, 1fr); column-gap: var(--wb-gap); padding-top: 12px; }
@@ -70,7 +84,9 @@
 .wb-days { position: absolute; inset: 0; display: grid; grid-auto-flow: column; column-gap: var(--wb-gap); }
 .wb-day { position: relative; min-width: 0; height: 100%; }
 .wb-day.is-today { border-radius: var(--r-sm); background: rgba(207, 228, 20, 0.07); }
-.wb-day-empty { position: absolute; top: 10px; left: 0; right: 0; padding: 0 4px; text-align: center; font-size: 12px; color: var(--faint); }
+.wb-day-empty { position: absolute; z-index: 4; top: 10px; left: 0; right: 0; display: flex; justify-content: center; padding: 0 4px; pointer-events: none; }
+.wb-day-empty-text { padding: 1px 8px; border-radius: var(--r-pill); background: var(--bg); font-size: 12px; color: var(--faint); }
+.wb-day-add { display: none; }
 .wb-now { position: absolute; z-index: 3; left: 0; right: 0; height: 2px; margin-top: -1px; border-radius: 2px; background: var(--clay); pointer-events: none; }
 .wb-now::before { content: ""; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--clay); }
 
@@ -132,7 +148,7 @@
 @container (max-width: 112px) { .wb-b .wb-b-end, .wb-b .wb-b-level { display: none; } .wb-b { padding-inline: 8px 5px; } .wb-b .wb-b-name { font-size: 12.5px; } }
 
 .wb-loose { margin-top: 28px; }
-.wb-strip { display: none; }
+.wb-strip, .wb-dayline { display: none; }
 
 /* narrow desktop: seven columns still fit, with a tighter gap */
 @media (min-width: 900px) and (max-width: 1180px) {
@@ -150,10 +166,9 @@
   .wb-today-btn { grid-area: today; justify-self: end; height: 30px; padding: 0 12px; }
   .wb-add-slot { grid-area: add; justify-self: end; margin-left: 0; }
   .wb-add { width: 44px; height: 44px; }
-  .wb-heads, .wb-allday { display: none; }
-  .wb-allday-phone { display: grid; gap: 6px; margin: 2px 0 6px calc(var(--wb-axis) + var(--wb-gap)); }
+  .wb-top { display: none; }
   .wb-strip {
-    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; position: sticky; z-index: 6;
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px 4px; position: sticky; z-index: 6;
     top: var(--wb-sticky); margin: 0 calc(-1 * var(--gutter)) 6px; padding: 8px var(--gutter);
     background: rgba(255, 255, 255, 0.94); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
   }
@@ -169,15 +184,43 @@
   .wb-strip-day.is-today .wb-strip-num { text-decoration: underline 2px var(--lime); text-underline-offset: 4px; }
   .wb-strip-day.is-active { background: var(--green-800); color: var(--on-dark-muted); }
   .wb-strip-day.is-active .wb-strip-num { color: #fff; }
+  /* a dark line under the days an event covers */
+  .wb-strip-ev { height: 4px; margin: 0 8px; border-radius: 4px; background: var(--green-800); }
+  .wb-strip-ev.is-before { margin-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .wb-strip-ev.is-after { margin-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
 
-  /* one day per screen beside the times, the next one peeking in from the right */
+  /* the day in view: its name, then its events as cards */
+  .wb-dayline { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 10px; flex-wrap: wrap; margin: 6px 0 10px; }
+  .wb-dayline-title { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+  .wb-dayline-title .t-num { font-weight: 700; color: var(--muted); }
+  .wb-dayline-sub { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+  .wb-dayline-today { padding: 2px 8px; border-radius: var(--r-pill); background: var(--lime); color: var(--ink); font-size: 11.5px; font-weight: 800; }
+  .wb-allday-phone { display: grid; gap: 8px; margin: 0 0 6px; }
+  .wb-allday-phone .wb-event, .wb-allday-phone .wb-event.is-before, .wb-allday-phone .wb-event.is-after {
+    height: auto; min-height: 60px; gap: 12px; padding: 10px 12px; border-radius: var(--r-lg);
+  }
+  .wb-allday-phone .wb-event-icon { width: 36px; height: 36px; display: grid; }
+  .wb-allday-phone .wb-event-title { font-size: 15.5px; white-space: normal; overflow-wrap: anywhere; }
+  .wb-allday-phone .wb-event-sub { font-size: 13px; }
+  .wb-allday-phone .wb-event-go { display: block; flex-shrink: 0; margin-left: auto; color: var(--on-dark-muted); }
+
+  /* one whole day at a time beside the times; the strip and the day's name say which */
   .wb-days {
     display: flex; gap: 10px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none;
   }
   .wb-days::-webkit-scrollbar { display: none; }
-  .wb-day { flex: 0 0 88%; scroll-snap-align: start; }
+  .wb-day { flex: 0 0 100%; scroll-snap-align: start; }
   .wb-day.is-today { background: transparent; }
   .wb-b-name { font-size: 14.5px; }
+  /* a day with nothing on it: the day's name says so; one tap adds a session to it */
+  .wb-day-empty { top: 14px; }
+  .wb-day-empty-text { display: none; }
+  .wb-day-add {
+    display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 18px; pointer-events: auto;
+    border-radius: var(--r-pill); border: 1.5px dashed var(--line-strong); background: var(--bg);
+    font-size: 14px; font-weight: 750; color: var(--ink-2); transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2);
+  }
+  .wb-day-add:active { transform: scale(0.97); border-color: var(--ink-2); }
 }
 
 /* Viikkohallinta's pop-ups: a session's state and its fixes, the facts, the week picker */
@@ -205,6 +248,7 @@
 .ms-row.is-danger .ms-row-icon { background: var(--clay-100); color: var(--clay); }
 .cal-cell.is-week { background: var(--lime-100); }
 .cal-cell.is-week:hover { background: var(--lime-200); }
+.cal-blank { aspect-ratio: 1; min-height: 40px; } /* holds an empty sixth row at full height */
 
 /* ── Koti: today's timeline ──────────────────────────────── */
 .tt-summary { font-size: 13px; font-weight: 650; color: var(--muted); white-space: nowrap; }

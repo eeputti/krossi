@@ -165,14 +165,34 @@
 // @property {string} message
 // @property {string} createdAt
 //
-// @typedef {Object} MatchResult
+// @typedef {Object} MatchResult             always from MY point of view ("my" = my side), whoever logged it
 // @property {string} id
 // @property {string} createdAt
+// @property {'sets'|'tiebreak'|'full_match'} gameType
+// @property {'singles'|'doubles'} format
+// @property {string|null} partnerName       names as shown: typed, or the linked player's name
+// @property {string|null} opponentName
+// @property {string|null} oppPartnerName
+// @property {{my:number, opp:number}[]} sets
+// @property {boolean} won
+// @property {PersonLite|null} partner       linked Krossi players (null = typed name only)
+// @property {PersonLite|null} opponent
+// @property {PersonLite|null} oppPartner
+// @property {null|'pending'|'confirmed'|'disputed'} confirmation   null = no Krossi player on the other side, nothing to confirm
+// @property {PersonLite|null} answeredBy    who on the other side confirmed / disputed
+// @property {string|null} answeredAt
+// @property {boolean} isMine                 I logged it (others' results are read-only for me)
+// @property {PersonLite|null} loggedBy       who logged it, when not me
+//
+// @typedef {Object} MatchResultInput         what MatchResultSheet saves
 // @property {'sets'|'tiebreak'|'full_match'} gameType
 // @property {'singles'|'doubles'} format
 // @property {string|null} partnerName
 // @property {string|null} opponentName
 // @property {string|null} oppPartnerName
+// @property {string|null} [partnerId]        Krossi players (doubles only for the partners)
+// @property {string|null} [opponentId]
+// @property {string|null} [oppPartnerId]
 // @property {{my:number, opp:number}[]} sets
 // @property {boolean} won
 //
@@ -249,6 +269,7 @@
 //   { type:'challenge_spot_available', challengeId, leaverId }
 //   { type:'challenge_cancelled', challengeId, creatorId }
 //   { type:'account_report', reportId, reporterId, reportedId }
+//   { type:'match_result_logged', resultId, creatorId }   asks the linked opponent(s) to confirm the result
 //
 // ── Court booking (kenttävaraus) ─────────────────────────────────────────────
 // A venue (hall operator, e.g. Lahden Tennis- ja Squashkeskus) has locations (Janus-Areena,
@@ -760,9 +781,14 @@ export const API_CONTRACT = {
     'setArchived',         // (ids[]) -> void
   ],
   results: [
-    'listMine',            // () -> MatchResult[]   newest first, max 100
-    'save',                // (id|null, Omit<MatchResult,'id'|'createdAt'>) -> void
-    'remove',              // (id) -> void
+    'listMine',            // () -> MatchResult[]   newest first, max 100: mine, and others' with me in them once confirmed (isMine false)
+    'save',                // (id|null, MatchResultInput) -> { id, confirmation }   a linked opponent makes it 'pending' and is asked
+                           //   (emits match_result_logged; again when I change the score or players of an answered result)
+    'remove',              // (id) -> void   only my own
+    'candidates',          // ({ city }) -> { partners: Partner[], players: Profile[] }   who I can name as a Krossi player (paid profile access)
+    'listToConfirm',       // () -> MatchResult[]   others' results with me on the other side, waiting for my answer (isMine false)
+    'confirm',             // (id) -> void   "Vahvista" (an answer can be changed later)
+    'dispute',             // (id) -> void   "Ei pidä paikkaansa": the logger sees it and can correct the result
   ],
   stats: [
     'myActivity',          // () -> Activity

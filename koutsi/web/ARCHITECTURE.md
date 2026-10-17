@@ -33,10 +33,9 @@ mutta vain selaimelle, jolla on eväste `koutsi_uusi=1`:
   samat kutsulinkit (`/pelaaja?koodi=…&oppilas=…`) ja ilmoitusten `link_path`-arvot.
 - Toimii myös demossa: `demo.koutsi.krossi.app/valmentaja?uusi=1`.
 - Uudessa sovelluksessa Profiili → "Palaa vanhaan Koutsiin" (`?uusi=0`).
-- Ylläpitäjän roolinvaihto: Beta-palkissa "Valmentaja | Pelaaja" (`shared/roleSwitch.jsx`, vanhassa
-  `KoutsiRoleSwitch`). Vain `koutsi_admins`-tunnukselle, ei demoissa eikä "toimi valmentajana" -tilassa.
-  Ensimmäinen vaihto pelaajaksi liittää tunnuksen omiin ryhmiin (RPC `koutsi_admin_join_own_groups`),
-  sen jälkeen napautus vain avaa toisen sovelluksen. Kehityksessä `?esikatsele=rooli`.
+- Beta-palkki "[BETA] Koutsilla uusi ilme! Palaa vanhaan →" (ei erotinpisteitä) näkyy kaikille uuden Koutsin käyttäjille.
+  Ylläpitäjän Valmentaja | Pelaaja -vaihto poistettiin 17.10.2026 molemmista sovelluksista;
+  RPC `koutsi_admin_join_own_groups` jäi tietokantaan, mutta sovellus ei kutsu sitä.
 
 ## 3. Kansiorakenne
 

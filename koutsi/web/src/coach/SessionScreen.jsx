@@ -1,7 +1,7 @@
-// SessionScreen — one session: when, who, the week's theme, a note / homework / video for the
-// players who came (or, before it, for everyone expected), and attendance. Attendance is a
-// tap per player (Paikalla ↔ Poissa); presence is "no row", so nothing needs saving for the
-// players who came. A tap shows immediately and is saved in the background.
+// SessionScreen — one session: when, attendance, a note / homework / video for the players who
+// came (or, before it, for everyone expected), and the week's theme. Attendance is a tap per
+// player (on the name, or Paikalla ↔ Poissa); presence is "no row", so nothing needs saving for
+// the players who came. A tap shows immediately and is saved in the background.
 import { useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
@@ -12,7 +12,7 @@ import {
   koutsiFmtLongDate, koutsiThemeForDate, koutsiTimeRangeLabel, koutsiIsoWeekOfDateStr, koutsiFmtShortDate,
 } from '../domain/core.js';
 import { presentPlayerIds, sessionRoster, sessionStatus } from '../domain/week.js';
-import { groupPath, playerPath } from './nav.js';
+import { groupPath } from './nav.js';
 import { TrainingSheet, useTrainingDelete } from './trainingForms.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { useRecord } from './merkitse.jsx';
@@ -90,6 +90,41 @@ export function SessionScreen({ params }) {
           {group && <Link to={groupPath(group.id)} className="chip chip-sm chip-outline">{group.day} {group.time} · {group.name}</Link>}
         </header>
 
+        {/* Every "Läsnäolo" button lands here, so the list comes first: nothing to scroll past. */}
+        <Block eyebrow="Läsnäolo" title={roster.length ? `${present}/${roster.length} paikalla` : 'Ei pelaajia'}>
+          {roster.length === 0 ? <p className="k-quiet">Ryhmässä ei ole pelaajia.</p> : (
+            <>
+              <p className="field-msg">{status === 'upcoming' ? 'Pelaajat voivat ilmoittaa poissaolon etukäteen omassa sovelluksessaan.' : 'Napauta poissaolleet. Kaikki muut merkitään paikalla olleiksi.'} Poissaolon syytä ei tallenneta.</p>
+              <ul className="k-attend">
+                {roster.map((s) => {
+                  const absent = absentIds.has(s.id);
+                  const entry = (training.absences || []).find((a) => a.studentId === s.id);
+                  return (
+                    <li key={s.id} className={cx('k-attend-row', absent && 'is-absent')}>
+                      {/* the whole name flips the mark: a stray tap never leaves the list */}
+                      <button type="button" className="k-attend-who" aria-label={`${s.name}: ${absent ? 'poissa' : 'paikalla'}. Vaihda.`} onClick={() => setStatus(s, absent ? 'paikalla' : 'poissa')}>
+                        <Avatar person={s} size={36} />
+                        <span className="grow">
+                          <span className="k-row-title truncate">{s.name}</span>
+                          {absent && entry?.reportedBy === s.id && <span className="k-faint">Ilmoitti itse</span>}
+                        </span>
+                      </button>
+                      <div className="k-attend-toggle" role="group" aria-label={`Läsnäolo: ${s.name}`}>
+                        <button type="button" className={cx('k-attend-btn', !absent && 'is-on is-present')} aria-pressed={!absent} onClick={() => absent && setStatus(s, 'paikalla')}>
+                          <Icon name="check" size={15} strokeWidth={2.6} />Paikalla
+                        </button>
+                        <button type="button" className={cx('k-attend-btn', absent && 'is-on is-absent')} aria-pressed={absent} onClick={() => !absent && setStatus(s, 'poissa')}>
+                          <Icon name="close" size={15} strokeWidth={2.6} />Poissa
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </Block>
+
         {roster.length > 0 && (
           <div className="k-quick">
             <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: recipients, source: 'treeni' })}>Huomio</Button>
@@ -108,39 +143,6 @@ export function SessionScreen({ params }) {
             <Button variant="dark" size="sm" icon="sparkles" onClick={() => setThemeOpen(true)}>Aseta teema</Button>
           </Card>
         ))}
-
-        <Block eyebrow="Läsnäolo" title={roster.length ? `${present}/${roster.length} paikalla` : 'Ei pelaajia'}>
-          {roster.length === 0 ? <p className="k-quiet">Ryhmässä ei ole pelaajia.</p> : (
-            <>
-              <p className="field-msg">{status === 'upcoming' ? 'Pelaajat voivat ilmoittaa poissaolon etukäteen omassa sovelluksessaan.' : 'Napauta poissaolleet. Kaikki muut merkitään paikalla olleiksi.'} Poissaolon syytä ei tallenneta.</p>
-              <ul className="k-attend">
-                {roster.map((s) => {
-                  const absent = absentIds.has(s.id);
-                  const entry = (training.absences || []).find((a) => a.studentId === s.id);
-                  return (
-                    <li key={s.id} className={cx('k-attend-row', absent && 'is-absent')}>
-                      <Link to={playerPath(s.id)} className="k-attend-who">
-                        <Avatar person={s} size={36} />
-                        <span className="grow">
-                          <span className="k-row-title truncate">{s.name}</span>
-                          {absent && entry?.reportedBy === s.id && <span className="k-faint">Ilmoitti itse</span>}
-                        </span>
-                      </Link>
-                      <div className="k-attend-toggle" role="group" aria-label={`Läsnäolo: ${s.name}`}>
-                        <button type="button" className={cx('k-attend-btn', !absent && 'is-on is-present')} aria-pressed={!absent} onClick={() => absent && setStatus(s, 'paikalla')}>
-                          <Icon name="check" size={15} strokeWidth={2.6} />Paikalla
-                        </button>
-                        <button type="button" className={cx('k-attend-btn', absent && 'is-on is-absent')} aria-pressed={absent} onClick={() => !absent && setStatus(s, 'poissa')}>
-                          <Icon name="close" size={15} strokeWidth={2.6} />Poissa
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
-        </Block>
       </Page>
       <TrainingSheet open={editOpen} editing={training} onClose={() => setEditOpen(false)} />
       <GroupThemeSheet open={themeOpen} group={group} week={week} onClose={() => setThemeOpen(false)} />

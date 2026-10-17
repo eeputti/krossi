@@ -124,6 +124,10 @@
 .home-outcome-hint { margin-top: 14px; max-width: 300px; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .home-outcome-actions { width: 100%; margin-top: 22px; }
 .home-outcome-more { margin-top: 12px; font-size: 12.5px; font-weight: 600; color: var(--faint); }
+.home-confirm-card { width: 100%; margin-top: 16px; text-align: left; }
+/* Two long answers: stacked, "Vahvista" on top. */
+.home-confirm-actions { flex-direction: column-reverse; gap: 8px; }
+.home-confirm-actions > * { flex: none; }
 
 /* ── bell + Ilmoitukset (Notifications.jsx) ──────────────── */
 .home-hero-tools { display: inline-flex; align-items: center; gap: 10px; }
@@ -158,3 +162,5 @@
 .home-notif-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--clay); }
 .home-notif-icon.is-rest { background: var(--danger-bg); color: var(--danger); }
 .home-notif-icon.is-sold { background: var(--success-bg); color: var(--success); }
+.home-notif-icon.is-resultAnswered { background: var(--success-bg); color: var(--success); }
+.home-notif-kind.is-resultConfirm { background: var(--lime); color: var(--ink); }

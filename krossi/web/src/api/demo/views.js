@@ -3,6 +3,7 @@
 // deep-copies whatever these build, so screens never hold references into the tables.
 
 import { ME, capacityOf, isExpired, previewText } from './rows.js';
+import { viewResult } from '../../features/resultLinks.js';
 import {
   db, gameRow, personLite, profileOf, messagesOf, gameConversation, isMember, leagueMembers, leagueFixtures, leagueRounds,
 } from './store.js';
@@ -184,18 +185,10 @@ export function toPlayRequest(request) {
 // ── Results ──────────────────────────────────────────────────────────────────
 
 /** @returns {import('../contract.js').MatchResult} */
-export function toMatchResult(row) {
-  return {
-    id: row.id,
-    createdAt: row.createdAt,
-    gameType: row.gameType,
-    format: row.format,
-    partnerName: row.partnerName ?? null,
-    opponentName: row.opponentName ?? null,
-    oppPartnerName: row.oppPartnerName ?? null,
-    sets: row.sets.map((s) => ({ my: Number(s.my) || 0, opp: Number(s.opp) || 0 })),
-    won: Boolean(row.won),
-  };
+/** A demo result row (StoredResult) as `viewerId` sees it, with every linked person resolved. */
+export function toMatchResult(row, viewerId = ME) {
+  const ids = [row.createdBy, row.partnerId, row.opponentId, row.oppPartnerId, row.confirmedBy, row.disputedBy].filter(Boolean);
+  return viewResult(row, viewerId, new Map(ids.map((id) => [id, personLite(id)])));
 }
 
 // ── Leagues ──────────────────────────────────────────────────────────────────

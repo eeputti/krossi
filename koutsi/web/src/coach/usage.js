@@ -43,6 +43,9 @@ export const USAGE_SECTIONS = [
       ['pelaaja.huomio', 'Pelaaja → Huomio'],
       ['pelaaja.laksy', 'Pelaaja → Kotiläksy'],
       ['pelaaja.video', 'Pelaaja → Video'],
+      ['harjoite.laksy', 'Harjoite → Kotiläksy'],
+      ['laksy.ehdotus', 'Kotiläksy: ehdotettu harjoite valittu'],
+      ['laksy.pankista', 'Kotiläksy: harjoite valittu pankista'],
     ],
   },
   {
