@@ -14,12 +14,15 @@
 //   2. A cancellation or a sale whose refunds stalled (krossi_booking_refunds_due → refundParts):
 //      what is left of the booker's payment and every friend's paid share. A sale's seller is told
 //      once (krossi-notify throttles a repeat).
-// The idempotency keys are the ones krossi-booking and stripe-webhook use, so nothing is refunded twice.
+//   3. A saldo refund to a card that Stripe didn't take when the player asked (krossi_saldo_refunds_due
+//      → refundSaldo, key `krossi-saldo-refund-<row>`; one refused for good goes back on the saldo).
+// The idempotency keys are the ones krossi-booking, krossi-billing and stripe-webhook use, so nothing is refunded twice.
 //
-// Body: { "type": "booking_tasks" }. Response: { bookerRefunded, refunded, errors }.
+// Body: { "type": "booking_tasks" }. Response: { bookerRefunded, refunded, saldoRefunded, errors }.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
 import { type BookerRefund, notifyInternal, refundBooker, refundParts } from '../_shared/booking.ts';
+import { type SaldoRefund, refundSaldo } from '../_shared/saldo.ts';
 
 const MAX_CRON_KEY_LENGTH = 256;
 const BATCH = 50;
@@ -47,7 +50,7 @@ Deno.serve(async (req: Request) => {
   }
   if (valid !== true) return json({ error: 'Unauthorized.' }, 401);
 
-  const counts = { bookerRefunded: 0, refunded: 0, errors: 0 };
+  const counts = { bookerRefunded: 0, refunded: 0, saldoRefunded: 0, errors: 0 };
 
   const { data: shares, error: sharesError } = await admin.rpc('krossi_split_refunds_due', { limit_input: BATCH });
   if (sharesError) {
@@ -77,6 +80,16 @@ Deno.serve(async (req: Request) => {
       counts.errors += 1;
       console.error('krossi-booking-cron: refunds failed', item.bookingId, (err as Error).message);
     }
+  }
+
+  const { data: saldo, error: saldoError } = await admin.rpc('krossi_saldo_refunds_due', { limit_input: BATCH });
+  if (saldoError) {
+    console.error('krossi-booking-cron: saldo refunds due failed', saldoError.message);
+    counts.errors += 1;
+  } else {
+    const done = await refundSaldo(stripe, admin, (Array.isArray(saldo) ? saldo : []) as SaldoRefund[]);
+    counts.saldoRefunded += done.refunded;
+    counts.errors += done.left;
   }
 
   return json(counts);

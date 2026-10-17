@@ -6,7 +6,9 @@
 //                          lost or duplicate payment is refunded at once
 //   settleSplitPayment     a friend paid their share of a split booking: krossi_split_mark_paid; a
 //                          payment the split can't take (the booking was cancelled or sold, the split
-//                          changed, every share was paid already) is refunded to the friend at once
+//                          changed, every share was paid already) is refunded to the friend at once.
+//                          When the booker paid with their saldo, the share's amount went to their
+//                          saldo in the same transaction (bookerSaldo) and they are told now
 //   refundBooker           a paid share's amount back to the booker from their own payment (a
 //                          partial refund), recorded with krossi_split_booker_refunded, and the
 //                          booker told (krossi-notify booking_split_paid)
@@ -316,6 +318,7 @@ interface SplitMarkPaid {
   cents?: number;
   bookerIntentId?: string | null;
   bookerRefundDue?: boolean;
+  bookerSaldo?: boolean;
 }
 
 /**
@@ -349,6 +352,9 @@ export async function settleSplitPayment(stripe: Stripe, admin: Admin, intent: S
   const bookerRefund = marked.bookerRefundDue && marked.bookerIntentId && marked.shareId
     ? { shareId: marked.shareId, bookingId: marked.bookingId, bookerIntentId: marked.bookerIntentId, cents: marked.cents ?? 0 }
     : null;
+  // The share went to the booker's saldo (no refund to wait for): tell them now (krossi-notify
+  // sends it once per share).
+  if (marked.bookerSaldo && marked.shareId) await notifyInternal(admin, { type: 'booking_split_paid', shareId: marked.shareId });
   return { outcome: 'paid', shareId: marked.shareId ?? '', bookerRefund };
 }
 

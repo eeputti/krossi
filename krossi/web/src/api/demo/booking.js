@@ -21,7 +21,8 @@ import {
 import { firstName } from '../../lib/format.js';
 import {
   MIN, blockers, creditOf, dayRange, expireStaleHolds, fail, inRange, isLive, liveRows, myRow, newToken, onSale, overlapping,
-  partStatus, refundEverything, requireStaff, salesCovered, sharesOf, spendGift, takeOverSales, toBooking, venueRow,
+  addCreditEvent, giftAvailable, partStatus, refundEverything, requireStaff, rowLabel, salesCovered, shareToBooker, sharesOf, spendGift,
+  takeOverSales, toBooking, venueRow,
 } from './bookingCore.js';
 
 const MAX_HOLDS = 2;
@@ -179,7 +180,7 @@ export async function listMine() {
   });
 }
 
-export async function cancel(bookingId) {
+export async function cancel(bookingId, { toSaldo = false } = {}) {
   return run(() => {
     const row = myRow(bookingId);
     if (row.status !== 'confirmed') throw fail('Tätä varausta ei voi enää perua.');
@@ -188,7 +189,7 @@ export async function cancel(bookingId) {
     row.status = 'cancelled';
     row.cancelledAt = nowIso();
     row.listedAt = null;
-    return refundEverything(row, 'Peruttu', { fee: true });
+    return refundEverything(row, 'Peruttu', { fee: true, toSaldo: toSaldo === true && venue.saldo === true });
   });
 }
 
@@ -262,6 +263,7 @@ function scheduleFriendPaying(row) {
     const payer = FRIEND_PAYERS.find((id) => profileOf(id) && !sharesOf(current.id).some((s) => s.userId === id));
     if (!part || !payer) return;
     Object.assign(part, { status: 'paid', paidAt: nowIso(), userId: payer, name: null, claimUntil: null });
+    shareToBooker(current, part);
   });
 }
 
@@ -311,7 +313,7 @@ export async function splitPublic(token) {
     const booker = personLite(row.bookedBy);
     const parts = sharesOf(row.id).map((s) => partStatus(s));
     return {
-      token, venueName: venue.name, locationName: found?.location.name || '', courtName: found?.court.name || 'Kenttä',
+      token, venueId: venue.id, venueName: venue.name, locationName: found?.location.name || '', courtName: found?.court.name || 'Kenttä',
       sport: found?.court.sport || 'tennis', startsAt: row.startsAt, endsAt: row.endsAt,
       bookerFirstName: firstName(booker.name), bookerAvatarUrl: booker.avatarUrl || null,
       parts: row.split.parts, perCents: row.split.perCents,
@@ -353,6 +355,23 @@ export async function createSplitPaymentIntent(token, { name = '' } = {}) {
       status: 'paid', paidAt: nowIso(), claimUntil: null,
       userId: asMe ? ME : null, name: asMe ? null : (String(name || '').trim().slice(0, 40) || null),
     });
+    shareToBooker(row, part);
+    return { paid: true };
+  });
+}
+
+/** One part paid from my saldo at the booking's hall (as krossi_split_pay_saldo): no card payment. */
+export async function paySplitWithSaldo(token) {
+  return run(() => {
+    const { row, state } = payableLink(token);
+    if (state === 'over') throw fail('Vuoro on jo alkanut.', 'over');
+    if (row.bookedBy === ME) throw fail('Tämä on oma vuorosi — lähetä linkki kavereillesi.', 'own');
+    const part = state === 'open' && sharesOf(row.id).find((s) => partStatus(s) === 'open');
+    if (!part) return { full: true };
+    if (giftAvailable(ME, row.venueId) < part.cents) throw fail('Saldosi tässä hallissa ei riitä osuuteen.', 'short');
+    addCreditEvent({ venueId: row.venueId, userId: ME, kind: 'use', cents: -part.cents, bookingId: row.id, label: `Osuus: ${rowLabel(row)}` });
+    Object.assign(part, { status: 'paid', paidAt: nowIso(), claimUntil: null, userId: ME, name: null, withSaldo: true });
+    shareToBooker(row, part);
     return { paid: true };
   });
 }

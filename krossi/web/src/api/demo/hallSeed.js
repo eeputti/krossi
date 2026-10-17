@@ -319,5 +319,6 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
     passes,
     giftCards,
     creditEvents,
+    topups: [],
   };
 }

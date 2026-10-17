@@ -155,6 +155,7 @@ function mapLine(raw) {
     cents: number(raw.cents),
     status: LINE_STATUSES.includes(raw.status) ? raw.status : 'open',
     paidAt: iso(raw.paidAt),
+    backTo: !own && (raw.backTo === 'saldo' || raw.backTo === 'card') ? raw.backTo : null,
   };
 }
 

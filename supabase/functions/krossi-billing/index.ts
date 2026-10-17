@@ -7,9 +7,11 @@
 //   { action: 'runCharges', venueId }                -> { paid, failed }   hall staff: charges every due month off-session
 //   { action: 'payCharge', chargeId }                -> { paid: true } | { publishableKey, clientSecret, paymentIntentId, amount, currency, email }
 //   { action: 'verifyCharge', chargeId, paymentIntentId } -> { paid, status }
-//   { action: 'orderConfig', kind, id }              -> { paid: true } | { publishableKey, amount, currency, email }   kind 'pass' | 'gift'
+//   { action: 'orderConfig', kind, id }              -> { paid: true } | { publishableKey, amount, currency, email }   kind 'pass' | 'gift' | 'topup'
 //   { action: 'orderIntent', kind, id }              -> { paid: true } | { clientSecret, paymentIntentId }
 //   { action: 'orderVerify', kind, id, paymentIntentId } -> { paid, status }
+//   { action: 'saldoRefund', venueId }               -> { refundedCents, feeCents }   the unused top-ups of my saldo at the hall
+//                                                     back to their cards (refundedCents goes to the cards, feeCents stays)
 //   { action: 'sendInvoice', invoiceId }             -> { sentTo }   hall staff: e-mails the invoice with the payment details
 //   { action: 'seasonDecided', slotId }              -> { sent }     hall staff, right after approving / declining a
 //                                                                     kausivuoro request: e-mails the player the decision
@@ -25,10 +27,16 @@
 // A daily cron can run the charges for every hall: POST { action: 'runCharges' } with the header
 // x-cron-secret: <KROSSI_CRON_SECRET> (and the service role key as the bearer token).
 //
-// Orders (series cards, gift cards) are paid like bookings: the amount comes from the database
-// (booking_passes.price_cents / booking_gift_cards.amount_cents), metadata.product 'krossi_pass' /
-// 'krossi_gift', and krossi_wallet_order_paid activates the pass or issues the gift card's code
-// (here and in stripe-webhook). An order paid twice is refunded (key `krossi-order-refund-<pi>`).
+// Orders (series cards, gift cards, saldo top-ups) are paid like bookings: the amount comes from the
+// database (booking_passes.price_cents / booking_gift_cards.amount_cents / booking_topups.amount_cents),
+// metadata.product 'krossi_pass' / 'krossi_gift' / 'krossi_topup', and krossi_wallet_order_paid
+// activates the pass, issues the gift card's code or puts the top-up on the saldo (here and in
+// stripe-webhook). An order paid twice is refunded (key `krossi-order-refund-<pi>`).
+//
+// Saldo back to the card (saldoRefund, ../_shared/saldo.ts): krossi_saldo_refund_claim takes the
+// refundable part off the saldo at once (only top-ups, newest first, within 180 days; free for 14
+// days, then 1 €), and each top-up's payment is refunded by that much. A refund Stripe doesn't
+// take now is finished by krossi-booking-cron; one it refuses for good goes back on the saldo.
 //
 // Decision e-mails: the app calls 'seasonDecided' after krossi_season_approve / _decline. The mail
 // goes once per decision: krossi_season_decision_claim stamps the slot's notified_at (only a
@@ -51,10 +59,13 @@ import Stripe from 'npm:stripe@17.7.0';
 import {
   HALL_NOT_CONNECTED, HallNotConnected, PAYEE_COLUMNS, type PayeeVenue, connectParams, refundConnect, takesPayments,
 } from '../_shared/fees.ts';
+import { type SaldoRefund, TOPUP_PRODUCT, refundSaldo } from '../_shared/saldo.ts';
 
 const APP = 'https://krossi.app';
 const MIN_CHARGE_CENTS = 50;
-const PRODUCTS = { pass: 'krossi_pass', gift: 'krossi_gift' } as const;
+const PRODUCTS = { pass: 'krossi_pass', gift: 'krossi_gift', topup: TOPUP_PRODUCT } as const;
+type OrderKind = keyof typeof PRODUCTS;
+const ORDER_TABLES: Record<OrderKind, string> = { pass: 'booking_passes', gift: 'booking_gift_cards', topup: 'booking_topups' };
 const SEASON_PRODUCT = 'krossi_season';
 const REUSABLE = ['requires_payment_method', 'requires_confirmation', 'requires_action'];
 
@@ -479,10 +490,10 @@ async function verifyCharge(admin: SupabaseClient, user: { id: string }, chargeI
   return { paid: status === 'paid', status: 'succeeded' };
 }
 
-// ── Orders: series cards and gift cards ──────────────────────────────────────
+// ── Orders: series cards, gift cards and saldo top-ups ───────────────────────
 
 interface Order {
-  kind: 'pass' | 'gift';
+  kind: OrderKind;
   id: string;
   venueId: string;
   ownerId: string | null;
@@ -493,7 +504,16 @@ interface Order {
 }
 
 async function loadOrder(admin: SupabaseClient, kind: unknown, id: unknown): Promise<Order | null> {
-  if ((kind !== 'pass' && kind !== 'gift') || !isUuid(id)) return null;
+  if ((kind !== 'pass' && kind !== 'gift' && kind !== 'topup') || !isUuid(id)) return null;
+  if (kind === 'topup') {
+    const { data, error } = await admin.from('booking_topups')
+      .select('id, venue_id, user_id, status, amount_cents, stripe_payment_intent_id').eq('id', id).maybeSingle();
+    if (error) throw new Error(`top-up lookup failed: ${error.message}`);
+    return data ? {
+      kind, id: data.id, venueId: data.venue_id, ownerId: data.user_id, pending: data.status === 'pending', amount: data.amount_cents,
+      intentId: data.stripe_payment_intent_id, label: `Saldon lataus ${euros(data.amount_cents)}`,
+    } : null;
+  }
   if (kind === 'pass') {
     const { data, error } = await admin.from('booking_passes')
       .select('id, venue_id, user_id, status, price_cents, stripe_payment_intent_id, name').eq('id', id).maybeSingle();
@@ -519,7 +539,7 @@ async function myOrder(admin: SupabaseClient, body: { kind?: unknown; id?: unkno
 }
 
 /** Records a succeeded order payment; an order paid by another payment gets this one back. */
-async function settleOrder(admin: SupabaseClient, intent: Stripe.PaymentIntent, kind: 'pass' | 'gift') {
+async function settleOrder(admin: SupabaseClient, intent: Stripe.PaymentIntent, kind: OrderKind) {
   const { data, error } = await admin.rpc('krossi_wallet_order_paid', {
     kind_input: kind, order_id_input: intent.metadata?.order_id, payment_intent_id_input: intent.id, amount_input: intent.amount,
   });
@@ -563,8 +583,7 @@ async function orderIntent(admin: SupabaseClient, user: { id: string; email?: st
   const intent = await stripe.paymentIntents.create(params, {
     idempotencyKey: `krossi-order-intent-${order.id}-${order.intentId ?? 'first'}`,
   });
-  const table = order.kind === 'pass' ? 'booking_passes' : 'booking_gift_cards';
-  let store = admin.from(table).update({ stripe_payment_intent_id: intent.id }).eq('id', order.id).eq('status', 'pending');
+  let store = admin.from(ORDER_TABLES[order.kind]).update({ stripe_payment_intent_id: intent.id }).eq('id', order.id).eq('status', 'pending');
   store = order.intentId ? store.eq('stripe_payment_intent_id', order.intentId) : store.is('stripe_payment_intent_id', null);
   const { data: stored, error } = await store.select('id');
   if (error) throw new Error(`storing the order payment failed: ${error.message}`);
@@ -573,6 +592,26 @@ async function orderIntent(admin: SupabaseClient, user: { id: string; email?: st
     throw new Reply(409, 'Maksun aloitus on jo käynnissä. Yritä hetken päästä uudelleen.');
   }
   return { clientSecret: intent.client_secret, paymentIntentId: intent.id };
+}
+
+/**
+ * The unused top-ups of my saldo at the hall back to their cards (../_shared/saldo.ts). The saldo
+ * is off at once; what Stripe doesn't take now the cron finishes, what it refuses comes back.
+ */
+async function saldoRefund(admin: SupabaseClient, userId: string, venueId: unknown) {
+  if (!isUuid(venueId)) throw new Reply(404, 'Hallia ei löytynyt.');
+  const { data, error } = await admin.rpc('krossi_saldo_refund_claim', { user_id_input: userId, venue_id_input: venueId });
+  if (error) {
+    if (/Kortille palautettavaa saldoa ei ole/.test(error.message)) throw new Reply(409, 'Kortille palautettavaa saldoa ei ole.');
+    throw new Error(`krossi_saldo_refund_claim failed: ${error.message}`);
+  }
+  const claim = data as { cents: number; feeCents: number; refunds: SaldoRefund[] };
+  const { failed } = await refundSaldo(stripe, admin, claim.refunds ?? []);
+  // What Stripe refused for good is back on the saldo (with its share of the fee).
+  const refundedCents = claim.cents - failed.reduce((n, r) => n + r.cents, 0);
+  const feeCents = claim.feeCents - failed.reduce((n, r) => n + (r.feeCents ?? 0), 0);
+  if (refundedCents <= 0) throw new Reply(502, 'Palautus kortille ei onnistunut. Saldo on ennallaan.');
+  return { refundedCents, feeCents };
 }
 
 // ── Invoices ─────────────────────────────────────────────────────────────────
@@ -816,6 +855,8 @@ Deno.serve(async (req: Request) => {
         const outcome = await settleOrder(admin, intent, order.kind);
         return json(req, { paid: outcome === 'paid', status: outcome === 'paid' ? 'succeeded' : 'duplicate' });
       }
+      case 'saldoRefund':
+        return json(req, await saldoRefund(admin, user.id, body.venueId));
       case 'sendInvoice':
         return json(req, await sendInvoice(admin, asUser, body.invoiceId));
       case 'seasonDecided':

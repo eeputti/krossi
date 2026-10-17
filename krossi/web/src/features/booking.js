@@ -248,14 +248,15 @@ const settledPart = (line) => line.kind === 'friend' && (line.status === 'paid' 
 
 /**
  * Whether my booking can be split in `parts` (2 or 4) now, or the split changed: paid with money
- * (not a series card or gift balance), not on sale, not started, and while no friend part is paid
- * or being paid. → null when it can, else the reason in Finnish (the server says the same).
+ * or the saldo (not a series card), not on sale, not started, and while no friend part is paid or
+ * being paid. `saldo` false = a server before the saldo, where only card-paid bookings split.
+ * → null when it can, else the reason in Finnish (the server says the same).
  */
-export function splitBlocker(booking, parts, now = Date.now()) {
-  if (!booking || booking.status !== 'confirmed' || booking.paymentStatus !== 'paid') {
-    return booking?.paymentStatus === 'credit' ? 'Sarja- tai lahjakortilla maksettua vuoroa ei voi jakaa.' : 'Vain maksetun vuoron voi jakaa.';
-  }
-  if (booking.credit) return 'Sarja- tai lahjakortilla maksettua vuoroa ei voi jakaa.';
+export function splitBlocker(booking, parts, now = Date.now(), { saldo = true } = {}) {
+  if (booking?.credit?.kind === 'pass') return 'Sarjakortilla maksettua vuoroa ei voi jakaa.';
+  const paid = booking?.paymentStatus === 'paid' || (saldo && booking?.paymentStatus === 'credit' && booking.credit?.kind === 'gift');
+  if (!booking || booking.status !== 'confirmed' || !paid) return 'Vain maksetun vuoron voi jakaa.';
+  if (!saldo && booking.credit) return 'Voit jakaa vain vuoron, jonka maksoit kokonaan kortilla tai muulla verkkomaksulla.';
   if (booking.forSale) return 'Myynnissä olevaa vuoroa ei voi jakaa.';
   if (Date.parse(booking.startsAt) <= now) return 'Vuoro on jo alkanut.';
   if (booking.split?.lines.some((l) => l.kind === 'friend' && l.status !== 'open')) return 'Joku on jo maksanut osuutensa — jakoa ei voi enää muuttaa.';
@@ -290,33 +291,42 @@ export function canPutOnSale(booking, now = Date.now()) {
  * Peruutuskulu: when the player gives up their own booking (cancels it, or it is sold on after they
  * put it on sale), 1 € of their card / MobilePay money stays — about what the payment cost, a round
  * sum in the booking terms (supabase/functions/_shared/fees.ts CANCEL_FEE_CENTS). Series card hours
- * and gift balance come back whole, friends get all of their shares, and a booking the hall
- * cancels gives everything back. Nothing is ever added on top of a price.
+ * and saldo come back whole, friends get all of their shares, and a booking the hall cancels gives
+ * everything back. Cancelling into the saldo (cancel toSaldo) keeps no fee: the card money stays
+ * with the hall as saldo. Nothing is ever added on top of a price.
  */
 export const CANCEL_FEE_CENTS = 100;
 
 /**
  * What the booker gets back when they cancel their booking or it is sold: { cardCents, giftCents,
- * minutes, feeCents } — card money minus the peruutuskulu (feeCents; a split booking: the price
- * minus the friends' parts, which already went back to the booker when they were paid; the friends
- * get theirs), the gift balance and series card minutes it was paid with (BookingCredit). Reads the
- * same before and after the money went back.
+ * minutes, feeCents } — card money minus the peruutuskulu (feeCents), the saldo (giftCents) and
+ * series card minutes it was paid with (BookingCredit). A split booking: the friends' paid parts
+ * already went back to the booker as they were paid — into the saldo for the part paid from it
+ * (line.backTo 'saldo'), else from the card payment — and the friends get theirs. Reads the same
+ * before and after the money went back.
  */
 export function giveBackOf(booking) {
   const none = { cardCents: 0, giftCents: 0, minutes: 0, feeCents: 0 };
-  if (!booking) return none;
-  const keepFee = (back) => {
-    const feeCents = Math.min(CANCEL_FEE_CENTS, back.cardCents);
-    return { ...back, cardCents: back.cardCents - feeCents, feeCents };
-  };
-  if (booking.split) {
-    if (!['paid', 'refunded'].includes(booking.paymentStatus)) return none;
-    return keepFee({ ...none, cardCents: Math.max(0, booking.priceCents - backToBooker(booking.split)) });
-  }
-  if (!['paid', 'credit', 'refunded'].includes(booking.paymentStatus)) return none;
+  if (!booking || !['paid', 'credit', 'refunded'].includes(booking.paymentStatus)) return none;
   if (booking.credit?.kind === 'pass') return { ...none, minutes: booking.credit.minutes };
-  const giftCents = booking.credit?.kind === 'gift' ? booking.credit.cents : 0;
-  return keepFee({ ...none, cardCents: Math.max(0, booking.priceCents - giftCents), giftCents });
+  const saldoPaid = booking.credit?.kind === 'gift' ? booking.credit.cents : 0;
+  const friends = (booking.split?.lines || []).filter(settledPart);
+  const toSaldo = friends.filter((l) => l.backTo === 'saldo').reduce((n, l) => n + l.cents, 0);
+  const toCard = friends.filter((l) => l.backTo !== 'saldo').reduce((n, l) => n + l.cents, 0);
+  const card = booking.paymentStatus === 'credit' ? 0 : Math.max(0, booking.priceCents - saldoPaid - toCard);
+  const feeCents = Math.min(CANCEL_FEE_CENTS, card);
+  return { ...none, cardCents: card - feeCents, feeCents, giftCents: Math.max(0, saldoPaid - toSaldo) };
+}
+
+/**
+ * The two ways my own cancellation can give the card part back (venue.saldo): { cardCents, feeCents }
+ * to the card minus the peruutuskulu, or saldoCents whole into my saldo at the hall. giftCents (the
+ * saldo it was paid with) goes back to the saldo either way. null = there is no card part to choose for.
+ */
+export function cancelChoices(booking) {
+  const back = giveBackOf(booking);
+  if (back.cardCents + back.feeCents <= 0 || booking?.paymentStatus !== 'paid') return null;
+  return { cardCents: back.cardCents, feeCents: back.feeCents, saldoCents: back.cardCents + back.feeCents + back.giftCents, giftCents: back.giftCents };
 }
 
 /** Friends paid their parts of a split booking (they get them back themselves). */
@@ -335,15 +345,63 @@ const backParts = ({ cardCents = 0, giftCents = 0, minutes = 0 }) => ({
 export function giveBackText(back) {
   const { card, gift, hours } = backParts(back || {});
   const fee = back?.feeCents > 0 && card ? ` (peruutuskulu ${centsLabel(back.feeCents)})` : '';
-  const parts = [card && `${card} maksutavallesi${fee}`, gift && `${gift} lahjakorttisaldoosi`, hours && `${hours} sarjakortillesi`].filter(Boolean);
+  const parts = [card && `${card} maksutavallesi${fee}`, gift && `${gift} saldoosi`, hours && `${hours} sarjakortillesi`].filter(Boolean);
   if (!parts.length) return null;
   return `Saat takaisin ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} ja ${parts.at(-1)}` : parts[0]}`;
 }
 
-/** The bell's short form: '30 € palautetaan' | '1 h sarjakortille' | '5 € lahjakorttisaldoon'; '' = nothing. */
+/** The bell's short form: '30 € palautetaan' | '1 h sarjakortille' | '5 € saldoon'; '' = nothing. */
 export function giveBackShort(back) {
   const { card, gift, hours } = backParts(back || {});
-  return [card && `${card} palautetaan`, gift && `${gift} lahjakorttisaldoon`, hours && `${hours} sarjakortille`].filter(Boolean).join(', ');
+  return [card && `${card} palautetaan`, gift && `${gift} saldoon`, hours && `${hours} sarjakortille`].filter(Boolean).join(', ');
+}
+
+// ── Saldo ────────────────────────────────────────────────────────────────────
+// Hallikohtainen saldo: money a player keeps at one hall (top-ups, redeemed gift cards, refunds)
+// and pays bookings and friends' shares with — no card payment each time. Only usable at that
+// hall, never moved to another player, never paid out except unused top-ups back to their card.
+
+/** The saldo's rules, as the server's krossi_saldo_rules (wallet.products' topup). */
+export const SALDO_RULES = Object.freeze({ amounts: Object.freeze([2500, 5000, 10000]), refundFreeDays: 14, refundDays: 180, refundFeeCents: 100 });
+
+/**
+ * What goes back to the card now (krossi_saldo_refund_plan): the unused part of my paid top-ups of
+ * the last refundDays, newest first, at most `saldoCents`; the round fee once a top-up in it is
+ * older than refundFreeDays (taken from the oldest). topups: [{ id, amountCents, refundedCents,
+ * paidAt }]. → { totalCents (off the saldo), feeCents, cents (to the card), freeUntil (ISO|null),
+ * rows: [{ topupId, cents, feeCents }] }
+ */
+export function saldoRefundPlan(saldoCents, topups, now = Date.now(), rules = SALDO_RULES) {
+  const DAY_MS = 86_400_000;
+  let left = Math.max(0, saldoCents);
+  const rows = [];
+  let old = false;
+  let freeUntil = null;
+  const usable = (topups || [])
+    .filter((t) => t.paidAt && t.amountCents > (t.refundedCents || 0) && Date.parse(t.paidAt) > now - rules.refundDays * DAY_MS)
+    .sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+  for (const t of usable) {
+    if (left <= 0) break;
+    const take = Math.min(left, t.amountCents - (t.refundedCents || 0));
+    rows.push({ topupId: t.id, cents: take, feeCents: 0 });
+    left -= take;
+    const free = Date.parse(t.paidAt) + rules.refundFreeDays * DAY_MS;
+    if (free <= now) old = true;
+    else freeUntil = Math.min(freeUntil ?? Infinity, free);
+  }
+  const totalCents = rows.reduce((n, r) => n + r.cents, 0);
+  const feeCents = old ? Math.min(rules.refundFeeCents, totalCents) : 0;
+  let fee = feeCents;
+  for (let i = rows.length - 1; i >= 0 && fee > 0; i -= 1) {
+    const take = Math.min(fee, rows[i].cents);
+    rows[i] = { ...rows[i], cents: rows[i].cents - take, feeCents: take };
+    fee -= take;
+  }
+  return {
+    totalCents, feeCents, cents: totalCents - feeCents,
+    freeUntil: old || freeUntil == null ? null : new Date(freeUntil).toISOString(),
+    rows,
+  };
 }
 
 /** '1 h' | '1,5 h' | '2 h' | '45 min' */

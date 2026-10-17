@@ -7,7 +7,7 @@
 import { ME } from './rows.js';
 import { newId, run } from './runtime.js';
 import { db, nowIso, personLite } from './store.js';
-import { addDays, dateKey, findCourt, sportsOf } from '../../features/booking.js';
+import { SALDO_RULES, addDays, dateKey, findCourt, saldoRefundPlan, sportsOf } from '../../features/booking.js';
 import {
   checkGiftSettings, checkPassProduct, giftShare, newGiftCode, normalizeGiftCode, passState,
 } from '../../features/seasons.js';
@@ -61,10 +61,14 @@ function toGiftCard(g) {
 }
 
 /** My unpaid pass / gift card (an order), else 'Tilausta ei löytynyt.' */
+const topupsOf = () => (db.booking.topups ||= []);
+const toTopUp = (t) => ({ id: t.id, venueId: t.venueId, amountCents: t.amountCents, status: t.status, paidAt: t.paidAt, createdAt: t.createdAt });
+const myTopups = (venueId) => topupsOf().filter((t) => t.userId === ME && t.venueId === venueId && t.status === 'paid');
+
 function myOrder({ kind, id } = {}) {
-  const list = kind === 'pass' ? db.booking.passes : kind === 'gift' ? db.booking.giftCards : null;
+  const list = kind === 'pass' ? db.booking.passes : kind === 'gift' ? db.booking.giftCards : kind === 'topup' ? topupsOf() : null;
   const order = list?.find((o) => o.id === id);
-  const owner = kind === 'pass' ? order?.userId : order?.buyerId;
+  const owner = kind === 'gift' ? order?.buyerId : order?.userId;
   if (!order || owner !== ME) throw fail('Tilausta ei löytynyt.', 'not_found');
   return order;
 }
@@ -79,6 +83,9 @@ function settle(kind, order) {
       validUntil: addDays(today(), product?.validDays ?? 365),
     });
     addCreditEvent({ venueId: order.venueId, kind: 'purchase', passId: order.id, minutes: order.minutesTotal, label: `Ostettu: ${order.name}` });
+  } else if (kind === 'topup') {
+    Object.assign(order, { status: 'paid', paidAt: nowIso() });
+    addCreditEvent({ venueId: order.venueId, kind: 'topup', cents: order.amountCents, label: 'Saldon lataus' });
   } else {
     let code = newGiftCode();
     while (db.booking.giftCards.some((g) => g.code === code)) code = newGiftCode();
@@ -97,6 +104,7 @@ export async function products(venueId) {
     return {
       passes: db.booking.passProducts.filter((p) => p.venueId === venue.id && p.active).map(toProduct),
       gift: giftOf(venue.id),
+      topup: venue.saldo ? { ...SALDO_RULES, amounts: [...SALDO_RULES.amounts] } : null,
     };
   });
 }
@@ -118,6 +126,7 @@ export async function get(venueId) {
       giftHistory: db.booking.creditEvents.filter((e) => e.userId === ME && e.venueId === venue.id && !e.passId).sort(byNewest).map(toEvent),
       giftCards: db.booking.giftCards.filter((g) => g.buyerId === ME && g.venueId === venue.id && g.status !== 'pending')
         .sort(byNewest).map(toGiftCard),
+      ...refundOf(venue.id),
     };
   });
 }
@@ -153,6 +162,43 @@ export async function buyGiftCard({ venueId, amountCents, recipientName = null, 
     };
     db.booking.giftCards.push(card);
     return toGiftCard(card);
+  });
+}
+
+/** Wallet's refundable* fields (saldoRefundPlan, as krossi_wallet). */
+function refundOf(venueId) {
+  const plan = saldoRefundPlan(giftAvailable(ME, venueId), myTopups(venueId));
+  return { refundableCents: plan.cents > 0 ? plan.cents : 0, refundFeeCents: plan.cents > 0 ? plan.feeCents : 0, refundFreeUntil: plan.cents > 0 ? plan.freeUntil : null };
+}
+
+export async function topUp({ venueId, amountCents } = {}) {
+  return run(() => {
+    const venue = venueRow(venueId);
+    if (!venue) throw fail('Hallia ei löytynyt.', 'not_found');
+    if (!SALDO_RULES.amounts.includes(amountCents)) throw fail('Valitse ladattava summa: 25, 50 tai 100 €.');
+    const open = topupsOf().find((t) => t.userId === ME && t.venueId === venue.id && t.amountCents === amountCents && t.status === 'pending');
+    if (open) return toTopUp(open);
+    const topup = { id: newId('top'), venueId: venue.id, userId: ME, amountCents, status: 'pending', paidAt: null, refundedCents: 0, createdAt: nowIso() };
+    topupsOf().push(topup);
+    return toTopUp(topup);
+  });
+}
+
+export async function refundToCard(venueId) {
+  return run(() => {
+    const venue = venueRow(venueId);
+    if (!venue) throw fail('Hallia ei löytynyt.', 'not_found');
+    const plan = saldoRefundPlan(giftAvailable(ME, venue.id), myTopups(venue.id));
+    if (plan.cents <= 0) throw fail('Kortille palautettavaa saldoa ei ole.');
+    addCreditEvent({
+      venueId: venue.id, kind: 'card_refund', cents: -plan.totalCents,
+      label: `Palautus kortille${plan.feeCents ? ` (palautuskulu ${plan.feeCents / 100} €)` : ''}`,
+    });
+    for (const r of plan.rows) {
+      const t = topupsOf().find((x) => x.id === r.topupId);
+      if (t) t.refundedCents = (t.refundedCents || 0) + r.cents + r.feeCents;
+    }
+    return { refundedCents: plan.cents, feeCents: plan.feeCents };
   });
 }
 

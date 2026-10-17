@@ -15,8 +15,10 @@
 //   { action: 'verify', bookingId, paymentIntentId }   -> { confirmed, status } (+ error when the court was lost)
 //   { action: 'confirmed', bookingId }                 -> { ok }   after a series card / gift balance confirmed my booking
 //                                                         (krossi_wallet_pay_booking / _use_gift): refunds what it took over
-//   { action: 'cancel', bookingId }                    -> { refundedCents, feeCents, creditCents, creditMinutes }   the player, before the
-//                                                         cancellation limit; feeCents = the peruutuskulu kept of the card money
+//   { action: 'cancel', bookingId, toSaldo? }          -> { refundedCents, feeCents, creditCents, creditMinutes }   the player, before the
+//                                                         cancellation limit; feeCents = the peruutuskulu kept of the card money.
+//                                                         toSaldo: the card part goes to my saldo at the hall whole instead
+//                                                         (no peruutuskulu, no Stripe refund; creditCents)
 //   { action: 'staffCancel', bookingId, refund }       -> { refundedCents, feeCents, creditCents, creditMinutes }   hall staff; refund defaults
 //                                                         to true; everything goes back (feeCents 0)
 //   { action: 'freed', bookingId }                     -> { notified }        after krossi_release_booking / _unblock / _put_on_sale
@@ -26,6 +28,8 @@
 //   { action: 'splitIntent', token, name, paymentIntentId? }
 //                                                      -> { clientSecret, paymentIntentId } | { full: true } | { paid: true }
 //   { action: 'splitVerify', token, paymentIntentId }  -> { paid, status, message? }
+//   { action: 'splitSaldo', token }                    -> { paid: true } | { full: true }   signed in: my share paid from my
+//                                                         saldo at the same hall (no Stripe payment); 409 when it doesn't reach
 // splitIntent claims one open share for 15 minutes (krossi_split_claim), so two friends paying at
 // once can't both take the last one; `name` (optional, ≤ 40 characters) is shown to the booker, and
 // a signed-in friend's profile name wins. Passing the paymentIntentId of one's own earlier,
@@ -38,6 +42,14 @@
 // stripe-webhook — whichever comes first), the share is recorded and the same amount is refunded
 // from the booker's payment; the booker gets an email. A payment the split can't take any more is
 // refunded to the friend at once and splitVerify says why (status 'refunded' + message).
+//
+// Saldo (migration 20261017190000_krossi_booking_saldo): a booking paid with the saldo can be split
+// too, and a share goes back where the booker paid from — the saldo part into their saldo at once
+// (krossi_split_mark_paid; no refund), the rest from their card payment as above. A signed-in friend
+// with saldo at the same hall pays from it (splitSaldo → krossi_split_pay_saldo): their own card
+// payment of the share started before is recorded if it went through, else cancelled first. The
+// player's own cancellation can put the card part into the saldo whole (toSaldo: no peruutuskulu,
+// nothing through Stripe; friends still get their payments back).
 //
 // A succeeded payment is recorded here (verify, splitVerify, and config / intent / cancel when a
 // payment went through while the player was away) and in stripe-webhook, through the shared
@@ -68,7 +80,7 @@ import Stripe from 'npm:stripe@17.7.0';
 import {
   BOOKING_PRODUCT, SPLIT_PRODUCT, LOST, type BookingRow, type SplitRefundReason, HALL_NOT_CONNECTED, HallNotConnected,
   afterBookingPaid, cancelFeeOf, cancelPendingShares, connectParams, describeBooking, loadBooking, loadPlace, loadVenue,
-  paysCancelFee, refundBooker, refundParts, settleBookingPayment, settleSplitPayment, takesPayments, type Outcome,
+  notifyInternal, paysCancelFee, refundBooker, refundParts, settleBookingPayment, settleSplitPayment, takesPayments, type Outcome,
 } from '../_shared/booking.ts';
 
 // Apple Pay / Google Pay only show on domains registered with Stripe (per mode: test and live).
@@ -89,6 +101,7 @@ const SPLIT_CANCELLED = 'Vuoro on peruttu — osuutta ei tarvitse maksaa.';
 const SPLIT_OVER = 'Vuoro on jo alkanut.';
 const SPLIT_OWN = 'Tämä on oma vuorosi — lähetä linkki kavereillesi.';
 const CLAIM_LOST = 'Osuuden maksu ehti vanhentua. Yritä uudelleen.';
+const SALDO_SHORT = 'Saldosi tässä hallissa ei riitä osuuteen.';
 const SPLIT_REFUNDED: Record<SplitRefundReason, string> = {
   cancelled: 'Vuoro peruttiin — maksusi palautettiin.',
   changed: 'Vuoron maksun jako muuttui — maksusi palautettiin.',
@@ -216,11 +229,28 @@ const isSettled = (b: BookingRow) => b.status === 'confirmed' && ['paid', 'free'
 /** What the booker pays online: the price minus the gift balance on the hold. */
 const amountOf = (b: BookingRow) => b.price_cents - (b.gift_cents || 0);
 
-/** The credit a cancelled booking gives back (krossi_booking_cancel does it in the database). */
-function creditBack(booking: BookingRow, giveBack: boolean) {
+/**
+ * The credit a cancelled booking gave back (krossi_booking_cancel did it in the database): a series
+ * card's minutes, or what friends' shares hadn't already put back of its saldo part, plus the card
+ * part the booker put on the saldo (toSaldo).
+ */
+async function creditBack(admin: SupabaseClient, booking: BookingRow, giveBack: boolean, toSaldo = false) {
   const settled = booking.payment_status === 'paid' || booking.payment_status === 'credit';
   if (!giveBack || !settled) return { creditCents: 0, creditMinutes: 0 };
-  return { creditCents: booking.pass_minutes > 0 ? 0 : booking.gift_cents || 0, creditMinutes: booking.pass_minutes || 0 };
+  if (booking.pass_minutes > 0) return { creditCents: 0, creditMinutes: booking.pass_minutes };
+  let creditCents = booking.gift_cents || 0;
+  if (creditCents > 0) {
+    const { data, error } = await admin.from('booking_shares').select('cents, booker_saldo').eq('reservation_id', booking.id);
+    if (error) throw new Error(`share lookup failed: ${error.message}`);
+    creditCents -= ((data ?? []) as { cents: number; booker_saldo: boolean }[])
+      .filter((s) => s.booker_saldo).reduce((n, s) => n + s.cents, 0);
+  }
+  if (toSaldo) {
+    const { data, error } = await admin.from('booking_reservations').select('saldo_refund_cents').eq('id', booking.id).maybeSingle();
+    if (error) throw new Error(`booking lookup failed: ${error.message}`);
+    creditCents += Number(data?.saldo_refund_cents) || 0;
+  }
+  return { creditCents: Math.max(0, creditCents), creditMinutes: 0 };
 }
 
 const splitTokenOf = (value: unknown) => {
@@ -308,14 +338,20 @@ async function settleSplit(admin: SupabaseClient, intent: Stripe.PaymentIntent) 
 
 /**
  * Cancels the booking (krossi_booking_cancel) and refunds every paid part (the booker's own
- * cancellation keeps the peruutuskulu). A refund Stripe doesn't take now stays due and
+ * cancellation keeps the peruutuskulu; toSaldo puts their card part on the saldo instead, so only
+ * friends' payments are left to refund). A refund Stripe doesn't take now stays due and
  * krossi-booking-cron finishes it: the answer still tells what goes back to the booker. Payments
  * friends started can't be finished any more. → { total, own, fee } cents.
  */
-async function cancelAndRefund(admin: SupabaseClient, booking: BookingRow, by: string, refund: boolean) {
+async function cancelAndRefund(admin: SupabaseClient, booking: BookingRow, by: string, refund: boolean, toSaldo = false) {
   const bookingId = booking.id;
-  const { data, error } = await admin.rpc('krossi_booking_cancel', { booking_id_input: bookingId, by_input: by, refund_input: refund });
-  if (error) throw new Error(`krossi_booking_cancel failed: ${error.message}`);
+  const { data, error } = await admin.rpc('krossi_booking_cancel', {
+    booking_id_input: bookingId, by_input: by, refund_input: refund, ...(toSaldo ? { to_saldo_input: true } : {}),
+  });
+  if (error) {
+    if (/Kaverin maksu on juuri käsittelyssä/.test(error.message)) throw new Reply(409, 'Kaverin maksu on juuri käsittelyssä. Yritä hetken päästä uudelleen.');
+    throw new Error(`krossi_booking_cancel failed: ${error.message}`);
+  }
   inBackground(cancelPendingShares(stripe, admin, bookingId));
   const parts = (Array.isArray(data) ? data : []) as { shareId: string | null; kind: 'own' | 'friend'; paymentIntentId: string; cents: number }[];
   try {
@@ -367,6 +403,7 @@ interface Body {
   refund?: unknown;
   token?: unknown;
   name?: unknown;
+  toSaldo?: unknown;
 }
 
 Deno.serve(async (req: Request) => {
@@ -449,7 +486,7 @@ Deno.serve(async (req: Request) => {
         currency: 'eur',
         customer: customerId,
         automatic_payment_methods: { enabled: true },
-        description: describeBooking(booking, venue, place) + (booking.gift_cents > 0 ? ' (osa lahjakorttisaldolla)' : ''),
+        description: describeBooking(booking, venue, place) + (booking.gift_cents > 0 ? ' (osa saldolla)' : ''),
         receipt_email: user.email || undefined,
         metadata: { product: BOOKING_PRODUCT, booking_id: booking.id, venue_id: booking.venue_id, supabase_user_id: user.id },
         ...connectParams(venue, amount),
@@ -522,9 +559,10 @@ Deno.serve(async (req: Request) => {
       if (booking.status !== 'confirmed') throw new Reply(409, NOT_CANCELLABLE);
       const venue = await loadVenue(admin, booking.venue_id);
       if (Date.now() >= Date.parse(booking.starts_at) - venue.cancel_limit_hours * 3_600_000) throw new Reply(409, TOO_LATE);
-      const { own, fee } = await cancelAndRefund(admin, booking, user.id, true);
+      const toSaldo = body.toSaldo === true;
+      const { own, fee } = await cancelAndRefund(admin, booking, user.id, true, toSaldo);
       inBackground(notifyWatchers(admin, asUser, booking.id, user.id));
-      return json(req, { refundedCents: own, feeCents: fee, ...creditBack(booking, true) });
+      return json(req, { refundedCents: own, feeCents: fee, ...(await creditBack(admin, booking, true, toSaldo)) });
     }
 
     if (body.action === 'staffCancel') {
@@ -544,7 +582,7 @@ Deno.serve(async (req: Request) => {
       }
       const { total, fee } = await cancelAndRefund(admin, booking, user.id, body.refund !== false);
       inBackground(notifyWatchers(admin, asUser, booking.id, user.id));
-      return json(req, { refundedCents: total, feeCents: fee, ...creditBack(booking, body.refund !== false) });
+      return json(req, { refundedCents: total, feeCents: fee, ...(await creditBack(admin, booking, body.refund !== false)) });
     }
 
     if (body.action === 'freed') {
@@ -645,6 +683,61 @@ Deno.serve(async (req: Request) => {
       const settled = await settleSplit(admin, intent);
       if (settled.outcome === 'paid') return json(req, { paid: true, status: 'succeeded' });
       return json(req, { paid: false, status: 'refunded', message: SPLIT_REFUNDED[settled.reason] });
+    }
+
+    if (body.action === 'splitSaldo') {
+      const token = splitTokenOf(body.token);
+      // My own card payment of a share, started here before: recorded if it went through, else
+      // cancelled first so it can't go through after the saldo paid the share.
+      const { data: owner, error: ownerError } = await admin.from('booking_reservations')
+        .select('id').eq('split_token', token).maybeSingle();
+      if (ownerError) throw new Error(`split lookup failed: ${ownerError.message}`);
+      const cancelled = new Set<string>();
+      if (owner) {
+        const { data: started, error: startedError } = await admin.from('booking_shares')
+          .select('stripe_payment_intent_id').eq('reservation_id', owner.id).eq('status', 'pending').eq('payer_user_id', user.id);
+        if (startedError) throw new Error(`share lookup failed: ${startedError.message}`);
+        for (const share of (started ?? []) as { stripe_payment_intent_id: string | null }[]) {
+          const intent = share.stripe_payment_intent_id ? await retrieveIntent(share.stripe_payment_intent_id) : null;
+          if (intent?.status === 'succeeded') {
+            const settled = await settleSplit(admin, intent);
+            if (settled.outcome === 'paid') return json(req, { paid: true });
+          } else if (intent?.status === 'processing') {
+            throw new Reply(409, PENDING);
+          } else if (intent && REUSABLE.includes(intent.status)) {
+            await stripe.paymentIntents.cancel(intent.id, { cancellation_reason: 'abandoned' });
+            cancelled.add(intent.id);
+          }
+        }
+      }
+      const { data, error } = await admin.rpc('krossi_split_pay_saldo', { token_input: token, user_id_input: user.id });
+      if (error) throw new Error(`krossi_split_pay_saldo failed: ${error.message}`);
+      const paid = data as {
+        state: 'paid' | 'short' | 'full' | 'over' | 'cancelled' | 'unknown' | 'own';
+        bookingId?: string; shareId?: string; cents?: number; bookerIntentId?: string | null;
+        bookerRefundDue?: boolean; bookerSaldo?: boolean; cancelIntentId?: string | null;
+      };
+      if (paid.state === 'unknown') throw new Reply(404, SPLIT_NOT_FOUND);
+      if (paid.state === 'cancelled') throw new Reply(409, SPLIT_CANCELLED);
+      if (paid.state === 'over') throw new Reply(409, SPLIT_OVER);
+      if (paid.state === 'own') throw new Reply(409, SPLIT_OWN);
+      if (paid.state === 'short') throw new Reply(409, SALDO_SHORT);
+      if (paid.state === 'full') return json(req, { full: true });
+      const stale = paid.cancelIntentId;
+      if (stale && !cancelled.has(stale)) {
+        // An expired claim's payment: it can't take this share any more (one that went through is refunded).
+        inBackground(stripe.paymentIntents.cancel(stale, { cancellation_reason: 'abandoned' }).catch((err) =>
+          console.error('cancelling an expired share payment failed', stale, (err as Error).message)));
+      }
+      const shareId = paid.shareId ?? '';
+      if (paid.bookerRefundDue && paid.bookerIntentId) {
+        const due = { shareId, bookingId: paid.bookingId ?? '', bookerIntentId: paid.bookerIntentId, cents: paid.cents ?? 0 };
+        inBackground(refundBooker(stripe, admin, due).catch((err) =>
+          console.error('refunding a share to the booker failed', shareId, (err as Error).message)));
+      } else if (paid.bookerSaldo) {
+        inBackground(notifyInternal(admin, { type: 'booking_split_paid', shareId }));
+      }
+      return json(req, { paid: true });
     }
 
     throw new Reply(400, 'Tuntematon toiminto.');

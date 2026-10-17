@@ -103,6 +103,7 @@ function buildVenue(now) {
     cancelLimitHours: 24,
     splitPay: true,
     resale: true,
+    saldo: true,
     holdMinutes: 10,
     payOnline: true,
     lastMinute: null, // no last-minute deals until the hall agrees to them (the rule stays: { hours, percent })

@@ -1,14 +1,15 @@
-// wallet.js — sarjakortit and lahjakortit: the hall's series cards for sale, ordering them and gift
-// cards, paying for an order with the same Stripe checkout as bookings (krossi-billing edge
-// function: orderConfig / orderIntent / orderVerify), redeeming a gift card's code, paying a held
-// booking with a series card or the gift balance (RPCs; the database keeps the ledger), and the
-// hall's own products and gift card limits (Hallin asetukset).
+// wallet.js — saldo, sarjakortit and lahjakortit: the hall's series cards for sale, ordering them,
+// gift cards and saldo top-ups, paying for an order with the same Stripe checkout as bookings
+// (krossi-billing edge function: orderConfig / orderIntent / orderVerify), the unused top-ups back
+// to the card (saldoRefund), redeeming a gift card's code, paying a held booking with a series card
+// or the saldo (RPCs; the database keeps the ledger), and the hall's own products and gift card
+// limits (Hallin asetukset).
 
 import { db, isMissingFunction, isUuid, requireUid } from './client.js';
 import {
   announceConfirmed, call, callOrEmpty, edgeCall, fail, list, mapBooking, mapBooker, number, rpcError, text,
 } from './bookingCore.js';
-import { mapGift, mapGiftCard, mapPass, mapProduct, mapStaffProduct, mapWallet } from './hallMaps.js';
+import { mapGift, mapGiftCard, mapPass, mapProduct, mapStaffProduct, mapTopUp, mapTopUpRules, mapWallet } from './hallMaps.js';
 
 const FUNCTION = 'krossi-billing';
 const LOAD_FAIL = 'Kortteja ei voitu ladata.';
@@ -21,24 +22,24 @@ const edge = (action, payload, fallback) => edgeCall(FUNCTION, action, payload, 
 
 function orderArgs(order) {
   const kind = order?.kind;
-  if ((kind !== 'pass' && kind !== 'gift') || !isUuid(order?.id)) throw fail('Tilausta ei löytynyt.');
+  if ((kind !== 'pass' && kind !== 'gift' && kind !== 'topup') || !isUuid(order?.id)) throw fail('Tilausta ei löytynyt.');
   return { kind, id: order.id };
 }
 
 // ── Shop ─────────────────────────────────────────────────────────────────────
 
 /**
- * Series cards for sale and the gift card amounts. Works without a session; empty (gift null)
- * while the phase-2 migration is not deployed.
+ * Series cards for sale, the gift card amounts and the saldo's top-ups. Works without a session;
+ * empty (gift null) while the phase-2 migration is not deployed, topup null before the saldo one.
  */
 export async function products(venueId) {
   if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
   const { data, error } = await db().rpc('krossi_wallet_products', { venue_id_input: venueId });
   if (error) {
-    if (isMissingFunction(error)) return { passes: [], gift: null };
+    if (isMissingFunction(error)) return { passes: [], gift: null, topup: null };
     throw rpcError(error, LOAD_FAIL);
   }
-  return { passes: list(data?.passes).map(mapProduct), gift: mapGift(data?.gift) };
+  return { passes: list(data?.passes).map(mapProduct), gift: mapGift(data?.gift), topup: mapTopUpRules(data?.topup) };
 }
 
 export async function get(venueId) {
@@ -68,6 +69,25 @@ export async function buyGiftCard({ venueId, amountCents, recipientName = null, 
     message_input: typeof message === 'string' ? message : null,
   }, ORDER_FAIL);
   return mapGiftCard(data);
+}
+
+/** A saldo top-up of 25 / 50 / 100 € at the hall, 'pending' until paid like a card (kind 'topup'). */
+export async function topUp({ venueId, amountCents } = {}) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  const data = await call('krossi_wallet_topup', {
+    venue_id_input: venueId,
+    amount_cents_input: Number.isInteger(amountCents) ? amountCents : null,
+  }, ORDER_FAIL);
+  return mapTopUp(data);
+}
+
+/** The unused top-ups of my saldo at the hall back to their cards (krossi-billing saldoRefund). */
+export async function refundToCard(venueId) {
+  await requireUid();
+  if (!isUuid(venueId)) throw fail('Hallia ei löytynyt.');
+  const data = await edge('saldoRefund', { venueId }, 'Palautus kortille epäonnistui. Yritä hetken päästä uudelleen.');
+  return { refundedCents: number(data?.refundedCents), feeCents: number(data?.feeCents) };
 }
 
 export async function checkoutConfig(order) {

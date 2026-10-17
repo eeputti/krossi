@@ -28,6 +28,7 @@ const HOLD_FAIL = 'Varaus epäonnistui. Yritä hetken päästä uudelleen.';
 const CHECKOUT_FAIL = 'Maksun aloitus epäonnistui. Yritä hetken päästä uudelleen.';
 const VERIFY_FAIL = 'Maksun tarkistus epäonnistui. Päivitä sivu hetken päästä.';
 const CANCEL_FAIL = 'Peruutus epäonnistui. Yritä hetken päästä uudelleen.';
+const PAY_SALDO_FAIL = 'Saldolla maksaminen epäonnistui. Yritä hetken päästä uudelleen.';
 const WATCH_FAIL = 'Hälytyksen tallennus epäonnistui.';
 const STAFF_FAIL = 'Hallin tietoja ei voitu ladata.';
 const SALE_FAIL = 'Myyntiin laitto epäonnistui. Yritä hetken päästä uudelleen.';
@@ -92,6 +93,8 @@ function mapVenue(raw) {
     // it there are no split payments or resale to offer.
     splitPay: raw.splitPay === true,
     resale: raw.resale === true,
+    // Only the saldo server (20261017190000_krossi_booking_saldo) says true.
+    saldo: raw.saldo === true,
     holdMinutes: number(raw.holdMinutes, 10),
     payOnline: raw.payOnline !== false,
     lastMinute: deal && number(deal.hours) > 0 && number(deal.percent) > 0
@@ -120,6 +123,7 @@ function mapPublicSplit(raw) {
   const state = ['open', 'full', 'over', 'cancelled'].includes(raw.state) ? raw.state : 'open';
   return {
     token: text(raw.token, ''),
+    venueId: text(raw.venueId),
     venueName: text(raw.venueName, ''),
     locationName: text(raw.locationName, ''),
     courtName: text(raw.courtName, 'Kenttä'),
@@ -290,13 +294,14 @@ export async function listMine() {
 
 /**
  * Cancels my confirmed booking before cancellableUntil. Everything paid goes back to where it came
- * from (friends' shares to the friends, credit to the series card / gift balance); refundedCents is
- * the money that comes back to me, creditCents / creditMinutes the credit.
+ * from (friends' shares to the friends, credit to the series card / saldo); refundedCents is the
+ * money that comes back to me, creditCents / creditMinutes the credit. toSaldo: my card part goes
+ * to my saldo at the hall whole instead (no peruutuskulu).
  */
-export async function cancel(bookingId) {
+export async function cancel(bookingId, { toSaldo = false } = {}) {
   await requireUid();
   if (!isUuid(bookingId)) throw fail('Varausta ei löytynyt.');
-  const data = await edge('cancel', { bookingId }, CANCEL_FAIL);
+  const data = await edge('cancel', { bookingId, ...(toSaldo === true ? { toSaldo: true } : {}) }, CANCEL_FAIL);
   return {
     refundedCents: number(data?.refundedCents),
     feeCents: number(data?.feeCents),
@@ -375,6 +380,16 @@ export async function verifySplitPayment(token, paymentIntentId) {
   if (!TOKEN_RE.test(String(token || ''))) throw fail(LINK_NOT_FOUND, 'not_found');
   const data = await edge('splitVerify', { token, paymentIntentId }, VERIFY_FAIL);
   return { paid: data?.paid === true, status: text(data?.status, 'unknown'), message: text(data?.message) };
+}
+
+/** One part paid from my saldo at the booking's hall (signed in; no card payment). */
+export async function paySplitWithSaldo(token) {
+  await requireUid();
+  if (!TOKEN_RE.test(String(token || ''))) throw fail(LINK_NOT_FOUND, 'not_found');
+  const data = await edge('splitSaldo', { token }, PAY_SALDO_FAIL);
+  if (data?.full) return { full: true };
+  if (!data?.paid) throw fail(PAY_SALDO_FAIL);
+  return { paid: true };
 }
 
 // ── Ilmoita kun vapautuu ─────────────────────────────────────────────────────

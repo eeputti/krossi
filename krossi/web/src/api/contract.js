@@ -323,6 +323,8 @@
 //                                            friends pay their parts (no account needed); each paid part goes back
 //                                            to the booker. false = this server doesn't have it yet (the screens hide it)
 // @property {boolean} resale                  "Laita myyntiin" (false = not on this server yet)
+// @property {boolean} saldo                   hallikohtainen saldo: top-ups, cancelling into the saldo, paying a
+//                                            share from it (false = not on this server yet; the screens hide it)
 // @property {number} holdMinutes              an unpaid booking holds the court this long
 // @property {boolean} payOnline               true = Stripe checkout (the only mode for now)
 // @property {{hours:number, percent:number}|null} lastMinute   "viime hetken ale": a booking made
@@ -361,7 +363,7 @@
 // @property {'held'|'confirmed'|'cancelled'|'expired'} status
 // @property {number} priceCents
 // @property {'unpaid'|'paid'|'refunded'|'free'|'credit'} paymentStatus   credit = paid in full with a
-//                                            series card or gift card balance (BookingCredit)
+//                                            series card or the saldo (BookingCredit)
 // @property {string|null} holdExpiresAt       while status = 'held'
 // @property {string} cancellableUntil         startsAt − venue.cancelLimitHours
 // @property {string|null} cancelledAt
@@ -373,15 +375,16 @@
 //                                            everything paid for it went back (paymentStatus 'refunded')
 // @property {BookingSplit|null} split         jaettu maksu: friends pay their parts by link; null = not split
 //
-// @typedef {Object} BookingCredit             sarjakortti / lahjakortti on a booking
-// @property {'pass'|'gift'} kind
-// @property {number} cents                    the price this credit covers (a pass covers it all; gift
-//                                            balance may cover part — the rest is paid by card,
-//                                            priceCents − cents)
+// @typedef {Object} BookingCredit             sarjakortti / saldo on a booking
+// @property {'pass'|'gift'} kind              gift = the saldo (top-ups, redeemed gift cards, refunds; the name
+//                                            is from when it only held gift cards)
+// @property {number} cents                    the price this credit covers (a pass covers it all; the saldo
+//                                            may cover part — the rest is paid by card, priceCents − cents)
 // @property {number} minutes                  pass: minutes taken from the series card; gift: 0
 // @property {string|null} name                pass: its name ('Tennis 10 × 1 h'); gift: null
 //
-// @typedef {Object} BookingSplit              jaettu maksu: the booker paid it all; friends pay their parts by link
+// @typedef {Object} BookingSplit              jaettu maksu: the booker paid it all (card and/or saldo, not a
+//                                            series card); friends pay their parts by link or from their own saldo
 // @property {2|4} parts                       kaksinpeli 2 / nelinpeli 4 payers, the booker included
 // @property {number} perCents                 what one friend pays: floor(priceCents / parts)
 // @property {number} ownCents                 the booker's own part: priceCents − (parts − 1) × perCents
@@ -399,9 +402,12 @@
 //                                            right now (15 min claim); paid = paid, and the same sum went back to
 //                                            the booker; refunded = the booking was cancelled or sold after it was paid
 // @property {string|null} paidAt
+// @property {'saldo'|'card'|null} backTo      friend: where the part's sum went back to the booker — their saldo
+//                                            (they paid with it), their card, or not yet (null; always null for 'own')
 //
 // @typedef {Object} PublicSplit               what the payment link shows — no account needed
 // @property {string} token
+// @property {string|null} venueId             the hall: a signed-in friend may pay from their saldo there
 // @property {string} venueName
 // @property {string} locationName
 // @property {string} courtName
@@ -578,11 +584,11 @@
 // @property {number} priceCents
 // @property {string|null} description
 //
-// @typedef {Object} CreditEvent               a line of a series card's or the gift balance's history
+// @typedef {Object} CreditEvent               a line of a series card's or the saldo's history
 // @property {string} id
-// @property {'purchase'|'use'|'refund'|'redeem'|'adjust'} kind
+// @property {'purchase'|'use'|'refund'|'redeem'|'adjust'|'topup'|'card_refund'} kind
 // @property {number} minutes                  series card: + bought / refunded, − used
-// @property {number} cents                    gift balance: + redeemed / refunded, − used
+// @property {number} cents                    saldo: + topped up / redeemed / refunded, − used / back to the card
 // @property {string} label                    'Tennis 2 · Janus-Areena · ti 6.10. klo 19.00'
 // @property {string|null} bookingId
 // @property {string} createdAt
@@ -616,9 +622,27 @@
 // @typedef {Object} Wallet                    my credit at one venue
 // @property {string} venueId
 // @property {Pass[]} passes                   active first (soonest to expire), then used up / expired
-// @property {number} giftCents                gift balance I can spend now
-// @property {CreditEvent[]} giftHistory       newest first
+// @property {number} giftCents                my saldo I can spend now (only at this hall; it never expires)
+// @property {CreditEvent[]} giftHistory       the saldo's history, newest first
 // @property {GiftCard[]} giftCards             gift cards I bought (paid ones), newest first
+// @property {number} refundableCents          what refundToCard sends back to the card now (after the fee): unused
+//                                            top-ups of the last 180 days, newest first, at most the saldo
+// @property {number} refundFeeCents           the palautuskulu kept of it (1 € once a top-up in it is over 14 days old)
+// @property {string|null} refundFreeUntil     ISO: until when it is free (null = a fee applies, or nothing to refund)
+//
+// @typedef {Object} TopUp                     saldon lataus
+// @property {string} id
+// @property {string} venueId
+// @property {number} amountCents              25 / 50 / 100 € (wallet.products' topup.amounts)
+// @property {'pending'|'paid'} status
+// @property {string|null} paidAt
+// @property {string} createdAt
+//
+// @typedef {Object} TopUpRules                wallet.products' `topup`
+// @property {number[]} amounts                [2500, 5000, 10000]
+// @property {number} refundFreeDays           14: back to the card free within this many days of the top-up
+// @property {number} refundDays               180: top-ups older than this no longer go back to a card
+// @property {number} refundFeeCents           100: the round fee after refundFreeDays
 //
 // ── Hallin asetukset (the hall's own settings) ───────────────────────────────
 // Staff edit the venue's seasons, series card products, gift card limits and invoicing details in
@@ -851,12 +875,13 @@ export const API_CONTRACT = {
     'createPaymentIntent', // (bookingId) -> { paid: true } | { clientSecret, paymentIntentId }
     'verifyPayment',       // (bookingId, paymentIntentId) -> { confirmed: boolean, status }   confirms the booking once Stripe says succeeded
     'listMine',            // () -> { upcoming: Booking[], past: Booking[] }   upcoming = held|confirmed, not ended, soonest first; past = newest first, max 30
-    'cancel',              // (bookingId) -> { refundedCents, feeCents, creditCents, creditMinutes }   only before cancellableUntil; money back to the original payment method minus the
-                           //   1 € peruutuskulu (feeCents; friends' paid parts whole to theirs), credit back to the series card / gift balance
+    'cancel',              // (bookingId, { toSaldo }) -> { refundedCents, feeCents, creditCents, creditMinutes }   only before cancellableUntil; money back to the original payment method minus the
+                           //   1 € peruutuskulu (feeCents; friends' paid parts whole to theirs), credit back to the series card / saldo.
+                           //   toSaldo (venue.saldo): my card part goes to my saldo at the hall whole instead (creditCents; no peruutuskulu)
     'putOnSale',           // (bookingId) -> Booking   "Laita myyntiin": my confirmed booking after cancellableUntil, before the start ('Voit vielä perua…' before the limit).
                            //   Others can book the slot; when somebody does, everything paid is refunded and I'm told. Watchers of the time are told at once.
     'takeOffSale',         // (bookingId) -> Booking   back to just mine ('Joku on juuri varaamassa…' while a buyer is paying)
-    'split',               // (bookingId, parts: 1|2|4) -> Booking   jaettu maksu on my paid booking (not credit, not on sale, not started): parts − 1
+    'split',               // (bookingId, parts: 1|2|4) -> Booking   jaettu maksu on my paid booking (card and/or saldo, not a series card, not on sale, not started): parts − 1
                            //   friend parts and a link token; parts can change, and 1 removes the split, while no part is paid or being paid
     'splitPublic',         // (token) -> PublicSplit|null   what the link shows; works without a session
     'splitCheckoutConfig', // (token) -> { full: true } | { over: true } | { demo: true, amount, currency } | { publishableKey, amount, currency }   works without a session
@@ -864,6 +889,8 @@ export const API_CONTRACT = {
                            //   15 min; name (≤ 40 chars, optional) shows to the booker — signed in, the profile's name. The demo pays at once.
     'verifySplitPayment',  // (token, paymentIntentId) -> { paid: boolean, status, message? }   paid: the same sum goes back to the booker;
                            //   status 'refunded' + message: the booking was cancelled or sold meanwhile and this payment went back
+    'paySplitWithSaldo',   // (token) -> { paid: true } | { full: true }   signed in: one part paid from my saldo at the booking's hall (no card
+                           //   payment; 'Saldosi tässä hallissa ei riitä osuuteen.' when it doesn't reach); my own started card payment of it is cancelled
     'watch',               // ({ venueId, sport, locationId, startsAt, minutes }) -> BookingWatch   max 5 active; 'Aika on vapaana…' if a court is free already; a duplicate returns the existing one
     'unwatch',             // (watchId) -> void
     'listWatches',         // () -> BookingWatch[]   mine, startsAt still ahead, soonest first
@@ -908,17 +935,19 @@ export const API_CONTRACT = {
     'stripeDashboard',     // (venueId) -> { url } | { demo: true }   staff: a one-time login to the hall's Stripe Express dashboard
   ],
   wallet: [
-    'products',            // (venueId) -> { passes: PassProduct[], gift: { amounts:number[], minCents, maxCents, validDays }|null }   works without a session; gift null = no gift cards sold
+    'products',            // (venueId) -> { passes: PassProduct[], gift: { amounts:number[], minCents, maxCents, validDays }|null, topup: TopUpRules|null }
+                           //   works without a session; gift null = no gift cards sold; topup null = no saldo on this server yet
     'get',                 // (venueId) -> Wallet
     'buyPass',             // (productId) -> Pass   'pending' until paid; an unpaid one of the same product is reused
     'buyGiftCard',         // ({ venueId, amountCents, recipientName, message }) -> GiftCard   'pending' until paid
-    'checkoutConfig',      // ({ kind: 'pass'|'gift', id }) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, amount, currency, email }
+    'topUp',               // ({ venueId, amountCents }) -> TopUp   'pending' until paid (same checkout as cards: kind 'topup'); an unpaid one of the same sum is reused
+    'refundToCard',        // (venueId) -> { refundedCents, feeCents }   Wallet.refundableCents back to the top-ups' cards; off the saldo at once
+    'checkoutConfig',      // ({ kind: 'pass'|'gift'|'topup', id }) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, amount, currency, email }
     'createPaymentIntent', // ({ kind, id }) -> { paid: true } | { clientSecret, paymentIntentId }   the demo pays at once
-    'verifyPayment',       // ({ kind, id }, paymentIntentId) -> { paid, status }   activates the pass / issues the gift card's code
-    'redeem',              // (code) -> { venueId, cents, giftCents }   a gift card's value onto my balance at its venue
+    'verifyPayment',       // ({ kind, id }, paymentIntentId) -> { paid, status }   activates the pass / issues the gift card's code / puts the top-up on the saldo
+    'redeem',              // (code) -> { venueId, cents, giftCents }   a gift card's value onto my saldo at its venue
     'payBooking',          // (bookingId, passId) -> Booking   pays my held booking with a series card (whole booking); a covered on-sale slot is taken over as on a card payment
-    'useGift',             // (bookingId, use:boolean) -> Booking   puts my gift balance on a held booking / takes it off; covering the price confirms it.
-                           //   A booking paid (partly) with credit can't be split afterwards.
+    'useGift',             // (bookingId, use:boolean) -> Booking   puts my saldo on a held booking / takes it off; covering the price confirms it
     'staffList',           // (venueId) -> { passes: (Pass & { owner: PersonLite })[], giftCards: (GiftCard & { buyer: PersonLite|null, redeemedBy: PersonLite|null })[] }   staff, no history
     'staffProducts',       // (venueId) -> { passes: StaffPassProduct[], gift: GiftSettings }   staff: series cards for sale and hidden ones, in shop order
     'saveProduct',         // (PassProductInput) -> StaffPassProduct   staff: new (id null) or changed; unpaid orders of it take the new content and price

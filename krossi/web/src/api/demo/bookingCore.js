@@ -10,6 +10,7 @@ import { newId } from './runtime.js';
 import { db, nowIso, personLite } from './store.js';
 import { CANCEL_FEE_CENTS, addDays, cancelDeadline, findCourt, localDate, splitCents } from '../../features/booking.js';
 import { creditEventLabel } from '../../features/seasons.js';
+import { firstName } from '../../lib/format.js';
 
 export const MIN = 60_000;
 export const STAFF_ONLY = 'Vain hallin henkilökunta voi tehdä tämän.';
@@ -118,11 +119,11 @@ function splitOf(row) {
     lines: [
       {
         id: null, kind: 'own', person: personLite(row.bookedBy), name: null, cents: ownCents,
-        status: row.paymentStatus === 'refunded' ? 'refunded' : 'paid', paidAt: row.paidAt ?? null,
+        status: row.paymentStatus === 'refunded' ? 'refunded' : 'paid', paidAt: row.paidAt ?? null, backTo: null,
       },
       ...sharesOf(row.id).map((s) => ({
         id: s.id, kind: 'friend', person: s.userId ? personLite(s.userId) : null, name: s.userId ? null : (s.name || null),
-        cents: s.cents, status: partStatus(s), paidAt: s.paidAt ?? null,
+        cents: s.cents, status: partStatus(s), paidAt: s.paidAt ?? null, backTo: s.backTo ?? null,
       })),
     ],
   };
@@ -216,14 +217,42 @@ export function spendGift(row) {
   });
 }
 
+/** Friends' parts whose sum went back to the booker's saldo (they paid the booking with it). */
+const backInSaldo = (row) => sharesOf(row.id).filter((s) => s.backTo === 'saldo').reduce((n, s) => n + s.cents, 0);
+
 /**
- * A cancelled paid booking gives its credit back: series card minutes to the pass, the gift share
- * to the balance. Returns { creditCents, creditMinutes }. `why` starts the history line
- * ('Peruttu', or 'Myyty' for a slot somebody took over).
+ * A friend's part was paid: its sum goes back to the booker where they paid from — into their
+ * saldo while the saldo part of the booking has room for it (as krossi_split_to_booker), else to
+ * their card (the demo only marks it).
+ */
+export function shareToBooker(row, share) {
+  if (share.backTo) return;
+  if ((row.giftCents || 0) - backInSaldo(row) >= share.cents && row.bookedBy) {
+    share.backTo = 'saldo';
+    const who = share.userId ? firstName(personLite(share.userId).name) : (share.name ? firstName(share.name) : 'Kaveri');
+    addCreditEvent({
+      venueId: row.venueId, userId: row.bookedBy, kind: 'refund', cents: share.cents, bookingId: row.id,
+      label: `${who} maksoi osuutensa: ${rowLabel(row)}`,
+    });
+  } else {
+    share.backTo = 'card';
+  }
+}
+
+/**
+ * A cancelled paid booking gives its credit back: series card minutes to the pass, the saldo share
+ * to the saldo (minus what friends' parts already put back there), and friends' parts paid from
+ * their saldo to theirs. Returns the booker's { creditCents, creditMinutes }. `why` starts the
+ * history line ('Peruttu', or 'Myyty' for a slot somebody took over).
  */
 export function returnCredit(row, why = 'Peruttu') {
   let creditCents = 0;
   let creditMinutes = 0;
+  for (const s of sharesOf(row.id)) {
+    if (s.withSaldo && s.status === 'paid' && s.userId) {
+      addCreditEvent({ venueId: row.venueId, userId: s.userId, kind: 'refund', cents: s.cents, bookingId: row.id, label: `${why}: osuus ${rowLabel(row)}` });
+    }
+  }
   if (row.passId && row.passMinutes > 0) {
     const pass = db.booking.passes.find((p) => p.id === row.passId);
     if (pass) pass.minutesLeft += row.passMinutes;
@@ -232,12 +261,12 @@ export function returnCredit(row, why = 'Peruttu') {
       bookingId: row.id, label: `${why}: ${rowLabel(row)}`,
     });
     creditMinutes = row.passMinutes;
-  } else if (row.giftCents > 0) {
+  } else if (row.giftCents > 0 && row.giftCents - backInSaldo(row) > 0) {
+    creditCents = row.giftCents - backInSaldo(row);
     addCreditEvent({
-      venueId: row.venueId, userId: row.bookedBy, kind: 'refund', cents: row.giftCents, bookingId: row.id,
+      venueId: row.venueId, userId: row.bookedBy, kind: 'refund', cents: creditCents, bookingId: row.id,
       label: `${why}: ${rowLabel(row)}`,
     });
-    creditCents = row.giftCents;
   }
   return { creditCents, creditMinutes };
 }
@@ -253,9 +282,10 @@ export function returnCredit(row, why = 'Peruttu') {
 /**
  * A cancelled or sold booking gives its money and credit back (friends' paid shares go back to
  * them). `fee`: the booker gave it up themselves — the 1 € peruutuskulu stays of their card money
- * (CANCEL_FEE_CENTS), as on the server. → { refundedCents, feeCents, creditCents, creditMinutes }
+ * (CANCEL_FEE_CENTS), as on the server. `toSaldo`: their card part goes to their saldo whole
+ * instead (no fee). → { refundedCents, feeCents, creditCents, creditMinutes }
  */
-export function refundEverything(row, why = 'Peruttu', { fee = false } = {}) {
+export function refundEverything(row, why = 'Peruttu', { fee = false, toSaldo = false } = {}) {
   let refundedCents = 0;
   let feeCents = 0;
   let credit = { creditCents: 0, creditMinutes: 0 };
@@ -263,9 +293,15 @@ export function refundEverything(row, why = 'Peruttu', { fee = false } = {}) {
   if (row.paymentStatus === 'paid' || row.paymentStatus === 'credit') {
     credit = returnCredit(row, why);
     if (row.paymentStatus === 'paid') {
-      const back = parts.filter((s) => s.status === 'paid').reduce((n, s) => n + s.cents, 0);
+      const back = parts.filter((s) => s.status === 'paid' && s.backTo !== 'saldo').reduce((n, s) => n + s.cents, 0);
       refundedCents = row.priceCents - (row.giftCents || 0) - back;
-      if (fee) {
+      if (toSaldo) {
+        if (refundedCents > 0) {
+          addCreditEvent({ venueId: row.venueId, userId: row.bookedBy, kind: 'refund', cents: refundedCents, bookingId: row.id, label: `${why}: ${rowLabel(row)}` });
+        }
+        credit = { ...credit, creditCents: credit.creditCents + Math.max(0, refundedCents) };
+        refundedCents = 0;
+      } else if (fee) {
         feeCents = Math.min(CANCEL_FEE_CENTS, refundedCents);
         refundedCents -= feeCents;
       }

@@ -266,5 +266,33 @@ export function mapWallet(raw, venueId) {
     giftCents: number(raw?.giftCents),
     giftHistory: list(raw?.giftHistory).map(mapEvent),
     giftCards: list(raw?.giftCards).map(mapGiftCard),
+    refundableCents: number(raw?.refundableCents),
+    refundFeeCents: number(raw?.refundFeeCents),
+    refundFreeUntil: iso(raw?.refundFreeUntil),
+  };
+}
+
+/** TopUp (saldon lataus). */
+export function mapTopUp(raw) {
+  return {
+    id: raw.id,
+    venueId: raw.venueId,
+    amountCents: number(raw.amountCents),
+    status: raw.status === 'paid' ? 'paid' : 'pending',
+    paidAt: iso(raw.paidAt),
+    createdAt: iso(raw.createdAt),
+  };
+}
+
+/** TopUpRules (null before the saldo migration). */
+export function mapTopUpRules(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const amounts = list(raw.amounts).map((n) => number(n)).filter((n) => n > 0);
+  if (!amounts.length) return null;
+  return {
+    amounts,
+    refundFreeDays: number(raw.refundFreeDays, 14),
+    refundDays: number(raw.refundDays, 180),
+    refundFeeCents: number(raw.refundFeeCents, 100),
   };
 }

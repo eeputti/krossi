@@ -11,8 +11,9 @@
 // confirmed booking refunds the on-sale bookings it took over; a paid share's amount goes back to
 // the booker before this answers 200, so Stripe retries the event when that refund fails.
 //
-// Phase 2 (krossi-billing): series cards and gift cards (metadata.product 'krossi_pass' /
-// 'krossi_gift') are activated with krossi_wallet_order_paid — an order already paid by another
+// Phase 2 (krossi-billing): series cards, gift cards and saldo top-ups (metadata.product
+// 'krossi_pass' / 'krossi_gift' / 'krossi_topup') are recorded with krossi_wallet_order_paid
+// (activates the pass, issues the gift card's code, puts the top-up on the saldo) — an order already paid by another
 // payment is refunded (key `krossi-order-refund-<intent>`, same as krossi-billing) — and a monthly
 // kausivuoro charge ('krossi_season') is recorded with krossi_billing_charge_result, also when it
 // fails (payment_intent.payment_failed).
@@ -22,11 +23,17 @@
 // _payouts_enabled / _details_submitted, so a hall Stripe restricts stops taking payments at once.
 // krossi-connect's status action refreshes the same columns whenever the hall's settings are opened,
 // so the Connect endpoint is optional. Refunds keep Krossi's fee (../_shared/fees.ts).
+//
+// Saldo (../_shared/saldo.ts): a refund of a top-up back to its card that fails after Stripe took
+// it (charge.refund.updated / refund.updated with status 'failed', metadata.saldo_refund_id) puts
+// the sum back on the player's saldo (krossi_saldo_refund_failed, once). Needs those events on
+// Krossi's endpoint.
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
 import { BOOKING_PRODUCT, SPLIT_PRODUCT, afterBookingPaid, refundBooker, settleBookingPayment, settleSplitPayment } from '../_shared/booking.ts';
 import { accountState } from '../_shared/connect.ts';
 import { refundConnect } from '../_shared/fees.ts';
+import { TOPUP_PRODUCT } from '../_shared/saldo.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -34,7 +41,7 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
 });
 const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
-const ORDER_PRODUCTS: Record<string, 'pass' | 'gift'> = { krossi_pass: 'pass', krossi_gift: 'gift' };
+const ORDER_PRODUCTS: Record<string, 'pass' | 'gift' | 'topup'> = { krossi_pass: 'pass', krossi_gift: 'gift', [TOPUP_PRODUCT]: 'topup' };
 const SEASON_PRODUCT = 'krossi_season';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -87,7 +94,7 @@ async function settleSplit(admin: SupabaseClient, intent: Stripe.PaymentIntent) 
 }
 
 /** A paid series card / gift card order (same as krossi-billing's settleOrder). Throws to be retried. */
-async function settleOrder(admin: SupabaseClient, intent: Stripe.PaymentIntent, kind: 'pass' | 'gift') {
+async function settleOrder(admin: SupabaseClient, intent: Stripe.PaymentIntent, kind: 'pass' | 'gift' | 'topup') {
   const orderId = intent.metadata?.order_id ?? '';
   if (!UUID_RE.test(orderId)) {
     console.error('order payment without an order id', intent.id);
@@ -168,7 +175,22 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ received: true }), { status: 200 });
   }
 
-  // Sarja- ja lahjakortit, kausivuorojen kuukausiveloitukset (krossi-billing).
+  // Saldon palautus kortille epäonnistui jälkikäteen: summa takaisin saldoon.
+  if (event.type === 'charge.refund.updated' || (event.type as string) === 'refund.updated') {
+    const refund = event.data.object as Stripe.Refund;
+    const rowId = refund.metadata?.saldo_refund_id ?? '';
+    if (refund.status === 'failed' && refund.metadata?.product === TOPUP_PRODUCT && UUID_RE.test(rowId)) {
+      const { error } = await admin.rpc('krossi_saldo_refund_failed', { refund_id_input: rowId, stripe_refund_id_input: refund.id });
+      if (error) {
+        console.error('saldo refund failure update failed', rowId, error.message);
+        await admin.from('stripe_events').delete().eq('id', event.id);
+        return new Response('saldo refund update failed', { status: 500 });
+      }
+    }
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
+  }
+
+  // Sarja- ja lahjakortit, saldon lataukset, kausivuorojen kuukausiveloitukset (krossi-billing).
   if (event.type === 'payment_intent.succeeded' || event.type === 'payment_intent.payment_failed') {
     const intent = event.data.object as Stripe.PaymentIntent;
     const product = intent.metadata?.product ?? '';

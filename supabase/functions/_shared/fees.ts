@@ -28,6 +28,12 @@
 // hall cancels, the friends' shares of a split booking, series card minutes and gift balance.
 // Nothing is ever added on top of a price: a friend pays exactly their share.
 //
+// Saldo (saldo.ts): a top-up at a hall is a payment like a gift card (this fee). Bookings and
+// friends' shares paid from the saldo, and the player's own cancellation or a share coming back
+// into it, move no money through Stripe — no fee, and no peruutuskulu on a cancellation into the
+// saldo. Unused top-ups go back to their card on request (reverse_transfer, Krossi keeps its fee):
+// free for 14 days, then a round 1 € that stays with the hall, like the peruutuskulu.
+//
 // A hall without a ready account takes no online payments once it is public (HallNotConnected);
 // a hidden hall without an account (only its staff and Krossi's admins see it) still charges on
 // Krossi's own account, for testing before the hall is connected.

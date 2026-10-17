@@ -659,14 +659,14 @@ function hoursLabel(minutes: number): string {
 }
 
 // "Mikko maksoi osuutensa 7,50 € — se palautettiin sinulle": to the booker, once the share's
-// amount went back to them.
+// amount went back to them (to their card, or to their saldo at the hall when they paid with it).
 async function planBookingSplitPaid(
   admin: Admin,
   event: Extract<NotifyEvent, { type: "booking_split_paid" }>,
 ): Promise<Delivery | null> {
   const { data: share, error } = await admin
     .from("booking_shares")
-    .select("id, reservation_id, cents, status, payer_name, payer_user_id, booker_refunded_at")
+    .select("id, reservation_id, cents, status, payer_name, payer_user_id, booker_refunded_at, booker_saldo")
     .eq("id", event.shareId)
     .maybeSingle();
   if (error) throw error;
@@ -677,6 +677,7 @@ async function planBookingSplitPaid(
     ? await fetchFirstName(admin, share.payer_user_id as string)
     : share.payer_name ? firstName(share.payer_name) : "Kaveri";
   const amount = euros(Number(share.cents));
+  const toSaldo = share.booker_saldo === true;
   return {
     recipientIds: [booking.bookedBy],
     audience: "player",
@@ -685,11 +686,13 @@ async function planBookingSplitPaid(
     logRefId: share.id as string,
     blockActor: null,
     content: {
-      subject: `${payer} maksoi osuutensa ${amount} — se palautettiin sinulle`,
+      subject: toSaldo ? `${payer} maksoi osuutensa ${amount} — se lisättiin saldoosi` : `${payer} maksoi osuutensa ${amount} — se palautettiin sinulle`,
       preheader: `${booking.when} · ${booking.place}`,
       heading: `${payer} maksoi osuutensa`,
       paragraphs: [
-        `${payer} maksoi osuutensa vuorosta, ${amount}. Palautimme saman summan sinulle — palautus näkyy tililläsi yleensä muutamassa päivässä.`,
+        toSaldo
+          ? `${payer} maksoi osuutensa vuorosta, ${amount}. Maksoit vuoron saldollasi, joten sama summa lisättiin saldoosi — käytä se seuraavaan vuoroon samassa hallissa.`
+          : `${payer} maksoi osuutensa vuorosta, ${amount}. Palautimme saman summan sinulle — palautus näkyy tililläsi yleensä muutamassa päivässä.`,
       ],
       details: [`🗓 ${booking.when}`, `📍 ${booking.place}`],
       cta: { label: "Katso vuorosi", path: "/pelaa/omat-varaukset" },
@@ -712,17 +715,19 @@ async function planBookingResold(
   if (!booking) return null;
   const { data: shares, error: sharesError } = await admin
     .from("booking_shares")
-    .select("cents, status, booker_refunded_at")
+    .select("cents, status, booker_refunded_at, booker_saldo")
     .eq("reservation_id", row.id);
   if (sharesError) throw sharesError;
   // What goes back to the seller now: what is left of their payment (friends' shares already went
-  // back to them as the friends paid), and the series card minutes or gift balance it was paid with
-  // (given back at once).
+  // back to them as the friends paid — to the card, or to the saldo for the part paid from it), and
+  // the series card minutes or saldo it was paid with (given back at once).
   const settled = ["paid", "refunded", "credit"].includes(row.payment_status as string);
   const minutes = settled && row.pass_id ? Number(row.pass_minutes) || 0 : 0;
-  const gift = settled && !row.pass_id ? Number(row.gift_cents) || 0 : 0;
-  const backAlready = (shares ?? []).filter((s) => s.booker_refunded_at).reduce((n, s) => n + Number(s.cents), 0);
-  const left = settled && !row.pass_id ? Math.max(0, Number(row.price_cents) - gift - backAlready) : 0;
+  const sharesBack = (toSaldo: boolean) => (shares ?? [])
+    .filter((s) => s.booker_refunded_at && (s.booker_saldo === true) === toSaldo).reduce((n, s) => n + Number(s.cents), 0);
+  const giftPaid = settled && !row.pass_id ? Number(row.gift_cents) || 0 : 0;
+  const gift = Math.max(0, giftPaid - sharesBack(true));
+  const left = settled && !row.pass_id ? Math.max(0, Number(row.price_cents) - giftPaid - sharesBack(false)) : 0;
   // The peruutuskulu stays of the card money (../_shared/fees.ts), as when cancelling.
   const fee = cancelFeeOf(left);
   const own = left - fee;
@@ -731,7 +736,7 @@ async function planBookingResold(
     ...(own > 0
       ? [`Saat ${euros(own)} takaisin maksutavallesi (peruutuskulu ${euros(fee)}). Palautus näkyy tililläsi yleensä muutamassa päivässä.`]
       : []),
-    ...(gift > 0 ? [`${euros(gift)} palautui lahjakorttisaldoosi.`] : []),
+    ...(gift > 0 ? [`${euros(gift)} palautui saldoosi.`] : []),
     ...(minutes > 0 ? [`${hoursLabel(minutes)} palautui sarjakortillesi.`] : []),
   ];
   return {
