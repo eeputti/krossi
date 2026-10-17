@@ -14,16 +14,16 @@ const KOUTSI_TL_PREVIOUS_LABELS = { goal: 'Aiempi tavoite', wish: 'Aiempi toive'
 // glyph in the card's badge. Order here is the order the filter chips appear in.
 const KOUTSI_TL_KINDS = {
   goal: { label: 'Tavoitteet', short: 'Tavoite', fg: '#5c6b06', bg: 'rgba(180,205,20,0.28)', dot: '#b4cd14', icon: '◎' },
-  diary: { label: 'Valmentajalta', short: 'Valmentaja', fg: '#0e3b2c', bg: 'rgba(14,59,44,0.10)', dot: '#0e3b2c', icon: '✎' },
+  diary: { label: 'Valmentajalta', short: 'Valmentaja', fg: '#121212', bg: 'rgba(0,0,0,0.07)', dot: '#121212', icon: '✎' },
   homework: { label: 'Kotiläksyt', short: 'Kotiläksy', fg: '#8a5a12', bg: 'rgba(214,140,44,0.16)', dot: '#d68c2c', icon: '☑' },
   mood: { label: 'Fiilikset', short: 'Fiilis', fg: '#2a5d94', bg: 'rgba(58,130,212,0.13)', dot: '#3a82d4', icon: '☺' },
   match: { label: 'Ottelut', short: 'Ottelu', fg: '#a13b2f', bg: 'rgba(161,59,47,0.11)', dot: '#a13b2f', icon: '⚑' },
   video: { label: 'Videot', short: 'Video', fg: '#6a389c', bg: 'rgba(148,88,214,0.13)', dot: '#9458d6', icon: '▶' },
   wish: { label: 'Toiveet', short: 'Toive', fg: '#1f6b5c', bg: 'rgba(31,107,92,0.12)', dot: '#1f6b5c', icon: '✱' },
-  note: { label: 'Muistiinpanot', short: 'Muistiinpano', fg: '#6b665c', bg: '#efece4', dot: '#6b665c', icon: '✐' },
+  note: { label: 'Muistiinpanot', short: 'Muistiinpano', fg: '#6a6a6a', bg: '#f1f1f1', dot: '#6a6a6a', icon: '✐' },
   event: { label: 'Tapahtumat', short: 'Tapahtuma', fg: '#94571a', bg: 'rgba(214,140,44,0.13)', dot: '#c07820', icon: '★' },
-  training: { label: 'Treenit', short: 'Treeni', fg: '#514c42', bg: '#efece4', dot: '#a8a294', icon: '●' },
-  start: { label: 'Alku', short: 'Alku', fg: '#514c42', bg: '#efece4', dot: '#a8a294', icon: '⚑' },
+  training: { label: 'Treenit', short: 'Treeni', fg: '#4a4a4a', bg: '#f1f1f1', dot: '#a8a8a8', icon: '●' },
+  start: { label: 'Alku', short: 'Alku', fg: '#4a4a4a', bg: '#f1f1f1', dot: '#a8a8a8', icon: '⚑' },
 };
 const KOUTSI_TL_KIND_ORDER = ['goal', 'diary', 'homework', 'mood', 'match', 'video', 'wish', 'note', 'event', 'training', 'start'];
 

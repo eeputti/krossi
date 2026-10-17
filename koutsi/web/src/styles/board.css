@@ -27,7 +27,7 @@
 .gb-day.is-today .gb-day-name { color: var(--green-700); }
 .gb-today {
   display: inline-flex; align-items: center; height: 20px; padding: 0 8px; margin-left: auto; border-radius: var(--r-pill);
-  background: var(--lime); color: #101A08; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--lime); color: var(--ink); font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
 }
 .gb-day.is-past .gb-card:not(.is-missing) { background: var(--surface-2); }
 .gb-day-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
@@ -38,9 +38,9 @@
   background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); color: var(--ink);
   transition: transform var(--dur-1) var(--ease-out), border-color var(--dur-2), box-shadow var(--dur-2);
 }
-.gb-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-2); }
+.gb-card:hover { border-color: var(--line-strong); }
 .gb-card:active { transform: scale(0.98); }
-.gb-card.is-now { border-color: rgba(180, 205, 20, 0.85); box-shadow: 0 0 0 3px rgba(207, 228, 20, 0.25), var(--shadow-1); }
+.gb-card.is-now { border-color: var(--line-strong); box-shadow: inset 4px 0 0 var(--lime); }
 .gb-card.is-missing { background: transparent; border-style: dashed; box-shadow: none; color: var(--muted); }
 .gb-card-time { font-size: 13px; font-weight: 800; color: var(--green-800); }
 .gb-card.is-missing .gb-card-time { color: var(--faint); }
@@ -53,7 +53,7 @@
 .gb-card-theme.has-theme { color: var(--success); }
 .gb-card-theme.no-theme { color: var(--warn); font-weight: 600; }
 .gb-card-note { margin-top: 2px; font-size: 12px; font-style: italic; color: var(--faint); }
-.gb-card-live { display: inline-flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; font-weight: 800; color: #4A5605; }
+.gb-card-live { display: inline-flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; font-weight: 800; color: var(--ink-2); }
 .gb-card-absent { margin-top: 3px; font-size: 12px; font-weight: 700; color: var(--warn); }
 
 /* the day strip only exists on a phone, where the board scrolls a day at a time */
@@ -84,7 +84,7 @@
   .gb-strip {
     display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; position: sticky; z-index: 3;
     top: calc(var(--safe-top) + 0px); margin: 0 calc(-1 * var(--gutter)) 10px; padding: 8px var(--gutter);
-    background: rgba(247, 245, 239, 0.92); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
+    background: rgba(255, 255, 255, 0.92); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
   }
   .has-top-banner .gb-strip { top: calc(33px + var(--safe-top)); }
   .gb-strip-day {
@@ -133,14 +133,14 @@
   background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
 }
 .tt-item.is-past .tt-card { background: var(--surface-2); }
-.tt-item.is-now .tt-card { border-color: rgba(180, 205, 20, 0.85); box-shadow: 0 0 0 3px rgba(207, 228, 20, 0.25), var(--shadow-1); }
+.tt-item.is-now .tt-card { border-color: var(--line-strong); box-shadow: inset 4px 0 0 var(--lime); }
 .tt-main { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; color: var(--ink); }
 .tt-main:active { opacity: 0.8; }
 .tt-time { font-size: 13px; font-weight: 800; color: var(--green-800); }
 .tt-item.is-past .tt-time { color: var(--muted); }
 .tt-name { font-size: 15.5px; font-weight: 750; line-height: 1.25; overflow-wrap: anywhere; }
 .tt-state { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
-.tt-item.is-now .tt-state { color: #4A5605; font-weight: 700; }
+.tt-item.is-now .tt-state { color: var(--ink-2); font-weight: 700; }
 .tt-theme { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 650; color: var(--success); }
 .tt-progress { display: block; height: 4px; margin-top: 6px; border-radius: 999px; background: var(--sand); overflow: hidden; }
 .tt-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--green-700); transition: width var(--dur-3) var(--ease-out); }
@@ -175,7 +175,7 @@
 .tt-group-today.is-now { background: var(--green-800); border-color: var(--green-800); color: #fff; }
 .tt-group-today.is-past { background: var(--surface-2); border-color: var(--line); }
 .tt-group-today-text { flex: 1 1 200px; min-width: 0; display: grid; gap: 3px; }
-.tt-group-today-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #4A5605; }
+.tt-group-today-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
 .tt-group-today.is-now .tt-group-today-eyebrow { color: var(--lime); }
 .tt-group-today.is-past .tt-group-today-eyebrow { color: var(--muted); }
 .tt-group-today-state { font-size: 15px; font-weight: 750; }
@@ -203,7 +203,7 @@
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .ms-chip-state { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 750; color: var(--muted); }
-.ms-chip.is-now .ms-chip-state { color: #4A5605; }
+.ms-chip.is-now .ms-chip-state { color: var(--ink-2); }
 .ms-chip.is-picked { background: var(--green-800); border-color: var(--green-800); box-shadow: var(--shadow-2); }
 .ms-chip.is-picked .ms-chip-time { color: var(--lime); }
 .ms-chip.is-picked .ms-chip-name { color: #fff; }

@@ -1,6 +1,6 @@
 // effects.js — confetti burst and native share with clipboard fallback.
 
-const COLORS = ['#CFE414', '#DDEE5A', '#0E3B2C', '#1E6B52', '#FFFFFF', '#D9734A'];
+const COLORS = ['#CFE414', '#DBEE45', '#121212', '#575757', '#FFFFFF', '#D4D4D4'];
 
 /**
  * confetti({ x, y, count, spread }) — one-shot burst on a temporary full-screen canvas.
