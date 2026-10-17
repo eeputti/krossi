@@ -63,7 +63,7 @@ export const STEPS = [
     area: 'Omat varaukset',
     icon: 'check-circle',
     title: 'Vuorot, kausivuorot ja kortit',
-    text: 'Napauta vuoroa: lisää se kalenteriin, etsi siihen pelikaveri, jaa maksu tai peru. Alempana ovat kausivuorosi laskuineen sekä sarja- ja lahjakortit.',
+    text: 'Napauta vuoroa: lisää se kalenteriin, etsi siihen pelikaveri, jaa maksu tai peru. Alempana ovat kausivuorosi laskuineen, saldo sekä sarja- ja lahjakortit.',
   },
   {
     id: 'halli-nappi',

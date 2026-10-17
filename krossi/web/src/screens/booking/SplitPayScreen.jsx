@@ -6,6 +6,9 @@
 // peliseuraa" at the bottom takes a visitor to Krossi.
 //
 // Redirect methods (MobilePay on a phone) come back here with ?payment_intent=…, confirmed below.
+//
+// Saldo: a signed-in player with enough saldo at the booking's hall pays the part from it with one
+// tap ("Maksa saldolla", api.booking.paySplitWithSaldo) — no card payment.
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError, isDemo } from '../../api/index.js';
 import { useAsync, useResync } from '../../app/hooks.js';
@@ -104,6 +107,12 @@ export function SplitPayScreen({ params, query, standalone = false }) {
   const link = useAsync(() => api.booking.splitPublic(params.token), [params.token]);
   const [name, setName] = useState('');
   const [paid, setPaid] = useState(false);
+  const [payingSaldo, setPayingSaldo] = useState(false);
+  const venueId = link.data?.venueId || null;
+  const wallet = useAsync(
+    () => (user && venueId && link.data?.state === 'open' ? api.wallet.get(venueId).catch(() => null) : Promise.resolve(null)),
+    [user?.id, venueId, link.data?.state],
+  );
   useResync(() => link.reload({ silent: true }));
 
   // Coming back from a redirect payment (MobilePay on a phone): confirm it, then drop the query.
@@ -157,7 +166,9 @@ export function SplitPayScreen({ params, query, standalone = false }) {
         <div className="splitpay-done">
           <span className="bk-done-check" aria-hidden="true"><Icon name="check" size={30} strokeWidth={3} /></span>
           <h2 className="splitpay-done-title">Osuutesi on maksettu</h2>
-          <p className="bk-fine">{centsLabel(s.perCents)}. {isDemo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi, jos annoit sen maksaessa.'} Nähdään kentällä!</p>
+          <p className="bk-fine">
+            {centsLabel(s.perCents)}. {paid === 'saldo' ? 'Maksettu saldostasi.' : isDemo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi, jos annoit sen maksaessa.'} Nähdään kentällä!
+          </p>
           <Button variant="soft" icon="calendar" onClick={() => downloadBookingIcs({
             id: s.token, startsAt: s.startsAt, endsAt: s.endsAt, courtName: s.courtName, locationName: s.locationName, venueName: s.venueName, sport: s.sport,
           })}
@@ -174,6 +185,20 @@ export function SplitPayScreen({ params, query, standalone = false }) {
       state = <p className="bk-info"><Icon name="check" size={18} /><span>Kaikki osuudet on jo maksettu. Kiitos!</span></p>;
     } else {
       const friends = s.parts - 1;
+      const saldo = wallet.data?.giftCents ?? 0;
+      const paySaldo = async () => {
+        setPayingSaldo(true);
+        try {
+          const result = await api.booking.paySplitWithSaldo(s.token);
+          if (result.full) toast('Kaikki osuudet ehdittiin jo maksaa.', { tone: 'error' });
+          else setPaid('saldo');
+          link.reload({ silent: true });
+        } catch (err) {
+          toast(err);
+        } finally {
+          setPayingSaldo(false);
+        }
+      };
       state = (
         <div className="stack-3">
           <div className="splitpay-amount">
@@ -189,6 +214,12 @@ export function SplitPayScreen({ params, query, standalone = false }) {
               <span className="splitpay-name-label">Nimesi <small>(näkyy varaajalle)</small></span>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Etunimi" maxLength={40} autoComplete="given-name" />
             </label>
+          )}
+          {saldo >= s.perCents && (
+            <div className="stack-2">
+              <Button variant="dark" size="lg" block icon="euro" loading={payingSaldo} onClick={paySaldo}>Maksa saldolla</Button>
+              <p className="bk-fine bk-fine-center">Saldoa {centsLabel(saldo)} · {s.venueName}</p>
+            </div>
           )}
           <div className="bk-paybox">
             <PayBox link={s} name={user && !isDemo ? (profile?.name || '') : name} onPaid={() => { setPaid(true); link.reload({ silent: true }); }} />

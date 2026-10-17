@@ -82,8 +82,10 @@ test('before the migration is deployed the pages just look empty', async () => {
   assert.deepEqual(await seasons.list(VENUE), []);
   assert.deepEqual(await seasons.listMine(), []);
   assert.equal(await billing.cardStatus(), null);
-  assert.deepEqual(await wallet.products(VENUE), { passes: [], gift: null });
-  assert.deepEqual(await wallet.get(VENUE), { venueId: VENUE, passes: [], giftCents: 0, giftHistory: [], giftCards: [] });
+  assert.deepEqual(await wallet.products(VENUE), { passes: [], gift: null, topup: null });
+  assert.deepEqual(await wallet.get(VENUE), {
+    venueId: VENUE, passes: [], giftCents: 0, giftHistory: [], giftCards: [], refundableCents: 0, refundFeeCents: 0, refundFreeUntil: null,
+  });
   // the hall's views too
   assert.deepEqual(await seasons.staffList(VENUE), []);
   assert.deepEqual(await billing.listInvoices(VENUE), []);

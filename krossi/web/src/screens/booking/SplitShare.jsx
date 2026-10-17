@@ -24,6 +24,15 @@ export function splitShareText(booking) {
 const payPagePath = (token) => `/pelaa/maksa/${encodeURIComponent(token)}`;
 const lineName = (line) => (line.person ? firstName(line.person.name) : line.name || (line.status === 'open' ? 'Vapaa osuus' : 'Kaveri'));
 
+/** '15 € palautettu sinulle' | '10 € saldoosi' | '10 € saldoosi ja 5 € kortillesi'. */
+function backLine(split) {
+  const sum = (to) => split.lines.filter((l) => l.kind === 'friend' && l.backTo === to).reduce((n, l) => n + l.cents, 0);
+  const saldo = sum('saldo');
+  const card = backToBooker(split) - saldo;
+  if (!saldo) return `${centsLabel(card)} palautettu sinulle.`;
+  return card > 0 ? `${centsLabel(saldo)} saldoosi ja ${centsLabel(card)} kortillesi.` : `${centsLabel(saldo)} lisätty saldoosi.`;
+}
+
 export function SplitShare({ venue, booking, onChanged }) {
   const toast = useToast();
   const shareLink = useShare();
@@ -34,10 +43,12 @@ export function SplitShare({ venue, booking, onChanged }) {
   const send = (b) => shareLink({ title: 'Maksa osuutesi', text: splitShareText(b), url: appUrl(payPagePath(b.split.token)) });
 
   if (!split) {
-    // Paid with a series card or gift balance, on sale, started: nothing to share.
-    if (splitBlocker(booking, 2)) return null;
+    // Paid with a series card (or the saldo on a server before it), on sale, started: nothing to share.
+    const rules = { saldo: venue.saldo === true };
+    if (splitBlocker(booking, 2, Date.now(), rules)) return null;
     const per = splitCents(booking.priceCents, parts).friendCents;
-    const tooSmall = splitBlocker(booking, parts);
+    const tooSmall = splitBlocker(booking, parts, Date.now(), rules);
+    const toSaldo = venue.saldo === true && booking.credit?.kind === 'gift';
     const make = async () => {
       setBusy('make');
       try {
@@ -58,7 +69,9 @@ export function SplitShare({ venue, booking, onChanged }) {
         {tooSmall
           ? <p className="bk-note"><Icon name="info" size={16} />{tooSmall}</p>
           : <Button variant="dark" icon="share" block loading={busy === 'make'} onClick={make}>Lähetä maksulinkki</Button>}
-        <p className="bk-fine">Kaverit maksavat linkistä ilman tiliä. Jokainen maksettu osuus palautuu sinulle automaattisesti.</p>
+        <p className="bk-fine">
+          Kaverit maksavat linkistä ilman tiliä. Jokainen maksettu osuus palautuu sinulle automaattisesti{toSaldo ? ' — saldolla maksetusta osasta saldoosi' : ''}.
+        </p>
       </section>
     );
   }
@@ -95,7 +108,7 @@ export function SplitShare({ venue, booking, onChanged }) {
           </li>
         ))}
       </ul>
-      {back > 0 && <p className="bk-fine">{centsLabel(back)} palautettu sinulle.</p>}
+      {back > 0 && <p className="bk-fine">{backLine(split)}</p>}
       {live && split.token && counts.open > 0 && (
         <div className="bk-splitcard-actions">
           <Button variant="dark" icon="share" block onClick={() => send(booking)}>Lähetä maksulinkki</Button>

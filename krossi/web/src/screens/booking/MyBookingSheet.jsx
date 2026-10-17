@@ -5,10 +5,14 @@
 // has paid (each paid part went back to me). Past the free cancellation the booking can go on sale
 // ("Laita myyntiin", better than Cintoia's manual resale: it is bookable for others at once, the
 // people waiting for that time are told, and when somebody books it everything paid comes back).
+//
+// Saldo (venue.saldo): cancelling a booking with a card part asks where the money goes — "Saldoon"
+// the whole card part into my saldo at the hall (no peruutuskulu, nothing through Stripe) or
+// "Kortille" minus the 1 € peruutuskulu, in a small sheet of two rows.
 import { useState } from 'react';
 import { api } from '../../api/index.js';
 import { navigate } from '../../app/router.js';
-import { canPutOnSale, centsLabel, durationLabel, friendsPaid, giveBackOf, giveBackText } from '../../features/booking.js';
+import { canPutOnSale, cancelChoices, centsLabel, durationLabel, friendsPaid, giveBackOf, giveBackText } from '../../features/booking.js';
 import { Button, Chip, Icon, Sheet, useConfirm, useToast } from '../../ui/index.js';
 import { VenueMap, hasVenueMap } from './VenueMap.jsx';
 import { bookingStateText, downloadBookingIcs, sportLabel, timeInSentence, whenLabel } from './BookingParts.jsx';
@@ -19,6 +23,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
   const toast = useToast();
   const confirm = useConfirm();
   const [working, setWorking] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const location = (booking && venue?.locations.find((l) => l.courts.some((c) => c.id === booking.courtId))) || null;
   const weather = weatherInfo(useForecast(location, booking?.startsAt));
   if (!booking) return null;
@@ -30,7 +35,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
   const canSell = canPutOnSale(booking) && venue?.resale === true;
   const paid = booking.paymentStatus === 'paid' || booking.paymentStatus === 'credit';
   const split = booking.split;
-  // What comes back: card money, series card hours, gift balance (and the friends get their own parts).
+  // What comes back: card money, series card hours, saldo (and the friends get their own parts).
   const back = giveBackOf(booking);
   const backText = `${giveBackText(back) || 'Saat rahasi takaisin'}${friendsPaid(booking) ? ', kaverit omat osuutensa' : ''}`;
   const backLabel = [
@@ -40,6 +45,8 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
   ].filter(Boolean).join(' + ');
 
   const soldBack = booking.soldAt ? giveBackText(back) : null;
+  // Where the card part goes when I cancel: a choice only where the hall has the saldo.
+  const choices = venue?.saldo === true ? cancelChoices(booking) : null;
 
   const run = async (fn) => {
     setWorking(true);
@@ -52,7 +59,20 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
     }
   };
 
+  const cancelNow = (toSaldo) => run(async () => {
+    const { refundedCents, feeCents, creditCents, creditMinutes } = await api.booking.cancel(booking.id, { toSaldo });
+    const backNow = giveBackText({ cardCents: refundedCents, feeCents, giftCents: creditCents, minutes: creditMinutes });
+    toast(backNow ? `Vuoro peruttu. ${backNow}.` : 'Vuoro peruttu.', { icon: 'check' });
+    setChoosing(false);
+    onChanged?.();
+    onClose();
+  });
+
   const cancel = async () => {
+    if (choices) {
+      setChoosing(true);
+      return;
+    }
     const ok = await confirm({
       title: 'Perutaanko vuoro?',
       message: paid
@@ -168,7 +188,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
           {booking.status === 'confirmed' && !ended && !booking.forSale && (
             <div>
               <dt>Peruutus</dt>
-              <dd>{canCancel ? `Onnistuu ${timeInSentence(booking.cancellableUntil)} asti${back.feeCents ? `, peruutuskulu ${centsLabel(back.feeCents)}` : ''}` : canSell ? 'Peruutusaika on mennyt — voit laittaa vuoron myyntiin.' : 'Peruutusaika on mennyt — ota yhteyttä halliin.'}</dd>
+              <dd>{canCancel ? `Onnistuu ${timeInSentence(booking.cancellableUntil)} asti${back.feeCents ? `, peruutuskulu ${centsLabel(back.feeCents)}${choices ? ' (saldoon ilman kulua)' : ''}` : ''}` : canSell ? 'Peruutusaika on mennyt — voit laittaa vuoron myyntiin.' : 'Peruutusaika on mennyt — ota yhteyttä halliin.'}</dd>
             </div>
           )}
         </dl>
@@ -201,10 +221,41 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
 
         {canCancel && (
           <button type="button" className="bk-cancel" onClick={cancel} disabled={working}>
-            <Icon name="close" size={16} />Peru vuoro{backLabel ? ` ja palauta ${backLabel}` : ''}
+            <Icon name="close" size={16} />Peru vuoro{backLabel && !choices ? ` ja palauta ${backLabel}` : ''}
           </button>
         )}
       </div>
+      {choices && (
+        <Sheet
+          open={choosing}
+          onClose={() => setChoosing(false)}
+          size="sm"
+          title="Perutaanko vuoro?"
+          subtitle={`${booking.courtName}, ${whenLabel(booking.startsAt, booking.endsAt)}.${friendsPaid(booking) ? ' Kaverit saavat osuutensa takaisin.' : ''}`}
+          footer={<Button variant="soft" size="lg" block onClick={() => setChoosing(false)}>Pidä vuoro</Button>}
+        >
+          <div className="stack-3">
+            <button type="button" className="bk-rebook bk-rebook-inline" onClick={() => cancelNow(true)} disabled={working}>
+              <span className="bk-rebook-icon" aria-hidden="true"><Icon name="euro" size={18} strokeWidth={2.4} /></span>
+              <span className="bk-rebook-text">
+                <span className="bk-rebook-title">Saldoon {centsLabel(choices.saldoCents)}</span>
+                <span className="bk-rebook-sub">Koko summa, ei peruutuskulua</span>
+              </span>
+              <Icon name="chevron-right" size={18} />
+            </button>
+            <button type="button" className="bk-rebook bk-rebook-inline" onClick={() => cancelNow(false)} disabled={working}>
+              <span className="bk-rebook-icon" aria-hidden="true"><Icon name="undo" size={18} strokeWidth={2.4} /></span>
+              <span className="bk-rebook-text">
+                <span className="bk-rebook-title">Kortille {centsLabel(choices.cardCents)}</span>
+                <span className="bk-rebook-sub">
+                  Peruutuskulu {centsLabel(choices.feeCents)}{choices.giftCents ? ` · ${centsLabel(choices.giftCents)} saldoon` : ''}
+                </span>
+              </span>
+              <Icon name="chevron-right" size={18} />
+            </button>
+          </div>
+        </Sheet>
+      )}
     </Sheet>
   );
 }

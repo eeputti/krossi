@@ -13,7 +13,7 @@ import { Button, Sheet } from '../../ui/index.js';
 export function bookingTerms(venue) {
   return [
     ['Varaus', `Vuoro on sinun, kun maksu on mennyt läpi. Aika pidetään sinulle ${venue?.holdMinutes ?? 10} minuuttia maksamisen ajan. Hinnat sisältävät ALV:n.`],
-    ['Peruutus', `Voit perua vuoron ${venue?.cancelLimitHours ?? 24} h ennen sen alkua. Peruutuskulu on ${centsLabel(CANCEL_FEE_CENTS)}, ja loput palautuvat maksutavallesi. Sarjakortin tunnit ja lahjakorttisaldo palautuvat kokonaan. Jos halli peruu vuoron, saat kaiken takaisin.`],
+    ['Peruutus', `Voit perua vuoron ${venue?.cancelLimitHours ?? 24} h ennen sen alkua. Peruutuskulu on ${centsLabel(CANCEL_FEE_CENTS)}, ja loput palautuvat maksutavallesi${venue?.saldo ? ' — tai koko summa saldoosi ilman kulua' : ''}. Sarjakortin tunnit ja saldo palautuvat kokonaan. Jos halli peruu vuoron, saat kaiken takaisin.`],
     ...(venue?.resale ? [
       ['Et pääsekään?', `Peruutusajan jälkeen voit laittaa vuoron myyntiin. Kun joku varaa sen, saat rahat takaisin peruutuskulua (${centsLabel(CANCEL_FEE_CENTS)}) lukuun ottamatta.`],
     ] : []),

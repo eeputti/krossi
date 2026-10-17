@@ -1,5 +1,5 @@
 // BookSheet — booking one start time in one view: the court on the floor map (a free one is picked
-// already), one line about it, the player's own series card or gift balance when they have some,
+// already), one line about it, the player's own series card or saldo when they have some,
 // and the payment right there (MobilePay, Apple Pay, Google Pay, card). Nothing is held until the
 // player pays: then the court is held, paid and confirmed in one go ("Joku ehti ensin…" if somebody
 // was faster). Done: "Kenttä varattu!" with "Jaa maksu" (a link friends pay their parts at, no
@@ -114,7 +114,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
   const deadline = cancelDeadline(startsAt, venue);
   const lateBooking = Date.parse(deadline) <= Date.now();
 
-  // Own credit: a series card that fits this time, or the gift balance (one or the other).
+  // Own credit: a series card that fits this time, or the saldo (one or the other).
   const w = wallet.data;
   const pass = w?.passes.find((p) => p.status === 'active' && passFits(p, { sport, minutes, startsAt })) || null;
   const gift = w?.giftCents > 0 ? w.giftCents : 0;
@@ -147,7 +147,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
     return held;
   };
 
-  /** The series card pays it all; the gift balance pays its part. Confirmed when that covered it. */
+  /** The series card pays it all; the saldo pays its part. Confirmed when that covered it. */
   const applyCredit = async (held) => {
     if (!credit) return held;
     const next = credit === 'gift' ? await api.wallet.useGift(held.id, true) : await api.wallet.payBooking(held.id, credit);
@@ -282,7 +282,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
           </div>
           <p className="bk-fine">
             {booking.paymentStatus === 'credit'
-              ? `Maksettu ${booking.credit?.kind === 'pass' ? 'sarjakortilla' : 'lahjakorttisaldolla'}.`
+              ? `Maksettu ${booking.credit?.kind === 'pass' ? 'sarjakortilla' : 'saldolla'}.`
               : payConfig.data?.demo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi.'}
             {!lateBooking && ` Peruutus ${timeInSentence(booking.cancellableUntil || deadline)} asti${booking.paymentStatus === 'credit' ? '' : ', peruutuskulu 1 €'}.`}
           </p>
@@ -295,7 +295,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
   const cfg = payConfig.data;
   const creditOnly = Boolean(chosen) && due === 0;
   const payLabel = credit && credit !== 'gift' ? 'Maksa sarjakortilla'
-    : creditOnly ? 'Maksa lahjakorttisaldolla'
+    : creditOnly ? 'Maksa saldolla'
     : `Maksa ${centsLabel(due)}`;
 
   let payment;
@@ -432,8 +432,8 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
         )}
         {chosen && gift > 0 && credit !== pass?.id && (
           <Toggle
-            icon="gift"
-            label="Käytä lahjakorttisaldoa"
+            icon="euro"
+            label="Käytä saldoa"
             hint={credit === 'gift' ? `${centsLabel(giftCover)} saldosta${due > 0 ? ` · loput ${centsLabel(due)}` : ''}` : `Saldoa ${centsLabel(gift)}`}
             checked={credit === 'gift'}
             disabled={working}

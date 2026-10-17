@@ -25,7 +25,7 @@ const BOOKING_KEYS = [
 ];
 const VENUE_KEYS = [
   'id', 'slug', 'name', 'city', 'openFrom', 'openUntil', 'slotMinutes', 'durations', 'daysAhead', 'cancelLimitHours',
-  'holdMinutes', 'payOnline', 'lastMinute', 'isStaff', 'locations', 'prices', 'splitPay', 'resale',
+  'holdMinutes', 'payOnline', 'lastMinute', 'isStaff', 'locations', 'prices', 'splitPay', 'resale', 'saldo',
 ];
 
 /** Next weekday (ISO 1–7) from tomorrow on, as 'YYYY-MM-DD'. */
@@ -294,10 +294,10 @@ test('watch a full time: limits, duplicates, already free, and the demo frees it
 
 // ── Jaettu maksu (demo) ──────────────────────────────────────────────────────
 
-const LINE_KEYS = ['cents', 'id', 'kind', 'name', 'paidAt', 'person', 'status'];
+const LINE_KEYS = ['backTo', 'cents', 'id', 'kind', 'name', 'paidAt', 'person', 'status'];
 const PUBLIC_KEYS = [
   'bookerAvatarUrl', 'bookerFirstName', 'courtName', 'endsAt', 'locationName', 'openCount', 'paidCount', 'parts', 'perCents',
-  'sport', 'startsAt', 'state', 'token', 'venueName',
+  'sport', 'startsAt', 'state', 'token', 'venueId', 'venueName',
 ];
 const messagesWith = async (userId) => {
   const conversation = (await api.messages.listConversations()).find((c) => !c.isGroup && c.participants.some((p) => p.id === userId));
@@ -357,13 +357,17 @@ test('split: my paid booking gets a link; anybody with it pays a part, which goe
   await assert.rejects(api.booking.splitCheckoutConfig(token), (err) => err.code === 'cancelled');
 });
 
-test('split: the rules — paid with money, not on sale, not started, until somebody pays, not too cheap', async () => {
+test('split: the rules — paid with money or the saldo, not on sale, not started, until somebody pays, not too cheap', async () => {
   const at = (h) => new Date(Date.now() + h * 3_600_000).toISOString();
   const base = { status: 'confirmed', paymentStatus: 'paid', credit: null, forSale: false, startsAt: at(30), priceCents: 3000, split: null };
   assert.equal(splitBlocker(base, 2), null);
   assert.match(splitBlocker({ ...base, status: 'held', paymentStatus: 'unpaid' }, 2), /Vain maksetun/);
-  assert.match(splitBlocker({ ...base, paymentStatus: 'credit', credit: { kind: 'pass' } }, 2), /Sarja- tai lahjakortilla/);
-  assert.match(splitBlocker({ ...base, credit: { kind: 'gift', cents: 500 } }, 2), /Sarja- tai lahjakortilla/);
+  assert.match(splitBlocker({ ...base, paymentStatus: 'credit', credit: { kind: 'pass' } }, 2), /^Sarjakortilla maksettua vuoroa ei voi jakaa\.$/);
+  assert.equal(splitBlocker({ ...base, credit: { kind: 'gift', cents: 500 } }, 2), null, 'saldo + card');
+  assert.equal(splitBlocker({ ...base, paymentStatus: 'credit', credit: { kind: 'gift', cents: 3000 } }, 2), null, 'all saldo');
+  // A server before the saldo: card only, as it says.
+  assert.match(splitBlocker({ ...base, credit: { kind: 'gift', cents: 500 } }, 2, Date.now(), { saldo: false }), /maksoit kokonaan kortilla/);
+  assert.match(splitBlocker({ ...base, paymentStatus: 'credit', credit: { kind: 'gift', cents: 3000 } }, 2, Date.now(), { saldo: false }), /Vain maksetun/);
   assert.match(splitBlocker({ ...base, forSale: true }, 2), /Myynnissä/);
   assert.match(splitBlocker({ ...base, startsAt: at(-1) }, 2), /alkanut/);
   assert.match(splitBlocker({ ...base, priceCents: 150 }, 4), /liian edullinen/);
@@ -381,7 +385,7 @@ test('split: the rules — paid with money, not on sale, not started, until some
   const pass = (await api.wallet.get(v.id)).passes.find((p) => p.status === 'active');
   db.booking.passes.find((p) => p.id === pass.id).minutesLeft = 600;
   await api.wallet.payBooking(held.id, pass.id);
-  await assert.rejects(api.booking.split(held.id, 2), /Sarja- tai lahjakortilla/);
+  await assert.rejects(api.booking.split(held.id, 2), /Sarjakortilla maksettua vuoroa ei voi jakaa/);
 });
 
 test('a friend\'s side: Mikko sent his link in our chat — Alex pays his part signed in', async () => {
@@ -485,12 +489,12 @@ test('what comes back when a booking is cancelled or sold: card money minus the 
   assert.equal(giveBackText(giveBackOf(card)), 'Saat takaisin 29 € maksutavallesi (peruutuskulu 1 €)');
   assert.equal(giveBackShort(giveBackOf({ ...card, paymentStatus: 'refunded' })), '29 € palautetaan', 'the same once it went back');
   const gift = { ...card, credit: { kind: 'gift', cents: 500, minutes: 0, name: null } };
-  assert.equal(giveBackText(giveBackOf(gift)), 'Saat takaisin 24 € maksutavallesi (peruutuskulu 1 €) ja 5 € lahjakorttisaldoosi');
+  assert.equal(giveBackText(giveBackOf(gift)), 'Saat takaisin 24 € maksutavallesi (peruutuskulu 1 €) ja 5 € saldoosi');
   // A card part under 1 € is kept whole, never more.
   assert.deepEqual(giveBackOf({ ...card, credit: { kind: 'gift', cents: 2950, minutes: 0, name: null } }),
     { cardCents: 0, giftCents: 2950, minutes: 0, feeCents: 50 });
   const allGift = { ...card, paymentStatus: 'credit', credit: { kind: 'gift', cents: 3000, minutes: 0, name: null } };
-  assert.equal(giveBackText(giveBackOf(allGift)), 'Saat takaisin 30 € lahjakorttisaldoosi');
+  assert.equal(giveBackText(giveBackOf(allGift)), 'Saat takaisin 30 € saldoosi');
   const pass = { ...card, paymentStatus: 'credit', credit: { kind: 'pass', cents: 3000, minutes: 90, name: 'Tennis 10 × 1 h' } };
   assert.equal(giveBackText(giveBackOf(pass)), 'Saat takaisin 1,5 h sarjakortillesi');
   assert.equal(giveBackShort(giveBackOf(pass)), '1,5 h sarjakortille');
@@ -501,7 +505,7 @@ test('what comes back when a booking is cancelled or sold: card money minus the 
   assert.deepEqual(giveBackOf(split), { cardCents: 1400, giftCents: 0, minutes: 0, feeCents: 100 }, 'the price minus the friends\' parts, which already came back, minus the peruutuskulu');
   assert.equal(friendsPaid(split), true);
   assert.equal(friendsPaid(card), false);
-  assert.equal(giveBackText({ cardCents: 1500, giftCents: 200, minutes: 60 }), 'Saat takaisin 15 € maksutavallesi, 2 € lahjakorttisaldoosi ja 1 h sarjakortillesi');
+  assert.equal(giveBackText({ cardCents: 1500, giftCents: 200, minutes: 60 }), 'Saat takaisin 15 € maksutavallesi, 2 € saldoosi ja 1 h sarjakortillesi');
 });
 
 test('a series card buys somebody\'s on-sale slot: taken over at once, the seller refunded', async () => {

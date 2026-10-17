@@ -1,13 +1,13 @@
 // MyBookingsScreen — /pelaa/omat-varaukset: everything a player has at the hall in one place.
 // Coming bookings (with how each was paid), kausivuorot (request status, the invoice or the
 // month-by-month card charges with "Maksa nyt" for a failed month), series cards with their
-// balance and history, the gift balance and gift cards bought, the card kept on file for the
-// monthly charges, and past bookings. Factual, no decoration: these are receipts.
+// balance and history, the saldo (top-ups, redeemed gift cards, refunds) and gift cards bought, the
+// card kept on file for the monthly charges, and past bookings. Factual, no decoration: these are receipts.
 //
 // ?vuoro=<bookingId> opens that booking's sheet (a court in Pelataanko?'s "Tulossa").
 //
-// Redirect payment methods come back here: ?tilaus=<pass|gift>:<id>&payment_intent=… (a series or
-// gift card) and ?kuukausi=<chargeId>&payment_intent=… (a month of a kausivuoro).
+// Redirect payment methods come back here: ?tilaus=<pass|gift|topup>:<id>&payment_intent=… (a series
+// card, gift card or saldo top-up) and ?kuukausi=<chargeId>&payment_intent=… (a month of a kausivuoro).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/index.js';
 import { useAsync, useNow, useResync } from '../../app/hooks.js';
@@ -37,7 +37,7 @@ export function paidWith(b) {
   if (b.paymentStatus === 'refunded') return 'Hyvitetty';
   if (b.paymentStatus === 'free') return 'Maksuton';
   if (b.credit?.kind === 'pass') return `Sarjakortti · ${b.credit.minutes} min`;
-  if (b.credit?.kind === 'gift') return b.paymentStatus === 'credit' ? 'Lahjakortti' : `Kortti + lahjakortti ${centsLabel(b.credit.cents)}`;
+  if (b.credit?.kind === 'gift') return b.paymentStatus === 'credit' ? 'Saldo' : `Kortti + saldo ${centsLabel(b.credit.cents)}`;
   return 'Maksettu';
 }
 
@@ -254,15 +254,15 @@ export function MyBookingsScreen({ query }) {
 
         <section className="bk-section" aria-labelledby="ss-gift">
           <div className="ss-section-head">
-            <h2 className="bk-h" id="ss-gift">Lahjakortit</h2>
+            <h2 className="bk-h" id="ss-gift">Saldo</h2>
             <div className="ss-head-actions">
-              <Button variant="soft" size="sm" onClick={() => setWalletTab('redeem')}>Lunasta</Button>
-              <Button variant="soft" size="sm" icon="gift" onClick={() => setWalletTab('gift')}>Osta</Button>
+              <Button variant="soft" size="sm" icon="plus" onClick={() => setWalletTab('saldo')}>Lataa</Button>
+              <Button variant="soft" size="sm" icon="gift" onClick={() => setWalletTab('gift')}>Lahjakortti</Button>
             </div>
           </div>
           <div className="ss-box">
             <div className="ss-balance is-row">
-              <span className="eyebrow ss-eyebrow">Lahjakorttisaldo</span>
+              <span className="eyebrow ss-eyebrow">Käytettävissä</span>
               <span className="ss-balance-value t-num">{wallet.data ? centsLabel(wallet.data.giftCents) : '–'}</span>
             </div>
             {wallet.data?.giftHistory?.length > 0 && (

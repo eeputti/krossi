@@ -54,11 +54,11 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
   const price = centsLabel(item.priceCents);
   const paid = item.paymentStatus === 'paid' || item.paymentStatus === 'credit';
   const pay = paymentInfo(item);
-  // What a refund gives back: money to the card, and/or series card hours / gift balance.
+  // What a refund gives back: money to the card, and/or series card hours / saldo.
   const giveBackText = item.credit?.kind === 'pass'
     ? `${item.credit.minutes} min palautetaan sarjakortille`
     : item.credit?.kind === 'gift'
-      ? (item.paymentStatus === 'credit' ? `${price} palautetaan lahjakorttisaldoon` : `${centsLabel(item.priceCents - item.credit.cents)} kortille ja ${centsLabel(item.credit.cents)} lahjakorttisaldoon`)
+      ? (item.paymentStatus === 'credit' ? `${price} palautetaan saldoon` : `${centsLabel(item.priceCents - item.credit.cents)} kortille ja ${centsLabel(item.credit.cents)} saldoon`)
       : `${price} palautetaan`;
   const wholeGroup = own && group.length > 1 && allCourts;
 

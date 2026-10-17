@@ -72,6 +72,7 @@ const VENUE_ROW = {
   cancelLimitHours: 24,
   splitPay: true,
   resale: true,
+  saldo: true,
   holdMinutes: 10,
   payOnline: true,
   lastMinute: { hours: 4, percent: 30 },
@@ -438,7 +439,7 @@ test('split: krossi_split_booking with the parts; the answer maps the link\'s li
 
 test('the payment link works without a session: splitPublic, then config, intent and verify in krossi-booking', async () => {
   const PUBLIC = {
-    token: TOKEN, venueName: 'Lahden Tennis- ja Squashkeskus', locationName: 'Janus-Areena', courtName: 'Tennis 1', sport: 'tennis',
+    token: TOKEN, venueId: VENUE, venueName: 'Lahden Tennis- ja Squashkeskus', locationName: 'Janus-Areena', courtName: 'Tennis 1', sport: 'tennis',
     startsAt: '2026-10-20T15:00:00+00:00', endsAt: '2026-10-20T16:00:00+00:00', bookerFirstName: 'Eelis', bookerAvatarUrl: null,
     parts: 4, perCents: 750, paidCount: 2, openCount: 1, state: 'open',
   };

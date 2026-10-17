@@ -339,7 +339,7 @@ const backParts = ({ cardCents = 0, giftCents = 0, minutes = 0 }) => ({
 });
 
 /**
- * 'Saat takaisin 14 € maksutavallesi (peruutuskulu 1 €) ja 5 € lahjakorttisaldoosi' (giveBackOf, or
+ * 'Saat takaisin 14 € maksutavallesi (peruutuskulu 1 €) ja 5 € saldoosi' (giveBackOf, or
  * a cancel's answer); null = nothing.
  */
 export function giveBackText(back) {

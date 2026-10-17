@@ -217,8 +217,8 @@ export function locationLabel(location, short = false) {
 /** Payment of a booking for chips and labels: { label, tone } (Chip tones). */
 export function paymentInfo(item) {
   if (item.kind === 'season') return { label: 'Kausivuoro', tone: 'neutral' };
-  if (item.paymentStatus === 'credit') return { label: item.credit?.kind === 'gift' ? 'Lahjakortti' : 'Sarjakortti', tone: 'success' };
-  if (item.paymentStatus === 'paid' && item.credit?.kind === 'gift') return { label: 'Maksettu + lahjakortti', tone: 'success' };
+  if (item.paymentStatus === 'credit') return { label: item.credit?.kind === 'gift' ? 'Saldo' : 'Sarjakortti', tone: 'success' };
+  if (item.paymentStatus === 'paid' && item.credit?.kind === 'gift') return { label: 'Maksettu + saldo', tone: 'success' };
   if (item.paymentStatus === 'paid') return { label: 'Maksettu', tone: 'success' };
   if (item.paymentStatus === 'refunded') return { label: 'Hyvitetty', tone: 'neutral' };
   if (item.paymentStatus === 'free') return { label: 'Maksuton', tone: 'neutral' };
