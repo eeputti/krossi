@@ -9,6 +9,7 @@ import { Avatar, Button, Card, Field, Icon, IconButton, Input, ListRow, Page, Pa
 import { AccountSection, EmailPrefToggle } from '../shared/account.jsx';
 import { useCoach } from './CoachRoot.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
+import { bankSummary } from './ExercisesScreen.jsx';
 
 function ProfileEditSheet({ open, onClose }) {
   const { state, run } = useData();
@@ -122,7 +123,7 @@ export function ProfileScreen() {
         <section className="stack-2">
           <div className="eyebrow">Työkalut</div>
           <div className="list-group">
-            <ListRow icon="racket" title="Harjoitepankki" subtitle={`${state.exercises.length} harjoitetta`} onClick={() => navigate('/valmentaja/harjoitteet')} />
+            <ListRow icon="book" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => navigate('/valmentaja/harjoitteet')} />
             <ListRow icon="list" title="Lisää monta kerralla" subtitle="Ryhmät ja pelaajat listasta" onClick={() => setSheet('bulk')} />
             <ListRow icon="calendar" title="Lähetä vuosisuunnitelma" subtitle="Usean ryhmän teemat Excelistä" onClick={() => setSheet('plan')} />
             {isAdmin && <ListRow icon="shield" title="Ylläpito" subtitle="Käyttäjät, palaute, vuosisuunnitelmat" onClick={() => navigate('/valmentaja/yllapito')} />}

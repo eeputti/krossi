@@ -230,7 +230,7 @@ test('the renewed Koutsi is staged next to the old one', async () => {
   for (const file of [
     'koutsi-uusi-valmentaja.html', 'koutsi-uusi-pelaaja.html', 'koutsi-uusi-valmentaja-demo.html', 'koutsi-uusi-pelaaja-demo.html',
     'koutsi-uusi/valmentaja.js', 'koutsi-uusi/pelaaja.js', 'koutsi-uusi/valmentaja-demo.js', 'koutsi-uusi/pelaaja-demo.js',
-    'koutsi-uusi/koutsi.css', 'koutsi-uusi/valmentaja.webmanifest', 'koutsi-uusi/pelaaja.webmanifest',
+    'koutsi-uusi/koutsi.css', 'koutsi-uusi/valmentaja.webmanifest', 'koutsi-uusi/pelaaja.webmanifest', 'koutsi-uusi/drills.json',
     // the old app is still there, untouched
     'koutsi-valmentaja.html', 'dist/koutsi-valmentaja.js', 'dist/koutsi-pelaaja.js',
   ]) {

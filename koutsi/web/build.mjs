@@ -1,6 +1,7 @@
 // build.mjs — bundles the renewed Krossi Koutsi (coach + player apps and their demos).
 //
 //   npm run build:koutsi                 one-off production build into koutsi/web/dist/
+//                                        (+ koutsi-uusi/drills.json, the drill library)
 //   node koutsi/web/build.mjs --watch    rebuild on change (used by dev.mjs)
 //
 // Real ES-module bundles like krossi/web: React, supabase-js and tus-js-client come from npm
@@ -113,15 +114,36 @@ await mkdir(assetDir, { recursive: true });
 
 // The app's own wording: the only text the anonymous usage tracker sends as a tap label
 // (lib/koutsi-usage.js, scripts/usage-words.mjs). Demo code and its seed data stay out — their
-// made-up names are not UI words. The demos don't track at all, so they get none.
+// made-up names are not UI words. The demos don't track at all, so they get none. The drill
+// library's texts (domain/drills/<topic>.js) stay out too: no button says them, and they would
+// only make the list longer.
 const sources = (await readdir(join(here, 'src'), { recursive: true }))
-  .filter((f) => /\.jsx?$/.test(f) && !f.startsWith('api/demo/') && !/-demo\.jsx$/.test(f))
+  .filter((f) => /\.jsx?$/.test(f) && !f.startsWith('api/demo/') && !/-demo\.jsx$/.test(f)
+    && !/^domain\/drills\/(?!index\.js$|court\.js$)/.test(f))
   .map((f) => join(here, 'src', f));
 const USAGE_WORDS = await usageWords(sources);
 
+// Krossi's drill library (src/domain/drills/library.js) is served as koutsi-uusi/drills.json and
+// loaded when the drill bank first needs it, so it isn't part of the app bundles. The data is
+// bundled fresh each time (no module cache) so watch mode picks up edits.
+async function writeDrills() {
+  const out = await build({
+    entryPoints: [join(here, 'src/domain/drills/library.js')], bundle: true, write: false,
+    format: 'esm', platform: 'neutral', logLevel: 'warning',
+  });
+  const { LIBRARY } = await import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
+  await writeFile(join(assetDir, 'drills.json'), JSON.stringify(LIBRARY));
+  return LIBRARY.length;
+}
+const DRILL_COUNT = await writeDrills();
+
 const options = (page) => ({
   ...shared,
-  define: { ...shared.define, __KOUTSI_USAGE_WORDS__: JSON.stringify(page.demo ? '' : USAGE_WORDS) },
+  define: {
+    ...shared.define,
+    __KOUTSI_USAGE_WORDS__: JSON.stringify(page.demo ? '' : USAGE_WORDS),
+    __KOUTSI_DRILL_COUNT__: String(DRILL_COUNT),
+  },
   entryPoints: [join(here, page.entry)],
   outfile: join(assetDir, `${page.out}.js`),
 });
@@ -134,12 +156,14 @@ if (watch) {
   const rebuildStatic = () => { clearTimeout(timer); timer = setTimeout(() => Promise.all([buildCss(), writeShells()]).catch(console.error), 60); };
   fsWatch(join(here, 'src/styles'), rebuildStatic);
   fsWatch(join(here, 'shell.html'), rebuildStatic);
+  let drillTimer = null;
+  fsWatch(join(here, 'src/domain/drills'), () => { clearTimeout(drillTimer); drillTimer = setTimeout(() => writeDrills().catch(console.error), 120); });
   await Promise.all([buildCss(), writeShells()]);
   console.log('koutsi/web: watching for changes…');
 } else {
   for (const page of PAGES) await build(options(page));
   await Promise.all([buildCss(), writeShells()]);
-  for (const f of [...PAGES.map((p) => `${p.out}.js`), 'koutsi.css']) {
+  for (const f of [...PAGES.map((p) => `${p.out}.js`), 'koutsi.css', 'drills.json']) {
     console.log(`${join(assetDir, f).replace(`${process.cwd()}/`, '')}  ${((await stat(join(assetDir, f))).size / 1024).toFixed(1)} kB`);
   }
 }

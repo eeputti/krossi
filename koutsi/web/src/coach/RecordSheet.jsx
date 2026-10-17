@@ -3,13 +3,17 @@
 // their own copy on their timeline and their own notification; homework is ticked off by each
 // player separately. A homework can start from the drill bank: a few drills that suit the
 // picked players' theme this week (or can be done alone) are offered while the field is empty,
-// and "Kaikki harjoitteet" opens the whole bank. Editing one existing entry stays in playerForms' TextEntrySheet.
+// and "Kaikki harjoitteet" opens the whole bank (Krossi's library and the coach's own drills).
+// Editing one existing entry stays in playerForms' TextEntrySheet.
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Button, Field, Icon, Input, Sheet, Textarea } from '../ui/index.js';
 import { RecipientPicker } from '../shared/recipients.jsx';
 import { exerciseFacts, exerciseHomeworkText, homeworkSuggestions } from '../domain/exercises.js';
+import { asExercises, buildDrillList } from '../domain/drills/index.js';
+import { DrillIcon } from '../shared/drills/art.jsx';
+import { useDrillLibrary } from '../shared/drills/useLibrary.js';
 import { useCoach } from './CoachRoot.jsx';
 import { track } from './usage.js';
 
@@ -49,7 +53,7 @@ function ExercisePickerSheet({ open, exercises, onPick, onClose }) {
         <div className="k-list">
           {list.map((e) => (
             <button key={e.id} type="button" className="k-row" onClick={() => onPick(e)}>
-              <span className="k-ex-icon">{e.video ? <Icon name="play" size={16} /> : <Icon name="racket" size={16} />}</span>
+              <span className="k-ex-icon">{e.video ? <Icon name="play" size={16} /> : <DrillIcon cat={e.cat} size={18} />}</span>
               <span className="k-row-main">
                 <span className="k-row-title truncate">{e.name}</span>
                 <span className="k-row-sub truncate">{exerciseFacts(e)}</span>
@@ -78,8 +82,12 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', onC
     setBankOpen(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const k = KINDS[kind] || KINDS.note;
-  const offer = kind === 'homework' && !text.trim() && state.exercises.length > 0;
-  const suggested = useMemo(() => (offer ? homeworkSuggestions(state, ids, { limit: 3 }) : null), [offer, state, ids]);
+  // The whole bank: Krossi's library (loaded when a homework sheet first opens) and the coach's
+  // own drills (a saved drill once).
+  const { library } = useDrillLibrary(open && kind === 'homework');
+  const bank = useMemo(() => asExercises(buildDrillList(state.exercises, { library: library || [] })), [state.exercises, library]);
+  const offer = kind === 'homework' && !text.trim() && bank.length > 0;
+  const suggested = useMemo(() => (offer ? homeworkSuggestions({ ...state, exercises: bank }, ids, { limit: 3 }) : null), [offer, state, bank, ids]);
   const pickExercise = (ex, how) => {
     track(`laksy.${how}`);
     setText(exerciseHomeworkText(ex));
@@ -124,7 +132,7 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', onC
               <div className="k-hw-suggest" role="group" aria-label="Ehdotetut harjoitteet">
                 {suggested.items.map(({ exercise, reason }) => (
                   <button key={exercise.id} type="button" className="k-hw-suggest-row" onClick={() => pickExercise(exercise, 'ehdotus')}>
-                    <Icon name={exercise.video ? 'play' : 'racket'} size={15} className="k-hw-suggest-icon" />
+                    {exercise.video ? <Icon name="play" size={15} className="k-hw-suggest-icon" /> : <DrillIcon cat={exercise.cat} size={16} className="k-hw-suggest-icon" />}
                     <span className="grow truncate">{exercise.name}</span>
                     {reason && <span className="k-hw-suggest-why">{reason}</span>}
                     <Icon name="plus" size={16} className="k-hw-suggest-add" />
@@ -139,7 +147,7 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', onC
           </Field>
         </div>
       </Sheet>
-      <ExercisePickerSheet open={open && bankOpen} exercises={state.exercises} onPick={(ex) => pickExercise(ex, 'pankista')} onClose={() => setBankOpen(false)} />
+      <ExercisePickerSheet open={open && bankOpen} exercises={bank} onPick={(ex) => pickExercise(ex, 'pankista')} onClose={() => setBankOpen(false)} />
     </>
   );
 }

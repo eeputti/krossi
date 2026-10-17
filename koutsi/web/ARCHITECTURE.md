@@ -98,6 +98,17 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   sana on sovelluksen omaa sanastoa (`scripts/usage-words.mjs`, build.mjs:n `__KOUTSI_USAGE_WORDS__`).
   Luku `api.admin.usageOverview` → `koutsi_admin_usage()`, muotoilu `lib/koutsi-usage-report.js`
   (yhteinen vanhan ylläpidon `lib/koutsi-admin-usage.jsx`:n kanssa). Rivit poistuvat 180 pv jälkeen.
+- Harjoitepankki = Krossin oma harjoitekirjasto (`src/domain/drills/`, ~200 harjoitetta, yksi
+  tiedosto per aihe, `library.js` kokoaa) + valmentajan omat `koutsi_exercises`-rivit. Kirjasto
+  ei ole tietokannassa: kaikki uuden Koutsin valmentajat ja pelaajat näkevät saman, eikä vanha
+  sovellus muutu. build.mjs kirjoittaa sen tiedostoon `koutsi-uusi/drills.json` (~75 kt
+  pakattuna), jonka `shared/drills/useLibrary.js` lataa vasta kun pankkia tai kotiläksyehdotuksia
+  tarvitaan, joten sovelluksen avaus ei hidastu (`__KOUTSI_DRILL_COUNT__` = määrä tekstejä varten). `buildDrillList` yhdistää oman rivin kirjaston kaksoseen nimen perusteella (25
+  esimerkkiharjoitetta, jotka jokaisella valmentajalla jo on, ja omiin tallennetut);
+  koskematon esimerkkirivi lainaa kirjaston tiedot (`legacy` = rivin alkuperäiset arvot).
+  "Tallenna omiin" kirjoittaa tavallisen rivin (`savedFields`), joten videot, muokkaus ja vanha
+  sovellus toimivat kuten ennen. Kenttäkuvat: `domain/drills/court.js` (metrit, nimetyt pisteet)
+  ja `shared/drills/art.jsx`; uuden harjoitteen muoto ja säännöt tarkistaa `test/drills.test.mjs`.
 
 ## 5. Reitit
 

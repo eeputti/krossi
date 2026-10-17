@@ -65,6 +65,23 @@ export const USAGE_SECTIONS = [
     ],
   },
   {
+    title: 'Harjoitepankki',
+    events: [
+      ['pankki.avaa-kirjasto', 'Kirjaston harjoite avattu'],
+      ['pankki.avaa-oma', 'Oma harjoite avattu'],
+      ['pankki.tallenna', 'Kirjaston harjoite tallennettu omiin'],
+      ['pankki.uusi', 'Uusi oma harjoite'],
+      ['pankki.aihe', 'Aihe valittu'],
+      ['pankki.pelaajat', 'Suodatin: pelaajamäärä'],
+      ['pankki.ryhma', 'Suodatin: ryhmän mukaan'],
+      ['pankki.taso', 'Suodatin: taso'],
+      ['pankki.kesto', 'Suodatin: kesto'],
+      ['pankki.lisaa', 'Suodatin: omatoimiset tai videolliset'],
+      ['pankki.lahde', 'Omat / Krossin kirjasto vaihdettu'],
+      ['pankki.haku', 'Haku käytetty'],
+    ],
+  },
+  {
     title: 'Tallennettu',
     events: [
       ['tallennettu.huomio', 'Huomio lähetetty'],
