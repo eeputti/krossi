@@ -21,9 +21,9 @@ test('the app and the server use the same Stripe estimate, and the demo shows it
   assert.equal(CANCEL_FEE_CENTS, 100);
   const { backend } = await import('../src/api/demo/index.js');
   const demoVenue = (await backend.booking.listVenues())[0];
-  // Krossi's margin is 1 % for every hall (migration 20261017160000): the demo shows the same.
+  // Krossi's margin is 1 % for every hall (migration 20261017134522): the demo shows the same.
   assert.deepEqual((await backend.billing.payoutStatus(demoVenue.id)).fee, { ...FEE, marginBps: 100 });
-  const migration = await readFile(new URL('../../../supabase/migrations/20261017160000_krossi_booking_connect_fees.sql', import.meta.url), 'utf8');
+  const migration = await readFile(new URL('../../../supabase/migrations/20261017134522_krossi_booking_connect_fees.sql', import.meta.url), 'utf8');
   assert.match(migration, /alter column platform_fee_bps set default 100;/);
   assert.match(migration, /update public\.booking_venues set platform_fee_bps = 100 where platform_fee_bps = 0;/);
 });

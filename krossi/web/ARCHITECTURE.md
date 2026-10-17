@@ -327,7 +327,7 @@ raha palaa hallilta ja Krossin osuus jää (`supabase/functions/_shared/fees.ts`
 ota maksuja, eikä hallia voi avata pelaajille ennen kuin tili on valmis (trigger). Krossin ylläpito yhdistää tilin
 Hallin asetuksista → *Verkkomaksut* (`PayoutSheet`, edge-funktio `krossi-connect`: Account Link, paluu
 `?nakyma=asetukset&tili=valmis|uusi`), ja sama sheet näyttää hallille, mitä maksu maksaa sen omilla hinnoilla
-(`features/payouts.js`). Tietokanta: `supabase/migrations/20261017160000_krossi_booking_connect_fees.sql`.
+(`features/payouts.js`). Tietokanta: `supabase/migrations/20261017134522_krossi_booking_connect_fees.sql`.
 
 **Auth & onboarding:** näyttävä tumma kirjautumisnäkymä (kenttäviivat, pallo), Google/Apple/
 sähköposti, rekisteröinti/kirjautuminen/salasanan palautus. Onboarding yhdellä ruudulla:
