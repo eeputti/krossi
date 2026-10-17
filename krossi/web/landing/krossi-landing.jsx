@@ -100,7 +100,7 @@ function MiniAvatar({ initial, hue, size = 30 }) {
   return (
     <span className="mini-avatar" style={{
       width: size, height: size, fontSize: Math.round(size * 0.42),
-      background: `radial-gradient(120% 120% at 30% 20%, hsl(${hue} 55% 60%), hsl(${hue + 24} 58% 38%))`,
+      background: `hsl(${hue} 48% 46%)`,
     }}>{initial}</span>
   );
 }
@@ -410,7 +410,7 @@ function DemoAvatar({ initials, hue, size = 38 }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      background: `linear-gradient(135deg, hsl(${hue} 55% 55%), hsl(${hue+30} 50% 38%))`,
+      background: `hsl(${hue} 48% 46%)`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       color: '#fff', fontWeight: 700, fontSize: size * 0.4, letterSpacing: 0.3,
     }}>{initials}</div>
