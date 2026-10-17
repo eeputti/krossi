@@ -2,7 +2,6 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { api, isDemo } from '../api/index.js';
 import { Avatar, Icon, ICON_NAMES } from '../ui/index.js';
-import { useBookingHall } from '../screens/booking/useBookingHall.js';
 import { useIsDesktop, useResync } from './hooks.js';
 import { Link, navigate, navigationType, savedScroll, useRoute } from './router.js';
 import { matchRoute, PHONE_TABS, TABS, tabRoot } from './routes.js';
@@ -36,20 +35,11 @@ export function openCreateGame(query = '') {
   navigate(`/pelaa/uusi-peli${query}`, { overlay: true });
 }
 
-// Varaa is a tab only where a hall is bookable (the demo and admins, for now). While that is still
-// being checked it counts as shown, so the bar doesn't change under the player's thumb.
-function useTabs() {
-  const { profile } = useSession();
-  const cities = [profile?.city, ...(profile?.areas || [])].filter(Boolean);
-  const { hall, loading } = useBookingHall(cities, { anyCity: true });
-  return TABS.filter((t) => !t.needsHall || hall || loading);
-}
-
 // The active tab shows the filled twin of its icon (outline = not active), when there is one.
 const tabIcon = (name, isActive) => (isActive && ICON_NAMES.includes(`${name}-fill`) ? `${name}-fill` : name);
 
 // Phones: Omat · Varaa · Peliseura · Viestit (Profiili is the avatar on Omat).
-function TabBar({ tabs, active, unread }) {
+function TabBar({ active, unread }) {
   const item = (t) => (
     <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
       <span className="tabbar-icon">
@@ -59,21 +49,20 @@ function TabBar({ tabs, active, unread }) {
       <span className="tabbar-label">{t.label}</span>
     </Link>
   );
-  const phoneTabs = tabs.filter((t) => PHONE_TABS.includes(t));
   return (
-    <nav className="tabbar" aria-label="Päävalikko" style={{ '--tabs': phoneTabs.length }}>
-      {phoneTabs.map(item)}
+    <nav className="tabbar" aria-label="Päävalikko" style={{ '--tabs': PHONE_TABS.length }}>
+      {PHONE_TABS.map(item)}
     </nav>
   );
 }
 
-function SideNav({ tabs, active, unread }) {
+function SideNav({ active, unread }) {
   const { profile, isAdmin } = useSession();
   return (
     <aside className="sidenav on-dark court-lines">
       <Link to="/pelaa/koti" className="sidenav-logo" aria-label="Krossi — omat">Krossi</Link>
       <nav className="sidenav-links" aria-label="Päävalikko">
-        {tabs.map((t) => (
+        {TABS.map((t) => (
           <Link key={t.id} to={t.path} className={cx('sidenav-link', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
             <Icon name={tabIcon(t.icon, active === t.id)} size={20} />
             <span>{t.label}</span>
@@ -116,7 +105,6 @@ export function AppShell() {
   const isDesktop = useIsDesktop();
   const { isAdmin } = useSession();
   const unread = useUnread(route.name);
-  const tabs = useTabs();
   const type = route.route?.type;
 
   // Overlay routes (Sheets) render on top of the page they were opened from.
@@ -146,14 +134,14 @@ export function AppShell() {
   return (
     <div className={cx('shell', isDemo && 'has-demo-banner', hideChrome && 'no-chrome')}>
       {isDemo && <DemoBanner />}
-      {isDesktop && <SideNav tabs={tabs} active={activeTab} unread={unread} />}
+      {isDesktop && <SideNav active={activeTab} unread={unread} />}
       <div className="shell-main">
         <div key={pageKey} className={cx('shell-page', pageMatch?.name && `shell-page-${pageMatch.name}`, transition)}>
           {renderScreen(pageMatch, { query: pageQuery })}
         </div>
       </div>
       {overlay && renderScreen({ name: route.name, params: route.params, route: route.route }, { query: route.query })}
-      {!isDesktop && !hideChrome && <TabBar tabs={tabs} active={activeTab} unread={unread} />}
+      {!isDesktop && !hideChrome && <TabBar active={activeTab} unread={unread} />}
     </div>
   );
 }

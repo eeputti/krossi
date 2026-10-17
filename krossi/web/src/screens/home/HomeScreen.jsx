@@ -191,29 +191,27 @@ function AttentionSection({ invites, requests, outcomes }) {
 // ── tulevat ──────────────────────────────────────────────────────────────────
 
 // Nothing coming up: the app's two doors.
-function EmptyPlan({ hall }) {
+function EmptyPlan() {
   return (
     <Card padding="none" className="home-empty-next rise">
       <Illustration name="calendar" size={104} className="home-empty-next-art" />
       <div className="home-empty-next-text">
         <h3 className="home-empty-next-title">Ei vielä sovittua peliä</h3>
-        <p className="home-empty-next-sub">
-          {hall ? 'Varaa kenttä, jos sinulla on jo kaveri — tai etsi peliseuraa.' : 'Etsi peliseuraa: pelaajat ja avoimet pelit lähelläsi.'}
-        </p>
+        <p className="home-empty-next-sub">Varaa kenttä, jos sinulla on jo kaveri — tai etsi peliseuraa.</p>
       </div>
       <div className="home-empty-next-actions">
-        {hall && <Button variant="dark" size="md" icon="court" onClick={() => navigate('/pelaa/varaa')}>Varaa kenttä</Button>}
-        <Button variant={hall ? 'outline' : 'dark'} size="md" icon="users" onClick={() => navigate('/pelaa/pelaajat')}>Etsi peliseuraa</Button>
+        <Button variant="dark" size="md" icon="court" onClick={() => navigate('/pelaa/varaa')}>Varaa kenttä</Button>
+        <Button variant="outline" size="md" icon="users" onClick={() => navigate('/pelaa/pelaajat')}>Etsi peliseuraa</Button>
       </div>
     </Card>
   );
 }
 
-function PlanSection({ mine, bookings, plan, loading, hall }) {
+function PlanSection({ mine, bookings, plan, loading }) {
   let body;
   if (loading) body = <div className="home-stack"><Skeleton h={112} r={20} /><Skeleton h={112} r={20} /></div>;
   else if (mine.error) body = <Card><ErrorState compact error={mine.error} onRetry={mine.reload} title="Pelejäsi ei saatu ladattua" /></Card>;
-  else if (plan.length === 0) body = <EmptyPlan hall={hall} />;
+  else if (plan.length === 0) body = <EmptyPlan />;
   else {
     body = (
       <div className="home-stack stagger">
@@ -314,7 +312,7 @@ export function HomeScreen() {
         <HomeHead next={plan[0]} loading={planLoading} feed={feed} />
         <div className="home-main">
           <AttentionSection invites={invites} requests={requests} outcomes={outcomes} />
-          <PlanSection mine={mine} bookings={bookings} plan={plan} loading={planLoading} hall={hall} />
+          <PlanSection mine={mine} bookings={bookings} plan={plan} loading={planLoading} />
           <PastSection past={mine.data?.past || []} />
         </div>
       </div>

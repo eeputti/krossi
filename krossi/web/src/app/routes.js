@@ -5,11 +5,10 @@
 // previous page) | 'full' (no tab bar on phones) | 'public' (works without an account)
 
 // The app does two things — book a court and find somebody to play with — so they are tabs of their
-// own, next to Omat (what is mine and what waits on me) and Viestit. Varaa shows only where a hall is
-// bookable (`needsHall`: the demo and admins, until the first hall is public).
+// own, next to Omat (what is mine and what waits on me) and Viestit.
 export const TABS = [
   { id: 'koti', label: 'Omat', icon: 'calendar', path: '/pelaa/koti' },
-  { id: 'varaa', label: 'Varaa', icon: 'court', path: '/pelaa/varaa', needsHall: true },
+  { id: 'varaa', label: 'Varaa', icon: 'court', path: '/pelaa/varaa' },
   { id: 'peliseura', label: 'Peliseura', icon: 'users', path: '/pelaa/pelaajat' },
   { id: 'viestit', label: 'Viestit', icon: 'chat', path: '/pelaa/viestit' },
   { id: 'profiili', label: 'Profiili', icon: 'user', path: '/pelaa/profiili' },
