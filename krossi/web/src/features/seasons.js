@@ -1,6 +1,6 @@
 // seasons.js — the rules of kausivuorot (season slots), their billing and the hall's credit
 // products, shared by the screens, the demo backend and the tests. The server applies the same
-// rules (supabase/migrations/20261016100000_krossi_booking_seasons_billing_wallet.sql); this copy
+// rules (supabase/migrations/20261017105241_krossi_booking_seasons_billing_wallet.sql); this copy
 // drives what the screens show and what the demo does.
 //
 //   Season weeks   every date of the season on the slot's weekday, minus the season's holidays
@@ -12,7 +12,7 @@
 //   Settings       what the hall edits in Hallin asetukset: seasons and their holidays (Finnish
 //                  holidays from Easter), series card products, gift card limits and the invoicing
 //                  details (Y-tunnus and IBAN check digits) — the same checks and messages as the
-//                  staff RPCs in 20261016120000_krossi_booking_hall_settings.sql
+//                  staff RPCs in 20261017105827_krossi_booking_hall_settings.sql
 //
 // Dates are 'YYYY-MM-DD' in the venue's local time (the browser's, as in booking.js).
 

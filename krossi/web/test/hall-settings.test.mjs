@@ -1,7 +1,7 @@
 // Hallin asetukset: the rules in features/seasons.js (Finnish holidays, Y-tunnus, IBAN, BIC and
 // the checks the settings sheets and the demo share) and the demo backend's staff functions for
 // seasons, series card products, gift cards and invoicing details, plus the decision e-mail mark.
-// The SQL side (20261016120000_krossi_booking_hall_settings.sql) is tested against the same
+// The SQL side (20261017105827_krossi_booking_hall_settings.sql) is tested against the same
 // checks with PGlite (side-session notes, pglite-tests/test-settings.mjs).
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';

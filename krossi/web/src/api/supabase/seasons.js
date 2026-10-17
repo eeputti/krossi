@@ -1,7 +1,7 @@
 // seasons.js — kausivuorot: the venue's seasons, quotes over a whole season, a player's requests,
 // the hall staff's approvals and the hall's own seasons (Hallin asetukset). Every read and write is
-// a SECURITY DEFINER RPC (supabase/migrations/20261016100000_krossi_booking_seasons_billing_wallet.sql,
-// …120000_krossi_booking_hall_settings.sql); approving puts the slot's weeks into the calendar as
+// a SECURITY DEFINER RPC (supabase/migrations/20261017105241_krossi_booking_seasons_billing_wallet.sql,
+// …105827_krossi_booking_hall_settings.sql); approving puts the slot's weeks into the calendar as
 // reservation rows and makes its invoice or monthly card charges in the same transaction, and the
 // player is then e-mailed the decision (krossi-billing). The RPCs answer in the contract's shapes;
 // the mappers pin types down.

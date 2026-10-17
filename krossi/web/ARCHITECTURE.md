@@ -286,24 +286,23 @@ viikot ovat varauksia (`kind: 'season'`, oma väri aikajanalla); yksittäisen vi
 Tulostettava lasku `/pelaa/lasku/:id`. **Hallin asetukset** (`?nakyma=asetukset`, ratas yläpalkissa; `HallSettings` +
 `SeasonSettingsSheet`, `PassProductSheet`, `GiftSettingsSheet`, `BillingSettingsSheet`): kaudet (päivät, pyhät + "Lisää
 Suomen pyhät", kausialennus, haku auki), sarjakorttituotteet (myynnissä / piilotettu), lahjakorttien summat ja laskutustiedot
-(Y-tunnuksen tarkiste, IBAN mod 97). Tarkistukset `features/seasons.js` (`checkSeason` …), SQL `…120000_krossi_booking_hall_settings.sql`.
-Pelaaja saa sähköpostin, kun halli hyväksyy tai hylkää hakemuksen (`krossi-billing` `seasonDecided`, `SeasonSlot.notifiedAt`). Tietokanta: `supabase/migrations/20261016100000_…` (+ Lahden seed
-`…100100`), edge-funktio `krossi-billing` (kortti, kuukausiveloitukset off-session, korttien osto, laskun
+(Y-tunnuksen tarkiste, IBAN mod 97). Tarkistukset `features/seasons.js` (`checkSeason` …), SQL `…105827_krossi_booking_hall_settings.sql`.
+Pelaaja saa sähköpostin, kun halli hyväksyy tai hylkää hakemuksen (`krossi-billing` `seasonDecided`, `SeasonSlot.notifiedAt`). Tietokanta: `supabase/migrations/20261017105241_…` (+ Lahden seed
+`…105322`), edge-funktio `krossi-billing` (kortti, kuukausiveloitukset off-session, korttien osto, laskun
 sähköposti); `krossi-booking` veloittaa hinnasta lahjakorttiosuuden pois.
 
-**Jaettu maksu ja myyntiin laitto (vaihe 4):** *Jaettu maksu* (BookSheetin Maksu-kenttä: Maksan itse / Jaa kahdelle / Jaa neljälle): pelikaverit
-(`booking.shareFriends()`: yhteinen keskustelu, peli tai liigaottelu) valitaan kasvoista. Varaaja
-maksaa oman osuutensa heti (`split.ownCents`, kortti tallentuu: `setupFutureUsage 'off_session'`),
-ja jokainen kaveri saa varaajalta viestin kahdenkeskiseen chattiin — chat näyttää linkin
-`https://krossi.app/pelaa/osuus/<id>` "Maksa osuutesi" -nappina (`shareRequestOf`) — sekä sähköpostin.
-Kaveri maksaa ShareScreenissä samalla kassalla tai kertoo "En pääse". `venue.shareDeadlineHours`
-ennen alkua maksamattomat osuudet siirtyvät varaajan loppuosuudeksi (`kind 'rest'`), joka
-veloitetaan tallennetulta kortilta (`krossi-booking-cron`); jos kortti ei käy, varaaja maksaa sen
-sovelluksessa (banneri + kello + sähköposti). MyBookingSheet ja ShareScreen näyttävät, kuka on
-maksanut (`SplitLines`). *Laita myyntiin*: maksuttoman peruutuksen jälkeen oma vuoro myyntiin
-(`putOnSale`) — se näkyy muille vapaana ("Myynnissä tänä päivänä"), sen kokonaan kattava varaus ottaa
-sen normaalihintaan, ja kaikki maksut palautetaan (toast + kello). Tietokanta:
-`supabase/migrations/20261016130000_krossi_booking_split_and_resale.sql`, raha:
+**Jaettu maksu ja myyntiin laitto (vaihe 4):** *Jaettu maksu* on linkki. Varaaja maksaa koko kentän
+(millä tavalla tahansa, myös MobilePaylla). "Jaa maksu kavereiden kesken" (`SplitShare`: BookSheetin valmis-näkymä ja
+MyBookingSheet) jakaa vuoron kahdelle tai neljälle (`SPLIT_PARTS`, `booking.split()`, `splitBlocker`: sarja- tai
+lahjakortilla maksettua ei voi jakaa) ja tekee linkin `https://krossi.app/pelaa/maksa/<token>`, jonka varaaja lähettää
+minne haluaa (chat näyttää sen "Maksa osuutesi" -nappina, `shareRequestOf`). Linkistä kuka tahansa maksaa yhden osuuden
+ilman tiliä tai sovellusta (`SplitPayScreen`, kirjautumatta oma sivunsa; nimi vapaaehtoinen): sama kassa kuin
+varatessa, maksun aloitus varaa osuuden 15 minuutiksi, ja stripe-webhook palauttaa saman summan varaajalle (toast +
+kello `splitPaid`). Sivun lopussa "Löydä uutta peliseuraa" vie Krossiin. `krossi-booking-cron` (5 min) viimeistelee
+vain kesken jääneet palautukset. *Laita myyntiin*: maksuttoman peruutuksen jälkeen oma vuoro myyntiin (`putOnSale`,
+`venue.resale`) — se näkyy muille vapaana ("Myynnissä tänä päivänä"), sen kokonaan kattava varaus ottaa sen
+normaalihintaan, ja kaikki maksut palautetaan (toast + kello). Tietokanta:
+`supabase/migrations/20261017124527_krossi_booking_split_and_resale.sql`, raha:
 `supabase/functions/_shared/booking.ts`.
 
 **Auth & onboarding:** näyttävä tumma kirjautumisnäkymä (kenttäviivat, pallo), Google/Apple/
