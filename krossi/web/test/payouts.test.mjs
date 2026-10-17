@@ -17,7 +17,11 @@ test('the app and the server use the same Stripe estimate, and the demo shows it
   assert.match(source, /return Math\.min\(amount, fee\);/);
   const { backend } = await import('../src/api/demo/index.js');
   const demoVenue = (await backend.booking.listVenues())[0];
-  assert.deepEqual((await backend.billing.payoutStatus(demoVenue.id)).fee, FEE);
+  // Krossi's margin is 1 % for every hall (migration 20261017160000): the demo shows the same.
+  assert.deepEqual((await backend.billing.payoutStatus(demoVenue.id)).fee, { ...FEE, marginBps: 100 });
+  const migration = await readFile(new URL('../../../supabase/migrations/20261017160000_krossi_booking_connect_fees.sql', import.meta.url), 'utf8');
+  assert.match(migration, /alter column platform_fee_bps set default 100;/);
+  assert.match(migration, /update public\.booking_venues set platform_fee_bps = 100 where platform_fee_bps = 0;/);
 });
 
 test('paymentFee: Stripe\'s estimate + the margin, the percentage rounded up, never more than the payment', () => {
@@ -25,6 +29,8 @@ test('paymentFee: Stripe\'s estimate + the margin, the percentage rounded up, ne
   assert.equal(paymentFee(1800, FEE), 68);
   assert.equal(paymentFee(750, FEE), 50);
   assert.equal(paymentFee(3000, { ...FEE, marginBps: 200, marginFixedCents: 10 }), 159);
+  // Krossi's 1 %: 18 € → 0,86 €, 23 € → 1,00 €, 30 € → 1,19 €
+  assert.deepEqual([1800, 2300, 3000].map((c) => paymentFee(c, { ...FEE, marginBps: 100 })), [86, 100, 119]);
   assert.equal(paymentFee(30, FEE), 30);
   assert.equal(paymentFee(0, FEE), 0);
 });

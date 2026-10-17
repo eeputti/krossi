@@ -3,8 +3,10 @@
 -- Jokainen maksu (varaus, kaverin osuus, kausivuoron kuukausi, sarja- ja lahjakortti) on
 -- destination charge hallin tilille (supabase/functions/_shared/fees.ts). Stripe ottaa kulunsa
 -- Krossin saldosta, joten Krossin osuus = Stripen arvioitu kulu (1,75 % + 0,36 €) + hallin kate
--- (platform_fee_bps + platform_fee_fixed_cents). Kate on oletuksena 0: Krossi ei silloin maksa
--- Stripen kulua omastaan, mutta ei myöskään ansaitse. Katteen päättää Krossi hallikohtaisesti.
+-- (platform_fee_bps + platform_fee_fixed_cents). Kate on 1 % jokaiselle hallille (oletus uusillekin):
+-- se kattaa myös kalliimpien korttien (premium 2,8 %) lisäkulun ja Connectin kuukausimaksut, joten
+-- Krossi ei maksa Stripen kuluja omastaan. Katetta voi muuttaa hallikohtaisesti. Palautuksessa
+-- Krossin osuus jää (Stripe ei palauta omaa kuluaan); pelaaja saa koko summan takaisin.
 --
 -- krossi-connect luo hallin Express-tilin ja tallentaa stripe_account_id:n; se ja stripe-webhook
 -- (account.updated) pitävät stripe_charges_enabled-, _payouts_enabled- ja _details_submitted-tiedot
@@ -22,12 +24,16 @@ alter table public.booking_venues
   add column stripe_payouts_enabled boolean not null default false,
   add column stripe_details_submitted boolean not null default false,
   add column stripe_checked_at timestamptz,
-  add constraint booking_venues_fee_fixed check (platform_fee_fixed_cents between 0 and 500);
+  add constraint booking_venues_fee_fixed check (platform_fee_fixed_cents between 0 and 500),
+  alter column platform_fee_bps set default 100;
+
+-- Krossin kate 1 % kaikille nykyisille halleille (ennen tätä 0 eikä Connect ollut käytössä).
+update public.booking_venues set platform_fee_bps = 100 where platform_fee_bps = 0;
 
 comment on column public.booking_venues.stripe_account_id is
   'Hallin Stripe Connect Express -tili (krossi-connect); null = ei tiliä.';
 comment on column public.booking_venues.platform_fee_bps is
-  'Krossin kate Stripen arvioidun kulun päälle, prosentteina (1 bps = 0,01 %).';
+  'Krossin kate Stripen arvioidun kulun päälle, prosentteina (1 bps = 0,01 %); 100 = 1 %.';
 comment on column public.booking_venues.platform_fee_fixed_cents is
   'Krossin kate Stripen arvioidun kulun päälle, sentteinä maksua kohden.';
 comment on column public.booking_venues.stripe_charges_enabled is

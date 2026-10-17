@@ -244,9 +244,10 @@ export async function saveSettings(venueId, input = {}) {
 
 // ── The hall's own Stripe account ────────────────────────────────────────────
 // The demo hall is connected already: the table of what a payment costs shows the real rule
-// (Stripe's estimate as in supabase/functions/_shared/fees.ts, no margin). Nothing opens Stripe.
+// (Stripe's estimate as in supabase/functions/_shared/fees.ts and Krossi's 1 % margin). Nothing
+// opens Stripe.
 
-const DEMO_FEE = Object.freeze({ stripeBps: 175, stripeFixedCents: 36, marginBps: 0, marginFixedCents: 0 });
+const DEMO_FEE = Object.freeze({ stripeBps: 175, stripeFixedCents: 36, marginBps: 100, marginFixedCents: 0 });
 
 export async function payoutStatus(venueId) {
   return run(() => {
