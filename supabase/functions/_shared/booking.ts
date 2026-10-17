@@ -25,6 +25,9 @@
 // Emails go through krossi-notify with the service-role key (internal events only it accepts).
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import type Stripe from 'npm:stripe@17.7.0';
+import { PAYEE_COLUMNS, type PayeeVenue, refundConnect } from './fees.ts';
+
+export { HALL_NOT_CONNECTED, HallNotConnected, connectParams, takesPayments } from './fees.ts';
 
 type Admin = SupabaseClient;
 
@@ -56,14 +59,12 @@ export interface BookingRow {
   pass_minutes: number;
 }
 
-export interface VenueRow {
+export interface VenueRow extends PayeeVenue {
   id: string;
   slug: string;
   name: string;
   timezone: string;
   cancel_limit_hours: number;
-  stripe_account_id: string | null;
-  platform_fee_bps: number;
 }
 
 export const BOOKING_COLUMNS = 'id, venue_id, court_id, starts_at, ends_at, kind, status, booked_by, price_cents, ' +
@@ -77,7 +78,7 @@ export async function loadBooking(admin: Admin, id: string): Promise<BookingRow 
 
 export async function loadVenue(admin: Admin, id: string): Promise<VenueRow> {
   const { data, error } = await admin.from('booking_venues')
-    .select('id, slug, name, timezone, cancel_limit_hours, stripe_account_id, platform_fee_bps').eq('id', id).single();
+    .select(`id, slug, name, timezone, cancel_limit_hours, ${PAYEE_COLUMNS}`).eq('id', id).single();
   if (error) throw new Error(`venue lookup failed: ${error.message}`);
   return data as VenueRow;
 }
@@ -118,24 +119,15 @@ export function describeBooking(
   return `${label}: ${place.courtName}, ${place.locationName}, ${start.weekday} ${start.day}.${start.month}. klo ${start.time}–${end.time}`;
 }
 
-/** Destination charge for a hall with a Stripe Connect account (Krossi's fee from platform_fee_bps). */
-export function connectParams(venue: VenueRow, amount: number): Partial<Stripe.PaymentIntentCreateParams> {
-  if (!venue.stripe_account_id) return {};
-  const fee = Math.floor((amount * (venue.platform_fee_bps || 0)) / 10_000);
-  return { transfer_data: { destination: venue.stripe_account_id }, ...(fee > 0 ? { application_fee_amount: fee } : {}) };
-}
-
 // ── Refunds ──────────────────────────────────────────────────────────────────
 
 const bookingRefundMetadata = (bookingId: string) => ({ product: BOOKING_PRODUCT, booking_id: bookingId });
 const shareRefundMetadata = (bookingId: string, shareId: string) => ({ product: SPLIT_PRODUCT, booking_id: bookingId, split_share_id: shareId });
 
-/** A destination charge (Connect) takes the money back from the hall and returns Krossi's fee too. */
+/** A destination charge (Connect) takes the money back from the hall; Krossi keeps its fee (fees.ts). */
 function refundParams(intent: Stripe.PaymentIntent, metadata: Record<string, string>, amount?: number): Stripe.RefundCreateParams {
-  const params: Stripe.RefundCreateParams = { payment_intent: intent.id, metadata };
+  const params: Stripe.RefundCreateParams = { payment_intent: intent.id, metadata, ...refundConnect(intent) };
   if (amount) params.amount = amount;
-  if (intent.transfer_data?.destination) params.reverse_transfer = true;
-  if (intent.application_fee_amount) params.refund_application_fee = true;
   return params;
 }
 

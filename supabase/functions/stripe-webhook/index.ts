@@ -16,9 +16,17 @@
 // payment is refunded (key `krossi-order-refund-<intent>`, same as krossi-billing) — and a monthly
 // kausivuoro charge ('krossi_season') is recorded with krossi_billing_charge_result, also when it
 // fails (payment_intent.payment_failed).
+//
+// Stripe Connect: account.updated of a hall's connected account (sent to a Connect endpoint, signed
+// with STRIPE_CONNECT_WEBHOOK_SECRET) refreshes the hall's stripe_charges_enabled /
+// _payouts_enabled / _details_submitted, so a hall Stripe restricts stops taking payments at once.
+// krossi-connect's status action refreshes the same columns whenever the hall's settings are opened,
+// so the Connect endpoint is optional. Refunds keep Krossi's fee (../_shared/fees.ts).
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
 import { BOOKING_PRODUCT, SPLIT_PRODUCT, afterBookingPaid, refundBooker, settleBookingPayment, settleSplitPayment } from '../_shared/booking.ts';
+import { accountState } from '../_shared/connect.ts';
+import { refundConnect } from '../_shared/fees.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -96,9 +104,9 @@ async function settleOrder(admin: SupabaseClient, intent: Stripe.PaymentIntent, 
     throw new Error(`krossi_wallet_order_paid failed: ${error.message}`);
   }
   if (outcome === 'duplicate') {
-    const params: Stripe.RefundCreateParams = { payment_intent: intent.id, metadata: { product: intent.metadata?.product ?? '', order_id: orderId } };
-    if (intent.transfer_data?.destination) params.reverse_transfer = true;
-    if (intent.application_fee_amount) params.refund_application_fee = true;
+    const params: Stripe.RefundCreateParams = {
+      payment_intent: intent.id, metadata: { product: intent.metadata?.product ?? '', order_id: orderId }, ...refundConnect(intent),
+    };
     try {
       await stripe.refunds.create(params, { idempotencyKey: `krossi-order-refund-${intent.id}` });
     } catch (err) {
@@ -125,18 +133,18 @@ Deno.serve(async (req: Request) => {
   const body = await req.text();
   if (!signature) return new Response('missing signature', { status: 400 });
 
-  let event: Stripe.Event;
-  try {
-    event = await stripe.webhooks.constructEventAsync(
-      body,
-      signature,
-      Deno.env.get('STRIPE_WEBHOOK_SECRET')!,
-      undefined,
-      cryptoProvider,
-    );
-  } catch (err) {
-    return new Response(`signature verification failed: ${(err as Error).message}`, { status: 400 });
+  // Krossi's own endpoint, or the Connect endpoint for the halls' accounts (its own secret).
+  let event: Stripe.Event | null = null;
+  let failure = '';
+  for (const secret of [Deno.env.get('STRIPE_WEBHOOK_SECRET'), Deno.env.get('STRIPE_CONNECT_WEBHOOK_SECRET')]) {
+    if (!secret || event) continue;
+    try {
+      event = await stripe.webhooks.constructEventAsync(body, signature, secret, undefined, cryptoProvider);
+    } catch (err) {
+      failure = failure || (err as Error).message;
+    }
   }
+  if (!event) return new Response(`signature verification failed: ${failure}`, { status: 400 });
 
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -147,6 +155,18 @@ Deno.serve(async (req: Request) => {
   // Idempotenssi: sama Stripe-tapahtuma ei saa merkitä maksua kahdesti (Stripe voi lähettää sen uudelleen).
   const { error: seenError } = await admin.from('stripe_events').insert({ id: event.id });
   if (seenError) return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
+
+  // Hallin Stripe-tili muuttui (Connect): maksut päälle / pois sen mukaan, mitä Stripe sallii.
+  if (event.type === 'account.updated') {
+    const account = event.data.object as Stripe.Account;
+    const { error } = await admin.from('booking_venues').update(accountState(account)).eq('stripe_account_id', account.id);
+    if (error) {
+      console.error('hall account update failed', account.id, error.message);
+      await admin.from('stripe_events').delete().eq('id', event.id);
+      return new Response('hall account update failed', { status: 500 });
+    }
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
+  }
 
   // Sarja- ja lahjakortit, kausivuorojen kuukausiveloitukset (krossi-billing).
   if (event.type === 'payment_intent.succeeded' || event.type === 'payment_intent.payment_failed') {

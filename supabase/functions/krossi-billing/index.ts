@@ -37,13 +37,20 @@
 // message about the player's own request (like the failed-charge mail): no notification
 // preferences; reply-to is the hall's invoicing e-mail.
 //
-// Stripe Connect: a venue with stripe_account_id gets destination charges (transfer_data +
-// application_fee_amount from platform_fee_bps), like krossi-booking.
+// Stripe Connect (../_shared/fees.ts), like krossi-booking: destination charges to the hall's
+// account with Krossi's fee = Stripe's estimated cost + the hall's margin; refunds keep Krossi's fee.
+// On-session payments name the hall as the seller (on_behalf_of); the off-session kausivuoro months
+// don't, because the card was saved on Krossi's account. A public hall whose account isn't ready
+// takes no payments (503 'Hallin verkkomaksu ei ole vielä käytössä.'), and runCharges leaves its
+// due months for a later run.
 //
 // Secrets: STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY (as krossi-payment / krossi-booking),
 // RESEND_API_KEY + KROSSI_MAIL_FROM(_NAME) (as krossi-notify), KROSSI_CRON_SECRET (optional).
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
+import {
+  HALL_NOT_CONNECTED, HallNotConnected, PAYEE_COLUMNS, type PayeeVenue, connectParams, refundConnect, takesPayments,
+} from '../_shared/fees.ts';
 
 const APP = 'https://krossi.app';
 const MIN_CHARGE_CENTS = 50;
@@ -135,20 +142,12 @@ async function cancelIntent(id: string, reason: Stripe.PaymentIntentCancelParams
     console.error('cancelling an outdated payment failed', id, (err as Error).message));
 }
 
-interface Venue { id: string; name: string; stripe_account_id: string | null; platform_fee_bps: number }
+interface Venue extends PayeeVenue { id: string; name: string }
 
 async function loadVenue(admin: SupabaseClient, id: string): Promise<Venue> {
-  const { data, error } = await admin.from('booking_venues').select('id, name, stripe_account_id, platform_fee_bps').eq('id', id).single();
+  const { data, error } = await admin.from('booking_venues').select(`id, name, ${PAYEE_COLUMNS}`).eq('id', id).single();
   if (error) throw new Error(`venue lookup failed: ${error.message}`);
   return data as Venue;
-}
-
-/** transfer_data + application fee for a venue on Stripe Connect. */
-function connect(params: Stripe.PaymentIntentCreateParams, venue: { stripe_account_id: string | null; platform_fee_bps: number }) {
-  if (!venue.stripe_account_id) return;
-  params.transfer_data = { destination: venue.stripe_account_id };
-  const fee = Math.floor((params.amount * (venue.platform_fee_bps || 0)) / 10_000);
-  if (fee > 0) params.application_fee_amount = fee;
 }
 
 async function isStaff(asUser: SupabaseClient, venueId: string) {
@@ -276,8 +275,6 @@ interface DueCharge {
   paymentIntentId: string | null;
   customerId: string | null;
   paymentMethodId: string | null;
-  stripeAccountId: string | null;
-  platformFeeBps: number;
   description: string;
 }
 
@@ -316,14 +313,18 @@ async function mailFailure(admin: SupabaseClient, charge: DueCharge, message: st
   }
 }
 
-/** Charges one due month off-session: 'paid' | 'failed' | 'skipped' (taken by another run, or Stripe down). */
-async function chargeOne(admin: SupabaseClient, charge: DueCharge): Promise<'paid' | 'failed' | 'skipped'> {
+/**
+ * Charges one due month off-session: 'paid' | 'failed' | 'skipped' (taken by another run, Stripe
+ * down, or the hall takes no payments now — the month stays due).
+ */
+async function chargeOne(admin: SupabaseClient, charge: DueCharge, venue: Venue): Promise<'paid' | 'failed' | 'skipped'> {
   // A run that died after charging: the payment it made decides.
   if (charge.status === 'processing' && charge.paymentIntentId) {
     const previous = await retrieveIntent(charge.paymentIntentId);
     if (previous?.status === 'succeeded') return (await chargeResult(admin, charge.chargeId, previous.id, true, null)) === 'paid' ? 'paid' : 'skipped';
     if (previous?.status === 'processing') return 'skipped';
   }
+  if (!takesPayments(venue)) return 'skipped';
   const { data: attempt, error } = await admin.rpc('krossi_billing_charge_attempt', { charge_id_input: charge.chargeId });
   if (error) throw new Error(`krossi_billing_charge_attempt failed: ${error.message}`);
   if (attempt === null || attempt === undefined) return 'skipped';
@@ -345,8 +346,8 @@ async function chargeOne(admin: SupabaseClient, charge: DueCharge): Promise<'pai
       product: SEASON_PRODUCT, mode: 'off_session', charge_id: charge.chargeId, season_slot_id: charge.seasonSlotId,
       venue_id: charge.venueId, supabase_user_id: charge.userId ?? '',
     },
+    ...connectParams(venue, charge.amountCents, { onBehalfOf: false }),
   };
-  connect(params, { stripe_account_id: charge.stripeAccountId, platform_fee_bps: charge.platformFeeBps });
   try {
     const intent = await stripe.paymentIntents.create(params, { idempotencyKey: `krossi-season-${charge.chargeId}-${attempt}` });
     if (intent.status === 'succeeded') {
@@ -380,8 +381,10 @@ async function runCharges(admin: SupabaseClient, venueId: string | null) {
   if (error) throw new Error(`krossi_billing_due_charges failed: ${error.message}`);
   let paid = 0;
   let failed = 0;
+  const venues = new Map<string, Venue>();
   for (const charge of (Array.isArray(data) ? data : []) as DueCharge[]) {
-    const outcome = await chargeOne(admin, charge);
+    if (!venues.has(charge.venueId)) venues.set(charge.venueId, await loadVenue(admin, charge.venueId));
+    const outcome = await chargeOne(admin, charge, venues.get(charge.venueId) as Venue);
     if (outcome === 'paid') paid += 1;
     if (outcome === 'failed') failed += 1;
   }
@@ -424,6 +427,8 @@ async function payCharge(admin: SupabaseClient, user: { id: string; email?: stri
   const publishableKey = usablePublishableKey();
   if (!publishableKey) throw new Reply(503, NO_ONLINE);
   if (charge.amount_cents < MIN_CHARGE_CENTS) throw new Reply(409, 'Summa on liian pieni verkkomaksuun.');
+  const venue = await loadVenue(admin, charge.venue_id);
+  if (!takesPayments(venue)) throw new HallNotConnected();
 
   const previous = await retrieveIntent(charge.stripe_payment_intent_id);
   if (previous?.status === 'succeeded') {
@@ -440,7 +445,6 @@ async function payCharge(admin: SupabaseClient, user: { id: string; email?: stri
   }
   if (previous && REUSABLE.includes(previous.status)) await cancelIntent(previous.id, 'abandoned');
 
-  const venue = await loadVenue(admin, charge.venue_id);
   const customer = await ensureCustomer(admin, user.id, user.email);
   const params: Stripe.PaymentIntentCreateParams = {
     amount: charge.amount_cents,
@@ -453,8 +457,8 @@ async function payCharge(admin: SupabaseClient, user: { id: string; email?: stri
       product: SEASON_PRODUCT, mode: 'on_session', charge_id: charge.id, season_slot_id: charge.season_slot_id,
       venue_id: charge.venue_id, supabase_user_id: user.id,
     },
+    ...connectParams(venue, charge.amount_cents),
   };
-  connect(params, venue);
   const intent = await stripe.paymentIntents.create(params, {
     idempotencyKey: `krossi-season-pay-${charge.id}-${charge.stripe_payment_intent_id ?? 'first'}`,
   });
@@ -521,9 +525,9 @@ async function settleOrder(admin: SupabaseClient, intent: Stripe.PaymentIntent, 
   });
   if (error) throw new Error(`krossi_wallet_order_paid failed: ${error.message}`);
   if (data === 'duplicate') {
-    const params: Stripe.RefundCreateParams = { payment_intent: intent.id, metadata: { product: PRODUCTS[kind], order_id: intent.metadata?.order_id ?? '' } };
-    if (intent.transfer_data?.destination) params.reverse_transfer = true;
-    if (intent.application_fee_amount) params.refund_application_fee = true;
+    const params: Stripe.RefundCreateParams = {
+      payment_intent: intent.id, metadata: { product: PRODUCTS[kind], order_id: intent.metadata?.order_id ?? '' }, ...refundConnect(intent),
+    };
     try {
       await stripe.refunds.create(params, { idempotencyKey: `krossi-order-refund-${intent.id}` });
     } catch (err) {
@@ -554,8 +558,8 @@ async function orderIntent(admin: SupabaseClient, user: { id: string; email?: st
     description: `${order.label} · ${venue.name}`,
     receipt_email: user.email || undefined,
     metadata: { product: PRODUCTS[order.kind], order_id: order.id, venue_id: order.venueId, supabase_user_id: user.id },
+    ...connectParams(venue, order.amount),
   };
-  connect(params, venue);
   const intent = await stripe.paymentIntents.create(params, {
     idempotencyKey: `krossi-order-intent-${order.id}-${order.intentId ?? 'first'}`,
   });
@@ -791,6 +795,7 @@ Deno.serve(async (req: Request) => {
         if (!order.pending) return json(req, { paid: true });
         const publishableKey = usablePublishableKey();
         if (!publishableKey) throw new Reply(503, NO_ONLINE);
+        if (!takesPayments(await loadVenue(admin, order.venueId))) throw new HallNotConnected();
         return json(req, { publishableKey, amount: order.amount, currency: 'eur', email: user.email ?? null });
       }
       case 'orderIntent': {
@@ -820,6 +825,7 @@ Deno.serve(async (req: Request) => {
     }
   } catch (err) {
     if (err instanceof Reply) return json(req, { error: err.message }, err.status);
+    if (err instanceof HallNotConnected) return json(req, { error: HALL_NOT_CONNECTED }, 503);
     const stripeFailed = isStripeError(err);
     console.error(`krossi-billing ${String(body.action)} failed`, (err as Error).message);
     return json(req, { error: stripeFailed ? STRIPE_DOWN : DB_FAILED }, stripeFailed ? 502 : 500);

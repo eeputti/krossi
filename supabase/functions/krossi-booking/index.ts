@@ -43,8 +43,12 @@
 // every friend's paid share; krossi_booking_cancel gives credit back (a series card's minutes, the
 // gift share to the balance).
 //
-// Stripe Connect: a venue with stripe_account_id gets a destination charge (transfer_data +
-// application_fee_amount from platform_fee_bps); its refunds reverse the transfer and the fee.
+// Stripe Connect (../_shared/fees.ts): every payment is a destination charge to the hall's account
+// with the hall as the seller (on_behalf_of) and Krossi's fee = Stripe's estimated cost + the
+// hall's margin; a refund takes the money back from the hall and Krossi keeps its fee. A public
+// hall whose account isn't connected and ready takes no payments: config, intent, splitConfig and
+// splitIntent answer 503 'Hallin verkkomaksu ei ole vielä käytössä.' (a hidden hall without an
+// account still charges on Krossi's own account, for testing).
 //
 // When a court frees up (cancel, staffCancel, freed), krossi_booking_watchers_to_notify picks the
 // "ilmoita kun vapautuu" watches it satisfies and krossi-notify emails each watcher
@@ -59,9 +63,9 @@
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
 import {
-  BOOKING_PRODUCT, SPLIT_PRODUCT, LOST, type BookingRow, type SplitRefundReason, afterBookingPaid, cancelPendingShares,
-  connectParams, describeBooking, loadBooking, loadPlace, loadVenue, refundBooker, refundParts, settleBookingPayment,
-  settleSplitPayment, type Outcome,
+  BOOKING_PRODUCT, SPLIT_PRODUCT, LOST, type BookingRow, type SplitRefundReason, HALL_NOT_CONNECTED, HallNotConnected,
+  afterBookingPaid, cancelPendingShares, connectParams, describeBooking, loadBooking, loadPlace, loadVenue, refundBooker,
+  refundParts, settleBookingPayment, settleSplitPayment, takesPayments, type Outcome,
 } from '../_shared/booking.ts';
 
 // Apple Pay / Google Pay only show on domains registered with Stripe (per mode: test and live).
@@ -229,6 +233,13 @@ async function splitOf(admin: SupabaseClient, token: string) {
   return data as { state: 'open' | 'full' | 'over' | 'cancelled'; perCents: number };
 }
 
+/** A split's hall must take online payments before a friend's share is claimed or paid. */
+async function requireSplitPayable(admin: SupabaseClient, token: string) {
+  const { data, error } = await admin.from('booking_reservations').select('venue_id').eq('split_token', token).maybeSingle();
+  if (error) throw new Error(`split lookup failed: ${error.message}`);
+  if (data && !takesPayments(await loadVenue(admin, data.venue_id as string))) throw new HallNotConnected();
+}
+
 interface Claim {
   state: 'claimed' | 'resumed' | 'full' | 'over' | 'cancelled' | 'unknown' | 'own';
   bookingId: string;
@@ -385,6 +396,7 @@ Deno.serve(async (req: Request) => {
       if (isSettled(booking)) return json(req, { paid: true });
       if (!holdIsLive(booking)) throw new Reply(409, EXPIRED);
       if (amountOf(booking) < MIN_CHARGE_CENTS) throw new Reply(409, 'Varauksen hinta on liian pieni verkkomaksuun.');
+      if (!takesPayments(await loadVenue(admin, booking.venue_id))) throw new HallNotConnected();
       return json(req, { publishableKey: checkoutKey(), amount: amountOf(booking), currency: 'eur', email: user.email ?? null });
     }
 
@@ -537,10 +549,12 @@ Deno.serve(async (req: Request) => {
     // ── Jaettu maksu: a friend's share, signed in or not ──
 
     if (body.action === 'splitConfig') {
-      const split = await splitOf(admin, splitTokenOf(body.token));
+      const token = splitTokenOf(body.token);
+      const split = await splitOf(admin, token);
       if (split.state === 'cancelled') throw new Reply(409, SPLIT_CANCELLED);
       if (split.state === 'over') return json(req, { over: true });
       if (split.state === 'full') return json(req, { full: true });
+      await requireSplitPayable(admin, token);
       return json(req, { publishableKey: checkoutKey(), amount: split.perCents, currency: 'eur' });
     }
 
@@ -550,6 +564,7 @@ Deno.serve(async (req: Request) => {
       const resume = typeof body.paymentIntentId === 'string' && INTENT_RE.test(body.paymentIntentId) ? body.paymentIntentId : null;
       // Before claiming: without a checkout the share must not sit claimed for nothing.
       if (!usablePublishableKey()) throw new Reply(503, NOT_IN_USE);
+      await requireSplitPayable(admin, token);
       const claim = await claimShare(admin, token, name, signedIn?.id ?? null, resume);
       if (claim.state === 'unknown') throw new Reply(404, SPLIT_NOT_FOUND);
       if (claim.state === 'cancelled') throw new Reply(409, SPLIT_CANCELLED);
@@ -628,6 +643,7 @@ Deno.serve(async (req: Request) => {
     throw new Reply(400, 'Tuntematon toiminto.');
   } catch (err) {
     if (err instanceof Reply) return json(req, { error: err.message }, err.status);
+    if (err instanceof HallNotConnected) return json(req, { error: HALL_NOT_CONNECTED }, 503);
     const stripeFailed = isStripeError(err);
     console.error(`krossi-booking ${body.action} failed`, (err as Error).message);
     return json(req, { error: stripeFailed ? STRIPE_DOWN : DB_FAILED }, stripeFailed ? 502 : 500);
