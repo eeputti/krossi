@@ -111,7 +111,8 @@ Reittitaulu on `app/routes.js`. Polut:
   valmiiksi täytettynä). Polku on `/pelaa`:n ulkopuolella, joten demo pitää saman osoitteen. Worker tarjoaa
   `/varaa`:n toistaiseksi demon taustalla (`krossi-varaa.html` lataa `demo.js`:n, ulkokenttämaailma): linkin voi
   lähettää seuralle kokeiltavaksi ilman tiliä. Kun oikeat kentät aukeavat pelaajille, worker vaihdetaan `app.html`:ään
-  (silloin varausaikojen pitää näkyä ilman tiliä ja kirjautuminen tulla vasta maksaessa — tietokantamuutos);
+  (silloin varataan ilman tiliä: vapaat ajat näkyvät kaikille, varaus nimellä ja sähköpostilla, maksu pakollinen —
+  vierasvarauksen palvelinpuoli tehdään omassa sessiossaan);
   *overlay* = renderöidään Sheetinä edellisen näkymän päälle (taustanäkymä `state.bg`);
   *full* = koko ruutu ilman välilehtipalkkia mobiilissa.
 - Kirjautumaton käyttäjä: `/pelaa/peli/:id` näyttää julkisen esikatselun (`api.games.publicPreview`)
