@@ -41,6 +41,17 @@ async function loadPlayerLogs(studentIds, coachId) {
   return pages.flat();
 }
 
+// The player's own Kehitys entries, an addition like the week diary: without the table (migration not run)
+// both apps open as before and `ready` keeps the Merkintä button hidden.
+async function loadEntries(studentIds) {
+  try {
+    return { rows: await selectIn(studentIds, (ids) => fromTable('koutsi_player_entries').select('*').in('student_id', ids).order('date', { ascending: false })), ready: true };
+  } catch (error) {
+    if (!isMissingTable(error)) console.warn('player entries unavailable:', error?.message || error);
+    return { rows: [], ready: false };
+  }
+}
+
 export async function loadCoachState(coachId) {
   const [coachRow, profileRow] = await Promise.all([
     fromTable('koutsi_coaches').select('id, tagline, bio, experience, specialties, welcome_seen_at').eq('id', coachId).single().then(must),
@@ -57,7 +68,7 @@ export async function loadCoachState(coachId) {
 
   const [
     studentRows, studentProfiles, groupRows, exerciseRows, eventRows, ownTrainingRows, playerLogRows,
-    diary, homework, videos, moods, matchNotes, history, weekNotes,
+    diary, homework, videos, moods, matchNotes, history, weekNotes, entries,
   ] = await Promise.all([
     selectIn(studentIds, (ids) => fromTable('koutsi_students').select('*').in('id', ids)),
     selectIn(studentIds, (ids) => fromTable('profiles').select('id, name, avatar_url, age').in('id', ids)),
@@ -74,6 +85,7 @@ export async function loadCoachState(coachId) {
     byStudent('koutsi_match_notes', 'date'),
     byStudent('koutsi_player_history', 'created_at'),
     loadWeekNotes(coachId),
+    loadEntries(studentIds),
   ]);
 
   const trainingRows = [...ownTrainingRows, ...playerLogRows];
@@ -86,7 +98,7 @@ export async function loadCoachState(coachId) {
   ]);
 
   const profileById = new Map((studentProfiles || []).map((p) => [p.id, p]));
-  const rows = { diary, homework, videos, moods, matchNotes, history };
+  const rows = { diary, homework, videos, moods, matchNotes, history, entries: entries.rows };
   const membersByGroup = groupBy(memberRows, 'group_id');
   const coach = mapCoach(coachRow, profileRow);
   return {
@@ -98,6 +110,7 @@ export async function loadCoachState(coachId) {
     exercises: (exerciseRows || []).map(mapExercise),
     clubEvents: (eventRows || []).map(mapClubEvent),
     weekNotes,
+    entriesReady: entries.ready,
   };
 }
 
@@ -121,7 +134,7 @@ export async function loadPlayerState(studentId) {
 
   const [
     coachRows, coachProfiles, groupRows, rosterRows, themeRows, slotRows, exerciseRows, eventRows,
-    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history,
+    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history, entries,
   ] = await Promise.all([
     selectIn(coachIds, (ids) => fromTable('koutsi_coaches').select('*').in('id', ids)),
     selectIn(coachIds, (ids) => fromTable('profiles').select('id, name, avatar_url').in('id', ids)),
@@ -139,6 +152,7 @@ export async function loadPlayerState(studentId) {
     own('koutsi_moods', 'created_at'),
     own('koutsi_match_notes', 'date'),
     own('koutsi_player_history', 'created_at'),
+    loadEntries([studentId]),
   ]);
 
   const trainingRows = [...ownTrainings, ...groupTrainings.filter((t) => !ownTrainings.some((o) => o.id === t.id))];
@@ -147,7 +161,7 @@ export async function loadPlayerState(studentId) {
   const coachProfileById = new Map((coachProfiles || []).map((p) => [p.id, p]));
   const coaches = (coachRows || []).map((c) => mapCoach(c, coachProfileById.get(c.id)));
   const rosterByGroup = groupBy(rosterRows || [], 'group_id');
-  const me = mapStudent(studentRow, profileRow, { diary, homework, videos, moods, matchNotes, history });
+  const me = mapStudent(studentRow, profileRow, { diary, homework, videos, moods, matchNotes, history, entries: entries.rows });
 
   // Roster rows are intentionally sparse: the RPC never returns goals, notes or moods.
   const rosterById = new Map();
@@ -164,5 +178,6 @@ export async function loadPlayerState(studentId) {
     trainings: trainingRows.map((t) => mapTraining(t, absencesByTraining)),
     exercises: (exerciseRows || []).map(mapExercise),
     clubEvents: (eventRows || []).map(mapClubEvent),
+    entriesReady: entries.ready,
   };
 }

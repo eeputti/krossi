@@ -41,7 +41,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [] };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true };
 }
 
 function playerState(studentId) {
@@ -55,7 +55,7 @@ function playerState(studentId) {
   const groupIds = new Set(groups.map((g) => g.id));
   // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
   const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
-  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents };
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, entriesReady: true };
 }
 
 function hideHiddenMoods(snapshot) {
@@ -68,7 +68,7 @@ function student(id, name, { age = null, level = null, placeholder = true } = {}
     id, name, initial: koutsiInitialOf(name), hue: koutsiHueFromId(id), avatarUrl: '', isPlaceholder: placeholder,
     age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
     level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', joinedAt: null, welcomeSeenAt: null,
-    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [],
+    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], entries: [],
   };
 }
 
@@ -80,6 +80,17 @@ function addHistory(st, field, value) {
   st[column] = value;
   st[key] = [{ id: newId('hist'), at: nowIso(), field, value, previousValue: previous, byPlayer: true }, ...(st[key] || [])];
 }
+
+// Same checks as the real backend (api/supabase/coaching.js entryRow).
+function demoEntry({ date, text, how }) {
+  const body = (text || '').trim();
+  if (!body) throw new ApiError('Kirjoita, mitä teit.');
+  if (body.length > 2000) throw new ApiError('Merkintä on liian pitkä (enintään 2000 merkkiä).');
+  if ((how || '').trim().length > 1000) throw new ApiError('"Miten meni" on liian pitkä (enintään 1000 merkkiä).');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new ApiError('Valitse päivä.');
+  return { date, text: body, how: (how || '').trim() };
+}
+const sortEntries = (st) => { st.entries = (st.entries || []).sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.at).localeCompare(String(a.at))); };
 
 const validAge = (age) => age == null || (Number.isInteger(age) && age >= 1 && age < 120);
 
@@ -205,6 +216,19 @@ export const backend = {
       Object.assign(t, { coachId: coachId || t.coachId, date, endDate: endDate || null, time, type, durationMinutes: durationMinutes || null, notes: notes || '' });
     },
     async deleteSelfTraining(id) { S().trainings = S().trainings.filter((t) => t.id !== id); },
+    async addEntry(id, entry) {
+      await wait();
+      const st = findStudent(id);
+      st.entries = [{ id: newId('e'), at: nowIso(), ...demoEntry(entry) }, ...(st.entries || [])];
+      sortEntries(st);
+    },
+    async updateEntry(entryId, entry) {
+      await wait();
+      if (!S().students.some((st) => (st.entries || []).some((e) => e.id === entryId))) throw new ApiError('Merkintää ei löytynyt. Se on ehkä poistettu.', { code: 'not_found' });
+      patchById('entries', entryId, demoEntry(entry));
+      S().students.forEach(sortEntries);
+    },
+    async deleteEntry(entryId) { removeById('entries', entryId); },
   },
 
   students: {

@@ -20,7 +20,8 @@ const from = (table) => db().from(table);
 // subscriber debounces).
 const LIVE_TABLES = ['koutsi_coaches', 'koutsi_students', 'koutsi_coach_students', 'koutsi_groups', 'koutsi_group_members',
   'koutsi_group_themes', 'koutsi_group_slots', 'koutsi_trainings', 'koutsi_training_absences', 'koutsi_exercises', 'koutsi_coach_events',
-  'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes', 'koutsi_player_history'];
+  'koutsi_videos', 'koutsi_diary_entries', 'koutsi_homework', 'koutsi_moods', 'koutsi_match_notes', 'koutsi_player_history',
+  'koutsi_player_entries'];
 let channelSeq = 0;
 function subscribeTables(name, cb) {
   const channel = LIVE_TABLES.reduce(
@@ -158,7 +159,27 @@ export const player = {
   async deleteSelfTraining(trainingId) {
     must(await from('koutsi_trainings').delete().eq('id', trainingId));
   },
+  // The Kehitys page's own entries. RLS lets only the player write their rows.
+  async addEntry(studentId, entry) {
+    must(await from('koutsi_player_entries').insert({ student_id: studentId, ...entryRow(entry) }));
+  },
+  async updateEntry(entryId, entry) {
+    const rows = must(await from('koutsi_player_entries').update({ ...entryRow(entry), updated_at: new Date().toISOString() }).eq('id', entryId).select('id'));
+    if (!rows || rows.length === 0) throw new ApiError('Merkintää ei löytynyt. Se on ehkä poistettu.', { code: 'not_found' });
+  },
+  async deleteEntry(entryId) {
+    must(await from('koutsi_player_entries').delete().eq('id', entryId));
+  },
 };
+
+function entryRow({ date, text, how }) {
+  const body = (text || '').trim();
+  if (!body) throw new ApiError('Kirjoita, mitä teit.');
+  if (body.length > 2000) throw new ApiError('Merkintä on liian pitkä (enintään 2000 merkkiä).');
+  if ((how || '').trim().length > 1000) throw new ApiError('"Miten meni" on liian pitkä (enintään 1000 merkkiä).');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new ApiError('Valitse päivä.');
+  return { date, text: body, how: (how || '').trim() || null };
+}
 
 const validAge = (age) => age == null || (Number.isInteger(age) && age >= 1 && age < 120);
 

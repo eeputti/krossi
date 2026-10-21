@@ -81,6 +81,41 @@ test("the timeline speaks to its reader and shows what a player's own session wa
   assert.equal(koutsiBuildTimeline(s, [coachSession], []).find((e) => e.id === 'training-c1').body.includes('sisäinen'), false);
 });
 
+test("a player's own entry sits on its day with how it went, and a changed goal keeps the old one", () => {
+  const s = student({
+    entries: [{ id: 'e1', at: `${today}T18:00:00Z`, date: koutsiAddDays(today, -3), text: 'Syötin 50 kakkossyöttöä', how: 'Kick nousi' }],
+    goalHistory: [{ id: 'g1', at: `${koutsiAddDays(today, -1)}T10:00:00Z`, field: 'goal', value: 'Rohkeampi verkkopeli', previousValue: 'Varmempi syöttö' }],
+  });
+  const mine = koutsiBuildTimeline(s, [], []);
+  const entry = mine.find((e) => e.id === 'entry-e1');
+  assert.equal(entry.title, 'Oma merkintä');
+  assert.equal(entry.at, koutsiAddDays(today, -3), 'dated by the day it happened, not when it was written');
+  assert.equal(entry.how, 'Kick nousi');
+  assert.equal(koutsiBuildTimeline(s, [], [], { viewer: 'coach' }).find((e) => e.id === 'entry-e1').title, 'Pelaajan merkintä');
+  const goal = mine.find((e) => e.id === 'goal-g1');
+  assert.equal(goal.title, 'Tavoite päivitetty');
+  assert.equal(goal.previous, 'Varmempi syöttö');
+  assert.deepEqual(mine.filter((e) => ['goal', 'entry'].includes(e.kind)).map((e) => e.kind), ['goal', 'entry'], 'newest first');
+});
+
+test('the demo keeps own entries: add, edit, delete, and an empty one is refused', async () => {
+  const { backend, configureDemo } = await import('../src/api/demo/index.js');
+  const { PLAYER } = await import('../src/api/demo/seed.js');
+  configureDemo({ role: 'player', latency: 0 });
+  const entries = async () => (await backend.player.load(PLAYER)).students[0].entries;
+  const before = (await entries()).length;
+  assert.equal((await backend.player.load(PLAYER)).entriesReady, true);
+  await backend.player.addEntry(PLAYER, { date: today, text: '  Lenkki ja syöttöjä  ', how: '' });
+  const added = (await entries())[0];
+  assert.equal(added.text, 'Lenkki ja syöttöjä');
+  assert.equal((await entries()).length, before + 1);
+  await backend.player.updateEntry(added.id, { date: koutsiAddDays(today, -1), text: 'Lenkki', how: 'Hyvin' });
+  assert.equal((await entries()).find((e) => e.id === added.id).how, 'Hyvin');
+  await assert.rejects(() => backend.player.addEntry(PLAYER, { date: today, text: '   ' }), /Kirjoita, mitä teit/);
+  await backend.player.deleteEntry(added.id);
+  assert.equal((await entries()).length, before);
+});
+
 test('a check-in counts only feelings given after the session began', async () => {
   const { moodAfter } = await import('../src/player/checkin.js');
   const t = session('t1', today, '17:00');

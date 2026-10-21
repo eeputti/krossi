@@ -1,5 +1,5 @@
 // timeline.js — builds the Kehitys timeline: one newest-first stream of everything that
-// happened to a player (goals, coach notes, homework, moods, matches, videos, wishes, notes,
+// happened to a player (goals, own entries, coach notes, homework, moods, matches, videos, wishes, notes,
 // trainings with their week's theme, club events). Ported from the old lib/koutsi-timeline.jsx
 // builder unchanged; only the presentation is new (shared/Timeline.jsx).
 import { activityById, ownEntry } from './ownWeek.js';
@@ -15,6 +15,7 @@ const KOUTSI_TL_PREVIOUS_LABELS = { goal: 'Aiempi tavoite', wish: 'Aiempi toive'
 // glyph in the card's badge. Order here is the order the filter chips appear in.
 const KOUTSI_TL_KINDS = {
   goal: { label: 'Tavoitteet', short: 'Tavoite', fg: '#5c6b06', bg: 'rgba(180,205,20,0.28)', dot: '#b4cd14', icon: '◎' },
+  entry: { label: 'Merkinnät', short: 'Merkintä', fg: '#121212', bg: 'rgba(180,205,20,0.18)', dot: '#121212', icon: '✓' },
   diary: { label: 'Valmentajalta', short: 'Valmentaja', fg: '#121212', bg: 'rgba(0,0,0,0.07)', dot: '#121212', icon: '✎' },
   homework: { label: 'Kotiläksyt', short: 'Kotiläksy', fg: '#8a5a12', bg: 'rgba(214,140,44,0.16)', dot: '#d68c2c', icon: '☑' },
   mood: { label: 'Fiilikset', short: 'Fiilis', fg: '#2a5d94', bg: 'rgba(58,130,212,0.13)', dot: '#3a82d4', icon: '☺' },
@@ -26,7 +27,7 @@ const KOUTSI_TL_KINDS = {
   training: { label: 'Treenit', short: 'Treeni', fg: '#4a4a4a', bg: '#f1f1f1', dot: '#a8a8a8', icon: '●' },
   start: { label: 'Alku', short: 'Alku', fg: '#4a4a4a', bg: '#f1f1f1', dot: '#a8a8a8', icon: '⚑' },
 };
-const KOUTSI_TL_KIND_ORDER = ['goal', 'diary', 'homework', 'mood', 'match', 'video', 'wish', 'note', 'event', 'training', 'start'];
+const KOUTSI_TL_KIND_ORDER = ['goal', 'entry', 'diary', 'homework', 'mood', 'match', 'video', 'wish', 'note', 'event', 'training', 'start'];
 
 // ── time helpers ─────────────────────────────────────────────
 // Sources mix full ISO timestamps (created_at) with plain date strings (a video's or a
@@ -75,6 +76,14 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
     body: g.value || '(tavoite tyhjennetty)',
     previous: g.previousValue || '',
     search: `${g.value || ''} ${g.previousValue || ''} tavoite`,
+  }));
+
+  // The player's own "what I did, when and how it went". It sits on the day it happened.
+  (student.entries || []).forEach((e) => push({
+    id: `entry-${e.id}`, kind: 'entry', at: e.date || e.at, source: e,
+    title: viewer === 'coach' ? 'Pelaajan merkintä' : 'Oma merkintä',
+    body: e.text, how: e.how || '',
+    search: `${e.text} ${e.how || ''} merkintä`,
   }));
 
   (student.diary || []).forEach((d) => push({

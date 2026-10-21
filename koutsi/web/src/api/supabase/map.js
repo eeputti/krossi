@@ -91,7 +91,7 @@ function splitHistory(historyRows, studentId) {
 }
 
 export function mapStudent(studentRow, profileRow, rows) {
-  const { diary = [], homework = [], videos = [], moods = [], matchNotes = [], history = [] } = rows;
+  const { diary = [], homework = [], videos = [], moods = [], matchNotes = [], history = [], entries = [] } = rows;
   const id = studentRow.id;
   const age = koutsiStudentAge(studentRow, profileRow);
   const videoRecipients = new Map();
@@ -138,6 +138,9 @@ export function mapStudent(studentRow, profileRow, rows) {
       partnerName: n.partner_name || '', opponent2Name: n.opponent2_name || '', tournamentId: n.tournament_id || null,
     })).sort((a, b) => String(b.date).localeCompare(String(a.date))),
     ...splitHistory(history, id),
+    // Newest day first; on the same day the latest written first.
+    entries: mine(entries).map((e) => ({ id: e.id, at: e.created_at, date: e.date, text: e.text || '', how: e.how || '' }))
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.at).localeCompare(String(a.at))),
   };
 }
 

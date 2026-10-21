@@ -19,13 +19,14 @@ import { GroupScreen } from './GroupScreen.jsx';
 import { ExercisesScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
 import { AbsenceSheet, MatchNoteSheet, MoodSheet, PlayerTextSheet, SelfTrainingSheet } from './sheets.jsx';
+import { EntrySheet } from './EntrySheet.jsx';
 import { CheckInSheet } from './CheckInSheet.jsx';
 import { PlanSheet } from '../shared/drills/plan.jsx';
 import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } from './checkin.js';
 
 const ActionsContext = createContext(null);
 /** openSelfTraining(date?, { time?, editing?, activity?, homeworkId? }?), openMood(score?), openCheckIn(training?), openMatch({ editing?, date? }), openAbsence(training),
- *  openText(kind), openVideo(), playVideo(video), openPlan(training) */
+ *  openText(kind), openEntry(editing?), openVideo(), playVideo(video), openPlan(training) */
 export function usePlayerActions() { return useContext(ActionsContext); }
 
 function NotFound() {
@@ -99,6 +100,7 @@ function PlayerShell({ banner }) {
     openMatch: ({ editing, date } = {}) => setSheet({ kind: 'match', editing, date }),
     openAbsence: (training) => setSheet({ kind: 'absence', training }),
     openText: (kind) => setSheet({ kind: 'text', textKind: kind }),
+    openEntry: (editing = null) => setSheet({ kind: 'entry', editing }),
     openVideo: () => setSheet({ kind: 'video' }),
     playVideo: (v) => setVideo(v),
     openPlan: (training) => setSheet({ kind: 'plan', trainingId: training.id }),
@@ -145,6 +147,7 @@ function PlayerShell({ banner }) {
       <MatchNoteSheet open={sheet?.kind === 'match'} editing={sheet?.editing} defaultDate={sheet?.date} onClose={close} />
       <AbsenceSheet open={sheet?.kind === 'absence'} training={sheet?.training} onClose={close} />
       <PlayerTextSheet open={sheet?.kind === 'text'} kind={sheet?.textKind} initial={textInitial} onClose={close} />
+      <EntrySheet open={sheet?.kind === 'entry'} editing={sheet?.editing} onClose={close} />
       <VideoShareSheet open={sheet?.kind === 'video'} onClose={close} title="Lisää oma video" onSave={saveOwnVideo} />
       <PlanSheet open={Boolean(planTraining)} training={planTraining} group={planTraining?.groupId ? state.groups.find((g) => g.id === planTraining.groupId) : null}
         onClose={close} onPlayVideo={(v) => setVideo(v)} />

@@ -87,6 +87,7 @@ function activeWeeks(state, student) {
   (student.matchNotes || []).forEach((n) => add(n.date || n.at));
   (student.homework || []).filter((h) => h.done && h.doneAt).forEach((h) => add(h.doneAt));
   [...(student.goalHistory || []), ...(student.wishHistory || []), ...(student.noteHistory || [])].forEach((h) => add(h.at));
+  (student.entries || []).forEach((e) => add(e.date || e.at));
   state.trainings.filter((t) => t.loggedBy === 'player' && t.studentId === student.id).forEach((t) => add(t.date));
   return keys;
 }

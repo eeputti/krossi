@@ -206,10 +206,12 @@ function GoalAndWish({ student }) {
   return (
     <div className="two-cards">
       <Card interactive onClick={() => actions.openText('goal')} className="goal-card">
+        <span className="goal-edit"><Icon name="edit" size={14} /><span className="sr-only">Muokkaa</span></span>
         <div className="eyebrow"><Icon name="target" size={13} /> Tavoitteeni</div>
         {student.goal ? <p className="goal-text">{student.goal}</p> : <p className="k-faint">Aseta tavoite — mitä haluat oppia tällä kaudella?</p>}
       </Card>
       <Card interactive onClick={() => actions.openText('wish')} className="goal-card">
+        <span className="goal-edit"><Icon name="edit" size={14} /><span className="sr-only">Muokkaa</span></span>
         <div className="eyebrow"><Icon name="chat" size={13} /> Toive valmentajalle</div>
         {student.playerWish ? <p className="goal-text">{student.playerWish}</p> : <p className="k-faint">Mitä haluaisit harjoitella seuraavaksi?</p>}
       </Card>

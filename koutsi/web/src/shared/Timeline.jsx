@@ -9,7 +9,7 @@ import { KOUTSI_TAG_LABELS, koutsiTodayStr } from '../domain/core.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const PAGE = 40;
-const KIND_ICON = { goal: 'target', diary: 'edit', homework: 'check-circle', mood: 'heart', match: 'trophy', video: 'play', wish: 'chat', note: 'edit', event: 'flag', training: 'ball', start: 'flag' };
+const KIND_ICON = { goal: 'target', entry: 'check', diary: 'edit', homework: 'check-circle', mood: 'heart', match: 'trophy', video: 'play', wish: 'chat', note: 'edit', event: 'flag', training: 'ball', start: 'flag' };
 
 function Event({ event, onOpenVideo, renderActions }) {
   const kind = KOUTSI_TL_KINDS[event.kind];
@@ -30,6 +30,12 @@ function Event({ event, onOpenVideo, renderActions }) {
           </div>
         </div>
       ) : event.body ? <p className={cx('tl-body', event.done && 'is-done')}>{event.body}</p> : null}
+      {event.how && (
+        <div className="tl-previous">
+          <span className="tl-previous-label">Miten meni</span>
+          <p>{event.how}</p>
+        </div>
+      )}
       {event.previous && (
         <div className="tl-previous">
           <span className="tl-previous-label">{KOUTSI_TL_PREVIOUS_LABELS[event.kind] || 'Aiempi'}</span>

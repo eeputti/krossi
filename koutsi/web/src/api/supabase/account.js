@@ -123,7 +123,7 @@ export const account = {
         'koutsi_annual_plan_submissions', 'koutsi_feedback', 'koutsi_pilot_acknowledgements']
       : ['koutsi_students', 'koutsi_coach_students', 'koutsi_group_members', 'koutsi_group_themes', 'koutsi_trainings',
         'koutsi_diary_entries', 'koutsi_homework', 'koutsi_videos', 'koutsi_moods',
-        'koutsi_match_notes', 'koutsi_player_history', 'koutsi_training_absences', 'koutsi_feedback', 'koutsi_pilot_acknowledgements'];
+        'koutsi_match_notes', 'koutsi_player_history', 'koutsi_player_entries', 'koutsi_training_absences', 'koutsi_feedback', 'koutsi_pilot_acknowledgements'];
     const payload = {
       vietyLahde: 'Krossi Koutsi',
       vientipaiva: new Date().toISOString(),

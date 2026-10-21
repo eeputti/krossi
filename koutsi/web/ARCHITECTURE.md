@@ -119,6 +119,13 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   insert/delete-triggerit), eikä migraatiota tarvita. Aiempi teksti säilyy (`teksti`) ja palaa, kun
   runko tyhjennetään. Pelaaja näkee rungon Kodin seuraavan treenin kortista ja Treenit-päivältä
   (`PlanSheet`, kenttäkuvat, napautus → harjoite). Vanha Koutsi ei näytä runkoa.
+- Tavoite ja omat merkinnät (Kehitys): tavoitekortissa on kynä (koko kortti on nappi). Jokainen muutos
+  kirjoittaa `koutsi_player_history`-rivin, joten vanha tavoite näkyy aikajanalla "Aiempi tavoite" -kohtana
+  ja kortti kertoo, montako aiempaa on tallessa. Pelaaja voi lisätä Kehitykseen oman merkinnän (mitä tein,
+  milloin, miten meni): taulu `koutsi_player_entries` (migraatio 20261021081153, ajettu 21.10.2026 käyttäjän luvalla), pelaaja
+  kirjoittaa omiaan, jokainen linkitetty valmentaja (`koutsi_is_linked_coach`) lukee. Ilman taulua lataus
+  palauttaa `entriesReady: false` ja Merkintä-nappi pysyy piilossa. Valmentajan pelaajasivun Kehitys alkaa
+  pelaajan tavoitteella. Vanha Koutsi ei lue taulua.
 
 - Pelaajan omat merkinnät (`domain/ownWeek.js`, `player/TrainingsScreen.jsx`, `player/weekSheets.jsx`):
   tavallinen `koutsi_trainings`-rivi (`logged_by = 'player'`), `type` pysyy vanhan sovelluksen kategoriana

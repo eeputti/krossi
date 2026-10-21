@@ -17,6 +17,13 @@ import { usePlayerActions } from './PlayerApp.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
+/** Every goal change keeps the old one on the timeline below; the card says so. */
+function earlierGoalsLabel(student) {
+  const n = (student.goalHistory || []).filter((h) => h.previousValue).length;
+  if (n === 0) return 'Kun vaihdat tavoitetta, vanha jää talteen aikajanalle.';
+  return n === 1 ? '1 aiempi tavoite tallessa aikajanalla' : `${n} aiempaa tavoitetta tallessa aikajanalla`;
+}
+
 function ThemePath({ groups }) {
   const now = koutsiCurrentIsoWeek();
   const path = themePath(groups, now, 14);
@@ -79,6 +86,9 @@ export function ProgressScreen() {
   const removeMood = async (m) => {
     if (await confirm({ title: 'Poista fiilis?', message: m.note || 'Fiilismerkintä poistetaan.', confirmLabel: 'Poista', danger: true })) await run(() => api.player.deleteMood(m.id), 'Fiilis poistettu.');
   };
+  const removeEntry = async (e) => {
+    if (await confirm({ title: 'Poista merkintä?', message: e.text, confirmLabel: 'Poista', danger: true })) await run(() => api.player.deleteEntry(e.id), 'Merkintä poistettu.');
+  };
   const removeMatch = async (n) => {
     if (await confirm({ title: 'Poista ottelumuistiinpano?', message: `Vastustaja ${n.opponentName}`, confirmLabel: 'Poista', danger: true })) await run(() => api.player.deleteMatchNote(n.id), 'Muistiinpano poistettu.');
   };
@@ -90,6 +100,14 @@ export function ProgressScreen() {
           <IconButton icon={m.hiddenFromCoach ? 'eye' : 'lock'} label={m.hiddenFromCoach ? 'Näytä valmentajalle' : 'Piilota valmentajalta'} size="sm"
             onClick={() => run(() => api.player.setMoodHidden(m.id, !m.hiddenFromCoach), m.hiddenFromCoach ? 'Fiilis näkyy nyt valmentajalle.' : 'Fiilis piilotettu valmentajalta.')} />
           <IconButton icon="trash" label="Poista" size="sm" onClick={() => removeMood(m)} />
+        </>
+      );
+    }
+    if (event.kind === 'entry') {
+      return (
+        <>
+          <IconButton icon="edit" label="Muokkaa" size="sm" onClick={() => actions.openEntry(event.source)} />
+          <IconButton icon="trash" label="Poista" size="sm" onClick={() => removeEntry(event.source)} />
         </>
       );
     }
@@ -110,8 +128,10 @@ export function ProgressScreen() {
       <div className="stack-6">
         <ThemePath groups={groups} />
         <Card interactive onClick={() => actions.openText('goal')} className="goal-card">
-          <div className="eyebrow">Tavoitteeni</div>
+          <span className="goal-edit"><Icon name="edit" size={14} /><span className="sr-only">Muokkaa</span></span>
+          <div className="eyebrow"><Icon name="target" size={13} /> Tavoitteeni</div>
           {student.goal ? <p className="goal-text">{student.goal}</p> : <p className="k-faint">Aseta tavoite — se näkyy aikajanalla ja valmentajallesi.</p>}
+          {student.goal && <span className="goal-card-foot">{earlierGoalsLabel(student)}</span>}
         </Card>
         <Month state={state} student={student} />
         <Link to="/pelaaja/harjoitteet" className="k-row">
@@ -128,13 +148,14 @@ export function ProgressScreen() {
             onOpenVideo={actions.playVideo} renderActions={renderActions}
             actions={(
               <>
-                <Button variant="dark" size="sm" icon="heart" onClick={() => actions.openMood()}>Fiilis</Button>
+                {state.entriesReady && <Button variant="dark" size="sm" icon="plus" onClick={() => actions.openEntry()}>Merkintä</Button>}
+                <Button variant={state.entriesReady ? 'outline' : 'dark'} size="sm" icon="heart" onClick={() => actions.openMood()}>Fiilis</Button>
                 <Button variant="outline" size="sm" icon="trophy" onClick={() => actions.openMatch()}>Ottelu</Button>
                 <Button variant="outline" size="sm" icon="plus" onClick={() => actions.openSelfTraining()}>Oma treeni</Button>
                 <Button variant="ghost" size="sm" icon="play" onClick={() => actions.openVideo()}>Video</Button>
               </>
             )}
-            emptyText="Aikajanasi on vielä tyhjä. Tänne kertyvät ryhmäsi teemat, treenit, valmentajan huomiot, tavoitteet, fiilikset ja ottelut."
+            emptyText="Aikajanasi on vielä tyhjä. Tänne kertyvät ryhmäsi teemat, treenit, valmentajan huomiot, tavoitteet, omat merkintäsi, fiilikset ja ottelut."
           />
         </Block>
       </div>

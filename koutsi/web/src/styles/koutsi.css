@@ -466,6 +466,7 @@
 .tl-dot-goal { background: #B4CD14; } .tl-dot-diary { background: var(--green-800); } .tl-dot-homework { background: #D68C2C; }
 .tl-dot-mood { background: #3A82D4; } .tl-dot-match { background: var(--clay); } .tl-dot-video { background: #9458D6; }
 .tl-dot-wish { background: #1F6B5C; } .tl-dot-note { background: var(--muted); } .tl-dot-event { background: #C07820; }
+.tl-dot-entry { background: var(--ink); }
 .tl-event { flex: 1; min-width: 0; padding: 12px 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
 .tl-event.is-absent { opacity: 0.72; }
 .tl-event-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -476,6 +477,7 @@
 .tl-kind-mood .tl-badge { background: #E8F0FC; color: #2A5D94; }
 .tl-kind-match .tl-badge { background: var(--clay-100); color: #8A3A1A; }
 .tl-kind-video .tl-badge { background: rgba(148, 88, 214, 0.13); color: #6A389C; }
+.tl-kind-entry .tl-badge { background: var(--ink); color: var(--lime); }
 .tl-event-title { font-weight: 750; font-size: 14px; min-width: 0; }
 .tl-event-side { margin-left: auto; display: flex; align-items: center; gap: 4px; }
 .tl-body { margin-top: 6px; font-size: 14px; line-height: 1.55; color: var(--ink-2); white-space: pre-line; }
@@ -531,8 +533,12 @@
 .coach-note-text { font-size: 15.5px; line-height: 1.6; color: var(--ink); white-space: pre-line; }
 .two-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 420px) { .two-cards { grid-template-columns: 1fr; } }
-.goal-card { display: grid; gap: 6px; text-align: left; width: 100%; }
-.goal-card .eyebrow { display: inline-flex; align-items: center; gap: 5px; }
+.goal-card { position: relative; display: grid; gap: 6px; text-align: left; width: 100%; }
+.goal-card .eyebrow { display: inline-flex; align-items: center; gap: 5px; padding-right: 36px; }
+/* The pencil says "tap to change": the whole card is the button, the pencil only shows it. */
+.goal-edit { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); border: 1px solid var(--line); color: var(--ink); transition: background 0.15s, border-color 0.15s; }
+.goal-card:hover .goal-edit, .goal-card:focus-visible .goal-edit { background: var(--lime); border-color: var(--lime); }
+.goal-card-foot { font-size: 12px; color: var(--muted); }
 .goal-text { font-size: 15px; font-weight: 650; line-height: 1.45; }
 .mine { display: grid; gap: 12px; }
 .mine-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }

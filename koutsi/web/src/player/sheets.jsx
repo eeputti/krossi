@@ -253,6 +253,7 @@ export function PlayerTextSheet({ open, onClose, kind, initial }) {
       footer={<Button variant="dark" size="lg" block loading={busy} disabled={text.trim() === (initial || '').trim()} onClick={save}>Tallenna</Button>}>
       <div className="stack-3">
         <Textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder={meta.placeholder} autoFocus maxLength={1000} aria-label={meta.title} />
+        {kind === 'goal' && (initial || '').trim() && <p className="field-msg">Vanha tavoite jää talteen Kehitys-aikajanalle.</p>}
         <p className="k-warn-text">{HEALTH_NOTE}</p>
       </div>
     </Sheet>

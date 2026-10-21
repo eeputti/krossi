@@ -46,7 +46,7 @@ function student(id, name, { age = null, level = 'Keskitaso', placeholder = fals
     isPlaceholder: placeholder, age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
     level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '',
     joinedAt: placeholder ? null : isoAt(-joinedDaysAgo), welcomeSeenAt: isoAt(-joinedDaysAgo),
-    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [],
+    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], entries: [],
     ...rest,
   });
 }
@@ -95,6 +95,9 @@ export function seed() {
       ],
       goalHistory: [
         { id: 'gh1', at: isoAt(-40), field: 'goal', value: 'Varmempi kakkossyöttö ja rohkeampi verkkopeli', previousValue: 'Varmempi kakkossyöttö', byPlayer: true },
+      ],
+      entries: [
+        { id: 'e1', at: isoAt(-2, 19), date: day(-2), text: 'Syötin 50 kakkossyöttöä kentän tyhjällä puolella ja pelasin kaverin kanssa tunnin.', how: 'Kick-syöttö alkoi nousta, 8/10 meni sisään.' },
       ],
     }),
     student('demo-s-aleksi', 'Aleksi R.', {

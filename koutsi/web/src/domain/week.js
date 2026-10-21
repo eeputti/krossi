@@ -169,6 +169,7 @@ export function lastActivityDays(state, student, today = koutsiTodayStr()) {
     ...(student.moods || []).map((m) => m.at), ...(student.matchNotes || []).map((n) => n.at || n.date),
     ...(student.goalHistory || []).map((h) => h.at), ...(student.wishHistory || []).map((h) => h.at),
     ...(student.noteHistory || []).map((h) => h.at), ...(student.homework || []).filter((h) => h.doneAt).map((h) => h.doneAt),
+    ...(student.entries || []).map((e) => e.at || e.date),
     ...state.trainings.filter((t) => t.loggedBy === 'player' && t.studentId === student.id).map((t) => t.date),
   ].filter(Boolean).map((s) => String(s).slice(0, 10)).sort();
   const last = stamps[stamps.length - 1];

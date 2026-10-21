@@ -92,6 +92,24 @@ function Notes({ student, onEditNote, onEditHomework, onOpenVideo, onAudience })
   );
 }
 
+// The player's goal on top of their Kehitys: what they are after now. Each earlier goal stays on
+// the timeline below as "Tavoite päivitetty" with the old one underneath.
+function PlayerGoal({ student }) {
+  const history = student.goalHistory || [];
+  const earlier = history.filter((h) => h.previousValue).length;
+  const foot = [
+    history[0] ? `Asetettu ${koutsiFmtEventDate(history[0].at)}` : '',
+    earlier === 1 ? '1 aiempi tavoite aikajanalla' : earlier > 1 ? `${earlier} aiempaa tavoitetta aikajanalla` : '',
+  ].filter(Boolean).join(' · ');
+  return (
+    <Card className="goal-card">
+      <div className="eyebrow"><Icon name="target" size={13} /> Pelaajan tavoite</div>
+      {student.goal ? <p className="goal-text">{student.goal}</p> : <p className="k-faint">Pelaaja ei ole vielä asettanut tavoitetta.</p>}
+      {student.goal && foot && <span className="goal-card-foot">{foot}</span>}
+    </Card>
+  );
+}
+
 function Details({ state, student }) {
   const now = new Date();
   const month = koutsiMonthlySummary(state, student.id, now.getFullYear(), now.getMonth());
@@ -229,8 +247,11 @@ export function PlayerScreen({ params }) {
           { value: 'tiedot', label: 'Tiedot' },
         ]} />
         {tab === 'kehitys' && (
-          <Timeline viewer="coach" student={student} trainings={trainings} clubEvents={state.clubEvents} onOpenVideo={setVideo}
-            emptyText="Aikajanalle kertyvät treenit teemoineen, huomiosi, läksyt ja pelaajan omat merkinnät." />
+          <div className="stack-4">
+            <PlayerGoal student={student} />
+            <Timeline viewer="coach" student={student} trainings={trainings} clubEvents={state.clubEvents} onOpenVideo={setVideo}
+              emptyText="Aikajanalle kertyvät treenit teemoineen, huomiosi, läksyt ja pelaajan omat merkinnät." />
+          </div>
         )}
         {tab === 'merkinnat' && (
           <Notes student={student}
