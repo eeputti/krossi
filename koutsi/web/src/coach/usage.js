@@ -15,6 +15,8 @@ export const USAGE_SECTIONS = [
     events: [
       ['merkitse.avaa', 'Merkitse-nappi avattu'],
       ['merkitse.valitse', 'Tämän päivän treeni valittu'],
+      ['merkitse.monta', '…toinen tai useampi treeni lisätty valintaan'],
+      ['merkitse.koko-viikko', 'Koko viikon ryhmät valittu'],
       ['merkitse.ryhma', 'Valitun treenin ryhmä avattu'],
       ['merkitse.nyt', 'Käynnissä nyt -kortti (ennen 14.10.)'],
       ['merkitse.paattyi', 'Juuri päättyi -kortti (ennen 14.10.)'],
