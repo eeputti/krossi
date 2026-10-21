@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, isDemo } from '../api/index.js';
 import { useSession } from '../app/session.jsx';
-import { Button, ChipSelect, Field, ListRow, Sheet, Textarea, Toggle, useConfirm, useToast } from '../ui/index.js';
+import { Button, ChipSelect, Field, Icon, ListRow, Sheet, Textarea, Toggle, useConfirm, useToast } from '../ui/index.js';
 import { FEEDBACK_CATEGORIES, SUPPORT_EMAIL } from '../lib/constants.js';
 
 export function EmailPrefToggle({ uid }) {
@@ -38,7 +38,7 @@ export function FeedbackSheet({ open, onClose, uid }) {
     } catch (err) { toast(err); } finally { setBusy(false); }
   };
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Anna palautetta" subtitle="Kerro lyhyesti, jos jokin ei toimi, ei täsmää tai on hankala — tai jos jokin toimii tosi hyvin!" size="md" dismissible={!busy && !message.trim()}
+    <Sheet open={open} onClose={() => !busy && onClose()} title="Anna palautetta" subtitle="Kerro, mikä tässä sovelluksessa toimii ja mikä ei — jos jokin ei toimi, ei täsmää tai on hankala, tai jos jokin toimii tosi hyvin!" size="md" dismissible={!busy && !message.trim()}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!message.trim()} loading={busy} onClick={send}>Lähetä</Button></div>}>
       <div className="stack-4">
         <Field label="Mistä on kyse?"><ChipSelect size="sm" options={FEEDBACK_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} value={category} onChange={(v) => v && setCategory(v)} ariaLabel="Aihe" /></Field>
@@ -93,8 +93,15 @@ export function AccountSection({ role, uid, profileName }) {
   };
   return (
     <div className="stack-5">
+      <button type="button" className="k-feedback-cta" onClick={() => setFeedbackOpen(true)}>
+        <span className="k-feedback-cta-icon"><Icon name="chat" size={20} /></span>
+        <span className="k-feedback-cta-text">
+          <span className="k-feedback-cta-title">Anna palautetta</span>
+          <span className="k-feedback-cta-sub">Kerro, mikä tässä sovelluksessa toimii ja mikä ei. Pienikin huomio auttaa tekemään Koutsista paremman.</span>
+        </span>
+        <Icon name="chevron-right" size={18} className="k-feedback-cta-chevron" />
+      </button>
       <div className="list-group">
-        <ListRow icon="chat" title="Anna palautetta" subtitle="Kerro, mikä toimii ja mikä ei" onClick={() => setFeedbackOpen(true)} />
         <ListRow icon="download" title={exporting ? 'Valmistellaan…' : 'Lataa tietoni'} subtitle="Kaikki näkemäsi tiedot JSON-tiedostona" onClick={exporting ? undefined : exportData} />
         <ListRow icon="shield" title="Tietosuojaseloste" href="/tietosuoja" />
         <ListRow icon="list" title="Käyttöehdot" href="/kayttoehdot" />

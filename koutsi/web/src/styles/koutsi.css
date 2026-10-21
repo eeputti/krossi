@@ -682,3 +682,16 @@
 .k-hw-suggest-why { flex-shrink: 0; padding: 2px 8px; border-radius: var(--r-pill); background: var(--lime-100); font-size: 11.5px; font-weight: 750; color: var(--ink-2); }
 .k-hw-suggest-add { flex-shrink: 0; color: var(--muted); }
 .k-ex-homework { justify-self: start; }
+
+/* ── Anna palautetta (profile, both roles) — red so it stands out during the pilot ── */
+.k-feedback-cta {
+  display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px; border-radius: var(--r-lg);
+  background: var(--danger); color: #fff; text-align: left; transition: background-color var(--dur-1);
+}
+.k-feedback-cta:hover { background: #BA2820; }
+.k-feedback-cta:active { background: #A3231C; }
+.k-feedback-cta-icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: rgba(255, 255, 255, 0.18); }
+.k-feedback-cta-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.k-feedback-cta-title { font-size: 16px; font-weight: 750; letter-spacing: -0.01em; }
+.k-feedback-cta-sub { font-size: 13.5px; line-height: 1.4; color: rgba(255, 255, 255, 0.9); }
+.k-feedback-cta-chevron { flex-shrink: 0; opacity: 0.85; }
