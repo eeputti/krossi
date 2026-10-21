@@ -17,8 +17,9 @@
 //   everything else                  the same event at most once per 10 min
 //
 // booking_slot_free ("ilmoita kun vapautuu", sent by krossi-booking with the JWT of whoever
-// freed the court) only mails a watch that krossi_booking_watchers_to_notify stamped as
-// notified in the last 10 minutes, so the body can't pick its own recipients. It respects
+// freed the court — or with the service-role key when a guest without an account freed it) only
+// mails a watch that krossi_booking_watchers_to_notify stamped as notified in the last 10
+// minutes, so the body can't pick its own recipients. It respects
 // email_enabled only (the watch itself is the opt-in) and skips the block check: the mail
 // never says who freed the court.
 //
@@ -1218,6 +1219,8 @@ Deno.serve(async (request) => {
   const actorId = actorIdOf(event);
   if (isInternalEvent(event)) {
     if (!internal) return json({ error: "Unauthorized actor." }, 403);
+  } else if (internal && event.type === "booking_slot_free") {
+    // A guest (no account) freed the court through krossi-booking: the database stamped the watch.
   } else {
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authorization } },

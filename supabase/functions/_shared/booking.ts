@@ -18,7 +18,8 @@
 //                          gave it up themselves (paysCancelFee), the peruutuskulu stays (fees.ts)
 //   cancelPendingShares    payments friends started on a cancelled or sold booking are cancelled
 //   afterBookingPaid       a confirmed booking: the on-sale bookings it took over are refunded and
-//                          their sellers told
+//                          their sellers told; a guest's booking (no account, migration
+//                          20261021075544_krossi_booking_guest) gets its confirmation mail (guestMail.ts)
 //
 // Refunds use idempotency keys that are the same in every function (`krossi-booking-refund-<payment
 // intent>` for a whole payment or what is left of it, `krossi-booking-cancel-refund-<payment
@@ -29,6 +30,7 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import type Stripe from 'npm:stripe@17.7.0';
 import { PAYEE_COLUMNS, type PayeeVenue, cancelFeeOf, refundConnect } from './fees.ts';
+import { mailGuestConfirmed } from './guestMail.ts';
 
 export { CANCEL_FEE_CENTS, HALL_NOT_CONNECTED, HallNotConnected, cancelFeeOf, connectParams, takesPayments } from './fees.ts';
 
@@ -61,6 +63,9 @@ export interface BookingRow {
   gift_cents: number;
   pass_minutes: number;
   resold_by: string | null;
+  // a guest's booking (no account): its link token, and whether the guest cancelled it themselves
+  guest_token: string | null;
+  guest_cancelled: boolean;
 }
 
 export interface VenueRow extends PayeeVenue {
@@ -72,15 +77,16 @@ export interface VenueRow extends PayeeVenue {
 }
 
 export const BOOKING_COLUMNS = 'id, venue_id, court_id, starts_at, ends_at, kind, status, booked_by, price_cents, ' +
-  'payment_status, hold_expires_at, stripe_payment_intent_id, cancelled_by, gift_cents, pass_minutes, resold_by';
+  'payment_status, hold_expires_at, stripe_payment_intent_id, cancelled_by, gift_cents, pass_minutes, resold_by, ' +
+  'guest_token, guest_cancelled';
 
 /**
- * The booker gave the booking up themselves: cancelled it, or it was sold on after they put it on
- * sale. Then the peruutuskulu stays of their own payment (fees.ts); a booking the hall cancelled
- * gives everything back.
+ * The booker gave the booking up themselves: cancelled it (a guest through their booking's link:
+ * guest_cancelled), or it was sold on after they put it on sale. Then the peruutuskulu stays of
+ * their own payment (fees.ts); a booking the hall cancelled gives everything back.
  */
-export const paysCancelFee = (b: Pick<BookingRow, 'cancelled_by' | 'booked_by' | 'resold_by'>) =>
-  Boolean(b.resold_by) || (Boolean(b.cancelled_by) && b.cancelled_by === b.booked_by);
+export const paysCancelFee = (b: Pick<BookingRow, 'cancelled_by' | 'booked_by' | 'resold_by'> & { guest_cancelled?: boolean }) =>
+  Boolean(b.resold_by) || b.guest_cancelled === true || (Boolean(b.cancelled_by) && b.cancelled_by === b.booked_by);
 
 export async function loadBooking(admin: Admin, id: string): Promise<BookingRow | null> {
   const { data, error } = await admin.from('booking_reservations').select(BOOKING_COLUMNS).eq('id', id).maybeSingle();
@@ -406,10 +412,12 @@ export async function notifyInternal(admin: Admin, event: Record<string, string>
 
 /**
  * A booking was confirmed: the on-sale bookings it took over get their money back (the seller's
- * and every friend's who paid a share) and their sellers an email. Never throws — the booking
- * itself is confirmed; an unfinished refund stays due for the cron.
+ * and every friend's who paid a share) and their sellers an email; a guest gets their confirmation
+ * mail (once — nothing for a player's booking). Never throws — the booking itself is confirmed; an
+ * unfinished refund stays due for the cron, and so does an unsent guest mail.
  */
 export async function afterBookingPaid(stripe: Stripe, admin: Admin, bookingId: string) {
+  await mailGuestConfirmed(admin, bookingId);
   try {
     const { data, error } = await admin.rpc('krossi_booking_resold_by', { booking_id_input: bookingId });
     if (error) throw new Error(error.message);

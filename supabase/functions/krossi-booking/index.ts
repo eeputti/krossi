@@ -37,6 +37,26 @@
 // or sold booking answers 409 'Vuoro on peruttu…', a started one 409 'Vuoro on jo alkanut.' (or
 // splitConfig's { over: true }), the booker's own splitIntent 409, an unknown token 404.
 //
+// Vieras — a court booked without an account (migration 20261021075544_krossi_booking_guest): name
+// and email, then the same hold + payment as a player's. The booking's own secret link token is the
+// key; nothing here needs a session:
+//   { action: 'payConfig' }  without signing in too   -> { publishableKey, currency, email: null, guests: true }
+//   { action: 'guestHold', courtId, startsAt, minutes, name, email }
+//                                                      -> { booking, token }   (krossi_guest_hold_booking; two unpaid
+//                                                         holds per address — a hash of the caller's IP — and 20 per hall)
+//   { action: 'guestIntent', token }                   -> { paid: true } | { clientSecret, paymentIntentId }
+//   { action: 'guestVerify', token, paymentIntentId }  -> { confirmed, status } (+ error when the court was lost)
+//   { action: 'guestRelease', token }                  -> { ok }   the guest closed the payment: the hold ends now
+//   { action: 'guestBooking', token }                  -> { booking, guest: { name, email }, venue, cancelledByGuest }
+//                                                         the guest's page (krossi.app/pelaa/varaus/<token>); a payment
+//                                                         that went through while they were away is recorded first
+//   { action: 'guestCancel', token }                   -> { refundedCents, feeCents }   before the cancellation limit;
+//                                                         the peruutuskulu stays as in a player's own cancellation
+// A guest pays with a card / wallet / MobilePay only (no saldo, series cards, split or resale) and
+// gets the confirmation with the link by email (../_shared/guestMail.ts, sent once when the payment
+// is recorded — here, in stripe-webhook or by krossi-booking-cron). Hall staff see the guest's name
+// and email (krossi_booking_staff_day); a guest booking the hall cancels mails the guest.
+//
 // The booker always pays the whole booking with any method (a plain PaymentIntent, so MobilePay
 // works too). When a friend's share payment succeeds (splitVerify here, payment_intent.succeeded in
 // stripe-webhook — whichever comes first), the share is recorded and the same amount is refunded
@@ -69,9 +89,9 @@
 // "ilmoita kun vapautuu" watches it satisfies and krossi-notify emails each watcher
 // (event booking_slot_free), sent with the caller's own JWT like the app's other notifications.
 //
-// Deploy with verify_jwt = false (`--no-verify-jwt`): friends pay their share without signing in,
-// and the app's publishable key is not a JWT. Every other action checks the caller's JWT here
-// (auth.getUser) and answers 401 without a signed-in player.
+// Deploy with verify_jwt = false (`--no-verify-jwt`): friends pay their share and guests book without
+// signing in, and the app's publishable key is not a JWT. Every other action checks the caller's JWT
+// here (auth.getUser) and answers 401 without a signed-in player.
 //
 // Secrets: STRIPE_SECRET_KEY + STRIPE_PUBLISHABLE_KEY (same as krossi-payment). There is no
 // hosted Checkout fallback for bookings: without a usable publishable key the configs answer 503.
@@ -82,6 +102,7 @@ import {
   afterBookingPaid, cancelFeeOf, cancelPendingShares, connectParams, describeBooking, loadBooking, loadPlace, loadVenue,
   notifyInternal, paysCancelFee, refundBooker, refundParts, settleBookingPayment, settleSplitPayment, takesPayments, type Outcome,
 } from '../_shared/booking.ts';
+import { mailGuestHallCancelled } from '../_shared/guestMail.ts';
 
 // Apple Pay / Google Pay only show on domains registered with Stripe (per mode: test and live).
 const PAYMENT_DOMAINS = ['krossi.app', 'www.krossi.app'];
@@ -110,8 +131,9 @@ const SPLIT_REFUNDED: Record<SplitRefundReason, string> = {
 const STRIPE_DOWN = 'Maksupalvelu ei nyt vastaa. Yritä hetken päästä uudelleen.';
 const DB_FAILED = 'Varauksen käsittely epäonnistui. Yritä hetken päästä uudelleen.';
 
-// These work without signing in: the split's token is the key.
+// These work without signing in: the split's token (or the guest booking's) is the key.
 const SPLIT_ACTIONS = new Set(['splitConfig', 'splitIntent', 'splitVerify']);
+const GUEST_ACTIONS = new Set(['payConfig', 'guestHold', 'guestIntent', 'guestVerify', 'guestRelease', 'guestBooking', 'guestCancel']);
 
 const ALLOWED_ORIGINS = ['https://krossi.app', 'https://www.krossi.app'];
 function corsHeaders(req: Request) {
@@ -294,6 +316,36 @@ async function claimShare(admin: SupabaseClient, token: string, name: string | n
   return data as Claim;
 }
 
+// ── Guests ───────────────────────────────────────────────────────────────────
+
+/** A guest booking by its link token (kind 'booking'), with the guest's email, else 404. */
+async function guestBookingOf(admin: SupabaseClient, token: unknown): Promise<{ booking: BookingRow; email: string; token: string }> {
+  if (typeof token !== 'string' || !TOKEN_RE.test(token)) throw new Reply(404, NOT_FOUND);
+  const { data, error } = await admin.from('booking_reservations').select('id, guest_email').eq('guest_token', token).maybeSingle();
+  if (error) throw new Error(`guest booking lookup failed: ${error.message}`);
+  const booking = data ? await loadBooking(admin, data.id as string) : null;
+  if (!booking || booking.kind !== 'booking') throw new Reply(404, NOT_FOUND);
+  return { booking, email: String(data?.guest_email ?? ''), token };
+}
+
+/**
+ * What limits a guest's unpaid holds: a hash of the caller's address (never stored as such). The
+ * edge runtime puts the client first in x-forwarded-for.
+ */
+async function guestKey(req: Request) {
+  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim()
+    || req.headers.get('cf-connecting-ip') || req.headers.get('x-real-ip') || 'unknown';
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`krossi-guest:${ip}`));
+  return Array.from(new Uint8Array(digest).slice(0, 16), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** A booking RPC's own Finnish message (raise exception → P0001) is the answer; anything else a 5xx. */
+function rpcFailed(name: string, error: { message?: string; code?: string }): Error {
+  const message = String(error.message ?? '').trim();
+  if (error.code === 'P0001' && message && message.length <= 200) return new Reply(409, message);
+  return new Error(`${name} failed: ${message}`);
+}
+
 // ── Payments ─────────────────────────────────────────────────────────────────
 
 const REUSABLE = ['requires_payment_method', 'requires_confirmation', 'requires_action'];
@@ -321,6 +373,124 @@ async function settleStored(admin: SupabaseClient, booking: BookingRow): Promise
   if (intent?.status !== 'succeeded' || intent.metadata?.booking_id !== booking.id) return { outcome: null, booking };
   const outcome = await settle(admin, intent);
   return { outcome, booking: (await loadBooking(admin, booking.id)) ?? booking };
+}
+
+interface Payer {
+  email: string | null;
+  /** The player's Stripe customer; a guest has none. */
+  customer: () => Promise<string | undefined>;
+  /** Who pays, in the payment's metadata: supabase_user_id, or guest 'true'. */
+  metadata: Record<string, string>;
+}
+
+/**
+ * The booking's payment: { paid: true } when nothing is left to pay, else the PaymentIntent for the
+ * Payment Element. An unfinished payment of the same amount is reused, one that went through is
+ * recorded, and an expired hold can't be paid any more (409).
+ */
+async function bookingPayment(admin: SupabaseClient, booking: BookingRow, payer: Payer): Promise<Record<string, unknown>> {
+  if (isSettled(booking)) return { paid: true };
+
+  // An unfinished payment of this booking is reused; one that went through is recorded.
+  const previous = booking.stripe_payment_intent_id ? await retrieveIntent(booking.stripe_payment_intent_id) : null;
+  if (previous?.status === 'succeeded' && previous.metadata?.booking_id === booking.id) {
+    const outcome = await settle(admin, previous);
+    if (outcome === 'lost') throw new Reply(409, LOST);
+    booking = (await loadBooking(admin, booking.id)) ?? booking;
+    if (isSettled(booking)) return { paid: true };
+  }
+  if (previous?.status === 'processing') throw new Reply(409, PENDING);
+  const amount = amountOf(booking);
+  // The gift balance on the hold changed (or not) since that payment was started: only the same amount is reused.
+  const reusable = previous && REUSABLE.includes(previous.status) && previous.amount === amount
+    && previous.metadata?.booking_id === booking.id ? previous : null;
+
+  if (!holdIsLive(booking)) {
+    // Too late to pay: make sure the old payment can't be finished either.
+    if (reusable) {
+      await stripe.paymentIntents.cancel(reusable.id, { cancellation_reason: 'abandoned' }).catch((err) =>
+        console.error('cancelling an expired booking payment failed', (err as Error).message));
+    }
+    throw new Reply(409, EXPIRED);
+  }
+  if (reusable) return { clientSecret: reusable.client_secret, paymentIntentId: reusable.id };
+  if (previous && REUSABLE.includes(previous.status)) {
+    await stripe.paymentIntents.cancel(previous.id, { cancellation_reason: 'abandoned' }).catch((err) =>
+      console.error('cancelling an outdated booking payment failed', (err as Error).message));
+  }
+  if (amount < MIN_CHARGE_CENTS) throw new Reply(409, 'Varauksen hinta on liian pieni verkkomaksuun.');
+
+  const [venue, place, customerId] = await Promise.all([
+    loadVenue(admin, booking.venue_id), loadPlace(admin, booking.court_id), payer.customer(),
+  ]);
+  // A plain payment (nothing saved for later), so every method the account has works — MobilePay too.
+  const intent = await stripe.paymentIntents.create({
+    amount,
+    currency: 'eur',
+    ...(customerId ? { customer: customerId } : {}),
+    automatic_payment_methods: { enabled: true },
+    description: describeBooking(booking, venue, place) + (booking.gift_cents > 0 ? ' (osa saldolla)' : ''),
+    receipt_email: payer.email || undefined,
+    metadata: { product: BOOKING_PRODUCT, booking_id: booking.id, venue_id: booking.venue_id, ...payer.metadata },
+    ...connectParams(venue, amount),
+  }, {
+    // Two taps at once get the same intent: the key names the booking, the intent it replaces
+    // and the amount (a gift balance put on or taken off changes it).
+    idempotencyKey: `krossi-booking-intent-${booking.id}-${booking.stripe_payment_intent_id ?? 'first'}`
+      + (booking.gift_cents > 0 ? `-${amount}` : ''),
+  });
+
+  // Store it unless the booking changed meanwhile (paid, or another intent stored first).
+  let store = admin.from('booking_reservations')
+    .update({ stripe_payment_intent_id: intent.id })
+    .eq('id', booking.id)
+    .eq('payment_status', 'unpaid');
+  store = booking.stripe_payment_intent_id
+    ? store.eq('stripe_payment_intent_id', booking.stripe_payment_intent_id)
+    : store.is('stripe_payment_intent_id', null);
+  const { data: stored, error: storeError } = await store.select('id');
+  if (storeError) throw new Error(`storing the payment intent failed: ${storeError.message}`);
+  if (!stored?.length) {
+    const latest = await loadBooking(admin, booking.id);
+    if (latest?.stripe_payment_intent_id !== intent.id) {
+      await stripe.paymentIntents.cancel(intent.id, { cancellation_reason: 'duplicate' }).catch((err) =>
+        console.error('cancelling a duplicate booking payment failed', (err as Error).message));
+      if (latest && isSettled(latest)) return { paid: true };
+      const theirs = latest?.stripe_payment_intent_id ? await retrieveIntent(latest.stripe_payment_intent_id) : null;
+      if (!theirs || !REUSABLE.includes(theirs.status)) throw new Reply(409, 'Maksun aloitus on jo käynnissä. Yritä hetken päästä uudelleen.');
+      return { clientSecret: theirs.client_secret, paymentIntentId: theirs.id };
+    }
+  }
+  return { clientSecret: intent.client_secret, paymentIntentId: intent.id };
+}
+
+/**
+ * Asks Stripe whether the booking's payment went through and records it: { confirmed, status }
+ * (+ error when the court went to somebody else and the payment was refunded). `owns` tells whether
+ * the payment is the caller's (a player's user id, a guest's flag).
+ */
+async function verifyBookingPayment(
+  admin: SupabaseClient, booking: BookingRow, paymentIntentId: unknown, owns: (intent: Stripe.PaymentIntent) => boolean,
+): Promise<Record<string, unknown>> {
+  const id = typeof paymentIntentId === 'string' ? paymentIntentId : '';
+  if (!INTENT_RE.test(id)) throw new Reply(400, UNKNOWN_PAYMENT);
+  const intent = await retrieveIntent(id);
+  if (!intent || intent.metadata?.product !== BOOKING_PRODUCT || intent.metadata?.booking_id !== booking.id || !owns(intent)) {
+    throw new Reply(403, UNKNOWN_PAYMENT);
+  }
+  if (intent.status !== 'succeeded') return { confirmed: false, status: intent.status };
+  const outcome = await settle(admin, intent);
+  if (outcome === 'confirmed') return { confirmed: true, status: 'succeeded' };
+  if (outcome === 'lost') return { confirmed: false, status: 'lost', error: LOST };
+  // 'duplicate' (this payment was refunded, another one paid the booking) / 'cancelled'
+  const latest = await loadBooking(admin, booking.id);
+  const confirmed = latest?.status === 'confirmed';
+  // The webhook got here first and refunded a lost court: same answer as above.
+  if (!confirmed && latest?.payment_status === 'refunded' && latest.cancelled_by === null && !latest.guest_cancelled
+    && latest.stripe_payment_intent_id === intent.id) {
+    return { confirmed: false, status: 'lost', error: LOST };
+  }
+  return { confirmed, status: confirmed ? 'succeeded' : 'cancelled' };
 }
 
 /**
@@ -353,6 +523,15 @@ async function cancelAndRefund(admin: SupabaseClient, booking: BookingRow, by: s
     throw new Error(`krossi_booking_cancel failed: ${error.message}`);
   }
   inBackground(cancelPendingShares(stripe, admin, bookingId));
+  return refundCancelled(admin, bookingId, data, paysCancelFee({ cancelled_by: by, booked_by: booking.booked_by, resold_by: null }));
+}
+
+/**
+ * Refunds the paid parts a cancellation returned (krossi_booking_cancel / krossi_guest_cancel). A
+ * refund Stripe doesn't take now stays due for krossi-booking-cron; the answer still tells what goes
+ * back. keepsFee: the booker gave it up themselves (the peruutuskulu stays). → { total, own, fee }.
+ */
+async function refundCancelled(admin: SupabaseClient, bookingId: string, data: unknown, keepsFee: boolean) {
   const parts = (Array.isArray(data) ? data : []) as { shareId: string | null; kind: 'own' | 'friend'; paymentIntentId: string; cents: number }[];
   try {
     return await refundParts(stripe, admin, bookingId, parts);
@@ -360,7 +539,7 @@ async function cancelAndRefund(admin: SupabaseClient, booking: BookingRow, by: s
     console.error('refunds left for the cron', bookingId, (err as Error).message);
     const sum = (list: typeof parts) => list.reduce((n, p) => n + p.cents, 0);
     const own = sum(parts.filter((p) => p.kind === 'own'));
-    const fee = paysCancelFee({ cancelled_by: by, booked_by: booking.booked_by, resold_by: null }) ? cancelFeeOf(own) : 0;
+    const fee = keepsFee ? cancelFeeOf(own) : 0;
     return { total: sum(parts) - fee, own: own - fee, fee };
   }
 }
@@ -369,7 +548,9 @@ async function cancelAndRefund(admin: SupabaseClient, booking: BookingRow, by: s
 
 /**
  * A court freed up: the watches it satisfies are stamped in the database (once per freed row)
- * and krossi-notify emails each watcher. Never throws: the cancellation itself already happened.
+ * and krossi-notify emails each watcher — called with the player's own JWT (asUser), or for a
+ * guest with the service role (admin; freedById is then the booking's id). Never throws: the
+ * cancellation itself already happened.
  */
 async function notifyWatchers(admin: SupabaseClient, asUser: SupabaseClient, reservationId: string, actorId: string) {
   try {
@@ -399,6 +580,10 @@ function inBackground(promise: Promise<unknown>) {
 interface Body {
   action?: string;
   bookingId?: unknown;
+  courtId?: unknown;
+  startsAt?: unknown;
+  minutes?: unknown;
+  email?: unknown;
   paymentIntentId?: unknown;
   refund?: unknown;
   token?: unknown;
@@ -420,15 +605,18 @@ Deno.serve(async (req: Request) => {
   });
   const { data: callerData, error: callerError } = await asUser.auth.getUser();
   const signedIn = callerError ? null : callerData?.user ?? null;
-  if (!signedIn && !SPLIT_ACTIONS.has(body.action ?? '')) return json(req, { error: 'Kirjaudu uudelleen sisään.' }, 401);
-  // Every action below the split ones has a signed-in player.
+  if (!signedIn && !SPLIT_ACTIONS.has(body.action ?? '') && !GUEST_ACTIONS.has(body.action ?? '')) {
+    return json(req, { error: 'Kirjaudu uudelleen sisään.' }, 401);
+  }
+  // Every action but payConfig and the split and guest ones has a signed-in player.
   const user = signedIn as NonNullable<typeof signedIn>;
 
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
   try {
     if (body.action === 'payConfig') {
-      return json(req, { publishableKey: checkoutKey(), currency: 'eur', email: user.email ?? null });
+      // guests: this server takes bookings without an account (the app shows its name + email form).
+      return json(req, { publishableKey: checkoutKey(), currency: 'eur', email: signedIn?.email ?? null, guests: true });
     }
 
     if (body.action === 'config') {
@@ -445,104 +633,19 @@ Deno.serve(async (req: Request) => {
     }
 
     if (body.action === 'intent') {
-      let booking = await myBooking(admin, body.bookingId, user.id);
-      if (isSettled(booking)) return json(req, { paid: true });
-
-      // An unfinished payment of this booking is reused; one that went through is recorded.
-      const previous = booking.stripe_payment_intent_id ? await retrieveIntent(booking.stripe_payment_intent_id) : null;
-      if (previous?.status === 'succeeded' && previous.metadata?.booking_id === booking.id) {
-        const outcome = await settle(admin, previous);
-        if (outcome === 'lost') throw new Reply(409, LOST);
-        booking = (await loadBooking(admin, booking.id)) ?? booking;
-        if (isSettled(booking)) return json(req, { paid: true });
-      }
-      if (previous?.status === 'processing') throw new Reply(409, PENDING);
-      const amount = amountOf(booking);
-      // The gift balance on the hold changed (or not) since that payment was started: only the same amount is reused.
-      const reusable = previous && REUSABLE.includes(previous.status) && previous.amount === amount
-        && previous.metadata?.booking_id === booking.id ? previous : null;
-
-      if (!holdIsLive(booking)) {
-        // Too late to pay: make sure the old payment can't be finished either.
-        if (reusable) {
-          await stripe.paymentIntents.cancel(reusable.id, { cancellation_reason: 'abandoned' }).catch((err) =>
-            console.error('cancelling an expired booking payment failed', (err as Error).message));
-        }
-        throw new Reply(409, EXPIRED);
-      }
-      if (reusable) return json(req, { clientSecret: reusable.client_secret, paymentIntentId: reusable.id });
-      if (previous && REUSABLE.includes(previous.status)) {
-        await stripe.paymentIntents.cancel(previous.id, { cancellation_reason: 'abandoned' }).catch((err) =>
-          console.error('cancelling an outdated booking payment failed', (err as Error).message));
-      }
-      if (amount < MIN_CHARGE_CENTS) throw new Reply(409, 'Varauksen hinta on liian pieni verkkomaksuun.');
-
-      const [venue, place, customerId] = await Promise.all([
-        loadVenue(admin, booking.venue_id), loadPlace(admin, booking.court_id), customerOf(admin, user),
-      ]);
-      // A plain payment (nothing saved for later), so every method the account has works — MobilePay too.
-      const intent = await stripe.paymentIntents.create({
-        amount,
-        currency: 'eur',
-        customer: customerId,
-        automatic_payment_methods: { enabled: true },
-        description: describeBooking(booking, venue, place) + (booking.gift_cents > 0 ? ' (osa saldolla)' : ''),
-        receipt_email: user.email || undefined,
-        metadata: { product: BOOKING_PRODUCT, booking_id: booking.id, venue_id: booking.venue_id, supabase_user_id: user.id },
-        ...connectParams(venue, amount),
-      }, {
-        // Two taps at once get the same intent: the key names the booking, the intent it replaces
-        // and the amount (a gift balance put on or taken off changes it).
-        idempotencyKey: `krossi-booking-intent-${booking.id}-${booking.stripe_payment_intent_id ?? 'first'}`
-          + (booking.gift_cents > 0 ? `-${amount}` : ''),
-      });
-
-      // Store it unless the booking changed meanwhile (paid, or another intent stored first).
-      let store = admin.from('booking_reservations')
-        .update({ stripe_payment_intent_id: intent.id })
-        .eq('id', booking.id)
-        .eq('payment_status', 'unpaid');
-      store = booking.stripe_payment_intent_id
-        ? store.eq('stripe_payment_intent_id', booking.stripe_payment_intent_id)
-        : store.is('stripe_payment_intent_id', null);
-      const { data: stored, error: storeError } = await store.select('id');
-      if (storeError) throw new Error(`storing the payment intent failed: ${storeError.message}`);
-      if (!stored?.length) {
-        const latest = await loadBooking(admin, booking.id);
-        if (latest?.stripe_payment_intent_id !== intent.id) {
-          await stripe.paymentIntents.cancel(intent.id, { cancellation_reason: 'duplicate' }).catch((err) =>
-            console.error('cancelling a duplicate booking payment failed', (err as Error).message));
-          if (latest && isSettled(latest)) return json(req, { paid: true });
-          const theirs = latest?.stripe_payment_intent_id ? await retrieveIntent(latest.stripe_payment_intent_id) : null;
-          if (!theirs || !REUSABLE.includes(theirs.status)) throw new Reply(409, 'Maksun aloitus on jo käynnissä. Yritä hetken päästä uudelleen.');
-          return json(req, { clientSecret: theirs.client_secret, paymentIntentId: theirs.id });
-        }
-      }
-      return json(req, { clientSecret: intent.client_secret, paymentIntentId: intent.id });
+      const booking = await myBooking(admin, body.bookingId, user.id);
+      return json(req, await bookingPayment(admin, booking, {
+        email: user.email ?? null,
+        customer: () => customerOf(admin, user),
+        metadata: { supabase_user_id: user.id },
+      }));
     }
 
     if (body.action === 'verify') {
-      const id = typeof body.paymentIntentId === 'string' ? body.paymentIntentId : '';
-      if (!INTENT_RE.test(id)) throw new Reply(400, UNKNOWN_PAYMENT);
+      if (typeof body.paymentIntentId !== 'string' || !INTENT_RE.test(body.paymentIntentId)) throw new Reply(400, UNKNOWN_PAYMENT);
       const booking = await myBooking(admin, body.bookingId, user.id);
-      const intent = await retrieveIntent(id);
-      if (!intent || intent.metadata?.product !== BOOKING_PRODUCT || intent.metadata?.booking_id !== booking.id
-        || intent.metadata?.supabase_user_id !== user.id) {
-        throw new Reply(403, UNKNOWN_PAYMENT);
-      }
-      if (intent.status !== 'succeeded') return json(req, { confirmed: false, status: intent.status });
-      const outcome = await settle(admin, intent);
-      if (outcome === 'confirmed') return json(req, { confirmed: true, status: 'succeeded' });
-      if (outcome === 'lost') return json(req, { confirmed: false, status: 'lost', error: LOST });
-      // 'duplicate' (this payment was refunded, another one paid the booking) / 'cancelled'
-      const latest = await loadBooking(admin, booking.id);
-      const confirmed = latest?.status === 'confirmed';
-      // The webhook got here first and refunded a lost court: same answer as above.
-      if (!confirmed && latest?.payment_status === 'refunded' && latest.cancelled_by === null
-        && latest.stripe_payment_intent_id === intent.id) {
-        return json(req, { confirmed: false, status: 'lost', error: LOST });
-      }
-      return json(req, { confirmed, status: confirmed ? 'succeeded' : 'cancelled' });
+      return json(req, await verifyBookingPayment(admin, booking, body.paymentIntentId,
+        (intent) => intent.metadata?.supabase_user_id === user.id));
     }
 
     if (body.action === 'confirmed') {
@@ -582,6 +685,8 @@ Deno.serve(async (req: Request) => {
       }
       const { total, fee } = await cancelAndRefund(admin, booking, user.id, body.refund !== false);
       inBackground(notifyWatchers(admin, asUser, booking.id, user.id));
+      // A guest has no app to see it in: they get an email.
+      if (booking.guest_token) inBackground(mailGuestHallCancelled(admin, booking.id, total));
       return json(req, { refundedCents: total, feeCents: fee, ...(await creditBack(admin, booking, body.refund !== false)) });
     }
 
@@ -589,6 +694,80 @@ Deno.serve(async (req: Request) => {
       if (typeof body.bookingId !== 'string' || !UUID_RE.test(body.bookingId)) throw new Reply(404, NOT_FOUND);
       // The database checks that the row really is freed (or on sale) and handles it only once.
       return json(req, { notified: await notifyWatchers(admin, asUser, body.bookingId, user.id) });
+    }
+
+    // ── Vieras: a booking without an account ──
+
+    if (body.action === 'guestHold') {
+      const courtId = typeof body.courtId === 'string' && UUID_RE.test(body.courtId) ? body.courtId : null;
+      if (!courtId) throw new Reply(404, 'Kenttää ei löytynyt.');
+      const startsAt = typeof body.startsAt === 'string' && !Number.isNaN(Date.parse(body.startsAt))
+        ? new Date(body.startsAt).toISOString() : null;
+      if (!startsAt) throw new Reply(400, 'Valitse aika kalenterista.');
+      // Before holding: without a checkout the court must not sit held for nothing.
+      checkoutKey();
+      const { data: court, error: courtError } = await admin.from('booking_courts').select('venue_id').eq('id', courtId).maybeSingle();
+      if (courtError) throw new Error(`court lookup failed: ${courtError.message}`);
+      if (court && !takesPayments(await loadVenue(admin, court.venue_id as string))) throw new HallNotConnected();
+      const { data, error } = await admin.rpc('krossi_guest_hold_booking', {
+        court_id_input: courtId,
+        starts_at_input: startsAt,
+        minutes_input: Number.isInteger(body.minutes) ? body.minutes : null,
+        name_input: typeof body.name === 'string' ? body.name.slice(0, 200) : '',
+        email_input: typeof body.email === 'string' ? body.email.slice(0, 300) : '',
+        key_input: await guestKey(req),
+      });
+      if (error) throw rpcFailed('krossi_guest_hold_booking', error);
+      const held = data as { booking: Record<string, unknown>; token: string };
+      return json(req, { booking: held.booking, token: held.token });
+    }
+
+    if (body.action === 'guestIntent') {
+      const { booking, email } = await guestBookingOf(admin, body.token);
+      return json(req, await bookingPayment(admin, booking, {
+        email,
+        customer: async () => undefined,
+        metadata: { guest: 'true' },
+      }));
+    }
+
+    if (body.action === 'guestVerify') {
+      const { booking } = await guestBookingOf(admin, body.token);
+      return json(req, await verifyBookingPayment(admin, booking, body.paymentIntentId, (intent) => intent.metadata?.guest === 'true'));
+    }
+
+    if (body.action === 'guestRelease') {
+      const { token } = await guestBookingOf(admin, body.token);
+      const { data: freed, error } = await admin.rpc('krossi_guest_release', { token_input: token });
+      if (error) throw new Error(`krossi_guest_release failed: ${error.message}`);
+      if (typeof freed === 'string') inBackground(notifyWatchers(admin, admin, freed, freed));
+      return json(req, { ok: true });
+    }
+
+    if (body.action === 'guestBooking') {
+      const { booking, token } = await guestBookingOf(admin, body.token);
+      // A payment that went through while the guest was away (a redirect, a closed tab) is recorded first.
+      const stored = await settleStored(admin, booking);
+      const { data, error } = await admin.rpc('krossi_guest_booking', { token_input: token });
+      if (error) throw new Error(`krossi_guest_booking failed: ${error.message}`);
+      if (!data) throw new Reply(404, NOT_FOUND);
+      return json(req, { ...(data as Record<string, unknown>), ...(stored.outcome === 'lost' ? { lost: LOST } : {}) });
+    }
+
+    if (body.action === 'guestCancel') {
+      const found = await guestBookingOf(admin, body.token);
+      const { booking } = await settleStored(admin, found.booking);
+      if (booking.status === 'confirmed') {
+        const venue = await loadVenue(admin, booking.venue_id);
+        if (Date.now() >= Date.parse(booking.starts_at) - venue.cancel_limit_hours * 3_600_000) throw new Reply(409, TOO_LATE);
+      } else if (!(booking.status === 'cancelled' && booking.guest_cancelled)) {
+        throw new Reply(409, NOT_CANCELLABLE);
+      }
+      const { data, error } = await admin.rpc('krossi_guest_cancel', { token_input: found.token });
+      if (error) throw rpcFailed('krossi_guest_cancel', error);
+      const { own, fee } = await refundCancelled(admin, booking.id, data, true);
+      if (booking.status === 'confirmed') inBackground(notifyWatchers(admin, admin, booking.id, booking.id));
+      return json(req, { refundedCents: own, feeCents: fee });
     }
 
     // ── Jaettu maksu: a friend's share, signed in or not ──
