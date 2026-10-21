@@ -90,7 +90,7 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
         )}
         {!isEdit && target === 'group' && (
           <Field label="Ryhmä">
-            {groups.length === 0 ? <p className="field-msg">Ei vielä ryhmiä — luo ryhmä Ryhmät-sivulla.</p> : (
+            {groups.length === 0 ? <p className="field-msg">Ei vielä ryhmiä — luo ryhmä Viikkohallinnan plus-napista.</p> : (
               <div className="k-pick-list">
                 {groups.map((g) => (
                   <label key={g.id} className={cx('k-pick', groupId === g.id && 'is-on')}>

@@ -4,7 +4,8 @@
 // (wrangler.jsonc); the worker only sees "/", robots.txt, sitemap.xml and paths with no
 // matching file, and maps those deep links to the right HTML shell.
 //
-// Koutsi hosts must route exactly as they did before the Krossi web rebuild:
+// Koutsi hosts route exactly as they did before the Krossi web rebuild, except that the app
+// addresses open the renewed Koutsi by default (see serveNewKoutsiSwitch):
 // tests/cloudflare-routing.test.mjs compares every Koutsi path against a frozen copy of
 // the previous worker (tests/fixtures/worker-before-krossi-web.js).
 
@@ -120,7 +121,7 @@ export function resolveAssetPath(input) {
 // pages, assets) never reach this switch, so they answer exactly as before.
 // To roll back to "old by default", redeploy the Cloudflare version from before the flip.
 
-export const NEW_KOUTSI_COOKIE = 'koutsi_uusi';
+const NEW_KOUTSI_COOKIE = 'koutsi_uusi';
 const NEW_KOUTSI_SHELLS = {
   [KOUTSI_HOST]: { valmentaja: '/koutsi-uusi-valmentaja.html', pelaaja: '/koutsi-uusi-pelaaja.html' },
   [DEMO_HOST]: { valmentaja: '/koutsi-uusi-valmentaja-demo.html', pelaaja: '/koutsi-uusi-pelaaja-demo.html' },

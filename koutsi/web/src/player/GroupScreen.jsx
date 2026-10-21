@@ -109,7 +109,7 @@ export function GroupScreen() {
             <div className="grow"><div className="k-row-title">{c.name}</div><div className="k-faint">{c.tagline || 'Valmentaja'}</div></div>
           </Card>
         ))}
-        <Disclosure title="Liity toiseen ryhmään" summary="Liittymiskoodilla" icon="plus">
+        <Disclosure title={groups.length ? 'Liity toiseen ryhmään' : 'Liity ryhmään'} summary="Liittymiskoodilla" icon="plus">
           <JoinCodeForm onJoined={() => reload()} />
         </Disclosure>
       </div>

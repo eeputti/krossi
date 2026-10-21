@@ -5,9 +5,10 @@ import http from 'node:http';
 
 const port = Number(process.env.KROSSI_CLOUDFLARE_PORT || 8787);
 
-function request(host, path) {
+function request(host, path, cookie) {
   return new Promise((resolve, reject) => {
-    const req = http.get({ hostname: '127.0.0.1', port, path, headers: { host } }, (response) => {
+    const headers = cookie ? { host, cookie } : { host };
+    const req = http.get({ hostname: '127.0.0.1', port, path, headers }, (response) => {
       const chunks = [];
       response.on('data', (chunk) => chunks.push(chunk));
       response.on('end', () => resolve({
@@ -29,20 +30,26 @@ const pages = [
   ['krossi.app', '/demo', 'Kokeile Krossia — demo'],
   ['krossi.app', '/demo/pelit', 'Kokeile Krossia — demo'],
   ['koutsi.krossi.app', '/', 'Krossi Koutsi — Valmennus ja kehitys. Samassa paikassa.'],
-  ['koutsi.krossi.app', '/valmentaja/oppilaat?auth=login', 'Valmentajan näkymä — Krossi Koutsi'],
-  ['koutsi.krossi.app', '/pelaaja/treenit?koodi=ABC', 'Pelaajan näkymä — Krossi Koutsi'],
+  // The renewed Koutsi is the default; koutsi_uusi=0 ("Palaa vanhaan") keeps the old app.
+  ['koutsi.krossi.app', '/valmentaja/oppilaat?auth=login', 'Valmentaja — Krossi Koutsi'],
+  ['koutsi.krossi.app', '/valmentaja/ryhma/x', 'Valmentaja — Krossi Koutsi'],
+  ['koutsi.krossi.app', '/pelaaja/treenit?koodi=ABC', 'Pelaaja — Krossi Koutsi'],
+  ['koutsi.krossi.app', '/valmentaja/oppilaat?auth=login', 'Valmentajan näkymä — Krossi Koutsi', 'koutsi_uusi=0'],
+  ['koutsi.krossi.app', '/pelaaja/treenit?koodi=ABC', 'Pelaajan näkymä — Krossi Koutsi', 'koutsi_uusi=0'],
   ['koutsi.krossi.app', '/tietosuoja', 'Tietosuojaseloste — Krossi Koutsi'],
   ['koutsi.krossi.app', '/kayttoehdot', 'Käyttöehdot — Krossi Koutsi'],
   ['demo.koutsi.krossi.app', '/', 'Kokeile demoa — Krossi Koutsi'],
-  ['demo.koutsi.krossi.app', '/valmentaja/ryhmat', 'Valmentajan näkymä (demo) — Krossi Koutsi'],
-  ['demo.koutsi.krossi.app', '/pelaaja/treenit', 'Pelaajan näkymä (demo) — Krossi Koutsi'],
+  ['demo.koutsi.krossi.app', '/valmentaja/ryhmat', 'Kokeile Koutsia — valmentajan demo'],
+  ['demo.koutsi.krossi.app', '/pelaaja/treenit', 'Kokeile Koutsia — pelaajan demo'],
+  ['demo.koutsi.krossi.app', '/valmentaja/ryhmat', 'Valmentajan näkymä (demo) — Krossi Koutsi', 'koutsi_uusi=0'],
 ];
 
-await Promise.all(pages.map(async ([host, path, title]) => {
-  const response = await request(host, path);
-  assert.equal(response.status, 200, `${host}${path}`);
-  assert.match(response.contentType, /^text\/html/, `${host}${path}`);
-  assert.ok(response.body.includes(`<title>${title}</title>`), `${host}${path}`);
+await Promise.all(pages.map(async ([host, path, title, cookie]) => {
+  const label = `${host}${path}${cookie ? ` (${cookie})` : ''}`;
+  const response = await request(host, path, cookie);
+  assert.equal(response.status, 200, label);
+  assert.match(response.contentType, /^text\/html/, label);
+  assert.ok(response.body.includes(`<title>${title}</title>`), label);
 }));
 
 const asset = await request('koutsi.krossi.app', '/assets/ball-tight.png');

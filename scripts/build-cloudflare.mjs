@@ -47,7 +47,7 @@ const krossiFiles = [
   [`${KROSSI_WEB_DIST}/app.css`, 'krossi/app.css'],
 ];
 
-// The renewed Koutsi (koutsi/web, opt-in beta behind ?uusi=1 — see src/worker.js): its build
+// The renewed Koutsi (koutsi/web, the default since 25.10.2026 — see src/worker.js): its build
 // output already mirrors the published layout, four HTML shells at the top level and
 // everything else under koutsi-uusi/.
 const KOUTSI_WEB_DIST = 'koutsi/web/dist';

@@ -178,7 +178,10 @@ export function BoardScreen({ query }) {
     </button>
   );
 
-  if (state.groups.length === 0 && board.sessions === 0 && board.events.bars.length === 0) {
+  // Only a coach with nothing at all gets the "first group" page: a coach with private lessons
+  // but no groups must still be able to step to the weeks that have sessions.
+  const hasOwnSessions = (state.trainings || []).some((t) => t.loggedBy !== 'player');
+  if (state.groups.length === 0 && !hasOwnSessions && board.sessions === 0 && board.events.bars.length === 0) {
     return (
       <Page>
         <header className="wb-head">
