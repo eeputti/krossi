@@ -359,7 +359,6 @@ function UpcomingMatches() {
     <section className="upcoming" id="tulevat">
       <div className="upcoming-inner">
         <div className="upcoming-header">
-          <span className="eyebrow"><span className="demo-tag">Demo</span> Esikatselu</span>
           <h2 className="upcoming-title">Avoimet haasteet Lahdessa</h2>
           <p className="upcoming-sub">Tällaisia pelejä Krossissa sovitaan. Avaa demo ja kokeile liittymistä — ilman tiliä.</p>
         </div>
