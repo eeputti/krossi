@@ -58,6 +58,11 @@ export function RenewedIntro({ role, eligible }) {
         <p className="k-renewed-note">
           Tietosi ovat tallessa. Voit kuitenkin vielä vaihtaa vanhaan ulkoasuun yläreunan napista!
         </p>
+        {/* The privacy notice promises to announce material changes in the app (25.10.2026 update). */}
+        <p className="k-renewed-note">
+          Päivitimme samalla tietosuojaselosteen: siinä kerrotaan uusista merkinnöistä ja siitä, kuka ne näkee.{' '}
+          <a className="k-textlink" href="/tietosuoja" target="_blank" rel="noopener">Lue tietosuojaseloste <Icon name="arrow-right" size={13} /></a>
+        </p>
       </div>
     </Sheet>
   );

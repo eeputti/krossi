@@ -53,6 +53,7 @@
 .k-renewed-tag { color: var(--lime); font-size: 13px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
 .k-renewed { display: grid; gap: 10px; padding-top: 20px; }
 .k-renewed-note { font-size: 14px; line-height: 1.55; color: var(--muted); }
+.k-renewed-note .k-textlink { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
 @media (min-width: 900px) {
   .k-renewed-band { padding-top: 16px; }
   .k-renewed-sheet .sheet-close-floating { top: 18px; }
