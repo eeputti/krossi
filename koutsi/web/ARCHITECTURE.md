@@ -213,9 +213,10 @@ kolme tilaa (skeleton / ErrorState + Yritä uudelleen / data tai EmptyState). Ei
   `koutsi_queue_session_checkins()` → nykyinen ilmoitusjono → koutsi-notify (oma 1–5-pohja,
   versio 20). Betan aikana vain `koutsi_beta_testers`-listan osoitteille.
   Linkit: `/pelaaja?uusi=1&fiilis=<treeni>&arvo=1–5`, `?toive=1`.
-- `sql/20261021120000_koutsi_coaches_read_player_logs.sql` (ODOTTAA lupaa) — lukuoikeus: pelaajan omat
-  merkinnät näkyvät kaikille pelaajan nykyisille valmentajille, ei vain rivin `coach_id`:lle. Vain luku;
-  muokkaus- ja poisto-oikeudet ennallaan. Testattu PGlitessä (toinen valmentaja näkee pelaajan oman
-  merkinnän, ei yksityistuntia eikä muiden pelaajien rivejä; päättynyt valmennus ei näe mitään).
+- `supabase/migrations/20261021080937_koutsi_coaches_read_player_logs.sql` (ajettu 21.10.2026 käyttäjän
+  luvalla) — lukuoikeus: pelaajan omat merkinnät näkyvät kaikille pelaajan nykyisille valmentajille, ei
+  vain rivin `coach_id`:lle. Vain luku; muokkaus- ja poisto-oikeudet ennallaan. Testattu PGlitessä (toinen
+  valmentaja näkee pelaajan oman merkinnän, ei yksityistuntia eikä muiden pelaajien rivejä; päättynyt
+  valmennus ei näe mitään).
 - Kun uusi Koutsi otetaan kaikille käyttöön: poista beta-ehto `koutsi_queue_session_checkins()`-funktiosta
   (tai lisää osoitteet listaan) — muuten muut eivät koskaan saa viestiä.

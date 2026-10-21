@@ -31,8 +31,7 @@ async function loadWeekNotes(coachId) {
 
 // A player's own logs are theirs, not one coach's: the row carries one coach_id (the table needs
 // one), but every coach of the player sees it (RLS koutsi_trainings_linked_coach_reads_player_logs).
-// This reads the ones written under the player's other coaches; before that policy exists it
-// simply finds none.
+// This reads the ones written under the player's other coaches (policy applied 2026-10-21).
 async function loadPlayerLogs(studentIds, coachId) {
   const ids = [...new Set(studentIds.filter(Boolean))];
   const chunks = [];
