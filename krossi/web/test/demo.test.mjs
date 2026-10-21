@@ -409,9 +409,10 @@ test('games.join marks iJoined, can fill a game and opens its group chat with a 
   assert.equal(await api.games.join(single.id), conversationId);
   assert.equal((await api.messages.listMessages(conversationId)).length, messages.length);
 
-  // The creator welcomes Alex shortly after.
+  // The creator welcomes Alex shortly after — and says the game is not real, with a sign-up link.
   await eventually(async () => (await api.messages.listMessages(conversationId))
-    .some((m) => m.senderId === single.creator.id && m.kind === 'text'), 'creator says hi');
+    .some((m) => m.senderId === single.creator.id && m.kind === 'text'
+      && m.text.includes('demotila') && m.text.includes('https://krossi.app/pelaa')), 'creator says it is a demo');
 
   // Leaving reopens it.
   await api.games.leave(single.id);

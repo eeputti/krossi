@@ -144,13 +144,16 @@ export function scheduleReply(conversation, trigger, text = null) {
 
 // ── Other people doing things ────────────────────────────────────────────────
 
+/** What the creator says first: the game is pretend, so nobody heads to the court for it. */
+export const DEMO_WELCOME = 'Hienoa! Tämä on demotila, joten peli ei ole oikea – älä siis tule oikeasti paikan päälle. '
+  + 'Luo oma tili tästä, niin voit liittyä oikeisiin peleihin: https://krossi.app/pelaa';
+
 /** After Alex joins a game, its creator says hi in the game chat. */
 export function scheduleWelcome(game, conversationId) {
   later(2000, 4000, () => {
     if (!conversationRow(conversationId) || game.status === 'cancelled' || !game.participantIds.includes(ME)) return;
     if (isBlocked(game.creatorId) || !profileOf(game.creatorId)) return;
-    const name = me().name;
-    postMessage(conversationId, game.creatorId, { text: nextFrom([`Tervetuloa mukaan, ${name}! 🎾`, 'Hienoa, nähdään kentällä!', `Jes ${name}, kiva kun lähdit mukaan!`]) });
+    postMessage(conversationId, game.creatorId, { text: DEMO_WELCOME });
   });
 }
 
