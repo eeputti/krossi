@@ -572,7 +572,7 @@ test('guestBooking: the page\'s shape; an unknown link is null', async () => {
   };
   setClientForTests(fakeClient({ signedIn: false, invoke: () => ({ data: page, error: null }) }));
   const got = await booking.guestBooking(GUEST_TOKEN);
-  assert.deepEqual(Object.keys(got).sort(), ['booking', 'cancelledByGuest', 'guest', 'lostMessage', 'venue']);
+  assert.deepEqual(Object.keys(got).sort(), ['booking', 'cancelledByGuest', 'claimed', 'guest', 'lostMessage', 'venue']);
   assert.equal(got.booking.status, 'confirmed');
   assert.deepEqual(got.guest, page.guest);
   assert.deepEqual(got.venue, page.venue);
@@ -582,6 +582,35 @@ test('guestBooking: the page\'s shape; an unknown link is null', async () => {
   setClientForTests(fakeClient({ signedIn: false, invoke: () => functionError('Varausta ei löytynyt.', 404) }));
   assert.equal(await booking.guestBooking(GUEST_TOKEN), null);
   assert.equal(await booking.guestBooking('nope'), null);
+});
+
+test('claimGuest: the token to krossi_claim_guest_booking, the booking back; refusals keep their message', async () => {
+  const fake = fakeClient({ rpc: () => ({ data: { ...BOOKING_ROW, status: 'confirmed', paymentStatus: 'paid', holdExpiresAt: null }, error: null }) });
+  setClientForTests(fake);
+  const got = await booking.claimGuest(GUEST_TOKEN);
+  assert.equal(got.id, BOOKING_ROW.id);
+  assert.equal(got.status, 'confirmed');
+  assert.deepEqual(fake.log.rpc, [{ name: 'krossi_claim_guest_booking', args: { token_input: GUEST_TOKEN } }]);
+  await assert.rejects(booking.claimGuest('short'), (err) => err.userMessage === 'Varausta ei löytynyt.');
+  assert.equal(fake.log.rpc.length, 1, 'a malformed token never reaches the database');
+  setClientForTests(fakeClient({ rpc: () => ({ data: null, error: { code: 'P0001', message: 'Varaus on jo liitetty toiseen tiliin.' } }) }));
+  await assert.rejects(booking.claimGuest(GUEST_TOKEN), (err) => err.userMessage === 'Varaus on jo liitetty toiseen tiliin.');
+  setClientForTests(fakeClient({ signedIn: false }));
+  await assert.rejects(booking.claimGuest(GUEST_TOKEN));
+});
+
+test('guestBooking: claimed comes through', async () => {
+  const page = {
+    booking: { ...BOOKING_ROW, status: 'confirmed', paymentStatus: 'paid', holdExpiresAt: null },
+    guest: { name: 'Ville Vieras', email: 'ville@example.com' },
+    venue: { slug: 'lahti', name: 'Lahden tennishallit', cancelLimitHours: 24, holdMinutes: 10 },
+    cancelledByGuest: false,
+    claimed: true,
+  };
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => ({ data: page, error: null }) }));
+  assert.equal((await booking.guestBooking(GUEST_TOKEN)).claimed, true);
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => ({ data: { ...page, claimed: undefined }, error: null }) }));
+  assert.equal((await booking.guestBooking(GUEST_TOKEN)).claimed, false, 'before the migration: not claimed');
 });
 
 test('guestCancel: refund and peruutuskulu back; a late one says why', async () => {

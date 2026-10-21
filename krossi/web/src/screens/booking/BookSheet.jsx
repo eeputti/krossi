@@ -13,12 +13,18 @@
 // main button is the way on: "Etsi pelikaveri tähän vuoroon" opens Peliseura with a game for this
 // court ready to publish. `home` is the page's own path, where a redirect payment comes back to.
 //
-// Without an account (`guest`) the sheet first asks how to book: "Luo tili ja varaa" (the booking goes
-// to the account — AccountSheet), "Varaa ilman tiliä" (a name and an email, paid right away; no series
-// card, saldo or split) or "Kirjaudu". Paying as a guest holds the court for the guest
-// (api.booking.guest*). Done: the confirmation — and before the cancellation limit the cancellation
-// link — goes to that email; "Näytä varaus" opens the booking's own page (/pelaa/varaus/<token>, where a
-// redirect payment comes back too). Finding a partner needs an account: "Luo tili ja etsi pelikaveri".
+// Without an account (`guest`) the sheet first asks how to book: "Luo tili ja varaa" (a quick account
+// right here — AccountSheet — and the booking goes to it), "Varaa ilman tiliä" (a name and an email,
+// paid right away; no series card, saldo or split) or "Kirjaudu". Paying as a guest holds the court for
+// the guest (api.booking.guest*). Done: the confirmation — and before the cancellation limit the
+// cancellation link — goes to that email; "Näytä varaus" opens the booking's own page
+// (/pelaa/varaus/<token>, where a redirect payment comes back too). The booking is remembered in this
+// tab: making an account or signing in here moves it to the account (app/bookingAccount.js). Finding
+// a partner needs an account: "Luo tili ja etsi pelikaveri" (the booking moves to it, then Peliseura —
+// onboarding first for a new account).
+//
+// Signed in without a profile yet (`needsName`, back from Google / Apple): the sheet asks the name and
+// saves it (api.profile.createForBooking) right before the court is held.
 //
 // The demo has no card form: "Maksa" opens a stand-in for the payment details and "OK" pays.
 //
@@ -27,6 +33,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/index.js';
 import { useAsync, useLocalState } from '../../app/hooks.js';
+import { claimGuestBookings, rememberGuestBooking } from '../../app/bookingAccount.js';
+import { useSession } from '../../app/session.jsx';
 import { Checkout } from '../../app/checkout.jsx';
 import { navigate } from '../../app/router.js';
 import { WEEKDAYS_SHORT, formatDayMonth, formatTime } from '../../lib/format.js';
@@ -40,7 +48,7 @@ import { downloadBookingIcs, sportLabel, timeInSentence, whenLabel } from './Boo
 import { useForecast, weatherInfo } from './weather.js';
 import { BookingTermsSheet } from './BookingTerms.jsx';
 import { SplitShare } from './SplitShare.jsx';
-import { AccountSheet, goToAccount } from './AccountSheet.jsx';
+import { AccountSheet } from './AccountSheet.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const MIN = 60_000;
@@ -93,9 +101,11 @@ function mapStates(location, free, busy, startsAt, minutes, chosenId, sport) {
 
 export function BookSheet({
   open, onClose, venue, busy, sport, startsAt, minutes, courtId: firstCourtId, locationId, onBooked, onChanged, target = null,
-  site = false, home = '/pelaa/varaa', guest = false,
+  site = false, home = '/pelaa/varaa', guest = false, needsName = false,
 }) {
   const toast = useToast();
+  const { user, setProfile } = useSession();
+  const [quickName, setQuickName] = useState('');
   const [courtId, setCourtId] = useState(firstCourtId || null);
   const [placeId, setPlaceId] = useState(null);
   const [step, setStep] = useState('choose'); // 'choose' | 'pay' (the demo's stand-in payment) | 'done'
@@ -109,7 +119,7 @@ export function BookSheet({
   const [termsOpen, setTermsOpen] = useState(false);
   // A guest's name and email, remembered on this device for the next booking.
   const [contact, setContact] = useLocalState('krossi_guest_contact', { name: '', email: '' });
-  const contactOk = !guest || guestContactOk(contact);
+  const contactOk = (!guest || guestContactOk(contact)) && (!needsName || quickName.trim().length >= 2);
   // The hold made when the player pays: Stripe's callbacks read it, and closing gives it back. A
   // guest's carries its token.
   const heldRef = useRef(null);
@@ -124,6 +134,7 @@ export function BookSheet({
     setStep('choose');
     setWho(null);
     setAccountAsk(null);
+    setQuickName((n) => n || user?.name || '');
     setBooking(null);
     setLegacyConfig(null);
     setCredit(null);
@@ -161,6 +172,7 @@ export function BookSheet({
 
   const finish = (confirmed) => {
     heldRef.current = null;
+    if (confirmed?.token) rememberGuestBooking(confirmed.token);
     setBooking(confirmed);
     setStep('done');
     onBooked?.(confirmed);
@@ -182,6 +194,8 @@ export function BookSheet({
       heldRef.current = { ...held, token };
       return heldRef.current;
     }
+    // Back from Google / Apple without a profile: the name first (a booking belongs to a profile).
+    if (needsName) setProfile(await api.profile.createForBooking({ name: quickName, city: venue.city }));
     const held = await api.booking.hold({ courtId: chosen.court.id, startsAt, minutes });
     heldRef.current = held;
     return held;
@@ -301,19 +315,17 @@ export function BookSheet({
     navigate(`/pelaa/uusi-peli?varaus=${encodeURIComponent(id)}`, { overlay: true });
   };
 
-  // An account: the demo makes one in a sheet right here; the real Krossi opens the account page and
-  // comes back to `back` once the account is ready.
-  const askAccount = (mode, { subtitle, then, back }) => {
-    if (payConfig.data?.demo) { setAccountAsk({ mode, subtitle, then }); return; }
-    onClose();
-    goToAccount(mode, back);
-  };
+  // An account right here (AccountSheet); `back` is where Google / Apple come back to.
+  const askAccount = (mode, { subtitle, then, back }) => setAccountAsk({ mode, subtitle, then, back });
   const accountSheet = (
     <AccountSheet
       open={Boolean(accountAsk)}
       mode={accountAsk?.mode}
       subtitle={accountAsk?.subtitle}
+      name={contact.name}
       email={contact.email}
+      city={venue.city}
+      back={accountAsk?.back}
       onClose={() => setAccountAsk(null)}
       onDone={() => { const then = accountAsk?.then; setAccountAsk(null); then?.(); }}
     />
@@ -326,9 +338,13 @@ export function BookSheet({
     const canCancel = Date.parse(until) > Date.now();
     // The booking site's way on is a pelikaveri; a guest needs an account for that.
     const partnerFoot = !target && (site || guest);
+    // The booking moves to the new account first, so the game can be on this court.
     const partnerWithAccount = () => askAccount('register', {
       subtitle: 'Pelikaverin haku vaatii tilin.',
-      then: findPartner,
+      then: async () => {
+        if (booking.token) await claimGuestBookings([booking.token]);
+        findPartner();
+      },
       back: '/pelaa/pelaajat',
     });
     let fine;
@@ -575,6 +591,19 @@ export function BookSheet({
                 Kirjaudu
               </button>
             </p>
+          </div>
+        )}
+
+        {chosen && needsName && (
+          <div className="bk-name">
+            <Input
+              aria-label="Nimi"
+              placeholder="Nimi"
+              autoComplete="name"
+              maxLength={80}
+              value={quickName}
+              onChange={(e) => setQuickName(e.target.value)}
+            />
           </div>
         )}
 

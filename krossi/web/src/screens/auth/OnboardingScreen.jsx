@@ -84,8 +84,9 @@ function Step({ n, title, hint, done, optional, flagged, stepRef, children }) {
 export function OnboardingScreen() {
   const { user, profile: existing, setProfile, refreshProfile } = useSession();
   // `existing` = a profile Krossi Koutsi created; prefill from it and keep its private flag
-  // unless the player explicitly opts in to the Krossi player search.
-  const fromKoutsi = Boolean(existing);
+  // unless the player explicitly opts in to the Krossi player search. The booking site's quick
+  // account (a name only, user.bookingProfile) is a new Krossi player: prefilled, nothing about Koutsi.
+  const fromKoutsi = Boolean(existing) && !user?.bookingProfile;
   const [ageGroup, setAgeGroup] = useState(fromKoutsi ? undefined : null);
   const [visible, setVisible] = useState(true);
   const toast = useToast();

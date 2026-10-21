@@ -622,14 +622,26 @@ export async function guestBooking(token) {
       guest: { ...row.guest },
       venue: { slug: venue.slug, name: venue.name, cancelLimitHours: venue.cancelLimitHours, holdMinutes: venue.holdMinutes },
       cancelledByGuest: row.guestCancelled === true,
+      claimed: row.guestClaimed === true,
       lostMessage: null,
     };
+  });
+}
+
+/** The demo's guest booking is the demo player's already: claiming only marks it moved. */
+export async function claimGuest(token) {
+  return run(() => {
+    const row = guestRow(token);
+    if (row.status !== 'confirmed' || row.guestCancelled) throw fail('Vain voimassa olevan varauksen voi liittää tiliin.');
+    row.guestClaimed = true;
+    return toBooking(row);
   });
 }
 
 export async function guestCancel(token) {
   return run(() => {
     const row = guestRow(token);
+    if (row.guestClaimed) throw fail('Varaus on Krossi-tililläsi. Peru se omista varauksistasi.');
     if (row.status === 'cancelled' && row.guestCancelled) return { refundedCents: 0, feeCents: 0 };
     if (row.status !== 'confirmed') throw fail('Tätä varausta ei voi enää perua.');
     const venue = venueRow(row.venueId);

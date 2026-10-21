@@ -2,14 +2,18 @@
 // (in the guest's confirmation email; a redirect payment such as MobilePay comes back here too). The
 // booking site's look (SiteShell, SiteBar), one job: what was booked, and — before the hall's
 // cancellation limit — "Peru varaus" (the money back to the card minus the 1 € peruutuskulu).
-// Below, the way into Krossi for finding somebody to play with — that needs an account.
+// Signed in: "Siirrä tilillesi" moves it to the account (the link is the proof; a forwarded link is
+// why this is a button and not automatic). Moved: it lives in Omat varaukset, cancelled from there.
+// Below, the way into Krossi for finding somebody to play with — that needs an account, and the
+// booking moves to it on the way.
 import { useEffect, useRef, useState } from 'react';
 import { api, isDemo } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
+import { claimGuestBookings, rememberGuestBooking } from '../../app/bookingAccount.js';
 import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
 import { useDemoSiteSignedIn } from '../../app/siteAccount.js';
-import { AccountSheet, goToAccount } from './AccountSheet.jsx';
+import { AccountSheet } from './AccountSheet.jsx';
 import { CANCEL_FEE_CENTS, centsLabel } from '../../features/booking.js';
 import { Button, EmptyState, ErrorState, Icon, Page, Skeleton, TennisBall, useConfirm, useToast } from '../../ui/index.js';
 import { SiteBar } from './SiteBar.jsx';
@@ -49,14 +53,34 @@ export function GuestBookingScreen({ params, query }) {
   const page = useAsync(() => api.booking.guestBooking(token), [token]);
   const [checking, setChecking] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const { user, needsOnboarding } = useSession();
+  const [accountAsk, setAccountAsk] = useState(null); // AccountSheet: { mode, subtitle, then }
+  const [moving, setMoving] = useState(false);
+  const { user, profile } = useSession();
   const demoSignedIn = useDemoSiteSignedIn();
-  const account = isDemo ? demoSignedIn : Boolean(user) && !needsOnboarding;
-  const findPartner = () => {
-    if (account) navigate('/pelaa/pelaajat');
-    else if (isDemo) setAccountOpen(true);
-    else goToAccount('register', '/pelaa/pelaajat');
+  const account = isDemo ? demoSignedIn : Boolean(user && profile);
+
+  /** Peliseura; a confirmed booking of this link moves to the account first, then a game on it. */
+  const toPartners = async () => {
+    const b = page.data?.booking;
+    const moved = b?.status === 'confirmed' ? (page.data.claimed ? [b] : await claimGuestBookings([token])) : [];
+    navigate('/pelaa/pelaajat');
+    if (moved[0]) navigate(`/pelaa/uusi-peli?varaus=${encodeURIComponent(moved[0].id)}`, { overlay: true });
+  };
+  const findPartner = () => (account ? toPartners()
+    : setAccountAsk({ mode: 'register', subtitle: 'Pelikaverin haku vaatii tilin.', then: toPartners }));
+  const toMyBookings = () => navigate(`/pelaa/omat-varaukset?vuoro=${encodeURIComponent(page.data?.booking.id || '')}`);
+
+  const moveToAccount = async () => {
+    setMoving(true);
+    try {
+      await api.booking.claimGuest(token);
+      toast('Varaus on nyt tililläsi.', { icon: 'check' });
+      page.reload({ silent: true });
+    } catch (err) {
+      toast(err);
+    } finally {
+      setMoving(false);
+    }
   };
 
   // Back from a redirect payment (?payment_intent=…&redirect_status=…): confirm it, then drop the
@@ -66,6 +90,7 @@ export function GuestBookingScreen({ params, query }) {
     const { payment_intent: intentId, redirect_status: status } = query || {};
     if ((!intentId && !status) || handled.current) return;
     handled.current = true;
+    rememberGuestBooking(token);
     (async () => {
       if (status === 'failed') {
         toast(FAILED, { tone: 'error', duration: 6000 });
@@ -132,7 +157,8 @@ export function GuestBookingScreen({ params, query }) {
   const { booking: b, guest, venue } = page.data;
   const state = stateOf(page.data);
   const confirmed = b.status === 'confirmed';
-  const cancellable = confirmed && Date.parse(b.cancellableUntil) > Date.now();
+  const claimed = page.data.claimed === true;
+  const cancellable = confirmed && !claimed && Date.parse(b.cancellableUntil) > Date.now();
   const paid = b.priceCents;
   const back = Math.max(0, paid - Math.min(CANCEL_FEE_CENTS, paid));
 
@@ -190,14 +216,27 @@ export function GuestBookingScreen({ params, query }) {
           {confirmed && (
             <div className="gb-actions">
               <Button variant="soft" icon="calendar" block onClick={() => downloadBookingIcs(b, { cancellableUntil: b.cancellableUntil })}>Lisää kalenteriin</Button>
+              {claimed && (
+                <Button
+                  variant="outline"
+                  icon="arrow-right"
+                  block
+                  onClick={() => (account ? toMyBookings() : setAccountAsk({ mode: 'login', then: toMyBookings }))}
+                >
+                  Omat varaukset
+                </Button>
+              )}
+              {!claimed && account && <Button variant="outline" icon="user" block loading={moving} onClick={moveToAccount}>Siirrä tilillesi</Button>}
               {cancellable && <Button variant="outline" icon="undo" block loading={cancelling} onClick={cancel}>Peru varaus</Button>}
             </div>
           )}
           {confirmed && (
             <p className="bk-fine bk-fine-center">
-              {cancellable
-                ? `Peruutus ${timeInSentence(b.cancellableUntil)} asti, peruutuskulu ${centsLabel(CANCEL_FEE_CENTS)}.`
-                : 'Peruutusaika on mennyt. Ota tarvittaessa yhteyttä halliin.'}
+              {claimed
+                ? 'Varaus on Krossi-tililläsi. Peru se tarvittaessa omista varauksistasi.'
+                : cancellable
+                  ? `Peruutus ${timeInSentence(b.cancellableUntil)} asti, peruutuskulu ${centsLabel(CANCEL_FEE_CENTS)}.`
+                  : 'Peruutusaika on mennyt. Ota tarvittaessa yhteyttä halliin.'}
             </p>
           )}
           {!confirmed && state.tone !== 'wait' && (
@@ -209,14 +248,16 @@ export function GuestBookingScreen({ params, query }) {
           <Button variant="lime" size="lg" block icon="users" onClick={findPartner}>{account ? 'Etsi pelikaveri' : 'Luo tili ja etsi pelikaveri'}</Button>
         </div>
       </Page>
-      {isDemo && (
-        <AccountSheet
-          open={accountOpen}
-          subtitle="Pelikaverin haku vaatii tilin."
-          onClose={() => setAccountOpen(false)}
-          onDone={() => { setAccountOpen(false); navigate('/pelaa/pelaajat'); }}
-        />
-      )}
+      <AccountSheet
+        open={Boolean(accountAsk)}
+        mode={accountAsk?.mode}
+        subtitle={accountAsk?.subtitle}
+        name={guest.name}
+        email={guest.email}
+        back={`/pelaa/varaus/${encodeURIComponent(token)}`}
+        onClose={() => setAccountAsk(null)}
+        onDone={() => { const then = accountAsk?.then; setAccountAsk(null); then?.(); }}
+      />
     </>
   );
 }

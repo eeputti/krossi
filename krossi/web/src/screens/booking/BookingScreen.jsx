@@ -44,7 +44,8 @@ import {
   Button, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Sheet, Skeleton, TennisBall, TopBar, useToast,
 } from '../../ui/index.js';
 import { BookSheet } from './BookSheet.jsx';
-import { AccountSheet, goToAccount } from './AccountSheet.jsx';
+import { AccountSheet } from './AccountSheet.jsx';
+import { BOOKINGS_CHANGED } from '../../app/bookingAccount.js';
 import { SiteBar } from './SiteBar.jsx';
 import { BookingTermsSheet } from './BookingTerms.jsx';
 import { DateStrip, DurationStepper, PlacePicker, TimeRows, UnpaidPayments } from './BookingParts.jsx';
@@ -69,14 +70,17 @@ function firstDay(venue, now = new Date()) {
 }
 
 export function BookingScreen({ params, query, route }) {
-  const { profile, user, needsOnboarding } = useSession();
-  // My own bookings, cards and bells need an account (a guest has none of them). The demo's booking
-  // site is a guest's until the visitor makes an account or signs in there.
+  const { profile, user } = useSession();
+  // My own bookings, cards and bells need an account (a guest has none of them). Booking with the
+  // account needs only a profile row — a quick account (just a name) books too; onboarding comes with
+  // Peliseura. Signed in without any profile yet (back from Google / Apple): the sheet asks the name
+  // (`needsName`). The demo's booking site is a guest's until the visitor makes an account there.
   const demoSite = isDemo && route?.type === 'site';
   const demoSignedIn = useDemoSiteSignedIn();
-  const account = demoSite ? demoSignedIn : Boolean(user) && !needsOnboarding;
-  const guest = !account;
-  const site = route?.type === 'site' || !account;
+  const account = demoSite ? demoSignedIn : Boolean(user && profile);
+  const guest = demoSite ? !demoSignedIn : !user;
+  const needsName = !demoSite && Boolean(user) && !profile;
+  const site = route?.type === 'site' || !account || !profile?.isKrossiPlayer;
   const [loginOpen, setLoginOpen] = useState(false);
   const isDesktop = useIsDesktop();
   // The booking site and the desktop Varaa item have no back arrow; a phone's booking page (opened from
@@ -127,6 +131,14 @@ export function BookingScreen({ params, query, route }) {
     day.reload({ silent: true }); mine.reload({ silent: true }); watches.reload({ silent: true });
     seasonSlots.reload({ silent: true });
   });
+  // A guest booking of this visit moved to the account (bookingAccount.js): show it as mine.
+  const reloadMineRef = useRef(null);
+  reloadMineRef.current = () => { mine.reload({ silent: true }); day.reload({ silent: true }); };
+  useEffect(() => {
+    const onChange = () => reloadMineRef.current?.();
+    window.addEventListener(BOOKINGS_CHANGED, onChange);
+    return () => window.removeEventListener(BOOKINGS_CHANGED, onChange);
+  }, []);
   useEffect(() => {
     if (!key) return undefined;
     setSettling(true);
@@ -339,7 +351,7 @@ export function BookingScreen({ params, query, route }) {
   }
 
   const upcoming = mine.data?.upcoming || [];
-  const signIn = () => (demoSite ? setLoginOpen(true) : goToAccount('login', `${home}/${encodeURIComponent(venue.slug)}`));
+  const signIn = () => setLoginOpen(true);
   const freed = (watches.data || []).filter((w) => w.notifiedAt);
   const failedMonths = (seasonSlots.data || [])
     .filter((slot) => slot.venueId === venue.id && slot.status === 'active')
@@ -500,7 +512,14 @@ export function BookingScreen({ params, query, route }) {
         />
       </Sheet>
       <BookingTermsSheet open={termsOpen} onClose={() => setTermsOpen(false)} venue={venue} />
-      {demoSite && <AccountSheet open={loginOpen} mode="login" onClose={() => setLoginOpen(false)} onDone={() => setLoginOpen(false)} />}
+      <AccountSheet
+        open={loginOpen}
+        mode="login"
+        city={venue.city}
+        back={`${home}/${encodeURIComponent(venue.slug)}`}
+        onClose={() => setLoginOpen(false)}
+        onDone={() => setLoginOpen(false)}
+      />
       <BookSheet
         open={bookOpen && Boolean(pick)}
         onClose={() => setBookOpen(false)}
@@ -517,6 +536,7 @@ export function BookingScreen({ params, query, route }) {
         site={site}
         home={home}
         guest={guest}
+        needsName={needsName}
       />
     </>
   );
