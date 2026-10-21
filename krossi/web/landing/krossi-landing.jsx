@@ -457,7 +457,6 @@ function DemoBand() {
     <section className="demo-band" id="demo">
       <div className="demo-band-inner">
         <div className="demo-band-copy">
-          <span className="eyebrow eyebrow-green"><span className="demo-tag">Demo</span> Ilman tiliä</span>
           <h2>Kokeile demoa</h2>
           <p>Koko Krossi esimerkkidatalla: selaa pelaajia, sovi peli, laita viestiä ja kurkkaa liigataulukkoon. Mikään ei tallennu.</p>
           <ul className="demo-band-points">
