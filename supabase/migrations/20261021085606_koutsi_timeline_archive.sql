@@ -1,4 +1,4 @@
--- Renewed Koutsi (koutsi/web) — NOT APPLIED until the user says "aja migraatio".
+-- Renewed Koutsi (koutsi/web) — APPLIED 2026-10-21 with the user's OK ("aja migraatio"), prod version 20261021085606.
 --
 -- 1. The player's Kehitys archive: "Muokkaa" → Piilota moves any timeline item into the player's
 --    own Arkisto (one row per item, keyed by the timeline event's id, e.g. 'mood-<uuid>'). The

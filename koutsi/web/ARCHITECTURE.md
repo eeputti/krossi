@@ -157,8 +157,8 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   Arkistosta: Palauta tai Poista (omat poistetaan pysyvästi, valmentajan merkinnät vain arkistosta).
   Tavoitteen, pitkän ajan tavoitteen ja tähtäimen (`field = 'ambition'`) muutokset ovat aikajanalla pieninä
   riveinä "vanha → uusi". "Tämä viikko" -kortti avaa kuukausikalenterin: mitä kunakin päivänä tehtiin.
-  Migraatio `koutsi/web/sql/20261021140000_koutsi_timeline_archive.sql` — **ei ajettu**; ilman sitä
-  `archiveReady: false` ja Muokkaa/Arkisto pysyvät piilossa (kalenteri ja tavoiterivit toimivat).
+  Migraatio `supabase/migrations/20261021085606_koutsi_timeline_archive.sql` (ajettu 21.10.2026 käyttäjän
+  luvalla); tietokannassa ilman taulua `archiveReady: false` ja Muokkaa/Arkisto pysyvät piilossa.
 
 ## 5. Reitit
 
