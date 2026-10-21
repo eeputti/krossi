@@ -68,9 +68,3 @@ export const wasAsked = (studentId, trainingId) => readSet(ASKED_KEY(studentId))
 export function markAsked(studentId, trainingId) {
   writeSet(ASKED_KEY(studentId), readSet(ASKED_KEY(studentId)).add(trainingId));
 }
-
-/** The feeling the player already gave after this session began, if any. */
-export function moodAfter(student, training) {
-  const start = new Date(`${training.date}T${training.time || '00:00'}:00`);
-  return (student.moods || []).find((m) => new Date(m.at) >= start) || null;
-}

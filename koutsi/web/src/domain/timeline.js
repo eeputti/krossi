@@ -78,6 +78,15 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
     search: `${g.value || ''} ${g.previousValue || ''} tavoite`,
   }));
 
+  // The long-term goal ("Pitkän ajan tavoite") changes as rarely as it should; each change is kept.
+  (student.longGoalHistory || []).forEach((g) => push({
+    id: `longgoal-${g.id}`, kind: 'goal', at: g.at, source: g,
+    title: g.previousValue ? 'Pitkän ajan tavoite päivitetty' : 'Pitkän ajan tavoite asetettu',
+    body: g.value || '(tavoite tyhjennetty)',
+    previous: g.previousValue || '',
+    search: `${g.value || ''} ${g.previousValue || ''} tavoite pitkän ajan`,
+  }));
+
   // The player's own "what I did, when and how it went". It sits on the day it happened.
   (student.entries || []).forEach((e) => push({
     id: `entry-${e.id}`, kind: 'entry', at: e.date || e.at, source: e,

@@ -10,7 +10,7 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 
 /** Maps a stored link_path ('/pelaaja', '/valmentaja', …) to a canonical in-app path. A
  *  "Treenit ohi! Miten meni?" keeps its ?fiilis= (and ?toive=) so the player app opens the pop-up. */
-function targetOf(linkPath, home) {
+export function targetOf(linkPath, home) {
   if (!linkPath) return null;
   const [raw, query = ''] = String(linkPath).split('?');
   const path = raw.replace(/\/+$/, '');

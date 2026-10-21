@@ -52,6 +52,13 @@ async function loadEntries(studentIds) {
   }
 }
 
+// Columns added by koutsi/web/sql/20261021130000_koutsi_long_goal_and_mood_session.sql. Until it
+// runs, the long-term goal stays hidden and only the latest session is asked "Miten meni?".
+async function moodSessionsReady() {
+  const { error } = await fromTable('koutsi_moods').select('training_id').limit(1);
+  return !error;
+}
+
 export async function loadCoachState(coachId) {
   const [coachRow, profileRow] = await Promise.all([
     fromTable('koutsi_coaches').select('id, tagline, bio, experience, specialties, welcome_seen_at').eq('id', coachId).single().then(must),
@@ -134,7 +141,7 @@ export async function loadPlayerState(studentId) {
 
   const [
     coachRows, coachProfiles, groupRows, rosterRows, themeRows, slotRows, exerciseRows, eventRows,
-    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history, entries,
+    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history, entries, moodSessions,
   ] = await Promise.all([
     selectIn(coachIds, (ids) => fromTable('koutsi_coaches').select('*').in('id', ids)),
     selectIn(coachIds, (ids) => fromTable('profiles').select('id, name, avatar_url').in('id', ids)),
@@ -153,6 +160,7 @@ export async function loadPlayerState(studentId) {
     own('koutsi_match_notes', 'date'),
     own('koutsi_player_history', 'created_at'),
     loadEntries([studentId]),
+    moodSessionsReady(),
   ]);
 
   const trainingRows = [...ownTrainings, ...groupTrainings.filter((t) => !ownTrainings.some((o) => o.id === t.id))];
@@ -179,5 +187,7 @@ export async function loadPlayerState(studentId) {
     exercises: (exerciseRows || []).map(mapExercise),
     clubEvents: (eventRows || []).map(mapClubEvent),
     entriesReady: entries.ready,
+    moodSessionsReady: moodSessions,
+    longGoalReady: 'long_goal' in studentRow,
   };
 }

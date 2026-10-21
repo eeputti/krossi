@@ -5,6 +5,9 @@
 // tapped there is saved as soon as the app opens: only a signed-in player can save anything,
 // so a mail scanner that opens the link changes nothing. A feeling already given after the
 // session began is shown for editing instead of saving a second one.
+//
+// Once koutsi_moods.training_id exists (state.moodSessionsReady) the feeling names its session, so
+// each of several sessions in a row gets its own; `all` ("Kaikista kerralla") saves one for them all.
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
@@ -13,14 +16,14 @@ import { koutsiGroupById, koutsiThemeForDate } from '../domain/core.js';
 import { relativeDay } from '../domain/week.js';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { HEALTH_NOTE, MoodPicker } from './sheets.jsx';
-import { moodAfter } from './checkin.js';
+import { moodFor } from '../domain/playerNow.js';
 
 /**
  * CheckInSheet
- *   open, training (may be null: then it asks about "the last session"), initialScore (from the e-mail)
- *   onClose(), onWish(), onSelfTraining()
+ *   open, training (may be null: then it asks about "the last session"), all (sessions answered at once),
+ *   initialScore (from the e-mail), onClose(), onWish(), onSelfTraining()
  */
-export function CheckInSheet({ open, training, initialScore = null, onClose, onWish, onSelfTraining }) {
+export function CheckInSheet({ open, training, all = null, initialScore = null, onClose, onWish, onSelfTraining }) {
   const { state, run } = useData();
   const student = state.students[0];
   const [step, setStep] = useState('rate');
@@ -34,7 +37,8 @@ export function CheckInSheet({ open, training, initialScore = null, onClose, onW
   const save = async (score) => {
     if (busy) return;
     setBusy(true);
-    const res = await run(() => api.player.addMood(student.id, { score, note: '', hiddenFromCoach: false }));
+    const trainingId = state.moodSessionsReady && training && !all ? training.id : null;
+    const res = await run(() => api.player.addMood(student.id, { score, note: '', hiddenFromCoach: false, trainingId }));
     setBusy(false);
     if (!res.ok) return;
     setMood({ id: res.result?.id || null, score });
@@ -46,7 +50,7 @@ export function CheckInSheet({ open, training, initialScore = null, onClose, onW
     if (!open) { started.current = false; return; }
     if (started.current) return;
     started.current = true;
-    const earlier = training ? moodAfter(student, training) : null;
+    const earlier = training && !all ? moodFor(student, training) : null;
     if (earlier) {
       setMood({ id: earlier.id, score: earlier.score });
       setNote(earlier.note || ''); setSavedNote(earlier.note || ''); setHidden(!!earlier.hiddenFromCoach);
@@ -84,9 +88,11 @@ export function CheckInSheet({ open, training, initialScore = null, onClose, onW
   const group = training?.groupId ? koutsiGroupById(state, training.groupId) : null;
   const theme = group && training ? koutsiThemeForDate(group, training.date) : null;
   const when = training ? relativeDay(training.date) : '';
-  const context = training
-    ? [when, training.type, group?.name].filter(Boolean).join(' · ')
-    : 'Viimeisin treenisi';
+  const context = all?.length
+    ? `${relativeDay(all[0].date)} ${all.length} treeniä · ${all.map((t) => koutsiGroupById(state, t.groupId)?.name || t.type).filter((x, i, a) => a.indexOf(x) === i).join(', ')}`
+    : training
+      ? [when, training.type, group?.name].filter(Boolean).join(' · ')
+      : 'Viimeisin treenisi';
 
   // One sheet for both steps, so saving swaps the content instead of closing and reopening.
   const rating = step === 'rate';

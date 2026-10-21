@@ -137,6 +137,18 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   `koutsi_trainings_linked_coach_reads_player_logs`). Pelaaja voi muokata (`player.updateSelfTraining`) ja
   poistaa omansa. "Kotiläksy"-merkintä merkitsee läksyn samalla tehdyksi.
 
+- Pelaajan Merkitse (`player/MerkitseSheet.jsx`, `domain/playerNow.js`): puhelimen alapalkin iso keskinappi
+  (tietokoneella sivupalkin nappi). Ylimpänä juuri päättyneet treenit, yksi liu'utettava kortti per treeni
+  (1–5 yhdellä napautuksella, "Kirjoita mitä opit", "Kaikista kerralla", "Ohita"), muuten seuraava treeni
+  ("En pääse", runko). Sitten "Mitä teit?" -ruudut (avaavat lomakkeen laji valittuna) ja rivit Fiilis nyt ·
+  Tavoitteet · Toive valmentajalle. Sama treenikortti on Kodin "Ajankohtaista"-osion ensimmäisenä.
+  Fiilis kertoo treeninsä sarakkeella `koutsi_moods.training_id`; ilman saraketta (`moodSessionsReady: false`)
+  kysytään vain viimeisintä treeniä kuten ennen. Tavoitteet-ikkunassa on kauden tavoitteen lisäksi
+  "Mihin tähtäät?" (`koutsi_students.ambition`: harrastus/kehitys/kilpailu/huippu) ja pitkän ajan tavoite
+  (`long_goal`, historia `koutsi_player_history.field = 'long_goal'`); ilman sarakkeita (`longGoalReady:
+  false`) ne pysyvät piilossa. Molemmat tulevat migraatiosta
+  `koutsi/web/sql/20261021130000_koutsi_long_goal_and_mood_session.sql` — **ei ajettu**, vaatii käyttäjän luvan.
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)
@@ -155,14 +167,14 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/valmentaja/profiili`, `/valmentaja/yllapito` | profile, admin | tab / page |
 | `/valmentaja/oppilaat`, `/treenit`, `/kalenteri` | vanhat osoitteet | ohjaus uusiin (`/kalenteri?vko=` säilyttää viikon) |
 
-**Pelaaja** (`/pelaaja`, välilehdet: Koti · Kehitys · Treenit · Ryhmä · Profiili)
+**Pelaaja** (`/pelaaja`, välilehdet: Koti · Viikko · [Merkitse] · Kehitys · Profiili; Ryhmä on Kodin alasivu)
 
 | Polku | Nimi |
 |---|---|
 | `/pelaaja/koti` | home |
 | `/pelaaja/kehitys` | progress |
 | `/pelaaja/treenit` (`?vko=2026-43`) | trainings — pelaajan viikko kuten valmentajan Viikkohallinta: kotiläksyt ensin, valmentajan treenit ja omat merkinnät aikaruudukossa, plus-nappi / tyhjän kohdan napautus kirjaa |
-| `/pelaaja/ryhma` | group |
+| `/pelaaja/ryhma` | group — sivu (takaisin Kotiin), avautuu Kodin "Ryhmäsi"-riveiltä |
 | `/pelaaja/harjoitteet` | exercises |
 | `/pelaaja/profiili` | profile |
 

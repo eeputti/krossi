@@ -2,7 +2,7 @@
 // group has worked on, the next sessions, and the group mates (names only — another player's
 // level or anything else from their coaching is never shown here).
 import { useData } from '../app/data.jsx';
-import { Avatar, AvatarStack, Button, Card, Disclosure, EmptyState, Icon, Page, PageHeader } from '../ui/index.js';
+import { Avatar, AvatarStack, Button, Card, Disclosure, EmptyState, Icon, Page, TopBar } from '../ui/index.js';
 import { ThemeCard, useShowMore } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiGroupsForStudent, koutsiCoachById, koutsiTimeRangeLabel, koutsiTrainingsForGroup,
@@ -85,19 +85,23 @@ export function GroupScreen() {
   const groups = koutsiGroupsForStudent(state, me.id);
   if ((state.coaches || []).length === 0) {
     return (
-      <Page>
-        <PageHeader title="Ryhmä" />
+      <>
+      <TopBar title="Liity ryhmään" back="/pelaaja/koti" />
+      <Page className="k-page-pad">
         <Card className="stack-4">
           <EmptyState compact art="players" title="Et ole vielä valmentajan ryhmässä" text="Syötä valmentajaltasi saamasi liittymiskoodi, niin näet ryhmäsi treenit ja viikon teeman." />
           <JoinCodeForm onJoined={() => reload()} />
         </Card>
       </Page>
+      </>
     );
   }
   return (
-    <Page>
-      <PageHeader title={groups.length > 1 ? 'Ryhmät' : 'Ryhmä'} subtitle={groups.length ? undefined : 'Valmentajasi ei ole vielä lisännyt sinua ryhmään.'} />
+    <>
+    <TopBar title="Ryhmäsi" back="/pelaaja/koti" />
+    <Page className="k-page-pad">
       <div className="stack-5">
+        {groups.length === 0 && <p className="k-quiet-text">Valmentajasi ei ole vielä lisännyt sinua ryhmään.</p>}
         {groups.map((g) => <GroupCard key={g.id} state={state} group={g} me={me} />)}
         {(state.coaches || []).map((c) => (
           <Card key={c.id} className="p-coach">
@@ -110,5 +114,6 @@ export function GroupScreen() {
         </Disclosure>
       </div>
     </Page>
+    </>
   );
 }

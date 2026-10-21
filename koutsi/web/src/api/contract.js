@@ -41,7 +41,7 @@ export const API_CONTRACT = {
   // the Kehitys page's own entries (koutsi_player_entries); every linked coach reads them.
   player: ['fetchRow', 'load', 'subscribe', 'markWelcomeSeen', 'saveGoal', 'saveNote', 'saveWish', 'saveAge',
     'addMood', 'updateMood', 'setMoodHidden', 'deleteMood', 'addMatchNote', 'updateMatchNote', 'deleteMatchNote',
-    'addSelfTraining', 'updateSelfTraining', 'deleteSelfTraining', 'addEntry', 'updateEntry', 'deleteEntry'],
+    'addSelfTraining', 'updateSelfTraining', 'deleteSelfTraining', 'saveAim', 'addEntry', 'updateEntry', 'deleteEntry'],
 
   // A coach's roster.
   students: ['create', 'bulkSetup', 'setLevel', 'updatePlaceholder', 'endCoaching', 'merge', 'deletePlaceholder',

@@ -76,7 +76,7 @@ export const coach = {
 // The three free-text fields a player owns (goal, wish, note) each keep a history row, so
 // the timeline can show what the value used to be. The previous value is read back from the
 // server, so a stale tab cannot record a wrong "aiemmin".
-const HISTORY_COLUMNS = { goal: 'goal', wish: 'player_wish', note: 'player_note' };
+const HISTORY_COLUMNS = { goal: 'goal', wish: 'player_wish', note: 'player_note', long_goal: 'long_goal' };
 async function savePlayerField(studentId, field, value) {
   const column = HISTORY_COLUMNS[field];
   const current = must(await from('koutsi_students').select(column).eq('id', studentId).maybeSingle());
@@ -107,6 +107,11 @@ export const player = {
   saveGoal(studentId, goal) { return savePlayerField(studentId, 'goal', goal); },
   saveNote(studentId, note) { return savePlayerField(studentId, 'note', note); },
   saveWish(studentId, wish) { return savePlayerField(studentId, 'wish', wish); },
+  /** The long-term aim (state.longGoalReady): the kind of player (AMBITIONS) and the goal in words. */
+  async saveAim(studentId, { ambition, longGoal }) {
+    must(await from('koutsi_students').update({ ambition: ambition || null }).eq('id', studentId));
+    await savePlayerField(studentId, 'long_goal', longGoal || '');
+  },
   /** The player's optional exact age: the shared profile and the student row, as before. */
   async saveAge(studentId, age) {
     must(await from('profiles').update({ age: age == null ? null : String(age) }).eq('id', studentId));
@@ -114,9 +119,11 @@ export const player = {
   },
   // hidden_from_coach is enforced by RLS: a hidden mood is simply not selectable by the coach.
   // Returns the new row's id, so a check-in can add words or hide it right after the one tap.
-  async addMood(studentId, { score, note, hiddenFromCoach }) {
+  // trainingId ties the feeling to one session; it is sent only once the column exists
+  // (state.moodSessionsReady), so an older database keeps working.
+  async addMood(studentId, { score, note, hiddenFromCoach, trainingId }) {
     const row = must(await from('koutsi_moods')
-      .insert({ student_id: studentId, score, note: note || null, hidden_from_coach: !!hiddenFromCoach })
+      .insert({ student_id: studentId, score, note: note || null, hidden_from_coach: !!hiddenFromCoach, ...(trainingId ? { training_id: trainingId } : {}) })
       .select('id').single());
     return { id: row.id };
   },

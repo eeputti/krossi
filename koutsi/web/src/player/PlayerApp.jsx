@@ -20,13 +20,16 @@ import { ExercisesScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
 import { AbsenceSheet, MatchNoteSheet, MoodSheet, PlayerTextSheet, SelfTrainingSheet } from './sheets.jsx';
 import { EntrySheet } from './EntrySheet.jsx';
+import { MerkitseSheet } from './MerkitseSheet.jsx';
+import { GoalsSheet } from './GoalsSheet.jsx';
 import { CheckInSheet } from './CheckInSheet.jsx';
 import { PlanSheet } from '../shared/drills/plan.jsx';
 import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } from './checkin.js';
 
 const ActionsContext = createContext(null);
-/** openSelfTraining(date?, { time?, editing?, activity?, homeworkId? }?), openMood(score?), openCheckIn(training?), openMatch({ editing?, date? }), openAbsence(training),
- *  openText(kind), openEntry(editing?), openVideo(), playVideo(video), openPlan(training) */
+/** openMerkitse(), openSelfTraining(date?, { time?, editing?, activity?, homeworkId?, locked? }?), openMood(score?),
+ *  openCheckIn(training?, { all? }?), openMatch({ editing?, date? }), openAbsence(training), openText(kind), openGoals(),
+ *  openEntry(editing?), openVideo(), playVideo(video), openPlan(training) */
 export function usePlayerActions() { return useContext(ActionsContext); }
 
 function NotFound() {
@@ -51,7 +54,7 @@ function WelcomeSheet({ student }) {
   const items = [
     ['sparkles', 'Viikon teema', 'Mitä ryhmässäsi harjoitellaan nyt — ja mitä on harjoiteltu aiemmin.'],
     ['flame', 'Kehitys', 'Treenit, teemat, valmentajan huomiot, tavoitteet ja ottelut yhdellä aikajanalla.'],
-    ['heart', 'Fiilis treenin jälkeen', 'Yksi napautus kertoo valmentajalle, miten meni. Voit pitää sen myös vain itselläsi.'],
+    ['plus', 'Merkitse', 'Iso nappi keskellä: treeni, ottelu, fiilis tai tavoite yhdellä napautuksella. Treenin jälkeen se kysyy, miten meni.'],
   ];
   return (
     <Sheet open={open} onClose={close} size="md" title={`Moi ${(student.name || '').split(' ')[0]}!`} subtitle="Koutsi on sinun tenniskehityksesi seuranta."
@@ -91,12 +94,18 @@ function PlayerShell({ banner }) {
   const [checkIn, setCheckIn] = useState(() => (startup?.kind === 'checkin' ? startup : null));
   const close = () => setSheet(null);
   const actions = useMemo(() => ({
+    openMerkitse: () => setSheet({ kind: 'merkitse' }),
     openSelfTraining: (date, opts = {}) => setSheet({
       kind: 'self', date, time: opts.time, editing: opts.editing || null,
-      preset: opts.activity ? { activity: opts.activity, homeworkId: opts.homeworkId || null } : null,
+      preset: opts.activity ? { activity: opts.activity, homeworkId: opts.homeworkId || null, locked: Boolean(opts.locked) } : null,
     }),
     openMood: (score = null) => setSheet({ kind: 'mood', score }),
-    openCheckIn: (training = null) => setCheckIn({ trainingId: training?.id || null, score: null }),
+    // The words for one session, or one feeling for several (`all`); Merkitse closes under it.
+    openCheckIn: (training = null, { all = null } = {}) => {
+      setSheet((s) => (s?.kind === 'merkitse' ? null : s));
+      setCheckIn({ trainingId: training?.id || null, score: null, all });
+    },
+    openGoals: () => setSheet({ kind: 'goals' }),
     openMatch: ({ editing, date } = {}) => setSheet({ kind: 'match', editing, date }),
     openAbsence: (training) => setSheet({ kind: 'absence', training }),
     openText: (kind) => setSheet({ kind: 'text', textKind: kind }),
@@ -134,13 +143,16 @@ function PlayerShell({ banner }) {
         screens={SCREENS}
         NotFound={NotFound}
         roleLabel="Pelaaja"
-        cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => actions.openSelfTraining()}>Kirjaa treeni</Button>}
+        cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => actions.openMerkitse()}>Merkitse</Button>}
+        center={{ label: 'Merkitse', icon: 'plus', onClick: () => actions.openMerkitse() }}
         extraLinks={[{ to: '/pelaaja/harjoitteet', label: 'Harjoitteet ja videot', icon: 'play', pages: ['exercises'] }]}
         me={{ person: student, sub: student.level || 'Pelaaja', to: '/pelaaja/profiili' }}
         banner={banner}
         signupUrl="https://koutsi.krossi.app/pelaaja?uusi=1"
         beta={showBetaBar()}
       />
+      <MerkitseSheet open={sheet?.kind === 'merkitse'} onClose={close} />
+      <GoalsSheet open={sheet?.kind === 'goals'} onClose={close} />
       <SelfTrainingSheet open={sheet?.kind === 'self'} defaultDate={sheet?.date} defaultTime={sheet?.time} editing={sheet?.editing} preset={sheet?.preset}
         onClose={close} onSwitchToMatch={(date) => setSheet({ kind: 'match', date })} />
       <MoodSheet open={sheet?.kind === 'mood'} initialScore={sheet?.score ?? null} studentId={ownerId} onClose={close} />
@@ -152,7 +164,7 @@ function PlayerShell({ banner }) {
       <PlanSheet open={Boolean(planTraining)} training={planTraining} group={planTraining?.groupId ? state.groups.find((g) => g.id === planTraining.groupId) : null}
         onClose={close} onPlayVideo={(v) => setVideo(v)} />
       <VideoPlayerSheet video={video} onClose={() => setVideo(null)} />
-      <CheckInSheet open={Boolean(checkIn)} training={checkInTraining} initialScore={checkIn?.score ?? null}
+      <CheckInSheet open={Boolean(checkIn)} training={checkInTraining} all={checkIn?.all || null} initialScore={checkIn?.score ?? null}
         onClose={() => setCheckIn(null)} onWish={() => actions.openText('wish')} onSelfTraining={() => actions.openSelfTraining()} />
       {!student.welcomeSeenAt && startup?.kind !== 'checkin' && <WelcomeSheet student={student} />}
       <RenewedIntro role="player" eligible={startup?.kind === 'renewed'} />

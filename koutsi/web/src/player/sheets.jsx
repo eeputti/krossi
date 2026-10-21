@@ -184,18 +184,20 @@ export function SelfTrainingSheet({ open, onClose, defaultDate, defaultTime, edi
     if (res.ok) onClose();
   };
   const tiles = ACTIVITIES.filter((x) => (!x.hidden || x.id === f.activity) && (!x.homework || openHomework.length > 0 || x.id === f.activity) && (!editing || !x.match));
+  // From Merkitse the kind was already picked with one tap: the form opens under its name.
+  const locked = Boolean(preset?.locked) && !editing;
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa merkintää' : 'Kirjaa oma treeni'} subtitle="Oma merkintäsi. Kaikki valmentajasi näkevät sen." size="md"
+    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa merkintää' : locked ? a.title : 'Kirjaa oma treeni'} subtitle="Oma merkintäsi. Kaikki valmentajasi näkevät sen." size="md"
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!a.match && !ready} loading={busy} onClick={save}>{a.match ? 'Jatka ottelun kirjaukseen' : 'Tallenna'}</Button></div>}>
       <div className="stack-4">
-        <div className="pw-acts" role="radiogroup" aria-label="Mitä teit?">
+        {!locked && <div className="pw-acts" role="radiogroup" aria-label="Mitä teit?">
           {tiles.map((x) => (
             <button key={x.id} type="button" role="radio" aria-checked={x.id === f.activity} className={cx('pw-act', x.id === f.activity && 'is-on')} onClick={() => pick(x.id)}>
               <span className="pw-act-icon"><ActivityIcon activity={x.id} size={22} /></span>
               <span className="pw-act-label">{x.label}</span>
             </button>
           ))}
-        </div>
+        </div>}
         {a.homework && openHomework.length > 1 && (
           <Field label="Mikä kotiläksy?">
             <div className="pw-hw-pick">

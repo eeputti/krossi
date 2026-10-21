@@ -44,9 +44,9 @@ function person(id, name, extra) {
 function student(id, name, { age = null, level = 'Keskitaso', placeholder = false, joinedDaysAgo = 60, ...rest } = {}) {
   return person(id, name, {
     isPlaceholder: placeholder, age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
-    level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '',
+    level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '',
     joinedAt: placeholder ? null : isoAt(-joinedDaysAgo), welcomeSeenAt: isoAt(-joinedDaysAgo),
-    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], entries: [],
+    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], entries: [],
     ...rest,
   });
 }
@@ -79,6 +79,11 @@ export function seed() {
       age: 26, level: 'Kilpapelaaja', joinedDaysAgo: 75,
       goal: 'Varmempi kakkossyöttö ja rohkeampi verkkopeli',
       playerWish: 'Haluaisin harjoitella enemmän verkkopeliä ensi kerralla.',
+      ambition: 'kilpailu',
+      longGoal: 'Pelata seuran joukkueessa aluesarjaa ensi kesänä',
+      longGoalHistory: [
+        { id: 'lg1', at: isoAt(-40), field: 'long_goal', value: 'Pelata seuran joukkueessa aluesarjaa ensi kesänä', previousValue: '', byPlayer: true },
+      ],
       diary: [
         { id: 'd1', at: isoAt(-2, 19), text: 'Hyvä nousu syötössä tällä viikolla — heitto pysyy jo samassa kohdassa. Jatka samaan malliin.' },
         { id: 'd2', at: isoAt(-16, 19), text: 'Aloitettiin uusi lähestymislyönti. Muista split step ennen volleytä.' },

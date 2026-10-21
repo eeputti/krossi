@@ -25,7 +25,23 @@ export function configureDemo(opts = {}) {
 }
 
 const uid = () => (role === 'player' ? PLAYER : COACH);
-const S = () => { if (!state) state = seed(); return state; };
+// `npm run dev:koutsi` → /demo/pelaaja?esikatsele=putki: three sessions in a row ended just now,
+// so the player's Merkitse and Koti show one "Miten meni?" slide each.
+const previewPutki = process.env.NODE_ENV !== 'production'
+  && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('esikatsele') === 'putki';
+function addPutki(s) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const d = new Date();
+  const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const first = Math.max(6, d.getHours() - 3);
+  const mine = s.groups.filter((g) => g.memberIds.includes(PLAYER));
+  [mine[0], mine[1] || mine[0], null].forEach((g, i) => s.trainings.push({
+    id: newId('tr'), date: today, time: `${pad(first + i)}:00`, type: g ? 'Ryhmätreeni' : 'Yksityistunti', durationMinutes: 60,
+    loggedBy: 'coach', notes: '', endDate: null, studentId: g ? null : PLAYER, groupId: g ? g.id : null, coachId: COACH, seriesId: null, absences: [],
+  }));
+  return s;
+}
+const S = () => { if (!state) state = previewPutki ? addPutki(seed()) : seed(); return state; };
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const wait = () => new Promise((r) => setTimeout(r, latencyMs));
 const nowIso = () => new Date().toISOString();
@@ -41,7 +57,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true, moodSessionsReady: true, longGoalReady: true };
 }
 
 function playerState(studentId) {
@@ -55,7 +71,7 @@ function playerState(studentId) {
   const groupIds = new Set(groups.map((g) => g.id));
   // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
   const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
-  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, entriesReady: true };
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, entriesReady: true, moodSessionsReady: true, longGoalReady: true };
 }
 
 function hideHiddenMoods(snapshot) {
@@ -67,14 +83,14 @@ function student(id, name, { age = null, level = null, placeholder = true } = {}
   return {
     id, name, initial: koutsiInitialOf(name), hue: koutsiHueFromId(id), avatarUrl: '', isPlaceholder: placeholder,
     age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
-    level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', joinedAt: null, welcomeSeenAt: null,
-    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], entries: [],
+    level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '', joinedAt: null, welcomeSeenAt: null,
+    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], entries: [],
   };
 }
 
 function addHistory(st, field, value) {
-  const key = { goal: 'goalHistory', wish: 'wishHistory', note: 'noteHistory' }[field];
-  const column = { goal: 'goal', wish: 'playerWish', note: 'playerNote' }[field];
+  const key = { goal: 'goalHistory', wish: 'wishHistory', note: 'noteHistory', long_goal: 'longGoalHistory' }[field];
+  const column = { goal: 'goal', wish: 'playerWish', note: 'playerNote', long_goal: 'longGoal' }[field];
   const previous = st[column] || '';
   if (previous === value) return;
   st[column] = value;
@@ -161,15 +177,21 @@ export const backend = {
     async saveGoal(id, v) { await wait(); addHistory(findStudent(id), 'goal', v); },
     async saveNote(id, v) { await wait(); addHistory(findStudent(id), 'note', v); },
     async saveWish(id, v) { await wait(); addHistory(findStudent(id), 'wish', v); },
+    async saveAim(id, { ambition, longGoal }) {
+      await wait();
+      const st = findStudent(id);
+      st.ambition = ambition || '';
+      addHistory(st, 'long_goal', longGoal || '');
+    },
     async saveAge(id, age) {
       await wait();
       const st = findStudent(id);
       Object.assign(st, { age, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v` });
     },
-    async addMood(id, { score, note, hiddenFromCoach }) {
+    async addMood(id, { score, note, hiddenFromCoach, trainingId }) {
       await wait();
       const at = nowIso();
-      const mood = { id: newId('m'), at, date: koutsiFmtShortDate(at.slice(0, 10)), score, note: note || '', hiddenFromCoach: !!hiddenFromCoach };
+      const mood = { id: newId('m'), at, date: koutsiFmtShortDate(at.slice(0, 10)), score, note: note || '', hiddenFromCoach: !!hiddenFromCoach, trainingId: trainingId || null };
       findStudent(id).moods.unshift(mood);
       return { id: mood.id };
     },

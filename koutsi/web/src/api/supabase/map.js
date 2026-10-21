@@ -87,7 +87,7 @@ function splitHistory(historyRows, studentId) {
     .map((h) => ({ id: h.id, at: h.created_at, field: h.field || 'goal', value: h.value || '', previousValue: h.previous_value || '', byPlayer: h.changed_by === studentId }))
     .sort(newestFirst);
   const of = (field) => mine.filter((h) => h.field === field);
-  return { goalHistory: of('goal'), wishHistory: of('wish'), noteHistory: of('note') };
+  return { goalHistory: of('goal'), wishHistory: of('wish'), noteHistory: of('note'), longGoalHistory: of('long_goal') };
 }
 
 export function mapStudent(studentRow, profileRow, rows) {
@@ -112,6 +112,7 @@ export function mapStudent(studentRow, profileRow, rows) {
     ...age, level: studentRow.level,
     goal: studentRow.goal || '', lastSession: studentRow.last_session_note || '', focus: studentRow.focus || '',
     playerNote: studentRow.player_note || '', playerWish: studentRow.player_wish || '',
+    ambition: studentRow.ambition || '', longGoal: studentRow.long_goal || '',
     joinedAt: studentRow.created_at || null,
     welcomeSeenAt: studentRow.welcome_seen_at || null,
     diary: mine(diary).map((d) => ({ id: d.id, at: d.created_at, date: koutsiFmtShortDateFromTimestamp(d.created_at), text: d.text })).sort(newestFirst),
@@ -131,7 +132,7 @@ export function mapStudent(studentRow, profileRow, rows) {
       mimeType: v.mime_type || null,
       sizeBytes: v.size_bytes || null,
     })).sort(newestFirst),
-    moods: mine(moods).map((m) => ({ id: m.id, at: m.created_at, date: koutsiFmtShortDateFromTimestamp(m.created_at), score: m.score, note: m.note || '', hiddenFromCoach: !!m.hidden_from_coach })).sort(newestFirst),
+    moods: mine(moods).map((m) => ({ id: m.id, at: m.created_at, date: koutsiFmtShortDateFromTimestamp(m.created_at), score: m.score, note: m.note || '', hiddenFromCoach: !!m.hidden_from_coach, trainingId: m.training_id || null })).sort(newestFirst),
     matchNotes: mine(matchNotes).map((n) => ({
       id: n.id, at: n.created_at, opponentName: n.opponent_name, date: n.date, note: n.note || '',
       durationMinutes: n.duration_minutes || null, result: n.result || null, format: n.format || null, score: n.score || '',

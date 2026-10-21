@@ -18,6 +18,7 @@ import { useCoach } from './CoachRoot.jsx';
 import { groupPath } from './nav.js';
 import { AudienceSheet, EditPlaceholderSheet, MergeSheet, PlaceholderInvite, TextEntrySheet } from './playerForms.jsx';
 import { useRecord } from './merkitse.jsx';
+import { ambitionById } from '../domain/playerNow.js';
 
 function LevelSheet({ open, onClose, student }) {
   const { run } = useData();
@@ -92,7 +93,8 @@ function Notes({ student, onEditNote, onEditHomework, onOpenVideo, onAudience })
   );
 }
 
-// The player's goal on top of their Kehitys: what they are after now. Each earlier goal stays on
+// The player's goal on top of their Kehitys: what they are after now, and (when the player has
+// told) what kind of player they aim to be and where they are heading in the long run. Each earlier goal stays on
 // the timeline below as "Tavoite päivitetty" with the old one underneath.
 function PlayerGoal({ student }) {
   const history = student.goalHistory || [];
@@ -105,6 +107,12 @@ function PlayerGoal({ student }) {
     <Card className="goal-card">
       <div className="eyebrow"><Icon name="target" size={13} /> Pelaajan tavoite</div>
       {student.goal ? <p className="goal-text">{student.goal}</p> : <p className="k-faint">Pelaaja ei ole vielä asettanut tavoitetta.</p>}
+      {(student.ambition || student.longGoal) && (
+        <div className="goal-long">
+          {ambitionById(student.ambition) && <span className="chip chip-sm goal-aim">{ambitionById(student.ambition).label}</span>}
+          {student.longGoal && <p className="goal-long-text"><span className="k-faint">Pitkällä aikavälillä:</span> {student.longGoal}</p>}
+        </div>
+      )}
       {student.goal && foot && <span className="goal-card-foot">{foot}</span>}
     </Card>
   );

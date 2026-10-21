@@ -116,13 +116,15 @@ test('the demo keeps own entries: add, edit, delete, and an empty one is refused
   assert.equal((await entries()).length, before);
 });
 
-test('a check-in counts only feelings given after the session began', async () => {
-  const { moodAfter } = await import('../src/player/checkin.js');
+test('a check-in counts only feelings given after the session began, or tied to it', async () => {
+  const { moodFor } = await import('../src/domain/playerNow.js');
   const t = session('t1', today, '17:00');
   const before = { id: 'm0', score: 2, at: at('16:00').toISOString() };
   const after = { id: 'm1', score: 4, at: at('18:40').toISOString() };
-  assert.equal(moodAfter(student({ moods: [before] }), t), null);
-  assert.equal(moodAfter(student({ moods: [after, before] }), t)?.id, 'm1');
+  const other = { id: 'm2', score: 5, at: at('18:50').toISOString(), trainingId: 't9' };
+  assert.equal(moodFor(student({ moods: [before] }), t), null);
+  assert.equal(moodFor(student({ moods: [after, before] }), t)?.id, 'm1');
+  assert.equal(moodFor(student({ moods: [other, before] }), t), null, 'a feeling about another session does not count');
 });
 
 test('"Viikko paketissa" counts held sessions, attendance, feelings and wishes of that week', async () => {

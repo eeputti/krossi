@@ -1,5 +1,7 @@
-// ProgressScreen (player) — "Kehitys": the theme path (what the groups have worked on, week by
-// week), this month's numbers, and the whole timeline with the player's own entries editable.
+// ProgressScreen (player) — "Kehitys": the player's whole development. Goals first (this season's,
+// what kind of player they aim to be and where they are heading, the wish to the coach), then this
+// month's numbers and the weekly streak, the theme path (what the groups have worked on, week by
+// week), and the whole timeline with the player's own entries editable.
 import { useMemo } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
@@ -11,7 +13,8 @@ import {
   koutsiCurrentIsoWeek, koutsiCompareIsoWeeks, koutsiGroupsForStudent, koutsiTrainingsForStudent, koutsiGroupById,
   koutsiThemeForDate, koutsiMonthlySummary, KOUTSI_MONTHS,
 } from '../domain/core.js';
-import { themePath } from '../domain/player.js';
+import { activityStreak, themePath } from '../domain/player.js';
+import { ambitionById } from '../domain/playerNow.js';
 import { DRILL_COUNT } from '../shared/drills/useLibrary.js';
 import { usePlayerActions } from './PlayerApp.jsx';
 
@@ -19,9 +22,38 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 
 /** Every goal change keeps the old one on the timeline below; the card says so. */
 function earlierGoalsLabel(student) {
-  const n = (student.goalHistory || []).filter((h) => h.previousValue).length;
+  const n = [...(student.goalHistory || []), ...(student.longGoalHistory || [])].filter((h) => h.previousValue).length;
   if (n === 0) return 'Kun vaihdat tavoitetta, vanha jää talteen aikajanalle.';
   return n === 1 ? '1 aiempi tavoite tallessa aikajanalla' : `${n} aiempaa tavoitetta tallessa aikajanalla`;
+}
+
+/** Tavoitteet: this season's goal and the long-term aim in one card (pencil → GoalsSheet), the wish beside it. */
+function Goals({ student, longReady }) {
+  const actions = usePlayerActions();
+  const ambition = ambitionById(student.ambition);
+  const hasLong = longReady && (ambition || student.longGoal);
+  return (
+    <div className="two-cards goals-cards">
+      <Card interactive onClick={() => actions.openGoals()} className="goal-card">
+        <span className="goal-edit"><Icon name="edit" size={14} /><span className="sr-only">Muokkaa</span></span>
+        <div className="eyebrow"><Icon name="target" size={13} /> Tavoitteeni</div>
+        {student.goal ? <p className="goal-text">{student.goal}</p> : <p className="k-faint">Aseta tavoite — mitä haluat oppia tällä kaudella?</p>}
+        {hasLong && (
+          <div className="goal-long">
+            {ambition && <span className="chip chip-sm goal-aim">{ambition.label}</span>}
+            {student.longGoal && <p className="goal-long-text"><span className="k-faint">Pitkällä aikavälillä:</span> {student.longGoal}</p>}
+          </div>
+        )}
+        {longReady && !hasLong && <p className="k-faint goal-long-empty">Mihin tähtäät? Kerro myös pitkän ajan tavoitteesi.</p>}
+        {(student.goal || hasLong) && <span className="goal-card-foot">{earlierGoalsLabel(student)}</span>}
+      </Card>
+      <Card interactive onClick={() => actions.openText('wish')} className="goal-card">
+        <span className="goal-edit"><Icon name="edit" size={14} /><span className="sr-only">Muokkaa</span></span>
+        <div className="eyebrow"><Icon name="chat" size={13} /> Toive valmentajalle</div>
+        {student.playerWish ? <p className="goal-text">{student.playerWish}</p> : <p className="k-faint">Mitä haluaisit harjoitella seuraavaksi?</p>}
+      </Card>
+    </div>
+  );
 }
 
 function ThemePath({ groups }) {
@@ -60,6 +92,7 @@ function Month({ state, student }) {
   const m = koutsiMonthlySummary(state, student.id, now.getFullYear(), now.getMonth());
   const count = (keys) => m.categories.filter((c) => keys.includes(c.key)).reduce((s, c) => s + c.count, 0);
   const name = KOUTSI_MONTHS[now.getMonth()];
+  const streak = activityStreak(state, student);
   return (
     <Block eyebrow="Tämä kuukausi" title={name.charAt(0).toUpperCase() + name.slice(1)}>
       <div className="k-stats">
@@ -68,6 +101,11 @@ function Month({ state, student }) {
         <StatTile label="Ottelut" value={m.categories.find((c) => c.key === 'ottelu').count} sub={m.matchWins || m.matchLosses ? `${m.matchWins} V – ${m.matchLosses} T` : undefined} />
         <StatTile label="Treeniaikaa" value={fmtMinutes(m.totalMinutes)} />
       </div>
+      <p className="k-streak"><Icon name="flame" size={15} />
+        {streak.weeks > 0
+          ? <><strong>{streak.weeks === 1 ? '1 viikon putki' : `${streak.weeks} viikon putki`}</strong>{streak.thisWeek ? ' — tämä viikko on jo kirjattu.' : ' — merkitse jotain tällä viikolla, niin putki jatkuu.'}</>
+          : 'Merkitse oma treeni, fiilis tai ottelu — siitä alkaa putki.'}
+      </p>
     </Block>
   );
 }
@@ -124,16 +162,11 @@ export function ProgressScreen() {
 
   return (
     <Page>
-      <PageHeader title="Kehitys" subtitle="Viikko viikolta: teemat, treenit, valmentajan huomiot, tavoitteet ja ottelut." />
+      <PageHeader title="Kehitys" subtitle="Tavoitteesi ja kaikki, mitä olet tehnyt — viikko viikolta." />
       <div className="stack-6">
-        <ThemePath groups={groups} />
-        <Card interactive onClick={() => actions.openText('goal')} className="goal-card">
-          <span className="goal-edit"><Icon name="edit" size={14} /><span className="sr-only">Muokkaa</span></span>
-          <div className="eyebrow"><Icon name="target" size={13} /> Tavoitteeni</div>
-          {student.goal ? <p className="goal-text">{student.goal}</p> : <p className="k-faint">Aseta tavoite — se näkyy aikajanalla ja valmentajallesi.</p>}
-          {student.goal && <span className="goal-card-foot">{earlierGoalsLabel(student)}</span>}
-        </Card>
+        <Goals student={student} longReady={Boolean(state.longGoalReady)} />
         <Month state={state} student={student} />
+        <ThemePath groups={groups} />
         <Link to="/pelaaja/harjoitteet" className="k-row">
           <span className="k-ex-icon"><Icon name="play" size={16} /></span>
           <span className="k-row-main">
