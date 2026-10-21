@@ -157,7 +157,7 @@ export function GamesScreen({ query }) {
               <div className="games-list stagger">
                 {sec.games.map((g) => (
                   <div key={g.id} style={{ '--i': i++ }}>
-                    <GameCard game={g} onClick={() => openGame(g)} showDistance={!!originPos} />
+                    <GameCard game={g} variant="open" onClick={() => openGame(g)} showDistance={!!originPos} />
                   </div>
                 ))}
               </div>

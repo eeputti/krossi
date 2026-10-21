@@ -38,6 +38,29 @@
 .gcard-foot-list { padding: 10px 14px; border-top: 1px solid var(--line); background: var(--surface-2); }
 .gcard-creator { flex: 1; font-size: 13px; color: var(--muted); }
 .gcard-creator strong { color: var(--ink-2); font-weight: 700; }
+/* open card (Peliseura): same layout as the open games on krossi.app — when + type, the person, the note, level */
+.gcard-open { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+.gcard-open.is-mine::before, .gcard-open.is-joined::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--green-600);
+}
+.gcard-open.is-joined::before { background: var(--success); }
+.gcard-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.gcard-when { font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.gcard-type { min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
+.gcard-person { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.gcard-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.gcard-name { font-size: 15.5px; font-weight: 700; color: var(--ink); }
+.gcard-open .gcard-place { display: block; font-size: 13px; color: var(--muted); margin-top: 1px; }
+.gcard-slots { display: flex; gap: 4px; flex-shrink: 0; }
+.gcard-slot { width: 22px; height: 22px; border-radius: 50%; border: 1.5px dashed var(--faint); }
+.gcard-desc {
+  font-size: 13.5px; line-height: 1.45; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.gcard-open-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gcard-tags { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.gcard-go { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; transition: gap var(--dur-2) var(--ease-out); }
+.gcard-open:hover .gcard-go { gap: 8px; }
 .gcard-lock { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--sand); color: var(--muted); flex-shrink: 0; }
 
 .gcard-compact { width: 244px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding: 12px; }

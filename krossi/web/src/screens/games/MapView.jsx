@@ -188,7 +188,7 @@ export function GamesMap({ games, center, userPos, onOpen, onShowList }) {
               <IconButton icon="close" label="Sulje esikatselu" size="sm" variant="soft" onClick={() => setSelectedKey(null)} />
             </div>
             {selected.games.length === 1 ? (
-              <GameCard game={selected.games[0]} onClick={() => onOpen(selected.games[0])} showDistance />
+              <GameCard game={selected.games[0]} variant="open" onClick={() => onOpen(selected.games[0])} showDistance />
             ) : (
               <div className="games-map-preview-scroll">
                 {selected.games.map((g) => <GameCard key={g.id} game={g} variant="compact" onClick={() => onOpen(g)} />)}

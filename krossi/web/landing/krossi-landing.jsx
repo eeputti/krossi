@@ -333,7 +333,7 @@ function demoWhen(dayOffset, time) {
   let offset = dayOffset;
   if (at(offset).getTime() < now.getTime() + 90 * 60 * 1000) offset += 1;
   const day = offset === 0 ? 'Tänään' : offset === 1 ? 'Huomenna' : FI_WEEKDAYS[at(offset).getDay()];
-  return `${day} · klo ${h}.${String(m).padStart(2, '0')}`;
+  return `${day} klo ${h}.${String(m).padStart(2, '0')}`;
 }
 
 const DEMO_MATCHES = [
