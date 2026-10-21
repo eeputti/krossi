@@ -37,7 +37,6 @@ const KROSSI_WEB_DIST = 'krossi/web/dist';
 const krossiFiles = [
   ['krossi/web/landing/index.html', 'index.html'],
   ['krossi/web/landing/tweaks-panel.jsx', 'lib/tweaks-panel.jsx'],
-  ['krossi/web/landing/krossi-phone.jsx', 'lib/krossi-phone.jsx'],
   ['krossi/web/landing/krossi-landing.jsx', 'lib/krossi-landing.jsx'],
   [`${KROSSI_WEB_DIST}/app.html`, 'app.html'],
   [`${KROSSI_WEB_DIST}/krossi-demo.html`, 'krossi-demo.html'],

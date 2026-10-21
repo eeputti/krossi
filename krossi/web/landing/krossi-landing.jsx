@@ -286,12 +286,6 @@ function Hero({ t }) {
             </li>
           </ul>
         </div>
-        <div className="hero-visual">
-          <p className="demo-label">Kurkista sisään — puhelinta voi selata</p>
-          <div className="hero-stage">
-            <KrossiAppPhone src="/demo/pelaajat" />
-          </div>
-        </div>
     </section>
   );
 }

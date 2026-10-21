@@ -105,24 +105,6 @@ window.krossiLoadPixel = function () {
   p { text-wrap: pretty; }
   a { color: inherit; }
 
-  /* ── hero phone: the real demo (/demo) in a phone frame, see krossi-phone.jsx ── */
-  .app-phone {
-    --pw: 320px;
-    width: var(--pw); height: calc(var(--pw) * 2.06); padding: calc(var(--pw) * 0.028);
-    border-radius: calc(var(--pw) * 0.16); background: #0a0a0a; box-shadow: 0 0 0 1.5px rgba(0,0,0,0.4);
-  }
-  .app-phone-screen {
-    position: relative; height: 100%; border-radius: calc(var(--pw) * 0.135); overflow: hidden;
-    display: flex; flex-direction: column; background: var(--dark);
-  }
-  .app-phone-island { position: absolute; z-index: 2; top: 9px; left: 50%; transform: translateX(-50%); width: 30%; height: calc(var(--pw) * 0.085); border-radius: 99px; background: #000; }
-  .app-phone-status { flex-shrink: 0; height: calc(var(--pw) * 0.13); padding: 2px calc(var(--pw) * 0.08) 0; display: flex; align-items: center; justify-content: space-between; color: #fff; font-size: 13.5px; font-weight: 700; }
-  .app-phone-icons { display: flex; align-items: center; gap: 5px; }
-  .app-phone-view { position: relative; flex: 1; overflow: hidden; background: var(--dark); }
-  .app-phone-frame { position: absolute; top: 0; left: 0; display: block; border: 0; transform-origin: 0 0; }
-  .app-phone-home { flex-shrink: 0; height: calc(var(--pw) * 0.05); display: grid; place-items: center; background: #fff; }
-  .app-phone-home span { width: 34%; height: 4px; border-radius: 99px; background: rgba(0,0,0,0.25); }
-
   /* ── buttons ── */
   .btn-lime, .btn-outline {
     display: inline-flex; align-items: center; justify-content: center;
@@ -205,7 +187,6 @@ window.krossiLoadPixel = function () {
 
   /* ── hero ── */
   .hero { max-width: 1120px; margin: 0 auto; padding: clamp(26px,5vw,60px) 22px clamp(44px,7vw,96px); display: grid; grid-template-columns: 1fr; gap: clamp(40px,5vw,56px); align-items: center; width: 100%; }
-  @media (min-width: 940px) { .hero { grid-template-columns: 1.25fr 0.75fr; } }
   .hero-copy { display: flex; flex-direction: column; gap: 22px; }
   .hero-title {
     margin: 6px 0 0; font-weight: 800; letter-spacing: -0.035em; line-height: 1.0;
@@ -216,12 +197,6 @@ window.krossiLoadPixel = function () {
   .hero-sub { margin: 0; font-size: clamp(1.05rem, 2.3vw, 1.28rem); line-height: 1.45; color: var(--muted); max-width: 34ch; }
   .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
   .hero-fine { margin: 2px 0 0; font-size: 14px; color: var(--muted); font-weight: 500; }
-  .hero-visual { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; isolation: isolate; }
-  .phone-caption { margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0.01em; display: flex; align-items: center; gap: 5px; }
-  .phone-caption svg { opacity: 0.6; }
-  .hero-stage { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; }
-  @media (max-width: 1080px) { .app-phone { --pw: 300px; } }
-  @media (max-width: 460px) { .app-phone { --pw: min(290px, 74vw); } }
 
   /* ── features (zigzag, light cards) ── */
   .features { max-width: 1120px; margin: 0 auto; padding: clamp(34px,6vw,76px) 22px; }
@@ -295,7 +270,6 @@ window.krossiLoadPixel = function () {
   .closing-stores { padding: 22px 22px clamp(36px,8vw,56px); }
 
   /* ── mobile tweaks ── */
-  .demo-label { display: none; }
   @media (max-width: 779px) {
     .feat-media:has(.fm-shot) { max-width: 60%; }
     .feat-kind-shot.feat-left .feat-media { margin-left: auto; }
@@ -313,7 +287,6 @@ window.krossiLoadPixel = function () {
     .store-row { justify-content: center; }
     .hero-fine { display: none; }
     .hero { gap: 8px; }
-    .demo-label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); text-align: center; margin-bottom: 4px; }
   }
 
   /* ── footer (light + tennis balls) ── */
@@ -561,7 +534,6 @@ window.krossiLoadPixel = function () {
 <body>
   <div id="root"></div>
   <script type="text/babel" src="lib/tweaks-panel.jsx"></script>
-  <script type="text/babel" src="lib/krossi-phone.jsx"></script>
   <script type="text/babel" src="lib/krossi-landing.jsx"></script>
   <script src="lib/cookie-consent.js"></script>
 </body>
