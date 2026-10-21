@@ -264,14 +264,14 @@ function Nav() {
 
 function Hero({ t }) {
   return (
-    <section className="hero hero-single" id="lataa">
+    <section className="hero" id="lataa">
         <div className="hero-copy">
           <span className="hero-badge"><span className="hero-badge-tag">Uusi</span>Krossi toimii nyt selaimessa</span>
           <h1 className="hero-title">
             Varaa kenttä.<br />
             Löydä {t.highlight ? <span className="hl">pelikaveri.</span> : <span>pelikaveri.</span>}
           </h1>
-          <p className="hero-sub">Katso vapaat vuorot, varaa kenttä ja sovi peli oman tasoisesi pelikaverin kanssa muutamalla napautuksella. Krossi toimii suoraan selaimessa ilman latausta — ja iPhonessa.</p>
+          <p className="hero-sub">Katso vapaat vuorot, varaa kenttä ja sovi peli oman tasoisesi pelikaverin kanssa muutamalla napautuksella.</p>
           <div className="hero-cta">
             <a href="/pelaa" className="btn-lime btn-lg">Aloita pelit</a>
             <a href="/demo" className="btn-ghost btn-lg">Kokeile demoa <span className="btn-note">— ilman tiliä</span></a>
@@ -285,6 +285,9 @@ function Hero({ t }) {
               </a>
             </li>
           </ul>
+        </div>
+        <div className="hero-visual" aria-hidden="true">
+          <img className="hero-photo" src="assets/savikentta-mailat.jpg" alt="" width="894" height="894" loading="lazy" />
         </div>
     </section>
   );
