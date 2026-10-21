@@ -5,6 +5,7 @@ import {
   koutsiThemeForDate, koutsiTimeRangeLabel, koutsiGroupThemeForWeek,
 } from '../domain/core.js';
 import { relativeDay, sessionStatus } from '../domain/week.js';
+import { ownEntry } from '../domain/ownWeek.js';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { groupPath, playerPath, sessionPath } from './nav.js';
 
@@ -85,12 +86,20 @@ export function PlayerRow({ student, sub, right, to }) {
 
 const ACTIVITY_ICON = { mood: 'heart', self: 'bolt', wish: 'chat', note: 'edit', match: 'trophy', homework: 'check-circle' };
 
+/** A player's own log as the player wrote it: "Kuntosali · 45 min — jalat ja keskivartalo". */
+function selfLogLine(training) {
+  const { activity, title, text } = ownEntry(training);
+  if (activity === 'turnaus') return `Turnaus — ${title}`;
+  const minutes = training.durationMinutes ? ` · ${training.durationMinutes} min` : '';
+  return `${title}${minutes}${text ? ` — ${text}` : ''}`;
+}
+
 /** One line of "Pelaajilta": what a player did, and when. */
 export function ActivityRow({ item }) {
   const s = item.student;
   let text;
   if (item.kind === 'mood') text = <>Fiilis {item.mood.score}/5 — {MOOD_LABELS[item.mood.score]}{item.mood.note ? `: “${item.mood.note}”` : ''}</>;
-  else if (item.kind === 'self') text = <>{item.training.type}{item.training.durationMinutes ? ` · ${item.training.durationMinutes} min` : ''}{item.training.notes ? ` — ${item.training.notes}` : ''}</>;
+  else if (item.kind === 'self') text = selfLogLine(item.training);
   else if (item.kind === 'wish') text = <>Toive: “{item.text}”</>;
   else if (item.kind === 'note') text = <>Muistiinpano: “{item.text}”</>;
   else if (item.kind === 'match') text = <>Ottelu vs. {item.match.opponentName}{item.match.result ? ` — ${item.match.result === 'voitto' ? 'voitto' : 'tappio'}` : ''}{item.match.score ? ` ${item.match.score}` : ''}</>;

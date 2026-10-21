@@ -176,8 +176,11 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
     // (MatchNoteModal's "Turnaus" picker) — surface the tally here so the tournament card
     // itself answers "how did it go" without opening every linked match.
     const tournamentMatches = t.type === 'Turnaus' ? (student.matchNotes || []).filter((n) => n.tournamentId === t.id) : [];
+    const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const wins = tournamentMatches.filter((n) => n.result === 'voitto').length;
+    const losses = tournamentMatches.filter((n) => n.result === 'tappio').length;
     const tournamentSummary = tournamentMatches.length
-      ? `${tournamentMatches.length} ${tournamentMatches.length === 1 ? 'ottelu' : 'ottelua'} · ${tournamentMatches.filter((n) => n.result === 'voitto').length} voittoa, ${tournamentMatches.filter((n) => n.result === 'tappio').length} tappiota`
+      ? `${count(tournamentMatches.length, 'ottelu', 'ottelua')} · ${count(wins, 'voitto', 'voittoa')}, ${count(losses, 'tappio', 'tappiota')}`
       : '';
     // A player's own session says what was done: "Lenkki" rather than its category "Fysiikka"
     // when the renewed app's log named it (domain/ownWeek.js), the length and their own words.
