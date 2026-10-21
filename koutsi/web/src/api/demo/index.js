@@ -198,6 +198,12 @@ export const backend = {
         notes: notes || '', studentId, groupId: null, coachId: coachId || COACH, seriesId: null, absences: [],
       });
     },
+    async updateSelfTraining(id, { coachId, date, endDate, time, type, durationMinutes, notes }) {
+      await wait();
+      const t = S().trainings.find((x) => x.id === id && x.loggedBy === 'player');
+      if (!t) throw new ApiError('Merkintää ei löytynyt. Se on ehkä poistettu.', { code: 'not_found' });
+      Object.assign(t, { coachId: coachId || t.coachId, date, endDate: endDate || null, time, type, durationMinutes: durationMinutes || null, notes: notes || '' });
+    },
     async deleteSelfTraining(id) { S().trainings = S().trainings.filter((t) => t.id !== id); },
   },
 

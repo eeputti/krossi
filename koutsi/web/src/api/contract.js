@@ -33,9 +33,11 @@ export const API_CONTRACT = {
 
   // Player role: fetchRow(uid) → { id } | null; load(studentId) → PlayerState; and the player's own writes.
   // addMood → { id }; updateMood(moodId, { score?, note?, hiddenFromCoach? }).
+  // addSelfTraining / updateSelfTraining(id, { coachId, date, endDate, time, type, durationMinutes, notes }) —
+  // the player's own log (domain/ownWeek.js); every coach of the player reads it.
   player: ['fetchRow', 'load', 'subscribe', 'markWelcomeSeen', 'saveGoal', 'saveNote', 'saveWish', 'saveAge',
     'addMood', 'updateMood', 'setMoodHidden', 'deleteMood', 'addMatchNote', 'updateMatchNote', 'deleteMatchNote',
-    'addSelfTraining', 'deleteSelfTraining'],
+    'addSelfTraining', 'updateSelfTraining', 'deleteSelfTraining'],
 
   // A coach's roster.
   students: ['create', 'bulkSetup', 'setLevel', 'updatePlaceholder', 'endCoaching', 'merge', 'deletePlaceholder',

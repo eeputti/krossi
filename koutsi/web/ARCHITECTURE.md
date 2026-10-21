@@ -120,6 +120,16 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   runko tyhjennetään. Pelaaja näkee rungon Kodin seuraavan treenin kortista ja Treenit-päivältä
   (`PlanSheet`, kenttäkuvat, napautus → harjoite). Vanha Koutsi ei näytä runkoa.
 
+- Pelaajan omat merkinnät (`domain/ownWeek.js`, `player/TrainingsScreen.jsx`, `player/weekSheets.jsx`):
+  tavallinen `koutsi_trainings`-rivi (`logged_by = 'player'`), `type` pysyy vanhan sovelluksen kategoriana
+  (Omatoiminen harjoitus / Fysiikka / Muu liikunta / Turnaus), ja tarkempi laji on `notes`-tekstin alussa
+  ("Lenkki — 5 km", "Kuntosali", "Liikkuvuus", "Kotiläksy — …"), joten vanha sovellus ja valmentajan näkymät
+  lukevat rivin kuten ennen. Merkintä on pelaajan oma: valmentajaa ei valita (rivin `coach_id` = joku
+  pelaajan nykyisistä valmentajista, taulu vaatii sen), ja jokainen pelaajan valmentaja näkee sen
+  (`loadCoachState` lukee myös muiden valmentajien alle kirjatut, RLS
+  `koutsi_trainings_linked_coach_reads_player_logs`). Pelaaja voi muokata (`player.updateSelfTraining`) ja
+  poistaa omansa. "Kotiläksy"-merkintä merkitsee läksyn samalla tehdyksi.
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)
@@ -144,7 +154,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 |---|---|
 | `/pelaaja/koti` | home |
 | `/pelaaja/kehitys` | progress |
-| `/pelaaja/treenit` | trainings |
+| `/pelaaja/treenit` (`?vko=2026-43`) | trainings — pelaajan viikko kuten valmentajan Viikkohallinta: kotiläksyt ensin, valmentajan treenit ja omat merkinnät aikaruudukossa, plus-nappi / tyhjän kohdan napautus kirjaa |
 | `/pelaaja/ryhma` | group |
 | `/pelaaja/harjoitteet` | exercises |
 | `/pelaaja/profiili` | profile |
@@ -203,5 +213,9 @@ kolme tilaa (skeleton / ErrorState + Yritä uudelleen / data tai EmptyState). Ei
   `koutsi_queue_session_checkins()` → nykyinen ilmoitusjono → koutsi-notify (oma 1–5-pohja,
   versio 20). Betan aikana vain `koutsi_beta_testers`-listan osoitteille.
   Linkit: `/pelaaja?uusi=1&fiilis=<treeni>&arvo=1–5`, `?toive=1`.
+- `sql/20261021120000_koutsi_coaches_read_player_logs.sql` (ODOTTAA lupaa) — lukuoikeus: pelaajan omat
+  merkinnät näkyvät kaikille pelaajan nykyisille valmentajille, ei vain rivin `coach_id`:lle. Vain luku;
+  muokkaus- ja poisto-oikeudet ennallaan. Testattu PGlitessä (toinen valmentaja näkee pelaajan oman
+  merkinnän, ei yksityistuntia eikä muiden pelaajien rivejä; päättynyt valmennus ei näe mitään).
 - Kun uusi Koutsi otetaan kaikille käyttöön: poista beta-ehto `koutsi_queue_session_checkins()`-funktiosta
   (tai lisää osoitteet listaan) — muuten muut eivät koskaan saa viestiä.

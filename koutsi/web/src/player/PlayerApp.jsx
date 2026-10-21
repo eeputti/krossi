@@ -24,7 +24,7 @@ import { PlanSheet } from '../shared/drills/plan.jsx';
 import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } from './checkin.js';
 
 const ActionsContext = createContext(null);
-/** openSelfTraining(date?), openMood(score?), openCheckIn(training?), openMatch({ editing?, date? }), openAbsence(training),
+/** openSelfTraining(date?, { time?, editing?, activity?, homeworkId? }?), openMood(score?), openCheckIn(training?), openMatch({ editing?, date? }), openAbsence(training),
  *  openText(kind), openVideo(), playVideo(video), openPlan(training) */
 export function usePlayerActions() { return useContext(ActionsContext); }
 
@@ -90,7 +90,10 @@ function PlayerShell({ banner }) {
   const [checkIn, setCheckIn] = useState(() => (startup?.kind === 'checkin' ? startup : null));
   const close = () => setSheet(null);
   const actions = useMemo(() => ({
-    openSelfTraining: (date) => setSheet({ kind: 'self', date }),
+    openSelfTraining: (date, opts = {}) => setSheet({
+      kind: 'self', date, time: opts.time, editing: opts.editing || null,
+      preset: opts.activity ? { activity: opts.activity, homeworkId: opts.homeworkId || null } : null,
+    }),
     openMood: (score = null) => setSheet({ kind: 'mood', score }),
     openCheckIn: (training = null) => setCheckIn({ trainingId: training?.id || null, score: null }),
     openMatch: ({ editing, date } = {}) => setSheet({ kind: 'match', editing, date }),
@@ -136,7 +139,8 @@ function PlayerShell({ banner }) {
         signupUrl="https://koutsi.krossi.app/pelaaja?uusi=1"
         beta={showBetaBar()}
       />
-      <SelfTrainingSheet open={sheet?.kind === 'self'} defaultDate={sheet?.date} onClose={close} onSwitchToMatch={(date) => setSheet({ kind: 'match', date })} />
+      <SelfTrainingSheet open={sheet?.kind === 'self'} defaultDate={sheet?.date} defaultTime={sheet?.time} editing={sheet?.editing} preset={sheet?.preset}
+        onClose={close} onSwitchToMatch={(date) => setSheet({ kind: 'match', date })} />
       <MoodSheet open={sheet?.kind === 'mood'} initialScore={sheet?.score ?? null} studentId={ownerId} onClose={close} />
       <MatchNoteSheet open={sheet?.kind === 'match'} editing={sheet?.editing} defaultDate={sheet?.date} onClose={close} />
       <AbsenceSheet open={sheet?.kind === 'absence'} training={sheet?.training} onClose={close} />

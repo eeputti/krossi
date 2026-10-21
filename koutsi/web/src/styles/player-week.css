@@ -1,0 +1,116 @@
+/* player-week.css — the player's Treenit: Viikkohallinta's grid (board.css, wb-) for one player,
+   their homework first, and the "Kirjaa oma treeni" tiles (pw-). Only tokens. */
+
+.pw-page { --wb-hour: 64px; }
+@media (max-width: 899px) { .pw-page { --wb-hour: 68px; } }
+
+/* ── homework, first thing on the page ───────────────────── */
+.pw-hw {
+  display: grid; gap: 10px; margin: 0 0 16px; padding: 14px 14px 12px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1px solid var(--line-strong);
+}
+.pw-hw.is-clear { padding-block: 10px; background: var(--surface-2); border-color: var(--line); }
+.pw-hw-head { display: flex; align-items: center; gap: 12px; }
+.pw-hw-head .grow { display: grid; gap: 1px; min-width: 0; }
+.pw-hw-head .eyebrow { margin: 0; }
+.pw-hw-badge { flex-shrink: 0; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--green-800); color: var(--lime); }
+.pw-hw.is-clear .pw-hw-badge { width: 32px; height: 32px; border-radius: 10px; background: var(--lime-100); color: var(--ink-2); }
+.pw-hw-title { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.pw-hw.is-clear .pw-hw-title { font-size: 14.5px; font-weight: 750; }
+.pw-hw-toggle {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border-radius: var(--r-pill);
+  font-size: 12.5px; font-weight: 750; color: var(--muted); transition: background-color var(--dur-2);
+}
+.pw-hw-toggle:hover { background: var(--surface-2); }
+.pw-hw-list { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.pw-hw-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.pw-hw-row + .pw-hw-row { border-top: 1px solid var(--line); }
+.pw-hw-row .grow { display: grid; gap: 2px; min-width: 0; }
+.pw-hw-text { font-size: 14.5px; font-weight: 650; line-height: 1.35; color: var(--ink); overflow-wrap: anywhere; }
+.pw-hw-check { cursor: pointer; }
+.pw-hw-check:hover { border-color: var(--green-800); color: var(--muted); }
+.pw-hw-list.is-done .pw-hw-text { color: var(--muted); text-decoration: line-through; font-weight: 550; }
+.pw-hw-log {
+  flex-shrink: 0; height: 32px; padding: 0 12px; border-radius: var(--r-pill); border: 1.5px solid var(--line-strong);
+  font-size: 13px; font-weight: 750; color: var(--ink-2); white-space: nowrap; transition: border-color var(--dur-2), transform var(--dur-1) var(--ease-out);
+}
+.pw-hw-log:hover { border-color: var(--ink-2); }
+.pw-hw-log:active { transform: scale(0.96); }
+
+/* ── the grid: the player's own logs dark, a session they can't come to dashed ── */
+.wb-block.is-own { background: var(--green-800); border-color: var(--green-800); color: #fff; }
+.wb-block.is-own::before { background: var(--lime); }
+.wb-block.is-own .wb-b-time { color: var(--lime); }
+.wb-block.is-own .wb-b-line { color: var(--on-dark-muted); }
+.wb-block.is-own:focus-visible { outline-color: var(--lime); }
+.wb-block.is-absent { background: var(--surface); border-style: dashed; border-color: var(--line-strong); color: var(--muted); }
+.wb-block.is-absent::before { display: none; }
+.wb-block.is-absent .wb-b-name { text-decoration: line-through; text-decoration-color: var(--faint); }
+.wb-block.is-absent .wb-b-time, .wb-block.is-absent .wb-b-line { color: var(--muted); }
+.pw-b-icon { flex-shrink: 0; margin-left: auto; display: grid; color: var(--lime); }
+.pw-b-absent {
+  padding: 0 6px; border-radius: var(--r-pill); background: var(--clay-100); color: #8A3A1A;
+  font-size: 11px; font-weight: 750; line-height: 16px;
+}
+.pw-day { cursor: cell; }
+.pw-ghost {
+  position: absolute; z-index: 1; left: 2px; right: 2px; display: flex; align-items: flex-start; gap: 4px; padding: 5px 8px;
+  border-radius: var(--r-sm); border: 1.5px dashed var(--line-strong); background: rgba(255, 255, 255, 0.7);
+  font-size: 12px; font-weight: 750; color: var(--ink-2); pointer-events: none; overflow: hidden; white-space: nowrap;
+}
+.pw-ghost svg { flex-shrink: 0; margin-top: 1px; }
+/* club events are only shown here: light, so the player's own tournaments and matches stand out */
+.wb-event.pw-bar-club { background: var(--sand); color: var(--ink); }
+.wb-event.pw-bar-club:hover { background: var(--sand); }
+.wb-event.pw-bar-club:active { transform: none; }
+.wb-event.pw-bar-club .wb-event-icon { background: var(--surface); color: var(--green-800); }
+.wb-event.pw-bar-club .wb-event-sub { color: var(--muted); }
+.pw-foot { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 12.5px; }
+.pw-foot svg { flex-shrink: 0; }
+
+@media (max-width: 899px) {
+  .wb-strip-dot.has-own { background: var(--green-800); }
+  .wb-strip-day.is-active .wb-strip-dot.has-own { background: var(--lime); }
+  .wb-allday-phone .pw-bar-club .wb-event-icon { display: grid; }
+  .pw-day { cursor: auto; }
+  .pw-hw-row { flex-wrap: wrap; }
+  .pw-hw-row .grow { flex: 1 1 0; }
+}
+
+/* ── pop-ups: a session's state, the theme, the player's own entry ── */
+.pw-state { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--r-md); font-size: 14px; font-weight: 750; }
+.pw-state.is-ok { background: var(--lime-100); color: var(--ink-2); }
+.pw-state.is-now { background: var(--green-800); color: #fff; }
+.pw-state.is-now svg { color: var(--lime); }
+.pw-state.is-past { background: var(--surface-2); color: var(--muted); }
+.pw-state.is-absent { background: var(--clay-100); color: #8A3A1A; }
+.pw-theme { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--r-lg); border: 1px solid var(--line); }
+.pw-theme .eyebrow { display: inline-flex; align-items: center; gap: 5px; margin: 0; }
+.pw-theme-title { font-size: 16px; font-weight: 800; color: var(--ink); }
+.pw-theme-lead { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
+.pw-own-head { display: flex; align-items: center; gap: 12px; }
+.pw-own-head .grow { display: grid; gap: 1px; min-width: 0; }
+.pw-own-icon { flex-shrink: 0; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--green-800); color: var(--lime); }
+.pw-own-text { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.pw-own-seen { display: flex; align-items: center; gap: 6px; margin: 0; }
+.pw-dot-coach { background: var(--lime); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.pw-dot-own { background: var(--green-800); }
+
+/* ── "Kirjaa oma treeni": what was done, one tap ───────────── */
+.pw-acts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.pw-act {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 10px 4px 9px; border-radius: var(--r-md);
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-2), border-color var(--dur-2);
+}
+.pw-act:hover { border-color: var(--line-strong); }
+.pw-act:active { transform: scale(0.96); }
+.pw-act-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--sand); color: var(--green-800); }
+.pw-act-label { max-width: 100%; font-size: 12.5px; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pw-act.is-on { background: var(--green-800); border-color: var(--green-800); color: #fff; }
+.pw-act.is-on .pw-act-icon { background: var(--lime); color: var(--green-800); }
+.pw-hw-pick { display: grid; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.pw-hw-opt { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; text-align: left; font-size: 14px; color: var(--ink); }
+.pw-hw-opt + .pw-hw-opt { border-top: 1px solid var(--line); }
+.pw-hw-opt:hover { background: var(--surface-2); }
+.pw-hw-opt.is-on { background: var(--lime-100); }

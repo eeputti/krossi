@@ -148,6 +148,13 @@ export const player = {
       duration_minutes: durationMinutes || null, notes: notes || null, logged_by: 'player',
     }));
   },
+  // RLS lets the player change only their own log (and only under a coach they still have).
+  async updateSelfTraining(trainingId, { coachId, date, endDate, time, type, durationMinutes, notes }) {
+    const rows = must(await from('koutsi_trainings').update({
+      coach_id: coachId, date, end_date: endDate || null, time, type, duration_minutes: durationMinutes || null, notes: notes || null,
+    }).eq('id', trainingId).eq('logged_by', 'player').select('id'));
+    if (!rows || rows.length === 0) throw new ApiError('Merkintää ei löytynyt. Se on ehkä poistettu.', { code: 'not_found' });
+  },
   async deleteSelfTraining(trainingId) {
     must(await from('koutsi_trainings').delete().eq('id', trainingId));
   },

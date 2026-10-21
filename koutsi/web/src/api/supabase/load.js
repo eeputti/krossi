@@ -29,6 +29,19 @@ async function loadWeekNotes(coachId) {
   return (data || []).map(mapWeekNote);
 }
 
+// A player's own logs are theirs, not one coach's: the row carries one coach_id (the table needs
+// one), but every coach of the player sees it (RLS koutsi_trainings_linked_coach_reads_player_logs).
+// This reads the ones written under the player's other coaches; before that policy exists it
+// simply finds none.
+async function loadPlayerLogs(studentIds, coachId) {
+  const ids = [...new Set(studentIds.filter(Boolean))];
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += 100) chunks.push(ids.slice(i, i + 100));
+  const pages = await Promise.all(chunks.map((chunk) => selectAll(() => fromTable('koutsi_trainings').select('*')
+    .in('student_id', chunk).eq('logged_by', 'player').neq('coach_id', coachId).order('date').order('id'))));
+  return pages.flat();
+}
+
 export async function loadCoachState(coachId) {
   const [coachRow, profileRow] = await Promise.all([
     fromTable('koutsi_coaches').select('id, tagline, bio, experience, specialties, welcome_seen_at').eq('id', coachId).single().then(must),
@@ -44,7 +57,7 @@ export async function loadCoachState(coachId) {
   });
 
   const [
-    studentRows, studentProfiles, groupRows, exerciseRows, eventRows, trainingRows,
+    studentRows, studentProfiles, groupRows, exerciseRows, eventRows, ownTrainingRows, playerLogRows,
     diary, homework, videos, moods, matchNotes, history, weekNotes,
   ] = await Promise.all([
     selectIn(studentIds, (ids) => fromTable('koutsi_students').select('*').in('id', ids)),
@@ -53,6 +66,7 @@ export async function loadCoachState(coachId) {
     fromTable('koutsi_exercises').select('*').eq('coach_id', coachId).then(must),
     fromTable('koutsi_coach_events').select('*').eq('coach_id', coachId).then(must),
     selectAll(() => fromTable('koutsi_trainings').select('*').eq('coach_id', coachId).order('date').order('id')),
+    loadPlayerLogs(studentIds, coachId),
     byStudent('koutsi_diary_entries', 'created_at'),
     byStudent('koutsi_homework', 'created_at'),
     byStudent('koutsi_videos', 'created_at'),
@@ -63,6 +77,7 @@ export async function loadCoachState(coachId) {
     loadWeekNotes(coachId),
   ]);
 
+  const trainingRows = [...ownTrainingRows, ...playerLogRows];
   const groupIds = (groupRows || []).map((g) => g.id);
   const [memberRows, themeRows, slotRows, absencesByTraining] = await Promise.all([
     selectIn(groupIds, (ids) => fromTable('koutsi_group_members').select('group_id, student_id').in('group_id', ids).is('ended_at', null)),

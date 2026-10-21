@@ -1,15 +1,17 @@
-// sheets.jsx — the player's own writes: mood, match note, own training, goal / wish / note,
+// sheets.jsx — the player's own writes: mood, match note, own training (and its edit), goal / wish / note,
 // "En pääse", and age. Every free-text field carries the health-data reminder.
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { Button, ChipSelect, Field, Input, Segmented, Sheet, Textarea, Toggle } from '../ui/index.js';
+import { Button, ChipSelect, Field, Icon, Input, Segmented, Sheet, Textarea, Toggle } from '../ui/index.js';
 import { DurationStepper, TimeSelect } from '../shared/fields.jsx';
 import {
   koutsiTodayStr, koutsiFmtShortDate, koutsiTournamentsForStudent, koutsiTournamentOnDateForStudent, koutsiTournamentLabel,
   koutsiTrainingsForStudent,
 } from '../domain/core.js';
-import { MOOD_LABELS, SELF_TRAINING_TYPES } from '../lib/constants.js';
+import { MOOD_LABELS } from '../lib/constants.js';
+import { ACTIVITIES, activityById, defaultLogTime, ownEntry, ownNotes } from '../domain/ownWeek.js';
+import { ActivityIcon } from './ActivityIcon.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 export const HEALTH_NOTE = 'Älä kirjoita vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.';
@@ -113,66 +115,116 @@ export function MatchNoteSheet({ open, onClose, editing, defaultDate }) {
   );
 }
 
-const NOTE_HINTS = {
-  'Omatoiminen harjoitus': 'Esim. Syöttöjä seinää vasten, kaverin kanssa lyöntejä.',
-  Fysiikka: 'Esim. Kuntosali, juoksu, liikkuvuus.',
-  'Muu liikunta': 'Esim. Sulkapallo, uinti, pyöräily.',
-  Turnaus: 'Esim. Piirinmestaruuskisat, Lahti.',
-};
-
-export function SelfTrainingSheet({ open, onClose, defaultDate, onSwitchToMatch }) {
+/**
+ * "Kirjaa oma treeni": what was done (one tap on a tile), when and how long, a few words. It is
+ * the player's own entry — no coach to pick — and every coach of the player sees it. Also edits
+ * an entry (`editing`), and logs a homework as done (`activity: 'kotilaksy'`, `homeworkId`).
+ */
+export function SelfTrainingSheet({ open, onClose, defaultDate, defaultTime, editing, preset, onSwitchToMatch }) {
   const { state, run, ownerId } = useData();
   const coaches = state.coaches || [];
-  const [type, setType] = useState('Omatoiminen harjoitus');
-  const [date, setDate] = useState(koutsiTodayStr());
-  const [time, setTime] = useState('12:00');
-  const [duration, setDuration] = useState(60);
-  const [endDate, setEndDate] = useState('');
-  const [notes, setNotes] = useState('');
-  const [coachId, setCoachId] = useState(null);
+  const student = state.students[0];
+  const openHomework = (student?.homework || []).filter((h) => !h.done || h.id === preset?.homeworkId);
+  const [f, setF] = useState(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    setType('Omatoiminen harjoitus'); setDate(defaultDate || koutsiTodayStr()); setTime('12:00'); setDuration(60); setEndDate(''); setNotes('');
-    setCoachId(coaches[0]?.id || null);
-  }, [open, defaultDate]); // eslint-disable-line react-hooks/exhaustive-deps
-  const isTournament = type === 'Turnaus';
-  const isMatch = type === 'Ottelu';
-  const ready = !busy && coachId && (isTournament || (time && duration > 0));
+    if (!open) { setF(null); return; }
+    if (editing) {
+      const e = ownEntry(editing);
+      setF({ activity: e.activity, date: editing.date, time: editing.time || '17:00', duration: editing.durationMinutes || 60, endDate: editing.endDate || '', text: e.activity === 'turnaus' ? (editing.notes || '') : e.text, homeworkId: null });
+      return;
+    }
+    const activity = preset?.activity || 'tennis';
+    const date = defaultDate || koutsiTodayStr();
+    const hw = preset?.homeworkId || openHomework[0]?.id || null;
+    setF({
+      activity, date, time: defaultTime || defaultLogTime(date), duration: activityById(activity).duration || 60, endDate: '',
+      text: activity === 'kotilaksy' ? (openHomework.find((h) => h.id === hw)?.text || '') : '', homeworkId: activity === 'kotilaksy' ? hw : null,
+    });
+  }, [open, editing, defaultDate, defaultTime, preset]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!f) return null;
+  const a = activityById(f.activity);
+  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v?.target ? v.target.value : v }));
+  const pick = (id) => setF((x) => {
+    const next = activityById(id);
+    const hw = next.homework ? (x.homeworkId || openHomework[0]?.id || null) : null;
+    return {
+      ...x, activity: id, homeworkId: hw,
+      // the usual length of the new kind, unless the player already changed it
+      duration: !editing && x.duration === activityById(x.activity).duration ? (next.duration || x.duration) : x.duration,
+      text: next.homework && !x.text ? (openHomework.find((h) => h.id === hw)?.text || '') : x.text,
+    };
+  });
+  const pickHomework = (id) => setF((x) => {
+    const before = openHomework.find((h) => h.id === x.homeworkId)?.text || '';
+    return { ...x, homeworkId: id, text: !x.text || x.text === before ? (openHomework.find((h) => h.id === id)?.text || '') : x.text };
+  });
+  const isTournament = a.id === 'turnaus';
+  // An entry stays with the coach it was written under while that coaching goes on; a new one,
+  // or one whose coach has left, goes under a current coach. Every coach of the player sees it.
+  const coachId = editing && coaches.some((c) => c.id === editing.coachId) ? editing.coachId : coaches[0]?.id || null;
+  const ready = !busy && coachId && (isTournament || (f.time && f.duration > 0));
   const save = async () => {
-    if (isMatch) { onClose(); onSwitchToMatch?.(date); return; }
+    if (a.match) { onClose(); onSwitchToMatch?.(f.date); return; }
     if (!ready || busyRef.current) return;
     busyRef.current = true; setBusy(true);
-    const res = await run(() => api.player.addSelfTraining({
-      studentId: ownerId, coachId, date, endDate: isTournament && endDate ? endDate : null,
-      time, type, durationMinutes: isTournament ? null : duration, notes: notes.trim(),
-    }), isTournament ? 'Turnaus kirjattu.' : 'Treeni kirjattu — hienoa!');
+    const payload = {
+      studentId: ownerId, coachId, date: f.date, endDate: isTournament && f.endDate ? f.endDate : null,
+      time: isTournament ? (editing?.time || '12:00') : f.time, type: a.type, durationMinutes: isTournament ? null : f.duration,
+      notes: isTournament ? f.text.trim() : ownNotes(a.id, f.text),
+    };
+    const hw = a.homework && f.homeworkId ? openHomework.find((h) => h.id === f.homeworkId) : null;
+    const res = await run(async () => {
+      if (editing) await api.player.updateSelfTraining(editing.id, payload);
+      else await api.player.addSelfTraining(payload);
+      if (hw && !hw.done) await api.homework.toggleDone(hw.id, true);
+    }, editing ? 'Merkintä päivitetty.' : isTournament ? 'Turnaus kirjattu.' : hw ? 'Kotiläksy tehty ja kirjattu — hienoa!' : 'Treeni kirjattu — hienoa!');
     busyRef.current = false; setBusy(false);
     if (res.ok) onClose();
   };
+  const tiles = ACTIVITIES.filter((x) => (!x.hidden || x.id === f.activity) && (!x.homework || openHomework.length > 0 || x.id === f.activity) && (!editing || !x.match));
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Kirjaa oma treeni" subtitle="Omatoiminen harjoitus, fysiikka, muu laji tai turnaus — näkyy valmentajallesi." size="md"
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!isMatch && !ready} loading={busy} onClick={save}>{isMatch ? 'Jatka ottelun kirjaukseen' : 'Tallenna'}</Button></div>}>
+    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa merkintää' : 'Kirjaa oma treeni'} subtitle="Oma merkintäsi. Kaikki valmentajasi näkevät sen." size="md"
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!a.match && !ready} loading={busy} onClick={save}>{a.match ? 'Jatka ottelun kirjaukseen' : 'Tallenna'}</Button></div>}>
       <div className="stack-4">
-        <Field label="Mitä teit?"><ChipSelect size="sm" options={SELF_TRAINING_TYPES.map((t) => ({ value: t, label: t }))} value={type} onChange={(v) => v && setType(v)} ariaLabel="Laji" /></Field>
-        {coaches.length > 1 && !isMatch && (
-          <Field label="Kenen valmennukseen?"><ChipSelect size="sm" options={coaches.map((c) => ({ value: c.id, label: c.name }))} value={coachId} onChange={(v) => v && setCoachId(v)} ariaLabel="Valmentaja" /></Field>
+        <div className="pw-acts" role="radiogroup" aria-label="Mitä teit?">
+          {tiles.map((x) => (
+            <button key={x.id} type="button" role="radio" aria-checked={x.id === f.activity} className={cx('pw-act', x.id === f.activity && 'is-on')} onClick={() => pick(x.id)}>
+              <span className="pw-act-icon"><ActivityIcon activity={x.id} size={22} /></span>
+              <span className="pw-act-label">{x.label}</span>
+            </button>
+          ))}
+        </div>
+        {a.homework && openHomework.length > 1 && (
+          <Field label="Mikä kotiläksy?">
+            <div className="pw-hw-pick">
+              {openHomework.map((h) => (
+                <button key={h.id} type="button" className={cx('pw-hw-opt', h.id === f.homeworkId && 'is-on')} onClick={() => pickHomework(h.id)}>
+                  <span className={cx('k-check-btn', h.id === f.homeworkId && 'is-on')}><Icon name="check" size={14} strokeWidth={3} /></span>
+                  <span className="grow">{h.text}</span>
+                </button>
+              ))}
+            </div>
+          </Field>
         )}
-        {!isMatch && (
+        {!a.match && (
           <>
             <div className="k-two">
-              <Field label={isTournament ? 'Alkaa' : 'Päivä'} htmlFor="st-date"><Input id="st-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+              <Field label={isTournament ? 'Alkaa' : 'Päivä'} htmlFor="st-date"><Input id="st-date" type="date" value={f.date} onChange={set('date')} /></Field>
               {isTournament
-                ? <Field label="Päättyy" optional htmlFor="st-end"><Input id="st-end" type="date" min={date} value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
-                : <Field label="Kellonaika"><TimeSelect value={time} onChange={setTime} /></Field>}
+                ? <Field label="Päättyy" optional htmlFor="st-end"><Input id="st-end" type="date" min={f.date} value={f.endDate} onChange={set('endDate')} /></Field>
+                : <Field label="Alkoi klo"><TimeSelect value={f.time} onChange={set('time')} /></Field>}
             </div>
-            {!isTournament && <Field label="Kesto"><DurationStepper value={duration} onChange={setDuration} /></Field>}
-            <Field label={isTournament ? 'Turnauksen nimi' : 'Kuvaus'} optional htmlFor="st-notes"><Textarea id="st-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={NOTE_HINTS[type] || ''} maxLength={1000} /></Field>
+            {!isTournament && <Field label="Kesto"><DurationStepper value={f.duration} onChange={set('duration')} /></Field>}
+            <Field label={isTournament ? 'Turnauksen nimi' : 'Mitä teit?'} optional htmlFor="st-notes">
+              <Textarea id="st-notes" rows={2} value={f.text} onChange={set('text')} placeholder={a.placeholder || ''} maxLength={900} />
+            </Field>
             <p className="k-warn-text">{HEALTH_NOTE}</p>
+            {coaches.length === 0 && <p className="field-msg">Voit kirjata omia treenejä, kun olet liittynyt valmentajan ryhmään.</p>}
           </>
         )}
-        {isMatch && <p className="k-quiet-text">Ottelusta kirjataan vastustaja, tulos ja muistiinpanot omalla lomakkeellaan.</p>}
+        {a.match && <p className="k-quiet-text">Ottelusta kirjataan vastustaja, tulos ja muistiinpanot omalla lomakkeellaan.</p>}
       </div>
     </Sheet>
   );

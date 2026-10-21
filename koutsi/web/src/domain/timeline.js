@@ -2,6 +2,7 @@
 // happened to a player (goals, coach notes, homework, moods, matches, videos, wishes, notes,
 // trainings with their week's theme, club events). Ported from the old lib/koutsi-timeline.jsx
 // builder unchanged; only the presentation is new (shared/Timeline.jsx).
+import { activityById, ownEntry } from './ownWeek.js';
 import {
   koutsiDateFromStr, koutsiTodayStr, koutsiFmtShortDate, koutsiTournamentLabel,
   KOUTSI_MONTHS, KOUTSI_ABSENCE_REASON_LABELS,
@@ -160,12 +161,15 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
     const tournamentSummary = tournamentMatches.length
       ? `${tournamentMatches.length} ${tournamentMatches.length === 1 ? 'ottelu' : 'ottelua'} · ${tournamentMatches.filter((n) => n.result === 'voitto').length} voittoa, ${tournamentMatches.filter((n) => n.result === 'tappio').length} tappiota`
       : '';
+    // A player's own session says what was done: "Lenkki" rather than its category "Fysiikka"
+    // when the renewed app's log named it (domain/ownWeek.js), the length and their own words.
+    const own = t.loggedBy === 'player' ? ownEntry(t) : null;
+    const named = Boolean(own && activityById(own.activity).word);
     push({
       id: `training-${t.id}`, kind: 'training', at: t.date,
-      title: absence ? `${t.type} — ${reason}` : t.type,
-      // A player's own session says what was done: the length and their own words.
-      body: [t.groupName || '', t.themeTitle ? `Teema: ${t.themeTitle}` : '', t.loggedBy === 'player' && t.durationMinutes ? `${t.durationMinutes} min` : '',
-        t.loggedBy === 'player' ? (t.notes || '').trim() : '', absence?.note || '', tournamentSummary].filter(Boolean).join(' · '),
+      title: absence ? `${t.type} — ${reason}` : named ? own.title : t.type,
+      body: [t.groupName || '', t.themeTitle ? `Teema: ${t.themeTitle}` : '', own && t.durationMinutes ? `${t.durationMinutes} min` : '',
+        own ? (named ? own.text : (t.notes || '').trim()) : '', absence?.note || '', tournamentSummary].filter(Boolean).join(' · '),
       time: t.time, absent: !!absence,
       search: `${t.type} ${t.groupName || ''} treeni ${reason} ${absence?.note || ''} ${t.themeTitle || ''} ${t.loggedBy === 'player' ? t.notes || '' : ''}`,
     });
