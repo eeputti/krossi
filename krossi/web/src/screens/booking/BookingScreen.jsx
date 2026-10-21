@@ -405,13 +405,13 @@ export function BookingScreen({ params, query, route }) {
 
   return (
     <>
-      {bar(venue.name, !account ? (
-          <Button variant="ghost" size="sm" icon="log-in" onClick={signIn}>Kirjaudu</Button>
-      ) : (
+      {bar(venue.name, (
+        <>
+          {demoSite && <IconButton icon="help" label="Näytä opastus" data-tour="site-help" onClick={siteTour.start} />}
+          {!account ? (
+            <Button variant="ghost" size="sm" icon="log-in" data-tour="site-login" onClick={signIn}>Kirjaudu</Button>
+          ) : (
           <>
-            {isDemo && route?.type === 'site' && (
-              <IconButton icon="help" label="Näytä opastus" data-tour="site-help" onClick={siteTour.start} />
-            )}
             <IconButton
               icon="calendar"
               label={upcoming.length ? `Omat varaukset (${upcoming.length} tulossa)` : 'Omat varaukset'}
@@ -424,6 +424,8 @@ export function BookingScreen({ params, query, route }) {
               <IconButton icon="grid" label="Hallin näkymä" data-tour="bk-hall" onClick={() => navigate(`/pelaa/halli/${encodeURIComponent(venue.slug)}`)} />
             )}
           </>
+          )}
+        </>
       ))}
       <Page className="bk-page">
         {site && <SiteHero venue={venue} />}
