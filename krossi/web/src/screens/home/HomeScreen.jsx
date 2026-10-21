@@ -1,4 +1,4 @@
-// HomeScreen — Omat (/pelaa/koti), the first tab: what is mine and what waits on me.
+// HomeScreen — Koti (/pelaa/koti), the first tab: what is mine and what waits on me.
 //
 //   head        greeting, the next thing in one line, bell (Ilmoitukset), avatar (Profiili on phones)
 //   attention   pending game invites (Liity / Ei kiitos), play requests, "Pelasitteko?" about past
@@ -7,11 +7,12 @@
 //   tulevat     my games and my courts no game is played on, soonest first (gamesAndCourts), or the
 //               two doors (Varaa kenttä / Etsi peliseuraa) when there is nothing yet
 //   menneet     my latest past games with their outcome, the rest behind "Näytä kaikki"
-// Finding somebody to play with is the Peliseura tab, booking the Varaa tab, progress (putket, merkit,
-// koosteet), leagues and inviting a friend are in Profiili — Omat only shows what is mine.
+// Finding somebody to play with is the Peliseura tab; booking a court is its own page (krossi.app/varaa,
+// in the app /pelaa/varaa: the side nav on desktop, the small "Varaa kenttä" link by Tulevat on phones);
+// progress (putket, merkit, koosteet), leagues and inviting a friend are in Profiili — Koti only shows what is mine.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/index.js';
-import { useAsync, useNow } from '../../app/hooks.js';
+import { useAsync, useIsDesktop, useNow } from '../../app/hooks.js';
 import { usePaywall } from '../../app/paywall.jsx';
 import { Link, navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
@@ -225,7 +226,8 @@ function EmptyPlan() {
   );
 }
 
-function PlanSection({ mine, bookings, plan, loading }) {
+function PlanSection({ mine, bookings, plan, loading, hall }) {
+  const isDesktop = useIsDesktop();
   let body;
   if (loading) body = <div className="home-stack"><Skeleton h={112} r={20} /><Skeleton h={112} r={20} /></div>;
   else if (mine.error) body = <Card><ErrorState compact error={mine.error} onRetry={mine.reload} title="Pelejäsi ei saatu ladattua" /></Card>;
@@ -243,8 +245,10 @@ function PlanSection({ mine, bookings, plan, loading }) {
       </div>
     );
   }
+  // On phones the court is booked from here (desktop has Varaa in the side nav); an empty list has its own doors.
+  const bookAction = hall && !isDesktop && !loading && plan.length > 0 ? { label: 'Varaa kenttä', onClick: () => navigate('/pelaa/varaa') } : undefined;
   return (
-    <Section title="Tulevat" eyebrow={!loading && plan.length > 1 ? `${plan.length} tulossa` : undefined}>
+    <Section title="Tulevat" eyebrow={!loading && plan.length > 1 ? `${plan.length} tulossa` : undefined} action={bookAction}>
       {body}
       {!loading && bookings.error && <InlineError text="Kenttävarauksiasi ei saatu ladattua." onRetry={bookings.reload} />}
     </Section>
@@ -337,7 +341,7 @@ export function HomeScreen() {
         <HomeHead next={plan[0]} loading={planLoading} feed={feed} />
         <div className="home-main">
           <AttentionSection invites={invites} requests={requests} outcomes={outcomes} toConfirm={toConfirm} />
-          <PlanSection mine={mine} bookings={bookings} plan={plan} loading={planLoading} />
+          <PlanSection mine={mine} bookings={bookings} plan={plan} loading={planLoading} hall={hall} />
           <PastSection past={mine.data?.past || []} />
         </div>
       </div>

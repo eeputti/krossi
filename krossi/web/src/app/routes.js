@@ -3,19 +3,20 @@
 //
 // type: 'tab' (tab root) | 'page' (pushed, TopBar with back) | 'overlay' (Sheet over the
 // previous page) | 'full' (no tab bar on phones) | 'public' (works without an account)
+// | 'site' (the booking site krossi.app/varaa: its own page outside the app's menus, see SiteShell)
 
-// The app does two things — book a court and find somebody to play with — so they are tabs of their
-// own, next to Omat (what is mine and what waits on me) and Viestit.
+// The app does two things — book a court and find somebody to play with. On phones the tab bar is
+// Koti · Peliseura · Viestit · Profiili and the court is booked on its own page (krossi.app/varaa, or the
+// small "Varaa kenttä" links on Koti and Peliseura); the desktop side nav keeps Varaa as an item of its own.
 export const TABS = [
-  { id: 'koti', label: 'Omat', icon: 'calendar', path: '/pelaa/koti' },
-  { id: 'varaa', label: 'Varaa', icon: 'court', path: '/pelaa/varaa' },
+  { id: 'koti', label: 'Koti', icon: 'home', path: '/pelaa/koti' },
   { id: 'peliseura', label: 'Peliseura', icon: 'users', path: '/pelaa/pelaajat' },
+  { id: 'varaa', label: 'Varaa', icon: 'court', path: '/pelaa/varaa', desktopOnly: true },
   { id: 'viestit', label: 'Viestit', icon: 'chat', path: '/pelaa/viestit' },
   { id: 'profiili', label: 'Profiili', icon: 'user', path: '/pelaa/profiili' },
 ];
 
-// The phone tab bar leaves Profiili out: it is the avatar on Omat there. The desktop side nav keeps all of TABS.
-export const PHONE_TABS = TABS.filter((t) => t.id !== 'profiili');
+export const PHONE_TABS = TABS.filter((t) => !t.desktopOnly);
 
 export const ROUTES = [
   { name: 'home', pattern: '/pelaa/koti', tab: 'koti', type: 'tab' },
@@ -24,7 +25,7 @@ export const ROUTES = [
   { name: 'game', pattern: '/pelaa/peli/:id', tab: 'peliseura', type: 'page', public: true },
   { name: 'leagues', pattern: '/pelaa/liigat', tab: 'profiili', type: 'page' },
   { name: 'league', pattern: '/pelaa/liiga/:id', tab: 'profiili', type: 'page', public: true },
-  { name: 'booking', pattern: '/pelaa/varaa', tab: 'varaa', type: 'tab' },
+  { name: 'booking', pattern: '/pelaa/varaa', tab: 'varaa', type: 'tab' }, // a tab on desktop; on phones a page reached from Koti and Peliseura
   { name: 'bookingVenue', pattern: '/pelaa/varaa/:venue', tab: 'varaa', type: 'page' },
   { name: 'hall', pattern: '/pelaa/halli/:venue', tab: 'varaa', type: 'page' },
   { name: 'splitPay', pattern: '/pelaa/maksa/:token', tab: 'varaa', type: 'page', public: true },
@@ -44,6 +45,9 @@ export const ROUTES = [
   { name: 'recap', pattern: '/pelaa/kooste/:period', tab: 'profiili', type: 'full' },
   { name: 'invite', pattern: '/pelaa/kutsu/:code', tab: null, type: 'public', public: true },
   { name: 'admin', pattern: '/pelaa/yllapito', tab: 'profiili', type: 'page' },
+  // The booking site: outside /pelaa on purpose, so the demo keeps the same URL (krossi.app/varaa).
+  { name: 'bookingSite', pattern: '/varaa', tab: null, type: 'site' },
+  { name: 'bookingSiteVenue', pattern: '/varaa/:venue', tab: null, type: 'site' },
 ];
 
 const compiled = ROUTES.map((route) => {

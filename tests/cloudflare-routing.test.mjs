@@ -36,6 +36,9 @@ const routes = [
   ['https://krossi.app/demo/pelit', '/krossi-demo.html'],
   [`https://www.krossi.app/demo/peli/${GAME_ID}/`, '/krossi-demo.html'],
   ['https://krossi.app/demo/a/b/c', '/krossi-demo.html'],
+  ['https://krossi.app/varaa', '/krossi-varaa.html'],
+  ['https://krossi.app/varaa/', '/krossi-varaa.html'],
+  ['https://www.krossi.app/varaa/lahden-ulkokentat?varaus=bk-1', '/krossi-varaa.html'],
   ['https://koutsi.krossi.app/', '/koutsi.html'],
   ['https://koutsi.krossi.app/valmentaja', '/koutsi-valmentaja.html'],
   ['https://koutsi.krossi.app/valmentaja/oppilaat?auth=login', '/koutsi-valmentaja.html'],
@@ -78,6 +81,9 @@ test('does not turn unknown or overly deep paths into app pages', () => {
   assert.equal(resolveAssetPath('https://krossi.app/pelaaja'), null);
   assert.equal(resolveAssetPath('https://krossi.app/pelaat'), null);
   assert.equal(resolveAssetPath('https://krossi.app/demot'), null);
+  assert.equal(resolveAssetPath('https://krossi.app/varaa/a/b'), null);
+  assert.equal(resolveAssetPath('https://krossi.app/varaat'), null);
+  assert.equal(resolveAssetPath('https://koutsi.krossi.app/varaa'), null);
   // The new Krossi routes don't leak onto the Koutsi hosts.
   assert.equal(resolveAssetPath('https://koutsi.krossi.app/demo'), null);
   assert.equal(resolveAssetPath(`https://koutsi.krossi.app/pelaa/peli/${GAME_ID}`), null);
@@ -95,6 +101,7 @@ const KOUTSI_PATHS = [
   '/pelaa', '/pelaa/', '/pelaa/pelaajat', '/pelaa/pelaajat/', `/pelaa/peli/${GAME_ID}`, '/pelaa/viestit/abc',
   '/pelaa/asetukset/estetyt', '/pelaa/kutsu/ABC234', '/pelaa/a/b/c', '/pelaa/a/b/c/d', '/pelaa//', '/PELAA',
   '/demo', '/demo/', '/demo/pelit', '/demo/a/b/c', '/krossi-demo.html',
+  '/varaa', '/varaa/', '/varaa/lahden-ulkokentat', '/krossi-varaa.html',
   '/assets/ball-tight.png', '/dist/koutsi-landing.js', '/lib/cookie-consent.js', '/krossi/app.js',
   '/robots.txt', '/sitemap.xml', '/tuntematon', '/%70elaa', '/valmentaja/%2F', '/pelaa/%C3%A4',
 ];
@@ -253,7 +260,7 @@ test('every routed HTML file exists in the staged deployment', async () => {
 
 test('staged deployment ships the new Krossi web bundle and drops the old app', async () => {
   const output = join(import.meta.dirname, '..', 'cloudflare-dist');
-  for (const file of ['app.html', 'krossi-demo.html', 'krossi.webmanifest', 'krossi/app.js', 'krossi/demo.js', 'krossi/app.css']) {
+  for (const file of ['app.html', 'krossi-demo.html', 'krossi-varaa.html', 'krossi.webmanifest', 'krossi/app.js', 'krossi/demo.js', 'krossi/app.css']) {
     await access(join(output, file));
   }
   await assert.rejects(access(join(output, 'lib/krossi-web-app.jsx')));
@@ -286,6 +293,7 @@ test('robots.txt disallows auth-gated app views and points to the host sitemap',
   const krossiBody = await krossi.text();
   assert.match(krossiBody, /Disallow: \/pelaa/);
   assert.match(krossiBody, /Disallow: \/demo/);
+  assert.match(krossiBody, /Disallow: \/varaa/);
   assert.match(krossiBody, /Sitemap: https:\/\/krossi\.app\/sitemap\.xml/);
 
   const koutsi = await worker.fetch(new Request('https://koutsi.krossi.app/robots.txt'), env);

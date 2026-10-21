@@ -39,7 +39,8 @@ export function openCreateGame(query = '') {
 // The active tab shows the filled twin of its icon (outline = not active), when there is one.
 const tabIcon = (name, isActive) => (isActive && ICON_NAMES.includes(`${name}-fill`) ? `${name}-fill` : name);
 
-// Phones: Omat · Varaa · Peliseura · Viestit (Profiili is the avatar on Omat).
+// Phones: Koti · Peliseura · Viestit · Profiili. Booking a court is its own page there (the Varaa
+// item is desktop-only, see routes.js), opened from the small "Varaa kenttä" links on Koti and Peliseura.
 function TabBar({ active, unread }) {
   const item = (t) => (
     <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined} data-tour={`tab-${t.id}`}>
@@ -61,7 +62,7 @@ function SideNav({ active, unread }) {
   const { profile, isAdmin } = useSession();
   return (
     <aside className="sidenav on-dark court-lines">
-      <Link to="/pelaa/koti" className="sidenav-logo" aria-label="Krossi — omat">Krossi</Link>
+      <Link to="/pelaa/koti" className="sidenav-logo" aria-label="Krossi — koti">Krossi</Link>
       <nav className="sidenav-links" aria-label="Päävalikko">
         {TABS.map((t) => (
           <Link key={t.id} to={t.path} className={cx('sidenav-link', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined} data-tour={`tab-${t.id}`}>

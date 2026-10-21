@@ -96,7 +96,8 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/kooste/:period` (`2026-09` tai `kausi-2026`) | recap | profiili | full |
 | `/pelaa/liigat` | leagues | pelit | page |
 | `/pelaa/liiga/:id` | league | pelit | page (kirjautumaton: julkinen sarjataulukko) |
-| `/pelaa/varaa`, `/pelaa/varaa/:venue` (`?peli=<id>`, `?chat=<id>`, `?liiga=&ottelu=`) | booking, bookingVenue | pelit | page |
+| `/pelaa/varaa`, `/pelaa/varaa/:venue` (`?peli=<id>`, `?chat=<id>`, `?liiga=&ottelu=`) | booking, bookingVenue | varaa | tab (työpöytä) / page (puhelin) |
+| `/varaa`, `/varaa/:venue` | bookingSite, bookingSiteVenue | — | site (varaussivu krossi.app/varaa, ks. alla) |
 | `/pelaa/halli/:venue` (`?nakyma=kausivuorot\|laskutus\|kortit\|asetukset`) | hall | pelit | page (hallin henkilökunta) |
 | `/pelaa/osuus/:id` | share | pelit | page (osuus jaetusta kenttävuorosta; ei vaadi avausmaksua) |
 | `/pelaa/omat-varaukset` (`?vuoro=<id>` avaa varauksen) | myBookings | pelit | page (vuorot, kausivuorot, sarja- ja lahjakortit) |
@@ -105,6 +106,12 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/yllapito` | admin | profiili | page (vain admin) |
 
 - *tab* = välilehden juuri; *page* = työnnetty sivu (TopBar + takaisin-nuoli, liukuu sisään);
+  *site* = varaussivu ilman sovelluksen valikoita (`SiteShell`, `SiteBar`): asiakas tekee siellä vain varauksen, ja
+  "Kenttä varattu!" -näkymän pääpainike "Etsi pelikaveri tähän vuoroon" vie sovellukseen (Peliseura + pelin luonti
+  valmiiksi täytettynä). Polku on `/pelaa`:n ulkopuolella, joten demo pitää saman osoitteen. Worker tarjoaa
+  `/varaa`:n toistaiseksi demon taustalla (`krossi-varaa.html` lataa `demo.js`:n, ulkokenttämaailma): linkin voi
+  lähettää seuralle kokeiltavaksi ilman tiliä. Kun oikeat kentät aukeavat pelaajille, worker vaihdetaan `app.html`:ään
+  (silloin varausaikojen pitää näkyä ilman tiliä ja kirjautuminen tulla vasta maksaessa — tietokantamuutos);
   *overlay* = renderöidään Sheetinä edellisen näkymän päälle (taustanäkymä `state.bg`);
   *full* = koko ruutu ilman välilehtipalkkia mobiilissa.
 - Kirjautumaton käyttäjä: `/pelaa/peli/:id` näyttää julkisen esikatselun (`api.games.publicPreview`)
@@ -126,11 +133,12 @@ Reittitaulu on `app/routes.js`. Polut:
   Testi/live ratkeaa pelkillä Supabase-secreteillä (`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
   `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`); ilman `STRIPE_PUBLISHABLE_KEY`:tä käytetään
   Stripen hostattua Checkout-sivua (`stripe-checkout`).
-- `AppShell.jsx`: mobiilissa (< 900 px) alareunan **TabBar** (Koti · Pelit · iso lime
-  **Pelataanko?** keskellä · Pelaajat · Viestit, lukemattomat-badge Viestit-kohdassa; kuten
-  Koutsin "Merkitse") — Profiili on mobiilissa Kodin avatar. Työpöydällä vasen **SideNav**
-  (logo, kaikki viisi kohdetta, iso lime "Pelataanko?" -nappi, oma profiilichippi). Keskellä
-  sisältö max 720 px (Koti: 1080 px kahdella palstalla ≥ 1200 px).
+- `AppShell.jsx`: mobiilissa (< 900 px) alareunan **TabBar**: Koti · Peliseura · Viestit · Profiili
+  (lukemattomat-badge Viestit-kohdassa). Kenttä varataan puhelimella omalta sivultaan: Kodin Tulevat-otsikon
+  "Varaa kenttä" ja Peliseuran "Onko jo pelikaveri? Varaa kenttä" (vain kun varattava halli on näkyvissä).
+  Työpöydällä vasen **SideNav**: Koti · Peliseura · Varaa · Viestit · Profiili ja oma profiilichippi
+  (`TABS`, Varaa on `desktopOnly`). Keskellä sisältö max 720 px (Koti: 1080 px kahdella palstalla ≥ 1200 px).
+  Reitit, joiden tyyppi on *site*, renderöi `SiteShell.jsx` ilman näitä valikoita.
 - **Pelataanko?-valikko** (`screens/play/PlayMenu.jsx`, avataan `openPlayMenu()`): kaksi ovea,
   yksi kierto. Tulossa (omat tulevat pelit + kenttävaraukset; vuoro, jolla ei ole peliä eikä
   jakoa, on "Puuttuu pelikaveri"), sitten **Varaa kenttä** (tumma; vapaat ajat tänään) ja **Etsi

@@ -40,6 +40,7 @@ const krossiFiles = [
   ['krossi/web/landing/krossi-landing.jsx', 'lib/krossi-landing.jsx'],
   [`${KROSSI_WEB_DIST}/app.html`, 'app.html'],
   [`${KROSSI_WEB_DIST}/krossi-demo.html`, 'krossi-demo.html'],
+  [`${KROSSI_WEB_DIST}/krossi-varaa.html`, 'krossi-varaa.html'],
   [`${KROSSI_WEB_DIST}/krossi.webmanifest`, 'krossi.webmanifest'],
   [`${KROSSI_WEB_DIST}/app.js`, 'krossi/app.js'],
   [`${KROSSI_WEB_DIST}/demo.js`, 'krossi/demo.js'],

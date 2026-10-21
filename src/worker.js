@@ -32,7 +32,7 @@ const SITEMAPS = {
 };
 
 const ROBOTS_DISALLOW = {
-  'krossi.app': ['/pelaa', '/valmentaja', '/pelaaja', '/demo'],
+  'krossi.app': ['/pelaa', '/valmentaja', '/pelaaja', '/demo', '/varaa'],
   [KOUTSI_HOST]: ['/pelaa', '/valmentaja', '/pelaaja'],
 };
 
@@ -90,10 +90,16 @@ function resolveKoutsiAssetPath(hostname, pathname) {
 // krossi.app, www.krossi.app and preview hosts. App routes go at most two segments below
 // /pelaa (/pelaa/asetukset/estetyt, /pelaa/viestit/<id>); three leaves headroom without
 // turning arbitrarily deep junk URLs into app pages.
+//
+// /varaa is the booking site (book a court, then find a partner). Until real courts open to
+// players it runs on the demo's in-memory backend (krossi-varaa.html loads demo.js), so the link
+// can be sent to a club to try without an account; the shell only differs in its title and
+// link preview. Its routes are /varaa and /varaa/<venue>.
 function resolveKrossiAssetPath(pathname) {
   if (pathname === '/') return '/index.html';
   if (matchesPath(pathname, '/pelaa', 3)) return '/app.html';
   if (matchesPath(pathname, '/demo', 3)) return '/krossi-demo.html';
+  if (matchesPath(pathname, '/varaa', 1)) return '/krossi-varaa.html';
   return null;
 }
 

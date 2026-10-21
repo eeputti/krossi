@@ -7,14 +7,15 @@
 // centre on a new one. The page underneath can't be tapped while the tour is open — the card's
 // buttons (or ← → Esc) move it. Steps live in tourSteps.js, open/closed in tourState.js.
 //
-// Opens by itself on the first visit (not inside the landing page's phone frame); ?opastus=1 opens
-// it anyway and ?opastus=0 never. Profiili → Näytä opastus opens it again.
+// Opens by itself on the first visit (not inside the landing page's phone frame, nor after coming in
+// from the booking site krossi.app/varaa — "Etsi pelikaveri" must open the game, not a tour);
+// ?opastus=1 opens it anyway and ?opastus=0 never. Profiili → Näytä opastus opens it again.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useIsDesktop } from '../../app/hooks.js';
 import { navigate, useRoute } from '../../app/router.js';
 import { Button, Icon, IconButton, ListRow, TennisBall, confetti } from '../../ui/index.js';
 import { STEPS, TOUR_TOPICS } from './tourSteps.js';
-import { closeTour, inFrame, setTourStep, startTour, tourSeen, useTourStep } from './tourState.js';
+import { cameFromSite, closeTour, inFrame, setTourStep, startTour, tourSeen, useTourStep } from './tourState.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const PAD = 6; // space between the target and the edge of the hole
@@ -123,7 +124,7 @@ export function DemoTour() {
   const step = useTourStep();
   useEffect(() => {
     const ask = new URLSearchParams(window.location.search).get('opastus');
-    if (inFrame() || ask === '0' || (ask !== '1' && tourSeen())) return undefined;
+    if (inFrame() || ask === '0' || (ask !== '1' && (tourSeen() || cameFromSite()))) return undefined;
     const timer = setTimeout(startTour, 900);
     return () => clearTimeout(timer);
   }, []);
@@ -309,7 +310,7 @@ function TourLayer({ step }) {
             <div className="tour-welcome-eyebrow">Opastus · {STEPS.length} askelta</div>
             <h2 id="tour-title" className="tour-welcome-title">Tervetuloa Krossiin</h2>
             <p id="tour-text" className="tour-welcome-text">
-              Krossissa varaat kentän ja löydät peliseuraa. Näytämme askel kerrallaan, missä mikäkin on – myös hallin
+              Krossissa varaat kentän ja löydät peliseuraa. Näytämme askel kerrallaan, missä mikäkin on – myös
               henkilökunnan näkymän ja laskutuksen.
             </p>
             <ul className="tour-topics">

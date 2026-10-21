@@ -56,7 +56,7 @@ async function buildCss() {
 }
 
 async function copyShells() {
-  for (const [src, dest] of [['app.html', 'app.html'], ['demo.html', 'krossi-demo.html'], ['manifest.webmanifest', 'krossi.webmanifest']]) {
+  for (const [src, dest] of [['app.html', 'app.html'], ['demo.html', 'krossi-demo.html'], ['varaa.html', 'krossi-varaa.html'], ['manifest.webmanifest', 'krossi.webmanifest']]) {
     await writeFile(join(outDir, dest), await readFile(join(here, src)));
   }
   const { cp } = await import('node:fs/promises');
@@ -73,7 +73,7 @@ if (watch) {
   let timer = null;
   const rebuildStatic = () => { clearTimeout(timer); timer = setTimeout(() => Promise.all([buildCss(), copyShells()]).catch(console.error), 60); };
   fsWatch(join(here, 'src/styles'), rebuildStatic);
-  for (const f of ['app.html', 'demo.html']) fsWatch(join(here, f), rebuildStatic);
+  for (const f of ['app.html', 'demo.html', 'varaa.html']) fsWatch(join(here, f), rebuildStatic);
   await Promise.all([buildCss(), copyShells()]);
   console.log('krossi/web: watching for changes…');
 } else {

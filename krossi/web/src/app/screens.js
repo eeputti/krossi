@@ -50,6 +50,8 @@ export const SCREENS = {
   admin: AdminScreen,
   booking: BookingScreen,
   bookingVenue: BookingScreen,
+  bookingSite: BookingScreen,
+  bookingSiteVenue: BookingScreen,
   hall: HallScreen,
   splitPay: SplitPayScreen,
   myBookings: MyBookingsScreen,

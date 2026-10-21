@@ -12,6 +12,7 @@ import { SplitPayScreen } from '../screens/booking/SplitPayScreen.jsx';
 import { PendingOutcomeCheck } from '../screens/home/PendingOutcomeCheck.jsx';
 import { SetPasswordSheet } from '../screens/auth/SetPasswordSheet.jsx';
 import { AppShell } from './AppShell.jsx';
+import { SiteShell } from './SiteShell.jsx';
 import { AFTER_PAYMENT_KEY } from './checkout.jsx';
 import { PaywallProvider, usePaywall } from './paywall.jsx';
 import { configureRouter, navigate, useRoute } from './router.js';
@@ -198,7 +199,7 @@ function Gate() {
   if (session.needsOnboarding) return <OnboardingScreen />;
   return (
     <>
-      <AppShell />
+      {route.route?.type === 'site' ? <SiteShell /> : <AppShell />}
       <PendingOutcomeCheck />
       <SetPasswordSheet />
     </>

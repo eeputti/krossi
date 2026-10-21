@@ -1,4 +1,8 @@
-// BookingScreen — /pelaa/varaa(/:venue): book a court at a hall and pay in the app.
+// BookingScreen — book a court and pay. Two homes, one screen:
+//   krossi.app/varaa(/:venue)   the booking site (route type 'site', SiteShell): no app menus, the
+//                               Krossi bar on top, a title — and after paying, "Etsi pelikaveri".
+//   /pelaa/varaa(/:venue)       inside the app: a side-nav item on desktop, on phones a page opened
+//                               from the small "Varaa kenttä" links on Koti and Peliseura.
 //
 // One job, top to bottom: where (the venue's halls as cards — or "Mikä tahansa"), which day, how
 // long, and the start times as rows (time, free courts, price). Tap a time; only then the booking
@@ -19,7 +23,7 @@
 // ?varaus=<bookingId>&payment_intent=…; that is confirmed below and the query is dropped.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo } from '../../api/index.js';
-import { useAsync, useLocalState, useNow, useResync } from '../../app/hooks.js';
+import { useAsync, useIsDesktop, useLocalState, useNow, useResync } from '../../app/hooks.js';
 import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
 import { firstName, formatGameTime, formatTime } from '../../lib/format.js';
@@ -31,6 +35,7 @@ import {
   Button, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Sheet, Skeleton, TennisBall, TopBar, useToast,
 } from '../../ui/index.js';
 import { BookSheet } from './BookSheet.jsx';
+import { SiteBar } from './SiteBar.jsx';
 import { BookingTermsSheet } from './BookingTerms.jsx';
 import { DateStrip, DurationStepper, PlacePicker, TimeRows, UnpaidPayments } from './BookingParts.jsx';
 import { gameTitle } from '../games/gameUtils.js';
@@ -53,8 +58,16 @@ function firstDay(venue, now = new Date()) {
 }
 
 export function BookingScreen({ params, query, route }) {
-  // The Varaa tab's root has no back arrow; a venue page, or a booking opened from a game or a chat, does.
-  const back = route?.name === 'booking' && !query?.peli && !query?.chat ? false : route?.name === 'bookingVenue' ? '/pelaa/varaa' : '/pelaa/koti';
+  const site = route?.type === 'site';
+  const isDesktop = useIsDesktop();
+  // The booking site and the desktop Varaa item have no back arrow; a phone's booking page (opened from
+  // Koti or Peliseura), a venue page, or a booking opened from a game or a chat does.
+  const back = site ? false
+    : route?.name === 'bookingVenue' ? '/pelaa/varaa'
+    : isDesktop && !query?.peli && !query?.chat ? false
+    : '/pelaa/koti';
+  const home = site ? '/varaa' : '/pelaa/varaa'; // where this page lives, for the payment's way back
+  const bar = (title, actions) => (site ? <SiteBar actions={actions} /> : <TopBar title={title} back={back} actions={actions} />);
   const toast = useToast();
   const { profile, user } = useSession();
   const now = useNow(60_000);
@@ -230,7 +243,7 @@ export function BookingScreen({ params, query, route }) {
       }
       refresh();
       // Drop the query: it carries Stripe's client secret.
-      navigate(`/pelaa/varaa/${encodeURIComponent(venue.slug)}`, { replace: true });
+      navigate(`${home}/${encodeURIComponent(venue.slug)}`, { replace: true });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query?.varaus, venue?.id]);
@@ -270,7 +283,7 @@ export function BookingScreen({ params, query, route }) {
   if (venues.loading && !venues.data) {
     return (
       <>
-        <TopBar title="Varaa kenttä" back={back} />
+        {bar('Varaa kenttä')}
         <Page className="bk-page">
           <div className="bk-skel-places">{[0, 1, 2, 3].map((i) => <Skeleton key={i} h={62} r={16} />)}</div>
           <div className="bk-skel-row">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} h={68} r={16} />)}</div>
@@ -282,7 +295,7 @@ export function BookingScreen({ params, query, route }) {
   if (venues.error && !venues.data) {
     return (
       <>
-        <TopBar title="Varaa kenttä" back={back} />
+        {bar('Varaa kenttä')}
         <Page><ErrorState error={venues.error} onRetry={() => venues.reload()} /></Page>
       </>
     );
@@ -290,7 +303,7 @@ export function BookingScreen({ params, query, route }) {
   if (!venue) {
     return (
       <>
-        <TopBar title="Varaa kenttä" back={back} />
+        {bar('Varaa kenttä')}
         <Page>
           <EmptyState
             art="court"
@@ -368,10 +381,7 @@ export function BookingScreen({ params, query, route }) {
 
   return (
     <>
-      <TopBar
-        title={venue.name}
-        back={back}
-        actions={(
+      {bar(venue.name, (
           <>
             <IconButton
               icon="calendar"
@@ -385,9 +395,9 @@ export function BookingScreen({ params, query, route }) {
               <IconButton icon="grid" label="Hallin näkymä" data-tour="bk-hall" onClick={() => navigate(`/pelaa/halli/${encodeURIComponent(venue.slug)}`)} />
             )}
           </>
-        )}
-      />
+      ))}
       <Page className="bk-page">
+        {site && <SiteHero venue={venue} />}
         {unpaidCents > 0 && (
           <button type="button" className="bk-unpaid-row" onClick={() => setPaymentsOpen(true)}>
             <span className="bk-unpaid-icon" aria-hidden="true"><Icon name="alert" size={18} strokeWidth={2.4} /></span>
@@ -471,8 +481,22 @@ export function BookingScreen({ params, query, route }) {
         onBooked={refresh}
         onChanged={refresh}
         target={target.data || null}
+        site={site}
+        home={home}
       />
     </>
+  );
+}
+
+/** The booking site's title: what this page is for and where the courts are. */
+function SiteHero({ venue }) {
+  const where = venue.locations.length === 1 ? venue.locations[0].address : venue.city;
+  return (
+    <div className="site-hero">
+      <h1 className="site-title">Varaa kenttä</h1>
+      <p className="site-sub"><Icon name="pin" size={16} />{[venue.name, where].filter(Boolean).join(' · ')}</p>
+      {isDemo && <p className="site-demo"><Icon name="info" size={14} />Esittely — mitään ei veloiteta eikä tallenneta</p>}
+    </div>
   );
 }
 

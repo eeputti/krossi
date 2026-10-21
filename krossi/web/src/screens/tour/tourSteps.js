@@ -15,7 +15,7 @@ async function hallPath(view) {
   return `/pelaa/halli/${encodeURIComponent(venue.slug)}${view ? `?nakyma=${view}` : ''}`;
 }
 
-export const TOUR_TOPICS = ['Kentän varaus', 'Omat varaukset', 'Hallin näkymä', 'Laskutus', 'Peliseura'];
+export const TOUR_TOPICS = ['Kentän varaus', 'Omat varaukset', 'Henkilökunnan näkymä', 'Laskutus', 'Peliseura'];
 
 export const STEPS = [
   {
@@ -23,28 +23,28 @@ export const STEPS = [
     path: '/pelaa/koti',
     target: '[data-tour="tab-koti"]',
     radius: 16,
-    area: 'Omat',
-    icon: 'calendar',
+    area: 'Koti',
+    icon: 'home',
     title: 'Kaikki sinun yhdessä paikassa',
-    text: 'Omat-välilehdellä odottavat pelikutsut ja pelipyynnöt sekä tulevat pelisi ja kenttävuorosi aikajärjestyksessä.',
+    text: ({ desktop }) => `Kodissa odottavat pelikutsut ja pelipyynnöt sekä tulevat pelisi ja kenttävuorosi aikajärjestyksessä.${desktop ? '' : ' Kentän varaat Tulevat-otsikon vierestä: Varaa kenttä.'}`,
   },
   {
     id: 'varaa',
     path: '/pelaa/varaa',
     target: '[data-tour="bk-controls"]',
-    area: 'Varaa',
+    area: 'Varaa kenttä',
     icon: 'court',
-    title: 'Valitse halli, päivä ja kesto',
-    text: 'Varaa-välilehdellä valitset ensin paikan – tai Mikä tahansa – sitten päivän ja vuoron pituuden. Kortti kertoo, montako vapaata aikaa paikassa on.',
+    title: 'Valitse päivä ja kesto',
+    text: 'Kentän varaus on oma sivunsa: valitse päivä ja vuoron pituus. Asiakkaat pääsevät samalle sivulle suoraan osoitteesta krossi.app/varaa – siellä ei ole muuta kuin varaus.',
   },
   {
     id: 'ajat',
     path: '/pelaa/varaa',
     target: { sel: '[data-tour="bk-times"] > *', max: 3 },
-    area: 'Varaa',
+    area: 'Varaa kenttä',
     icon: 'clock',
     title: 'Napauta vapaata aikaa',
-    text: 'Rivillä näkyy aloitusaika, vapaat kentät ja hinta. Valitse kenttä hallin kartalta ja maksa heti sovelluksessa. Maksun voi jakaa kavereiden kesken linkillä.',
+    text: 'Rivillä näkyy aloitusaika, vapaat kentät ja hinta. Valitse kenttä kartalta ja maksa heti. Maksun voi jakaa kavereiden kesken linkillä, ja varauksen jälkeen voi etsiä vuoroon pelikaverin.',
   },
   {
     id: 'omat-nappi',
@@ -72,8 +72,8 @@ export const STEPS = [
     radius: 999,
     area: 'Henkilökunta',
     icon: 'grid',
-    title: 'Hallin henkilökunnan näkymä',
-    text: 'Tämä painike näkyy vain hallin työntekijöille. Demossa olet hallin henkilökuntaa, joten pääset katsomaan, miltä vastaanotossa näyttää.',
+    title: 'Henkilökunnan näkymä',
+    text: 'Tämä painike näkyy vain kenttien henkilökunnalle. Demossa olet henkilökuntaa, joten pääset katsomaan, miltä vastaanotossa näyttää.',
   },
   {
     id: 'aikajana',
@@ -82,7 +82,7 @@ export const STEPS = [
     area: 'Henkilökunta',
     icon: 'court',
     title: 'Päivän varaukset aikajanalla',
-    text: 'Kentät riveinä, kellonajat sarakkeina ja varaajien nimet näkyvissä. Napauta vapaata kohtaa estääksesi ajan hallin omaan käyttöön, esimerkiksi hallisarjalle, tai varausta perua ja hyvittää se.',
+    text: 'Kentät riveinä, kellonajat sarakkeina ja varaajien nimet näkyvissä. Napauta vapaata kohtaa estääksesi ajan omaan käyttöön, esimerkiksi seuran sarjalle tai valmennukselle, tai varausta perua ja hyvittää se.',
   },
   {
     id: 'laskutus',
@@ -91,7 +91,7 @@ export const STEPS = [
     area: 'Henkilökunta',
     icon: 'euro',
     title: 'Kausivuorot, laskutus ja kortit',
-    text: 'Laskutuksessa ovat kausivuorojen laskut ja kuukausiveloitukset, ja erääntyneet veloitetaan yhdellä napilla. Kausivuoroissa hyväksyt hakemukset, Korteissa näet myydyt sarja- ja lahjakortit. Hallin asetukset ovat rattaan takana.',
+    text: 'Laskutuksessa ovat kausivuorojen laskut ja kuukausiveloitukset, ja erääntyneet veloitetaan yhdellä napilla. Kausivuoroissa hyväksyt hakemukset, Korteissa näet myydyt sarja- ja lahjakortit. Asetukset ovat rattaan takana.',
   },
   {
     id: 'peliseura',
@@ -109,6 +109,6 @@ export const STEPS = [
     area: 'Profiili',
     icon: 'play',
     title: 'Opastus löytyy aina täältä',
-    text: ({ desktop }) => `${desktop ? 'Profiilista' : 'Profiilista – Omat-välilehden kuvastasi –'} voit katsoa opastuksen uudelleen milloin vain. Kokeile nyt rauhassa: demossa mikään ei tallennu.`,
+    text: 'Profiilista voit katsoa opastuksen uudelleen milloin vain. Kokeile nyt rauhassa: demossa mikään ei tallennu.',
   },
 ];

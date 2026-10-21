@@ -32,6 +32,11 @@ export function tourSeen() {
   try { return localStorage.getItem(DONE_KEY) === '1'; } catch { return false; }
 }
 
+// Where this page load began: a visit that started on the booking site (/varaa) moves into the app
+// only to find a partner for the court it just booked, so the tour doesn't open by itself then.
+const ENTRY_PATH = typeof window !== 'undefined' ? window.location.pathname : '';
+export function cameFromSite() { return /^\/varaa(\/|$)/.test(ENTRY_PATH); }
+
 /** The landing page shows the demo in a phone frame (an iframe): no tour there. */
 export function inFrame() {
   try { return window.self !== window.top; } catch { return true; }

@@ -11,12 +11,22 @@ import { ME } from './rows.js';
 
 export const db = {};
 
+// Which booking world the demo has (bookingSeed.js): 'halls' by default (the tests' world), 'outdoor'
+// for the public demo and the booking site — demo.jsx picks it before the app mounts.
+let world = { courts: 'halls' };
+
+/** Picks the booking world and rebuilds the store with it. */
+export function configureDemoWorld(next) {
+  world = { ...world, ...next };
+  resetStore();
+}
+
 /** Rebuilds the whole world around `now` and cancels any scheduled background activity. */
 export function resetStore(now = Date.now()) {
   cancelScheduled();
   for (const key of Object.keys(db)) delete db[key];
   Object.assign(db, createSeed(now), {
-    booking: createBookingSeed(now), // court booking: the hall, its courts, bookings and shares
+    booking: createBookingSeed(now, world), // court booking: the venue, its courts, bookings and shares
     pendingReplies: new Set(), // conversation ids with an auto-reply already on its way
     rotation: 0,               // rotates through canned replies / candidates so they don't repeat
     uploads: new Map(),        // avatar "storage path" -> object URL of the picked file

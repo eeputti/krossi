@@ -1,8 +1,13 @@
-// bookingSeed.js — the demo's court-booking world: the Lahti halls (Janus-Areena, Kispi-Areena)
-// and the Kisapuisto outdoor courts, placeholder prices, and two weeks of other people's bookings
-// so the calendar looks like a real Tuesday. Alex is on the hall's staff, so the demo can show
-// the hall view too. The public demo uses a neutral venue name on purpose: the operator hasn't
-// joined Krossi, and the prices here are made up.
+// bookingSeed.js — the demo's court-booking world, in one of two shapes:
+//   'outdoor'  the public demo (krossi.app/demo) and the booking site (krossi.app/varaa): only the six
+//              Kisapuisto clay courts, 16 €/h, summer hours 8–21 every day of the year — the pitch is
+//              for a club's outdoor courts, and the demo must always have an evening to book.
+//   'halls'    the default and the tests' world: the Lahti halls (Janus-Areena, Kispi-Areena) and the
+//              Kisapuisto courts, several sports and price levels — the shape of the real pilot venue,
+//              so the booking engine is tested on everything it has to handle.
+// Either way: placeholder prices and two weeks of other people's bookings, so the calendar looks like
+// a real Tuesday. Alex is on the staff, so the demo can show the staff view too. The public demo uses
+// neutral venue names on purpose: the operators haven't joined Krossi, and the prices are made up.
 //
 // Jaettu maksu and "Laita myyntiin" have something to show from the start: Alex's nelinpeli
 // (the seeded "Iltanelinpeli Januksessa" game) is split by link — Mikko and Laura have paid their
@@ -37,6 +42,36 @@ const BOOKERS = ['mikko', 'laura', 'ville', 'joonas', 'teemu', 'olli', 'sanna', 
 const court = (locationId, key, name, shortName, sport, surface, mapId) => ({
   id: `c-${locationId.replace('loc-', '')}-${key}`, locationId, name, shortName, sport, surface, mapId,
 });
+const DURATIONS = [60, 90, 120, 150, 180, 210, 240]; // 1–4 h in half hours
+const KISAPUISTO = { id: 'loc-ulko', name: 'Kisapuiston ulkokentät', address: 'Kisapuisto, Lahti', indoor: false, mapKey: 'lahti-kisapuisto', lat: 60.9879, lng: 25.6537 };
+const outdoorCourts = () => [1, 2, 3, 4, 5, 6].map((n) => court('loc-ulko', `k${n}`, `Kenttä ${n}`, `K${n}`, 'tennis', 'massa', `ulko${n}`));
+
+/** The outdoor world's hours, every day all year (summer hours: see the header). */
+export const OUTDOOR_HOURS = { from: '08:00', until: '21:00' };
+
+function buildOutdoorVenue() {
+  const ulko = outdoorCourts();
+  return {
+    id: 'v-lahti-ulko',
+    slug: 'lahden-ulkokentat',
+    name: 'Lahden ulkokentät',
+    city: 'Lahti',
+    openFrom: OUTDOOR_HOURS.from,
+    openUntil: OUTDOOR_HOURS.until,
+    slotMinutes: 30,
+    durations: DURATIONS,
+    daysAhead: 14,
+    cancelLimitHours: 24,
+    splitPay: true,
+    resale: true,
+    holdMinutes: 10,
+    payOnline: true,
+    lastMinute: null,
+    staffIds: [ME],
+    locations: [{ ...KISAPUISTO, courts: ulko }],
+    prices: [{ sports: ['tennis'], courtIds: null, weekdays: [1, 2, 3, 4, 5, 6, 7], from: OUTDOOR_HOURS.from, until: OUTDOOR_HOURS.until, centsPerHour: 1600 }],
+  };
+}
 
 /**
  * When the Kisapuisto outdoor courts close: long evenings in May–August, daylight hours the rest of
@@ -59,7 +94,7 @@ function buildVenue(now) {
     ...[1, 2, 3, 4, 5].map((n) => court('loc-kispi', `su${n}`, `Sulkapallo ${n}`, `Su${n}`, 'sulkapallo', 'matto', `sulka${n}`)),
     court('loc-kispi', 'sq1', 'Squash 1', 'Sq1', 'squash', 'parketti', 'squash1'),
   ];
-  const ulko = [1, 2, 3, 4, 5, 6].map((n) => court('loc-ulko', `k${n}`, `Kenttä ${n}`, `K${n}`, 'tennis', 'massa', `ulko${n}`));
+  const ulko = outdoorCourts();
 
   // Hall tennis prices name the indoor courts: a sport-wide rule would also open the outdoor courts
   // outside their own hours.
@@ -98,7 +133,7 @@ function buildVenue(now) {
     openFrom: '06:00',
     openUntil: '23:00',
     slotMinutes: 30,
-    durations: [60, 90, 120, 150, 180, 210, 240], // 1–4 h in half hours
+    durations: DURATIONS,
     daysAhead: 14,
     cancelLimitHours: 24,
     splitPay: true,
@@ -111,14 +146,21 @@ function buildVenue(now) {
     locations: [
       { id: 'loc-janus', name: 'Janus-Areena', address: 'Heinlammintie 64, Lahti', indoor: true, mapKey: 'lahti-janus', lat: 61.0015881, lng: 25.6970796, courts: janus },
       { id: 'loc-kispi', name: 'Kispi-Areena', address: 'Kisapuisto, Lahti', indoor: true, mapKey: 'lahti-kispi', lat: 60.9891361, lng: 25.6520164, courts: kispi },
-      { id: 'loc-ulko', name: 'Kisapuiston ulkokentät', address: 'Kisapuisto, Lahti', indoor: false, mapKey: 'lahti-kisapuisto', lat: 60.9879, lng: 25.6537, courts: ulko },
+      { ...KISAPUISTO, courts: ulko },
     ],
     prices,
   };
 }
 
-/** How full a court tends to be at hour `h` on ISO weekday `wd` (0…1). */
-function demand(sport, indoor, wd, h) {
+/** How full a court tends to be at hour `h` on ISO weekday `wd` (0…1). `summer`: the outdoor world. */
+function demand(sport, indoor, wd, h, summer = false) {
+  if (summer) {
+    // A summer's week on clay: evenings go first, but a few courts stay free for the demo to book.
+    if (wd >= 6) return h >= 9 && h < 15 ? 0.5 : 0.25;
+    if (h >= 16 && h < 20) return 0.55;
+    if (h >= 20) return 0.35;
+    return h < 10 ? 0.3 : 0.2;
+  }
   if (!indoor) return h >= 16 && h < 20 ? 0.18 : 0.08; // October: the outdoor season is winding down
   const weekend = wd >= 6;
   let p;
@@ -149,9 +191,40 @@ export function shareMessage({ courtName, locationName, startsAt, endsAt, cents,
     + `Osuutesi on ${formatEuro(cents / 100)} — maksa se tästä: ${splitUrl(token)}`;
 }
 
-export function createBookingSeed(now) {
+/**
+ * Where each seeded booking goes in each world: spots are [location index, court mapId]; `early` is the
+ * first hour some early-morning bookings use. hallSeed.js reads the same plan for kausivuorot and cards.
+ */
+const PLANS = {
+  halls: {
+    spots: { main: [0, 'te1'], next: [0, 'te2'], juniors: [0, 'te3'], fourth: [0, 'te4'], away: [1, 'te1'], awayNext: [1, 'te2'], awayThird: [1, 'te3'], awayFourth: [1, 'te4'] },
+    league: { title: 'Hallisarja', courts: (venue) => venue.locations[1].courts.filter((c) => c.sport === 'tennis') },
+    early: '07:00',
+    seller: { name: 'Lahden tennishallit (demo)', address: 'Heinlammintie 64, 15800 Lahti' },
+    passCents: { 'pp-10': 26000, 'pp-20': 48000, 'pp-kesa': 19000 },
+    summerPassText: 'Ulkokentille ja halliin kesäkaudella, voimassa neljä kuukautta.',
+    anyCourtNote: 'Pelaisin torstai-iltaisin koko kauden. Mikä tahansa Janus-Areenan kenttä käy.',
+    giftUseCents: 3000,
+    seasonNames: null, // from the dates: Talvikausi / Kesäkausi
+  },
+  outdoor: {
+    spots: { main: [0, 'ulko1'], next: [0, 'ulko2'], juniors: [0, 'ulko3'], fourth: [0, 'ulko4'], away: [0, 'ulko6'], awayNext: [0, 'ulko2'], awayThird: [0, 'ulko3'], awayFourth: [0, 'ulko5'] },
+    league: { title: 'Seurasarja', courts: (venue) => venue.locations[0].courts.filter((c) => c.mapId === 'ulko5' || c.mapId === 'ulko6') },
+    early: OUTDOOR_HOURS.from,
+    seller: { name: 'Lahden ulkokentät (demo)', address: 'Kisapuisto, 15110 Lahti' },
+    passCents: { 'pp-10': 14000, 'pp-20': 26000, 'pp-kesa': 12000 },
+    summerPassText: 'Kesäkaudelle, voimassa neljä kuukautta.',
+    anyCourtNote: 'Pelaisin torstai-iltaisin koko kauden. Mikä tahansa kenttä käy.',
+    giftUseCents: 1600,
+    seasonNames: (y1, y2) => [`Kausi ${y1}–${y2}`, `Kesäkausi ${y2}`],
+  },
+};
+
+export function createBookingSeed(now, { courts = 'halls' } = {}) {
   const rng = createRng(SEED);
-  const venue = buildVenue(now);
+  const outdoor = courts === 'outdoor';
+  const plan = PLANS[outdoor ? 'outdoor' : 'halls'];
+  const venue = outdoor ? buildOutdoorVenue() : buildVenue(now);
   const rows = [];
   const shares = [];
   const seedMessages = []; // chat lines this world adds to seed.js's conversations
@@ -202,13 +275,14 @@ export function createBookingSeed(now) {
     const key = addDays(today, d);
     const wd = ((localDate(key).getDay() + 6) % 7) + 1;
     if (wd === 2 || wd === 4) {
-      // Hallisarja on Tuesday and Thursday evenings at Kispi.
-      for (const c of venue.locations[1].courts.filter((x) => x.sport === 'tennis')) {
-        add({ courtId: c.id, startsAt: at(key, '18:00').toISOString(), endsAt: at(key, '21:00').toISOString(), kind: 'league', title: 'Hallisarja', paymentStatus: 'none' });
+      // Hallisarja on Tuesday and Thursday evenings at Kispi (the outdoor world: a club league on K5–K6).
+      for (const c of plan.league.courts(venue)) {
+        add({ courtId: c.id, startsAt: at(key, '18:00').toISOString(), endsAt: at(key, '21:00').toISOString(), kind: 'league', title: plan.league.title, paymentStatus: 'none' });
       }
     }
     if (wd <= 5) {
-      const c = venue.locations[0].courts.find((x) => x.mapId === 'te3');
+      const [loc, mapId] = plan.spots.juniors;
+      const c = venue.locations[loc].courts.find((x) => x.mapId === mapId);
       add({ courtId: c.id, startsAt: at(key, '16:00').toISOString(), endsAt: at(key, '18:00').toISOString(), kind: 'block', title: 'Junioreiden valmennus', paymentStatus: 'none' });
     }
   }
@@ -217,8 +291,8 @@ export function createBookingSeed(now) {
   // nelinpeli split by link, one later this week, and two in the past — one paid with the series
   // card (hallSeed.js marks it), one split with a friend who paid without an account.
   const courtAt = (loc, mapId) => venue.locations[loc].courts.find((x) => x.mapId === mapId);
-  const book = ({ start, minutes, loc, mapId, bookedBy = ME }) => {
-    const c = courtAt(loc, mapId);
+  const book = ({ start, minutes, spot, bookedBy = ME }) => {
+    const c = courtAt(...plan.spots[spot]);
     const startsAt = start.toISOString();
     return add({
       courtId: c.id, startsAt, endsAt: new Date(start.getTime() + minutes * MIN).toISOString(),
@@ -227,30 +301,31 @@ export function createBookingSeed(now) {
   };
   // The first priced start on the grid at least three hours away (always within the next 24 h).
   let soon = new Date(Math.ceil((now + 3 * 3_600_000) / (30 * MIN)) * 30 * MIN);
-  while (priceOf(venue, courtAt(0, 'te1'), soon.toISOString(), 60) == null) soon = new Date(soon.getTime() + 30 * MIN);
-  book({ start: soon, minutes: 60, loc: 0, mapId: 'te1' });
-  book({ start: at(addDays(today, 1), '18:00'), minutes: 90, loc: 0, mapId: 'te2' });
-  const nelinpeli = book({ start: at(addDays(today, 2), '18:30'), minutes: 120, loc: 0, mapId: 'te1' });
+  while (priceOf(venue, courtAt(...plan.spots.main), soon.toISOString(), 60) == null) soon = new Date(soon.getTime() + 30 * MIN);
+  book({ start: soon, minutes: 60, spot: 'main' });
+  book({ start: at(addDays(today, 1), '18:00'), minutes: 90, spot: 'next' });
+  const nelinpeli = book({ start: at(addDays(today, 2), '18:30'), minutes: 120, spot: 'main' });
   split(nelinpeli, 4, ['mikko', 'laura', null], 'nelinpeliJanus2Ke7Rt4Wq');
-  book({ start: at(addDays(today, 4), '07:00'), minutes: 60, loc: 1, mapId: 'te1' });
-  book({ start: at(addDays(today, -2), '19:00'), minutes: 60, loc: 0, mapId: 'te4' });
-  const lastWeek = book({ start: at(addDays(today, -6), '17:30'), minutes: 90, loc: 0, mapId: 'te1' });
+  book({ start: at(addDays(today, 4), plan.early), minutes: 60, spot: outdoor ? 'awayFourth' : 'away' });
+  book({ start: at(addDays(today, -2), '19:00'), minutes: 60, spot: 'fourth' });
+  const lastWeek = book({ start: at(addDays(today, -6), '17:30'), minutes: 90, spot: 'main' });
   split(lastWeek, 2, [{ name: 'Sanna' }], 'kaksinpeliJanus9Pm3Xv8Z');
 
   // Mikko booked the revanssi, split it with Alex and sent the link: the newest line in their chat.
-  const revanssi = book({ start: at(addDays(today, 3), '19:00'), minutes: 60, loc: 0, mapId: 'te4', bookedBy: pid('mikko') });
+  const revanssi = book({ start: at(addDays(today, 3), '19:00'), minutes: 60, spot: 'fourth', bookedBy: pid('mikko') });
+  const [revLoc, revMapId] = plan.spots.fourth;
   revanssi.createdAt = new Date(now - 3 * 3_600_000).toISOString();
   revanssi.paidAt = revanssi.createdAt;
   const [toAlex] = split(revanssi, 2, [null], 'revanssiMikkoT4Hd6Lx2Bn');
   seedMessages.push({
     conversationId: 'c-mikko', senderId: pid('mikko'), createdAt: revanssi.createdAt,
-    text: shareMessage({ courtName: 'Tennis 4', locationName: 'Janus-Areena', startsAt: revanssi.startsAt, endsAt: revanssi.endsAt,
+    text: shareMessage({ courtName: courtAt(revLoc, revMapId).name, locationName: venue.locations[revLoc].name, startsAt: revanssi.startsAt, endsAt: revanssi.endsAt,
       cents: toAlex.cents, token: revanssi.split.token }),
   });
 
   // Kausivuorot, invoices, series and gift cards (hallSeed.js): the season weeks go in before
   // everybody else's bookings, so those are made around them.
-  const hall = createHallSeed({ venue, rows, add, now, today, at });
+  const hall = createHallSeed({ venue, rows, add, now, today, at, plan });
 
   // Everybody else: walk every court hour by hour and book by demand.
   for (let d = -7; d <= venue.daysAhead; d += 1) {
@@ -265,7 +340,7 @@ export function createBookingSeed(now) {
           const startMs = start.getTime();
           const endMs = startMs + minutes * MIN;
           const cents = priceOf(venue, c, start.toISOString(), minutes);
-          if (cents != null && !taken(c.id, startMs, endMs) && rng() < demand(c.sport, location.indoor, wd, h) * fade) {
+          if (cents != null && !taken(c.id, startMs, endMs) && rng() < demand(c.sport, location.indoor, wd, h, outdoor) * fade) {
             const who = BOOKERS[Math.floor(rng() * BOOKERS.length)];
             add({ courtId: c.id, startsAt: start.toISOString(), endsAt: new Date(endMs).toISOString(), bookedBy: pid(who), priceCents: cents });
             h += Math.ceil(minutes / 60);

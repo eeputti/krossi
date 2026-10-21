@@ -5,8 +5,10 @@
 //   seek        one way to say "I want to play": Haen peliseuraa → Nyt (Pelaan nyt) | Tällä viikolla
 //               (others see I'm free) | Tiettyyn aikaan (create a game). While I'm seeking it shows
 //               what others see and Lopeta instead.
+//   court       phones only, where a hall is bookable: "Onko jo pelikaveri? Varaa kenttä" — booking is its
+//               own page (desktop has Varaa in the side nav)
 //   views       Pelaajat | Avoimet pelit | Kartta
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '../../api/index.js';
 import { openCreateGame } from '../../app/AppShell.jsx';
 import { useNow } from '../../app/hooks.js';
@@ -16,6 +18,7 @@ import { useSession } from '../../app/session.jsx';
 import { capitalize, formatTime } from '../../lib/format.js';
 import { Button, Icon, ListRow, PageHeader, Segmented, Sheet, useToast } from '../../ui/index.js';
 import { PlayingNowSheet } from '../home/PlayingNowSheet.jsx';
+import { useBookingHall } from '../booking/useBookingHall.js';
 import { isPlayingNow, timeLeft } from './playerInfo.js';
 
 const VIEWS = [
@@ -113,12 +116,27 @@ function SeekCard() {
   );
 }
 
+function CourtLink() {
+  const { profile } = useSession();
+  const cities = useMemo(() => [...(profile?.areas || []), profile?.city].filter(Boolean), [profile?.areas, profile?.city]);
+  const { hall } = useBookingHall(cities, { anyCity: true });
+  if (!hall) return null;
+  return (
+    <button type="button" className="ps-court hide-desktop" onClick={() => navigate('/pelaa/varaa')}>
+      <Icon name="court" size={18} />
+      <span className="ps-court-text">Onko jo pelikaveri? <b>Varaa kenttä</b></span>
+      <Icon name="chevron-right" size={16} />
+    </button>
+  );
+}
+
 export function PeliseuraHeader({ view, subtitle, actions }) {
   const go = (value) => navigate(VIEWS.find((v) => v.value === value).path, { replace: true });
   return (
     <div className="ps-head">
       <PageHeader title="Peliseura" subtitle={subtitle} actions={actions} />
       <SeekCard />
+      <CourtLink />
       <Segmented className="ps-views" ariaLabel="Näkymä" value={view} onChange={go} options={VIEWS} />
     </div>
   );

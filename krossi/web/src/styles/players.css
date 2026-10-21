@@ -296,3 +296,16 @@ button.players-card-main { cursor: pointer; }
 .ps-seek-sub { font-size: 12.5px; color: var(--ink-2); }
 .ps-views .segmented-btn { flex: 1; justify-content: center; }
 .ps-when { display: grid; gap: 4px; margin: 0 -8px; }
+
+/* "Onko jo pelikaveri? Varaa kenttä" under Haen peliseuraa (phones; booking is its own page) */
+.ps-court {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border-radius: var(--r-lg);
+  background: var(--surface-2); color: var(--ink-2); font-size: 14px; font-weight: 600; text-align: left;
+  transition: background-color var(--dur-1), transform var(--dur-1) var(--ease-out);
+}
+.ps-court:hover { background: var(--sand); }
+.ps-court:active { transform: scale(0.98); }
+.ps-court > svg:first-child { color: var(--ink); flex-shrink: 0; }
+.ps-court > svg:last-child { color: var(--faint); flex-shrink: 0; }
+.ps-court-text { flex: 1; min-width: 0; }
+.ps-court-text b { color: var(--ink); font-weight: 800; }

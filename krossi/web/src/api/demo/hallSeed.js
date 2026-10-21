@@ -5,7 +5,8 @@
 // bookings, so the season weeks are in the calendar and other people book around them.
 //
 // Everything is relative to `now`, like the rest of the demo seed. Names, prices and invoicing
-// details are made up (the demo's neutral hall, not the real operator).
+// details are made up (the demo's neutral venue, not the real operator). Which court each thing is on,
+// the card prices and the seller come from bookingSeed.js's plan for the world (halls / outdoor).
 
 import { ME } from './rows.js';
 import { addDays, isoWeekday, localDate } from '../../features/booking.js';
@@ -39,20 +40,23 @@ function seasonName(startsOn, endsOn) {
   return y1 === y2 ? `Kesäkausi ${y1}` : `Kausi ${y1}–${y2}`;
 }
 
-/** The season running now (started seven weeks ago) and the summer season after it. */
-function buildSeasons(venueId, today) {
+/** The season running now (started seven weeks ago) and the summer season after it. `names(y1, y2)` overrides the names. */
+function buildSeasons(venueId, today, names = null) {
   const monday = addDays(today, -(isoWeekday(localDate(today)) - 1));
   const winterStart = addDays(monday, -7 * 7);
   const winterEnd = addDays(monday, 7 * 28 + 6);
   const summerStart = addDays(winterEnd, 1);
   const summerEnd = addDays(summerStart, 7 * 17 - 1);
+  const [nowName, nextName] = names
+    ? names(Number(winterStart.slice(0, 4)), Number(winterEnd.slice(0, 4)))
+    : [seasonName(winterStart, winterEnd), seasonName(summerStart, summerEnd)];
   return [
     {
-      id: 'season-winter', venueId, name: seasonName(winterStart, winterEnd), startsOn: winterStart, endsOn: winterEnd,
+      id: 'season-winter', venueId, name: nowName, startsOn: winterStart, endsOn: winterEnd,
       skipDates: holidays(winterStart, winterEnd), discountPercent: 15, requestsOpen: true,
     },
     {
-      id: 'season-summer', venueId, name: seasonName(summerStart, summerEnd), startsOn: summerStart, endsOn: summerEnd,
+      id: 'season-summer', venueId, name: nextName, startsOn: summerStart, endsOn: summerEnd,
       skipDates: holidays(summerStart, summerEnd), discountPercent: 20, requestsOpen: true,
     },
   ];
@@ -70,7 +74,7 @@ const PASS_PRODUCTS = [
   // Sold in summer only: hidden from the shop now (Hallin asetukset shows it as piilotettu).
   {
     id: 'pp-kesa', name: 'Kesäkortti 10 × 1 h', sport: 'tennis', uses: 10, minutesPerUse: 60, validDays: 120, priceCents: 19000,
-    description: 'Ulkokentille ja halliin kesäkaudella, voimassa neljä kuukautta.', active: false,
+    description: 'Kesäkaudella, voimassa neljä kuukautta.', active: false,
   },
 ];
 
@@ -79,11 +83,12 @@ const PASS_PRODUCTS = [
  *   add(row)  bookingSeed's adder (gives ids and defaults)
  *   at(key, 'HH:MM') -> Date
  */
-export function createHallSeed({ venue, rows, add, now, today, at }) {
+export function createHallSeed({ venue, rows, add, now, today, at, plan }) {
   const rng = createRng(20261016);
-  const seasons = buildSeasons(venue.id, today);
+  const seasons = buildSeasons(venue.id, today, plan.seasonNames);
   const [winter] = seasons;
   const court = (location, mapId) => venue.locations[location].courts.find((c) => c.mapId === mapId);
+  const spot = (name) => { const [location, mapId] = plan.spots[name]; return { location, mapId }; };
   const daysAgo = (n, hhmm = '09:00') => at(addDays(today, -n), hhmm).toISOString();
   const live = () => rows.filter((r) => r.status === 'confirmed');
 
@@ -95,7 +100,7 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
 
   const billing = {
     seller: {
-      name: 'Lahden tennishallit (demo)', businessId: '1234567-1', address: 'Heinlammintie 64, 15800 Lahti',
+      name: plan.seller.name, businessId: '1234567-1', address: plan.seller.address,
       iban: 'FI2112345600000785', bic: 'NDEAFIHH', email: 'laskutus@example.fi', phone: '03 123 4567',
     },
     vatPercent: 14,
@@ -175,14 +180,14 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
 
   // Alex's own Wednesday hour, from the season's start, charged month by month.
   const alex = slot({
-    key: 'alex', holder: 'me', holderName: 'Alex', mapId: 'te1', location: 0, weekday: 3, startTime: '19:00', minutes: 60,
+    key: 'alex', holder: 'me', holderName: 'Alex', ...spot('main'), weekday: 3, startTime: '19:00', minutes: 60,
     billingKind: 'card', billingEmail: 'demo@krossi.app', decidedDaysAgo: 52,
   });
   chargesFor(alex.row, alex.quote);
 
-  // A club's Monday training: two hours at Kispi, invoiced and paid.
+  // A club's Monday training: two hours (at Kispi in the halls world), invoiced and paid.
   const club = slot({
-    key: 'seura', holderName: 'Esimerkkiseura ry · kilpaharjoitukset', mapId: 'te1', location: 1, weekday: 1,
+    key: 'seura', holderName: 'Esimerkkiseura ry · kilpaharjoitukset', ...spot('away'), weekday: 1,
     startTime: '17:00', minutes: 120, billingKind: 'invoice', billingEmail: 'rahastonhoitaja@example.fi',
     billingAddress: 'Esimerkkiseura ry, PL 12, 15101 Lahti', decidedDaysAgo: 55,
   });
@@ -190,14 +195,14 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
 
   // Mikko's early Tuesday hour: his card keeps failing this month.
   const mikko = slot({
-    key: 'mikko', holder: 'mikko', holderName: 'Mikko', mapId: 'te4', location: 0, weekday: 2, startTime: '07:00',
+    key: 'mikko', holder: 'mikko', holderName: 'Mikko', ...spot('fourth'), weekday: 2, startTime: plan.early,
     minutes: 60, billingKind: 'card', billingEmail: 'mikko@example.fi', decidedDaysAgo: 40,
   });
   chargesFor(mikko.row, mikko.quote, { failing: true });
 
   // A company club on Fridays: invoiced, the invoice is overdue.
   const company = slot({
-    key: 'yritys', holderName: 'Yritys Oy:n tenniskerho', mapId: 'te2', location: 0, weekday: 5, startTime: '16:00',
+    key: 'yritys', holderName: 'Yritys Oy:n tenniskerho', ...spot('next'), weekday: 5, startTime: '16:00',
     minutes: 90, billingKind: 'invoice', billingEmail: 'kerho@yritys.example', billingAddress: 'Yritys Oy, Aleksanterinkatu 1, 15110 Lahti',
     decidedDaysAgo: 17, fromDate: addDays(today, -14),
   });
@@ -205,7 +210,7 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
 
   // Petra's Sunday morning, started mid-season: the invoice is open.
   const petra = slot({
-    key: 'petra', holder: 'petra', holderName: 'Petra', mapId: 'te3', location: 1, weekday: 7, startTime: '10:00',
+    key: 'petra', holder: 'petra', holderName: 'Petra', ...spot('awayThird'), weekday: 7, startTime: '10:00',
     minutes: 60, billingKind: 'invoice', billingEmail: 'petra@example.fi', decidedDaysAgo: 5, fromDate: addDays(today, 1),
   });
   invoiceFor(petra.row, petra.quote, { issuedOn: addDays(today, -5), status: 'open' });
@@ -225,11 +230,11 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
     });
   };
   request({
-    key: 'laura', holder: 'laura', holderName: 'Laura', location: 0, weekday: 4, startTime: '20:00', minutes: 60, billingKind: 'card',
-    note: 'Pelaisin torstai-iltaisin koko kauden. Mikä tahansa Janus-Areenan kenttä käy.', daysAgoCreated: 2, email: 'laura@example.fi',
+    key: 'laura', holder: 'laura', holderName: 'Laura', location: spot('main').location, weekday: 4, startTime: '20:00', minutes: 60, billingKind: 'card',
+    note: plan.anyCourtNote, daysAgoCreated: 2, email: 'laura@example.fi',
   });
   request({
-    key: 'juho', holder: 'juho', holderName: 'Juho', location: 1, mapId: 'te4', weekday: 6, startTime: '10:00', minutes: 90,
+    key: 'juho', holder: 'juho', holderName: 'Juho', ...spot('awayFourth'), weekday: 6, startTime: '10:00', minutes: 90,
     billingKind: 'invoice', note: 'Junnujen vanhempien porukka, lasku minulle.', daysAgoCreated: 1, email: 'juho@example.fi',
   });
 
@@ -241,17 +246,19 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
   ]);
 
   // ── Series cards and gift cards ──
-  const passProducts = PASS_PRODUCTS.map((p) => ({ ...p, venueId: venue.id, active: p.active !== false }));
+  const passProducts = PASS_PRODUCTS.map((p) => ({
+    ...p, venueId: venue.id, active: p.active !== false, priceCents: plan.passCents[p.id] ?? p.priceCents,
+    description: p.id === 'pp-kesa' ? plan.summerPassText : p.description,
+  }));
   const passes = [];
   const giftCards = [];
   const creditEvents = [];
   let e = 0;
   const event = (row) => { e += 1; creditEvents.push({ id: `ce-seed-${e}`, venueId: venue.id, passId: null, giftCardId: null, bookingId: null, minutes: 0, cents: 0, ...row }); };
-  const janus = venue.locations[0];
-  const kispi = venue.locations[1];
-  const label = (location, mapId, startsAt) => creditEventLabel({
-    courtName: location.courts.find((c) => c.mapId === mapId).name, locationName: location.name, startsAt,
-  });
+  const label = (name, startsAt) => {
+    const { location, mapId } = spot(name);
+    return creditEventLabel({ courtName: court(location, mapId).name, locationName: venue.locations[location].name, startsAt });
+  };
 
   const pass = (key, owner, product, { boughtDaysAgo, usedMinutes }) => {
     const p = passProducts.find((x) => x.id === product);
@@ -270,16 +277,16 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
   // Alex: a 10-hour card with two hours used — the second one is the booking two days ago.
   const alexPass = pass('alex', 'me', 'pp-10', { boughtDaysAgo: 40, usedMinutes: 120 });
   const oldUse = at(addDays(today, -30), '19:00').toISOString();
-  event({ userId: ME, kind: 'use', passId: alexPass.id, minutes: -60, label: label(janus, 'te2', oldUse), createdAt: daysAgo(31, '18:20') });
+  event({ userId: ME, kind: 'use', passId: alexPass.id, minutes: -60, label: label('next', oldUse), createdAt: daysAgo(31, '18:20') });
   const twoDaysAgo = rows.find((r) => r.bookedBy === ME && r.kind === 'booking' && r.startsAt === at(addDays(today, -2), '19:00').toISOString());
   if (twoDaysAgo) {
     Object.assign(twoDaysAgo, { paymentStatus: 'credit', passId: alexPass.id, passMinutes: 60 });
     event({
       userId: ME, kind: 'use', passId: alexPass.id, minutes: -60, bookingId: twoDaysAgo.id,
-      label: label(janus, 'te4', twoDaysAgo.startsAt), createdAt: daysAgo(4, '21:05'),
+      label: label('fourth', twoDaysAgo.startsAt), createdAt: daysAgo(4, '21:05'),
     });
   } else {
-    event({ userId: ME, kind: 'use', passId: alexPass.id, minutes: -60, label: label(janus, 'te4', daysAgo(2, '19:00')), createdAt: daysAgo(4, '21:05') });
+    event({ userId: ME, kind: 'use', passId: alexPass.id, minutes: -60, label: label('fourth', daysAgo(2, '19:00')), createdAt: daysAgo(4, '21:05') });
   }
   pass('mikko', 'mikko', 'pp-20', { boughtDaysAgo: 70, usedMinutes: 300 });
   pass('laura', 'laura', 'pp-10', { boughtDaysAgo: 340, usedMinutes: 480 });
@@ -302,7 +309,7 @@ export function createHallSeed({ venue, rows, add, now, today, at }) {
   });
   event({ userId: ME, kind: 'redeem', giftCardId: fromSanna.id, cents: 5000, label: `Lahjakortti ${fromSanna.code}`, createdAt: fromSanna.redeemedAt });
   const giftUse = at(addDays(today, -12), '18:00').toISOString();
-  event({ userId: ME, kind: 'use', cents: -3000, label: label(kispi, 'te2', giftUse), createdAt: daysAgo(13, '08:10') });
+  event({ userId: ME, kind: 'use', cents: -plan.giftUseCents, label: label('awayNext', giftUse), createdAt: daysAgo(13, '08:10') });
   gift('alex', {
     buyer: 'me', amountCents: 5000, recipientName: 'Sanna', message: 'Hyvää syntymäpäivää! Nähdään kentällä.', boughtDaysAgo: 6,
   });

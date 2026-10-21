@@ -1,0 +1,37 @@
+/* site.css — the booking site krossi.app/varaa (SiteShell, SiteBar): a white bar with the Krossi
+   wordmark, a plain title, the booking page under it; no tab bar, side nav or demo banner. The
+   booking page's own parts are in booking.css. */
+
+.site { min-height: 100vh; min-height: 100dvh; background: var(--bg); }
+
+.site-bar {
+  position: sticky; top: 0; z-index: 50; padding-top: var(--safe-top);
+  background: rgba(255, 255, 255, 0.9); backdrop-filter: saturate(180%) blur(16px); -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid var(--line);
+}
+.site-bar-inner {
+  display: flex; align-items: center; gap: 8px; height: var(--topbar-h);
+  max-width: calc(var(--content-w) + 2 * var(--gutter)); margin: 0 auto; padding: 0 calc(var(--gutter) - 8px) 0 var(--gutter);
+}
+.site-logo { display: inline-flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 800; letter-spacing: -0.04em; color: var(--ink); }
+.site-logo:hover { opacity: 0.8; }
+.site-bar-actions { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+
+.site-hero { padding-top: var(--s3); }
+.site-title { font-size: var(--fs-display); font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; color: var(--ink); }
+.site-sub { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 15px; font-weight: 650; color: var(--ink-2); }
+.site-sub svg { flex-shrink: 0; color: var(--muted); }
+.site-demo {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 5px 11px; border-radius: var(--r-pill);
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 12.5px; font-weight: 700;
+}
+.site-demo svg { color: var(--muted); }
+
+/* the done view's way on: a line, then "Etsi pelikaveri tähän vuoroon" */
+.bk-done-foot { display: grid; gap: 10px; }
+.bk-done-ask { margin: 0; text-align: center; font-size: 14px; font-weight: 650; color: var(--ink-2); }
+
+@media (min-width: 900px) {
+  .site-hero { padding-top: var(--s6); }
+  .site-title { font-size: 40px; }
+}

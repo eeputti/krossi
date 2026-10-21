@@ -2,9 +2,10 @@
 //
 //   node krossi/web/dev.mjs        → http://localhost:4400/demo  (demo, no account needed)
 //                                    http://localhost:4400/pelaa (real backend)
+//                                    http://localhost:4400/varaa (booking site, on the demo backend)
 //
 // Rebuilds on change (build.mjs --watch) and serves the same URL layout as production:
-// /pelaa/* and /demo/* fall back to their HTML shells, /krossi/* is the bundle, /assets and
+// /pelaa/*, /demo/* and /varaa/* fall back to their HTML shells, /krossi/* is the bundle, /assets and
 // /lib/cookie-consent.js come from the repo root, / is the landing page.
 
 import { createServer } from 'node:http';
@@ -33,6 +34,7 @@ const TYPES = {
 function resolve(pathname) {
   if (/^\/pelaa(\/.*)?$/.test(pathname)) return join(dist, 'app.html');
   if (/^\/demo(\/.*)?$/.test(pathname)) return join(dist, 'krossi-demo.html');
+  if (/^\/varaa(\/.*)?$/.test(pathname)) return join(dist, 'krossi-varaa.html');
   if (pathname.startsWith('/krossi/')) return join(dist, pathname.slice('/krossi/'.length));
   if (pathname === '/krossi.webmanifest') return join(dist, 'krossi.webmanifest');
   if (pathname.startsWith('/assets/')) return join(repo, pathname);

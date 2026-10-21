@@ -9,6 +9,10 @@
 // Booking for somebody (`target`: a hallisarja match, a game or a chat — see BookingScreen): once
 // paid, "Lähetä aika" sends the court to their chat (or a button leads back to where it started).
 //
+// On the booking site (`site`, krossi.app/varaa) booking is all the page does, so the done view's
+// main button is the way on: "Etsi pelikaveri tähän vuoroon" opens Peliseura with a game for this
+// court ready to publish. `home` is the page's own path, where a redirect payment comes back to.
+//
 // A server without payConfig (krossi-booking before phase 4) can't show the payment before a hold:
 // there "Varaa ja maksa" holds first and the same checkout opens under the court.
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -70,7 +74,10 @@ function mapStates(location, free, busy, startsAt, minutes, chosenId, sport) {
   return states;
 }
 
-export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes, courtId: firstCourtId, locationId, onBooked, onChanged, target = null }) {
+export function BookSheet({
+  open, onClose, venue, busy, sport, startsAt, minutes, courtId: firstCourtId, locationId, onBooked, onChanged, target = null,
+  site = false, home = '/pelaa/varaa',
+}) {
   const toast = useToast();
   const [courtId, setCourtId] = useState(firstCourtId || null);
   const [placeId, setPlaceId] = useState(null);
@@ -249,6 +256,8 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
   const findPartner = () => {
     const id = booking?.id;
     onClose();
+    // From the booking site into the app: Peliseura underneath, the game for this court on top.
+    if (site) navigate('/pelaa/pelaajat');
     navigate(`/pelaa/uusi-peli?varaus=${encodeURIComponent(id)}`, { overlay: true });
   };
 
@@ -258,7 +267,12 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
       <Sheet
         open={open}
         onClose={onClose}
-        footer={<Button variant="lime" size="lg" block onClick={onClose}>Valmis</Button>}
+        footer={site ? (
+          <div className="bk-done-foot">
+            <p className="bk-done-ask">Puuttuuko pelikaveri? Krossista löydät oman tasoisesi pelaajan.</p>
+            <Button variant="lime" size="lg" block icon="users" onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>
+          </div>
+        ) : <Button variant="lime" size="lg" block onClick={onClose}>Valmis</Button>}
         size="md"
         className="bk-sheet"
       >
@@ -277,7 +291,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
             {target && !target.openChat && target.backTo && (
               <Button variant="dark" icon="arrow-left" block onClick={() => { onClose(); navigate(target.backTo); }}>{target.backLabel}</Button>
             )}
-            {!target && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
+            {!target && !site && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
             <Button variant="soft" icon="calendar" block onClick={() => downloadBookingIcs(booking, { cancellableUntil: booking.cancellableUntil })}>Lisää kalenteriin</Button>
           </div>
           <p className="bk-fine">
@@ -329,7 +343,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
         compact
         createIntent={() => api.booking.createPaymentIntent(heldRef.current.id)}
         verify={verify}
-        returnPath={() => `/pelaa/varaa/${encodeURIComponent(venue.slug)}?varaus=${encodeURIComponent(heldRef.current?.id || '')}`}
+        returnPath={() => `${home}/${encodeURIComponent(venue.slug)}?varaus=${encodeURIComponent(heldRef.current?.id || '')}`}
         pendingText="Maksu on vielä kesken. Varaus vahvistuu heti, kun pankki vahvistaa maksun — näet sen Omissa vuoroissa."
         onPaid={() => finish(asPaid(heldRef.current))}
       />
@@ -344,7 +358,7 @@ export function BookSheet({ open, onClose, venue, busy, sport, startsAt, minutes
         compact
         createIntent={createIntent}
         verify={verify}
-        returnPath={() => `/pelaa/varaa/${encodeURIComponent(venue.slug)}?varaus=${encodeURIComponent(heldRef.current?.id || '')}`}
+        returnPath={() => `${home}/${encodeURIComponent(venue.slug)}?varaus=${encodeURIComponent(heldRef.current?.id || '')}`}
         pendingText="Maksu on vielä kesken. Varaus vahvistuu heti, kun pankki vahvistaa maksun — näet sen Omissa vuoroissa."
         onPaid={() => finish(asPaid(heldRef.current))}
       />
