@@ -1,5 +1,5 @@
 // _shared/guestMail.ts — the emails a guest (a court booked without an account, migration
-// 20261021075544_krossi_booking_guest) gets. A guest has no profile, so krossi-notify (which mails
+// 20261021083557_krossi_booking_guest) gets. A guest has no profile, so krossi-notify (which mails
 // players by user id and respects their settings) can't reach them: these go straight to the
 // address the guest typed, through Resend like krossi-notify's.
 //

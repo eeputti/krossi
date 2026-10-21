@@ -2,7 +2,7 @@
 // cancelling it, jaettu maksu (the booker pays it all, friends pay their parts by link and the
 // booker gets them back), "Laita myyntiin" (a late-cancelled booking sold on), "ilmoita kun
 // vapautuu" watches, the hall staff view, and a booking without an account (guest*: name + email,
-// paid at once; the booking's own token is the key — migration 20261021075544_krossi_booking_guest).
+// paid at once; the booking's own token is the key — migration 20261021083557_krossi_booking_guest).
 //
 // The booking tables have no client access: every read and write is a SECURITY DEFINER RPC
 // (supabase/migrations/20261016074110_krossi_court_booking.sql and

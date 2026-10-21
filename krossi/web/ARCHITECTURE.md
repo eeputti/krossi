@@ -113,7 +113,7 @@ Reittitaulu on `app/routes.js`. Polut:
   `/varaa`:n toistaiseksi demon taustalla (`krossi-varaa.html` lataa `demo.js`:n, ulkokenttämaailma): linkin voi
   lähettää seuralle kokeiltavaksi ilman tiliä. Kun oikeat kentät aukeavat pelaajille, worker vaihdetaan `app.html`:ään
   (silloin varataan ilman tiliä: vapaat ajat näkyvät kaikille, varaus nimellä ja sähköpostilla, maksu pakollinen).
-  **Vierasvaraus** (migraatio `20261021075544_krossi_booking_guest`, krossi-bookingin `guest*`-toiminnot): ilman tiliä
+  **Vierasvaraus** (migraatio `20261021083557_krossi_booking_guest`, krossi-bookingin `guest*`-toiminnot): ilman tiliä
   BookSheet kysyy nimen ja sähköpostin, ja maksu aukeaa kun ne näyttävät oikeilta; vahvistus, kuitti ja varauksen oma
   linkki `/pelaa/varaus/<token>` (GuestBookingScreen: näytä, peru 1 €:n kululla) tulevat sähköpostiin. Ilman istuntoa
   myös `/pelaa/varaa` näkyy varaussivuna (Gate → SiteShell, "Kirjaudu" omien varausten tilalla). Demon varaussivulla

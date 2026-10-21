@@ -37,7 +37,7 @@
 // or sold booking answers 409 'Vuoro on peruttu…', a started one 409 'Vuoro on jo alkanut.' (or
 // splitConfig's { over: true }), the booker's own splitIntent 409, an unknown token 404.
 //
-// Vieras — a court booked without an account (migration 20261021075544_krossi_booking_guest): name
+// Vieras — a court booked without an account (migration 20261021083557_krossi_booking_guest): name
 // and email, then the same hold + payment as a player's. The booking's own secret link token is the
 // key; nothing here needs a session:
 //   { action: 'payConfig' }  without signing in too   -> { publishableKey, currency, email: null, guests: true }

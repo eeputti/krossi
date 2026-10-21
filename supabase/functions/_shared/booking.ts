@@ -19,7 +19,7 @@
 //   cancelPendingShares    payments friends started on a cancelled or sold booking are cancelled
 //   afterBookingPaid       a confirmed booking: the on-sale bookings it took over are refunded and
 //                          their sellers told; a guest's booking (no account, migration
-//                          20261021075544_krossi_booking_guest) gets its confirmation mail (guestMail.ts)
+//                          20261021083557_krossi_booking_guest) gets its confirmation mail (guestMail.ts)
 //
 // Refunds use idempotency keys that are the same in every function (`krossi-booking-refund-<payment
 // intent>` for a whole payment or what is left of it, `krossi-booking-cancel-refund-<payment
