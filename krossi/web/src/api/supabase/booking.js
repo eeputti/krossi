@@ -93,7 +93,7 @@ function mapVenue(raw) {
     // it there are no split payments or resale to offer.
     splitPay: raw.splitPay === true,
     resale: raw.resale === true,
-    // Only the saldo server (20261017190000_krossi_booking_saldo) says true.
+    // Only the saldo server (20261021071731_krossi_booking_saldo) says true.
     saldo: raw.saldo === true,
     holdMinutes: number(raw.holdMinutes, 10),
     payOnline: raw.payOnline !== false,

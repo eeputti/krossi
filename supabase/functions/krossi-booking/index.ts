@@ -43,7 +43,7 @@
 // from the booker's payment; the booker gets an email. A payment the split can't take any more is
 // refunded to the friend at once and splitVerify says why (status 'refunded' + message).
 //
-// Saldo (migration 20261017190000_krossi_booking_saldo): a booking paid with the saldo can be split
+// Saldo (migration 20261021071731_krossi_booking_saldo): a booking paid with the saldo can be split
 // too, and a share goes back where the booker paid from — the saldo part into their saldo at once
 // (krossi_split_mark_paid; no refund), the rest from their card payment as above. A signed-in friend
 // with saldo at the same hall pays from it (splitSaldo → krossi_split_pay_saldo): their own card

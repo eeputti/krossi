@@ -3,7 +3,7 @@
 // failed afterwards).
 //
 // The saldo itself lives in the database (booking_credit_events, migration
-// 20261017190000_krossi_booking_saldo): a top-up (metadata.product 'krossi_topup') is an order
+// 20261021071731_krossi_booking_saldo): a top-up (metadata.product 'krossi_topup') is an order
 // paid like a gift card (krossi-billing orderIntent: a destination charge to the hall, Krossi's fee
 // from fees.ts), and bookings and friends' shares paid from the saldo move no money through Stripe.
 //

@@ -1,6 +1,6 @@
 // Hallikohtainen saldo: the shared rules in features/booking.js (saldoRefundPlan, cancelChoices,
 // giveBackOf with friends' parts back in the saldo) and the demo backend that follows the server
-// (migration 20261017190000_krossi_booking_saldo, krossi-billing saldoRefund, krossi-booking
+// (migration 20261021071731_krossi_booking_saldo, krossi-billing saldoRefund, krossi-booking
 // cancel toSaldo / splitSaldo).
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
