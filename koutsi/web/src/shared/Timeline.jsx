@@ -11,9 +11,30 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 const PAGE = 40;
 const KIND_ICON = { goal: 'target', entry: 'check', diary: 'edit', homework: 'check-circle', mood: 'heart', match: 'trophy', video: 'play', wish: 'chat', note: 'edit', event: 'flag', training: 'ball', start: 'flag' };
 
-function Event({ event, onOpenVideo, renderActions }) {
+/** A change of goal or aim, one small line: when it changed and from what to what. */
+function GoalChange({ event, side }) {
+  return (
+    <div className="tl-goalchange">
+      <div className="tl-goalchange-head">
+        <span className="tl-goalchange-icon"><Icon name="target" size={12} /></span>
+        <span className="tl-goalchange-title">{event.title}</span>
+        {side}
+      </div>
+      <p className="tl-goalchange-line">
+        {event.previous && <><span className="tl-goalchange-old">{event.previous}</span><Icon name="arrow-right" size={12} className="tl-goalchange-arrow" /></>}
+        <span className="tl-goalchange-new">{event.body}</span>
+      </p>
+    </div>
+  );
+}
+
+function Event({ event, onOpenVideo, renderActions, onArchive }) {
   const kind = KOUTSI_TL_KINDS[event.kind];
-  const actions = renderActions ? renderActions(event) : null;
+  // "Muokkaa": every row offers "Piilota" (to the archive) instead of its usual buttons.
+  const actions = onArchive
+    ? <button type="button" className="tl-hide" onClick={() => onArchive(event)} aria-label={`Siirrä arkistoon: ${event.title}`}><Icon name="archive" size={14} /> Piilota</button>
+    : renderActions ? renderActions(event) : null;
+  if (event.kind === 'goal') return <GoalChange event={event} side={<span className="tl-event-side">{actions}</span>} />;
   return (
     <div className={cx('tl-event', `tl-kind-${event.kind}`, event.absent && 'is-absent')}>
       <div className="tl-event-head">
@@ -59,12 +80,17 @@ function Event({ event, onOpenVideo, renderActions }) {
  *   student, trainings (already narrowed to this student, with themeTitle/groupName), clubEvents
  *   onOpenVideo(video), renderActions(event) → node, actions: node above the search,
  *   emptyText, showStats, viewer: 'player' (own history) | 'coach'
+ *   isHidden(event) → true leaves an event out (the archive, domain/archive.js)
+ *   onArchive(event) — set while the player edits: each row shows "Piilota"
  */
-export function Timeline({ student, trainings, clubEvents, onOpenVideo, renderActions, actions, emptyText, showStats = true, viewer = 'player' }) {
+export function Timeline({ student, trainings, clubEvents, onOpenVideo, renderActions, actions, emptyText, showStats = true, viewer = 'player', isHidden, onArchive }) {
   const [kind, setKind] = useState('kaikki');
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE);
-  const all = useMemo(() => koutsiBuildTimeline(student, trainings, clubEvents, { viewer }), [student, trainings, clubEvents, viewer]);
+  const all = useMemo(() => {
+    const built = koutsiBuildTimeline(student, trainings, clubEvents, { viewer });
+    return isHidden ? built.filter((e) => !isHidden(e)) : built;
+  }, [student, trainings, clubEvents, viewer, isHidden]);
   const counts = useMemo(() => {
     const c = {};
     all.forEach((e) => { c[e.kind] = (c[e.kind] || 0) + 1; });
@@ -126,7 +152,7 @@ export function Timeline({ student, trainings, clubEvents, onOpenVideo, renderAc
               <div key={event.id} className="tl-row">
                 <div className={cx('tl-day', !showDay && 'is-hidden')}>{koutsiTlDayLabel(day)}</div>
                 <div className="tl-dot-col"><span className={cx('tl-dot', `tl-dot-${event.kind}`)} /></div>
-                <Event event={event} onOpenVideo={onOpenVideo} renderActions={renderActions} />
+                <Event event={event} onOpenVideo={onOpenVideo} renderActions={renderActions} onArchive={onArchive} />
               </div>
             ))}
           </div>

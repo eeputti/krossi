@@ -1,12 +1,14 @@
 // ProgressScreen (player) — "Kehitys": the player's whole development. Goals first (this season's,
 // what kind of player they aim to be and where they are heading, the wish to the coach), then this
 // month's numbers and the weekly streak, the theme path (what the groups have worked on, week by
-// week), and the whole timeline with the player's own entries editable.
-import { useMemo } from 'react';
+// week), and the whole timeline with the player's own entries editable. "Muokkaa" lets the player
+// move anything off the timeline into their own "Arkisto" (domain/archive.js); "Tämä viikko" opens
+// the month calendar (MonthSheet).
+import { useCallback, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Link } from '../app/router.js';
-import { Button, Card, Icon, IconButton, Page, PageHeader, StatTile, useConfirm } from '../ui/index.js';
+import { Button, Card, Icon, IconButton, Page, PageHeader, StatTile, useConfirm, useToast } from '../ui/index.js';
 import { Timeline } from '../shared/Timeline.jsx';
 import { Block } from '../shared/bits.jsx';
 import {
@@ -15,6 +17,10 @@ import {
 } from '../domain/core.js';
 import { activityStreak, themePath } from '../domain/player.js';
 import { ambitionById } from '../domain/playerNow.js';
+import { archiveMap } from '../domain/archive.js';
+import { koutsiBuildTimeline } from '../domain/timeline.js';
+import { ArchiveSheet } from './ArchiveSheet.jsx';
+import { MonthSheet, WeekCard } from './MonthSheet.jsx';
 import { DRILL_COUNT } from '../shared/drills/useLibrary.js';
 import { usePlayerActions } from './PlayerApp.jsx';
 
@@ -87,7 +93,7 @@ function fmtMinutes(min) {
   return rest ? `${h} h ${rest} min` : `${h} h`;
 }
 
-function Month({ state, student }) {
+function Month({ state, student, calendar }) {
   const now = new Date();
   const m = koutsiMonthlySummary(state, student.id, now.getFullYear(), now.getMonth());
   const count = (keys) => m.categories.filter((c) => keys.includes(c.key)).reduce((s, c) => s + c.count, 0);
@@ -95,6 +101,7 @@ function Month({ state, student }) {
   const streak = activityStreak(state, student);
   return (
     <Block eyebrow="Tämä kuukausi" title={name.charAt(0).toUpperCase() + name.slice(1)}>
+      {calendar}
       <div className="k-stats">
         <StatTile label="Valmennukset" value={count(['ryhmatreeni', 'valmennus'])} />
         <StatTile label="Omat treenit" value={count(['omatoiminen', 'fysiikka', 'muu', 'turnaus'])} tone="lime" />
@@ -111,10 +118,17 @@ function Month({ state, student }) {
 }
 
 export function ProgressScreen() {
-  const { state, run } = useData();
+  const { state, run, ownerId } = useData();
   const actions = usePlayerActions();
   const confirm = useConfirm();
+  const toast = useToast();
   const student = state.students[0];
+  const archiveOn = Boolean(state.archiveReady);
+  const archive = useMemo(() => archiveMap(student.archive), [student.archive]);
+  const hidden = useMemo(() => new Set(archive.keys()), [archive]);
+  const isHidden = useCallback((e) => archive.has(e.id), [archive]);
+  const [editing, setEditing] = useState(false);
+  const [sheet, setSheet] = useState(null); // 'archive' | 'month'
   const groups = useMemo(() => koutsiGroupsForStudent(state, student.id), [state, student.id]);
   const trainings = useMemo(() => koutsiTrainingsForStudent(state, student.id).map((t) => {
     const group = t.groupId ? koutsiGroupById(state, t.groupId) : null;
@@ -130,6 +144,9 @@ export function ProgressScreen() {
   const removeMatch = async (n) => {
     if (await confirm({ title: 'Poista ottelumuistiinpano?', message: `Vastustaja ${n.opponentName}`, confirmLabel: 'Poista', danger: true })) await run(() => api.player.deleteMatchNote(n.id), 'Muistiinpano poistettu.');
   };
+  // With the archive, deleting happens there ("Piilota" → Arkisto → Poista); the rows keep only
+  // their edit buttons. Without it (no table yet) the old trash buttons stay.
+  const trash = (fn) => (archiveOn ? null : <IconButton icon="trash" label="Poista" size="sm" onClick={fn} />);
   const renderActions = (event) => {
     if (event.kind === 'mood') {
       const m = event.source;
@@ -137,7 +154,7 @@ export function ProgressScreen() {
         <>
           <IconButton icon={m.hiddenFromCoach ? 'eye' : 'lock'} label={m.hiddenFromCoach ? 'Näytä valmentajalle' : 'Piilota valmentajalta'} size="sm"
             onClick={() => run(() => api.player.setMoodHidden(m.id, !m.hiddenFromCoach), m.hiddenFromCoach ? 'Fiilis näkyy nyt valmentajalle.' : 'Fiilis piilotettu valmentajalta.')} />
-          <IconButton icon="trash" label="Poista" size="sm" onClick={() => removeMood(m)} />
+          {trash(() => removeMood(m))}
         </>
       );
     }
@@ -145,7 +162,7 @@ export function ProgressScreen() {
       return (
         <>
           <IconButton icon="edit" label="Muokkaa" size="sm" onClick={() => actions.openEntry(event.source)} />
-          <IconButton icon="trash" label="Poista" size="sm" onClick={() => removeEntry(event.source)} />
+          {trash(() => removeEntry(event.source))}
         </>
       );
     }
@@ -153,19 +170,25 @@ export function ProgressScreen() {
       return (
         <>
           <IconButton icon="edit" label="Muokkaa" size="sm" onClick={() => actions.openMatch({ editing: event.source })} />
-          <IconButton icon="trash" label="Poista" size="sm" onClick={() => removeMatch(event.source)} />
+          {trash(() => removeMatch(event.source))}
         </>
       );
     }
     return null;
   };
+  const toArchive = async (e) => {
+    const res = await run(() => api.player.archiveItem(ownerId, e.id));
+    if (res.ok) toast('Siirretty arkistoon.', { action: { label: 'Kumoa', onClick: () => run(() => api.player.unarchiveItem(ownerId, e.id)) }, duration: 5000 });
+  };
+  const allEvents = useMemo(() => koutsiBuildTimeline(student, trainings, state.clubEvents), [student, trainings, state.clubEvents]);
+  const archivedCount = (student.archive || []).filter((a) => !a.removedAt && allEvents.some((e) => e.id === a.key)).length;
 
   return (
     <Page>
       <PageHeader title="Kehitys" subtitle="Tavoitteesi ja kaikki, mitä olet tehnyt — viikko viikolta." />
       <div className="stack-6">
         <Goals student={student} longReady={Boolean(state.longGoalReady)} />
-        <Month state={state} student={student} />
+        <Month state={state} student={student} calendar={<WeekCard hidden={hidden} onOpen={() => setSheet('month')} />} />
         <ThemePath groups={groups} />
         <Link to="/pelaaja/harjoitteet" className="k-row">
           <span className="k-ex-icon"><Icon name="play" size={16} /></span>
@@ -179,19 +202,27 @@ export function ProgressScreen() {
           <Timeline
             student={student} trainings={trainings} clubEvents={state.clubEvents} showStats={false}
             onOpenVideo={actions.playVideo} renderActions={renderActions}
-            actions={(
+            isHidden={archiveOn ? isHidden : undefined} onArchive={archiveOn && editing ? toArchive : undefined}
+            actions={editing ? (
+              <>
+                <p className="tl-editing-note grow">Piilota, mitä et halua kehitykseesi. Piilotetut siirtyvät arkistoon, jonka vain sinä näet.</p>
+                <Button variant="dark" size="sm" icon="check" onClick={() => setEditing(false)}>Valmis</Button>
+              </>
+            ) : (
               <>
                 {state.entriesReady && <Button variant="dark" size="sm" icon="plus" onClick={() => actions.openEntry()}>Merkintä</Button>}
-                <Button variant={state.entriesReady ? 'outline' : 'dark'} size="sm" icon="heart" onClick={() => actions.openMood()}>Fiilis</Button>
-                <Button variant="outline" size="sm" icon="trophy" onClick={() => actions.openMatch()}>Ottelu</Button>
-                <Button variant="outline" size="sm" icon="plus" onClick={() => actions.openSelfTraining()}>Oma treeni</Button>
                 <Button variant="ghost" size="sm" icon="play" onClick={() => actions.openVideo()}>Video</Button>
+                <span className="grow" />
+                {archiveOn && <Button variant="outline" size="sm" icon="edit" onClick={() => setEditing(true)}>Muokkaa</Button>}
+                {archiveOn && archivedCount > 0 && <Button variant="ghost" size="sm" icon="archive" onClick={() => setSheet('archive')}>Arkisto ({archivedCount})</Button>}
               </>
             )}
             emptyText="Aikajanasi on vielä tyhjä. Tänne kertyvät ryhmäsi teemat, treenit, valmentajan huomiot, tavoitteet, omat merkintäsi, fiilikset ja ottelut."
           />
         </Block>
       </div>
+      <MonthSheet open={sheet === 'month'} onClose={() => setSheet(null)} hidden={hidden} />
+      {archiveOn && <ArchiveSheet open={sheet === 'archive'} onClose={() => setSheet(null)} events={allEvents} archive={archive} />}
     </Page>
   );
 }

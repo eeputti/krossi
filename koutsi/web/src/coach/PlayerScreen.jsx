@@ -1,6 +1,6 @@
 // PlayerScreen — one player from the coach's side: who they are, quick notes, attendance,
 // their development timeline, the coach's notes/homework/videos, and roster management.
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Link, navigate } from '../app/router.js';
@@ -19,6 +19,7 @@ import { groupPath } from './nav.js';
 import { AudienceSheet, EditPlaceholderSheet, MergeSheet, PlaceholderInvite, TextEntrySheet } from './playerForms.jsx';
 import { useRecord } from './merkitse.jsx';
 import { ambitionById } from '../domain/playerNow.js';
+import { archiveMap, playerOwnsEvent } from '../domain/archive.js';
 
 function LevelSheet({ open, onClose, student }) {
   const { run } = useData();
@@ -170,6 +171,10 @@ export function PlayerScreen({ params }) {
     const group = t.groupId ? koutsiGroupById(state, t.groupId) : null;
     return { ...t, groupName: group?.name || '', themeTitle: group ? koutsiThemeForDate(group, t.date)?.title || '' : '' };
   }) : []), [state, student]);
+  // What the player archived from their own Kehitys and made themselves is theirs alone now
+  // (domain/archive.js); the coach's own notes, homework and sessions stay in view.
+  const archive = useMemo(() => archiveMap(student?.archive), [student?.archive]);
+  const isHidden = useCallback((e) => archive.has(e.id) && playerOwnsEvent(e), [archive]);
   if (!student) {
     return (
       <>
@@ -257,7 +262,7 @@ export function PlayerScreen({ params }) {
         {tab === 'kehitys' && (
           <div className="stack-4">
             <PlayerGoal student={student} />
-            <Timeline viewer="coach" student={student} trainings={trainings} clubEvents={state.clubEvents} onOpenVideo={setVideo}
+            <Timeline viewer="coach" student={student} trainings={trainings} clubEvents={state.clubEvents} onOpenVideo={setVideo} isHidden={isHidden}
               emptyText="Aikajanalle kertyvät treenit teemoineen, huomiosi, läksyt ja pelaajan omat merkinnät." />
           </div>
         )}

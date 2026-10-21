@@ -149,6 +149,17 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   false`) ne pysyvät piilossa. Molemmat tulevat migraatiosta
   `supabase/migrations/20261021083503_koutsi_long_goal_and_mood_session.sql` (ajettu 21.10.2026 käyttäjän luvalla).
 
+- Kehityksen arkisto ja kalenteri (`domain/archive.js`, `domain/monthCal.js`, `player/ArchiveSheet.jsx`,
+  `player/MonthSheet.jsx`): aikajanan "Muokkaa"-tilassa jokaisen rivin voi piilottaa; se siirtyy pelaajan omaan
+  Arkistoon (taulu `koutsi_timeline_archive`, avain = aikajanan tapahtuman id). Pelaajan itse tekemät (fiilis,
+  ottelu, merkintä, oma treeni, oma video, tavoite-/toivemuutos) katoavat myös valmentajan sovelluksesta
+  (`coachViewOfArchives` latauksessa); valmentajan omat (huomiot, läksyt, treenit) jäävät valmentajalle.
+  Arkistosta: Palauta tai Poista (omat poistetaan pysyvästi, valmentajan merkinnät vain arkistosta).
+  Tavoitteen, pitkän ajan tavoitteen ja tähtäimen (`field = 'ambition'`) muutokset ovat aikajanalla pieninä
+  riveinä "vanha → uusi". "Tämä viikko" -kortti avaa kuukausikalenterin: mitä kunakin päivänä tehtiin.
+  Migraatio `koutsi/web/sql/20261021140000_koutsi_timeline_archive.sql` — **ei ajettu**; ilman sitä
+  `archiveReady: false` ja Muokkaa/Arkisto pysyvät piilossa (kalenteri ja tavoiterivit toimivat).
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)

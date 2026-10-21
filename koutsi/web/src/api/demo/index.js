@@ -12,6 +12,7 @@ import {
   KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX, koutsiAddDays,
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
+import { coachViewOfArchives } from '../../domain/archive.js';
 
 let role = 'coach';
 let state = null;
@@ -57,7 +58,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true, moodSessionsReady: true, longGoalReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
 }
 
 function playerState(studentId) {
@@ -71,7 +72,7 @@ function playerState(studentId) {
   const groupIds = new Set(groups.map((g) => g.id));
   // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
   const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
-  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, entriesReady: true, moodSessionsReady: true, longGoalReady: true };
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
 }
 
 function hideHiddenMoods(snapshot) {
@@ -84,13 +85,13 @@ function student(id, name, { age = null, level = null, placeholder = true } = {}
     id, name, initial: koutsiInitialOf(name), hue: koutsiHueFromId(id), avatarUrl: '', isPlaceholder: placeholder,
     age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
     level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '', joinedAt: null, welcomeSeenAt: null,
-    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], entries: [],
+    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], ambitionHistory: [], archive: [], entries: [],
   };
 }
 
 function addHistory(st, field, value) {
-  const key = { goal: 'goalHistory', wish: 'wishHistory', note: 'noteHistory', long_goal: 'longGoalHistory' }[field];
-  const column = { goal: 'goal', wish: 'playerWish', note: 'playerNote', long_goal: 'longGoal' }[field];
+  const key = { goal: 'goalHistory', wish: 'wishHistory', note: 'noteHistory', long_goal: 'longGoalHistory', ambition: 'ambitionHistory' }[field];
+  const column = { goal: 'goal', wish: 'playerWish', note: 'playerNote', long_goal: 'longGoal', ambition: 'ambition' }[field];
   const previous = st[column] || '';
   if (previous === value) return;
   st[column] = value;
@@ -155,7 +156,7 @@ export const backend = {
 
   coach: {
     async fetchRow(id) { return id === COACH ? { id } : null; },
-    async load() { await wait(); return hideHiddenMoods(coachState()); },
+    async load() { await wait(); return coachViewOfArchives(hideHiddenMoods(coachState())); },
     async redeemKey() { return { ok: true }; },
     async markWelcomeSeen() { S().coach.welcomeSeenAt = nowIso(); },
     async saveProfile(coachId, patch) { await wait(); Object.assign(S().coach, patch); },
@@ -180,7 +181,7 @@ export const backend = {
     async saveAim(id, { ambition, longGoal }) {
       await wait();
       const st = findStudent(id);
-      st.ambition = ambition || '';
+      addHistory(st, 'ambition', ambition || '');
       addHistory(st, 'long_goal', longGoal || '');
     },
     async saveAge(id, age) {
@@ -251,6 +252,16 @@ export const backend = {
       S().students.forEach(sortEntries);
     },
     async deleteEntry(entryId) { removeById('entries', entryId); },
+    async archiveItem(studentId, key) {
+      await wait();
+      const st = findStudent(studentId);
+      st.archive = [{ key, archivedAt: nowIso(), removedAt: null }, ...(st.archive || []).filter((a) => a.key !== key)];
+    },
+    async unarchiveItem(studentId, key) { const st = findStudent(studentId); st.archive = (st.archive || []).filter((a) => a.key !== key); },
+    async forgetArchived(studentId, key) { const st = findStudent(studentId); (st.archive || []).forEach((a) => { if (a.key === key) a.removedAt = nowIso(); }); },
+    async deleteHistory(historyId) {
+      S().students.forEach((st) => ['goalHistory', 'wishHistory', 'noteHistory', 'longGoalHistory', 'ambitionHistory'].forEach((k) => { st[k] = (st[k] || []).filter((h) => h.id !== historyId); }));
+    },
   },
 
   students: {

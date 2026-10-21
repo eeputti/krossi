@@ -58,7 +58,7 @@ function student(id, name, { age = null, level = 'Keskitaso', placeholder = fals
     isPlaceholder: placeholder, age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
     level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '',
     joinedAt: placeholder ? null : isoAt(-joinedDaysAgo), welcomeSeenAt: placeholder ? null : isoAt(-joinedDaysAgo),
-    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], entries: [],
+    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], ambitionHistory: [], archive: [], entries: [],
     ...rest,
   });
 }
@@ -239,6 +239,7 @@ export function seed() {
       playerWish: 'Haluaisin harjoitella enemmän verkkopeliä ensi kerralla.',
       wishHistory: [said('wish', 'Haluaisin harjoitella enemmän verkkopeliä ensi kerralla.', isoAt(-16, 20, 30))],
       ambition: 'kilpailu',
+      ambitionHistory: [{ ...said('ambition', 'kilpailu', isoAt(-40, 20, 5)), previousValue: 'kehitys' }],
       longGoal: 'Pelata seuran joukkueessa aluesarjaa ensi kesänä',
       longGoalHistory: [said('long_goal', 'Pelata seuran joukkueessa aluesarjaa ensi kesänä', isoAt(-40, 20))],
       homework: [
