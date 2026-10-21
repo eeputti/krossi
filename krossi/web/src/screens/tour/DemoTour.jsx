@@ -12,16 +12,16 @@
 // card's buttons (or ← → Esc) move it. Steps live in tourSteps.js / siteTourSteps.js, open/closed in
 // tourState.js.
 //
-// Each opens by itself on its first visit (never inside an iframe; the demo tour not after coming in
-// from the booking site — "Etsi pelikaveri" must open the game, not a tour); ?opastus=1 opens it
-// anyway and ?opastus=0 never. Profiili → Näytä opastus (demo) and the site bar's ? open it again.
+// The demo tour opens by itself on the first visit, the site tour on every visit to krossi.app/varaa
+// (never inside an iframe; the demo tour not after coming in from the booking site — "Etsi
+// pelikaveri" must open the game, not a tour); ?opastus=1 opens it anyway and ?opastus=0 never. Profiili → Näytä opastus (demo) and the site bar's ? open it again.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useIsDesktop } from '../../app/hooks.js';
 import { navigate, useRoute } from '../../app/router.js';
 import { Button, Icon, IconButton, ListRow, TennisBall, confetti } from '../../ui/index.js';
 import { STEPS, TOUR_TOPICS } from './tourSteps.js';
 import { SITE_STEPS, SITE_TOPICS } from './siteTourSteps.js';
-import { cameFromSite, demoTour, inFrame, siteTour, startTour } from './tourState.js';
+import { backFromPayment, cameFromSite, demoTour, inFrame, siteTour, startTour } from './tourState.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const PAD = 6; // space between the target and the edge of the hole
@@ -153,7 +153,7 @@ function placeCard(hole, vp, cardH, desktop) {
   return { side: 'float', w, top: below >= above ? vp.h - cardH - MARGIN : MARGIN, left };
 }
 
-/** Open a tour by itself on the first visit (after a moment, once the page is there). */
+/** Open a tour by itself unless it was seen (after a moment, once the page is there). */
 function useAutoStart(store, skip) {
   useEffect(() => {
     const ask = new URLSearchParams(window.location.search).get('opastus');
@@ -174,7 +174,7 @@ export function DemoTour() {
 /** The booking site's tour (krossi.app/varaa, demo only — its steps point at the staff's button). */
 export function SiteTour() {
   const step = siteTour.useStep();
-  useAutoStart(siteTour, false);
+  useAutoStart(siteTour, backFromPayment());
   if (step == null) return null;
   return <TourLayer tour={SITE} step={step} />;
 }
