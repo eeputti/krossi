@@ -1,4 +1,4 @@
--- Renewed Koutsi (koutsi/web) — NOT APPLIED until the user says "aja migraatio".
+-- Renewed Koutsi (koutsi/web) — APPLIED 2026-10-21 with the user's OK ("aja migraatio"), prod version 20261021083503.
 --
 -- 1. The player's long-term aim: what kind of player they want to be (ambition: just for fun /
 --    to get better / to compete / to reach the top) and, in their own words, where they are

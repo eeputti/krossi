@@ -52,8 +52,8 @@ async function loadEntries(studentIds) {
   }
 }
 
-// Columns added by koutsi/web/sql/20261021130000_koutsi_long_goal_and_mood_session.sql. Until it
-// runs, the long-term goal stays hidden and only the latest session is asked "Miten meni?".
+// Columns added by supabase/migrations/20261021083503_koutsi_long_goal_and_mood_session.sql (applied
+// 2026-10-21). On a database without them, the long-term goal stays hidden and only the latest session is asked "Miten meni?".
 async function moodSessionsReady() {
   const { error } = await fromTable('koutsi_moods').select('training_id').limit(1);
   return !error;

@@ -147,7 +147,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   "Mihin tähtäät?" (`koutsi_students.ambition`: harrastus/kehitys/kilpailu/huippu) ja pitkän ajan tavoite
   (`long_goal`, historia `koutsi_player_history.field = 'long_goal'`); ilman sarakkeita (`longGoalReady:
   false`) ne pysyvät piilossa. Molemmat tulevat migraatiosta
-  `koutsi/web/sql/20261021130000_koutsi_long_goal_and_mood_session.sql` — **ei ajettu**, vaatii käyttäjän luvan.
+  `supabase/migrations/20261021083503_koutsi_long_goal_and_mood_session.sql` (ajettu 21.10.2026 käyttäjän luvalla).
 
 ## 5. Reitit
 

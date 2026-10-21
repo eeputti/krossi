@@ -16,8 +16,8 @@ import {
   koutsiGroupsForStudent, koutsiTimeRangeLabel, koutsiTodayStr, koutsiAddDays, koutsiFmtShortDate, KOUTSI_EVENT_KINDS,
   koutsiGroupThemeForWeek,
 } from '../domain/core.js';
-import { relativeDay, shortDay } from '../domain/week.js';
-import { upcomingSessions } from '../domain/player.js';
+import { relativeDay, shortDay, themeWeekShort } from '../domain/week.js';
+import { homeThemeCards, upcomingSessions } from '../domain/player.js';
 import { koutsiFmtEventDate } from '../domain/timeline.js';
 import { planSummary, readPlan } from '../domain/plan.js';
 import { firstName } from '../domain/roster.js';
@@ -27,16 +27,28 @@ import { AfterSessions, useLead } from './MerkitseSheet.jsx';
 const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function Head({ student }) {
+/** The dark top card: the week, hello, the bell, and this week's theme (the first group's; each
+ *  group's own theme is on its "Ryhmäsi" row). */
+function Head({ student, groups }) {
   const week = koutsiCurrentIsoWeek();
+  const main = homeThemeCards(groups, week)[0];
   return (
-    <header className="home-head">
-      <div className="home-head-text">
-        <div className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</div>
-        <h1 className="home-hello">Moi, {firstName(student.name) || 'pelaaja'}!</h1>
+    <section className="week-hero on-dark court-lines home-hero">
+      <div className="week-hero-top">
+        <span className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
+        <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />
       </div>
-      <NotificationsButton uid={student.id} home="/pelaaja/koti" />
-    </header>
+      <h1 className="week-hero-title">Moi, {firstName(student.name) || 'pelaaja'}!</h1>
+      {main && (
+        <div className="hero-theme">
+          <div className="hero-theme-eyebrow">
+            {main.current ? 'Viikon teema' : `Viimeisin teema · ${themeWeekShort(main.theme)}`}{groups.length > 1 ? ` · ${[...new Set(main.groups.map((g) => g.name))].join(', ')}` : ''}
+          </div>
+          <div className="hero-theme-title">{main.theme.title}</div>
+          {main.theme.lead && <p className="hero-theme-lead">{main.theme.lead}</p>}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -230,9 +242,10 @@ export function HomeScreen() {
   const isDesktop = useIsDesktop();
   const student = state.students[0];
   const hasCoach = (state.coaches || []).length > 0;
+  const groups = koutsiGroupsForStudent(state, student.id);
   return (
     <Page width="wide" className="week-page home-page">
-      <Head student={student} />
+      <Head student={student} groups={groups} />
       <div className={isDesktop ? 'week-grid' : 'stack-5'}>
         <div className="stack-5">
           {!hasCoach && <JoinCard />}
