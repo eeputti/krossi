@@ -45,6 +45,7 @@ import { SiteBar } from './SiteBar.jsx';
 import { BookingTermsSheet } from './BookingTerms.jsx';
 import { DateStrip, DurationStepper, PlacePicker, TimeRows, UnpaidPayments } from './BookingParts.jsx';
 import { gameTitle } from '../games/gameUtils.js';
+import { siteTour } from '../tour/tourState.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ALL = 'kaikki';
@@ -398,6 +399,9 @@ export function BookingScreen({ params, query, route }) {
           <Button variant="ghost" size="sm" icon="log-in" onClick={() => navigate('/pelaa/koti')}>Kirjaudu</Button>
       ) : (
           <>
+            {isDemo && route?.type === 'site' && (
+              <IconButton icon="help" label="Näytä opastus" data-tour="site-help" onClick={siteTour.start} />
+            )}
             <IconButton
               icon="calendar"
               label={upcoming.length ? `Omat varaukset (${upcoming.length} tulossa)` : 'Omat varaukset'}

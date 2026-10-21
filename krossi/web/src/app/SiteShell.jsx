@@ -1,10 +1,13 @@
 // SiteShell.jsx — the booking site krossi.app/varaa: a customer comes to book a court and does only
-// that, so none of the app's menus (no tab bar, no side nav, no demo banner or tour). The page draws
-// its own bar (screens/booking/SiteBar.jsx). Once the court is booked, "Etsi pelikaveri" moves on into
-// the app (Peliseura), where AppShell takes over in the same page load — the demo keeps its state.
+// that, so none of the app's menus (no tab bar, no side nav, no demo banner). The page draws its own
+// bar (screens/booking/SiteBar.jsx); the demo's booking page has its own quick tour (SiteTour). Once
+// the court is booked, "Etsi pelikaveri" moves on into the app (Peliseura), where AppShell takes over
+// in the same page load — the demo keeps its state.
 import { useEffect, useLayoutEffect } from 'react';
 import { useRoute } from './router.js';
 import { NotFoundScreen, SCREENS } from './screens.js';
+import { isDemo } from '../api/index.js';
+import { SiteTour } from '../screens/tour/DemoTour.jsx';
 
 const SITE_TITLE = 'Varaa kenttä — Krossi';
 
@@ -21,6 +24,7 @@ export function SiteShell() {
   return (
     <div className="site">
       <Screen params={route.params} query={route.query} route={route.route} />
+      {isDemo && (route.name === 'bookingSite' || route.name === 'bookingSiteVenue') && <SiteTour />}
     </div>
   );
 }

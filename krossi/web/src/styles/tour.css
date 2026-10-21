@@ -1,5 +1,5 @@
-/* tour.css — the demo's guided tour (screens/tour/DemoTour.jsx): a dimmed page with one lit-up
-   hole, a lime ring that pings when it lands, and a card that says what is there. */
+/* tour.css — the guided tours of the demo and the booking site (screens/tour/DemoTour.jsx): a dimmed
+   page with one lit-up hole, a lime ring that pings when it lands, and a card that says what is there. */
 
 .tour { position: fixed; inset: 0; z-index: 300; animation: tour-fade var(--dur-3) var(--ease-out) both; }
 .tour-block { position: absolute; inset: 0; }
@@ -70,6 +70,11 @@
 .tour-welcome { background: var(--green-800); color: var(--on-dark); text-align: center; animation: tour-pop 0.5s var(--ease-out) both; }
 .tour-welcome .tour-card-inner { padding: 26px 22px 18px; }
 .tour-welcome-ball { display: flex; justify-content: center; margin-bottom: 14px; animation: tour-drop 0.95s linear 0.1s both; }
+/* the booking site's welcome: a still court mark instead of the ball (booking stays matter-of-fact) */
+.tour-welcome-mark {
+  display: grid; place-items: center; width: 52px; height: 52px; margin: 0 auto 14px;
+  border-radius: 50%; background: var(--lime); color: var(--ink);
+}
 .tour-welcome-eyebrow { color: var(--lime); font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .tour-welcome-title { margin: 6px 0 8px; font-size: 28px; font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; }
 .tour-welcome-text { max-width: 34ch; margin: 0 auto; color: var(--on-dark-muted); font-size: 15px; line-height: 1.5; }
