@@ -17,6 +17,9 @@
 //
 // Same fixed-seed approach as seed.js: the layout is relative to `now`, so the demo always
 // shows "tomorrow 18.00" instead of a date that went stale.
+//
+// `visitor: 'new'` (the booking site krossi.app/varaa): the visitor is new to the courts, so nothing
+// of Alex's is on them — see forNewVisitor.
 
 import { ME } from './rows.js';
 import { createHallSeed } from './hallSeed.js';
@@ -220,7 +223,7 @@ const PLANS = {
   },
 };
 
-export function createBookingSeed(now, { courts = 'halls' } = {}) {
+export function createBookingSeed(now, { courts = 'halls', visitor = null } = {}) {
   const rng = createRng(SEED);
   const outdoor = courts === 'outdoor';
   const plan = PLANS[outdoor ? 'outdoor' : 'halls'];
@@ -360,7 +363,24 @@ export function createBookingSeed(now, { courts = 'halls' } = {}) {
     .sort((a, b) => (new Date(b.startsAt).getHours() >= 17) - (new Date(a.startsAt).getHours() >= 17) || a.startsAt.localeCompare(b.startsAt))[0];
   if (onSale) onSale.listedAt = new Date(now - 90 * MIN).toISOString();
 
-  return { venues: [venue], rows, watches: [], shares, seedMessages, ...hall };
+  const seed = { venues: [venue], rows, watches: [], shares, seedMessages, ...hall };
+  if (visitor === 'new') forNewVisitor(seed);
+  return seed;
+}
+
+/**
+ * The booking site's visitor has just found the courts: their own bookings are only what they book
+ * now. Alex's bookings and kausivuoro go to Olli (the calendar stays as busy); no series card, saldo,
+ * gift cards or saved card. Alex stays on the staff, so the signed-in visitor can try the hall's view.
+ */
+function forNewVisitor(seed) {
+  const olli = pid('olli');
+  for (const row of seed.rows) if (row.bookedBy === ME) row.bookedBy = olli;
+  for (const slot of seed.seasonSlots) if (slot.holderId === ME) Object.assign(slot, { holderId: olli, holderName: 'Olli' });
+  seed.passes = seed.passes.filter((p) => p.userId !== ME);
+  seed.creditEvents = seed.creditEvents.filter((e) => e.userId !== ME);
+  seed.giftCards = seed.giftCards.filter((g) => g.buyerId !== ME && g.redeemedBy !== ME);
+  seed.cards.delete(ME);
 }
 
 function courtsOfSport(venue, sport) {

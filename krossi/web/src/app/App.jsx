@@ -33,7 +33,7 @@ export { store as authStore };
 // A remembered destination only counts for a while: a stale one would otherwise fire much later
 // for whoever signs in next in this browser. Stored as "<ms>|<path>".
 const AFTER_AUTH_TTL_MS = 2 * 60 * 60 * 1000;
-function rememberAfterAuth(path) { store.set(AFTER_AUTH_KEY, `${Date.now()}|${path}`); }
+export function rememberAfterAuth(path) { store.set(AFTER_AUTH_KEY, `${Date.now()}|${path}`); }
 /** The remembered destination if it's still fresh (doesn't consume it). */
 export function peekAfterAuth() {
   const [at, path] = String(store.get(AFTER_AUTH_KEY) || '').split('|');

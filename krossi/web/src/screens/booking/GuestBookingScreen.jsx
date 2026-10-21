@@ -2,11 +2,14 @@
 // (in the guest's confirmation email; a redirect payment such as MobilePay comes back here too). The
 // booking site's look (SiteShell, SiteBar), one job: what was booked, and — before the hall's
 // cancellation limit — "Peru varaus" (the money back to the card minus the 1 € peruutuskulu).
-// Below, the way into Krossi for finding somebody to play with.
+// Below, the way into Krossi for finding somebody to play with — that needs an account.
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../../api/index.js';
+import { api, isDemo } from '../../api/index.js';
 import { useAsync } from '../../app/hooks.js';
 import { navigate } from '../../app/router.js';
+import { useSession } from '../../app/session.jsx';
+import { useDemoSiteSignedIn } from '../../app/siteAccount.js';
+import { AccountSheet, goToAccount } from './AccountSheet.jsx';
 import { CANCEL_FEE_CENTS, centsLabel } from '../../features/booking.js';
 import { Button, EmptyState, ErrorState, Icon, Page, Skeleton, TennisBall, useConfirm, useToast } from '../../ui/index.js';
 import { SiteBar } from './SiteBar.jsx';
@@ -46,6 +49,15 @@ export function GuestBookingScreen({ params, query }) {
   const page = useAsync(() => api.booking.guestBooking(token), [token]);
   const [checking, setChecking] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const { user, needsOnboarding } = useSession();
+  const demoSignedIn = useDemoSiteSignedIn();
+  const account = isDemo ? demoSignedIn : Boolean(user) && !needsOnboarding;
+  const findPartner = () => {
+    if (account) navigate('/pelaa/pelaajat');
+    else if (isDemo) setAccountOpen(true);
+    else goToAccount('register', '/pelaa/pelaajat');
+  };
 
   // Back from a redirect payment (?payment_intent=…&redirect_status=…): confirm it, then drop the
   // query (it carries Stripe's client secret).
@@ -189,15 +201,22 @@ export function GuestBookingScreen({ params, query }) {
             </p>
           )}
           {!confirmed && state.tone !== 'wait' && (
-            <Button variant="dark" icon="calendar-plus" block onClick={() => navigate(`/pelaa/varaa/${encodeURIComponent(venue.slug)}`)}>Varaa uusi aika</Button>
+            <Button variant="dark" icon="calendar-plus" block onClick={() => navigate(`${isDemo ? '/varaa' : '/pelaa/varaa'}/${encodeURIComponent(venue.slug)}`)}>Varaa uusi aika</Button>
           )}
         </div>
 
         <div className="gb-more">
-          <p className="bk-done-ask">Puuttuuko pelikaveri? Krossista löydät oman tasoisesi pelaajan.</p>
-          <Button variant="lime" size="lg" block icon="users" onClick={() => navigate('/pelaa/pelaajat')}>Etsi pelikaveri</Button>
+          <Button variant="lime" size="lg" block icon="users" onClick={findPartner}>{account ? 'Etsi pelikaveri' : 'Luo tili ja etsi pelikaveri'}</Button>
         </div>
       </Page>
+      {isDemo && (
+        <AccountSheet
+          open={accountOpen}
+          subtitle="Pelikaverin haku vaatii tilin."
+          onClose={() => setAccountOpen(false)}
+          onDone={() => { setAccountOpen(false); navigate('/pelaa/pelaajat'); }}
+        />
+      )}
     </>
   );
 }

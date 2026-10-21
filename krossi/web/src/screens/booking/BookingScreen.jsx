@@ -22,16 +22,19 @@
 // Redirect payment methods (MobilePay on a phone) come back here with
 // ?varaus=<bookingId>&payment_intent=…; that is confirmed below and the query is dropped.
 //
-// Without an account (`guest`): the calendar is open to everybody and the court is booked with a
-// name and an email (BookSheet), paid at once; a guest's redirect payment comes back to the booking's
-// own page instead (/pelaa/varaus/<token>). /pelaa/varaa without a session looks like the booking site
-// (Gate renders SiteShell), with "Kirjaudu" in place of my bookings. The demo's booking site shows the
-// guest's way too — its visitor stays the demo player underneath.
+// Without an account (`guest`): the calendar is open to everybody; the booking sheet offers an account
+// first ("Luo tili ja varaa") or a booking with a name and an email, paid at once — a guest's redirect
+// payment comes back to the booking's own page instead (/pelaa/varaus/<token>). A guest has no own
+// bookings, bells or cards: the bar has only "Kirjaudu". /pelaa/varaa without a session looks like the
+// booking site (Gate renders SiteShell). The demo's booking site starts as a guest too and makes the
+// account right there (AccountSheet, siteAccount.js) — its visitor stays the demo player underneath.
+// With an account, the site shows the next court of mine on top ("Sinulla on kenttä varattuna").
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo } from '../../api/index.js';
 import { useAsync, useIsDesktop, useLocalState, useNow, useResync } from '../../app/hooks.js';
 import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
+import { useDemoSiteSignedIn } from '../../app/siteAccount.js';
 import { firstName, formatGameTime, formatTime } from '../../lib/format.js';
 import {
   addDays, bookingDays, bookingForGame, centsLabel, dateKey, durationLabel, findCourt, fitsAvailability, freeSlots, locationsFor,
@@ -41,6 +44,7 @@ import {
   Button, EmptyState, ErrorState, Icon, IconButton, Page, Segmented, Sheet, Skeleton, TennisBall, TopBar, useToast,
 } from '../../ui/index.js';
 import { BookSheet } from './BookSheet.jsx';
+import { AccountSheet, goToAccount } from './AccountSheet.jsx';
 import { SiteBar } from './SiteBar.jsx';
 import { BookingTermsSheet } from './BookingTerms.jsx';
 import { DateStrip, DurationStepper, PlacePicker, TimeRows, UnpaidPayments } from './BookingParts.jsx';
@@ -66,10 +70,14 @@ function firstDay(venue, now = new Date()) {
 
 export function BookingScreen({ params, query, route }) {
   const { profile, user, needsOnboarding } = useSession();
-  // My own bookings, cards and bells need an account (a guest has none of them).
-  const account = Boolean(user) && !needsOnboarding;
-  const guest = !account || (isDemo && route?.type === 'site');
+  // My own bookings, cards and bells need an account (a guest has none of them). The demo's booking
+  // site is a guest's until the visitor makes an account or signs in there.
+  const demoSite = isDemo && route?.type === 'site';
+  const demoSignedIn = useDemoSiteSignedIn();
+  const account = demoSite ? demoSignedIn : Boolean(user) && !needsOnboarding;
+  const guest = !account;
   const site = route?.type === 'site' || !account;
+  const [loginOpen, setLoginOpen] = useState(false);
   const isDesktop = useIsDesktop();
   // The booking site and the desktop Varaa item have no back arrow; a phone's booking page (opened from
   // Koti or Peliseura), a venue page, or a booking opened from a game or a chat does.
@@ -331,6 +339,7 @@ export function BookingScreen({ params, query, route }) {
   }
 
   const upcoming = mine.data?.upcoming || [];
+  const signIn = () => (demoSite ? setLoginOpen(true) : goToAccount('login', `${home}/${encodeURIComponent(venue.slug)}`));
   const freed = (watches.data || []).filter((w) => w.notifiedAt);
   const failedMonths = (seasonSlots.data || [])
     .filter((slot) => slot.venueId === venue.id && slot.status === 'active')
@@ -349,7 +358,8 @@ export function BookingScreen({ params, query, route }) {
     })
     .filter((b) => b && b.cents != null);
 
-  const fits = (startsAt) => fitsAvailability(profile?.availability, startsAt);
+  // The lime dot: my usual play times (a guest has no profile here).
+  const fits = (startsAt) => account && fitsAvailability(profile?.availability, startsAt);
   // A new day: the ball spins until its times are in (and a moment more, so the change shows).
   const loadingDay = settling || (day.loading && day.data?.date !== key);
 
@@ -396,7 +406,7 @@ export function BookingScreen({ params, query, route }) {
   return (
     <>
       {bar(venue.name, !account ? (
-          <Button variant="ghost" size="sm" icon="log-in" onClick={() => navigate('/pelaa/koti')}>Kirjaudu</Button>
+          <Button variant="ghost" size="sm" icon="log-in" onClick={signIn}>Kirjaudu</Button>
       ) : (
           <>
             {isDemo && route?.type === 'site' && (
@@ -417,6 +427,7 @@ export function BookingScreen({ params, query, route }) {
       ))}
       <Page className="bk-page">
         {site && <SiteHero venue={venue} />}
+        {site && account && upcoming[0] && <NextCourt booking={upcoming[0]} />}
         {unpaidCents > 0 && (
           <button type="button" className="bk-unpaid-row" onClick={() => setPaymentsOpen(true)}>
             <span className="bk-unpaid-icon" aria-hidden="true"><Icon name="alert" size={18} strokeWidth={2.4} /></span>
@@ -487,6 +498,7 @@ export function BookingScreen({ params, query, route }) {
         />
       </Sheet>
       <BookingTermsSheet open={termsOpen} onClose={() => setTermsOpen(false)} venue={venue} />
+      {demoSite && <AccountSheet open={loginOpen} mode="login" onClose={() => setLoginOpen(false)} onDone={() => setLoginOpen(false)} />}
       <BookSheet
         open={bookOpen && Boolean(pick)}
         onClose={() => setBookOpen(false)}
@@ -517,6 +529,22 @@ function SiteHero({ venue }) {
       <p className="site-sub"><Icon name="pin" size={16} />{[venue.name, where].filter(Boolean).join(' · ')}</p>
       {isDemo && <p className="site-demo"><Icon name="info" size={14} />Esittely — mitään ei veloiteta eikä tallenneta</p>}
     </div>
+  );
+}
+
+/** The booking site with an account: my next court on top, to Omat varaukset (in the app). */
+function NextCourt({ booking }) {
+  return (
+    <button type="button" className="site-next rise" onClick={() => navigate(`/pelaa/omat-varaukset?vuoro=${encodeURIComponent(booking.id)}`)}>
+      <span className="site-next-icon" aria-hidden="true"><Icon name="check" size={18} strokeWidth={2.6} /></span>
+      <span className="site-next-text">
+        <span className="site-next-title">Sinulla on kenttä varattuna</span>
+        <span className="site-next-when truncate">
+          {booking.courtName} · {formatGameTime(booking.startsAt).replace(/^\S+/, (w) => w.toLowerCase())}
+        </span>
+      </span>
+      <Icon name="chevron-right" size={18} />
+    </button>
   );
 }
 
