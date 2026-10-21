@@ -22,6 +22,7 @@ import { AdminScreen } from '../screens/admin/AdminScreen.jsx';
 import { BookingScreen } from '../screens/booking/BookingScreen.jsx';
 import { HallScreen } from '../screens/booking/HallScreen.jsx';
 import { SplitPayScreen } from '../screens/booking/SplitPayScreen.jsx';
+import { GuestBookingScreen } from '../screens/booking/GuestBookingScreen.jsx';
 import { MyBookingsScreen } from '../screens/booking/MyBookingsScreen.jsx';
 import { InvoiceScreen } from '../screens/booking/InvoiceScreen.jsx';
 import { EmptyState, Button, Page } from '../ui/index.js';
@@ -54,6 +55,7 @@ export const SCREENS = {
   bookingSiteVenue: BookingScreen,
   hall: HallScreen,
   splitPay: SplitPayScreen,
+  guestBooking: GuestBookingScreen,
   myBookings: MyBookingsScreen,
   invoice: InvoiceScreen,
 };

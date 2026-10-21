@@ -107,7 +107,7 @@ function useStripeReturn() {
     const { stripe: hosted, payment_intent: intentId, redirect_status: redirectStatus } = route.query;
     // Court bookings come back with ?varaus=<id> and payment links to /pelaa/maksa/<token>:
     // BookingScreen and SplitPayScreen confirm those themselves.
-    if ((!hosted && !intentId) || route.query.varaus || route.name === 'splitPay' || !user || handled.current) return;
+    if ((!hosted && !intentId) || route.query.varaus || route.name === 'splitPay' || route.name === 'guestBooking' || !user || handled.current) return;
     handled.current = true;
     const unlocked = () => {
       toast('Krossi on nyt auki — pelit voi alkaa! 🎾', { icon: 'sparkles', duration: 4200 });
@@ -182,6 +182,12 @@ function Gate() {
   // A court's payment link works without an account (and before onboarding).
   if (route.name === 'splitPay' && (!session.user || session.needsOnboarding)) {
     return <SplitPayScreen params={route.params} query={route.query} standalone />;
+  }
+  // The booking site and a guest's own booking page need no account (nor onboarding), and without
+  // one the app's own booking page looks like the site: a court is booked with a name and an email.
+  if ((route.route?.type === 'site' && (!session.user || session.needsOnboarding))
+    || (!session.user && (route.name === 'booking' || route.name === 'bookingVenue'))) {
+    return <SiteShell />;
   }
   if (!session.user) {
     if (route.name === 'game') return <PublicGameScreen params={route.params} query={route.query} />;

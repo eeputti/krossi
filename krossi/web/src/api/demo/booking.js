@@ -10,6 +10,10 @@
 // it happen; the other parts are there for whoever opens the link. Laita myyntiin: a booking past
 // its free cancellation goes on sale, somebody books the slot a little later and everything that
 // was paid goes back.
+//
+// Vieras (guest*): the booking site books without an account — name + email, then "pay". The demo
+// visitor is the demo player all along, so a guest's booking is also theirs (bookedBy ME): after
+// booking, "Etsi pelikaveri" carries on into the app with it. Its own token works like the real link.
 
 import { ME } from './rows.js';
 import { later, run, newId } from './runtime.js';
@@ -80,44 +84,49 @@ export async function day(venueId, key) {
 // ── Booking and paying ───────────────────────────────────────────────────────
 
 export async function hold({ courtId, startsAt, minutes } = {}) {
-  return run(() => {
-    const venue = db.booking.venues.find((v) => findCourt(v, courtId));
-    if (!venue) throw fail('Kenttää ei löytynyt.', 'not_found');
-    const { court } = findCourt(venue, courtId);
-    if (!venue.durations.includes(minutes)) throw fail('Valitse varauksen kesto.');
-    const start = new Date(startsAt);
-    if (Number.isNaN(start.getTime())) throw fail('Valitse aika kalenterista.');
-    const startMinute = start.getHours() * 60 + start.getMinutes();
-    if (start.getSeconds() || startMinute % venue.slotMinutes) throw fail('Valitse aika kalenterista.');
-    const now = Date.now();
-    if (start.getTime() <= now) throw fail('Tämä aika on jo mennyt.');
-    if (dateKey(start) > addDays(dateKey(new Date(now)), venue.daysAhead)) {
-      throw fail(`Vuoroja voi varata ${venue.daysAhead} päivän päähän.`);
-    }
-    if (startMinute < minutesOf(venue.openFrom) || startMinute + minutes > minutesOf(venue.openUntil)) {
-      throw fail('Kenttä on suljettu tähän aikaan.');
-    }
-    const fullCents = priceOf(venue, court, start.toISOString(), minutes);
-    if (fullCents == null) throw fail('Kenttä on suljettu tähän aikaan.');
-    expireStaleHolds(now);
-    const endMs = start.getTime() + minutes * MIN;
-    // Taking over an on-sale booking costs the full price: its seller gets back what they paid.
-    const resale = salesCovered(courtId, start.getTime(), endMs).length > 0;
-    const cents = resale ? fullCents : discounted(fullCents, lastMinutePercent(venue, start.toISOString(), now));
-    const myHolds = db.booking.rows.filter((r) => r.bookedBy === ME && r.status === 'held');
-    if (myHolds.length >= MAX_HOLDS) throw fail('Sinulla on jo kaksi maksamatonta varausta. Maksa tai peru ne ensin.');
-    if (blockers(courtId, start.getTime(), endMs).length) throw fail(TAKEN, 'taken');
-    const free = cents === 0;
-    const row = {
-      id: newId('bk'), venueId: venue.id, courtId, startsAt: start.toISOString(), endsAt: new Date(endMs).toISOString(),
-      kind: 'booking', status: free ? 'confirmed' : 'held', bookedBy: ME, title: null, priceCents: cents,
-      paymentStatus: free ? 'free' : 'unpaid', holdExpiresAt: free ? null : new Date(now + venue.holdMinutes * MIN).toISOString(),
-      createdAt: nowIso(), cancelledAt: null, paidAt: free ? nowIso() : null, split: null, listedAt: null, resoldBy: null, resoldAt: null,
-    };
-    db.booking.rows.push(row);
-    if (free) takeOverSales(row);
-    return toBooking(row);
-  });
+  return run(() => toBooking(holdRow({ courtId, startsAt, minutes })));
+}
+
+/** krossi_hold_booking's checks; the new row (a guest's carries `guest` and its token). */
+function holdRow({ courtId, startsAt, minutes, guest = null }) {
+  const venue = db.booking.venues.find((v) => findCourt(v, courtId));
+  if (!venue) throw fail('Kenttää ei löytynyt.', 'not_found');
+  const { court } = findCourt(venue, courtId);
+  if (!venue.durations.includes(minutes)) throw fail('Valitse varauksen kesto.');
+  const start = new Date(startsAt);
+  if (Number.isNaN(start.getTime())) throw fail('Valitse aika kalenterista.');
+  const startMinute = start.getHours() * 60 + start.getMinutes();
+  if (start.getSeconds() || startMinute % venue.slotMinutes) throw fail('Valitse aika kalenterista.');
+  const now = Date.now();
+  if (start.getTime() <= now) throw fail('Tämä aika on jo mennyt.');
+  if (dateKey(start) > addDays(dateKey(new Date(now)), venue.daysAhead)) {
+    throw fail(`Vuoroja voi varata ${venue.daysAhead} päivän päähän.`);
+  }
+  if (startMinute < minutesOf(venue.openFrom) || startMinute + minutes > minutesOf(venue.openUntil)) {
+    throw fail('Kenttä on suljettu tähän aikaan.');
+  }
+  const fullCents = priceOf(venue, court, start.toISOString(), minutes);
+  if (fullCents == null) throw fail('Kenttä on suljettu tähän aikaan.');
+  expireStaleHolds(now);
+  const endMs = start.getTime() + minutes * MIN;
+  // Taking over an on-sale booking costs the full price: its seller gets back what they paid.
+  const resale = salesCovered(courtId, start.getTime(), endMs).length > 0;
+  const cents = resale ? fullCents : discounted(fullCents, lastMinutePercent(venue, start.toISOString(), now));
+  const myHolds = db.booking.rows.filter((r) => r.bookedBy === ME && r.status === 'held');
+  if (myHolds.length >= MAX_HOLDS) throw fail('Sinulla on jo kaksi maksamatonta varausta. Maksa tai peru ne ensin.');
+  if (blockers(courtId, start.getTime(), endMs).length) throw fail(TAKEN, 'taken');
+  const free = cents === 0;
+  if (guest && free) throw fail('Tämän ajan voi varata vain kirjautuneena.');
+  const row = {
+    id: newId('bk'), venueId: venue.id, courtId, startsAt: start.toISOString(), endsAt: new Date(endMs).toISOString(),
+    kind: 'booking', status: free ? 'confirmed' : 'held', bookedBy: ME, title: null, priceCents: cents,
+    paymentStatus: free ? 'free' : 'unpaid', holdExpiresAt: free ? null : new Date(now + venue.holdMinutes * MIN).toISOString(),
+    createdAt: nowIso(), cancelledAt: null, paidAt: free ? nowIso() : null, split: null, listedAt: null, resoldBy: null, resoldAt: null,
+    ...(guest ? { guest, guestToken: newToken(), guestCancelled: false } : {}),
+  };
+  db.booking.rows.push(row);
+  if (free) takeOverSales(row);
+  return row;
 }
 
 export async function release(bookingId) {
@@ -488,7 +497,9 @@ export async function staffDay(venueId, key) {
         return {
           id: r.id, courtId: r.courtId, startsAt: r.startsAt, endsAt: r.endsAt, kind: r.kind, status: r.status,
           title: r.kind === 'booking' ? null : slot ? slot.holderName : r.title,
-          bookedBy: (r.kind === 'booking' || r.kind === 'season') && r.bookedBy ? personLite(r.bookedBy) : null,
+          bookedBy: r.guest ? { id: '', name: r.guest.name, avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: null }
+            : (r.kind === 'booking' || r.kind === 'season') && r.bookedBy ? personLite(r.bookedBy) : null,
+          guest: r.guest ? { ...r.guest } : null,
           priceCents: r.priceCents, paymentStatus: r.paymentStatus,
           seasonSlotId: r.seasonSlotId || null, credit: creditOf(r),
           forSale: onSale(r),
@@ -549,5 +560,85 @@ export async function staffCancel(bookingId, { refund = true } = {}) {
     } else {
       for (const s of sharesOf(row.id)) if (s.status !== 'paid') s.status = 'cancelled';
     }
+  });
+}
+
+// ── Vieras: a booking without an account ─────────────────────────────────────
+
+const GUEST_EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+function guestRow(token) {
+  const row = token ? db.booking.rows.find((r) => r.kind === 'booking' && r.guestToken === token) : null;
+  if (!row) throw fail('Varausta ei löytynyt.', 'not_found');
+  return row;
+}
+
+export async function guestHold({ courtId, startsAt, minutes, name, email } = {}) {
+  return run(() => {
+    const cleanName = String(name || '').replace(/\s+/g, ' ').trim();
+    if (cleanName.length < 2) throw fail('Kirjoita nimesi.');
+    if (cleanName.length > 80) throw fail('Nimi on liian pitkä.');
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (cleanEmail.length > 254 || !GUEST_EMAIL_RE.test(cleanEmail)) throw fail('Tarkista sähköpostiosoite.');
+    const row = holdRow({ courtId, startsAt, minutes, guest: { name: cleanName, email: cleanEmail } });
+    return { booking: toBooking(row), token: row.guestToken };
+  });
+}
+
+/** The demo has no card form: "paying" confirms the guest's booking on the spot. */
+export async function guestPaymentIntent(token) {
+  return run(() => {
+    const row = guestRow(token);
+    const done = payable(row);
+    if (done) return done;
+    confirmPaid(row);
+    return { paid: true };
+  });
+}
+
+export async function guestVerify(token) {
+  return run(() => {
+    const row = guestRow(token);
+    return { confirmed: row.status === 'confirmed', status: row.status === 'confirmed' ? 'succeeded' : 'requires_payment_method' };
+  });
+}
+
+export async function guestRelease(token) {
+  return run(() => {
+    const row = guestRow(token);
+    if (row.status !== 'held') return;
+    row.status = 'expired';
+    row.holdExpiresAt = nowIso();
+  });
+}
+
+export async function guestBooking(token) {
+  return run(() => {
+    const row = token ? db.booking.rows.find((r) => r.kind === 'booking' && r.guestToken === token) : null;
+    if (!row) return null;
+    const venue = venueRow(row.venueId);
+    return {
+      booking: toBooking(row),
+      guest: { ...row.guest },
+      venue: { slug: venue.slug, name: venue.name, cancelLimitHours: venue.cancelLimitHours, holdMinutes: venue.holdMinutes },
+      cancelledByGuest: row.guestCancelled === true,
+      lostMessage: null,
+    };
+  });
+}
+
+export async function guestCancel(token) {
+  return run(() => {
+    const row = guestRow(token);
+    if (row.status === 'cancelled' && row.guestCancelled) return { refundedCents: 0, feeCents: 0 };
+    if (row.status !== 'confirmed') throw fail('Tätä varausta ei voi enää perua.');
+    const venue = venueRow(row.venueId);
+    if (Date.now() >= Date.parse(cancelDeadline(row.startsAt, venue))) throw fail('Peruutusaika on mennyt. Ota yhteyttä halliin.', 'too_late');
+    row.status = 'cancelled';
+    row.cancelledAt = nowIso();
+    row.listedAt = null;
+    row.guestCancelled = true;
+    const { refundedCents, feeCents } = refundEverything(row, 'Peruttu', { fee: true });
+    return { refundedCents, feeCents };
   });
 }

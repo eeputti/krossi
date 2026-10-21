@@ -35,3 +35,23 @@
   .site-hero { padding-top: var(--s6); }
   .site-title { font-size: 40px; }
 }
+
+/* a guest's own booking page (/pelaa/varaus/<token>): one card with the booking, then the way into Krossi */
+.gb-page { display: grid; gap: var(--s5); padding-top: var(--s4); }
+.gb-card { display: grid; gap: 14px; padding: 20px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.gb-head { display: flex; align-items: center; gap: 12px; }
+.gb-mark {
+  width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.gb-card.is-ok .gb-mark { background: var(--lime); color: var(--ink); }
+.gb-title { margin: 0; font-size: var(--fs-title); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.gb-facts { margin: 0; display: grid; gap: 10px; }
+.gb-fact { display: grid; grid-template-columns: 104px 1fr; gap: 8px; align-items: baseline; }
+.gb-fact dt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.gb-fact dt svg { flex-shrink: 0; }
+.gb-fact dd { margin: 0; min-width: 0; font-size: 15px; font-weight: 650; color: var(--ink); overflow-wrap: anywhere; }
+.gb-fact-sub { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.gb-text { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.gb-actions { display: grid; gap: 8px; }
+.gb-more { display: grid; gap: 10px; }

@@ -98,6 +98,7 @@ Reittitaulu on `app/routes.js`. Polut:
 | `/pelaa/liiga/:id` | league | pelit | page (kirjautumaton: julkinen sarjataulukko) |
 | `/pelaa/varaa`, `/pelaa/varaa/:venue` (`?peli=<id>`, `?chat=<id>`, `?liiga=&ottelu=`) | booking, bookingVenue | varaa | tab (työpöytä) / page (puhelin) |
 | `/varaa`, `/varaa/:venue` | bookingSite, bookingSiteVenue | — | site (varaussivu krossi.app/varaa, ks. alla) |
+| `/pelaa/varaus/:token` (`?payment_intent=…` maksun paluu) | guestBooking | — | site (ilman tiliä tehdyn varauksen oma sivu: näytä / peru; linkki vahvistusviestissä) |
 | `/pelaa/halli/:venue` (`?nakyma=kausivuorot\|laskutus\|kortit\|asetukset`) | hall | pelit | page (hallin henkilökunta) |
 | `/pelaa/osuus/:id` | share | pelit | page (osuus jaetusta kenttävuorosta; ei vaadi avausmaksua) |
 | `/pelaa/omat-varaukset` (`?vuoro=<id>` avaa varauksen) | myBookings | pelit | page (vuorot, kausivuorot, sarja- ja lahjakortit) |
@@ -111,12 +112,17 @@ Reittitaulu on `app/routes.js`. Polut:
   valmiiksi täytettynä). Polku on `/pelaa`:n ulkopuolella, joten demo pitää saman osoitteen. Worker tarjoaa
   `/varaa`:n toistaiseksi demon taustalla (`krossi-varaa.html` lataa `demo.js`:n, ulkokenttämaailma): linkin voi
   lähettää seuralle kokeiltavaksi ilman tiliä. Kun oikeat kentät aukeavat pelaajille, worker vaihdetaan `app.html`:ään
-  (silloin varataan ilman tiliä: vapaat ajat näkyvät kaikille, varaus nimellä ja sähköpostilla, maksu pakollinen —
-  vierasvarauksen palvelinpuoli tehdään omassa sessiossaan);
+  (silloin varataan ilman tiliä: vapaat ajat näkyvät kaikille, varaus nimellä ja sähköpostilla, maksu pakollinen).
+  **Vierasvaraus** (migraatio `20261021075544_krossi_booking_guest`, krossi-bookingin `guest*`-toiminnot): ilman tiliä
+  BookSheet kysyy nimen ja sähköpostin, ja maksu aukeaa kun ne näyttävät oikeilta; vahvistus, kuitti ja varauksen oma
+  linkki `/pelaa/varaus/<token>` (GuestBookingScreen: näytä, peru 1 €:n kululla) tulevat sähköpostiin. Ilman istuntoa
+  myös `/pelaa/varaa` näkyy varaussivuna (Gate → SiteShell, "Kirjaudu" omien varausten tilalla). Demon varaussivulla
+  näytetään sama vieraan polku, mutta varaus kirjautuu demopelaajalle, jotta "Etsi pelikaveri" jatkuu sovellukseen;
   *overlay* = renderöidään Sheetinä edellisen näkymän päälle (taustanäkymä `state.bg`);
   *full* = koko ruutu ilman välilehtipalkkia mobiilissa.
 - Kirjautumaton käyttäjä: `/pelaa/peli/:id` näyttää julkisen esikatselun (`api.games.publicPreview`)
-  + "Luo tili ja liity" -CTA; `/pelaa/kutsu/:code` näyttää kutsunäkymän. Muut → AuthScreen.
+  + "Luo tili ja liity" -CTA; `/pelaa/kutsu/:code` näyttää kutsunäkymän; *site*-reitit, `/pelaa/varaa(/:venue)` ja
+  `/pelaa/maksa/:token` toimivat ilman tiliä. Muut → AuthScreen.
   Jaetun linkin kohde muistetaan (`sessionStorage 'krossi_after_auth'`) ja avataan kirjautumisen jälkeen.
 
 ## 5. Sovelluksen runko (app/)

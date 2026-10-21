@@ -375,6 +375,13 @@
 //                                            everything paid for it went back (paymentStatus 'refunded')
 // @property {BookingSplit|null} split         jaettu maksu: friends pay their parts by link; null = not split
 //
+// @typedef {Object} GuestBooking              a booking made without an account, as its own page shows it
+// @property {Booking} booking                 (credit, split null; forSale false)
+// @property {{name:string, email:string}} guest
+// @property {{slug:string, name:string, cancelLimitHours:number, holdMinutes:number}} venue
+// @property {boolean} cancelledByGuest        the guest cancelled it (the peruutuskulu was kept)
+// @property {string|null} lostMessage         the payment came too late and the court went to somebody else (refunded)
+//
 // @typedef {Object} BookingCredit             sarjakortti / saldo on a booking
 // @property {'pass'|'gift'} kind              gift = the saldo (top-ups, redeemed gift cards, refunds; the name
 //                                            is from when it only held gift cards)
@@ -442,7 +449,9 @@
 // @property {'held'|'confirmed'} status
 // @property {string|null} title               blocks: their title; season: the holder's name or team;
 //                                            bookings: null
-// @property {PersonLite|null} bookedBy        bookings, and season rows of a Krossi player
+// @property {PersonLite|null} bookedBy        bookings, and season rows of a Krossi player; a guest's booking: a
+//                                            name-only person (id '')
+// @property {{name:string, email:string}|null} guest   a booking made without an account: who to contact
 // @property {number} priceCents               season rows: the week's share of the season price
 // @property {'unpaid'|'paid'|'refunded'|'free'|'credit'|'none'} paymentStatus   'none' = a block or a
 //                                            season row (the season is billed on its own)
@@ -869,8 +878,9 @@ export const API_CONTRACT = {
     'hold',                // ({ courtId, startsAt, minutes }) -> Booking   status 'held' for venue.holdMinutes; the server prices it ('Joku ehti ensin…' if taken).
                            //   A booking covering on-sale bookings takes them over (no last-minute deal then). The sheet holds only when the player pays.
     'release',             // (bookingId) -> void   drops my own unpaid hold (backing out before paying)
-    'payConfig',           // () -> { demo: true } | { publishableKey, currency, email } | { legacy: true }   what the booking sheet needs to show the
-                           //   payment methods before anything is held; legacy = this server only knows checkoutConfig(bookingId) (hold first)
+    'payConfig',           // () -> { demo: true } | { publishableKey, currency, email, guests } | { legacy: true }   what the booking sheet needs to show the
+                           //   payment methods before anything is held; legacy = this server only knows checkoutConfig(bookingId) (hold first).
+                           //   Works without a session too: guests = this server takes bookings without an account (guestHold …)
     'checkoutConfig',      // (bookingId) -> { paid: true } | { demo: true, amount, currency } | { publishableKey, amount, currency, email }   amount = the whole price minus credit
     'createPaymentIntent', // (bookingId) -> { paid: true } | { clientSecret, paymentIntentId }
     'verifyPayment',       // (bookingId, paymentIntentId) -> { confirmed: boolean, status }   confirms the booking once Stripe says succeeded
@@ -898,6 +908,15 @@ export const API_CONTRACT = {
     'block',               // ({ courtIds, startsAt, endsAt, title, kind: 'block'|'league' }) -> string[]   staff only; fails if anything overlaps
     'unblock',             // (blockId) -> void   staff only
     'staffCancel',         // (bookingId, { refund: boolean }) -> void   staff only; refund = money back to everybody who paid (the booker and friends)
+    // Vieras — a court booked without an account (name + email, then the same hold and payment). The booking's own
+    // secret token is the key: its page is /pelaa/varaus/<token>, mailed to the guest once the payment went through.
+    'guestHold',           // ({ courtId, startsAt, minutes, name, email }) -> { booking: Booking, token }   two unpaid holds per address; a free
+                           //   time can't be booked as a guest ('Tämän ajan voi varata vain kirjautuneena.'). The sheet holds only when the guest pays
+    'guestPaymentIntent',  // (token) -> { paid: true } | { clientSecret, paymentIntentId }   the demo pays at once
+    'guestVerify',         // (token, paymentIntentId) -> { confirmed: boolean, status, message? }   status 'lost' + message: the court went to somebody else, refunded
+    'guestRelease',        // (token) -> void   the guest closed the payment: the hold ends now (a payment still arriving takes the court if free)
+    'guestBooking',        // (token) -> GuestBooking|null   the guest's page; a payment that went through meanwhile is recorded first
+    'guestCancel',         // (token) -> { refundedCents, feeCents }   before cancellableUntil; back to the card minus the 1 € peruutuskulu
   ],
   seasons: [
     'list',                // (venueId) -> Season[]   seasons not over yet, soonest first; works without a session

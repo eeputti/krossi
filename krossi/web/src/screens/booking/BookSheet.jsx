@@ -13,11 +13,17 @@
 // main button is the way on: "Etsi pelikaveri tähän vuoroon" opens Peliseura with a game for this
 // court ready to publish. `home` is the page's own path, where a redirect payment comes back to.
 //
+// Without an account (`guest`): the court is booked with a name and an email and paid right away —
+// no series card, saldo or split. The payment opens once both look right; paying holds the court for
+// the guest (api.booking.guest*). Done: the confirmation and the booking's own link go to that email,
+// and "Näytä varaus" opens the same page (/pelaa/varaus/<token>, where a redirect payment comes back
+// too). A real guest finds a partner by making an account; the demo's visitor carries on into the app.
+//
 // A server without payConfig (krossi-booking before phase 4) can't show the payment before a hold:
 // there "Varaa ja maksa" holds first and the same checkout opens under the court.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/index.js';
-import { useAsync } from '../../app/hooks.js';
+import { useAsync, useLocalState } from '../../app/hooks.js';
 import { Checkout } from '../../app/checkout.jsx';
 import { navigate } from '../../app/router.js';
 import { WEEKDAYS_SHORT, formatDayMonth, formatTime } from '../../lib/format.js';
@@ -25,7 +31,7 @@ import {
   cancelDeadline, centsLabel, courtsOf, coversSale, discounted, isTaken, lastMinutePercent, priceOf,
 } from '../../features/booking.js';
 import { hoursLeftLabel, passFits } from '../../features/seasons.js';
-import { Button, Icon, Segmented, Sheet, Skeleton, Toggle, useToast } from '../../ui/index.js';
+import { Button, Icon, Input, Segmented, Sheet, Skeleton, Toggle, useToast } from '../../ui/index.js';
 import { VenueMap, hasVenueMap } from './VenueMap.jsx';
 import { downloadBookingIcs, sportLabel, timeInSentence, whenLabel } from './BookingParts.jsx';
 import { useForecast, weatherInfo } from './weather.js';
@@ -56,6 +62,13 @@ export function freeCourts(venue, busy, sport, startsAt, minutes) {
 /** What the card still pays for a held booking: the price minus a gift share on it. */
 const dueCents = (booking) => (booking?.priceCents || 0) - (booking?.credit?.kind === 'gift' ? booking.credit.cents : 0);
 
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+/** A guest's name and email look right (the server checks them again). */
+export const guestContactOk = (c) => String(c?.name || '').trim().length >= 2 && EMAIL_RE.test(String(c?.email || '').trim());
+
+/** The guest's own page: the booking, its cancellation, and where a redirect payment comes back. */
+export const guestBookingPath = (token) => `/pelaa/varaus/${encodeURIComponent(token)}`;
+
 /** Paid: what the done view and "Omat vuorot" show right away. */
 const asPaid = (booking) => ({ ...booking, status: 'confirmed', paymentStatus: 'paid', holdExpiresAt: null });
 
@@ -76,7 +89,7 @@ function mapStates(location, free, busy, startsAt, minutes, chosenId, sport) {
 
 export function BookSheet({
   open, onClose, venue, busy, sport, startsAt, minutes, courtId: firstCourtId, locationId, onBooked, onChanged, target = null,
-  site = false, home = '/pelaa/varaa',
+  site = false, home = '/pelaa/varaa', guest = false,
 }) {
   const toast = useToast();
   const [courtId, setCourtId] = useState(firstCourtId || null);
@@ -88,10 +101,14 @@ export function BookSheet({
   const [working, setWorking] = useState(false);
   const [sending, setSending] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
-  // The hold made when the player pays: Stripe's callbacks read it, and closing gives it back.
+  // A guest's name and email, remembered on this device for the next booking.
+  const [contact, setContact] = useLocalState('krossi_guest_contact', { name: '', email: '' });
+  const contactOk = !guest || guestContactOk(contact);
+  // The hold made when the player pays: Stripe's callbacks read it, and closing gives it back. A
+  // guest's carries its token.
   const heldRef = useRef(null);
   const payConfig = useAsync(() => (open ? api.booking.payConfig() : Promise.resolve(null)), [open]);
-  const wallet = useAsync(() => (open && venue ? api.wallet.get(venue.id).catch(() => null) : Promise.resolve(null)), [open, venue?.id]);
+  const wallet = useAsync(() => (open && venue && !guest ? api.wallet.get(venue.id).catch(() => null) : Promise.resolve(null)), [open, venue?.id, guest]);
 
   // A new time (or court) starts over.
   useEffect(() => {
@@ -149,10 +166,21 @@ export function BookSheet({
   const ensureHeld = async () => {
     const live = heldRef.current;
     if (live?.status === 'held' && live.courtId === chosen.court.id && Date.parse(live.holdExpiresAt) > Date.now() + 30_000) return live;
+    if (guest) {
+      if (!guestContactOk(contact)) throw new ApiError('Kirjoita nimesi ja sähköpostiosoitteesi.', { code: 'invalid' });
+      const { booking: held, token } = await api.booking.guestHold({
+        courtId: chosen.court.id, startsAt, minutes, name: contact.name.trim(), email: contact.email.trim(),
+      });
+      heldRef.current = { ...held, token };
+      return heldRef.current;
+    }
     const held = await api.booking.hold({ courtId: chosen.court.id, startsAt, minutes });
     heldRef.current = held;
     return held;
   };
+
+  /** The PaymentIntent of the held booking (a guest's by its token). */
+  const intentFor = (held) => (held.token ? api.booking.guestPaymentIntent(held.token) : api.booking.createPaymentIntent(held.id));
 
   /** The series card pays it all; the saldo pays its part. Confirmed when that covered it. */
   const applyCredit = async (held) => {
@@ -168,7 +196,8 @@ export function BookSheet({
     setLegacyConfig(null);
     if (held?.status !== 'held') return;
     try {
-      await api.booking.release(held.id);
+      if (held.token) await api.booking.guestRelease(held.token);
+      else await api.booking.release(held.id);
     } catch {
       // The hold runs out on its own in a few minutes anyway.
     }
@@ -190,7 +219,7 @@ export function BookSheet({
         await release();
         throw new ApiError('Hinta muuttui juuri — tarkista hinta ja maksa uudelleen.', { code: 'taken' });
       }
-      return await api.booking.createPaymentIntent(held.id);
+      return await intentFor(held);
     } catch (err) {
       failed(err);
       throw err;
@@ -198,7 +227,10 @@ export function BookSheet({
   };
 
   const verify = async (paymentIntentId) => {
-    const result = await api.booking.verifyPayment(heldRef.current.id, paymentIntentId);
+    const held = heldRef.current;
+    const result = held.token
+      ? await api.booking.guestVerify(held.token, paymentIntentId)
+      : await api.booking.verifyPayment(held.id, paymentIntentId);
     if (result.status === 'lost') throw new ApiError(result.message || 'Aika ehti mennä toiselle — maksu palautettiin.', { code: 'taken' });
     return { paid: result.confirmed, status: result.status };
   };
@@ -209,7 +241,7 @@ export function BookSheet({
     try {
       const held = await applyCredit(await ensureHeld());
       if (held.status === 'confirmed') { finish(held); return; }
-      const intent = await api.booking.createPaymentIntent(held.id);
+      const intent = await intentFor(held);
       if (!intent.paid) throw new ApiError('Maksua ei voitu vahvistaa. Yritä uudelleen.');
       finish(asPaid(held));
     } catch (err) {
@@ -261,13 +293,22 @@ export function BookSheet({
     navigate(`/pelaa/uusi-peli?varaus=${encodeURIComponent(id)}`, { overlay: true });
   };
 
+  // A guest of the real Krossi (the demo's visitor is the demo player all along).
+  const realGuest = guest && !payConfig.data?.demo;
+
   // ── Done ──
   if (step === 'done' && booking) {
+    const email = contact.email.trim();
     return (
       <Sheet
         open={open}
         onClose={onClose}
-        footer={site ? (
+        footer={realGuest ? (
+          <div className="bk-done-foot">
+            <p className="bk-done-ask">Puuttuuko pelikaveri? Krossista löydät oman tasoisesi pelaajan.</p>
+            <Button variant="lime" size="lg" block icon="users" onClick={() => { onClose(); navigate('/pelaa/pelaajat'); }}>Luo tili ja etsi pelikaveri</Button>
+          </div>
+        ) : site ? (
           <div className="bk-done-foot">
             <p className="bk-done-ask">Puuttuuko pelikaveri? Krossista löydät oman tasoisesi pelaajan.</p>
             <Button variant="lime" size="lg" block icon="users" onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>
@@ -283,7 +324,7 @@ export function BookSheet({
             <b>{booking.courtName}</b> · {booking.locationName}<br />
             {whenLabel(booking.startsAt, booking.endsAt)}
           </p>
-          <SplitShare venue={venue} booking={booking} onChanged={(next) => { setBooking(next); onChanged?.(); }} />
+          {!guest && <SplitShare venue={venue} booking={booking} onChanged={(next) => { setBooking(next); onChanged?.(); }} />}
           <div className="bk-done-actions">
             {target?.openChat && (
               <Button variant="dark" icon="send" block loading={sending} onClick={sendToTarget}>{target.sendLabel}</Button>
@@ -291,13 +332,20 @@ export function BookSheet({
             {target && !target.openChat && target.backTo && (
               <Button variant="dark" icon="arrow-left" block onClick={() => { onClose(); navigate(target.backTo); }}>{target.backLabel}</Button>
             )}
-            {!target && !site && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
+            {!target && !site && !guest && <Button variant="outline" icon="users" block onClick={findPartner}>Etsi pelikaveri tähän vuoroon</Button>}
             <Button variant="soft" icon="calendar" block onClick={() => downloadBookingIcs(booking, { cancellableUntil: booking.cancellableUntil })}>Lisää kalenteriin</Button>
+            {guest && booking.token && (
+              <Button variant="outline" icon="arrow-right" block onClick={() => { onClose(); navigate(guestBookingPath(booking.token)); }}>Näytä varaus</Button>
+            )}
           </div>
           <p className="bk-fine">
-            {booking.paymentStatus === 'credit'
-              ? `Maksettu ${booking.credit?.kind === 'pass' ? 'sarjakortilla' : 'saldolla'}.`
-              : payConfig.data?.demo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi.'}
+            {guest
+              ? (payConfig.data?.demo
+                ? `Demotila — mitään ei veloitettu. Oikeasti vahvistus ja peruutuslinkki tulevat osoitteeseen ${email}.`
+                : `Vahvistus, kuitti ja peruutuslinkki tulevat osoitteeseen ${email}.`)
+              : booking.paymentStatus === 'credit'
+                ? `Maksettu ${booking.credit?.kind === 'pass' ? 'sarjakortilla' : 'saldolla'}.`
+                : payConfig.data?.demo ? 'Demotila — mitään ei veloitettu.' : 'Kuitti tulee sähköpostiisi.'}
             {!lateBooking && ` Peruutus ${timeInSentence(booking.cancellableUntil || deadline)} asti${booking.paymentStatus === 'credit' ? '' : ', peruutuskulu 1 €'}.`}
           </p>
         </div>
@@ -312,9 +360,21 @@ export function BookSheet({
     : creditOnly ? 'Maksa saldolla'
     : `Maksa ${centsLabel(due)}`;
 
+  const returnPath = () => (heldRef.current?.token
+    ? guestBookingPath(heldRef.current.token)
+    : `${home}/${encodeURIComponent(venue.slug)}?varaus=${encodeURIComponent(heldRef.current?.id || '')}`);
+  const pendingText = guest
+    ? 'Maksu on vielä kesken. Varaus vahvistuu heti, kun pankki vahvistaa maksun — vahvistus tulee sähköpostiisi.'
+    : 'Maksu on vielä kesken. Varaus vahvistuu heti, kun pankki vahvistaa maksun — näet sen Omissa vuoroissa.';
+
   let payment;
   if (!chosen) {
     payment = null;
+  } else if (guest && cfg && !cfg.demo && !cfg.guests) {
+    // A server from before bookings without an account: sign in first.
+    payment = (
+      <Button variant="lime" size="lg" block icon="log-in" onClick={() => { onClose(); navigate('/pelaa/koti'); }}>Kirjaudu ja varaa</Button>
+    );
   } else if (payConfig.loading && !cfg) {
     payment = <div className="stack-3" aria-label="Ladataan maksua"><Skeleton h={50} r={14} /><Skeleton h={54} r={14} /></div>;
   } else if (payConfig.error && !cfg) {
@@ -333,7 +393,7 @@ export function BookSheet({
             <span><b>Demotila</b> — maksu hyväksytään heti. Oikeassa Krossissa maksat MobilePaylla, Apple Paylla, Google Paylla tai kortilla.</span>
           </p>
         )}
-        <Button variant="lime" size="lg" block icon="lock" loading={working} onClick={payHere}>{payLabel}</Button>
+        <Button variant="lime" size="lg" block icon="lock" loading={working} disabled={!contactOk} onClick={payHere}>{payLabel}</Button>
       </div>
     );
   } else if (cfg?.legacy) {
@@ -343,8 +403,8 @@ export function BookSheet({
         compact
         createIntent={() => api.booking.createPaymentIntent(heldRef.current.id)}
         verify={verify}
-        returnPath={() => `${home}/${encodeURIComponent(venue.slug)}?varaus=${encodeURIComponent(heldRef.current?.id || '')}`}
-        pendingText="Maksu on vielä kesken. Varaus vahvistuu heti, kun pankki vahvistaa maksun — näet sen Omissa vuoroissa."
+        returnPath={returnPath}
+        pendingText={pendingText}
         onPaid={() => finish(asPaid(heldRef.current))}
       />
     ) : (
@@ -358,8 +418,8 @@ export function BookSheet({
         compact
         createIntent={createIntent}
         verify={verify}
-        returnPath={() => `${home}/${encodeURIComponent(venue.slug)}?varaus=${encodeURIComponent(heldRef.current?.id || '')}`}
-        pendingText="Maksu on vielä kesken. Varaus vahvistuu heti, kun pankki vahvistaa maksun — näet sen Omissa vuoroissa."
+        returnPath={returnPath}
+        pendingText={pendingText}
         onPaid={() => finish(asPaid(heldRef.current))}
       />
     );
@@ -455,7 +515,33 @@ export function BookSheet({
           />
         )}
 
-        {payment && <div className="bk-paybox">{payment}</div>}
+        {chosen && guest && (
+          <div className="bk-guest">
+            <Input
+              aria-label="Nimi"
+              placeholder="Nimi"
+              autoComplete="name"
+              maxLength={80}
+              value={contact.name}
+              onChange={(e) => setContact((c) => ({ ...c, name: e.target.value }))}
+            />
+            <Input
+              aria-label="Sähköposti"
+              placeholder="Sähköposti"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              maxLength={254}
+              value={contact.email}
+              onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
+            />
+            <p className="bk-fine">Tiliä ei tarvita. Vahvistus ja peruutuslinkki tulevat sähköpostiisi.</p>
+          </div>
+        )}
+
+        {payment && (
+          <div className={cx('bk-paybox', !contactOk && 'is-locked')} aria-disabled={!contactOk || undefined}>{payment}</div>
+        )}
 
         {chosen && (
           <p className="bk-fine bk-fine-center">

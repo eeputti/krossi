@@ -170,7 +170,10 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
             <Avatar person={item.bookedBy} name={name} size={48} />
             <span className="bhall-who-text">
               <span className="bhall-who-name truncate">{name}</span>
-              <span className="bhall-who-sub">{variant === 'held' ? 'Maksu kesken' : 'Pelaajan varaus'}</span>
+              <span className="bhall-who-sub">
+                {variant === 'held' ? 'Maksu kesken' : item.guest ? 'Varaus ilman tiliä' : 'Pelaajan varaus'}
+                {item.guest?.email && <> · <a className="bhall-who-mail" href={`mailto:${item.guest.email}`}>{item.guest.email}</a></>}
+              </span>
             </span>
             <Chip tone={pay.tone} icon={paid ? 'check' : variant === 'held' ? 'clock' : undefined}>{pay.label}</Chip>
           </div>

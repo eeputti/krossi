@@ -407,7 +407,7 @@ test('hold never sends friends: the booker pays the whole court', async () => {
 test('payConfig: what the sheet needs before a hold; an older krossi-booking means hold first', async () => {
   const fake = fakeClient({ invoke: () => ({ data: { publishableKey: 'pk_test_x', currency: 'eur', email: 'me@example.com' }, error: null }) });
   setClientForTests(fake);
-  assert.deepEqual(await booking.payConfig(), { publishableKey: 'pk_test_x', currency: 'eur', email: 'me@example.com' });
+  assert.deepEqual(await booking.payConfig(), { publishableKey: 'pk_test_x', currency: 'eur', email: 'me@example.com', guests: false });
   assert.deepEqual(fake.log.invoked, [{ name: 'krossi-booking', body: { action: 'payConfig' } }]);
   setClientForTests(fakeClient({ invoke: () => functionError('Tuntematon toiminto.', 400) }));
   assert.deepEqual(await booking.payConfig(), { legacy: true });
@@ -508,4 +508,104 @@ test('day and staffDay carry forSale', async () => {
   assert.equal((await booking.day(VENUE, '2026-10-20')).busy[0].forSale, true);
   const [item] = await booking.staffDay(VENUE, '2026-10-20');
   assert.equal(item.forSale, true);
+});
+
+// ── Vieras: a booking without an account ─────────────────────────────────────
+
+const GUEST_TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWx';
+
+test('payConfig without a session: guests says the server books without an account; an older one asks to sign in', async () => {
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => ({ data: { publishableKey: 'pk_test_x', currency: 'eur', email: null, guests: true }, error: null }) }));
+  assert.deepEqual(await booking.payConfig(), { publishableKey: 'pk_test_x', currency: 'eur', email: null, guests: true });
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => functionError('Kirjaudu uudelleen sisään.', 401) }));
+  assert.deepEqual(await booking.payConfig(), { legacy: true, guests: false });
+  // Signed in, the same answer is still an error.
+  setClientForTests(fakeClient({ invoke: () => functionError('Kirjaudu uudelleen sisään.', 401) }));
+  await assert.rejects(booking.payConfig(), (err) => err.code === 'auth_required');
+});
+
+test('guestHold: krossi-booking guestHold without a session; the booking and its token back', async () => {
+  const fake = fakeClient({ signedIn: false, invoke: () => ({ data: { booking: BOOKING_ROW, token: GUEST_TOKEN }, error: null }) });
+  setClientForTests(fake);
+  const held = await booking.guestHold({ courtId: COURT, startsAt: BOOKING_ROW.startsAt, minutes: 60, name: '  Ville Vieras ', email: ' ville@example.com ' });
+  assert.deepEqual(fake.log.invoked, [{
+    name: 'krossi-booking',
+    body: { action: 'guestHold', courtId: COURT, startsAt: BOOKING_ROW.startsAt, minutes: 60, name: 'Ville Vieras', email: 'ville@example.com' },
+  }]);
+  assert.equal(held.token, GUEST_TOKEN);
+  assert.deepEqual(Object.keys(held.booking).sort(), [...BOOKING_KEYS].sort());
+  // The server's Finnish message passes through with its code.
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => functionError('Joku ehti varata tämän ajan juuri ennen sinua. Valitse toinen aika.') }));
+  await assert.rejects(booking.guestHold({ courtId: COURT, startsAt: BOOKING_ROW.startsAt, minutes: 60, name: 'Ville', email: 'v@x.fi' }),
+    (err) => err.code === 'taken');
+  await assert.rejects(booking.guestHold({ courtId: 'nope', startsAt: BOOKING_ROW.startsAt, minutes: 60 }), (err) => err.code === 'not_found');
+});
+
+test('guest payment: intent, verify (lost with its message), release — all by the token', async () => {
+  const answers = {
+    guestIntent: { clientSecret: 'pi_1_secret', paymentIntentId: 'pi_1' },
+    guestVerify: { confirmed: false, status: 'lost', error: 'Aika ehti mennä toiselle — maksu palautettiin.' },
+    guestRelease: { ok: true },
+  };
+  const fake = fakeClient({ signedIn: false, invoke: (body) => ({ data: answers[body.action], error: null }) });
+  setClientForTests(fake);
+  assert.deepEqual(await booking.guestPaymentIntent(GUEST_TOKEN), { clientSecret: 'pi_1_secret', paymentIntentId: 'pi_1' });
+  assert.deepEqual(await booking.guestVerify(GUEST_TOKEN, 'pi_1'),
+    { confirmed: false, status: 'lost', message: 'Aika ehti mennä toiselle — maksu palautettiin.' });
+  await booking.guestRelease(GUEST_TOKEN);
+  assert.deepEqual(fake.log.invoked.map((c) => c.body), [
+    { action: 'guestIntent', token: GUEST_TOKEN },
+    { action: 'guestVerify', token: GUEST_TOKEN, paymentIntentId: 'pi_1' },
+    { action: 'guestRelease', token: GUEST_TOKEN },
+  ]);
+  await assert.rejects(booking.guestPaymentIntent('short'), (err) => err.code === 'not_found');
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => ({ data: { paid: true }, error: null }) }));
+  assert.deepEqual(await booking.guestPaymentIntent(GUEST_TOKEN), { paid: true });
+});
+
+test('guestBooking: the page\'s shape; an unknown link is null', async () => {
+  const page = {
+    booking: { ...BOOKING_ROW, status: 'confirmed', paymentStatus: 'paid', holdExpiresAt: null },
+    guest: { name: 'Ville Vieras', email: 'ville@example.com' },
+    venue: { slug: 'lahti', name: 'Lahden tennishallit', cancelLimitHours: 24, holdMinutes: 10 },
+    cancelledByGuest: false,
+  };
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => ({ data: page, error: null }) }));
+  const got = await booking.guestBooking(GUEST_TOKEN);
+  assert.deepEqual(Object.keys(got).sort(), ['booking', 'cancelledByGuest', 'guest', 'lostMessage', 'venue']);
+  assert.equal(got.booking.status, 'confirmed');
+  assert.deepEqual(got.guest, page.guest);
+  assert.deepEqual(got.venue, page.venue);
+  assert.equal(got.lostMessage, null);
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => ({ data: { ...page, lost: 'Aika ehti mennä toiselle — maksu palautettiin.' }, error: null }) }));
+  assert.equal((await booking.guestBooking(GUEST_TOKEN)).lostMessage, 'Aika ehti mennä toiselle — maksu palautettiin.');
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => functionError('Varausta ei löytynyt.', 404) }));
+  assert.equal(await booking.guestBooking(GUEST_TOKEN), null);
+  assert.equal(await booking.guestBooking('nope'), null);
+});
+
+test('guestCancel: refund and peruutuskulu back; a late one says why', async () => {
+  const fake = fakeClient({ signedIn: false, invoke: () => ({ data: { refundedCents: 1900, feeCents: 100 }, error: null }) });
+  setClientForTests(fake);
+  assert.deepEqual(await booking.guestCancel(GUEST_TOKEN), { refundedCents: 1900, feeCents: 100 });
+  assert.deepEqual(fake.log.invoked, [{ name: 'krossi-booking', body: { action: 'guestCancel', token: GUEST_TOKEN } }]);
+  setClientForTests(fakeClient({ signedIn: false, invoke: () => functionError('Peruutusaika on mennyt. Ota yhteyttä halliin.') }));
+  await assert.rejects(booking.guestCancel(GUEST_TOKEN), (err) => err.code === 'too_late');
+});
+
+test('staffDay: a guest\'s booking has a name-only booker and the guest\'s contact', async () => {
+  setClientForTests(fakeClient({
+    rpc: () => ({
+      data: [{
+        id: BOOKING, courtId: COURT, startsAt: '2026-10-20T15:00:00.000Z', endsAt: '2026-10-20T16:00:00.000Z', kind: 'booking',
+        status: 'confirmed', title: null, priceCents: 3000, paymentStatus: 'paid',
+        bookedBy: { id: null, name: 'Ville Vieras', email: 'ville@example.com', guest: true, avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: null },
+      }],
+      error: null,
+    }),
+  }));
+  const [item] = await booking.staffDay(VENUE, '2026-10-20');
+  assert.deepEqual(item.guest, { name: 'Ville Vieras', email: 'ville@example.com' });
+  assert.equal(item.bookedBy.name, 'Ville Vieras');
+  assert.equal(item.bookedBy.id, '');
 });

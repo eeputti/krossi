@@ -211,9 +211,10 @@ test('staff: day with names, block atomically, unblock, cancel with refund', asy
   const booking = items.find((i) => i.kind === 'booking' && i.bookedBy);
   assert.ok(booking.bookedBy.name);
   assert.deepEqual(Object.keys(booking).sort(), [
-    'bookedBy', 'courtId', 'credit', 'endsAt', 'forSale', 'id', 'kind', 'paymentStatus', 'priceCents', 'seasonSlotId', 'startsAt',
+    'bookedBy', 'courtId', 'credit', 'endsAt', 'forSale', 'guest', 'id', 'kind', 'paymentStatus', 'priceCents', 'seasonSlotId', 'startsAt',
     'status', 'title',
   ]);
+  assert.equal(booking.guest, null);
 
   const kispiTennis = v.locations[1].courts.filter((c) => c.sport === 'tennis').map((c) => c.id);
   const late = next(1);
@@ -615,4 +616,53 @@ test('gamesAndCourts lists my games and the courts no game is played on, soonest
     ['game:g1', 'court:b1'],
     'a cancelled game leaves its court empty',
   );
+});
+
+// ── Vieras: a booking without an account (the booking site's way) ────────────
+
+test('guest: name + email, "pay", the booking\'s own page, cancel with the 1 € peruutuskulu', async () => {
+  const v = await venue();
+  const key = next(4);
+  const slot = await freeTennis(v, key);
+  await assert.rejects(api.booking.guestHold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, name: 'V', email: 'v@x.fi' }),
+    (err) => err.userMessage === 'Kirjoita nimesi.');
+  await assert.rejects(api.booking.guestHold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, name: 'Ville', email: 'ei osoite' }),
+    (err) => err.userMessage === 'Tarkista sähköpostiosoite.');
+  const { booking, token } = await api.booking.guestHold({
+    courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, name: '  Ville   Vieras ', email: 'Ville@Example.com',
+  });
+  assert.deepEqual(Object.keys(booking).sort(), [...BOOKING_KEYS].sort());
+  assert.equal(booking.status, 'held');
+  assert.match(token, /^[A-Za-z0-9_-]{22,64}$/);
+  // The hall sees who booked.
+  const item = (await api.booking.staffDay(v.id, key)).find((i) => i.id === booking.id);
+  assert.deepEqual(item.guest, { name: 'Ville Vieras', email: 'ville@example.com' });
+  assert.equal(item.bookedBy.name, 'Ville Vieras');
+
+  assert.deepEqual(await api.booking.guestPaymentIntent(token), { paid: true });
+  assert.deepEqual(await api.booking.guestVerify(token, 'pi_demo'), { confirmed: true, status: 'succeeded' });
+  const page = await api.booking.guestBooking(token);
+  assert.deepEqual(Object.keys(page).sort(), ['booking', 'cancelledByGuest', 'guest', 'lostMessage', 'venue']);
+  assert.equal(page.booking.status, 'confirmed');
+  assert.deepEqual(page.guest, { name: 'Ville Vieras', email: 'ville@example.com' });
+  assert.equal(page.venue.slug, v.slug);
+  assert.equal(await api.booking.guestBooking('x'.repeat(24)), null);
+
+  const back = await api.booking.guestCancel(token);
+  assert.deepEqual(back, { refundedCents: slot.cents - 100, feeCents: 100 });
+  const after = await api.booking.guestBooking(token);
+  assert.equal(after.booking.status, 'cancelled');
+  assert.equal(after.cancelledByGuest, true);
+  assert.deepEqual(await api.booking.guestCancel(token), { refundedCents: 0, feeCents: 0 });
+});
+
+test('guest: closing the payment releases the hold; an unknown link is not found', async () => {
+  const v = await venue();
+  const slot = await freeTennis(v, next(5));
+  const { booking, token } = await api.booking.guestHold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, name: 'Ville', email: 'v@x.fi' });
+  await api.booking.guestRelease(token);
+  assert.equal((await api.booking.guestBooking(token)).booking.status, 'expired');
+  const { busy } = await api.booking.day(v.id, next(5));
+  assert.ok(!busy.some((b) => b.id === booking.id));
+  await assert.rejects(api.booking.guestPaymentIntent('x'.repeat(24)), (err) => err.code === 'not_found');
 });

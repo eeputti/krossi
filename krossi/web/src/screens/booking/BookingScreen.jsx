@@ -21,6 +21,12 @@
 //
 // Redirect payment methods (MobilePay on a phone) come back here with
 // ?varaus=<bookingId>&payment_intent=…; that is confirmed below and the query is dropped.
+//
+// Without an account (`guest`): the calendar is open to everybody and the court is booked with a
+// name and an email (BookSheet), paid at once; a guest's redirect payment comes back to the booking's
+// own page instead (/pelaa/varaus/<token>). /pelaa/varaa without a session looks like the booking site
+// (Gate renders SiteShell), with "Kirjaudu" in place of my bookings. The demo's booking site shows the
+// guest's way too — its visitor stays the demo player underneath.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo } from '../../api/index.js';
 import { useAsync, useIsDesktop, useLocalState, useNow, useResync } from '../../app/hooks.js';
@@ -58,7 +64,11 @@ function firstDay(venue, now = new Date()) {
 }
 
 export function BookingScreen({ params, query, route }) {
-  const site = route?.type === 'site';
+  const { profile, user, needsOnboarding } = useSession();
+  // My own bookings, cards and bells need an account (a guest has none of them).
+  const account = Boolean(user) && !needsOnboarding;
+  const guest = !account || (isDemo && route?.type === 'site');
+  const site = route?.type === 'site' || !account;
   const isDesktop = useIsDesktop();
   // The booking site and the desktop Varaa item have no back arrow; a phone's booking page (opened from
   // Koti or Peliseura), a venue page, or a booking opened from a game or a chat does.
@@ -66,10 +76,9 @@ export function BookingScreen({ params, query, route }) {
     : route?.name === 'bookingVenue' ? '/pelaa/varaa'
     : isDesktop && !query?.peli && !query?.chat ? false
     : '/pelaa/koti';
-  const home = site ? '/varaa' : '/pelaa/varaa'; // where this page lives, for the payment's way back
+  const home = route?.type === 'site' ? '/varaa' : '/pelaa/varaa'; // where this page lives, for the payment's way back
   const bar = (title, actions) => (site ? <SiteBar actions={actions} /> : <TopBar title={title} back={back} actions={actions} />);
   const toast = useToast();
-  const { profile, user } = useSession();
   const now = useNow(60_000);
   const venues = useAsync(() => api.booking.listVenues(), []);
   const venue = useMemo(() => {
@@ -98,13 +107,13 @@ export function BookingScreen({ params, query, route }) {
 
   const day = useAsync(() => (venue && key ? api.booking.day(venue.id, key) : Promise.resolve(null)), [venue?.id, key]);
   // Only once a hall is visible: before the booking tables exist the list is just empty.
-  const mine = useAsync(() => (venue ? api.booking.listMine() : Promise.resolve(null)), [venue?.id]);
+  const mine = useAsync(() => (venue && account ? api.booking.listMine() : Promise.resolve(null)), [venue?.id, account]);
   // Booking for somebody (a hallisarja match, a game, a chat): who it is for and where the sheet
   // sends the time once the court is paid.
   const target = useAsync(() => bookingTarget(query, user?.id), [query?.liiga, query?.ottelu, query?.peli, query?.chat, user?.id]);
-  const watches = useAsync(() => (venue ? api.booking.listWatches() : Promise.resolve([])), [venue?.id]);
+  const watches = useAsync(() => (venue && account ? api.booking.listWatches() : Promise.resolve([])), [venue?.id, account]);
   // Failed kausivuoro months: the payments row on top.
-  const seasonSlots = useAsync(() => (venue ? api.seasons.listMine().catch(() => []) : Promise.resolve([])), [venue?.id]);
+  const seasonSlots = useAsync(() => (venue && account ? api.seasons.listMine().catch(() => []) : Promise.resolve([])), [venue?.id, account]);
   useResync(() => {
     day.reload({ silent: true }); mine.reload({ silent: true }); watches.reload({ silent: true });
     seasonSlots.reload({ silent: true });
@@ -202,6 +211,10 @@ export function BookingScreen({ params, query, route }) {
   };
 
   const toggleWatch = async (slot) => {
+    if (!account) {
+      toast('Kirjaudu sisään, niin ilmoitamme, jos aika vapautuu.', { tone: 'info' });
+      return;
+    }
     const want = { sport, startsAt: slot.startsAt, minutes, locationId };
     const existing = (watches.data || []).find((w) => sameWatch(w, want));
     try {
@@ -381,7 +394,9 @@ export function BookingScreen({ params, query, route }) {
 
   return (
     <>
-      {bar(venue.name, (
+      {bar(venue.name, !account ? (
+          <Button variant="ghost" size="sm" icon="log-in" onClick={() => navigate('/pelaa/koti')}>Kirjaudu</Button>
+      ) : (
           <>
             <IconButton
               icon="calendar"
@@ -483,6 +498,7 @@ export function BookingScreen({ params, query, route }) {
         target={target.data || null}
         site={site}
         home={home}
+        guest={guest}
       />
     </>
   );

@@ -1,7 +1,8 @@
 // booking.js — kenttävaraus (court booking): the hall calendar, holds, paying for a booking,
 // cancelling it, jaettu maksu (the booker pays it all, friends pay their parts by link and the
 // booker gets them back), "Laita myyntiin" (a late-cancelled booking sold on), "ilmoita kun
-// vapautuu" watches and the hall staff view.
+// vapautuu" watches, the hall staff view, and a booking without an account (guest*: name + email,
+// paid at once; the booking's own token is the key — migration 20261021075544_krossi_booking_guest).
 //
 // The booking tables have no client access: every read and write is a SECURITY DEFINER RPC
 // (supabase/migrations/20261016074110_krossi_court_booking.sql and
@@ -16,7 +17,7 @@
 // 'cancelled', …) and holds the mappers seasons.js, billing.js and wallet.js share with this file
 // (Booking with its series card / gift credit and its split).
 
-import { db, requireUid, isMissingFunction, isUuid } from './client.js';
+import { currentUid, db, requireUid, isMissingFunction, isUuid } from './client.js';
 import {
   DATE_RE, announceFreed, call, edgeCall, fail, iso, list, listOrNull, mapBooker, mapBooking, mapCredit,
   number, numberOrNull, rpcError, text,
@@ -140,7 +141,14 @@ function mapPublicSplit(raw) {
   };
 }
 
+/** A guest without an account in the hall view: a person with a name only (no profile behind it). */
+function guestOf(raw) {
+  if (raw?.guest !== true) return null;
+  return { name: text(raw.name, 'Vieras'), email: text(raw.email) };
+}
+
 function mapStaffItem(raw) {
+  const guest = guestOf(raw.bookedBy);
   return {
     id: raw.id,
     courtId: raw.courtId,
@@ -149,7 +157,9 @@ function mapStaffItem(raw) {
     kind: raw.kind,
     status: raw.status,
     title: text(raw.title),
-    bookedBy: mapBooker(raw.bookedBy),
+    bookedBy: mapBooker(raw.bookedBy)
+      || (guest ? { id: '', name: guest.name, avatarUrl: null, avatarColor: 'blue', ageRange: null, skillLevel: null } : null),
+    guest,
     priceCents: number(raw.priceCents),
     paymentStatus: raw.paymentStatus,
     seasonSlotId: text(raw.seasonSlotId),
@@ -240,16 +250,20 @@ function mapCheckout(data) {
 /**
  * What the booking sheet needs to show the payment methods before anything is held. A server
  * without the action (krossi-booking before phase 4) answers { legacy: true }: hold first, then
- * checkoutConfig(bookingId), like before.
+ * checkoutConfig(bookingId), like before. Without a session too: `guests` says the server takes
+ * bookings without an account; a server from before that answers a guest { legacy: true, guests: false }.
  */
 export async function payConfig() {
-  await requireUid();
+  const signedIn = Boolean(await currentUid());
   try {
     const data = await edge('payConfig', {}, CHECKOUT_FAIL);
     if (!data?.publishableKey) return { legacy: true };
-    return { publishableKey: data.publishableKey, currency: text(data.currency, 'eur'), email: text(data.email) };
+    return {
+      publishableKey: data.publishableKey, currency: text(data.currency, 'eur'), email: text(data.email), guests: data.guests === true,
+    };
   } catch (err) {
     if (/tuntematon toiminto/i.test(err?.userMessage || err?.message || '')) return { legacy: true };
+    if (!signedIn && /kirjaudu/i.test(err?.userMessage || err?.message || '')) return { legacy: true, guests: false };
     throw err;
   }
 }
@@ -455,6 +469,80 @@ export async function unblock(blockId) {
   await call('krossi_booking_unblock', { block_id_input: blockId }, 'Eston poisto epäonnistui.');
   announceFreed(blockId);
 }
+
+// ── Vieras: a booking without an account ─────────────────────────────────────
+
+const GUEST_TOKEN_RE = /^[A-Za-z0-9_-]{22,64}$/;
+const GUEST_NOT_FOUND = 'Varausta ei löytynyt.';
+const guestToken = (token) => {
+  if (!GUEST_TOKEN_RE.test(String(token || ''))) throw fail(GUEST_NOT_FOUND, 'not_found');
+  return String(token);
+};
+
+/** Holds the court for a guest (name + email): { booking, token } — the token is the booking's own link. */
+export async function guestHold({ courtId, startsAt, minutes, name, email } = {}) {
+  if (!isUuid(courtId)) throw fail('Kenttää ei löytynyt.');
+  const start = iso(startsAt);
+  if (!start) throw fail('Valitse aika kalenterista.', 'invalid');
+  const data = await edge('guestHold', {
+    courtId, startsAt: start, minutes: minutesOrNull(minutes),
+    name: typeof name === 'string' ? name.trim().slice(0, 80) : '', email: typeof email === 'string' ? email.trim().slice(0, 254) : '',
+  }, HOLD_FAIL);
+  if (!data?.booking || !GUEST_TOKEN_RE.test(String(data.token || ''))) throw fail(HOLD_FAIL);
+  return { booking: mapBooking(data.booking), token: data.token };
+}
+
+export async function guestPaymentIntent(token) {
+  const data = await edge('guestIntent', { token: guestToken(token) }, CHECKOUT_FAIL);
+  if (data?.paid) return { paid: true };
+  if (!data?.clientSecret) throw fail(CHECKOUT_FAIL);
+  return { clientSecret: data.clientSecret, paymentIntentId: data.paymentIntentId };
+}
+
+/** Like verifyPayment: status 'lost' + message when the court went to somebody else (refunded). */
+export async function guestVerify(token, paymentIntentId) {
+  const data = await edge('guestVerify', { token: guestToken(token), paymentIntentId }, VERIFY_FAIL);
+  const result = { confirmed: data?.confirmed === true, status: text(data?.status) };
+  if (typeof data?.error === 'string' && data.error) result.message = data.error;
+  return result;
+}
+
+export async function guestRelease(token) {
+  await edge('guestRelease', { token: guestToken(token) }, 'Varauksen vapautus epäonnistui.');
+}
+
+/** The guest's page; null = no such booking. */
+export async function guestBooking(token) {
+  if (!GUEST_TOKEN_RE.test(String(token || ''))) return null;
+  let data;
+  try {
+    data = await edge('guestBooking', { token }, LOAD_FAIL);
+  } catch (err) {
+    if (err?.code === 'not_found') return null;
+    throw err;
+  }
+  if (!data?.booking) return null;
+  return {
+    booking: mapBooking(data.booking),
+    guest: { name: text(data.guest?.name, ''), email: text(data.guest?.email, '') },
+    venue: {
+      slug: text(data.venue?.slug, ''),
+      name: text(data.venue?.name, ''),
+      cancelLimitHours: number(data.venue?.cancelLimitHours, 24),
+      holdMinutes: number(data.venue?.holdMinutes, 10),
+    },
+    cancelledByGuest: data.cancelledByGuest === true,
+    lostMessage: text(data.lost),
+  };
+}
+
+/** Cancels the guest's booking before cancellableUntil: back to the card minus the 1 € peruutuskulu. */
+export async function guestCancel(token) {
+  const data = await edge('guestCancel', { token: guestToken(token) }, CANCEL_FAIL);
+  return { refundedCents: number(data?.refundedCents), feeCents: number(data?.feeCents) };
+}
+
+// ── Hall staff (cancel) ──────────────────────────────────────────────────────
 
 /** Hall staff cancels a player's booking; refund (default) returns the money to the player. */
 export async function staffCancel(bookingId, { refund = true } = {}) {

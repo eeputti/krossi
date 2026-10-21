@@ -29,6 +29,8 @@ export const ROUTES = [
   { name: 'bookingVenue', pattern: '/pelaa/varaa/:venue', tab: 'varaa', type: 'page' },
   { name: 'hall', pattern: '/pelaa/halli/:venue', tab: 'varaa', type: 'page' },
   { name: 'splitPay', pattern: '/pelaa/maksa/:token', tab: 'varaa', type: 'page', public: true },
+  // A booking made without an account: its own page (the link in the guest's email), in the booking site's look.
+  { name: 'guestBooking', pattern: '/pelaa/varaus/:token', tab: null, type: 'site', public: true },
   { name: 'myBookings', pattern: '/pelaa/omat-varaukset', tab: 'varaa', type: 'page' },
   { name: 'invoice', pattern: '/pelaa/lasku/:id', tab: 'varaa', type: 'full' },
   { name: 'players', pattern: '/pelaa/pelaajat', tab: 'peliseura', type: 'tab' },

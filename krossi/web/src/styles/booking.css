@@ -320,3 +320,8 @@
 
 /* keeps "15 €" on one line */
 .bk-nowrap { white-space: nowrap; }
+
+/* a booking without an account: name + email above the payment, which opens once both look right */
+.bk-guest { display: grid; gap: 8px; }
+.bk-guest .bk-fine { padding: 0 2px; }
+.bk-paybox.is-locked > * { opacity: 0.45; pointer-events: none; transition: opacity 0.15s ease; }
