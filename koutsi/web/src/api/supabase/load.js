@@ -72,7 +72,7 @@ async function loadArchive(studentIds) {
   }
 }
 
-// Tiedotteet (koutsi_announcements, koutsi/web/sql/20261023120000_koutsi_announcements.sql). An
+// Tiedotteet (koutsi_announcements, supabase/migrations/20261023114724_koutsi_announcements.sql). An
 // addition like the week diary: without the table both apps open as before and
 // `announcementsReady` keeps the Tiedote choice hidden. RLS decides whose rows a player gets.
 function mapAnnouncement(r) {

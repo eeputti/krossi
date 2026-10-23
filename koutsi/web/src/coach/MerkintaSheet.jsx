@@ -143,7 +143,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
 
   const attendance = kind === 'lasnaolo';
   const theme = kind === 'teema';
-  // Tiedotteet need their table (sql/20261023120000_koutsi_announcements.sql); until then the
+  // Tiedotteet need their table (supabase/migrations/20261023114724_koutsi_announcements.sql); until then the
   // choice stays hidden. The coach's notices still in date can be taken back.
   const noticesReady = state.announcementsReady !== false;
   const activeNotices = (state.announcements || []).filter((a) => a.until >= today);

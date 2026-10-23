@@ -2,8 +2,9 @@
 -- players — another coach tomorrow, a different court. Shown on the players' Koti until `until`
 -- and never on anyone's Kehitys (that is what koutsi_diary_entries is for).
 --
--- PENDING: apply only on the user's "aja migraatio"; then move this file into
--- supabase/migrations under the version the database gives it.
+-- Applied to production 2026-10-23 with the user's go-ahead ("aja migraatio") as version
+-- 20261023114724; tested first in PGlite against a stub of the production schema (RLS,
+-- notifications, scrub, prune).
 --
 -- Who sees what (RLS):
 --   * the coach reads, writes and deletes their own (koutsi_acts_as, so admins too)
@@ -111,8 +112,8 @@ set search_path = public
 as $$
 begin
   delete from koutsi_announcements
-   where old.id = any (student_ids) and cardinality(group_ids) = 0 and cardinality(array_remove(student_ids, old.id)) = 0;
-  update koutsi_announcements set student_ids = array_remove(student_ids, old.id) where old.id = any (student_ids);
+   where student_ids @> array[old.id] and cardinality(group_ids) = 0 and cardinality(array_remove(student_ids, old.id)) = 0;
+  update koutsi_announcements set student_ids = array_remove(student_ids, old.id) where student_ids @> array[old.id];
   return old;
 end;
 $$;

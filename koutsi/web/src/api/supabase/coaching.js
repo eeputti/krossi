@@ -435,7 +435,7 @@ export const notes = {
   },
 };
 
-// Tiedotteet (koutsi_announcements, koutsi/web/sql/20261023120000_koutsi_announcements.sql): a
+// Tiedotteet (koutsi_announcements, supabase/migrations/20261023114724_koutsi_announcements.sql): a
 // coach's practical notice to groups or players. RLS lets a coach address only their own groups and
 // current players; a trigger sends each addressed player one notification (and so an e-mail).
 export const announcements = {
