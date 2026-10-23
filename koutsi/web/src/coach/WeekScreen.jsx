@@ -23,6 +23,7 @@ import { currentSeason, draftSummary, groupsOfSeason, nextSeasonPreset, seasonNu
 import { ActivityRow, SessionRow } from './parts.jsx';
 import { useContinueThemes } from './themeActions.js';
 import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
+import { SeasonEditSheet } from './SeasonSheet.jsx';
 import { WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
@@ -41,7 +42,7 @@ function CoverageHero({ state }) {
   const carry = status.carry;
   const all = pool.length > 0 && covered === pool.length;
   const next = upcoming[0];
-  const nextGroup = next ? state.groups.find((g) => g.id === next.groupId) : null;
+  const nextGroup = next ? (state.allGroups || state.groups).find((g) => g.id === next.groupId) : null;
   const go = async () => { setBusy(true); await continueThemes(carry, week); setBusy(false); };
   return (
     <section className="week-hero on-dark court-lines rise">
@@ -95,7 +96,7 @@ function NextSession({ state }) {
   const after = koutsiAddDays(today, 1);
   const next = state.trainings.filter((t) => t.loggedBy !== 'player' && t.date > after).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))[0];
   if (!next) return <Quiet icon="calendar">Ei tulevia treenejä kalenterissa.</Quiet>;
-  const group = next.groupId ? state.groups.find((g) => g.id === next.groupId) : null;
+  const group = next.groupId ? (state.allGroups || state.groups).find((g) => g.id === next.groupId) : null;
   return (
     <Block eyebrow="Seuraavaksi">
       <SessionRow item={{ training: next, group, student: state.students.find((s) => s.id === next.studentId) }} showDate />
@@ -107,23 +108,31 @@ function NextSession({ state }) {
 // the saved draft, or — once it is published — see when it starts.
 function SeasonCard({ state, nudge }) {
   const { season, next, draft, kind } = nudge;
+  const [editOpen, setEditOpen] = useState(false);
   const preset = next || draft || nextSeasonPreset(season);
   const base = seasonWord(preset.startsOn);
   if (kind === 'published') {
     const count = groupsOfSeason(state, next).length;
     return (
+      <>
       <Card className="k-alert season-alert">
         <span className="k-alert-icon is-lime"><Icon name="check" size={20} /></span>
         <div className="k-alert-body">
           <div className="k-alert-title">{next.name} on julkaistu</div>
           <p className="k-alert-text">Alkaa {koutsiFmtShortDate(next.startsOn)} · {count} ryhmää. {season.name} jatkuu {koutsiFmtShortDate(season.endsOn)} asti.</p>
-          <Button variant="outline" size="sm" icon="calendar" onClick={() => navigate(`/valmentaja/ryhmat?vko=${weekParam(koutsiIsoWeekOfDateStr(next.startsOn))}`)}>Kauden ensimmäinen viikko</Button>
+          <div className="row wrap season-alert-actions">
+            <Button variant="outline" size="sm" icon="calendar" onClick={() => navigate(`/valmentaja/ryhmat?vko=${weekParam(koutsiIsoWeekOfDateStr(next.startsOn))}`)}>Kauden ensimmäinen viikko</Button>
+            <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>Muuta {seasonWord(season.startsOn, 'gen')} loppua</Button>
+          </div>
         </div>
       </Card>
+      <SeasonEditSheet open={editOpen} onClose={() => setEditOpen(false)} season={season} />
+      </>
     );
   }
   const changes = kind === 'draft' ? draftSummary(state, draft).changes : 0;
   return (
+    <>
     <Card className="k-alert season-alert">
       <span className="k-alert-icon is-lime"><Icon name="repeat" size={19} /></span>
       <div className="k-alert-body">
@@ -133,9 +142,14 @@ function SeasonCard({ state, nudge }) {
             ? `${changes === 1 ? '1 muutos' : `${changes} muutosta`} tallessa. Pelaajat eivät näe luonnosta — julkaise, kun ryhmät ovat valmiit.`
             : `Tee ${seasonWord(preset.startsOn, 'gen')} ryhmät valmiiksi jo nyt: ryhmät ja pelaajat jatkavat sellaisinaan, muutat vain sen mikä muuttuu. Pelaajat näkevät ${seasonWord(preset.startsOn, 'gen')} vasta kun julkaiset.`}
         </p>
-        <Button variant="dark" size="sm" icon={kind === 'draft' ? 'edit' : 'calendar-plus'} onClick={openSeason}>{kind === 'draft' ? 'Jatka suunnittelua' : `Suunnittele ${base}`}</Button>
+        <div className="row wrap season-alert-actions">
+          <Button variant="dark" size="sm" icon={kind === 'draft' ? 'edit' : 'calendar-plus'} onClick={openSeason}>{kind === 'draft' ? 'Jatka suunnittelua' : `Suunnittele ${base}`}</Button>
+          <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>Muuta loppua</Button>
+        </div>
       </div>
     </Card>
+    <SeasonEditSheet open={editOpen} onClose={() => setEditOpen(false)} season={season} />
+    </>
   );
 }
 

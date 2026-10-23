@@ -89,7 +89,8 @@ function koutsiIsoWeekRangeLabel(year, week) {
 function koutsiCompareIsoWeeks(a, b) { return a.year - b.year || a.week - b.week; }
 
 function koutsiStudentById(state, id) { return state.students.find((s) => s.id === id) || null; }
-function koutsiGroupById(state, id) { return state.groups.find((g) => g.id === id) || null; }
+// allGroups (renewed app, seasons): a past or coming session's group may be out of this season's list
+function koutsiGroupById(state, id) { return (state.allGroups || state.groups).find((g) => g.id === id) || null; }
 function koutsiGroupsForStudent(state, studentId) { return state.groups.filter((g) => g.memberIds.includes(studentId)); }
 // The theme of the week a given training falls in — not today's. A coach opening a
 // session three weeks out must see the theme they planned for that week.

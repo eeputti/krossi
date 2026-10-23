@@ -147,6 +147,51 @@ export function rangeLabel(from, to) {
 
 const byStart = (a, b) => String(a.startsOn).localeCompare(String(b.startsOn));
 
+/** Every group, also those of other seasons (state.groups is the active season's, see seasonView). */
+export const allGroupsOf = (state) => state.allGroups || state.groups || [];
+
+/**
+ * The season each coach's lists show now: the one running today, else the next one coming (the
+ * break between seasons is spent preparing it), else the latest. Map coachId → season id.
+ * The database picks a new group's season the same way (koutsi_current_season).
+ */
+export function activeSeasonByCoach(seasons, today = koutsiTodayStr()) {
+  const byCoach = new Map();
+  for (const s of seasons || []) byCoach.set(s.coachId, [...(byCoach.get(s.coachId) || []), s]);
+  const out = new Map();
+  for (const [coachId, list] of byCoach) {
+    const sorted = [...list].sort(byStart);
+    const pick = sorted.find((s) => s.startsOn <= today && today <= s.endsOn)
+      || sorted.find((s) => s.startsOn > today)
+      || [...sorted].reverse()[0];
+    if (pick) out.set(coachId, pick.id);
+  }
+  return out;
+}
+
+/**
+ * What the screens see: `groups` = the groups of each coach's active season (and groups with no
+ * season), `allGroups` = every group, for finding the group of a past or coming session. The
+ * season that ended keeps its groups, sessions and attendance — it is only out of the lists.
+ */
+export function seasonView(state, today = koutsiTodayStr()) {
+  if (!state || !Array.isArray(state.groups)) return state;
+  const seasons = state.seasons || [];
+  if (!seasons.length) return { ...state, allGroups: state.groups };
+  const active = activeSeasonByCoach(seasons, today);
+  const known = new Set(seasons.map((s) => s.id));
+  const groups = state.groups.filter((g) => !g.seasonId || !known.has(g.seasonId) || !active.has(g.coachId) || active.get(g.coachId) === g.seasonId);
+  return { ...state, allGroups: state.groups, groups };
+}
+
+/** Weeks from today to the end of the coach's current season (for "Kauden loppuun"), or null. */
+export function weeksLeftInSeason(state, today = koutsiTodayStr()) {
+  if (!state.seasonsReady) return null;
+  const season = currentSeason(state, today);
+  if (!season || season.endsOn <= today) return null;
+  return Math.max(1, Math.min(52, Math.floor(daysBetween(today, season.endsOn) / 7) + 1));
+}
+
 /** The season running today, else the latest that has started, else the first one coming. */
 export function currentSeason(state, today = koutsiTodayStr()) {
   const seasons = [...(state.seasons || [])].sort(byStart);
@@ -164,7 +209,7 @@ export function followingSeason(state, season) {
 
 export function groupsOfSeason(state, season) {
   if (!season) return [];
-  return koutsiSortGroupsBySchedule(state.groups.filter((g) => g.seasonId === season.id));
+  return koutsiSortGroupsBySchedule(allGroupsOf(state).filter((g) => g.seasonId === season.id));
 }
 
 /**
@@ -190,7 +235,7 @@ export function draftFromSeason(state, season, preset = nextSeasonPreset(season)
     key: `k-${g.id}`, fromId: g.id, name: g.name, level: g.level || '', day: g.day, time: g.time,
     durationMinutes: g.durationMinutes || 60, status: 'jatkuu',
   }));
-  const members = Object.fromEntries(groups.map((dg) => [dg.key, [...(state.groups.find((g) => g.id === dg.fromId)?.memberIds || [])]]));
+  const members = Object.fromEntries(groups.map((dg) => [dg.key, [...(allGroupsOf(state).find((g) => g.id === dg.fromId)?.memberIds || [])]]));
   return { ...preset, fromSeasonId: season?.id || null, groups, members, newPlayers: [] };
 }
 
@@ -258,7 +303,7 @@ export const scheduleChanged = (dg, group) => Boolean(group) && (dg.day !== grou
 export function draftSummary(state, draft) {
   const season = { startsOn: draft.startsOn, endsOn: draft.endsOn, breaks: draft.breaks };
   const active = activeGroups(draft);
-  const groupById = (id) => state.groups.find((g) => g.id === id) || null;
+  const groupById = (id) => allGroupsOf(state).find((g) => g.id === id) || null;
   const studentById = (id) => state.students.find((s) => s.id === id) || null;
   const before = new Map(); // student id → Set(old group ids)
   for (const dg of draft.groups) {

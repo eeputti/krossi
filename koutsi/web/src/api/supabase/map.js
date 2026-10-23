@@ -29,6 +29,7 @@ export function mapGroup(g, memberIds, themeRows, slotRows) {
   return {
     id: g.id, coachId: g.coach_id, name: g.name, level: g.level, day: g.weekday, time: g.time ? g.time.slice(0, 5) : '',
     durationMinutes: g.duration_minutes || 60,
+    seasonId: g.season_id || null, continuesFrom: g.continues_from || null,
     memberIds,
     slots,
     themes,
@@ -182,4 +183,12 @@ export function groupBy(rows, key) {
 
 export function mapWeekNote(n) {
   return { id: n.id, year: n.iso_year, week: n.iso_week, score: n.score, note: n.note || '', updatedAt: n.updated_at || n.created_at || null };
+}
+
+/** koutsi_seasons row → Season (domain/season.js). */
+export function mapSeason(row) {
+  return {
+    id: row.id, coachId: row.coach_id, name: row.name, startsOn: row.starts_on, endsOn: row.ends_on,
+    breaks: Array.isArray(row.breaks) ? row.breaks : [],
+  };
 }

@@ -321,7 +321,7 @@ export function seed() {
   // The season these groups run in: from the first session week to the Sunday of the calendar's
   // last week (Pelipäivä is a shorter series inside it). "Uusi kausi" copies it for the next one.
   const lastDate = trainings.filter((t) => t.groupId !== G.peli).map((t) => t.date).sort().pop();
-  const season = { id: 'demo-season-1', name: seasonName(start), startsOn: start, endsOn: koutsiNextWeekday(lastDate, 'Su'), breaks: [] };
+  const season = { id: 'demo-season-1', coachId: COACH, name: seasonName(start), startsOn: start, endsOn: koutsiNextWeekday(lastDate, 'Su'), breaks: [] };
   groups.forEach((g) => { g.seasonId = season.id; });
 
   // ── helpers over the calendar ─────────────────────────────────────────────

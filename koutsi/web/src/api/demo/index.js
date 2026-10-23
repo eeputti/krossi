@@ -440,13 +440,21 @@ export const backend = {
   seasons: {
     async saveDraft(coachId, draft) { await wait(); S().seasonDraft = clone(draft); },
     async removeDraft() { await wait(); S().seasonDraft = null; },
+    async update(seasonId, { name, endsOn, breaks }) {
+      await wait();
+      const season = (S().seasons || []).find((x) => x.id === seasonId);
+      if (!season) throw new ApiError('Kautta ei löytynyt.');
+      if (name !== undefined) season.name = name;
+      if (endsOn !== undefined) season.endsOn = endsOn;
+      if (breaks !== undefined) season.breaks = clone(breaks);
+    },
     async publish(coachId, draft) {
       await wait();
       const s = S();
       if (!draft?.name?.trim() || !draft.startsOn || !draft.endsOn || draft.endsOn < draft.startsOn) throw new ApiError('Tarkista kauden nimi ja päivät.');
       const active = activeGroups(draft);
       if (!active.length) throw new ApiError('Kaudella ei ole yhtään ryhmää.');
-      const season = { id: newId('season'), name: draft.name.trim(), startsOn: draft.startsOn, endsOn: draft.endsOn, breaks: clone(draft.breaks || []) };
+      const season = { id: newId('season'), coachId: COACH, name: draft.name.trim(), startsOn: draft.startsOn, endsOn: draft.endsOn, breaks: clone(draft.breaks || []) };
       const ids = {};
       (draft.newPlayers || []).forEach((p) => {
         if (!active.some((dg) => (draft.members[dg.key] || []).includes(p.key))) return;

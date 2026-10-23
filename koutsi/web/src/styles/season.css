@@ -73,3 +73,4 @@
 
 /* Koti */
 .season-alert { border-color: var(--lime); }
+.season-alert-actions { gap: 6px; }

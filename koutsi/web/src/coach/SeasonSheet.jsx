@@ -12,12 +12,13 @@ import { goBack } from '../app/router.js';
 import { Button, Chip, Field, Icon, Input, Select, Sheet, Textarea, useConfirm, useToast } from '../ui/index.js';
 import { DayPicker, DurationStepper, TimeSelect } from '../shared/fields.jsx';
 import { Quiet } from '../shared/bits.jsx';
-import { koutsiFmtShortDate, koutsiParseNameList, koutsiSortGroupsBySchedule } from '../domain/core.js';
+import { koutsiAddDays, koutsiFmtShortDate, koutsiParseNameList, koutsiSortGroupsBySchedule, koutsiTodayStr } from '../domain/core.js';
+import { lastSessionDate } from './groupForms.jsx';
 import { exactNameMatch } from '../domain/roster.js';
 import {
-  activeGroups, addDraftGroup, addSignups, currentSeason, draftFromSeason, draftSummary, placePlayer,
-  placementsOf, playerSeasonMessage, rangeLabel, scheduleChanged, seasonName, seasonWeeks, seasonWord,
-  updateDraftGroup,
+  activeGroups, addDraftGroup, addSignups, allGroupsOf, breakDates, currentSeason, draftFromSeason, draftSummary, groupsOfSeason,
+  placePlayer, placementsOf, playerSeasonMessage, rangeLabel, scheduleChanged, seasonName, seasonWeeks, seasonWord,
+  suggestedBreaks, updateDraftGroup,
 } from '../domain/season.js';
 import { useCoach } from './CoachRoot.jsx';
 
@@ -175,7 +176,7 @@ function StepGroups({ draft, setDraft, summary }) {
       <div className="k-faint">{counts}</div>
       <div className="k-list">
         {rows.map((dg) => {
-          const from = dg.fromId ? state.groups.find((x) => x.id === dg.fromId) : null;
+          const from = dg.fromId ? allGroupsOf(state).find((x) => x.id === dg.fromId) : null;
           const count = (draft.members[dg.key] || []).length;
           const moved = dg.status === 'muuttuu' && scheduleChanged(dg, from);
           return (
@@ -203,7 +204,7 @@ function DraftGroupSheet({ draft, groupKey, onClose, onSave }) {
   const { state } = useData();
   const isNew = groupKey === 'new';
   const dg = !isNew && groupKey ? draft.groups.find((x) => x.key === groupKey) : null;
-  const from = dg?.fromId ? state.groups.find((x) => x.id === dg.fromId) : null;
+  const from = dg?.fromId ? allGroupsOf(state).find((x) => x.id === dg.fromId) : null;
   const [form, setForm] = useState(null);
   const [lastKey, setLastKey] = useState(null);
   // a new group to edit (or none): start the form from it; this render is thrown away
@@ -278,8 +279,8 @@ function StepPlayers({ draft, setDraft, summary }) {
   const [signups, setSignups] = useState(false);
   const p = summary.players;
   const nameOf = (ref) => state.students.find((s) => s.id === ref)?.name || draft.newPlayers.find((x) => x.key === ref)?.name || '';
-  const fromOf = (dg) => (dg.fromId ? state.groups.find((g) => g.id === dg.fromId) : null);
-  const groupsBefore = (ref) => state.groups.filter((g) => draft.groups.some((dg) => dg.fromId === g.id) && g.memberIds.includes(ref));
+  const fromOf = (dg) => (dg.fromId ? allGroupsOf(state).find((g) => g.id === dg.fromId) : null);
+  const groupsBefore = (ref) => allGroupsOf(state).filter((g) => draft.groups.some((dg) => dg.fromId === g.id) && g.memberIds.includes(ref));
   const counts = [
     `${p.total} pelaajaa`,
     p.moved.length && `${p.moved.length} siirtyy`,
@@ -426,7 +427,7 @@ function StepReview({ draft, summary, current }) {
   const { state } = useData();
   const g = summary.groups;
   const p = summary.players;
-  const fromOf = (dg) => (dg.fromId ? state.groups.find((x) => x.id === dg.fromId) : null);
+  const fromOf = (dg) => (dg.fromId ? allGroupsOf(state).find((x) => x.id === dg.fromId) : null);
   const names = (list) => (list.length > 3 ? `${list.slice(0, 3).join(', ')} ja ${list.length - 3} muuta` : list.join(', '));
   // "Juniorit kilpa (Ma, To)" — two groups can share a name, the days tell them apart
   const withDays = (groups) => {
@@ -494,3 +495,82 @@ function StepReview({ draft, summary, current }) {
   );
 }
 
+
+// ── Muokkaa kautta ───────────────────────────────────────────────────────────
+// The running season's name and end. Moving the end later continues every group's calendar to
+// it (one notification per group, like "Jatka kalenteria"); break days in the added weeks are
+// suggested and left out. Shortening is not offered: it would cancel sessions one by one.
+
+export function SeasonEditSheet({ open, onClose, season }) {
+  const { state, run } = useData();
+  const toast = useToast();
+  const [name, setName] = useState('');
+  const [endsOn, setEndsOn] = useState('');
+  const [extra, setExtra] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [lastOpen, setLastOpen] = useState(false);
+  if (open !== lastOpen) {
+    setLastOpen(open);
+    if (open && season) { setName(season.name); setEndsOn(season.endsOn); setExtra([]); }
+  }
+  // only groups that run to the season's end follow it; a shorter series (a fall match night that
+  // already ended) stays as the coach made it
+  const groups = season ? groupsOfSeason(state, season).filter((g) => (lastSessionDate(state, g.id) || '') >= koutsiAddDays(season.endsOn, -6)) : [];
+  // breaks suggested for the weeks the season grows by (the ones it already had stay as they were)
+  const added = useMemo(() => {
+    if (!season || !endsOn || endsOn <= season.endsOn) return [];
+    const have = new Set((season.breaks || []).map((b) => b.key));
+    return suggestedBreaks(season.startsOn, endsOn).filter((b) => !have.has(b.key) && b.to > season.endsOn && b.from <= endsOn);
+  }, [season, endsOn]);
+  const offKeys = new Set(extra);
+  const breaks = [...(season?.breaks || []), ...added.map((b) => ({ ...b, on: !offKeys.has(b.key) }))];
+  const longer = Boolean(season && endsOn > season.endsOn);
+  const valid = Boolean(season && name.trim() && endsOn && endsOn >= season.endsOn && endsOn > koutsiTodayStr());
+  const save = async () => {
+    if (!valid || busy) return;
+    setBusy(true);
+    let addedCount = 0;
+    const res = await run(async () => {
+      await api.seasons.update(season.id, { name: name.trim(), endsOn, breaks });
+      if (longer) {
+        const skip = [...breakDates(breaks)];
+        for (const g of groups) {
+          const r = await api.groups.extendSeries(g.id, endsOn, skip);
+          addedCount += Number(r?.added || 0);
+        }
+      }
+    });
+    setBusy(false);
+    if (res.ok) {
+      toast(longer ? `${name.trim()} jatkuu ${fmt(endsOn)} asti — ${addedCount} treeniä lisätty.` : 'Kausi tallennettu.');
+      onClose();
+    }
+  };
+  if (!season) return null;
+  return (
+    <Sheet open={open} onClose={() => !busy && onClose()} size="md" title="Muokkaa kautta" subtitle={`${fmt(season.startsOn)}–${fmt(season.endsOn)}`} dismissible={!busy}
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!valid} loading={busy} onClick={save}>Tallenna</Button></div>}>
+      <div className="stack-5">
+        <Field label="Kauden nimi" htmlFor="season-edit-name">
+          <Input id="season-edit-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Kausi loppuu" htmlFor="season-edit-end" hint="Kautta voi pidentää: ryhmien treenit jatkuvat samaan aikaan uuteen loppuun asti.">
+          <Input id="season-edit-end" type="date" value={endsOn} min={season.endsOn} onChange={(e) => setEndsOn(e.target.value)} />
+        </Field>
+        {added.length > 0 && (
+          <Field label="Tauot lisäviikoilla" hint="Näinä päivinä ei lisätä treenejä.">
+            <div className="k-weeks-row">
+              {added.map((b) => (
+                <button key={b.key} type="button" className={cx('planner-chip', !offKeys.has(b.key) && 'is-on')} aria-pressed={!offKeys.has(b.key)}
+                  onClick={() => setExtra((p) => (p.includes(b.key) ? p.filter((x) => x !== b.key) : [...p, b.key]))}>
+                  {b.label}<span className="planner-chip-sub">{rangeLabel(b.from, b.to)}</span>
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
+        {longer && <p className="field-msg">{groups.length} ryhmän treenit jatkuvat {fmt(endsOn)} asti. Pelaajat saavat yhden ilmoituksen ryhmää kohden — ei jokaisesta treenistä.</p>}
+      </div>
+    </Sheet>
+  );
+}

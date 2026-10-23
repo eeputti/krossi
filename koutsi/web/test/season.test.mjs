@@ -129,3 +129,48 @@ test('demo: publishing writes the new season and leaves the old one as it was', 
   assert.ok(after.trainings.filter((t) => spring.some((x) => x.id === t.groupId)).every((t) => t.date >= draft.startsOn && t.date <= draft.endsOn));
   configureDemo({ role: 'coach', latency: 0 });
 });
+
+test('the lists show each coach\'s active season; every group stays findable', async () => {
+  const { seasonView, activeSeasonByCoach, weeksLeftInSeason } = await import('../src/domain/season.js');
+  const { koutsiGroupById } = await import('../src/domain/core.js');
+  const seasons = [
+    { id: 'a1', coachId: 'A', name: 'Syksy 2026', startsOn: '2026-09-07', endsOn: '2026-12-13' },
+    { id: 'a2', coachId: 'A', name: 'Kevät 2027', startsOn: '2027-01-11', endsOn: '2027-05-23' },
+    { id: 'b1', coachId: 'B', name: 'Syksy 2026', startsOn: '2026-09-01', endsOn: '2027-01-05' },
+  ];
+  const groups = [
+    { id: 'ga1', coachId: 'A', seasonId: 'a1', memberIds: [] }, { id: 'ga2', coachId: 'A', seasonId: 'a2', memberIds: [] },
+    { id: 'gb1', coachId: 'B', seasonId: 'b1', memberIds: [] }, { id: 'gx', coachId: 'A', seasonId: null, memberIds: [] },
+  ];
+  // autumn running: A's spring is out of the lists, B is untouched
+  const autumn = seasonView({ seasons, groups }, '2026-10-23');
+  assert.deepEqual(autumn.groups.map((g) => g.id), ['ga1', 'gb1', 'gx']);
+  assert.equal(koutsiGroupById(autumn, 'ga2').id, 'ga2', 'a coming session still finds its group');
+  // the break: A's next season is what the coach prepares
+  assert.equal(activeSeasonByCoach(seasons, '2026-12-28').get('A'), 'a2');
+  assert.deepEqual(seasonView({ seasons, groups }, '2026-12-28').groups.map((g) => g.id), ['ga2', 'gb1', 'gx']);
+  // spring running for A; B's only season has ended, so it stays as it is
+  assert.deepEqual(seasonView({ seasons, groups }, '2027-02-01').groups.map((g) => g.id), ['ga2', 'gb1', 'gx']);
+  // no seasons: nothing changes
+  const plain = seasonView({ groups }, '2026-10-23');
+  assert.equal(plain.groups, groups);
+  assert.equal(plain.allGroups, groups);
+  // "Kauden loppuun"
+  assert.equal(weeksLeftInSeason({ seasonsReady: true, seasons: [seasons[0]], groups }, '2026-10-23'), 8);
+  assert.equal(weeksLeftInSeason({ seasonsReady: false, seasons: [seasons[0]], groups }, '2026-10-23'), null);
+});
+
+test('demo: Muokkaa kautta moves the end and the calendar follows', async () => {
+  configureDemo({ role: 'coach', latency: 0 });
+  const s = await demo.coach.load('demo-coach');
+  const season = s.seasons[0];
+  const later = '2026-12-31' > season.endsOn ? '2027-01-10' : season.endsOn;
+  await demo.seasons.update(season.id, { endsOn: later });
+  const g = s.groups.find((x) => x.name === 'Juniorit oranssi');
+  await demo.groups.extendSeries(g.id, later, []);
+  const after = await demo.coach.load('demo-coach');
+  assert.equal(after.seasons[0].endsOn, later);
+  const last = after.trainings.filter((t) => t.groupId === g.id).map((t) => t.date).sort().pop();
+  assert.ok(last <= later && last > season.endsOn);
+  configureDemo({ role: 'coach', latency: 0 });
+});
