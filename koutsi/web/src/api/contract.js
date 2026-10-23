@@ -50,6 +50,14 @@ export const API_CONTRACT = {
 
   groups: ['create', 'update', 'remove', 'addMembers', 'removeMember', 'addSlot', 'deleteSlot', 'extendSeries'],
 
+  // Seasons — "Uusi kausi" (domain/season.js). CoachState carries `seasons` ([{ id, name, startsOn,
+  // endsOn, breaks }]), groups a `seasonId`, the unpublished `seasonDraft` and `seasonsReady`
+  // (false until the backend has seasons; the feature stays hidden). saveDraft(coachId, draft) keeps
+  // the next season unseen by players; publish(coachId, draft) → { seasonId, groups, sessions } creates
+  // the new season's groups, memberships and sessions at once (the old season stays as it was) and
+  // sends each player one notification; removeDraft(coachId) throws the draft away.
+  seasons: ['saveDraft', 'removeDraft', 'publish'],
+
   // save(rows: [{ groupId, year, week, title, lead }], { onlyNew }) → rows written.
   themes: ['save', 'remove'],
 

@@ -21,6 +21,8 @@ export const PHONE_TABS = [...TABS, { id: 'harjoitteet', label: 'Harjoitteet', i
 export const ROUTES = [
   { name: 'week', pattern: '/valmentaja/koti', tab: 'koti', type: 'tab' },
   { name: 'planner', pattern: '/valmentaja/teemat', tab: 'koti', type: 'overlay' },
+  // "Uusi kausi": the next season as a copy of the current one (SeasonSheet)
+  { name: 'season', pattern: '/valmentaja/kausi', tab: 'koti', type: 'overlay' },
   { name: 'groups', pattern: '/valmentaja/ryhmat', tab: 'ryhmat', type: 'tab' },
   { name: 'group', pattern: '/valmentaja/ryhma/:id', tab: 'ryhmat', type: 'page' },
   { name: 'players', pattern: '/valmentaja/pelaajat', tab: 'pelaajat', type: 'tab' },

@@ -16,6 +16,11 @@ export function openPlanner({ week, groupId } = {}) {
   navigate(`/valmentaja/teemat${s ? `?${s}` : ''}`, { overlay: true });
 }
 
+/** "Uusi kausi" — plan the next season (SeasonSheet). */
+export function openSeason() {
+  navigate('/valmentaja/kausi', { overlay: true });
+}
+
 export function openInvites() {
   navigate('/valmentaja/kutsut', { overlay: true });
 }

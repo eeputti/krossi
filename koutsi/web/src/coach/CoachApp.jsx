@@ -20,6 +20,7 @@ import { GroupScreen } from './GroupScreen.jsx';
 import { PlayersScreen } from './PlayersScreen.jsx';
 import { PlayerScreen } from './PlayerScreen.jsx';
 import { InvitesSheet } from './InvitesSheet.jsx';
+import { SeasonSheet } from './SeasonSheet.jsx';
 import { SessionScreen } from './SessionScreen.jsx';
 import { ExercisesScreen, ExerciseScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
@@ -43,7 +44,7 @@ function NotFound() {
 
 const SCREENS = {
   week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen,
-  players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet,
+  players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet, season: SeasonSheet,
   session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen,
   profile: ProfileScreen, admin: AdminScreen,
   legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect, legacyCalendar: LegacyRedirect,

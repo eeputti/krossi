@@ -13,6 +13,7 @@ import {
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
+import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/season.js';
 
 let role = 'coach';
 let state = null;
@@ -58,7 +59,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true };
 }
 
 function playerState(studentId) {
@@ -431,6 +432,50 @@ export const backend = {
         added += dates.length;
       }
       return { added };
+    },
+  },
+
+  // "Uusi kausi": the draft stays with the coach until publish; publishing writes the new season's
+  // own group rows (the old season keeps its groups, sessions and attendance as they were).
+  seasons: {
+    async saveDraft(coachId, draft) { await wait(); S().seasonDraft = clone(draft); },
+    async removeDraft() { await wait(); S().seasonDraft = null; },
+    async publish(coachId, draft) {
+      await wait();
+      const s = S();
+      if (!draft?.name?.trim() || !draft.startsOn || !draft.endsOn || draft.endsOn < draft.startsOn) throw new ApiError('Tarkista kauden nimi ja päivät.');
+      const active = activeGroups(draft);
+      if (!active.length) throw new ApiError('Kaudella ei ole yhtään ryhmää.');
+      const season = { id: newId('season'), name: draft.name.trim(), startsOn: draft.startsOn, endsOn: draft.endsOn, breaks: clone(draft.breaks || []) };
+      const ids = {};
+      (draft.newPlayers || []).forEach((p) => {
+        if (!active.some((dg) => (draft.members[dg.key] || []).includes(p.key))) return;
+        ids[p.key] = newId('demo-s');
+        s.students.push(student(ids[p.key], p.name));
+      });
+      let sessions = 0;
+      const created = active.map((dg) => {
+        const group = {
+          id: newId('g'), coachId: COACH, seasonId: season.id, continuesFrom: dg.fromId || null, name: dg.name.trim(), level: dg.level || 'Kaikki tasot',
+          day: dg.day, time: dg.time, durationMinutes: dg.durationMinutes || 60, slots: [], themes: [], annualPlan: null,
+          memberIds: [...new Set((draft.members[dg.key] || []).map((ref) => ids[ref] || ref))].filter((id) => s.students.some((x) => x.id === id)),
+        };
+        refreshThemes(group);
+        s.groups.push(group);
+        const seriesId = newId('ser');
+        const dates = seasonDates(dg, season);
+        dates.forEach((date) => s.trainings.push({ id: newId('tr'), date, time: dg.time, type: 'Ryhmätreeni', durationMinutes: group.durationMinutes, loggedBy: 'coach', notes: '', endDate: null, studentId: null, groupId: group.id, coachId: COACH, seriesId, absences: [] }));
+        sessions += dates.length;
+        return { group, dg };
+      });
+      s.seasons = [...(s.seasons || []), season];
+      s.seasonDraft = null;
+      // every player gets one notification about their own groups; the demo player sees theirs
+      const mine = created.filter(({ group }) => group.memberIds.includes(PLAYER)).map(({ dg }) => dg);
+      if (mine.length) {
+        s.playerNotifications.unshift({ id: newId('pn'), kind: 'season_published', title: `${season.name}: ryhmäsi ovat valmiina`, body: playerSeasonMessage(draft, mine, koutsiFmtShortDate), linkPath: '/pelaaja', createdAt: nowIso(), read: false });
+      }
+      return { seasonId: season.id, groups: created.length, sessions };
     },
   },
 
