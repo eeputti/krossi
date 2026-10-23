@@ -90,6 +90,7 @@ const P = {
   'users-fill': <><circle cx="9" cy="7" r="4" fill="currentColor" /><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2z" fill="currentColor" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
   'chat-fill': <path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3.5 20.5l1.4-4.9A8.5 8.5 0 1 1 21 11.5z" fill="currentColor" />,
   'user-fill': <><circle cx="12" cy="8" r="4" fill="currentColor" /><path d="M4 21a8 8 0 0 1 16 0z" fill="currentColor" /></>,
+  'list-fill': <><path d="M8.5 6H21M8.5 12H21M8.5 18H21" strokeWidth="3.2" /><circle cx="3.5" cy="6" r="1.9" fill="currentColor" stroke="none" /><circle cx="3.5" cy="12" r="1.9" fill="currentColor" stroke="none" /><circle cx="3.5" cy="18" r="1.9" fill="currentColor" stroke="none" /></>,
   'flame-fill': <path d="M12 22c4.2 0 7-2.8 7-6.8 0-3.4-2.1-5.6-3.7-7.4-.3 2.1-1.4 3.4-2.8 4 .3-3.7-1.3-6.9-4.6-9.3-.1 3.3-1.8 5.4-3.3 7.4C3.4 11.5 5 22 12 22z" fill="currentColor" />,
 };
 

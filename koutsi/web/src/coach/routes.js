@@ -27,7 +27,9 @@ export const ROUTES = [
   { name: 'player', pattern: '/valmentaja/pelaaja/:id', tab: 'pelaajat', type: 'page' },
   { name: 'invites', pattern: '/valmentaja/kutsut', tab: 'pelaajat', type: 'overlay' },
   { name: 'session', pattern: '/valmentaja/treeni/:id', tab: 'ryhmat', type: 'page' },
-  { name: 'exercises', pattern: '/valmentaja/harjoitteet', tab: 'harjoitteet', type: 'page' },
+  // a tab, not a page: on a phone it is the fourth tab, so it lights its own icon instead of
+  // keeping the previous tab lit (on a desktop the side nav lights its Harjoitepankki link)
+  { name: 'exercises', pattern: '/valmentaja/harjoitteet', tab: 'harjoitteet', type: 'tab' },
   { name: 'exercise', pattern: '/valmentaja/harjoite/:id', tab: 'harjoitteet', type: 'page' },
   { name: 'profile', pattern: '/valmentaja/profiili', tab: 'profiili', type: 'tab' },
   { name: 'admin', pattern: '/valmentaja/yllapito', tab: 'profiili', type: 'page' },
