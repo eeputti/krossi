@@ -7,7 +7,7 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../app/data.jsx';
 import { useIsDesktop, useNow } from '../app/hooks.js';
-import { Avatar, Button, Card, Icon, Page, ProgressRing } from '../ui/index.js';
+import { Avatar, Button, Card, Icon, Page } from '../ui/index.js';
 import { Link, navigate } from '../app/router.js';
 import { NotificationsButton } from '../shared/Notifications.jsx';
 import { Block, Quiet } from '../shared/bits.jsx';
@@ -15,10 +15,11 @@ import {
   koutsiCurrentIsoWeek, koutsiCompareIsoWeeks, koutsiIsoWeekRangeLabel, koutsiTodayStr, koutsiAddDays,
   koutsiWeekThemeStatus, koutsiFmtShortDate, koutsiIsoWeekOfDateStr,
 } from '../domain/core.js';
-import { calendarEndings, coachSessionsOn, playerActivity, plannerDefaultWeek, unjoinedPlayers, relativeDay, weekParam } from '../domain/week.js';
+import { calendarEndings, coachSessionsOn, playerActivity, plannerDefaultWeek, unjoinedPlayers, weekParam } from '../domain/week.js';
+import { weekGlance } from '../domain/glance.js';
 import { firstName } from '../domain/roster.js';
 import { useCoach } from './CoachRoot.jsx';
-import { openInvites, openPlanner, openSeason } from './nav.js';
+import { openInvites, openSeason, playerPath } from './nav.js';
 import { currentSeason, draftSummary, groupsOfSeason, nextSeasonPreset, seasonNudge, seasonWord } from '../domain/season.js';
 import { ActivityRow, SessionRow } from './parts.jsx';
 import { useContinueThemes } from './themeActions.js';
@@ -28,26 +29,33 @@ import { WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { TodayTimeline } from './today.jsx';
+import { useRecord } from './merkitse.jsx';
 
-function CoverageHero({ state }) {
+const cx = (...c) => c.filter(Boolean).join(' ');
+const pct = (x) => (x == null ? '–' : `${Math.round(x * 100)}\u00a0%`);
+const dec = (x) => (x == null ? '–' : x.toFixed(1).replace('.', ','));
+
+// EHDOTUS (haara koutsi-selkeys): the dark top card is the week at one glance — every day with a
+// dot per session (lime = held, ring = on now, outline = to come, clay = still without a theme),
+// four numbers (held, attendance, the players' own trainings, feeling) and the theme status
+// with its one-tap fix. A day opens Viikkohallinta on that week.
+function WeekHero({ state, glance, week }) {
   const { uid, acting } = useCoach();
   const isDesktop = useIsDesktop();
   const continueThemes = useContinueThemes();
+  const record = useRecord();
   const [busy, setBusy] = useState(false);
-  const week = plannerDefaultWeek();
-  const now = koutsiCurrentIsoWeek();
-  const isNow = koutsiCompareIsoWeeks(week, now) === 0;
-  const status = koutsiWeekThemeStatus(state.groups, state.trainings, week);
-  const { covered, pool, missing, upcoming } = status;
-  const carry = status.carry;
+  const themeWeek = plannerDefaultWeek();
+  const isNow = koutsiCompareIsoWeeks(themeWeek, week) === 0;
+  const status = koutsiWeekThemeStatus(state.groups, state.trainings, themeWeek);
+  const { covered, pool, carry } = status;
   const all = pool.length > 0 && covered === pool.length;
-  const next = upcoming[0];
-  const nextGroup = next ? (state.allGroups || state.groups).find((g) => g.id === next.groupId) : null;
-  const go = async () => { setBusy(true); await continueThemes(carry, week); setBusy(false); };
+  const go = async () => { setBusy(true); await continueThemes(carry, themeWeek); setBusy(false); };
+  const openWeek = () => navigate(`/valmentaja/ryhmat?vko=${weekParam(week)}`);
   return (
-    <section className="week-hero on-dark court-lines rise">
+    <section className="week-hero on-dark wk-hero rise">
       <div className="week-hero-top">
-        <span className="eyebrow">{isNow ? `Viikko ${week.week}` : `Ensi viikko · vko ${week.week}`} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
+        <span className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
         {!acting && (
           <span className="week-hero-tools">
             <NotificationsButton uid={uid} home="/valmentaja/koti" variant="on-dark" />
@@ -64,30 +72,73 @@ function CoverageHero({ state }) {
         <p className="week-hero-sub">Aloita luomalla ryhmä — sen treenit ilmestyvät kalenteriin ja voit asettaa niille viikon teeman.</p>
       ) : (
         <>
-          <div className="week-cover">
-            <ProgressRing value={pool.length ? covered / pool.length : 0} size={68} stroke={7} tone="lime">
-              <span className="week-cover-num t-num">{covered}/{pool.length}</span>
-            </ProgressRing>
-            <div className="week-cover-text">
-              <div className="week-cover-title">{all ? 'Kaikilla ryhmillä on teema' : `${covered}/${pool.length} ryhmällä on viikon teema`}</div>
-              <div className="week-cover-sub">
-                {all ? 'Pelaajat näkevät, mitä tällä viikolla harjoitellaan.'
-                  : next ? `${missing.length} ilman teemaa. ${isNow ? 'Seuraava' : 'Ensimmäinen'}: ${next.date === koutsiTodayStr() ? 'tänään' : relativeDay(next.date).toLowerCase()} klo ${next.time}${nextGroup ? ` · ${nextGroup.name}` : ''}.`
-                    : `${missing.length} ryhmää ilman teemaa.`}
-              </div>
-            </div>
+          <div className="wk-days" role="list" aria-label="Viikon päivät">
+            {glance.days.map((d) => (
+              <button key={d.date} type="button" role="listitem" onClick={openWeek}
+                className={cx('wk-day', d.isToday && 'is-today', d.isPast && 'is-past', !d.sessions.length && 'is-empty')}
+                aria-label={`${d.label} ${d.day}.: ${d.sessions.length} treeniä`}>
+                <span className="wk-day-name">{d.label}</span>
+                <span className="wk-day-num t-num">{d.day}</span>
+                <span className="wk-day-dots" aria-hidden="true">
+                  {d.sessions.slice(0, 4).map((x) => <span key={x.id} className={cx('wk-dot', `is-${x.status}`, x.themeMissing && x.status !== 'past' && 'is-warn')} />)}
+                </span>
+              </button>
+            ))}
           </div>
-          <div className="week-hero-actions">
-            {!all && carry.length > 0 && (
-              <Button variant="lime" icon="repeat" loading={busy} onClick={go}>Jatka edellisillä ({carry.length})</Button>
-            )}
-            <Button variant={!all && carry.length > 0 ? 'on-dark' : 'lime'} icon="sparkles" onClick={() => openPlanner({ week })}>
-              {all ? 'Viikon teemat' : 'Aseta viikon teemat'}
-            </Button>
+          <div className="wk-stats">
+            <div className="wk-stat"><span className="wk-stat-num t-num">{glance.held}/{glance.sessions}</span><span className="wk-stat-label">treeniä pidetty</span></div>
+            <div className="wk-stat"><span className="wk-stat-num t-num">{pct(glance.attendance)}</span><span className="wk-stat-label">läsnä</span></div>
+            <div className="wk-stat"><span className="wk-stat-num t-num">{glance.own}</span><span className="wk-stat-label">omaa treeniä</span></div>
+            <div className="wk-stat"><span className="wk-stat-num t-num">{dec(glance.moodAverage)}</span><span className="wk-stat-label">fiilis</span></div>
+          </div>
+          <div className={cx('wk-theme', all && 'is-ok')}>
+            <button type="button" className="wk-theme-open" onClick={() => record.openMerkinta({ kind: 'teema' })}>
+              <span className="wk-theme-icon"><Icon name={all ? 'check' : 'sparkles'} size={15} strokeWidth={all ? 3 : 2} /></span>
+              <span className="wk-theme-text">
+                <span className="wk-theme-title">Viikon teemat{isNow ? '' : ` · vko ${themeWeek.week}`}<Icon name="chevron-right" size={15} /></span>
+                <span className="wk-theme-sub">{all ? 'Kaikilla ryhmillä on teema' : `${covered}/${pool.length} ryhmällä`}</span>
+              </span>
+            </button>
+            {!all && (carry.length > 0 ? (
+              <Button variant="lime" size="sm" icon="repeat" loading={busy} onClick={go}>Jatka edellisillä</Button>
+            ) : (
+              <Button variant="lime" size="sm" icon="sparkles" onClick={() => record.openMerkinta({ kind: 'teema' })}>Aseta</Button>
+            ))}
           </div>
         </>
       )}
     </section>
+  );
+}
+
+// Who trained the most this week, and who missed their last two sessions — facts, one tap to
+// the player's card.
+function WeekPlayers({ glance }) {
+  if (!glance.active.length && !glance.missedTwice.length) return null;
+  const chip = (s, extra) => (
+    <Link key={s.id} to={playerPath(s.id)} className="wp-chip">
+      <Avatar person={s} size={24} />
+      <span className="wp-chip-name">{s.name}</span>
+      {extra}
+    </Link>
+  );
+  return (
+    <Block eyebrow="Pelaajat" title="Tällä viikolla">
+      <div className="wp">
+        {glance.active.length > 0 && (
+          <div className="wp-row">
+            <span className="wp-label"><Icon name="flame" size={14} />Ahkerimmat</span>
+            <div className="wp-people">{glance.active.map((a) => chip(a.student, <strong className="wp-chip-count t-num">{a.times} krt</strong>))}</div>
+          </div>
+        )}
+        {glance.missedTwice.length > 0 && (
+          <div className="wp-row">
+            <span className="wp-label is-warn"><Icon name="alert" size={14} />Poissa kahdesti peräkkäin</span>
+            <div className="wp-people">{glance.missedTwice.slice(0, 4).map((s) => chip(s, null))}</div>
+          </div>
+        )}
+      </div>
+    </Block>
   );
 }
 
@@ -267,11 +318,14 @@ export function WeekScreen() {
   const tomorrow = koutsiAddDays(today, 1);
   const hasToday = coachSessionsOn(state, today).length > 0;
   const hasTomorrow = coachSessionsOn(state, tomorrow).length > 0;
+  const week = koutsiCurrentIsoWeek();
+  const glance = useMemo(() => weekGlance(state, week, now), [state, nowMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sessions = (
     <div className="stack-5">
       <TodayTimeline state={state} now={now} />
       {!hasToday && !hasTomorrow && <NextSession state={state} />}
+      <WeekPlayers glance={glance} />
     </div>
   );
   const side = (
@@ -285,7 +339,7 @@ export function WeekScreen() {
     <Page width="wide" className="week-page">
       <div className={isDesktop ? 'week-grid' : 'stack-5'}>
         <div className="stack-5">
-          <CoverageHero state={state} />
+          <WeekHero state={state} glance={glance} week={week} />
           {state.groups.length === 0 && state.students.length === 0 ? <FirstSteps /> : sessions}
         </div>
         {side}

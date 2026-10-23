@@ -520,6 +520,10 @@ export function seed() {
       { id: 'demo-wn-2', ...koutsiAddIsoWeeks(now, -2), score: 5, note: 'Paras viikko tähän asti. Maria löysi syöttöön saman heittokohdan, ja aamupäiväryhmä innostui syöttöharjoituksista.', updatedAt: isoAt(-10, 20) },
       { id: 'demo-wn-3', ...koutsiAddIsoWeeks(now, -1), score: 3, note: 'Junioreista viisi pois maanantaina ja keskiviikkona. Aikuisilla syötön rytmi vaatii vielä toistoja — jatketaan kakkossyötöllä kaksi viikkoa.', updatedAt: isoAt(-3, 20) },
     ],
+    // Tiedotteet (ehdotus): a practical notice to Maria's groups, on their Koti until next Sunday.
+    announcements: [
+      { id: 'demo-an-1', coachId: COACH, text: 'Ensi viikolla treenit ovat kentällä 3, koska kentät 1–2 ovat turnauskäytössä. Kellonajat pysyvät samoina.', groupIds: [G.edisTi, G.edisTo], studentIds: [], until: koutsiAddDays(monday, 13), at: isoAt(0, 9, 15) },
+    ],
     inviteCodes: [],
     joinCode: 'ANNA24',
     emailPref: true,

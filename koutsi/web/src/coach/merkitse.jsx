@@ -28,6 +28,7 @@ import {
 import { useCoach } from './CoachRoot.jsx';
 import { groupPath, openPlanner, sessionPath } from './nav.js';
 import { RecordSheet } from './RecordSheet.jsx';
+import { MerkintaSheet } from './MerkintaSheet.jsx';
 import { DaySummarySheet } from './DaySummarySheet.jsx';
 import { WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { track } from './usage.js';
@@ -334,11 +335,21 @@ export function RecordProvider({ children }) {
     if (n > 1) track('tallennettu.video-monelle');
   };
 
-  const value = useMemo(() => ({ open, openMenu }), [open, openMenu]);
+  // EHDOTUS: the new Merkitse (MerkintaSheet.jsx) — a Tiedote, a Huomio or the Läsnäolo, for a
+  // session's players (trainingId), some players (ids) or whoever the coach picks.
+  const openMerkinta = useCallback(({ trainingId = null, ids = [], kind = null } = {}) => {
+    track('viesti.avaa');
+    setSheet({ kind: 'viesti', trainingId, ids, messageKind: kind });
+  }, []);
+
+  const value = useMemo(() => ({ open, openMenu, openMerkinta }), [open, openMenu, openMerkinta]);
   const kind = sheet?.kind;
   return (
     <RecordContext.Provider value={value}>
       {children}
+      <MerkintaSheet open={kind === 'viesti'} onClose={close} trainingId={last.current.viesti?.trainingId || null}
+        initialIds={last.current.viesti?.ids || []} initialKind={last.current.viesti?.messageKind || null}
+        onVideo={(ids) => setSheet({ kind: 'video', ids })} />
       <MerkitseSheet open={kind === 'menu'} onClose={close} onPick={setSheet} pickedIds={last.current.menu?.trainingIds || []}
         week={Boolean(last.current.menu?.allWeek)} focusId={last.current.menu?.focusId || null}
         onToggleSession={toggleSession} onToggleWeek={toggleWeek} />

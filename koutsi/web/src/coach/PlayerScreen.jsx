@@ -9,7 +9,7 @@ import { Block, Quiet } from '../shared/bits.jsx';
 import { Timeline } from '../shared/Timeline.jsx';
 import { VideoPlayerSheet } from '../shared/videos.jsx';
 import {
-  koutsiAttendanceSummary, koutsiTrainingsForStudent, koutsiThemeForDate, koutsiGroupById, koutsiMonthlySummary, koutsiFmtShortDate,
+  koutsiTrainingsForStudent, koutsiThemeForDate, koutsiGroupById, koutsiMonthlySummary, koutsiFmtShortDate,
 } from '../domain/core.js';
 import { koutsiFmtEventDate } from '../domain/timeline.js';
 import { groupsOf } from '../domain/week.js';
@@ -20,6 +20,10 @@ import { AudienceSheet, EditPlaceholderSheet, MergeSheet, PlaceholderInvite, Tex
 import { useRecord } from './merkitse.jsx';
 import { ambitionById } from '../domain/playerNow.js';
 import { archiveMap, playerOwnsEvent } from '../domain/archive.js';
+import { coachMonthCalendar, playerMonthFacts } from '../domain/glance.js';
+import { itemIcon } from '../domain/monthCal.js';
+import { firstName } from '../domain/roster.js';
+import { ActivityIcon } from '../player/ActivityIcon.jsx';
 
 function LevelSheet({ open, onClose, student }) {
   const { run } = useData();
@@ -119,6 +123,123 @@ function PlayerGoal({ student }) {
   );
 }
 
+const cx = (...c) => c.filter(Boolean).join(' ');
+const WEEKDAYS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+const dec = (x) => (x == null ? '–' : x.toFixed(1).replace('.', ','));
+const MONTHS_SHORT = ['tammi', 'helmi', 'maalis', 'huhti', 'touko', 'kesä', 'heinä', 'elo', 'syys', 'loka', 'marras', 'joulu'];
+/** "Marialle", "Emilille": the name a button speaks to. */
+const toName = (name) => { const f = firstName(name) || name; return /[aeiouyäö]$/i.test(f) ? `${f}lle` : `${f}ille`; };
+
+function DayIcon({ item, size = 15 }) {
+  if (item.kind === 'absent') return <Icon name="close" size={size - 2} strokeWidth={3} />;
+  if (item.kind === 'own' || item.kind === 'coach') return <ActivityIcon activity={item.activity} size={size} />;
+  return <Icon name={itemIcon(item)} size={size} />;
+}
+
+// EHDOTUS (haara koutsi-selkeys): the player's month at one glance, the same for every coach of
+// the player — four numbers (attendance, training days a week with last month beside it, own
+// trainings, feeling) and the month as a calendar: lime = a session they were at, dark = their own
+// training or match, clay = a session they missed. Tap a day for what it held.
+function MonthCard({ state, student, hidden }) {
+  const now = new Date();
+  const [ym, setYm] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  const [picked, setPicked] = useState(null);
+  const cal = useMemo(() => coachMonthCalendar(state, student, ym.year, ym.month, { hidden, now }), [state, student, ym, hidden]); // eslint-disable-line react-hooks/exhaustive-deps
+  const facts = useMemo(() => playerMonthFacts(state, student, ym.year, ym.month, now), [state, student, ym]); // eslint-disable-line react-hooks/exhaustive-deps
+  const isCurrent = ym.year === now.getFullYear() && ym.month === now.getMonth();
+  const shift = (n) => {
+    setPicked(null);
+    setYm(({ year, month }) => { const d = new Date(year, month + n, 1); return { year: d.getFullYear(), month: d.getMonth() }; });
+  };
+  const days = cal.weeks.flat();
+  const lastDone = [...days].reverse().find((d) => d.inMonth && d.items.length);
+  const day = days.find((d) => d.date === picked) || lastDone || null;
+  const { current: c, previous: p } = facts;
+  const prevName = MONTHS_SHORT[(ym.month + 11) % 12];
+  const trend = p.perWeek > 0 ? (c.perWeek > p.perWeek + 0.2 ? 'up' : c.perWeek < p.perWeek - 0.2 ? 'down' : 'same') : null;
+  const kindOf = (d) => {
+    const k = new Set(d.items.map((x) => x.kind));
+    if (k.has('coach')) return 'is-coach';
+    if (k.has('own') || k.has('match') || k.has('tournament')) return 'is-own';
+    if (k.has('entry')) return 'is-entry';
+    if (k.has('absent')) return 'is-absent';
+    return '';
+  };
+  return (
+    <Card className="pc-month">
+      <div className="pc-month-nav">
+        <IconButton icon="chevron-left" label="Edellinen kuukausi" size="sm" onClick={() => shift(-1)} />
+        <span className="pc-month-name">{cal.label}</span>
+        <IconButton icon="chevron-right" label="Seuraava kuukausi" size="sm" disabled={isCurrent} onClick={() => shift(1)} />
+      </div>
+      <div className="pc-facts">
+        <div className="pc-fact">
+          <span className="pc-fact-num t-num">{c.rate == null ? '–' : `${c.rate} %`}</span>
+          <span className="pc-fact-label">läsnä</span>
+          <span className="pc-fact-sub t-num">{c.held ? `${c.present}/${c.held} treeniä` : 'ei treenejä'}</span>
+        </div>
+        <div className="pc-fact">
+          <span className="pc-fact-num t-num">{dec(c.perWeek)}</span>
+          <span className="pc-fact-label">kertaa viikossa</span>
+          <span className={cx('pc-fact-sub', trend && `is-${trend}`)}>
+            {trend === 'up' && <Icon name="arrow-up-right" size={12} strokeWidth={2.6} />}{p.perWeek > 0 ? `${prevName}kuussa ${dec(p.perWeek)}` : 'treenit ja omat'}
+          </span>
+        </div>
+        <div className="pc-fact">
+          <span className="pc-fact-num t-num">{c.own}</span>
+          <span className="pc-fact-label">omaa treeniä</span>
+          <span className="pc-fact-sub">lenkit, sali, ottelut</span>
+        </div>
+        <div className="pc-fact">
+          <span className="pc-fact-num t-num">{dec(c.moodAverage)}</span>
+          <span className="pc-fact-label">fiilis</span>
+          <span className="pc-fact-sub">{c.moods ? `${c.moods} merkintää` : 'ei merkintöjä'}</span>
+        </div>
+      </div>
+      <div className="mc-grid pc-grid" role="grid" aria-label={cal.label}>
+        {WEEKDAYS.map((w) => <span key={w} className="mc-wd" role="columnheader">{w}</span>)}
+        {days.map((d) => {
+          const first = d.items.find((x) => x.kind !== 'absent') || d.items[0];
+          const both = d.items.some((x) => x.kind === 'coach') && d.items.some((x) => x.kind === 'own' || x.kind === 'match');
+          return (
+            <button key={d.date} type="button" role="gridcell" disabled={!d.inMonth}
+              className={cx('pc-day', !d.inMonth && 'is-out', kindOf(d), d.isToday && 'is-today', d.isFuture && 'is-future', day?.date === d.date && 'is-picked')}
+              onClick={() => setPicked(d.date)} aria-label={`${d.day}. ${d.items.length ? d.items.map((x) => `${x.title}${x.kind === 'absent' ? ' (poissa)' : ''}`).join(', ') : 'ei merkintöjä'}`}>
+              <span className="pc-day-num t-num">{d.inMonth ? d.day : ''}</span>
+              {first && <span className="pc-day-icon"><DayIcon item={first} /></span>}
+              {both && <span className="pc-day-dot" aria-hidden="true" />}
+            </button>
+          );
+        })}
+      </div>
+      <div className="pc-legend" aria-hidden="true">
+        <span><i className="pc-sw is-coach" />Valmennus</span>
+        <span><i className="pc-sw is-own" />Oma treeni</span>
+        <span><i className="pc-sw is-absent" />Poissa</span>
+      </div>
+      {day && (
+        <section className="mc-dayinfo" aria-label={koutsiFmtShortDate(day.date)}>
+          <div className="eyebrow">{koutsiFmtShortDate(day.date)}</div>
+          {day.items.length === 0 ? <p className="k-quiet-text">Ei merkintöjä tältä päivältä.</p> : (
+            <ul className="mc-items">
+              {day.items.map((x) => (
+                <li key={`${x.key}-${day.date}`} className={cx('mc-item', `is-${x.kind}`)}>
+                  <span className="mc-item-icon"><DayIcon item={x} size={16} /></span>
+                  <span className="mc-item-main">
+                    <span className="mc-item-title">{x.title}</span>
+                    {x.sub && <span className="mc-item-sub">{x.sub}</span>}
+                  </span>
+                  {x.time && <span className="mc-item-time t-num">{x.time}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+    </Card>
+  );
+}
+
 function Details({ state, student }) {
   const now = new Date();
   const month = koutsiMonthlySummary(state, student.id, now.getFullYear(), now.getMonth());
@@ -175,6 +296,7 @@ export function PlayerScreen({ params }) {
   // (domain/archive.js); the coach's own notes, homework and sessions stay in view.
   const archive = useMemo(() => archiveMap(student?.archive), [student?.archive]);
   const isHidden = useCallback((e) => archive.has(e.id) && playerOwnsEvent(e), [archive]);
+  const hiddenKeys = useMemo(() => new Set(archive.keys()), [archive]);
   if (!student) {
     return (
       <>
@@ -184,7 +306,6 @@ export function PlayerScreen({ params }) {
     );
   }
   const groups = groupsOf(state, student.id);
-  const attendance = koutsiAttendanceSummary(state, student.id);
   const close = () => setSheet(null);
 
   const endCoaching = async () => {
@@ -222,6 +343,7 @@ export function PlayerScreen({ params }) {
             <div className="row wrap k-player-meta">
               {student.ageLabel && <span>{student.ageLabel}</span>}
               <button type="button" className="chip chip-md chip-lime k-level-btn" onClick={() => setSheet({ kind: 'level' })}>{student.level || 'Aseta taso'}<Icon name="chevron-down" size={13} /></button>
+              {ambitionById(student.ambition) && <span className="chip chip-md pc-aim"><Icon name="target" size={13} />{ambitionById(student.ambition).label}</span>}
             </div>
             {groups.length > 0 && (
               <div className="row wrap k-player-groups">
@@ -233,26 +355,11 @@ export function PlayerScreen({ params }) {
 
         {student.isPlaceholder && <PlaceholderInvite student={student} />}
 
-        <div className="k-quick">
-          <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: [student.id], source: 'pelaaja' })}>Huomio</Button>
-          <Button variant="outline" icon="check-circle" onClick={() => record.open('homework', { ids: [student.id], source: 'pelaaja' })}>Kotiläksy</Button>
-          <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: [student.id], source: 'pelaaja' })}>Video</Button>
-        </div>
+        <Button variant="lime" size="lg" block icon="chat" onClick={() => record.openMerkinta({ ids: [student.id], kind: 'huomio' })}>Huomio {toName(student.name)}</Button>
 
-        {attendance.total > 0 && (
-          <Card className="k-attendance">
-            <div className="grow">
-              <div className="k-attendance-rate t-num">{attendance.rate} %</div>
-              <div className="k-faint">läsnä {attendance.present}/{attendance.total} treenissä</div>
-            </div>
-            {attendance.events.length > 0 && (
-              <div className="k-attendance-misses">
-                <div className="field-label">Viimeisimmät poissaolot</div>
-                {attendance.events.slice(0, 3).map((e) => <span key={e.training.id} className="k-faint">{koutsiFmtShortDate(e.training.date)}{e.reportedBy === student.id ? ' · ilmoitti itse' : ''}</span>)}
-              </div>
-            )}
-          </Card>
-        )}
+        <MonthCard state={state} student={student} hidden={hiddenKeys} />
+
+        <PlayerGoal student={student} />
 
         <Segmented ariaLabel="Näkymä" value={tab} onChange={setTab} options={[
           { value: 'kehitys', label: 'Kehitys' },
@@ -261,7 +368,6 @@ export function PlayerScreen({ params }) {
         ]} />
         {tab === 'kehitys' && (
           <div className="stack-4">
-            <PlayerGoal student={student} />
             <Timeline viewer="coach" student={student} trainings={trainings} clubEvents={state.clubEvents} onOpenVideo={setVideo} isHidden={isHidden}
               emptyText="Aikajanalle kertyvät treenit teemoineen, huomiosi, läksyt ja pelaajan omat merkinnät." />
           </div>
