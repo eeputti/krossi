@@ -10,6 +10,7 @@
 
 import { db, isMissingTable, must, selectAll, selectIn } from './client.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
+import { koutsiAddDays, koutsiTodayStr } from '../../domain/core.js';
 import { mapClubEvent, mapCoach, mapExercise, mapGroup, mapRosterStub, mapStudent, mapTraining, mapWeekNote, groupBy } from './map.js';
 
 const fromTable = (table) => db().from(table);
@@ -71,6 +72,21 @@ async function loadArchive(studentIds) {
   }
 }
 
+// Tiedotteet (koutsi_announcements, koutsi/web/sql/20261023120000_koutsi_announcements.sql). An
+// addition like the week diary: without the table both apps open as before and
+// `announcementsReady` keeps the Tiedote choice hidden. RLS decides whose rows a player gets.
+function mapAnnouncement(r) {
+  return { id: r.id, coachId: r.coach_id, text: r.body, groupIds: r.group_ids || [], studentIds: r.student_ids || [], until: r.until, at: r.created_at };
+}
+async function loadAnnouncements(narrow) {
+  const { data, error } = await narrow(fromTable('koutsi_announcements').select('id, coach_id, body, group_ids, student_ids, until, created_at'));
+  if (error) {
+    if (!isMissingTable(error)) console.warn('announcements unavailable:', error.message || error);
+    return { rows: [], ready: !isMissingTable(error) };
+  }
+  return { rows: (data || []).map(mapAnnouncement), ready: true };
+}
+
 export async function loadCoachState(coachId) {
   const [coachRow, profileRow] = await Promise.all([
     fromTable('koutsi_coaches').select('id, tagline, bio, experience, specialties, welcome_seen_at').eq('id', coachId).single().then(must),
@@ -87,7 +103,7 @@ export async function loadCoachState(coachId) {
 
   const [
     studentRows, studentProfiles, groupRows, exerciseRows, eventRows, ownTrainingRows, playerLogRows,
-    diary, homework, videos, moods, matchNotes, history, weekNotes, entries, archive,
+    diary, homework, videos, moods, matchNotes, history, weekNotes, entries, archive, notices,
   ] = await Promise.all([
     selectIn(studentIds, (ids) => fromTable('koutsi_students').select('*').in('id', ids)),
     selectIn(studentIds, (ids) => fromTable('profiles').select('id, name, avatar_url, age').in('id', ids)),
@@ -106,6 +122,7 @@ export async function loadCoachState(coachId) {
     loadWeekNotes(coachId),
     loadEntries(studentIds),
     loadArchive(studentIds),
+    loadAnnouncements((q) => q.eq('coach_id', coachId).gte('until', koutsiAddDays(koutsiTodayStr(), -30)).order('created_at', { ascending: false })),
   ]);
 
   const trainingRows = [...ownTrainingRows, ...playerLogRows];
@@ -132,6 +149,8 @@ export async function loadCoachState(coachId) {
     weekNotes,
     entriesReady: entries.ready,
     archiveReady: archive.ready,
+    announcements: notices.rows,
+    announcementsReady: notices.ready,
   });
 }
 
@@ -155,7 +174,7 @@ export async function loadPlayerState(studentId) {
 
   const [
     coachRows, coachProfiles, groupRows, rosterRows, themeRows, slotRows, exerciseRows, eventRows,
-    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history, entries, moodSessions, archive,
+    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history, entries, moodSessions, archive, notices,
   ] = await Promise.all([
     selectIn(coachIds, (ids) => fromTable('koutsi_coaches').select('*').in('id', ids)),
     selectIn(coachIds, (ids) => fromTable('profiles').select('id, name, avatar_url').in('id', ids)),
@@ -176,6 +195,7 @@ export async function loadPlayerState(studentId) {
     loadEntries([studentId]),
     moodSessionsReady(),
     loadArchive([studentId]),
+    loadAnnouncements((q) => q.gte('until', koutsiTodayStr()).order('created_at', { ascending: false })),
   ]);
 
   const trainingRows = [...ownTrainings, ...groupTrainings.filter((t) => !ownTrainings.some((o) => o.id === t.id))];
@@ -205,5 +225,7 @@ export async function loadPlayerState(studentId) {
     moodSessionsReady: moodSessions,
     archiveReady: archive.ready,
     longGoalReady: 'long_goal' in studentRow,
+    announcements: notices.rows,
+    announcementsReady: notices.ready,
   };
 }

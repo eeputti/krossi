@@ -58,7 +58,14 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
+}
+
+/** The notices a player sees: to one of their groups or to them, still in date. */
+function announcementsFor(s, me, groupIds) {
+  const today = koutsiTodayStr();
+  return (s.announcements || []).filter((a) => a.until >= today
+    && ((a.groupIds || []).some((id) => groupIds.has(id)) || (a.studentIds || []).includes(me.id)));
 }
 
 function playerState(studentId) {
@@ -72,7 +79,7 @@ function playerState(studentId) {
   const groupIds = new Set(groups.map((g) => g.id));
   // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
   const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
-  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, announcements: announcementsFor(s, me, groupIds), announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
 }
 
 function hideHiddenMoods(snapshot) {
@@ -593,6 +600,19 @@ export const backend = {
       added.forEach((t) => S().exercises.push({ id: newId('e'), coachId: COACH, ...t, video: null }));
       return added.length;
     },
+  },
+
+  announcements: {
+    async add(coachId, { text, groupIds = [], studentIds = [], until }) {
+      await wait();
+      const body = (text || '').trim();
+      if (!body) throw new ApiError('Kirjoita tiedote.');
+      if (!groupIds.length && !studentIds.length) throw new ApiError('Valitse, kenelle tiedote menee.');
+      const row = { id: newId('an'), coachId, text: body, groupIds: [...groupIds], studentIds: [...studentIds], until: until || koutsiTodayStr(), at: nowIso() };
+      S().announcements = [row, ...(S().announcements || [])];
+      return { id: row.id };
+    },
+    async remove(id) { await wait(); S().announcements = (S().announcements || []).filter((a) => a.id !== id); },
   },
 
   events: {
