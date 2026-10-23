@@ -14,6 +14,7 @@ import { SetPasswordSheet } from '../screens/auth/SetPasswordSheet.jsx';
 import { AppShell } from './AppShell.jsx';
 import { SiteShell } from './SiteShell.jsx';
 import { AFTER_PAYMENT_KEY } from './checkout.jsx';
+import { peekBookingReturn, takeBookingReturn, useClaimVisitBookings } from './bookingAccount.js';
 import { PaywallProvider, usePaywall } from './paywall.jsx';
 import { configureRouter, navigate, useRoute } from './router.js';
 import { SessionProvider, useSession } from './session.jsx';
@@ -33,7 +34,7 @@ export { store as authStore };
 // A remembered destination only counts for a while: a stale one would otherwise fire much later
 // for whoever signs in next in this browser. Stored as "<ms>|<path>".
 const AFTER_AUTH_TTL_MS = 2 * 60 * 60 * 1000;
-function rememberAfterAuth(path) { store.set(AFTER_AUTH_KEY, `${Date.now()}|${path}`); }
+export function rememberAfterAuth(path) { store.set(AFTER_AUTH_KEY, `${Date.now()}|${path}`); }
 /** The remembered destination if it's still fresh (doesn't consume it). */
 export function peekAfterAuth() {
   const [at, path] = String(store.get(AFTER_AUTH_KEY) || '').split('|');
@@ -154,11 +155,25 @@ function useStripeReturn() {
   }, [route.query.stripe, route.query.payment_intent, route.query.redirect_status, route.path, user, refreshProfile, toast, openPaywall]);
 }
 
+// The app's own booking pages that look like the booking site for somebody without a finished
+// Krossi profile: a court can be booked with just an account (or none), onboarding comes with Peliseura.
+const SITE_LOOK = new Set(['booking', 'bookingVenue']);
+
 function Gate() {
   const session = useSession();
   const route = useRoute();
   useStripeReturn();
   useAuthLinkError();
+  useClaimVisitBookings();
+
+  // Back from Google / Apple to the booking page the sign-in started from (bookingAccount.js).
+  const bookingReturn = session.user && !session.loading ? peekBookingReturn() : null;
+  useEffect(() => {
+    if (!bookingReturn) return;
+    takeBookingReturn();
+    if (bookingReturn !== route.path) navigate(bookingReturn, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookingReturn]);
 
   // Remember shared-link destinations for after sign-in, and invite codes for after onboarding.
   useEffect(() => {
@@ -178,16 +193,21 @@ function Gate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.user, session.profile, session.needsOnboarding]);
 
-  if (session.loading) return <Splash />;
+  const siteLook = route.route?.type === 'site' || SITE_LOOK.has(route.name);
+  // A sign-in on the booking site reloads the profile: the page (and its open booking sheet) stays.
+  if (session.loading && !(session.ready && siteLook)) return <Splash />;
+  if (bookingReturn && bookingReturn !== route.path) return <Splash />;
   // A court's payment link works without an account (and before onboarding).
   if (route.name === 'splitPay' && (!session.user || session.needsOnboarding)) {
     return <SplitPayScreen params={route.params} query={route.query} standalone />;
   }
-  // The booking site and a guest's own booking page need no account (nor onboarding), and without
-  // one the app's own booking page looks like the site: a court is booked with a name and an email.
-  if ((route.route?.type === 'site' && (!session.user || session.needsOnboarding))
-    || (!session.user && (route.name === 'booking' || route.name === 'bookingVenue'))) {
-    return <SiteShell />;
+  // The booking site and a guest's own booking page need no account (nor onboarding), and without a
+  // finished profile the app's own booking page looks like the site: a court is booked with a name and
+  // an email, or with a quick account (just a name) — and its Omat varaukset too. While a sign-in loads,
+  // the site stays. SiteShell is always the fragment's first child, so it isn't remounted between these.
+  if ((siteLook && (!session.user || session.needsOnboarding || session.loading))
+    || (session.user && session.profile && session.needsOnboarding && route.name === 'myBookings')) {
+    return <><SiteShell /></>;
   }
   if (!session.user) {
     if (route.name === 'game') return <PublicGameScreen params={route.params} query={route.query} />;

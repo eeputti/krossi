@@ -41,13 +41,23 @@ export const API_CONTRACT = {
   // the Kehitys page's own entries (koutsi_player_entries); every linked coach reads them.
   player: ['fetchRow', 'load', 'subscribe', 'markWelcomeSeen', 'saveGoal', 'saveNote', 'saveWish', 'saveAge',
     'addMood', 'updateMood', 'setMoodHidden', 'deleteMood', 'addMatchNote', 'updateMatchNote', 'deleteMatchNote',
-    'addSelfTraining', 'updateSelfTraining', 'deleteSelfTraining', 'saveAim', 'addEntry', 'updateEntry', 'deleteEntry'],
+    'addSelfTraining', 'updateSelfTraining', 'deleteSelfTraining', 'saveAim', 'addEntry', 'updateEntry', 'deleteEntry',
+    'archiveItem', 'unarchiveItem', 'forgetArchived', 'deleteHistory'],
 
   // A coach's roster.
   students: ['create', 'bulkSetup', 'setLevel', 'updatePlaceholder', 'endCoaching', 'merge', 'deletePlaceholder',
     'placeholderJoinCode'],
 
   groups: ['create', 'update', 'remove', 'addMembers', 'removeMember', 'addSlot', 'deleteSlot', 'extendSeries'],
+
+  // Seasons — "Uusi kausi" (domain/season.js). CoachState carries `seasons` ([{ id, name, startsOn,
+  // endsOn, breaks }]), groups a `seasonId`, the unpublished `seasonDraft` and `seasonsReady`
+  // (false until the backend has seasons; the feature stays hidden). saveDraft(coachId, draft) keeps
+  // the next season unseen by players; publish(coachId, draft) → { seasonId, groups, sessions } creates
+  // the new season's groups, memberships and sessions at once (the old season stays as it was) and
+  // sends each player one notification; removeDraft(coachId) throws the draft away;
+  // update(seasonId, { name?, endsOn?, breaks? }) — "Muokkaa kautta" (the calendar is extended separately).
+  seasons: ['saveDraft', 'removeDraft', 'publish', 'update'],
 
   // save(rows: [{ groupId, year, week, title, lead }], { onlyNew }) → rows written.
   themes: ['save', 'remove'],

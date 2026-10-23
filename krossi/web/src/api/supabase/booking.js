@@ -532,8 +532,17 @@ export async function guestBooking(token) {
       holdMinutes: number(data.venue?.holdMinutes, 10),
     },
     cancelledByGuest: data.cancelledByGuest === true,
+    claimed: data.claimed === true,
     lostMessage: text(data.lost),
   };
+}
+
+/** Moves a confirmed guest booking to my account (the link's token is the proof). */
+export async function claimGuest(token) {
+  await requireUid();
+  if (!GUEST_TOKEN_RE.test(String(token || ''))) throw fail('Varausta ei löytynyt.');
+  const data = await call('krossi_claim_guest_booking', { token_input: token }, 'Varausta ei voitu liittää tiliisi.');
+  return mapBooking(data);
 }
 
 /** Cancels the guest's booking before cancellableUntil: back to the card minus the 1 € peruutuskulu. */

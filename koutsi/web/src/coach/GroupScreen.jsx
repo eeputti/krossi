@@ -123,7 +123,7 @@ export function GroupScreen({ params }) {
   const record = useRecord();
   const nowMs = useNow(60_000);
   const [sheet, setSheet] = useState(null); // 'edit' | 'slot' | 'members' | 'invite' | 'extend'
-  const group = state.groups.find((g) => g.id === params.id);
+  const group = (state.allGroups || state.groups).find((g) => g.id === params.id);
   if (!group) {
     return (
       <>

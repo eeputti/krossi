@@ -38,6 +38,9 @@ export function mountApp({ canon, home, routes, appName, Root }) {
     url.searchParams.delete('uusi');
     window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
   }
+  // The shell opened by its file name (a preview version on workers.dev has no Koutsi routes):
+  // start from the home page instead of "page not found".
+  if (/\.html$/.test(url.pathname)) window.history.replaceState(window.history.state, '', home + url.search + url.hash);
   const prefix = /^\/demo(\/|$)/.test(window.location.pathname) ? '/demo' : '';
   configureRouter({ canon, home, routes, prefix });
   createRoot(document.getElementById('root')).render(

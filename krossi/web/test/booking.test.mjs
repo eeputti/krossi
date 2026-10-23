@@ -642,7 +642,7 @@ test('guest: name + email, "pay", the booking\'s own page, cancel with the 1 €
   assert.deepEqual(await api.booking.guestPaymentIntent(token), { paid: true });
   assert.deepEqual(await api.booking.guestVerify(token, 'pi_demo'), { confirmed: true, status: 'succeeded' });
   const page = await api.booking.guestBooking(token);
-  assert.deepEqual(Object.keys(page).sort(), ['booking', 'cancelledByGuest', 'guest', 'lostMessage', 'venue']);
+  assert.deepEqual(Object.keys(page).sort(), ['booking', 'cancelledByGuest', 'claimed', 'guest', 'lostMessage', 'venue']);
   assert.equal(page.booking.status, 'confirmed');
   assert.deepEqual(page.guest, { name: 'Ville Vieras', email: 'ville@example.com' });
   assert.equal(page.venue.slug, v.slug);
@@ -654,6 +654,22 @@ test('guest: name + email, "pay", the booking\'s own page, cancel with the 1 €
   assert.equal(after.booking.status, 'cancelled');
   assert.equal(after.cancelledByGuest, true);
   assert.deepEqual(await api.booking.guestCancel(token), { refundedCents: 0, feeCents: 0 });
+});
+
+test('guest: claimGuest moves a confirmed booking to the account; the link then refuses to cancel it', async () => {
+  const v = await venue();
+  const slot = await freeTennis(v, next(6));
+  const held = await api.booking.guestHold({ courtId: slot.court.id, startsAt: slot.startsAt, minutes: 60, name: 'Ville', email: 'v@x.fi' });
+  await assert.rejects(api.booking.claimGuest(held.token), (err) => /voimassa olevan/.test(err.userMessage));
+  await api.booking.guestPaymentIntent(held.token);
+  assert.equal((await api.booking.guestBooking(held.token)).claimed, false);
+  const moved = await api.booking.claimGuest(held.token);
+  assert.equal(moved.id, held.booking.id);
+  assert.equal(moved.status, 'confirmed');
+  assert.equal((await api.booking.guestBooking(held.token)).claimed, true);
+  assert.ok((await api.booking.listMine()).upcoming.some((b) => b.id === held.booking.id));
+  await assert.rejects(api.booking.guestCancel(held.token), (err) => /Krossi-tililläsi/.test(err.userMessage));
+  await assert.rejects(api.booking.claimGuest('x'.repeat(24)), (err) => err.code === 'not_found');
 });
 
 test('guest: closing the payment releases the hold; an unknown link is not found', async () => {

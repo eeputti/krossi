@@ -5,6 +5,8 @@ import { backend } from './api/demo/index.js';
 import { configureDemoWorld } from './api/demo/store.js';
 import { mountApp } from './app/App.jsx';
 
-configureDemoWorld({ courts: 'outdoor' });
+// The booking site's visitor is new to the courts: no bookings, cards or saldo of the demo player's.
+const onSite = /^\/varaa(\/|$)/.test(window.location.pathname);
+configureDemoWorld({ courts: 'outdoor', visitor: onSite ? 'new' : null });
 installBackend(backend, { demo: true });
 mountApp({ demo: true });

@@ -29,6 +29,7 @@ export function mapGroup(g, memberIds, themeRows, slotRows) {
   return {
     id: g.id, coachId: g.coach_id, name: g.name, level: g.level, day: g.weekday, time: g.time ? g.time.slice(0, 5) : '',
     durationMinutes: g.duration_minutes || 60,
+    seasonId: g.season_id || null, continuesFrom: g.continues_from || null,
     memberIds,
     slots,
     themes,
@@ -87,11 +88,11 @@ function splitHistory(historyRows, studentId) {
     .map((h) => ({ id: h.id, at: h.created_at, field: h.field || 'goal', value: h.value || '', previousValue: h.previous_value || '', byPlayer: h.changed_by === studentId }))
     .sort(newestFirst);
   const of = (field) => mine.filter((h) => h.field === field);
-  return { goalHistory: of('goal'), wishHistory: of('wish'), noteHistory: of('note'), longGoalHistory: of('long_goal') };
+  return { goalHistory: of('goal'), wishHistory: of('wish'), noteHistory: of('note'), longGoalHistory: of('long_goal'), ambitionHistory: of('ambition') };
 }
 
 export function mapStudent(studentRow, profileRow, rows) {
-  const { diary = [], homework = [], videos = [], moods = [], matchNotes = [], history = [], entries = [] } = rows;
+  const { diary = [], homework = [], videos = [], moods = [], matchNotes = [], history = [], entries = [], archive = [] } = rows;
   const id = studentRow.id;
   const age = koutsiStudentAge(studentRow, profileRow);
   const videoRecipients = new Map();
@@ -140,6 +141,8 @@ export function mapStudent(studentRow, profileRow, rows) {
     })).sort((a, b) => String(b.date).localeCompare(String(a.date))),
     ...splitHistory(history, id),
     // Newest day first; on the same day the latest written first.
+    // Kehitys items the player moved to their archive (domain/archive.js), keyed by timeline id.
+    archive: mine(archive).map((a) => ({ key: a.item_key, archivedAt: a.archived_at, removedAt: a.removed_at || null })),
     entries: mine(entries).map((e) => ({ id: e.id, at: e.created_at, date: e.date, text: e.text || '', how: e.how || '' }))
       .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.at).localeCompare(String(a.at))),
   };
@@ -180,4 +183,12 @@ export function groupBy(rows, key) {
 
 export function mapWeekNote(n) {
   return { id: n.id, year: n.iso_year, week: n.iso_week, score: n.score, note: n.note || '', updatedAt: n.updated_at || n.created_at || null };
+}
+
+/** koutsi_seasons row → Season (domain/season.js). */
+export function mapSeason(row) {
+  return {
+    id: row.id, coachId: row.coach_id, name: row.name, startsOn: row.starts_on, endsOn: row.ends_on,
+    breaks: Array.isArray(row.breaks) ? row.breaks : [],
+  };
 }

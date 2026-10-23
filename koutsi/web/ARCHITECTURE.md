@@ -153,6 +153,34 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   false`) ne pysyvät piilossa. Molemmat tulevat migraatiosta
   `supabase/migrations/20261021083503_koutsi_long_goal_and_mood_session.sql` (ajettu 21.10.2026 käyttäjän luvalla).
 
+- Kehityksen arkisto ja kalenteri (`domain/archive.js`, `domain/monthCal.js`, `player/ArchiveSheet.jsx`,
+  `player/MonthSheet.jsx`): aikajanan "Muokkaa"-tilassa jokaisen rivin voi piilottaa; se siirtyy pelaajan omaan
+  Arkistoon (taulu `koutsi_timeline_archive`, avain = aikajanan tapahtuman id). Pelaajan itse tekemät (fiilis,
+  ottelu, merkintä, oma treeni, oma video, tavoite-/toivemuutos) katoavat myös valmentajan sovelluksesta
+  (`coachViewOfArchives` latauksessa); valmentajan omat (huomiot, läksyt, treenit) jäävät valmentajalle.
+  Arkistosta: Palauta tai Poista (omat poistetaan pysyvästi, valmentajan merkinnät vain arkistosta).
+  Tavoitteen, pitkän ajan tavoitteen ja tähtäimen (`field = 'ambition'`) muutokset ovat aikajanalla pieninä
+  riveinä "vanha → uusi". "Tämä viikko" -kortti avaa kuukausikalenterin: mitä kunakin päivänä tehtiin.
+  Migraatio `supabase/migrations/20261021085606_koutsi_timeline_archive.sql` (ajettu 21.10.2026 käyttäjän
+  luvalla); tietokannassa ilman taulua `archiveReady: false` ja Muokkaa/Arkisto pysyvät piilossa.
+
+- Kaudet ja "Uusi kausi" (`domain/season.js`, `coach/SeasonSheet.jsx`, migraatio
+  `sql/20261026120000_koutsi_seasons.sql` — EI vielä ajettu, ajetaan vain käyttäjän "aja migraatio" -luvalla):
+  kausi = nimi, alku, loppu ja taukopäivät (`koutsi_seasons`), ryhmällä `season_id` ja `continues_from`.
+  Seuraavan kauden ryhmät ovat UUSIA rivejä: päättyvän kauden ryhmät, jäsenet, treenit, läsnäolot ja teemat
+  jäävät ennalleen, eikä vanhoja jäsenyyksiä päätetä (`koutsi_is_group_member` vaatii `ended_at is null`, joten
+  pelaaja menettäisi omat menneet treeninsä). Sovellus näyttää listoissa kunkin valmentajan aktiivisen kauden
+  ryhmät (`seasonView` DataProviderissa: käynnissä oleva, tauolla seuraava, muuten viimeisin); `allGroups`
+  sisältää kaikki, ja id-haut (`koutsiGroupById`, treenin ryhmä) käyttävät sitä. Luonnos on valmentajan oma rivi
+  (`koutsi_season_drafts`), julkaisu yksi RPC (`koutsi_publish_season`): kausi, ryhmät, jäsenet, uudet
+  paikkapelaajat ja treenit kerralla, rivikohtaiset treeni-ilmoitukset vaimennettuna, sitten yksi ilmoitus per
+  pelaaja. Uusi ryhmä liittyy valmentajan nykyiseen kauteen triggerillä (`koutsi_current_season`), vanhan kauden
+  ryhmälinkki liittää jatkoryhmään (`koutsi_latest_group` redeemissä). Ominaisuus näkyy, kun
+  `koutsi_seasons_enabled()` (beta-testaajat ja ylläpitäjät ensin) — kaikille avaaminen = funktion vaihto.
+  Kodin kortti 56 pv ennen kauden loppua: Suunnittele kevät / Jatka suunnittelua / julkaistu + "Muuta loppua"
+  (`SeasonEditSheet`: kauden pidennys jatkaa vain kauden loppuun asti ulottuvien ryhmien kalenterin).
+  Ryhmän luonnissa "Kauden loppuun (n vk)" on oletus. Ilman migraatiota `seasonsReady: false` ja kaikki on piilossa.
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)

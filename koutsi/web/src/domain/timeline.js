@@ -3,6 +3,7 @@
 // trainings with their week's theme, club events). Ported from the old lib/koutsi-timeline.jsx
 // builder unchanged; only the presentation is new (shared/Timeline.jsx).
 import { activityById, ownEntry } from './ownWeek.js';
+import { ambitionById } from './playerNow.js';
 import {
   koutsiDateFromStr, koutsiTodayStr, koutsiFmtShortDate, koutsiTournamentLabel,
   KOUTSI_MONTHS, KOUTSI_ABSENCE_REASON_LABELS,
@@ -85,6 +86,15 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
     body: g.value || '(tavoite tyhjennetty)',
     previous: g.previousValue || '',
     search: `${g.value || ''} ${g.previousValue || ''} tavoite pitkän ajan`,
+  }));
+
+  // "Mihin tähtäät?" (just for fun … to the top): each change of the aim, like the goals.
+  (student.ambitionHistory || []).forEach((g) => push({
+    id: `aim-${g.id}`, kind: 'goal', at: g.at, source: g,
+    title: g.previousValue ? 'Tähtäin vaihtui' : 'Tähtäin asetettu',
+    body: ambitionById(g.value)?.label || '(tähtäin poistettu)',
+    previous: ambitionById(g.previousValue)?.label || '',
+    search: `${ambitionById(g.value)?.label || ''} ${ambitionById(g.previousValue)?.label || ''} tavoite tähtäin`,
   }));
 
   // The player's own "what I did, when and how it went". It sits on the day it happened.
@@ -191,7 +201,7 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
       title: absence ? `${t.type} — ${reason}` : named ? own.title : t.type,
       body: [t.groupName || '', t.themeTitle ? `Teema: ${t.themeTitle}` : '', own && t.durationMinutes ? `${t.durationMinutes} min` : '',
         own ? (named ? own.text : (t.notes || '').trim()) : '', absence?.note || '', tournamentSummary].filter(Boolean).join(' · '),
-      time: t.time, absent: !!absence,
+      time: t.time, absent: !!absence, own: t.loggedBy === 'player', trainingId: t.id,
       search: `${t.type} ${t.groupName || ''} treeni ${reason} ${absence?.note || ''} ${t.themeTitle || ''} ${t.loggedBy === 'player' ? t.notes || '' : ''}`,
     });
   });

@@ -47,7 +47,7 @@ export function SessionScreen({ params }) {
       </>
     );
   }
-  const group = training.groupId ? state.groups.find((g) => g.id === training.groupId) : null;
+  const group = training.groupId ? (state.allGroups || state.groups).find((g) => g.id === training.groupId) : null;
   const roster = sessionRoster(state, training);
   const absentIds = new Set((training.absences || []).map((a) => a.studentId));
   const status = sessionStatus(training, group);

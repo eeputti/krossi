@@ -21,13 +21,17 @@ export const PHONE_TABS = [...TABS, { id: 'harjoitteet', label: 'Harjoitteet', i
 export const ROUTES = [
   { name: 'week', pattern: '/valmentaja/koti', tab: 'koti', type: 'tab' },
   { name: 'planner', pattern: '/valmentaja/teemat', tab: 'koti', type: 'overlay' },
+  // "Uusi kausi": the next season as a copy of the current one (SeasonSheet)
+  { name: 'season', pattern: '/valmentaja/kausi', tab: 'koti', type: 'overlay' },
   { name: 'groups', pattern: '/valmentaja/ryhmat', tab: 'ryhmat', type: 'tab' },
   { name: 'group', pattern: '/valmentaja/ryhma/:id', tab: 'ryhmat', type: 'page' },
   { name: 'players', pattern: '/valmentaja/pelaajat', tab: 'pelaajat', type: 'tab' },
   { name: 'player', pattern: '/valmentaja/pelaaja/:id', tab: 'pelaajat', type: 'page' },
   { name: 'invites', pattern: '/valmentaja/kutsut', tab: 'pelaajat', type: 'overlay' },
   { name: 'session', pattern: '/valmentaja/treeni/:id', tab: 'ryhmat', type: 'page' },
-  { name: 'exercises', pattern: '/valmentaja/harjoitteet', tab: 'harjoitteet', type: 'page' },
+  // a tab, not a page: on a phone it is the fourth tab, so it lights its own icon instead of
+  // keeping the previous tab lit (on a desktop the side nav lights its Harjoitepankki link)
+  { name: 'exercises', pattern: '/valmentaja/harjoitteet', tab: 'harjoitteet', type: 'tab' },
   { name: 'exercise', pattern: '/valmentaja/harjoite/:id', tab: 'harjoitteet', type: 'page' },
   { name: 'profile', pattern: '/valmentaja/profiili', tab: 'profiili', type: 'tab' },
   { name: 'admin', pattern: '/valmentaja/yllapito', tab: 'profiili', type: 'page' },

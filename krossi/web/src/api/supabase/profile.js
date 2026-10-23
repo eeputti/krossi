@@ -74,6 +74,31 @@ export async function saveMine(uid, input) {
   return saved;
 }
 
+/**
+ * Just enough of a profile to book a court with an account (the booking site's quick account): a name and
+ * the hall's city. No tennis_preferences, so needsOnboarding stays true and Peliseura asks the rest first;
+ * hidden from the player lists until onboarding saves the profile. An existing profile is left as it is.
+ */
+export async function createForBooking({ name, city } = {}) {
+  const clean = String(name || '').replace(/\s+/g, ' ').trim();
+  if (clean.length < 2) throw new ApiError('Kirjoita nimesi.', { code: 'invalid' });
+  if (clean.length > 80) throw new ApiError('Nimi on liian pitkä.', { code: 'invalid' });
+  const id = await requireUid();
+  const fail = 'Tilin luonti epäonnistui. Yritä uudelleen.';
+  const existing = unwrap(await db().from('profiles').select('id').eq('id', id).maybeSingle(), fail);
+  if (!existing) {
+    const area = CITIES.includes(city) ? city : CITIES[0];
+    unwrap(await db().from('profiles').insert({ id, name: clean, area, hidden_from_feed: true }), fail);
+    const { error: metaError } = await db().auth.updateUser({
+      data: { display_name: clean, full_name: clean, krossi_booking_profile: true },
+    });
+    if (metaError) console.warn('Käyttäjän nimen päivitys kirjautumistietoihin epäonnistui', metaError);
+  }
+  const saved = await getMine(id);
+  if (!saved) throw new ApiError(fail);
+  return saved;
+}
+
 async function replaceAvailability(uid, slots, fail) {
   unwrap(await db().from('availability').delete().eq('user_id', uid), fail);
   const unique = [...new Set(slots)];

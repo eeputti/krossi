@@ -380,6 +380,8 @@
 // @property {{name:string, email:string}} guest
 // @property {{slug:string, name:string, cancelLimitHours:number, holdMinutes:number}} venue
 // @property {boolean} cancelledByGuest        the guest cancelled it (the peruutuskulu was kept)
+// @property {boolean} claimed                 the guest moved it to their Krossi account (claimGuest): it is handled
+//                                            in Omat varaukset now, the link only shows it
 // @property {string|null} lostMessage         the payment came too late and the court went to somebody else (refunded)
 //
 // @typedef {Object} BookingCredit             sarjakortti / saldo on a booking
@@ -770,6 +772,9 @@ export const API_CONTRACT = {
     'isAdmin',             // () -> boolean
     'myEventCities',       // () -> string[]   cities where I may create events (admin = all)
     'getKoutsiAgeGroup',   // () -> 'adult'|'junior_13_17'|'child_under_13'|null   (Koutsi pilot age group of a shared account)
+    'createForBooking',    // ({ name, city }) -> Profile   just a name (and the hall's city) when there is no profile yet: enough to book a
+                           //   court with the account. No Krossi player data, so onboarding still asks the rest before Peliseura; hidden
+                           //   from the player lists until then. An existing profile is returned as it is.
     'deleteAccount',       // () -> void   (also signs out)
   ],
   players: [
@@ -917,6 +922,8 @@ export const API_CONTRACT = {
     'guestRelease',        // (token) -> void   the guest closed the payment: the hold ends now (a payment still arriving takes the court if free)
     'guestBooking',        // (token) -> GuestBooking|null   the guest's page; a payment that went through meanwhile is recorded first
     'guestCancel',         // (token) -> { refundedCents, feeCents }   before cancellableUntil; back to the card minus the 1 € peruutuskulu
+    'claimGuest',          // (token) -> Booking   signed in (with a profile): a confirmed guest booking moves to my account (Omat varaukset);
+                           //   the token is the proof. Again by me: the same booking; another account's: refused
   ],
   seasons: [
     'list',                // (venueId) -> Season[]   seasons not over yet, soonest first; works without a session

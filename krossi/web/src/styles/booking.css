@@ -325,3 +325,27 @@
 .bk-guest { display: grid; gap: 8px; }
 .bk-guest .bk-fine { padding: 0 2px; }
 .bk-paybox.is-locked > * { opacity: 0.45; pointer-events: none; transition: opacity 0.15s ease; }
+
+/* without an account: Luo tili ja varaa / Varaa ilman tiliä / Kirjaudu */
+.bk-who { display: grid; gap: 10px; }
+.bk-who-login { margin: 2px 0 0; text-align: center; font-size: 14px; color: var(--ink-2); }
+
+/* the demo's payment: a stand-in for the payment details, then OK */
+.bk-demo-pay {
+  display: grid; justify-items: center; gap: 6px; padding: 32px 20px; text-align: center;
+  border: 1.5px dashed var(--line); border-radius: var(--r-lg); background: var(--surface-2);
+}
+.bk-demo-pay-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); }
+.bk-demo-pay-title { margin: 6px 0 0; font-size: 17px; font-weight: 800; color: var(--ink); }
+.bk-demo-pay-methods { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+
+/* AccountSheet: Luo tili / Kirjaudu on the booking site */
+.acct { display: grid; gap: 10px; }
+.acct .auth-divider { margin: 8px 0 2px; }
+.acct-form { display: grid; gap: 10px; }
+.acct-switch { margin: 4px 0 0; text-align: center; font-size: 14px; color: var(--ink-2); }
+.acct-msg { display: flex; gap: 8px; align-items: flex-start; margin: 0; font-size: 13.5px; font-weight: 600; line-height: 1.45; color: var(--ink-2); }
+.acct-msg svg { flex-shrink: 0; margin-top: 1px; color: var(--green-700, var(--ink-2)); }
+.acct-msg.is-error { color: var(--danger, #c0392b); }
+.acct-msg.is-error svg { color: currentColor; }
+.bk-name { display: grid; gap: 8px; }

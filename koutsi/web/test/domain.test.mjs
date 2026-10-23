@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { koutsiTodayStr, koutsiAddDays, koutsiCurrentIsoWeek, koutsiAddIsoWeeks } from '../src/domain/core.js';
 import {
   sessionStatus, calendarEndings, themeWeekRelative, themeWeekLabel, merkitseContext, attendanceSession, presentPlayerIds,
-  todayTimeline, minutesLabel, groupWeekBoard, weekDates, playerSections, sessionWhen,
+  todayTimeline, minutesLabel, groupWeekBoard, weekDates, playerSections, sessionWhen, presentPlayerIdsOf, weekGroups, groupMemberIds,
 } from '../src/domain/week.js';
 import { upcomingSessions, checkInCandidate } from '../src/domain/player.js';
 import { koutsiBuildTimeline } from '../src/domain/timeline.js';
@@ -200,6 +200,24 @@ test('a note after a session goes to the players who were there; Läsnäolo open
   assert.equal(attendanceSession(state, at('14:00')).training.id, 't1', "today's latest held session");
   assert.equal(attendanceSession(state, at('08:00')).training.id, 't1', "before anything: today's next one");
   assert.equal(attendanceSession({ ...state, trainings: [] }, at('12:00')), null);
+});
+
+test('a note for several sessions reaches each player there once; the week button finds the week\'s groups', () => {
+  const g1 = { ...group, memberIds: ['s1', 's2'] };
+  const g2 = { ...group, id: 'g2', name: 'keskiviikon keijot', memberIds: ['s2', 's3', 'gone'] };
+  const g3 = { ...group, id: 'g3', name: 'ensi viikon ryhmä', memberIds: ['s3'] };
+  const students = [student(), student({ id: 's2', name: 'Leo K.' }), student({ id: 's3', name: 'Ella M.' })];
+  const a = session('a', today, '09:00', { absences: [{ studentId: 's1', reason: 'poissa' }] });
+  const b = session('b', today, '17:00', { groupId: 'g2' });
+  const week = koutsiCurrentIsoWeek();
+  const nextMonday = weekDates(koutsiAddIsoWeeks(week, 1))[0];
+  const state = {
+    groups: [g1, g2, g3], students,
+    trainings: [a, b, session('c', nextMonday, '10:00', { groupId: 'g3' }), session('own', today, '12:00', { loggedBy: 'player', groupId: 'g3' })],
+  };
+  assert.deepEqual(presentPlayerIdsOf(state, [a, b]), ['s2', 's3'], 's1 was away, s2 is in both groups but gets one copy');
+  assert.deepEqual(weekGroups(state, week).map((g) => g.id).sort(), ['g1', 'g2'], "next week's session and a player's own log don't count");
+  assert.deepEqual(groupMemberIds(state, weekGroups(state, week)).sort(), ['s1', 's2', 's3'], 'every member once; an unknown id is left out');
 });
 
 test("today's timeline says which sessions are over, running and still to come", () => {

@@ -12,6 +12,7 @@ import {
   koutsiHueFromId, koutsiInitialOf, koutsiSplitThemes, koutsiFmtShortDate, koutsiPad,
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
+import { seasonName } from '../../domain/season.js';
 
 export const COACH = 'demo-coach';
 export const COACH2 = 'demo-coach-2';
@@ -58,7 +59,7 @@ function student(id, name, { age = null, level = 'Keskitaso', placeholder = fals
     isPlaceholder: placeholder, age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
     level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '',
     joinedAt: placeholder ? null : isoAt(-joinedDaysAgo), welcomeSeenAt: placeholder ? null : isoAt(-joinedDaysAgo),
-    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], entries: [],
+    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], ambitionHistory: [], archive: [], entries: [],
     ...rest,
   });
 }
@@ -239,6 +240,7 @@ export function seed() {
       playerWish: 'Haluaisin harjoitella enemmän verkkopeliä ensi kerralla.',
       wishHistory: [said('wish', 'Haluaisin harjoitella enemmän verkkopeliä ensi kerralla.', isoAt(-16, 20, 30))],
       ambition: 'kilpailu',
+      ambitionHistory: [{ ...said('ambition', 'kilpailu', isoAt(-40, 20, 5)), previousValue: 'kehitys' }],
       longGoal: 'Pelata seuran joukkueessa aluesarjaa ensi kesänä',
       longGoalHistory: [said('long_goal', 'Pelata seuran joukkueessa aluesarjaa ensi kesänä', isoAt(-40, 20))],
       homework: [
@@ -315,6 +317,12 @@ export function seed() {
     if (held && last) g.themes.push({ id: newId('t'), ...thisWeek, title: last.title, lead: last.lead });
   });
   groups.forEach(refreshThemes);
+
+  // The season these groups run in: from the first session week to the Sunday of the calendar's
+  // last week (Pelipäivä is a shorter series inside it). "Uusi kausi" copies it for the next one.
+  const lastDate = trainings.filter((t) => t.groupId !== G.peli).map((t) => t.date).sort().pop();
+  const season = { id: 'demo-season-1', coachId: COACH, name: seasonName(start), startsOn: start, endsOn: koutsiNextWeekday(lastDate, 'Su'), breaks: [] };
+  groups.forEach((g) => { g.seasonId = season.id; });
 
   // ── helpers over the calendar ─────────────────────────────────────────────
   const sessionsOf = (groupId) => trainings.filter((t) => t.groupId === groupId);
@@ -486,6 +494,8 @@ export function seed() {
     students,
     groups,
     trainings,
+    seasons: [season],
+    seasonDraft: null,
     exercises: STARTER_EXERCISES.map((e, i) => ({ id: `demo-e-${i}`, coachId: COACH, ...e, video: null })),
     clubEvents: [
       { id: 'demo-ce-1', date: kisat, endDate: koutsiAddDays(kisat, 1), title: 'Seuran syyskisat', kind: 'kilpailu' },

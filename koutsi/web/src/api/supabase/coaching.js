@@ -76,13 +76,14 @@ export const coach = {
 // The three free-text fields a player owns (goal, wish, note) each keep a history row, so
 // the timeline can show what the value used to be. The previous value is read back from the
 // server, so a stale tab cannot record a wrong "aiemmin".
-const HISTORY_COLUMNS = { goal: 'goal', wish: 'player_wish', note: 'player_note', long_goal: 'long_goal' };
+const HISTORY_COLUMNS = { goal: 'goal', wish: 'player_wish', note: 'player_note', long_goal: 'long_goal', ambition: 'ambition' };
 async function savePlayerField(studentId, field, value) {
   const column = HISTORY_COLUMNS[field];
   const current = must(await from('koutsi_students').select(column).eq('id', studentId).maybeSingle());
   const previous = current?.[column] || '';
   if (previous === value) return;
-  must(await from('koutsi_students').update({ [column]: value }).eq('id', studentId));
+  // ambition is one of AMBITIONS or nothing (null; the column's check refuses '')
+  must(await from('koutsi_students').update({ [column]: field === 'ambition' && !value ? null : value }).eq('id', studentId));
   // History is a nice-to-have: a failed append must not lose what the player just wrote.
   await from('koutsi_player_history').insert({ student_id: studentId, field, value, previous_value: previous || null, changed_by: studentId });
 }
@@ -109,7 +110,7 @@ export const player = {
   saveWish(studentId, wish) { return savePlayerField(studentId, 'wish', wish); },
   /** The long-term aim (state.longGoalReady): the kind of player (AMBITIONS) and the goal in words. */
   async saveAim(studentId, { ambition, longGoal }) {
-    must(await from('koutsi_students').update({ ambition: ambition || null }).eq('id', studentId));
+    await savePlayerField(studentId, 'ambition', ambition || '');
     await savePlayerField(studentId, 'long_goal', longGoal || '');
   },
   /** The player's optional exact age: the shared profile and the student row, as before. */
@@ -176,6 +177,21 @@ export const player = {
   },
   async deleteEntry(entryId) {
     must(await from('koutsi_player_entries').delete().eq('id', entryId));
+  },
+  // The Kehitys archive (domain/archive.js). key = the timeline event's id.
+  async archiveItem(studentId, key) {
+    must(await from('koutsi_timeline_archive').upsert({ student_id: studentId, item_key: key, archived_at: new Date().toISOString(), removed_at: null }, { onConflict: 'student_id,item_key' }));
+  },
+  async unarchiveItem(studentId, key) {
+    must(await from('koutsi_timeline_archive').delete().eq('student_id', studentId).eq('item_key', key));
+  },
+  /** "Poista" on something the player cannot delete (the coach's): out of the archive, still hidden. */
+  async forgetArchived(studentId, key) {
+    must(await from('koutsi_timeline_archive').update({ removed_at: new Date().toISOString() }).eq('student_id', studentId).eq('item_key', key));
+  },
+  /** One line of the goal / wish / note history, deleted by the player from their archive. */
+  async deleteHistory(historyId) {
+    must(await from('koutsi_player_history').delete().eq('id', historyId));
   },
 };
 

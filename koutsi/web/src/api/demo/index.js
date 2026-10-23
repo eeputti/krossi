@@ -12,6 +12,8 @@ import {
   KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX, koutsiAddDays,
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
+import { coachViewOfArchives } from '../../domain/archive.js';
+import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/season.js';
 
 let role = 'coach';
 let state = null;
@@ -57,7 +59,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true, moodSessionsReady: true, longGoalReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true };
 }
 
 function playerState(studentId) {
@@ -71,7 +73,7 @@ function playerState(studentId) {
   const groupIds = new Set(groups.map((g) => g.id));
   // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
   const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
-  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, entriesReady: true, moodSessionsReady: true, longGoalReady: true };
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
 }
 
 function hideHiddenMoods(snapshot) {
@@ -84,13 +86,13 @@ function student(id, name, { age = null, level = null, placeholder = true } = {}
     id, name, initial: koutsiInitialOf(name), hue: koutsiHueFromId(id), avatarUrl: '', isPlaceholder: placeholder,
     age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
     level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '', joinedAt: null, welcomeSeenAt: null,
-    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], entries: [],
+    diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], ambitionHistory: [], archive: [], entries: [],
   };
 }
 
 function addHistory(st, field, value) {
-  const key = { goal: 'goalHistory', wish: 'wishHistory', note: 'noteHistory', long_goal: 'longGoalHistory' }[field];
-  const column = { goal: 'goal', wish: 'playerWish', note: 'playerNote', long_goal: 'longGoal' }[field];
+  const key = { goal: 'goalHistory', wish: 'wishHistory', note: 'noteHistory', long_goal: 'longGoalHistory', ambition: 'ambitionHistory' }[field];
+  const column = { goal: 'goal', wish: 'playerWish', note: 'playerNote', long_goal: 'longGoal', ambition: 'ambition' }[field];
   const previous = st[column] || '';
   if (previous === value) return;
   st[column] = value;
@@ -155,7 +157,7 @@ export const backend = {
 
   coach: {
     async fetchRow(id) { return id === COACH ? { id } : null; },
-    async load() { await wait(); return hideHiddenMoods(coachState()); },
+    async load() { await wait(); return coachViewOfArchives(hideHiddenMoods(coachState())); },
     async redeemKey() { return { ok: true }; },
     async markWelcomeSeen() { S().coach.welcomeSeenAt = nowIso(); },
     async saveProfile(coachId, patch) { await wait(); Object.assign(S().coach, patch); },
@@ -180,7 +182,7 @@ export const backend = {
     async saveAim(id, { ambition, longGoal }) {
       await wait();
       const st = findStudent(id);
-      st.ambition = ambition || '';
+      addHistory(st, 'ambition', ambition || '');
       addHistory(st, 'long_goal', longGoal || '');
     },
     async saveAge(id, age) {
@@ -251,6 +253,16 @@ export const backend = {
       S().students.forEach(sortEntries);
     },
     async deleteEntry(entryId) { removeById('entries', entryId); },
+    async archiveItem(studentId, key) {
+      await wait();
+      const st = findStudent(studentId);
+      st.archive = [{ key, archivedAt: nowIso(), removedAt: null }, ...(st.archive || []).filter((a) => a.key !== key)];
+    },
+    async unarchiveItem(studentId, key) { const st = findStudent(studentId); st.archive = (st.archive || []).filter((a) => a.key !== key); },
+    async forgetArchived(studentId, key) { const st = findStudent(studentId); (st.archive || []).forEach((a) => { if (a.key === key) a.removedAt = nowIso(); }); },
+    async deleteHistory(historyId) {
+      S().students.forEach((st) => ['goalHistory', 'wishHistory', 'noteHistory', 'longGoalHistory', 'ambitionHistory'].forEach((k) => { st[k] = (st[k] || []).filter((h) => h.id !== historyId); }));
+    },
   },
 
   students: {
@@ -420,6 +432,58 @@ export const backend = {
         added += dates.length;
       }
       return { added };
+    },
+  },
+
+  // "Uusi kausi": the draft stays with the coach until publish; publishing writes the new season's
+  // own group rows (the old season keeps its groups, sessions and attendance as they were).
+  seasons: {
+    async saveDraft(coachId, draft) { await wait(); S().seasonDraft = clone(draft); },
+    async removeDraft() { await wait(); S().seasonDraft = null; },
+    async update(seasonId, { name, endsOn, breaks }) {
+      await wait();
+      const season = (S().seasons || []).find((x) => x.id === seasonId);
+      if (!season) throw new ApiError('Kautta ei löytynyt.');
+      if (name !== undefined) season.name = name;
+      if (endsOn !== undefined) season.endsOn = endsOn;
+      if (breaks !== undefined) season.breaks = clone(breaks);
+    },
+    async publish(coachId, draft) {
+      await wait();
+      const s = S();
+      if (!draft?.name?.trim() || !draft.startsOn || !draft.endsOn || draft.endsOn < draft.startsOn) throw new ApiError('Tarkista kauden nimi ja päivät.');
+      const active = activeGroups(draft);
+      if (!active.length) throw new ApiError('Kaudella ei ole yhtään ryhmää.');
+      const season = { id: newId('season'), coachId: COACH, name: draft.name.trim(), startsOn: draft.startsOn, endsOn: draft.endsOn, breaks: clone(draft.breaks || []) };
+      const ids = {};
+      (draft.newPlayers || []).forEach((p) => {
+        if (!active.some((dg) => (draft.members[dg.key] || []).includes(p.key))) return;
+        ids[p.key] = newId('demo-s');
+        s.students.push(student(ids[p.key], p.name));
+      });
+      let sessions = 0;
+      const created = active.map((dg) => {
+        const group = {
+          id: newId('g'), coachId: COACH, seasonId: season.id, continuesFrom: dg.fromId || null, name: dg.name.trim(), level: dg.level || 'Kaikki tasot',
+          day: dg.day, time: dg.time, durationMinutes: dg.durationMinutes || 60, slots: [], themes: [], annualPlan: null,
+          memberIds: [...new Set((draft.members[dg.key] || []).map((ref) => ids[ref] || ref))].filter((id) => s.students.some((x) => x.id === id)),
+        };
+        refreshThemes(group);
+        s.groups.push(group);
+        const seriesId = newId('ser');
+        const dates = seasonDates(dg, season);
+        dates.forEach((date) => s.trainings.push({ id: newId('tr'), date, time: dg.time, type: 'Ryhmätreeni', durationMinutes: group.durationMinutes, loggedBy: 'coach', notes: '', endDate: null, studentId: null, groupId: group.id, coachId: COACH, seriesId, absences: [] }));
+        sessions += dates.length;
+        return { group, dg };
+      });
+      s.seasons = [...(s.seasons || []), season];
+      s.seasonDraft = null;
+      // every player gets one notification about their own groups; the demo player sees theirs
+      const mine = created.filter(({ group }) => group.memberIds.includes(PLAYER)).map(({ dg }) => dg);
+      if (mine.length) {
+        s.playerNotifications.unshift({ id: newId('pn'), kind: 'season_published', title: `${season.name}: ryhmäsi ovat valmiina`, body: playerSeasonMessage(draft, mine, koutsiFmtShortDate), linkPath: '/pelaaja', createdAt: nowIso(), read: false });
+      }
+      return { seasonId: season.id, groups: created.length, sessions };
     },
   },
 

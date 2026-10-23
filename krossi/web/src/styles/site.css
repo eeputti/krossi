@@ -27,6 +27,18 @@
 }
 .site-demo svg { color: var(--muted); }
 
+/* with an account: my next court on top ("Sinulla on kenttä varattuna") */
+.site-next {
+  display: flex; align-items: center; gap: 12px; width: 100%; margin-top: var(--s4); padding: 12px 14px; text-align: left;
+  border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+}
+.site-next:hover { border-color: var(--muted); }
+.site-next-icon { width: 34px; height: 34px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; background: var(--lime); color: var(--ink); }
+.site-next-text { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.site-next-title { font-size: 15px; font-weight: 800; }
+.site-next-when { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.site-next > svg { flex-shrink: 0; color: var(--muted); }
+
 /* the done view's way on: a line, then "Etsi pelikaveri tähän vuoroon" */
 .bk-done-foot { display: grid; gap: 10px; }
 .bk-done-ask { margin: 0; text-align: center; font-size: 14px; font-weight: 650; color: var(--ink-2); }

@@ -14,6 +14,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../ui/index.js';
 import { useResync } from './hooks.js';
+import { seasonView } from '../domain/season.js';
 
 const DataContext = createContext(null);
 
@@ -26,7 +27,8 @@ export function DataProvider({ ownerId, load, subscribe, children, fallback, ren
 
   const reload = useCallback(async () => {
     const mine = ++seq.current;
-    const next = await load(ownerId);
+    // the lists show the active season's groups; every group stays in allGroups (domain/season.js)
+    const next = seasonView(await load(ownerId));
     if (mine === seq.current) { setState(next); setError(null); }
     return next;
   }, [load, ownerId]);

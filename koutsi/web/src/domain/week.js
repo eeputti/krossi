@@ -360,6 +360,25 @@ export function presentPlayerIds(state, training) {
   return sessionRoster(state, training).filter((s) => !absent.has(s.id)).map((s) => s.id);
 }
 
+/** Who a record for several sessions is for: everyone there (or coming) in any of them, once. */
+export function presentPlayerIdsOf(state, trainings) {
+  return [...new Set(trainings.flatMap((t) => presentPlayerIds(state, t)))];
+}
+
+/** The groups with a coach-run session in a week (Monday–Sunday), in schedule order. */
+export function weekGroups(state, week) {
+  const dates = weekDates(week);
+  const ids = new Set(state.trainings
+    .filter((t) => t.groupId && t.loggedBy !== 'player' && t.date >= dates[0] && t.date <= dates[6])
+    .map((t) => t.groupId));
+  return koutsiSortGroupsBySchedule((state.allGroups || state.groups).filter((g) => ids.has(g.id)));
+}
+
+/** The players in some groups, once each (members without a player record left out). */
+export function groupMemberIds(state, groups) {
+  return [...new Set(groups.flatMap((g) => g.memberIds || []))].filter((id) => koutsiStudentById(state, id));
+}
+
 /**
  * The session "Läsnäolo" opens: the one going on or just over, else today's latest held one,
  * else today's next one; null when there is nothing today.

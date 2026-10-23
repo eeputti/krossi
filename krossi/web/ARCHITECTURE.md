@@ -118,6 +118,15 @@ Reittitaulu on `app/routes.js`. Polut:
   linkki `/pelaa/varaus/<token>` (GuestBookingScreen: näytä, peru 1 €:n kululla) tulevat sähköpostiin. Ilman istuntoa
   myös `/pelaa/varaa` näkyy varaussivuna (Gate → SiteShell, "Kirjaudu" omien varausten tilalla). Demon varaussivulla
   näytetään sama vieraan polku, mutta varaus kirjautuu demopelaajalle, jotta "Etsi pelikaveri" jatkuu sovellukseen;
+  **Tili ensin** (BookSheet + AccountSheet): ilman tiliä varausikkuna tarjoaa ensin "Luo tili ja varaa" (nimi +
+  sähköposti + salasana tai Google/Apple, ikkunasta poistumatta), sitten "Varaa ilman tiliä" ja "Kirjaudu". Pikatili
+  on pelkkä profiilirivi (`api.profile.createForBooking`: nimi, hallin kaupunki, piilossa pelaajalistalta): sillä
+  varataan tilille heti, ja onboarding tulee vasta Peliseuran kohdalla (Gate näyttää varaussivun ja Omat varaukset
+  SiteShellissä profiilille, josta puuttuu pelaajatiedot). Google/Applen paluu: `app/bookingAccount.js` muistaa
+  varaussivun polun välilehdessä. **Vierasvaraus tilille** (migraatio `…_krossi_booking_guest_claim`,
+  `krossi_claim_guest_booking(token)`): saman välilehden vierasvaraukset siirtyvät tilille heti kun tili on
+  (Gate, `useClaimVisitBookings`), sähköpostin linkistä nappi "Siirrä tilillesi"; liitetty varaus perutaan tililtä.
+  Sähköpostin perusteella ei liitetä (tilien sähköposteja ei vahvisteta);
   *overlay* = renderöidään Sheetinä edellisen näkymän päälle (taustanäkymä `state.bg`);
   *full* = koko ruutu ilman välilehtipalkkia mobiilissa.
 - Kirjautumaton käyttäjä: `/pelaa/peli/:id` näyttää julkisen esikatselun (`api.games.publicPreview`)

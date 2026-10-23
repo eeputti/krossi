@@ -27,6 +27,11 @@ export async function getMine(uid) {
   return run(() => toProfile(profileOf(uid || ME)));
 }
 
+/** The demo player has a profile all along. */
+export async function createForBooking() {
+  return run(() => toProfile(profileOf(ME)));
+}
+
 function validate(input) {
   if (!input?.name?.trim()) throw new ApiError('Kerro nimesi, niin muut tietävät kenen kanssa pelaavat.', { code: 'invalid' });
   if (!input.areas?.length) throw new ApiError('Valitse ainakin yksi kaupunki.', { code: 'invalid' });

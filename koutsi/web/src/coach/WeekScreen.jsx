@@ -8,20 +8,22 @@ import { useMemo, useState } from 'react';
 import { useData } from '../app/data.jsx';
 import { useIsDesktop, useNow } from '../app/hooks.js';
 import { Avatar, Button, Card, Icon, Page, ProgressRing } from '../ui/index.js';
-import { Link } from '../app/router.js';
+import { Link, navigate } from '../app/router.js';
 import { NotificationsButton } from '../shared/Notifications.jsx';
 import { Block, Quiet } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiCompareIsoWeeks, koutsiIsoWeekRangeLabel, koutsiTodayStr, koutsiAddDays,
-  koutsiWeekThemeStatus, koutsiFmtShortDate,
+  koutsiWeekThemeStatus, koutsiFmtShortDate, koutsiIsoWeekOfDateStr,
 } from '../domain/core.js';
-import { calendarEndings, coachSessionsOn, playerActivity, plannerDefaultWeek, unjoinedPlayers, relativeDay } from '../domain/week.js';
+import { calendarEndings, coachSessionsOn, playerActivity, plannerDefaultWeek, unjoinedPlayers, relativeDay, weekParam } from '../domain/week.js';
 import { firstName } from '../domain/roster.js';
 import { useCoach } from './CoachRoot.jsx';
-import { openInvites, openPlanner } from './nav.js';
+import { openInvites, openPlanner, openSeason } from './nav.js';
+import { currentSeason, draftSummary, groupsOfSeason, nextSeasonPreset, seasonNudge, seasonWord } from '../domain/season.js';
 import { ActivityRow, SessionRow } from './parts.jsx';
 import { useContinueThemes } from './themeActions.js';
 import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
+import { SeasonEditSheet } from './SeasonSheet.jsx';
 import { WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
@@ -40,7 +42,7 @@ function CoverageHero({ state }) {
   const carry = status.carry;
   const all = pool.length > 0 && covered === pool.length;
   const next = upcoming[0];
-  const nextGroup = next ? state.groups.find((g) => g.id === next.groupId) : null;
+  const nextGroup = next ? (state.allGroups || state.groups).find((g) => g.id === next.groupId) : null;
   const go = async () => { setBusy(true); await continueThemes(carry, week); setBusy(false); };
   return (
     <section className="week-hero on-dark court-lines rise">
@@ -94,7 +96,7 @@ function NextSession({ state }) {
   const after = koutsiAddDays(today, 1);
   const next = state.trainings.filter((t) => t.loggedBy !== 'player' && t.date > after).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))[0];
   if (!next) return <Quiet icon="calendar">Ei tulevia treenejä kalenterissa.</Quiet>;
-  const group = next.groupId ? state.groups.find((g) => g.id === next.groupId) : null;
+  const group = next.groupId ? (state.allGroups || state.groups).find((g) => g.id === next.groupId) : null;
   return (
     <Block eyebrow="Seuraavaksi">
       <SessionRow item={{ training: next, group, student: state.students.find((s) => s.id === next.studentId) }} showDate />
@@ -102,15 +104,73 @@ function NextSession({ state }) {
   );
 }
 
+// The season is ending: plan the next one (a copy of this one, see SeasonSheet), carry on with
+// the saved draft, or — once it is published — see when it starts.
+function SeasonCard({ state, nudge }) {
+  const { season, next, draft, kind } = nudge;
+  const [editOpen, setEditOpen] = useState(false);
+  const preset = next || draft || nextSeasonPreset(season);
+  const base = seasonWord(preset.startsOn);
+  if (kind === 'published') {
+    const count = groupsOfSeason(state, next).length;
+    return (
+      <>
+      <Card className="k-alert season-alert">
+        <span className="k-alert-icon is-lime"><Icon name="check" size={20} /></span>
+        <div className="k-alert-body">
+          <div className="k-alert-title">{next.name} on julkaistu</div>
+          <p className="k-alert-text">Alkaa {koutsiFmtShortDate(next.startsOn)} · {count} ryhmää. {season.name} jatkuu {koutsiFmtShortDate(season.endsOn)} asti.</p>
+          <div className="row wrap season-alert-actions">
+            <Button variant="outline" size="sm" icon="calendar" onClick={() => navigate(`/valmentaja/ryhmat?vko=${weekParam(koutsiIsoWeekOfDateStr(next.startsOn))}`)}>Kauden ensimmäinen viikko</Button>
+            <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>Muuta {seasonWord(season.startsOn, 'gen')} loppua</Button>
+          </div>
+        </div>
+      </Card>
+      <SeasonEditSheet open={editOpen} onClose={() => setEditOpen(false)} season={season} />
+      </>
+    );
+  }
+  const changes = kind === 'draft' ? draftSummary(state, draft).changes : 0;
+  return (
+    <>
+    <Card className="k-alert season-alert">
+      <span className="k-alert-icon is-lime"><Icon name="repeat" size={19} /></span>
+      <div className="k-alert-body">
+        <div className="k-alert-title">{kind === 'draft' ? `${draft.name} · luonnos` : `${season.name} loppuu ${koutsiFmtShortDate(season.endsOn)}`}</div>
+        <p className="k-alert-text">
+          {kind === 'draft'
+            ? `${changes === 1 ? '1 muutos' : `${changes} muutosta`} tallessa. Pelaajat eivät näe luonnosta — julkaise, kun ryhmät ovat valmiit.`
+            : `Tee ${seasonWord(preset.startsOn, 'gen')} ryhmät valmiiksi jo nyt: ryhmät ja pelaajat jatkavat sellaisinaan, muutat vain sen mikä muuttuu. Pelaajat näkevät ${seasonWord(preset.startsOn, 'gen')} vasta kun julkaiset.`}
+        </p>
+        <div className="row wrap season-alert-actions">
+          <Button variant="dark" size="sm" icon={kind === 'draft' ? 'edit' : 'calendar-plus'} onClick={openSeason}>{kind === 'draft' ? 'Jatka suunnittelua' : `Suunnittele ${base}`}</Button>
+          <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>Muuta loppua</Button>
+        </div>
+      </div>
+    </Card>
+    <SeasonEditSheet open={editOpen} onClose={() => setEditOpen(false)} season={season} />
+    </>
+  );
+}
+
 function Alerts({ state }) {
   const [extendOpen, setExtendOpen] = useState(false);
-  const endings = useMemo(() => calendarEndings(state, 42), [state]);
+  const nudge = useMemo(() => seasonNudge(state), [state]);
+  const endings = useMemo(() => {
+    const all = calendarEndings(state, 42);
+    const season = state.seasonsReady ? currentSeason(state) : null;
+    if (!season) return all;
+    // a group that runs to the season's end is the season card's business, not a missing calendar
+    const seasonLast = koutsiAddDays(season.endsOn, -6);
+    return all.filter((e) => (!e.group.seasonId || e.group.seasonId === season.id) && !(e.last && e.last >= seasonLast));
+  }, [state]);
   const unjoined = useMemo(() => unjoinedPlayers(state), [state]);
-  if (!endings.length && !unjoined.length) return null;
+  if (!nudge && !endings.length && !unjoined.length) return null;
   const lasts = endings.map((e) => e.last).filter(Boolean).sort();
   const range = lasts.length ? (lasts[0] === lasts[lasts.length - 1] ? koutsiFmtShortDate(lasts[0]) : `${koutsiFmtShortDate(lasts[0])}–${koutsiFmtShortDate(lasts[lasts.length - 1])}`) : '';
   return (
     <div className="k-alerts stagger">
+      {nudge && <SeasonCard state={state} nudge={nudge} />}
       {endings.length > 0 && (
         <Card className="k-alert k-alert-warn" style={{ '--i': 0 }}>
           <span className="k-alert-icon"><Icon name="calendar" size={20} /></span>

@@ -11,7 +11,8 @@ function mapSession(session) {
   const meta = session.user.user_metadata || {};
   // `name` lets onboarding prefill the name Google / Apple already gave us.
   const name = String(meta.full_name || meta.name || meta.display_name || '').trim() || null;
-  return { user: { id: session.user.id, email: session.user.email ?? null, name } };
+  // bookingProfile: the booking site's quick account (a name only) — onboarding treats it as new.
+  return { user: { id: session.user.id, email: session.user.email ?? null, name, bookingProfile: meta.krossi_booking_profile === true } };
 }
 
 export async function getSession() {

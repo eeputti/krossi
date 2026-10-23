@@ -1,0 +1,76 @@
+/* season.css — "Uusi kausi" (coach/SeasonSheet.jsx) and its card on Koti. Flat, brand colours
+   only: lime marks what changes, clay a group that ends, everything else stays quiet. */
+
+.season-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: -4px 0 18px; padding: 0; list-style: none; }
+.season-steps li { height: 4px; border-radius: 99px; background: var(--sand-2); transition: background var(--dur-2) var(--ease-out); }
+.season-steps li.is-done { background: var(--green-800); }
+.season-steps li.is-on { background: var(--lime); }
+
+.season-lead { font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
+.season-foot { display: grid; gap: 10px; }
+
+/* step 2: one calm row per group */
+.season-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 10px 12px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line);
+  transition: border-color var(--dur-1), transform var(--dur-1);
+}
+.season-row:hover { border-color: var(--line-strong); }
+.season-row:active { transform: scale(0.99); }
+.season-row.is-ended { background: var(--surface-2); }
+.season-row.is-ended .k-row-title, .season-row.is-ended .season-when { color: var(--faint); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.season-when { display: grid; justify-items: center; width: 46px; flex-shrink: 0; font-size: 13px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.season-when b { font-size: 15px; font-weight: 800; color: var(--ink); }
+.season-choice .k-faint { display: block; margin-top: 2px; line-height: 1.4; }
+.season-choice input { margin-top: 2px; align-self: flex-start; }
+.season-fields { padding-top: 2px; }
+
+/* step 3: players as chips under their group */
+.season-players-head { gap: 10px; flex-wrap: wrap; }
+.season-group { display: grid; gap: 10px; padding: 12px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); }
+.season-group.is-out { background: var(--surface-2); border-style: dashed; }
+.season-group-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.season-group-when { font-size: 13px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.season-group-name { flex: 1; min-width: 0; font-weight: 750; font-size: 14.5px; }
+.season-group.is-out .season-group-name { color: var(--muted); }
+.season-group-count { font-size: 13px; font-weight: 750; color: var(--muted); min-width: 22px; text-align: right; }
+.season-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.season-chip {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 100%; height: 32px; padding: 0 12px;
+  border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--line);
+  font-size: 13.5px; font-weight: 650; color: var(--ink);
+  transition: transform var(--dur-1), border-color var(--dur-1);
+}
+.season-chip:hover { border-color: var(--line-strong); }
+.season-chip:active { transform: scale(0.96); }
+.season-chip.is-moved { background: var(--lime-100); border-color: var(--lime); }
+.season-chip.is-new { background: var(--lime-100); border-color: var(--lime); }
+.season-chip-tag { font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); background: var(--lime); border-radius: 99px; padding: 1px 6px; }
+.season-group.is-out .season-chip { background: var(--surface); color: var(--muted); }
+.season-pick-list { max-height: none; }
+
+/* step 4: the season at a glance */
+.season-hero { display: grid; gap: 4px; padding: 18px 18px 16px; border-radius: var(--r-2xl); background: var(--green-800); color: #fff; }
+.season-hero .eyebrow { color: var(--lime); }
+.season-hero-title { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+.season-hero-sub { color: var(--on-dark-muted); font-size: 14px; }
+.season-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.season-stats span { display: grid; gap: 1px; padding: 10px 12px; border-radius: var(--r-lg); background: rgba(255, 255, 255, 0.08); font-size: 12.5px; color: var(--on-dark-muted); }
+.season-stats b { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
+.season-changes { display: grid; gap: 2px; padding: 0; margin: 0; list-style: none; }
+.season-changes li { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; font-size: 14px; line-height: 1.45; color: var(--ink-2); border-bottom: 1px solid var(--line); }
+.season-changes li:last-child { border-bottom: 0; }
+.season-changes b { color: var(--ink); font-weight: 750; }
+.season-change-icon { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; background: var(--lime-100); color: var(--ink); margin-top: -2px; }
+.season-notice { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--line); }
+.season-notice-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: var(--green-800); color: var(--lime); }
+.season-notice .grow { display: grid; gap: 2px; min-width: 0; }
+.season-notice-title { font-weight: 750; font-size: 14.5px; }
+.season-notice-text { font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
+.season-invite { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-lg); border: 1px solid var(--line); }
+.season-invite .grow { display: grid; gap: 2px; }
+.season-invite .k-row-sub { line-height: 1.45; }
+
+/* Koti */
+.season-alert { border-color: var(--lime); }
+.season-alert-actions { gap: 6px; }
