@@ -10,6 +10,11 @@ import { AccountSection, EmailPrefToggle } from '../shared/account.jsx';
 import { useCoach } from './CoachRoot.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { bankSummary } from './ExercisesScreen.jsx';
+import { openSeason } from './nav.js';
+import { SeasonEditSheet } from './SeasonSheet.jsx';
+import { currentSeason, followingSeason, seasonWord } from '../domain/season.js';
+import { koutsiFmtShortDate, koutsiIsoWeekOfDateStr } from '../domain/core.js';
+import { weekParam } from '../domain/week.js';
 
 function ProfileEditSheet({ open, onClose }) {
   const { state, run } = useData();
@@ -89,6 +94,10 @@ export function ProfileScreen() {
   const [sheet, setSheet] = useState(null);
   const fileRef = useRef(null);
   const c = state.coach;
+  // "Uusi kausi" any time, not only when Koti's card shows up near the season's end
+  const season = state.seasonsReady ? currentSeason(state) : null;
+  const next = season ? followingSeason(state, season) : null;
+  const draft = season && state.seasonDraft?.fromSeasonId === season.id ? state.seasonDraft : null;
   const changePhoto = async (file) => {
     try { await api.account.uploadAvatar(uid, file); await reload(); toast('Profiilikuva vaihdettu.'); } catch (err) { toast(err); }
   };
@@ -123,6 +132,15 @@ export function ProfileScreen() {
         <section className="stack-2">
           <div className="eyebrow">Työkalut</div>
           <div className="list-group">
+            {season && (
+              <ListRow icon="calendar-plus" title={next ? next.name : 'Uusi kausi'}
+                subtitle={next ? `Julkaistu · alkaa ${koutsiFmtShortDate(next.startsOn)}` : draft ? `${draft.name} · luonnos` : `Pohjana ${season.name}`}
+                onClick={next ? () => navigate(`/valmentaja/ryhmat?vko=${weekParam(koutsiIsoWeekOfDateStr(next.startsOn))}`) : openSeason} />
+            )}
+            {season && (
+              <ListRow icon="repeat" title={season.name} subtitle={`${koutsiFmtShortDate(season.startsOn)}–${koutsiFmtShortDate(season.endsOn)} · muuta ${seasonWord(season.startsOn, 'gen')} loppua`}
+                onClick={() => setSheet('season')} />
+            )}
             <ListRow icon="book" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => navigate('/valmentaja/harjoitteet')} />
             <ListRow icon="list" title="Lisää monta kerralla" subtitle="Ryhmät ja pelaajat listasta" onClick={() => setSheet('bulk')} />
             <ListRow icon="calendar" title="Lähetä vuosisuunnitelma" subtitle="Usean ryhmän teemat Excelistä" onClick={() => setSheet('plan')} />
@@ -134,6 +152,7 @@ export function ProfileScreen() {
       <ProfileEditSheet open={sheet === 'edit'} onClose={() => setSheet(null)} />
       <BulkSetupSheet open={sheet === 'bulk'} onClose={() => setSheet(null)} />
       <SharedPlanSheet open={sheet === 'plan'} onClose={() => setSheet(null)} />
+      <SeasonEditSheet open={sheet === 'season'} onClose={() => setSheet(null)} season={season} />
     </Page>
   );
 }
