@@ -93,19 +93,26 @@ export function suggestedBreaks(startsOn, endsOn) {
 
 /**
  * The season after `current`: autumn → spring (ISO weeks 2–20), spring or summer → autumn
- * (weeks 35–50). Only a starting point — every field stays editable.
+ * (weeks 35–50). The kind comes from the season's start — an autumn whose calendar runs into
+ * January is still an autumn. Never starts before the current season has ended. Only a starting
+ * point — every field stays editable.
  */
 export function nextSeasonPreset(current, today = koutsiTodayStr()) {
-  const after = current?.endsOn || today;
-  const year = Number(after.slice(0, 4));
+  const ref = current?.startsOn || current?.endsOn || today;
+  const year = Number(ref.slice(0, 4));
   let startsOn;
   let endsOn;
-  if (seasonKind(after) === 'syksy') {
+  if (seasonKind(ref) === 'syksy') {
     startsOn = isoMonday(year + 1, 2);
     endsOn = koutsiAddDays(isoMonday(year + 1, 20), 6);
   } else {
     startsOn = isoMonday(year, 35);
     endsOn = koutsiAddDays(isoMonday(year, 50), 6);
+  }
+  if (current?.endsOn && startsOn <= current.endsOn) {
+    const monday = koutsiNextWeekday(koutsiAddDays(current.endsOn, 1), 'ma');
+    endsOn = koutsiAddDays(endsOn, daysBetween(startsOn, monday));
+    startsOn = monday;
   }
   return { name: seasonName(startsOn), startsOn, endsOn, breaks: suggestedBreaks(startsOn, endsOn) };
 }

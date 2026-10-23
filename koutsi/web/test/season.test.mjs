@@ -174,3 +174,12 @@ test('demo: Muokkaa kautta moves the end and the calendar follows', async () => 
   assert.ok(last <= later && last > season.endsOn);
   configureDemo({ role: 'coach', latency: 0 });
 });
+
+test('an autumn whose calendar runs into January is followed by spring, after it ends', () => {
+  const p = nextSeasonPreset({ startsOn: '2026-09-02', endsOn: '2027-01-05' });
+  assert.equal(p.name, 'Kevät 2027');
+  assert.equal(p.startsOn, '2027-01-11');
+  const late = nextSeasonPreset({ startsOn: '2026-09-02', endsOn: '2027-01-20' });
+  assert.equal(late.startsOn, '2027-01-25');
+  assert.equal(late.endsOn, '2027-06-06');
+});

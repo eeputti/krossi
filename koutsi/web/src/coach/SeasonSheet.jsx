@@ -16,7 +16,7 @@ import { koutsiAddDays, koutsiFmtShortDate, koutsiParseNameList, koutsiSortGroup
 import { lastSessionDate } from './groupForms.jsx';
 import { exactNameMatch } from '../domain/roster.js';
 import {
-  activeGroups, addDraftGroup, addSignups, allGroupsOf, breakDates, currentSeason, draftFromSeason, draftSummary, groupsOfSeason,
+  activeGroups, addDraftGroup, addSignups, allGroupsOf, breakDates, currentSeason, draftFromSeason, draftSummary, followingSeason, groupsOfSeason,
   placePlayer, placementsOf, playerSeasonMessage, rangeLabel, scheduleChanged, seasonName, seasonWeeks, seasonWord,
   suggestedBreaks, updateDraftGroup,
 } from '../domain/season.js';
@@ -52,6 +52,15 @@ export function SeasonSheet() {
     return (
       <Sheet open={open} onClose={close} onClosed={() => goBack('/valmentaja/koti')} size="md" title="Uusi kausi">
         <Quiet icon="calendar">Kauden vaihto tulee käyttöön pian. Siihen asti voit jatkaa ryhmien kalenteria Kodista.</Quiet>
+      </Sheet>
+    );
+  }
+  // the next season is already out: it is changed group by group, not published again
+  const published = followingSeason(state, current);
+  if (published) {
+    return (
+      <Sheet open={open} onClose={close} onClosed={() => goBack('/valmentaja/koti')} size="md" title={published.name}>
+        <Quiet icon="check-circle">{published.name} on jo julkaistu ja alkaa {fmt(published.startsOn)}. Ryhmiä ja pelaajia muutat ryhmien sivuilta Viikkohallinnasta.</Quiet>
       </Sheet>
     );
   }
