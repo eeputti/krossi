@@ -119,6 +119,13 @@
 
 .k-player-actions { display: flex; gap: 10px; }
 .k-player-actions > :first-child { flex: 1; }
+/* the player page's actions as tiles that fit any phone: Huomio · Kotiläksy · Poissaolot
+   (· Viesti once Viestit is on: four in a row) */
+.k-player-actions.is-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.k-player-actions.is-tiles.is-four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.k-player-actions.is-tiles .btn { height: 66px; flex-direction: column; gap: 5px; padding: 0 4px; font-size: 14px; min-width: 0; width: 100%; }
+.k-player-actions.is-tiles.is-four .btn { font-size: 13px; }
+.k-player-actions.is-tiles .btn .btn-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── season ─────────────────────────────────────────────── */
 .pl-season { display: grid; gap: 16px; max-width: 1080px; }

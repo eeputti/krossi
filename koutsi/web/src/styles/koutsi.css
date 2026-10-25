@@ -738,3 +738,11 @@
 .k-feedback-cta-title { font-size: 16px; font-weight: 750; letter-spacing: -0.01em; }
 .k-feedback-cta-sub { font-size: 13.5px; line-height: 1.4; color: rgba(255, 255, 255, 0.9); }
 .k-feedback-cta-chevron { flex-shrink: 0; opacity: 0.85; }
+/* "Mistä löydät tutut asiat" in the renewed note: the old app's names → where they are now */
+.k-moved { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); }
+.k-moved-head { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.k-moved-list { display: grid; gap: 7px; }
+.k-moved-row { display: grid; grid-template-columns: minmax(0, 0.9fr) auto minmax(0, 1.3fr); align-items: start; gap: 8px; font-size: 14px; line-height: 1.35; }
+.k-moved-from { color: var(--muted); }
+.k-moved-arrow { margin-top: 2px; color: var(--muted); }
+.k-moved-to { font-weight: 700; color: var(--ink); }

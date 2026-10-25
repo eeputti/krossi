@@ -37,6 +37,40 @@ export function renewedNoteDue(eligible = true) {
   return Boolean(eligible) && (!isDemo || previewRenewed) && (previewRenewed || !seen());
 }
 
+// Where the old app's things are now, so a returning user isn't lost — old name → new place.
+const MOVED = {
+  coach: [
+    ['Oppilaat', 'Pelaajat'],
+    ['Päiväkirja', 'Huomio (pelaajan sivulla ja Merkitse-napissa)'],
+    ['Ryhmät ja Treenit', 'Viikkohallinta'],
+    ['Viikon teemat', 'Koti → Aseta teema'],
+    ['Harjoitteet ja Profiili', 'Lisää-valikko (puhelimessa)'],
+  ],
+  player: [
+    ['Treenit', 'Viikko'],
+    ['Fiilis treenin jälkeen', 'Koti → Miten meni?'],
+    ['Toive valmentajalle', 'Merkitse-nappi'],
+    ['Ryhmä, Harjoitteet ja Profiili', 'Lisää-valikko (puhelimessa)'],
+  ],
+};
+
+function MovedList({ role }) {
+  return (
+    <div className="k-moved">
+      <div className="k-moved-head">Mistä löydät tutut asiat</div>
+      <ul className="k-moved-list">
+        {MOVED[role === 'coach' ? 'coach' : 'player'].map(([from, to]) => (
+          <li key={from} className="k-moved-row">
+            <span className="k-moved-from">{from}</span>
+            <Icon name="arrow-right" size={14} className="k-moved-arrow" />
+            <span className="k-moved-to">{to}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function RenewedIntro({ role, eligible }) {
   const [open, setOpen] = useState(() => renewedNoteDue(eligible));
   const close = () => { markSeen(); setOpen(false); };
@@ -55,6 +89,7 @@ export function RenewedIntro({ role, eligible }) {
             ? <>Uutena esimerkiksi <b>Koti</b>-näkymä, joka kokoaa kaiken yhteen: teemat, treenit ja pelaajien kuulumiset.</>
             : <>Uutena esimerkiksi <b>Koti</b>-näkymä, joka kokoaa kaiken yhteen: viikon teeman, seuraavan treenin ja oman kehityksesi.</>}
         </p>
+        <MovedList role={role} />
         <p className="k-renewed-note">
           Tietosi ovat tallessa. Voit kuitenkin vielä vaihtaa vanhaan ulkoasuun yläreunan napista!
         </p>
