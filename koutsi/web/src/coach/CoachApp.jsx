@@ -31,6 +31,7 @@ import { RecordProvider, useRecord } from './merkitse.jsx';
 import { MoreSheet } from './MoreSheet.jsx';
 import { track } from './usage.js';
 import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
+import { FeedbackSheet } from '../shared/account.jsx';
 
 function LegacyRedirect({ route, query }) {
   const to = route.keepWeek && query.vko ? `${route.redirect}?vko=${encodeURIComponent(query.vko)}` : route.redirect;
@@ -87,7 +88,7 @@ function WelcomeSheet() {
           </li>
         ))}
       </ul>
-      <p className="k-fine">Jos jokin ei toimi tai tuntuu epäselvältä, kerro siitä Profiili-sivun <strong>Anna palautetta</strong> -napilla.</p>
+      <p className="k-fine">Jos jokin ei toimi tai tuntuu epäselvältä, kerro siitä <strong>Anna palautetta</strong> -kohdassa (tietokoneella sivupalkissa, puhelimella Lisää-valikossa).</p>
     </Sheet>
   );
 }
@@ -101,6 +102,7 @@ function CoachShell() {
   // Phone: the tab bar's "Lisää" drawer, with the notifications in it (a computer keeps the bell on Koti)
   const [moreOpen, setMoreOpen] = useState(false);
   const [notifsOpen, setNotifsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const notes = useNotifications(isDesktop || acting ? null : uid);
   const phoneTabs = PHONE_TABS.map((t) => (t.id === 'lisaa' ? { ...t, onClick: () => { track('lisaa.avaa'); setMoreOpen(true); } } : t));
   // What opens by itself, at most one thing, decided once: the welcome for a new account > the
@@ -125,6 +127,7 @@ function CoachShell() {
   const extraLinks = [
     { to: '/valmentaja/harjoitteet', label: 'Harjoitepankki', icon: 'list', pages: ['exercises', 'exercise'] },
     ...(isAdmin ? [{ to: '/valmentaja/yllapito', label: 'Ylläpito', icon: 'shield', pages: ['admin'] }] : []),
+    ...(acting ? [] : [{ key: 'palaute', label: 'Anna palautetta', icon: 'chat', onClick: () => { track('palaute.avaa'); setFeedbackOpen(true); } }]),
   ];
   return (
     <>
@@ -149,10 +152,12 @@ function CoachShell() {
         <>
           <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} isAdmin={isAdmin} acting={acting}
             onNotifications={() => { setNotifsOpen(true); notes.markRead(); }}
-            onNotice={() => openMerkinta({ kind: 'tiedote' })} />
+            onNotice={() => openMerkinta({ kind: 'tiedote' })}
+            onFeedback={() => setFeedbackOpen(true)} />
           <NotificationsSheet open={notifsOpen} onClose={() => setNotifsOpen(false)} items={notes.items} home="/valmentaja/koti" />
         </>
       )}
+      {!acting && <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} uid={uid} />}
     </>
   );
 }

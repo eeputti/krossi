@@ -1,14 +1,14 @@
 // MoreSheet — the phone tab bar's "Lisää" drawer: the places that have no tab of their own on a
 // phone. Harjoitepankki, Suunnittele, Ryhmät, Ilmoitukset (with the unread count), Tiedote pelaajille
-// (Merkitse's notice: a message to groups or players, on their Koti and by e-mail), Profiili, and
-// Ylläpito for admins. (A computer has these in the side nav, the bell on Koti and the avatar.)
+// (Merkitse's notice: a message to groups or players, on their Koti and by e-mail), Profiili, Anna
+// palautetta, and Ylläpito for admins. (A computer has these in the side nav, the bell on Koti and the avatar.)
 import { useData } from '../app/data.jsx';
 import { navigate } from '../app/router.js';
 import { Avatar, ListRow, Sheet } from '../ui/index.js';
 import { bankSummary } from './ExercisesScreen.jsx';
 import { track } from './usage.js';
 
-export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, isAdmin, acting }) {
+export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, onFeedback, isAdmin, acting }) {
   const { state } = useData();
   const go = (to, event) => { track(`lisaa.${event}`); onClose(); navigate(to); };
   const noticesReady = state.announcementsReady !== false;
@@ -30,6 +30,10 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, is
         {!acting && (
           <ListRow leading={<Avatar person={state.coach} size={32} />} title="Profiili" subtitle="Omat tiedot, ilmoitusasetukset, tili"
             onClick={() => go('/valmentaja/profiili', 'profiili')} />
+        )}
+        {!acting && (
+          <ListRow icon="chat" title="Anna palautetta" subtitle="Kerro, mikä toimii ja mikä ei"
+            onClick={() => { track('lisaa.palaute'); onClose(); onFeedback(); }} />
         )}
         {isAdmin && !acting && <ListRow icon="shield" title="Ylläpito" subtitle="Käyttäjät, palaute, käyttö" onClick={() => go('/valmentaja/yllapito', 'yllapito')} />}
       </div>

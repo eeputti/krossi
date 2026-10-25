@@ -22,7 +22,6 @@ import { useCoach } from './CoachRoot.jsx';
 import { openInvites, openSeason, playerPath } from './nav.js';
 import { currentSeason, draftSummary, groupsOfSeason, nextSeasonPreset, seasonNudge, seasonWord } from '../domain/season.js';
 import { ActivityRow, SessionRow } from './parts.jsx';
-import { useContinueThemes } from './themeActions.js';
 import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
 import { SeasonEditSheet } from './SeasonSheet.jsx';
 import { WeekRecapSheet } from './WeekRecapSheet.jsx';
@@ -44,15 +43,13 @@ const dec = (x) => (x == null ? '–' : x.toFixed(1).replace('.', ','));
 function WeekHero({ state, glance, week }) {
   const { uid, acting } = useCoach();
   const isDesktop = useIsDesktop();
-  const continueThemes = useContinueThemes();
   const record = useRecord();
-  const [busy, setBusy] = useState(false);
   const themeWeek = plannerDefaultWeek();
   const isNow = koutsiCompareIsoWeeks(themeWeek, week) === 0;
   const status = koutsiWeekThemeStatus(state.groups, state.trainings, themeWeek);
   const { covered, pool, carry } = status;
   const all = pool.length > 0 && covered === pool.length;
-  const go = async () => { setBusy(true); await continueThemes(carry, themeWeek); setBusy(false); };
+  const go = () => record.openContinue(themeWeek); // the week's themes, each group's previous one ready to edit
   const openDay = (date) => { track('koti.paiva'); navigate(`/valmentaja/ryhmat?vko=${weekParam(week)}&pv=${date}`); };
   const missing = status.missing || [];
   const weekWord = isNow ? `Viikon ${themeWeek.week}` : `Ensi viikon (vko ${themeWeek.week})`;
@@ -68,7 +65,7 @@ function WeekHero({ state, glance, week }) {
         </span>
       </button>
       {!all && (carry.length > 0 ? (
-        <Button variant="lime" size="sm" icon="repeat" loading={busy} onClick={go}>Jatka edellisillä</Button>
+        <Button variant="lime" size="sm" icon="repeat" onClick={go}>Jatka edellisillä</Button>
       ) : (
         <Button variant="lime" size="sm" icon="sparkles" onClick={() => record.openMerkinta({ kind: 'teema' })}>Aseta</Button>
       ))}

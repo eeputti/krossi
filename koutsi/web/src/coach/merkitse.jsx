@@ -29,6 +29,7 @@ import { useCoach } from './CoachRoot.jsx';
 import { groupPath, openPlanner, sessionPath } from './nav.js';
 import { RecordSheet } from './RecordSheet.jsx';
 import { MerkintaSheet } from './MerkintaSheet.jsx';
+import { ContinueThemesSheet } from './ContinueThemesSheet.jsx';
 import { DaySummarySheet } from './DaySummarySheet.jsx';
 import { WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { track } from './usage.js';
@@ -342,14 +343,16 @@ export function RecordProvider({ children }) {
     setSheet({ kind: 'viesti', trainingId, ids, messageKind: kind });
   }, []);
 
-  const value = useMemo(() => ({ open, openMenu, openMerkinta }), [open, openMenu, openMerkinta]);
+  // "Jatka edellisillä": every group's own previous theme, editable before saving (ContinueThemesSheet)
+  const openContinue = useCallback((week) => { track('teemat.jatka-avaa'); setSheet({ kind: 'continue', week }); }, []);
+  const value = useMemo(() => ({ open, openMenu, openMerkinta, openContinue }), [open, openMenu, openMerkinta, openContinue]);
   const kind = sheet?.kind;
   return (
     <RecordContext.Provider value={value}>
       {children}
       <MerkintaSheet open={kind === 'viesti'} onClose={close} trainingId={last.current.viesti?.trainingId || null}
         initialIds={last.current.viesti?.ids || []} initialKind={last.current.viesti?.messageKind || null}
-        onVideo={(ids) => setSheet({ kind: 'video', ids })} />
+        onVideo={(ids) => setSheet({ kind: 'video', ids })} onContinue={(week) => setSheet({ kind: 'continue', week })} />
       <MerkitseSheet open={kind === 'menu'} onClose={close} onPick={setSheet} pickedIds={last.current.menu?.trainingIds || []}
         week={Boolean(last.current.menu?.allWeek)} focusId={last.current.menu?.focusId || null}
         onToggleSession={toggleSession} onToggleWeek={toggleWeek} />
@@ -357,6 +360,7 @@ export function RecordProvider({ children }) {
       <VideoShareSheet open={kind === 'video'} onClose={close} recipients={state.students} initialIds={sheet?.ids || []} groups={state.groups} onSave={shareVideo} />
       <DaySummarySheet open={kind === 'day'} date={last.current.day?.date} onClose={close} />
       <WeekRecapSheet open={kind === 'week'} week={last.current.week?.week} onClose={close} />
+      <ContinueThemesSheet open={kind === 'continue'} week={last.current.continue?.week || null} onClose={close} />
     </RecordContext.Provider>
   );
 }

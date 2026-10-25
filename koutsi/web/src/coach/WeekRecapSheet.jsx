@@ -12,7 +12,7 @@ import { firstName } from '../domain/roster.js';
 import { MoodPicker } from '../player/sheets.jsx';
 import { useCoach } from './CoachRoot.jsx';
 import { openPlanner } from './nav.js';
-import { useContinueThemes } from './themeActions.js';
+import { useRecord } from './merkitse.jsx';
 
 const SEEN_KEY = (coachId) => `koutsi_viikkokooste_${coachId}`;
 const weekKey = (w) => `${w.year}-${w.week}`;
@@ -40,7 +40,7 @@ const average = (x) => x.toFixed(1).replace('.', ',');
 export function WeekRecapSheet({ open, week, onClose }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
-  const continueThemes = useContinueThemes();
+  const { openContinue } = useRecord();
   const existing = week ? (state.weekNotes || []).find((n) => n.year === week.year && n.week === week.week) : null;
   const [score, setScore] = useState(null);
   const [note, setNote] = useState('');
@@ -63,7 +63,7 @@ export function WeekRecapSheet({ open, week, onClose }) {
     if (res.ok) onClose();
   };
   const toPlanner = () => { onClose(); openPlanner({ week: next }); };
-  const carryOn = async () => { setBusy(true); await continueThemes(nextStatus.carry, next); setBusy(false); };
+  const carryOn = () => { onClose(); openContinue(next); };
 
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} size="md" title={`Viikko ${week.week} paketissa`}
@@ -99,7 +99,7 @@ export function WeekRecapSheet({ open, week, onClose }) {
           </p>
           {missing > 0 && (
             <div className="row wrap">
-              {nextStatus.carry.length > 0 && <Button variant="lime" size="sm" icon="repeat" loading={busy} onClick={carryOn}>Jatka edellisillä ({nextStatus.carry.length})</Button>}
+              {nextStatus.carry.length > 0 && <Button variant="lime" size="sm" icon="repeat" onClick={carryOn}>Jatka edellisillä ({nextStatus.carry.length})</Button>}
               <Button variant="outline" size="sm" icon="sparkles" onClick={toPlanner}>Aseta teemat</Button>
             </div>
           )}
