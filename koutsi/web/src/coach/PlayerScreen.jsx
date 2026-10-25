@@ -22,7 +22,6 @@ import { ambitionById } from '../domain/playerNow.js';
 import { archiveMap, playerOwnsEvent } from '../domain/archive.js';
 import { coachMonthCalendar, playerMonthFacts } from '../domain/glance.js';
 import { itemIcon } from '../domain/monthCal.js';
-import { firstName } from '../domain/roster.js';
 import { ActivityIcon } from '../player/ActivityIcon.jsx';
 import { AbsenceSheet } from './AbsencePlanner.jsx';
 import { track } from './usage.js';
@@ -134,7 +133,6 @@ const WEEKDAYS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 const dec = (x) => (x == null ? '–' : x.toFixed(1).replace('.', ','));
 const MONTHS_SHORT = ['tammi', 'helmi', 'maalis', 'huhti', 'touko', 'kesä', 'heinä', 'elo', 'syys', 'loka', 'marras', 'joulu'];
 /** "Marialle", "Emilille": the name a button speaks to. */
-const toName = (name) => { const f = firstName(name) || name; return /[aeiouyäö]$/i.test(f) ? `${f}lle` : `${f}ille`; };
 
 function DayIcon({ item, size = 15 }) {
   if (item.kind === 'absent') return <Icon name="close" size={size - 2} strokeWidth={3} />;
@@ -389,19 +387,14 @@ export function PlayerScreen({ params }) {
 
         {student.isPlaceholder && <PlaceholderInvite student={student} />}
 
-        {messagesOn ? (
-          // Viestit on: Huomio · Viesti · Poissaolot as three tiles (they fit a 390 px phone)
-          <div className="k-player-actions is-tiles">
-            <Button variant="lime" size="lg" icon="chat" onClick={() => record.openMerkinta({ ids: [student.id], kind: 'huomio' })}>Huomio</Button>
-            <Button variant="outline" size="lg" icon="send" onClick={openMessage}>Viesti</Button>
-            <Button variant="outline" size="lg" icon="calendar" onClick={() => { track('pelaaja.poissaolot'); setSheet({ kind: 'absence' }); }}>Poissaolot</Button>
-          </div>
-        ) : (
-          <div className="k-player-actions">
-            <Button variant="lime" size="lg" block icon="chat" onClick={() => record.openMerkinta({ ids: [student.id], kind: 'huomio' })}>Huomio {toName(student.name)}</Button>
-            <Button variant="outline" size="lg" icon="calendar" onClick={() => { track('pelaaja.poissaolot'); setSheet({ kind: 'absence' }); }}>Poissaolot</Button>
-          </div>
-        )}
+        {/* Like the old app's "+ Päiväkirja" / "+ Kotiläksy": the plain form for just this player
+            (RecordSheet with the player as its scope), as tiles: Huomio · Kotiläksy (· Viesti) · Poissaolot */}
+        <div className={cx('k-player-actions is-tiles', messagesOn && 'is-four')}>
+          <Button variant="lime" size="lg" icon="chat" onClick={() => record.open('note', { ids: [student.id], source: 'pelaaja', scope: { name: student.name, icon: 'user' } })}>Huomio</Button>
+          <Button variant="outline" size="lg" icon="check-circle" onClick={() => record.open('homework', { ids: [student.id], source: 'pelaaja', scope: { name: student.name, icon: 'user' } })}>Kotiläksy</Button>
+          {messagesOn && <Button variant="outline" size="lg" icon="send" onClick={openMessage}>Viesti</Button>}
+          <Button variant="outline" size="lg" icon="calendar" onClick={() => { track('pelaaja.poissaolot'); setSheet({ kind: 'absence' }); }}>Poissaolot</Button>
+        </div>
 
         <MonthCard state={state} student={student} hidden={hiddenKeys} />
 

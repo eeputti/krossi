@@ -79,11 +79,16 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', sco
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
+  // Opened from a player's page the form is just for them (like the old "Päiväkirja — Aino S."):
+  // no recipient list until the coach asks for one.
+  const onePlayer = scope?.icon === 'user' && initialIds.length === 1;
+  const [pickOthers, setPickOthers] = useState(false);
   useEffect(() => {
     if (!open) return;
     setIds(initialIds);
     setText(initialText);
     setBankOpen(false);
+    setPickOthers(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const k = KINDS[kind] || KINDS.note;
   // The whole bank: Krossi's library (loaded when a homework sheet first opens) and the coach's
@@ -147,9 +152,13 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', sco
             </div>
           )}
           <p className="k-warn-text">{HEALTH_NOTE}</p>
-          <Field label={`Kenelle${ids.length ? ` (${ids.length})` : ''}`}>
-            <RecipientPicker students={state.students} groups={state.groups} value={ids} onChange={setIds} open={open} />
-          </Field>
+          {onePlayer && !pickOthers ? (
+            <button type="button" className="k-textlink" onClick={() => setPickOthers(true)}>Lähetä myös muille pelaajille</button>
+          ) : (
+            <Field label={`Kenelle${ids.length ? ` (${ids.length})` : ''}`}>
+              <RecipientPicker students={state.students} groups={state.groups} value={ids} onChange={setIds} open={open} />
+            </Field>
+          )}
         </div>
       </Sheet>
       <ExercisePickerSheet open={open && bankOpen} exercises={bank} onPick={(ex) => pickExercise(ex, 'pankista')} onClose={() => setBankOpen(false)} />

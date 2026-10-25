@@ -35,11 +35,6 @@
 .msg-label { margin: 18px 4px 8px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .msg-pick .list-row-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* the player page: Huomio · Viesti · Poissaolot as three tiles that fit any phone */
-.k-player-actions.is-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.k-player-actions.is-tiles .btn { height: 66px; flex-direction: column; gap: 5px; padding: 0 4px; font-size: 14px; min-width: 0; width: 100%; }
-.k-player-actions.is-tiles .btn .btn-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 /* the player's Koti: Viestit beside the bell, "Vastaa valmentajalle" under a Tiedote */
 .home-hero-icons { display: inline-flex; gap: 8px; }
 .an-reply { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; }
