@@ -5,12 +5,14 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { goBack } from '../app/router.js';
-import { Avatar, Button, Disclosure, Icon, Sheet, useConfirm, useToast } from '../ui/index.js';
+import { Avatar, Button, Disclosure, Icon, ListRow, Sheet, useConfirm, useToast } from '../ui/index.js';
 import { copyText } from '../ui/effects.js';
 import { CopyButton, QrCode, ShareTextButton, Quiet } from '../shared/bits.jsx';
 import { koutsiInviteLink, koutsiInviteMessage } from '../domain/core.js';
 import { groupsOf, unjoinedPlayers } from '../domain/week.js';
 import { useCoach } from './CoachRoot.jsx';
+import { GroupLinksSheet } from './GroupLinks.jsx';
+import { currentSeason } from '../domain/season.js';
 
 function PersonalInviteRow({ student, coachName, groups }) {
   const toast = useToast();
@@ -50,7 +52,7 @@ function PersonalInviteRow({ student, coachName, groups }) {
   );
 }
 
-function CoachCode() {
+export function CoachCode() {
   const { state } = useData();
   const { coachId } = useCoach();
   const toast = useToast();
@@ -92,11 +94,17 @@ function CoachCode() {
 export function InvitesSheet() {
   const { state } = useData();
   const [open, setOpen] = useState(true);
+  const [links, setLinks] = useState(false);
   const unjoined = unjoinedPlayers(state);
   return (
     <Sheet open={open} onClose={() => setOpen(false)} onClosed={() => goBack('/valmentaja/pelaajat')} size="md"
       title="Kutsu pelaajat" subtitle="Liittynyt pelaaja näkee ryhmänsä viikon teeman, treenit ja oman kehityksensä.">
       <div className="stack-5">
+        {state.groups.length > 0 && (
+          <div className="list-group">
+            <ListRow icon="share" title="Ryhmälinkit koko kaudeksi" subtitle="Yksi viesti kaikille ryhmille — aikuiset liittyvät itse" onClick={() => setLinks(true)} />
+          </div>
+        )}
         <section className="stack-3">
           <div className="row-between">
             <h3 className="t-h3">Ei vielä liittyneet ({unjoined.length})</h3>
@@ -115,6 +123,7 @@ export function InvitesSheet() {
         </Disclosure>
         <p className="k-fine"><Icon name="info" size={14} /> Ryhmäkohtaisen linkin saat ryhmän sivulta (Kutsu).</p>
       </div>
+      <GroupLinksSheet open={links} onClose={() => setLinks(false)} season={state.seasonsReady ? currentSeason(state) : null} />
     </Sheet>
   );
 }

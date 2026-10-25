@@ -51,7 +51,7 @@ function TabBar({ tabs, active, badges, center }) {
   );
 }
 
-function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel }) {
+function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel, beforeMe }) {
   // A page that has its own side-nav link (Harjoitepankki, Ylläpito) lights that link, not the tab.
   const extraOn = (extraLinks || []).find((l) => (l.pages || []).includes(page));
   const tabOn = extraOn ? null : active;
@@ -83,8 +83,13 @@ function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel })
           </Link>
         )))}
       </nav>
+      {beforeMe && (
+        <button type="button" className="sidenav-link sidenav-before-me" onClick={beforeMe.onClick} aria-haspopup="dialog">
+          <Icon name={beforeMe.icon} size={20} /><span>{beforeMe.label}</span>
+        </button>
+      )}
       {me && (
-        <Link to={me.to} className="sidenav-me">
+        <Link to={me.to} className={cx('sidenav-me', beforeMe && 'has-before')}>
           <Avatar person={me.person} size={38} ring />
           <span className="sidenav-me-text">
             <span className="sidenav-me-name truncate">{me.person?.name}</span>
@@ -132,7 +137,7 @@ function renderScreen(screens, NotFound, match, query) {
  *   me: { person, sub, to }   roleLabel   banner: node shown above the page (acting mode etc.)
  *   signupUrl: where the demo banner points   beta: show the "Koutsilla uusi ilme!" bar instead
  */
-export function AppShell({ tabs, screens, NotFound, badges, cta, center, extraLinks, me, roleLabel, banner, signupUrl, beta = false }) {
+export function AppShell({ tabs, screens, NotFound, badges, cta, center, extraLinks, me, beforeMe = null, roleLabel, banner, signupUrl, beta = false }) {
   const route = useRoute();
   const isDesktop = useIsDesktop();
   const type = route.route?.type;
@@ -161,7 +166,7 @@ export function AppShell({ tabs, screens, NotFound, badges, cta, center, extraLi
   return (
     <div className={cx('shell', (beta || isDemo) && 'has-top-banner', hideChrome && 'no-chrome')}>
       {beta ? <BetaBanner /> : isDemo && <DemoBanner signupUrl={signupUrl} />}
-      {isDesktop && <SideNav tabs={tabs} active={activeTab} page={pageMatch?.name} badges={badges} cta={cta} extraLinks={extraLinks} me={me} roleLabel={roleLabel} />}
+      {isDesktop && <SideNav tabs={tabs} active={activeTab} page={pageMatch?.name} badges={badges} cta={cta} extraLinks={extraLinks} me={me} beforeMe={beforeMe} roleLabel={roleLabel} />}
       <div className="shell-main">
         {banner}
         <div key={pageKey} className={cx('shell-page', pageMatch?.name && `shell-page-${pageMatch.name}`, transition)}>

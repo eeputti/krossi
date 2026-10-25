@@ -51,6 +51,8 @@ const wait = () => new Promise((r) => setTimeout(r, latencyMs));
 const nowIso = () => new Date().toISOString();
 const findStudent = (id) => S().students.find((s) => s.id === id);
 const findGroup = (id) => S().groups.find((g) => g.id === id);
+// Six letters/digits like the real codes (no I/O/0/1, read aloud over the phone).
+const demoCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 const notAllowed = () => { throw new ApiError('Tätä ei voi tehdä demossa.', { code: 'demo' }); };
 const messageListeners = new Set();
 const emitMessages = (threadId) => { setTimeout(() => messageListeners.forEach((cb) => cb({ threadId })), 0); };
@@ -781,10 +783,10 @@ export const backend = {
 
   invites: {
     async myJoinCode() { return S().joinCode; },
-    async rotateJoinCode() { await wait(); S().joinCode = newId('K').slice(-6).toUpperCase(); return S().joinCode; },
+    async rotateJoinCode() { await wait(); S().joinCode = demoCode(); return S().joinCode; },
     async create(groupId, { maxUses = 1, expiresDays = 14 } = {}) {
       await wait();
-      const code = { code: newId('K').slice(-6).toUpperCase(), groupId: groupId || null, createdAt: nowIso(), expiresAt: new Date(Date.now() + expiresDays * 86400000).toISOString(), maxUses, useCount: 0, revokedAt: null, active: true };
+      const code = { code: demoCode(), groupId: groupId || null, createdAt: nowIso(), expiresAt: new Date(Date.now() + expiresDays * 86400000).toISOString(), maxUses, useCount: 0, revokedAt: null, active: true };
       S().inviteCodes.unshift(code);
       return { code: code.code, expires_at: code.expiresAt };
     },

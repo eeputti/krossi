@@ -24,6 +24,7 @@ import { currentSeason, draftSummary, groupsOfSeason, nextSeasonPreset, seasonNu
 import { ActivityRow, SessionRow } from './parts.jsx';
 import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
 import { SeasonEditSheet } from './SeasonSheet.jsx';
+import { GroupLinksSheet } from './GroupLinks.jsx';
 import { WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
@@ -169,6 +170,7 @@ function NextSession({ state }) {
 function SeasonCard({ state, nudge }) {
   const { season, next, draft, kind } = nudge;
   const [editOpen, setEditOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
   const preset = next || draft || nextSeasonPreset(season);
   const base = seasonWord(preset.startsOn);
   if (kind === 'published') {
@@ -181,12 +183,14 @@ function SeasonCard({ state, nudge }) {
           <div className="k-alert-title">{next.name} on julkaistu</div>
           <p className="k-alert-text">Alkaa {koutsiFmtShortDate(next.startsOn)} · {count} ryhmää. {season.name} jatkuu {koutsiFmtShortDate(season.endsOn)} asti.</p>
           <div className="row wrap season-alert-actions">
-            <Button variant="outline" size="sm" icon="calendar" onClick={() => navigate(`/valmentaja/ryhmat?vko=${weekParam(koutsiIsoWeekOfDateStr(next.startsOn))}`)}>Kauden ensimmäinen viikko</Button>
+            <Button variant="dark" size="sm" icon="share" onClick={() => setLinksOpen(true)}>Jaa ryhmälinkit</Button>
+            <Button variant="outline" size="sm" icon="calendar" onClick={() => navigate(`/valmentaja/ryhmat?vko=${weekParam(koutsiIsoWeekOfDateStr(next.startsOn))}`)}>Ensimmäinen viikko</Button>
             <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>Muuta {seasonWord(season.startsOn, 'gen')} loppua</Button>
           </div>
         </div>
       </Card>
       <SeasonEditSheet open={editOpen} onClose={() => setEditOpen(false)} season={season} />
+      <GroupLinksSheet open={linksOpen} onClose={() => setLinksOpen(false)} season={next} />
       </>
     );
   }

@@ -13,6 +13,8 @@ import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { bankSummary } from './ExercisesScreen.jsx';
 import { openSeason } from './nav.js';
 import { SeasonEditSheet } from './SeasonSheet.jsx';
+import { JoinCodesSheet } from './JoinCodesSheet.jsx';
+import { joinedTotals } from '../domain/groupLinks.js';
 import { currentSeason, followingSeason, seasonWord } from '../domain/season.js';
 import { koutsiFmtShortDate, koutsiIsoWeekOfDateStr } from '../domain/core.js';
 import { weekParam } from '../domain/week.js';
@@ -88,6 +90,10 @@ export function ProfileScreen() {
               <ListRow icon="repeat" title={season.name} subtitle={`${koutsiFmtShortDate(season.startsOn)}–${koutsiFmtShortDate(season.endsOn)} · muuta ${seasonWord(season.startsOn, 'gen')} loppua`}
                 onClick={() => setSheet('season')} />
             )}
+            <ListRow icon="link" title="Liittymiskoodini" subtitle={state.groups.length ? (() => {
+              const t = joinedTotals(state, state.groups);
+              return `${t.joined}/${t.total} pelaajaa liittynyt · ryhmien koodit ja oma koodi`;
+            })() : 'Oma koodisi pelaajille'} onClick={() => setSheet('codes')} />
             <ListRow icon="book" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => navigate('/valmentaja/harjoitteet')} />
             <ListRow icon="list" title="Lisää monta kerralla" subtitle="Ryhmät ja pelaajat listasta" onClick={() => setSheet('bulk')} />
             <ListRow icon="calendar" title="Lähetä vuosisuunnitelma" subtitle="Usean ryhmän teemat Excelistä" onClick={() => setSheet('plan')} />
@@ -99,6 +105,7 @@ export function ProfileScreen() {
       <BulkSetupSheet open={sheet === 'bulk'} onClose={() => setSheet(null)} />
       <SharedPlanSheet open={sheet === 'plan'} onClose={() => setSheet(null)} />
       <SeasonEditSheet open={sheet === 'season'} onClose={() => setSheet(null)} season={season} />
+      <JoinCodesSheet open={sheet === 'codes'} onClose={() => setSheet(null)} />
     </Page>
   );
 }

@@ -15,7 +15,9 @@ import { exactNameMatch, matchStudents } from '../domain/roster.js';
 import { weekDates, themeWeekShort } from '../domain/week.js';
 import { useCoach } from './CoachRoot.jsx';
 import { groupPath } from './nav.js';
-import { weeksLeftInSeason } from '../domain/season.js';
+import { currentSeason, weeksLeftInSeason } from '../domain/season.js';
+import { SEASON_LINK_USES, joinedCount, seasonLinkDays, seasonLinkFor } from '../domain/groupLinks.js';
+import { GroupQrSheet } from './GroupLinks.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -253,77 +255,86 @@ export function GroupInviteSheet({ open, onClose, group }) {
   const { coachId, acting } = useCoach();
   const toast = useToast();
   const confirm = useConfirm();
-  const [maxUses, setMaxUses] = useState(20);
-  const [issued, setIssued] = useState(null);
   const [codes, setCodes] = useState([]);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(null);
+  const [shown, setShown] = useState(null); // a one-off code opened from the list
+  const [big, setBig] = useState(false);
+  const season = (group?.seasonId && (state.seasons || []).find((x) => x.id === group.seasonId)) || (state.seasonsReady ? currentSeason(state) : null);
   const load = async () => {
     try { setCodes((await api.invites.list(coachId)).filter((c) => c.active && c.groupId === group?.id)); } catch { /* list is optional */ }
   };
-  useEffect(() => { if (open && group) { setIssued(null); load(); } }, [open, group?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open && group) { setShown(null); load(); } }, [open, group?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!group) return null;
-  const create = async () => {
-    setBusy(true);
+  const seasonLink = seasonLinkFor(codes, group.id);
+  const others = codes.filter((c) => c.code !== seasonLink?.code);
+  const create = async (kind) => {
+    setBusy(kind);
     try {
-      const result = await api.invites.create(group.id, { expiresDays: 14, maxUses, coachId: acting ? coachId : null });
-      setIssued(typeof result === 'string' ? { code: result } : result);
-      load();
+      const opts = kind === 'season'
+        ? { expiresDays: seasonLinkDays(season), maxUses: SEASON_LINK_USES }
+        : { expiresDays: 14, maxUses: 1 };
+      const result = await api.invites.create(group.id, { ...opts, coachId: acting ? coachId : null });
+      await load();
+      if (kind === 'one') setShown(typeof result === 'string' ? { code: result } : { code: result.code, expiresAt: result.expires_at });
     } catch (err) { toast(err); }
-    setBusy(false);
+    setBusy(null);
   };
   const revoke = async (code) => {
     if (!(await confirm({ title: `Poista koodi ${code} käytöstä?`, message: 'Koodi lakkaa toimimasta heti. Jo liittyneet pelaajat pysyvät ryhmässä.', confirmLabel: 'Poista käytöstä', danger: true }))) return;
-    try { await api.invites.revoke(code); toast('Koodi poistettu käytöstä.'); load(); } catch (err) { toast(err); }
+    try { await api.invites.revoke(code); toast('Koodi poistettu käytöstä.'); setShown(null); load(); } catch (err) { toast(err); }
   };
-  const code = issued?.code;
-  const link = code ? koutsiInviteLink(code) : '';
-  const message = code ? koutsiInviteMessage(code, state.coach.name, group.name) : '';
+  const current = shown || (seasonLink ? { code: seasonLink.code, expiresAt: seasonLink.expiresAt, season: true, used: seasonLink.useCount } : null);
+  const link = current ? koutsiInviteLink(current.code) : '';
+  const message = current ? koutsiInviteMessage(current.code, state.coach.name, group.name) : '';
+  const count = joinedCount(state, group);
   return (
-    <Sheet open={open} onClose={onClose} title="Kutsu ryhmään" subtitle={group.name} size="md">
-      {code ? (
-        <div className="k-invite stack-4">
-          <div className="k-invite-head">
-            <QrCode text={link} size={156} />
-            <div className="stack-2">
-              <div className="field-label">Koodi</div>
-              <div className="k-code">{code}</div>
-              <div className="k-link-text">{link}</div>
+    <Sheet open={open} onClose={onClose} title="Kutsu ryhmään" subtitle={`${group.name} · ${count.joined}/${count.total} liittynyt`} size="md">
+      <div className="stack-5">
+        {current ? (
+          <div className="k-invite stack-4">
+            <div className="k-invite-head">
+              <QrCode text={link} size={156} />
+              <div className="stack-2">
+                <div className="field-label">{current.season ? 'Kauden linkki' : 'Kertakäyttöinen linkki'}</div>
+                <div className="k-code">{current.code}</div>
+                <div className="k-link-text">{link}</div>
+              </div>
             </div>
+            <div className="row wrap">
+              <ShareTextButton text={message} title="Liity Koutsiin" label="Jaa viesti" />
+              <CopyButton text={link} label="Kopioi linkki" />
+              <Button variant="ghost" size="sm" icon="grid" onClick={() => setBig(true)}>Näytä isona</Button>
+            </div>
+            <p className="field-msg">
+              {current.season ? 'Toimii koko kauden koko ryhmälle — jaa kerran myClubin tiedotteessa tai ryhmän WhatsAppissa, tai näytä QR-koodi treeneissä.' : 'Yhdelle pelaajalle.'}
+              {current.expiresAt ? ` Voimassa ${koutsiFmtShortDate(String(current.expiresAt).slice(0, 10))} asti.` : ''}
+            </p>
+            <p className="k-warn-text"><strong>Alaikäiselle</strong> lähetetään aina oma henkilökohtainen linkki pelaajan sivulta.</p>
+            {shown && <Button variant="soft" onClick={() => setShown(null)}>Takaisin kauden linkkiin</Button>}
           </div>
-          <div className="row wrap">
-            <ShareTextButton text={message} title="Liity Koutsiin" label="Jaa viesti" />
-            <CopyButton text={link} label="Kopioi linkki" />
+        ) : (
+          <div className="stack-3">
+            <p className="k-quiet-text">Yksi linkki koko kaudeksi: aikuiset pelaajat liittyvät sillä suoraan tähän ryhmään{season ? ` (${season.name}, ${koutsiFmtShortDate(season.endsOn)} asti)` : ''}.</p>
+            <Button variant="dark" icon="link" loading={busy === 'season'} onClick={() => create('season')}>Luo kauden linkki</Button>
           </div>
-          <p className="field-msg">Pelaaja avaa linkin, kirjautuu tai luo tilin ja liittyy suoraan tähän ryhmään.{issued.expires_at ? ` Voimassa ${koutsiFmtShortDate(String(issued.expires_at).slice(0, 10))} asti.` : ''}</p>
-          <p className="k-warn-text"><strong>Alaikäiselle</strong> lähetetään aina oma henkilökohtainen linkki pelaajan sivulta.</p>
-          <Button variant="soft" onClick={() => setIssued(null)}>Valmis</Button>
-        </div>
-      ) : (
-        <div className="stack-4">
-          <p className="k-quiet-text">Luo linkki, jolla aikuiset pelaajat liittyvät suoraan tähän ryhmään. Linkki on voimassa 14 päivää.</p>
-          <Field label="Linkki kelpaa">
-            <div className="k-weeks-row">
-              {[[1, 'yhdelle'], [5, 'viidelle'], [20, 'koko ryhmälle']].map(([n, label]) => (
-                <button key={n} type="button" className={cx('planner-chip', maxUses === n && 'is-on')} onClick={() => setMaxUses(n)}>{label}</button>
-              ))}
+        )}
+        <section className="stack-2">
+          <div className="row-between">
+            <div className="field-label">Muut linkit</div>
+            <Button variant="ghost" size="sm" icon="plus" loading={busy === 'one'} onClick={() => create('one')}>Kertakäyttöinen</Button>
+          </div>
+          {others.length === 0 ? <p className="k-faint">Ei muita voimassa olevia linkkejä.</p> : others.map((c) => (
+            <div key={c.code} className="k-code-row">
+              <span className="k-code-small">{c.code}</span>
+              <span className="k-faint grow">{c.useCount}/{c.maxUses ?? '∞'} käytetty{c.expiresAt ? ` · ${koutsiFmtShortDate(c.expiresAt.slice(0, 10))} asti` : ''}</span>
+              <Button variant="ghost" size="sm" onClick={() => setShown({ code: c.code, expiresAt: c.expiresAt })}>Näytä</Button>
+              <Button variant="ghost" size="sm" onClick={() => revoke(c.code)}>Poista</Button>
             </div>
-          </Field>
-          <Button variant="dark" icon="link" loading={busy} onClick={create}>Luo liittymislinkki</Button>
-          {codes.length > 0 && (
-            <div className="stack-2">
-              <div className="field-label">Voimassa olevat linkit</div>
-              {codes.map((c) => (
-                <div key={c.code} className="k-code-row">
-                  <span className="k-code-small">{c.code}</span>
-                  <span className="k-faint grow">{c.useCount}/{c.maxUses ?? '∞'} käytetty{c.expiresAt ? ` · ${koutsiFmtShortDate(c.expiresAt.slice(0, 10))} asti` : ''}</span>
-                  <Button variant="ghost" size="sm" onClick={() => setIssued({ code: c.code, expires_at: c.expiresAt })}>Näytä</Button>
-                  <Button variant="ghost" size="sm" onClick={() => revoke(c.code)}>Poista</Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+          ))}
+          {seasonLink && !shown && <Button variant="ghost" size="sm" onClick={() => revoke(seasonLink.code)}>Poista kauden linkki käytöstä</Button>}
+        </section>
+      </div>
+      <GroupQrSheet open={big} onClose={() => setBig(false)} group={group} code={current?.code} expiresAt={current?.expiresAt} />
     </Sheet>
   );
 }
