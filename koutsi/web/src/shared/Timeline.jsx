@@ -92,9 +92,11 @@ function Event({ event, onOpenVideo, renderActions, onArchive }) {
  *   emptyText, showStats, viewer: 'player' (own history) | 'coach'
  *   isHidden(event) → true leaves an event out (the archive, domain/archive.js)
  *   onArchive(event) — set while the player edits: each row shows "Piilota"
+ *   initialKind — the filter to start on (e.g. 'valmentaja' from Koti's "Kaikki huomiot")
  */
-export function Timeline({ student, trainings, clubEvents, onOpenVideo, renderActions, actions, emptyText, showStats = true, viewer = 'player', isHidden, onArchive }) {
-  const [kind, setKind] = useState('kaikki');
+export function Timeline({ student, trainings, clubEvents, onOpenVideo, renderActions, actions, emptyText, showStats = true, viewer = 'player', isHidden, onArchive, initialKind }) {
+  const [kind, setKind] = useState(initialKind || 'kaikki');
+  useEffect(() => { if (initialKind) setKind(initialKind); }, [initialKind]);
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const grouped = viewer === 'player';

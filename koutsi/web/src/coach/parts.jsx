@@ -84,7 +84,7 @@ export function PlayerRow({ student, sub, right, to }) {
   );
 }
 
-const ACTIVITY_ICON = { mood: 'heart', self: 'bolt', wish: 'chat', note: 'edit', match: 'trophy', homework: 'check-circle' };
+const ACTIVITY_ICON = { mood: 'heart', self: 'bolt', entry: 'check', wish: 'chat', note: 'edit', match: 'trophy', homework: 'check-circle' };
 
 /** A player's own log as the player wrote it: "Kuntosali · 45 min — jalat ja keskivartalo". */
 function selfLogLine(training) {
@@ -102,6 +102,7 @@ export function ActivityRow({ item }) {
   else if (item.kind === 'self') text = selfLogLine(item.training);
   else if (item.kind === 'wish') text = <>Toive: “{item.text}”</>;
   else if (item.kind === 'note') text = <>Muistiinpano: “{item.text}”</>;
+  else if (item.kind === 'entry') text = <>Merkintä: “{item.text}”{item.how ? ` — ${item.how}` : ''}</>;
   else if (item.kind === 'match') text = <>Ottelu vs. {item.match.opponentName}{item.match.result ? ` — ${item.match.result === 'voitto' ? 'voitto' : 'tappio'}` : ''}{item.match.score ? ` ${item.match.score}` : ''}</>;
   else if (item.kind === 'homework') text = <>Teki kotiläksyn: {item.text}</>;
   return (

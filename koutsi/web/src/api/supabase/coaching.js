@@ -66,7 +66,7 @@ export const coach = {
       coach_id: coachId, iso_year: year, iso_week: week, score, note: note || null, updated_at: new Date().toISOString(),
     }, { onConflict: 'coach_id,iso_year,iso_week' });
     if (error && isMissingTable(error)) {
-      throw new ApiError('Viikkopäiväkirja otetaan käyttöön pian. Viikon kooste toimii jo.', { code: 'not_deployed' });
+      throw new ApiError('Oma viikkomuistio otetaan käyttöön pian. Viikon kooste toimii jo.', { code: 'not_deployed' });
     }
     if (error) throw error;
   },

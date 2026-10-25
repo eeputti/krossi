@@ -253,10 +253,13 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
   const k = KINDS[kind];
   const look = RECORD_LOOK[kind === 'huomio' && asHomework ? 'laksy' : kind] || RECORD_LOOK.huomio;
 
-  const submit = async () => {
+  // thenVideo: "Lähetä ja lisää video" — the typed text is sent first, then the video sheet opens
+  // for the same players (it used to open straight away and the typed text was lost).
+  const submit = async ({ thenVideo = false } = {}) => {
     if (!ready) return;
     setBusy(true);
     const clean = text.trim();
+    const sentIds = ids;
     const n = ids.length;
     let res;
     if (kind === 'tiedote') {
@@ -272,6 +275,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     setBusy(false);
     if (!res.ok) return;
     track(`tallennettu.${kind === 'tiedote' ? 'tiedote' : asHomework ? 'laksy' : 'huomio'}`);
+    if (thenVideo && onVideo) { onVideo(sentIds); return; }
     onClose();
   };
 
@@ -308,19 +312,19 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     const sub = r.sessions
       ? [`${r.held}/${r.sessions} treeniä`, r.attendance != null ? `läsnä ${Math.round(r.attendance * 100)} %` : '', r.moodAverage != null ? `fiilis ${fmtAvg(r.moodAverage)}` : ''].filter(Boolean).join(' · ')
       : 'Ei treenejä tällä viikolla';
-    return { id: 'viikko', icon: 'trophy', title: `Viikko ${week.week} paketissa · päiväkirja`, sub, run: () => { track('merkitse.viikko'); onWeek?.(week); } };
+    return { id: 'viikko', icon: 'trophy', title: `Viikko ${week.week} paketissa · oma muistio`, sub, run: () => { track('merkitse.viikko'); onWeek?.(week); } };
   })();
   const others = [
     ...(summary ? [summary] : []),
-    // on a Sunday the week's recap above holds the diary too
-    ...(summary?.id === 'viikko' ? [] : [{ id: 'paivakirja', icon: 'edit', title: 'Viikkopäiväkirja', sub: 'Vain sinulle', run: () => { track('merkitse.paivakirja'); onWeek?.(week); } }]),
+    // on a Sunday the week's recap above holds the coach's own week memo too
+    ...(summary?.id === 'viikko' ? [] : [{ id: 'paivakirja', icon: 'edit', title: 'Oma viikkomuistio', sub: 'Vain sinulle', run: () => { track('merkitse.paivakirja'); onWeek?.(week); } }]),
     { id: 'poissaolo', icon: 'calendar', title: 'Poissaolo', sub: 'Pelaaja pois monesta treenistä', run: () => { track('merkitse.poissaolo'); onAbsence?.(); } },
   ];
   const footer = video ? (
     <div className="sheet-actions">
       <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>
       <Button variant="dark" size="lg" icon="play" onClick={() => { track('merkitse.video'); onVideo?.(ids); }}>
-        {ids.length ? `Valitse video · ${players(ids.length)}` : 'Valitse video'}
+        {ids.length ? `Video ${players(ids.length)}` : 'Valitse video'}
       </Button>
     </div>
   ) : attendance ? (
@@ -328,7 +332,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
   ) : (
     <div className="sheet-actions">
       <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
-      <Button variant="dark" size="lg" icon="send" disabled={!ready} loading={busy} onClick={submit}>
+      <Button variant="dark" size="lg" icon="send" disabled={!ready} loading={busy} onClick={() => submit()}>
         {ids.length ? `Lähetä ${players(ids.length)}` : 'Lähetä'}
       </Button>
     </div>
@@ -468,8 +472,8 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
                   <button type="button" aria-pressed={asHomework} className={cx('vs-pill', asHomework && 'is-on')} onClick={() => setAsHomework((v) => !v)}>
                     <Icon name="check-circle" size={15} />Kotiläksyksi
                   </button>
-                  <button type="button" className="vs-pill" disabled={!ids.length} onClick={() => onVideo?.(ids)}>
-                    <Icon name="play" size={15} />Lisää video
+                  <button type="button" className="vs-pill" disabled={!ids.length || busy} onClick={() => (dirty ? submit({ thenVideo: true }) : onVideo?.(ids))}>
+                    <Icon name="play" size={15} />{dirty ? 'Lähetä ja lisää video' : 'Lisää video'}
                   </button>
                 </div>
                 <p className="k-warn-text">{HEALTH_NOTE}</p>

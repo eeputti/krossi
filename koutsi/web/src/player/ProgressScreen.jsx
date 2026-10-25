@@ -4,9 +4,10 @@
 // timeline filters in four: Kaikki · Treenit (every session with its theme — the theme history) ·
 // Valmentajalta · Omat. "Muokkaa" lets the player move anything off the timeline into their own
 // "Arkisto" (domain/archive.js).
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
+import { useRoute } from '../app/router.js';
 import { Button, Card, Icon, IconButton, Page, PageHeader, useConfirm, useToast } from '../ui/index.js';
 import { Timeline } from '../shared/Timeline.jsx';
 import { Block } from '../shared/bits.jsx';
@@ -106,6 +107,14 @@ export function ProgressScreen() {
   const isHidden = useCallback((e) => archive.has(e.id), [archive]);
   const [editing, setEditing] = useState(false);
   const [sheet, setSheet] = useState(null); // 'archive' | 'month'
+  // ?nayta=valmentajalta (Koti's "Kaikki huomiot"): the timeline opens on the coach's entries, in view
+  const { query } = useRoute();
+  const startKind = query.nayta === 'valmentajalta' ? 'valmentaja' : undefined;
+  useEffect(() => {
+    if (!startKind) return;
+    const t = setTimeout(() => document.getElementById('kehitys-aikajana')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 150);
+    return () => clearTimeout(t);
+  }, [startKind]);
   const trainings = useMemo(() => koutsiTrainingsForStudent(state, student.id).map((t) => {
     const group = t.groupId ? koutsiGroupById(state, t.groupId) : null;
     return { ...t, groupName: group?.name || '', themeTitle: group ? koutsiThemeForDate(group, t.date)?.title || '' : '' };
@@ -168,9 +177,9 @@ export function ProgressScreen() {
           <WishCard student={student} />
         </div>
         <WeekCard hidden={hidden} onOpen={() => setSheet('month')} />
-        <Block title="Aikajana">
+        <Block title="Aikajana" id="kehitys-aikajana">
           <Timeline
-            student={student} trainings={trainings} clubEvents={state.clubEvents} showStats={false}
+            student={student} trainings={trainings} clubEvents={state.clubEvents} showStats={false} initialKind={startKind}
             onOpenVideo={actions.playVideo} renderActions={renderActions}
             isHidden={archiveOn ? isHidden : undefined} onArchive={archiveOn && editing ? toArchive : undefined}
             actions={editing ? (

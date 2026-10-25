@@ -34,7 +34,7 @@ export const USAGE_SECTIONS = [
       ['teemat.jatka-muutettu', '…ja yksittäistä teemaa muutettiin'],
       ['teemat.tallennettu', 'Viikon teemat: teema tallennettu (Valmis)'],
       ['teemat.puuttuville', 'Valmis → Aseta teema puuttuville'],
-      ['merkitse.paivakirja', 'Viikkopäiväkirja'],
+      ['merkitse.paivakirja', 'Oma viikkomuistio'],
     ],
   },
   {

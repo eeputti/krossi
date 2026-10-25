@@ -261,7 +261,7 @@ kolme tilaa (skeleton / ErrorState + Yritä uudelleen / data tai EmptyState). Ei
   taukoviikot pois, ja lähettää pelaajalle yhden koosteilmoituksen treenikohtaisten sijaan.
   Samalla pelaaja ei enää saa ilmoitusta omasta kirjauksestaan.
 - `supabase/migrations/20261014074420_koutsi_checkins_and_week_diary.sql` — valmentajan
-  `koutsi_coach_week_notes` (viikkopäiväkirja) ja "Treenit ohi! Miten meni?": pg_cron 15 min välein →
+  `koutsi_coach_week_notes` (Oma viikkomuistio, ent. viikkopäiväkirja) ja "Treenit ohi! Miten meni?": pg_cron 15 min välein →
   `koutsi_queue_session_checkins()` → nykyinen ilmoitusjono → koutsi-notify (oma 1–5-pohja,
   versio 20). Betan aikana vain `koutsi_beta_testers`-listan osoitteille.
   Linkit: `/pelaaja?uusi=1&fiilis=<treeni>&arvo=1–5`, `?toive=1`.

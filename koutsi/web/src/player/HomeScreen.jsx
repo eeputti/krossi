@@ -3,10 +3,11 @@
 // "theme of the week" here. Instead, the way the coach's Koti does it:
 //   1. the dark card: hello and the week, a dot per session (a tap on a day opens that day's
 //      session coming up, or the day in Viikko when it has none)
-//   2. the coach's Tiedote, while it is valid
+//   2. the coach's Tiedote, while it is valid, and the coach's latest note (Huomio) in full — the
+//      old Koti's "Viimeisin palaute valmentajalta", always there once the coach has written one
 //   3. Treenit — the one that just ended ("Miten meni?" right there), the one on now, the next one
 //      with its theme, plan and "En pääse", and a few after it; it moves on by itself every minute
-//   4. Ajankohtaista — open homework, the coach's latest note, new notifications, club events
+//   4. Ajankohtaista — open homework, new notifications, club events
 // Goals and the history live on Kehitys; the groups and their players behind Lisää → Ryhmäsi.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
@@ -31,7 +32,6 @@ import { AfterSessions, useLead } from './MerkitseSheet.jsx';
 import { CoachSessionSheet } from './weekSheets.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
-const DAY_MS = 24 * 60 * 60 * 1000;
 const DAY_LONG = ['Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai', 'Lauantai', 'Sunnuntai'];
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
@@ -244,15 +244,14 @@ const kindLabel = (kind) => KOUTSI_EVENT_KINDS.find((k) => k.value === kind)?.la
 const eventIcon = (kind) => ({ kilpailu: 'trophy', leiri: 'compass', seura: 'users' }[kind] || 'flag');
 
 /**
- * One list of what is new or coming, each row once — the coach's latest note (two weeks), unread
- * notifications (not the note again, not "Miten meni?", which is on the session line), and the
+ * One list of what is new or coming, each row once — unread notifications (not a new note, which
+ * the Valmentajalta card shows whole; not "Miten meni?", which is on the session line), and the
  * club's events in the next three weeks.
  */
 function newsRows(state, student, unread) {
   const today = koutsiTodayStr();
-  const note = student.diary[0] && Date.now() - new Date(student.diary[0].at).getTime() < 14 * DAY_MS ? student.diary[0] : null;
+  const note = student.diary[0] || null;
   const rows = [];
-  if (note) rows.push({ id: `note-${note.id}`, icon: 'chat', title: 'Valmentajalta', body: note.text, meta: koutsiFmtEventDate(note.at), to: '/pelaaja/kehitys' });
   unread
     .filter((n) => !(note && n.kind === 'diary_added') && !String(n.linkPath || '').includes('fiilis='))
     .slice(0, 3)
@@ -308,8 +307,7 @@ function HomeworkList({ open }) {
   );
 }
 
-function News({ state, student }) {
-  const unread = useUnread(student.id);
+function News({ state, student, unread }) {
   const rows = newsRows(state, student, unread);
   const open = student.homework.filter((h) => !h.done);
   if (!rows.length && !open.length) return null;
@@ -320,6 +318,38 @@ function News({ state, student }) {
         {rows.length > 0 && <NewsList rows={rows} />}
       </div>
     </Block>
+  );
+}
+
+/**
+ * Valmentajalta — the coach's latest note (Huomio) in full, with its day, "Uusi" until the player
+ * has seen its notification, and a way to every earlier one (Kehitys, filtered to the coach's).
+ */
+function CoachNote({ state, student, unread }) {
+  const note = student.diary[0];
+  if (!note) return null;
+  const coaches = state.coaches || [];
+  const who = coaches.length === 1 ? coaches[0].name : '';
+  const isNew = unread.some((n) => n.kind === 'diary_added');
+  return (
+    <article className="cn-card">
+      <span className="cn-icon"><Icon name="chat" size={18} /></span>
+      <div className="cn-body">
+        <div className="cn-eyebrow">
+          <span className="truncate">Valmentajalta{who ? ` · ${who}` : ''}</span>
+          {isNew && <span className="cn-new">Uusi</span>}
+        </div>
+        <p className="cn-text">{note.text}</p>
+        <div className="cn-foot">
+          <span>{koutsiFmtEventDate(note.at)}</span>
+          {student.diary.length > 1 && (
+            <button type="button" className="k-textlink cn-all" onClick={() => navigate('/pelaaja/kehitys?nayta=valmentajalta')}>
+              Kaikki huomiot ({student.diary.length})<Icon name="chevron-right" size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -356,6 +386,7 @@ export function HomeScreen() {
   const now = new Date(nowMs);
   const student = state.students[0];
   const hasCoach = (state.coaches || []).length > 0;
+  const unread = useUnread(student.id);
   const days = weekDots(state, student, koutsiCurrentIsoWeek(), now);
   // One session sheet over Koti: from a day in the strip or a row on the line.
   const [picked, setPicked] = useState(null);
@@ -378,10 +409,11 @@ export function HomeScreen() {
         <div className="stack-5">
           {!hasCoach && <JoinCard />}
           <Notices state={state} />
+          <CoachNote state={state} student={student} unread={unread} />
           {line}
         </div>
         <div className="stack-5">
-          <News state={state} student={student} />
+          <News state={state} student={student} unread={unread} />
         </div>
       </div>
       <CoachSessionSheet open={Boolean(picked)} item={last.current} onClose={() => setPicked(null)} />

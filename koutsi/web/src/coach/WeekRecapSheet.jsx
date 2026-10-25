@@ -58,7 +58,7 @@ export function WeekRecapSheet({ open, week, onClose }) {
   const missing = nextStatus.pool.length - nextStatus.covered;
   const save = async () => {
     setBusy(true);
-    const res = await run(() => api.coach.saveWeekNote(coachId, { year: week.year, week: week.week, score, note: note.trim() }), 'Tallennettu viikkopäiväkirjaan.');
+    const res = await run(() => api.coach.saveWeekNote(coachId, { year: week.year, week: week.week, score, note: note.trim() }), 'Tallennettu viikkomuistioon.');
     setBusy(false);
     if (res.ok) onClose();
   };
@@ -69,7 +69,7 @@ export function WeekRecapSheet({ open, week, onClose }) {
     <Sheet open={open} onClose={() => !busy && onClose()} size="md" title={`Viikko ${week.week} paketissa`}
       subtitle={koutsiIsoWeekRangeLabel(week.year, week.week)}
       footer={score
-        ? <Button variant="dark" size="lg" block loading={busy} onClick={save}>{existing ? 'Tallenna muutokset' : 'Tallenna viikkopäiväkirjaan'}</Button>
+        ? <Button variant="dark" size="lg" block loading={busy} onClick={save}>{existing ? 'Tallenna muutokset' : 'Tallenna viikkomuistioon'}</Button>
         : <Button variant="soft" size="lg" block onClick={onClose}>Sulje</Button>}>
       <div className="stack-5">
         <div className="k-stats k-stats-3">
@@ -107,7 +107,7 @@ export function WeekRecapSheet({ open, week, onClose }) {
 
         <section className="stack-3">
           <div>
-            <div className="eyebrow">Viikkopäiväkirja · vain sinulle</div>
+            <div className="eyebrow">Oma viikkomuistio · vain sinulle</div>
             <h3 className="k-block-title">Miten treeniviikko sujui?</h3>
           </div>
           <MoodPicker value={score} onChange={setScore} size="sm" />
