@@ -133,6 +133,7 @@ export function GroupScreen({ params }) {
     );
   }
   const memberIds = group.memberIds.filter((id) => state.students.some((s) => s.id === id));
+  const scope = { name: group.name, text: memberIds.length === 1 ? 'Koko ryhmä · 1 pelaaja' : `Koko ryhmä · ${memberIds.length} pelaajaa` };
   const last = lastSessionDate(state, group.id);
   const endsSoon = !last || last <= koutsiAddDays(koutsiTodayStr(), 42);
   const removeSlot = async (slot) => {
@@ -156,9 +157,9 @@ export function GroupScreen({ params }) {
         <GroupTodayCard state={state} group={group} now={new Date(nowMs)} />
         {memberIds.length > 0 && (
           <div className="k-quick">
-            <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: memberIds, source: 'ryhma' })}>Huomio</Button>
-            <Button variant="outline" icon="check-circle" onClick={() => record.open('homework', { ids: memberIds, source: 'ryhma' })}>Kotiläksy</Button>
-            <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: memberIds, source: 'ryhma' })}>Video</Button>
+            <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: memberIds, source: 'ryhma', scope })}>Huomio</Button>
+            <Button variant="outline" icon="check-circle" onClick={() => record.open('homework', { ids: memberIds, source: 'ryhma', scope })}>Kotiläksy</Button>
+            <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: memberIds, source: 'ryhma', scope })}>Video</Button>
           </div>
         )}
         <ThemeSection group={group} />

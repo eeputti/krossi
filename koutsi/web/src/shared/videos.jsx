@@ -6,6 +6,7 @@ import { Button, ChipSelect, Disclosure, Field, Input, ProgressBar, Segmented, S
 import { koutsiTodayStr, koutsiRandomUuid, koutsiFmtShortDate, KOUTSI_TAGS, KOUTSI_TAG_LABELS } from '../domain/core.js';
 import { VIDEO_MAX_BYTES } from '../lib/constants.js';
 import { RecipientPicker } from './recipients.jsx';
+import { sameIds, ScopeLine } from './scope.jsx';
 
 /**
  * VideoShareSheet
@@ -15,7 +16,8 @@ import { RecipientPicker } from './recipients.jsx';
  *   for comes last, so the long player list never pushes the other fields out of sight.
  *   onSave({ shareId, title, date, tags, studentIds, file, externalUrl, onProgress }) → Promise
  */
-export function VideoShareSheet({ open, onClose, recipients, initialIds = [], groups = [], onSave, title: sheetTitle = 'Jaa video' }) {
+/** scope: opened from a session or a group, which one — shown on top while those players are picked (scope.jsx) */
+export function VideoShareSheet({ open, onClose, recipients, initialIds = [], groups = [], onSave, title: sheetTitle = 'Jaa video', scope = null }) {
   const [shareId, setShareId] = useState(() => koutsiRandomUuid());
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(koutsiTodayStr());
@@ -62,6 +64,7 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
     <Sheet open={open} onClose={() => !busy && onClose()} title={sheetTitle} size="md" dismissible={!busy}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>{busy && source === 'file' ? `Ladataan ${progress} %` : recipients ? (ids.length > 1 ? `Jaa ${ids.length} pelaajalle` : 'Jaa') : 'Tallenna'}</Button></div>}>
       <div className="stack-4">
+        {scope && sameIds(ids, initialIds) && <ScopeLine scope={scope} />}
         <Segmented options={[{ value: 'link', label: 'Linkki', icon: 'link' }, { value: 'file', label: 'Tiedosto', icon: 'play' }]} value={source} onChange={setSource} ariaLabel="Videon lähde" />
         {source === 'link' ? (
           <Field label="Videon osoite" htmlFor="v-url" hint="YouTube, Google Drive tai muu linkki. Käytä rajattua näkyvyyttä.">

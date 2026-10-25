@@ -199,18 +199,13 @@
 .wk-theme-top .wk-theme-open { flex: 1 1 100%; }
 .wk-theme-top > .btn { margin-left: 38px; }
 
-/* Merkitse on a phone: first "Mitä merkitset?" (four big choices), then the form */
+/* Merkitse: first "Mitä merkitset?" (six tiles), then the form */
 .vs-choose { display: grid; gap: 10px; }
-.vs-choose-q { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.vs-choose-tile { display: flex; align-items: center; gap: 14px; width: 100%; padding: 15px 14px; border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--surface); text-align: left; transition: transform var(--dur-2, .12s), background-color .12s; }
-.vs-choose-tile:active { transform: scale(0.985); background: var(--surface-2); }
-.vs-choose-icon { display: grid; place-items: center; width: 46px; height: 46px; flex-shrink: 0; border-radius: 13px; background: var(--lime-100); color: var(--ink); }
-.vs-choose-text { flex: 1; min-width: 0; display: grid; gap: 3px; }
-.vs-choose-title { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; color: var(--ink); }
-.vs-choose-sub { font-size: 13px; line-height: 1.4; color: var(--muted); }
 .vs-picked { display: flex; align-items: center; gap: 10px; }
 .vs-back { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px; background: var(--surface-2); color: var(--ink); }
 .vs-picked-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--lime); color: var(--ink); }
+/* …in the colour of its tile */
+.vs-picked-icon.k-merkitse-icon { width: 30px; height: 30px; margin: 0; flex-shrink: 0; border-radius: 9px; }
 .vs-picked-title { flex: 1; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
 
 /* Merkitse: a group card's next session, the empty Läsnäolo pointing to Viikkohallinta */
@@ -219,28 +214,16 @@
 .vs-empty { display: grid; gap: 10px; justify-items: start; padding: 14px 16px; border-radius: var(--r-lg); background: var(--surface-2); font-size: 14px; line-height: 1.5; color: var(--ink-2); }
 .vs-note { margin-top: 8px; font-size: 12.5px; color: var(--muted); }
 
-/* Merkitse's first step: the moment in one line, six choices as a grid, rarer things as rows */
+/* Merkitse's first step: the moment in one line, then the same tiles and rows as a session's sheet (coach/tiles.jsx) */
 .vs-situation { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 14px; color: var(--ink-2); }
 .vs-situation strong { color: var(--ink); }
-.vs-choose-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-@media (min-width: 900px) { .vs-choose-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.vs-choose-grid .vs-choose-tile { display: grid; justify-items: start; align-content: start; gap: 4px; min-height: 112px; padding: 14px; }
-.vs-choose-grid .vs-choose-icon { width: 40px; height: 40px; border-radius: 12px; margin-bottom: 6px; }
-.vs-choose-grid .vs-choose-title { font-size: 16px; flex-wrap: wrap; row-gap: 4px; }
-.vs-choose-grid .vs-choose-sub { font-size: 12.5px; }
-.vs-others { display: grid; gap: 6px; }
-.vs-other { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); text-align: left; }
-.vs-other + .vs-other { margin-top: 6px; }
-.vs-other:active { background: var(--surface-2); }
-.vs-other-icon { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 10px; background: var(--surface-2); color: var(--ink); }
 /* Poissaolo opened from Merkitse: one column inside the sheet */
 .ap-in-sheet { grid-template-columns: minmax(0, 1fr); }
 .ap-in-sheet .ap-players { position: static; }
 .ap-in-sheet .ap-player-list { max-height: none; }
 .ap-in-sheet .ap-actions { bottom: 0; }
 /* the first step's long lines (a week recap's numbers) wrap or end in … instead of widening the sheet */
-.vs-choose > *, .vs-others, .ms-rows, .vs-other { min-width: 0; }
-.vs-other .ms-row-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vs-choose > * { min-width: 0; }
 
 /* Koti's theme box: Aseta teema (Viikon teemat) and, when groups can carry on, Jatka edellisillä */
 .wk-theme-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: 38px; }
