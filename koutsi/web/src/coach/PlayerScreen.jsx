@@ -349,7 +349,7 @@ export function PlayerScreen({ params }) {
             </div>
             {groups.length > 0 && (
               <div className="row wrap k-player-groups">
-                {groups.map((g) => <Link key={g.id} to={groupPath(g.id)} className="chip chip-sm chip-outline">{g.day} {g.time} · {g.name}</Link>)}
+                {groups.map((g) => <Link key={g.id} to={groupPath(g.id)} className="k-group-pill"><span className="t-num">{g.day} {g.time}</span><span className="truncate">{g.name}</span></Link>)}
               </div>
             )}
           </div>

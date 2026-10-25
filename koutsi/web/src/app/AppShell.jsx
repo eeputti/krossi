@@ -70,11 +70,15 @@ function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel })
             {badges?.[t.id] > 0 && <span className="sidenav-badge">{badges[t.id] > 9 ? '9+' : badges[t.id]}</span>}
           </Link>
         ))}
-        {(extraLinks || []).map((l) => (
+        {(extraLinks || []).map((l) => (l.onClick ? (
+          <button key={l.key || l.label} type="button" className="sidenav-link sidenav-link-sub" onClick={l.onClick} aria-haspopup="dialog">
+            <Icon name={l.icon} size={20} /><span>{l.label}</span>
+          </button>
+        ) : (
           <Link key={l.to} to={l.to} className={cx('sidenav-link', 'sidenav-link-sub', extraOn === l && 'is-active-sub')} aria-current={extraOn === l ? 'page' : undefined}>
             <Icon name={l.icon} size={20} /><span>{l.label}</span>
           </Link>
-        ))}
+        )))}
       </nav>
       {me && (
         <Link to={me.to} className="sidenav-me">
@@ -120,7 +124,7 @@ function renderScreen(screens, NotFound, match, query) {
 /**
  * AppShell
  *   tabs: [{ id, label, icon, path }]   screens: { routeName: Component }   NotFound: Component
- *   badges: { tabId: count }   cta: node (side nav)   extraLinks: [{ to, label, icon, pages: [route names] }]
+ *   badges: { tabId: count }   cta: node (side nav)   extraLinks: [{ to, label, icon, pages: [route names] } | { key, label, icon, onClick }]
  *   center: { label, icon, onClick } — the phone tab bar's big middle button
  *   me: { person, sub, to }   roleLabel   banner: node shown above the page (acting mode etc.)
  *   signupUrl: where the demo banner points   beta: show the "Koutsilla uusi ilme!" bar instead

@@ -1,10 +1,11 @@
 // ThemeGrid — Suunnittele → Teemat, edited like a spreadsheet: every group (rows) × the coming
 // weeks (columns), one cell = one group's theme for one week.
-//   - pick many at once: drag over cells, week headers or group names; Shift extends, ⌘/Ctrl adds
+//   - pick many at once: drag over cells, week headers or group names; every drag adds to what is
+//     already picked, a click picks or drops one cell, Esc starts over
 //   - type straight into a cell (double-click or just start typing); Enter writes to every picked
 //     cell, or moves down when one cell is picked; Tab moves right
-//   - drag a theme chip onto a cell (or onto the picked cells), or drag the fill handle in the
-//     picked block's corner to copy its themes right or down (a 2-week pattern repeats)
+//   - drag the fill handle in the picked block's corner to copy its themes right or down (a 2-week
+//     pattern repeats); text dragged from elsewhere can be dropped on a cell
 //   - ⌘/Ctrl+C and V copy and paste, also straight from Excel or Google Sheets
 //   - Delete clears, ⌘/Ctrl+Z (or "Kumoa" in the toast) undoes the last change
 // There are no "are you sure" questions on the way: every change can be undone instead.
@@ -145,7 +146,6 @@ export function ThemeGrid() {
   const weeks = useMemo(() => gridWeeks(start, cols), [start, cols]);
   const rows = useMemo(() => themeGrid(state.groups, state.trainings, weeks), [state.groups, state.trainings, weeks]);
   const allCells = useMemo(() => rows.flatMap((r) => r.cells), [rows]);
-  const library = useMemo(() => koutsiThemeLibrary(state.groups).slice(0, 14), [state.groups]);
 
   const [picked, setPicked] = useState(() => new Set());
   const [anchor, setAnchor] = useState(null); // { r, c } — where Shift extends from
@@ -225,25 +225,47 @@ export function ThemeGrid() {
   });
   const focusGrid = () => gridRef.current?.focus({ preventScroll: true });
 
+  // A click picks or drops one cell; a drag adds the block it covers to what is already picked,
+  // so a coach can release and drag again to add more. Shift adds the block from the last cell.
+  // Esc or "Tyhjennä valinta" starts over.
+  const addKeys = (keys) => setPicked((prev) => new Set([...prev, ...keys]));
   const onCellDown = (e, r, c) => {
     if (e.button !== 0 || editRef.current) return;
-    if (touched()) { toggleKeys([rows[r].cells[c].key]); setActive(null); return; } // no keyboard cursor on a phone
+    const key = rows[r].cells[c].key;
+    if (touched()) { toggleKeys([key]); setActive(null); return; } // no keyboard cursor on a phone
     e.preventDefault();
     focusGrid();
     const p = { r, c };
-    const key = rows[r].cells[c].key;
-    if (e.shiftKey && anchor) { pickRect(anchor, p); setActive(p); return; }
-    if (e.metaKey || e.ctrlKey) { toggleKeys([key]); setAnchor(p); setActive(p); return; }
-    setAnchor(p); setActive(p); setPicked(new Set([key]));
-    drag.current = { mode: 'cells', anchor: p };
+    if (e.shiftKey && anchor) { addKeys(keysIn(rectOf(anchor, p))); setActive(p); return; }
+    const next = new Set(picked);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    setPicked(next);
+    setAnchor(p);
+    setActive(p);
+    drag.current = { mode: 'cells', anchor: p, base: next, moved: false };
   };
   const onCellEnter = (r, c) => {
     const d = drag.current;
     if (!d) return;
-    if (d.mode === 'cells') { pickRect(d.anchor, { r, c }); setActive({ r, c }); }
+    if (d.mode === 'cells') {
+      if (!d.moved && r === d.anchor.r && c === d.anchor.c) return;
+      d.moved = true;
+      setPicked(new Set([...d.base, ...keysIn(rectOf(d.anchor, { r, c }))]));
+      setActive({ r, c });
+    }
     if (d.mode === 'fill') setFillTo({ r, c });
-    if (d.mode === 'rows') setPicked(keysIn({ ...fullRect, r0: Math.min(d.from, r), r1: Math.max(d.from, r) }));
-    if (d.mode === 'cols') setPicked(keysIn({ ...fullRect, c0: Math.min(d.from, c), c1: Math.max(d.from, c) }));
+    if (d.mode === 'rows') setPicked(new Set([...d.base, ...keysIn({ ...fullRect, r0: Math.min(d.from, r), r1: Math.max(d.from, r) })]));
+    if (d.mode === 'cols') setPicked(new Set([...d.base, ...keysIn({ ...fullRect, c0: Math.min(d.from, c), c1: Math.max(d.from, c) })]));
+  };
+  // a group name or a week header: a click picks or drops the whole row / column, a drag adds more
+  const headerDown = (keys, from, mode, at) => {
+    const next = new Set(picked);
+    const allOn = keys.length > 0 && keys.every((k) => next.has(k));
+    keys.forEach((k) => (allOn ? next.delete(k) : next.add(k)));
+    setPicked(next);
+    drag.current = { mode, from, base: next };
+    setAnchor(at);
+    setActive(at);
   };
   const onRowDown = (e, r) => {
     if (e.button !== 0) return;
@@ -251,11 +273,8 @@ export function ThemeGrid() {
     if (touched()) { toggleKeys(keys); return; }
     e.preventDefault();
     focusGrid();
-    if (e.metaKey || e.ctrlKey) toggleKeys(keys);
-    else if (e.shiftKey && anchor) setPicked(keysIn({ ...fullRect, r0: Math.min(anchor.r, r), r1: Math.max(anchor.r, r) }));
-    else { setPicked(new Set(keys)); drag.current = { mode: 'rows', from: r }; }
-    if (!e.shiftKey) setAnchor({ r, c: 0 });
-    setActive({ r, c: 0 });
+    if (e.shiftKey && anchor) { addKeys(keysIn({ ...fullRect, r0: Math.min(anchor.r, r), r1: Math.max(anchor.r, r) })); setActive({ r, c: 0 }); return; }
+    headerDown(keys, r, 'rows', { r, c: 0 });
   };
   const onColDown = (e, c) => {
     if (e.button !== 0) return;
@@ -263,11 +282,8 @@ export function ThemeGrid() {
     if (touched()) { toggleKeys(keys); return; }
     e.preventDefault();
     focusGrid();
-    if (e.metaKey || e.ctrlKey) toggleKeys(keys);
-    else if (e.shiftKey && anchor) setPicked(keysIn({ ...fullRect, c0: Math.min(anchor.c, c), c1: Math.max(anchor.c, c) }));
-    else { setPicked(new Set(keys)); drag.current = { mode: 'cols', from: c }; }
-    if (!e.shiftKey) setAnchor({ r: 0, c });
-    setActive({ r: 0, c });
+    if (e.shiftKey && anchor) { addKeys(keysIn({ ...fullRect, c0: Math.min(anchor.c, c), c1: Math.max(anchor.c, c) })); setActive({ r: 0, c }); return; }
+    headerDown(keys, c, 'cols', { r: 0, c });
   };
 
   // ── the fill handle ──
@@ -298,13 +314,20 @@ export function ThemeGrid() {
   const inRect = (r, c, q) => q && r >= q.r0 && r <= q.r1 && c >= q.c0 && c <= q.c1;
 
   // ── typing ──
-  const startEdit = (p, initial) => {
-    const cell = rows[p.r]?.cells[p.c];
+  // Typing writes to the picked cells: in the cell under the cursor when it is picked, else in the
+  // first picked one. A double-click picks the cell (a click before it may have dropped it).
+  const startEdit = (p, initial, { pick = false } = {}) => {
+    let at = p;
+    let cell = rows[p.r]?.cells[p.c];
     if (!cell) return;
-    if (!picked.has(cell.key)) { setPicked(new Set([cell.key])); setAnchor(p); }
-    setActive(p);
-    editRef.current = { r: p.r, c: p.c };
-    setEditing({ r: p.r, c: p.c, initial: initial ?? (cell.theme?.title || '') });
+    if (pick) setPicked((prev) => new Set([...prev, cell.key]));
+    else if (!picked.has(cell.key)) {
+      const first = rows.flatMap((row, r) => row.cells.map((c2, c) => ({ c2, r, c }))).find((x) => picked.has(x.c2.key));
+      if (first) { at = { r: first.r, c: first.c }; cell = first.c2; } else { setPicked(new Set([cell.key])); setAnchor(p); }
+    }
+    setActive(at);
+    editRef.current = { r: at.r, c: at.c };
+    setEditing({ r: at.r, c: at.c, initial: initial ?? (cell.theme?.title || '') });
   };
   const moveActive = (from, dr, dc) => {
     const { rows: rws } = latest.current;
@@ -450,23 +473,6 @@ export function ThemeGrid() {
         {undoStack.length > 0 && <Button variant="outline" size="sm" icon="undo" onClick={undo}>Kumoa</Button>}
       </div>
 
-      <div className="tg-palette" aria-label="Teemat vedettäväksi">
-        <span className="tg-palette-label">Vedä teema ruutuihin</span>
-        {library.length === 0 && <span className="k-faint">Kirjoita ensimmäinen teema suoraan ruutuun.</span>}
-        {library.map((t) => (
-          <button key={t.key} type="button" draggable className="tg-chip" title={t.lead ? `${t.title} — ${t.lead}` : t.title}
-            onDragStart={(e) => {
-              e.dataTransfer.setData(THEME_TYPE, JSON.stringify({ title: t.title, lead: t.lead || '' }));
-              e.dataTransfer.setData('text/plain', t.title);
-              e.dataTransfer.effectAllowed = 'copy';
-            }}
-            onDragEnd={() => setDropKey(null)}
-            onClick={() => applyTheme({ title: t.title, lead: t.lead || '' }, pickedCells)}>
-            <Icon name="sparkles" size={12} />{t.title}
-          </button>
-        ))}
-      </div>
-
       <div className="tg-scroll">
         <div ref={gridRef} className={cx('tg', editing && 'is-editing')} role="grid" tabIndex={0} aria-label="Teemat viikoittain" aria-multiselectable="true"
           aria-activedescendant={activeKey ? `tg-${activeKey}` : undefined}
@@ -512,7 +518,7 @@ export function ThemeGrid() {
                     <div key={c.key} id={`tg-${c.key}`} role="gridcell" aria-selected={on}
                       className={cx('tg-cell', on && 'is-on', isActive && 'is-active', c.theme && 'has-theme', !c.sessions && 'is-off', filling && 'is-fill', dropping && 'is-drop')}
                       onMouseDown={(e) => onCellDown(e, r, ci)} onMouseEnter={() => onCellEnter(r, ci)}
-                      onDoubleClick={() => { if (!touched()) startEdit({ r, c: ci }); }}
+                      onDoubleClick={() => { if (!touched()) startEdit({ r, c: ci }, undefined, { pick: true }); }}
                       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (dropKey !== c.key) setDropKey(c.key); }}
                       onDragLeave={() => setDropKey((k) => (k === c.key ? null : k))}
                       onDrop={(e) => {
@@ -554,9 +560,9 @@ export function ThemeGrid() {
         <p className="tg-help"><strong>Vinkki:</strong> napauta ruutuja valitaksesi monta (viikon tai ryhmän nimi valitsee koko sarakkeen tai rivin), sitten Aseta teema. Vieritä taulukkoa sivuttain.</p>
       ) : (
         <p className="tg-help">
-          <strong>Vinkit:</strong> vedä hiirellä monta ruutua · kirjoita suoraan ruutuun (Enter tallentaa kaikkiin valittuihin) ·
-          vedä valinnan kulmasta oikealle tai alas kopioidaksesi · {MOD}+C / {MOD}+V kopioi ja liittää (myös Excelistä) ·
-          Delete poistaa · {MOD}+Z kumoaa
+          <strong>Vinkit:</strong> vedä hiirellä valitaksesi monta (uusi veto lisää valintaan) · klikkaus valitsee tai poistaa yhden ruudun ·
+          Esc tyhjentää valinnan · kirjoita suoraan (Enter tallentaa kaikkiin valittuihin) · vedä valinnan kulmasta kopioidaksesi ·
+          {MOD}+C / {MOD}+V kopioi ja liittää (myös Excelistä) · Delete poistaa · {MOD}+Z kumoaa
         </p>
       )}
 

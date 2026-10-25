@@ -62,7 +62,7 @@ function Promise_() {
     <section style={{ maxWidth: 1120, margin: '0 auto', padding: '0 22px clamp(30px,5vw,54px)' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(10px,3vw,30px)', justifyContent: 'center', textAlign: 'center' }}>
         {lines.map((t) => (
-          <span key={t} style={{ fontSize: 'clamp(1.05rem,2.4vw,1.35rem)', fontWeight: 800, color: 'var(--green-deep)', letterSpacing: '-0.01em' }}>{t}</span>
+          <span key={t} style={{ fontSize: 'clamp(1.05rem,2.4vw,1.35rem)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{t}</span>
         ))}
       </div>
     </section>

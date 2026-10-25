@@ -17,7 +17,8 @@ import {
 } from '../domain/core.js';
 import { DAY_NAMES, parseWeekParam, plannerDefaultWeek, themeWeekLabel } from '../domain/week.js';
 import { api } from '../api/index.js';
-import { useContinueThemes, useSaveThemes } from './themeActions.js';
+import { useSaveThemes } from './themeActions.js';
+import { useRecord } from './merkitse.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -47,7 +48,7 @@ export function PlannerSheet({ query }) {
   const confirm = useConfirm();
   const toast = useToast();
   const saveThemes = useSaveThemes();
-  const continueWith = useContinueThemes();
+  const { openContinue } = useRecord();
   const groups = state.groups;
   const now = koutsiCurrentIsoWeek();
   const [open, setOpen] = useState(true);
@@ -119,7 +120,7 @@ export function PlannerSheet({ query }) {
     const res = await run(() => api.themes.remove(c.themes.map((t) => t.id)), c.groups.length === 1 ? 'Teema poistettu viikolta.' : `Teema poistettu ${c.groups.length} ryhmältä.`);
     if (res.ok && editingKey === c.key) resetComposer();
   };
-  const continueThemes = async () => { setBusy(true); await continueWith(carry, week); setBusy(false); };
+  const continueThemes = () => openContinue(week); // opens over the planner, each group's previous theme ready to edit
 
   const cleanTitle = title.trim();
   const cleanLead = lead.trim();
@@ -242,7 +243,7 @@ export function PlannerSheet({ query }) {
           {carry.length > 0 && !editingCluster && (
             <div className="planner-carry">
               <span><strong>Pikavalinta:</strong> {carry.length === 1 ? '1 ryhmä voi jatkaa' : `${carry.length} ryhmää voi jatkaa`} omalla edellisellä teemallaan.</span>
-              <Button variant="dark" size="sm" icon="repeat" loading={busy} onClick={continueThemes}>Jatka edellisillä</Button>
+              <Button variant="dark" size="sm" icon="repeat" onClick={continueThemes}>Jatka edellisillä</Button>
             </div>
           )}
           <Field label={editingCluster ? 'Muokkaa teemaa' : `Mitä viikolla ${week.week} harjoitellaan?`} htmlFor="planner-title">

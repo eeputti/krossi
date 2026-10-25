@@ -161,9 +161,9 @@ function KnownAbsences({ onPick }) {
 }
 
 /** Suunnittele → Poissaolot: pick a player on the left, plan their absences on the right. */
-export function AbsencePlannerPanel() {
+export function AbsencePlannerPanel({ compact = false }) {
   const { state } = useData();
-  const isDesktop = useIsDesktop();
+  const isDesktop = useIsDesktop() && !compact;
   const [query, setQuery] = useState('');
   const [chosen, setChosen] = useState(null);
   const players = useMemo(() => [...state.students].sort((a, b) => a.name.localeCompare(b.name, 'fi')), [state.students]);
@@ -178,10 +178,10 @@ export function AbsencePlannerPanel() {
   };
   // a phone shows one thing at a time: the list, or the chosen player's sessions
   if (!isDesktop && student) {
-    return <div className="ap-panel"><PlayerPlanner key={student.id} student={student} compact onBack={() => setChosen(null)} /></div>;
+    return <div className={compact ? 'ap-panel ap-in-sheet' : 'ap-panel'}><PlayerPlanner key={student.id} student={student} compact onBack={() => setChosen(null)} /></div>;
   }
   return (
-    <div className="ap-panel">
+    <div className={compact ? 'ap-panel ap-in-sheet' : 'ap-panel'}>
       <aside className="ap-players">
         <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae pelaajaa" aria-label="Hae pelaajaa" />
         <div className="ap-player-list">
@@ -198,9 +198,20 @@ export function AbsencePlannerPanel() {
           {shown.length === 0 && <p className="k-quiet">Ei pelaajaa nimellä ”{query}”.</p>}
         </div>
       </aside>
-      <div className="ap-main">
-        {student ? <PlayerPlanner key={student.id} student={student} onBack={() => setChosen(null)} /> : <KnownAbsences onPick={pick} />}
-      </div>
+      {!compact && (
+        <div className="ap-main">
+          {student ? <PlayerPlanner key={student.id} student={student} onBack={() => setChosen(null)} /> : <KnownAbsences onPick={pick} />}
+        </div>
+      )}
     </div>
+  );
+}
+
+/** Merkitse → Poissaolo: pick the player, then tick their coming sessions. */
+export function AbsencePickerSheet({ open, onClose }) {
+  return (
+    <Sheet open={open} onClose={onClose} size="md" title="Poissaolo" subtitle="Valitse pelaaja, sitten treenit, joista hän on pois.">
+      {open && <AbsencePlannerPanel compact />}
+    </Sheet>
   );
 }
