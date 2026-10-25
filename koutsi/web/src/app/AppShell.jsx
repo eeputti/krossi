@@ -15,16 +15,25 @@ const tabIcon = (name, isActive) => (isActive && ICON_NAMES.includes(`${name}-fi
 
 // `center` ({ label, icon, onClick }) puts one big round action in the middle of the bar, between
 // the two halves of the tabs (the coach's "Merkitse").
+// A tab with `onClick` is a button (the coach's "Lisää" drawer); `ids` lists the pages it stands for.
 function TabBar({ tabs, active, badges, center }) {
-  const item = (t) => (
-    <Link key={t.id} to={t.path} className={cx('tabbar-item', active === t.id && 'is-active')} aria-current={active === t.id ? 'page' : undefined}>
-      <span className="tabbar-icon">
-        <Icon name={tabIcon(t.icon, active === t.id)} size={23} strokeWidth={1.9} />
-        {badges?.[t.id] > 0 && <span className="tabbar-badge">{badges[t.id] > 9 ? '9+' : badges[t.id]}</span>}
-      </span>
-      <span className="tabbar-label">{t.label}</span>
-    </Link>
-  );
+  const item = (t) => {
+    const on = active === t.id || (t.ids || []).includes(active);
+    const inner = (
+      <>
+        <span className="tabbar-icon">
+          <Icon name={tabIcon(t.icon, on)} size={23} strokeWidth={1.9} />
+          {badges?.[t.id] > 0 && <span className="tabbar-badge">{badges[t.id] > 9 ? '9+' : badges[t.id]}</span>}
+        </span>
+        <span className="tabbar-label">{t.label}</span>
+      </>
+    );
+    return t.onClick ? (
+      <button key={t.id} type="button" className={cx('tabbar-item', on && 'is-active')} onClick={t.onClick} aria-haspopup="dialog">{inner}</button>
+    ) : (
+      <Link key={t.id} to={t.path} className={cx('tabbar-item', on && 'is-active')} aria-current={on ? 'page' : undefined}>{inner}</Link>
+    );
+  };
   const half = Math.ceil(tabs.length / 2);
   return (
     <nav className={cx('tabbar', center && 'has-center')} aria-label="Päävalikko" style={{ gridTemplateColumns: `repeat(${tabs.length + (center ? 1 : 0)}, 1fr)` }}>

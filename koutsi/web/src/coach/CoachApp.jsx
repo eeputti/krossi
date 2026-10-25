@@ -28,6 +28,9 @@ import { ExercisesScreen, ExerciseScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
 import { AdminScreen } from './AdminScreen.jsx';
 import { RecordProvider, useRecord } from './merkitse.jsx';
+import { MoreSheet } from './MoreSheet.jsx';
+import { track } from './usage.js';
+import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
 
 function LegacyRedirect({ route, query }) {
   const to = route.keepWeek && query.vko ? `${route.redirect}?vko=${encodeURIComponent(query.vko)}` : route.redirect;
@@ -91,10 +94,15 @@ function WelcomeSheet() {
 
 function CoachShell() {
   const { state } = useData();
-  const { acting, exitActing, isAdmin, adminChecked, coachId } = useCoach();
+  const { acting, exitActing, isAdmin, adminChecked, coachId, uid } = useCoach();
   const { openMerkinta } = useRecord();
   const route = useRoute();
   const isDesktop = useIsDesktop();
+  // Phone: the tab bar's "Lisää" drawer, with the notifications in it (a computer keeps the bell on Koti)
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [notifsOpen, setNotifsOpen] = useState(false);
+  const notes = useNotifications(isDesktop || acting ? null : uid);
+  const phoneTabs = PHONE_TABS.map((t) => (t.id === 'lisaa' ? { ...t, onClick: () => { track('lisaa.avaa'); setMoreOpen(true); } } : t));
   // What opens by itself, at most one thing, decided once: the welcome for a new account > the
   // renewed-look note > "Viikko paketissa" after the week's last session (never while acting).
   const [startup] = useState(() => {
@@ -121,7 +129,8 @@ function CoachShell() {
   return (
     <>
       <AppShell
-        tabs={isDesktop ? DESKTOP_TABS : PHONE_TABS}
+        tabs={isDesktop ? DESKTOP_TABS : phoneTabs}
+        badges={!isDesktop && notes.unread ? { lisaa: notes.unread } : undefined}
         screens={SCREENS}
         NotFound={NotFound}
         roleLabel="Valmentaja"
@@ -136,6 +145,14 @@ function CoachShell() {
       {!acting && !state.coach.welcomeSeenAt && <WelcomeSheet />}
       <RenewedIntro role="coach" eligible={startup?.kind === 'renewed'} />
       <WeekRecapSheet open={Boolean(recapWeek)} week={recapWeek} onClose={closeRecap} />
+      {!isDesktop && (
+        <>
+          <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} isAdmin={isAdmin} acting={acting}
+            onNotifications={() => { setNotifsOpen(true); notes.markRead(); }}
+            onNotice={() => openMerkinta({ kind: 'tiedote' })} />
+          <NotificationsSheet open={notifsOpen} onClose={() => setNotifsOpen(false)} items={notes.items} home="/valmentaja/koti" />
+        </>
+      )}
     </>
   );
 }

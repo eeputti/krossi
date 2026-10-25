@@ -160,6 +160,9 @@ export function ThemeGrid() {
   const editRef = useRef(null);
   const clipRef = useRef(null);
   const kbMove = useRef(false);
+  const lastTouch = useRef(0); // a phone: taps pick one by one, no dragging
+  const touched = () => Date.now() - lastTouch.current < 1200;
+  const touchDevice = typeof window !== 'undefined' && window.matchMedia?.('(hover: none)').matches;
   const latest = useRef({});
   latest.current = { state, rows, picked, active, anchor, undoStack, fillTo };
 
@@ -224,6 +227,7 @@ export function ThemeGrid() {
 
   const onCellDown = (e, r, c) => {
     if (e.button !== 0 || editRef.current) return;
+    if (touched()) { toggleKeys([rows[r].cells[c].key]); setActive(null); return; } // no keyboard cursor on a phone
     e.preventDefault();
     focusGrid();
     const p = { r, c };
@@ -243,9 +247,10 @@ export function ThemeGrid() {
   };
   const onRowDown = (e, r) => {
     if (e.button !== 0) return;
+    const keys = [...keysIn({ ...fullRect, r0: r, r1: r })];
+    if (touched()) { toggleKeys(keys); return; }
     e.preventDefault();
     focusGrid();
-    const keys = [...keysIn({ ...fullRect, r0: r, r1: r })];
     if (e.metaKey || e.ctrlKey) toggleKeys(keys);
     else if (e.shiftKey && anchor) setPicked(keysIn({ ...fullRect, r0: Math.min(anchor.r, r), r1: Math.max(anchor.r, r) }));
     else { setPicked(new Set(keys)); drag.current = { mode: 'rows', from: r }; }
@@ -254,9 +259,10 @@ export function ThemeGrid() {
   };
   const onColDown = (e, c) => {
     if (e.button !== 0) return;
+    const keys = [...keysIn({ ...fullRect, c0: c, c1: c })];
+    if (touched()) { toggleKeys(keys); return; }
     e.preventDefault();
     focusGrid();
-    const keys = [...keysIn({ ...fullRect, c0: c, c1: c })];
     if (e.metaKey || e.ctrlKey) toggleKeys(keys);
     else if (e.shiftKey && anchor) setPicked(keysIn({ ...fullRect, c0: Math.min(anchor.c, c), c1: Math.max(anchor.c, c) }));
     else { setPicked(new Set(keys)); drag.current = { mode: 'cols', from: c }; }
@@ -464,7 +470,7 @@ export function ThemeGrid() {
       <div className="tg-scroll">
         <div ref={gridRef} className={cx('tg', editing && 'is-editing')} role="grid" tabIndex={0} aria-label="Teemat viikoittain" aria-multiselectable="true"
           aria-activedescendant={activeKey ? `tg-${activeKey}` : undefined}
-          onKeyDown={onKeyDown} style={{ '--tg-weeks': weeks.length }}>
+          onKeyDown={onKeyDown} onTouchStart={() => { lastTouch.current = Date.now(); }} style={{ '--tg-weeks': weeks.length }}>
           <div className="tg-row tg-head" role="row">
             <div className="tg-corner" role="columnheader">Ryhmä</div>
             {weeks.map((week, i) => {
@@ -506,7 +512,7 @@ export function ThemeGrid() {
                     <div key={c.key} id={`tg-${c.key}`} role="gridcell" aria-selected={on}
                       className={cx('tg-cell', on && 'is-on', isActive && 'is-active', c.theme && 'has-theme', !c.sessions && 'is-off', filling && 'is-fill', dropping && 'is-drop')}
                       onMouseDown={(e) => onCellDown(e, r, ci)} onMouseEnter={() => onCellEnter(r, ci)}
-                      onDoubleClick={() => startEdit({ r, c: ci })}
+                      onDoubleClick={() => { if (!touched()) startEdit({ r, c: ci }); }}
                       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (dropKey !== c.key) setDropKey(c.key); }}
                       onDragLeave={() => setDropKey((k) => (k === c.key ? null : k))}
                       onDrop={(e) => {
@@ -544,11 +550,15 @@ export function ThemeGrid() {
       </div>
       <datalist id="tg-library">{koutsiThemeLibrary(state.groups).map((t) => <option key={t.key} value={t.title} />)}</datalist>
 
-      <p className="tg-help">
-        <strong>Vinkit:</strong> vedä hiirellä monta ruutua · kirjoita suoraan ruutuun (Enter tallentaa kaikkiin valittuihin) ·
-        vedä valinnan kulmasta oikealle tai alas kopioidaksesi · {MOD}+C / {MOD}+V kopioi ja liittää (myös Excelistä) ·
-        Delete poistaa · {MOD}+Z kumoaa
-      </p>
+      {touchDevice ? (
+        <p className="tg-help"><strong>Vinkki:</strong> napauta ruutuja valitaksesi monta (viikon tai ryhmän nimi valitsee koko sarakkeen tai rivin), sitten Aseta teema. Vieritä taulukkoa sivuttain.</p>
+      ) : (
+        <p className="tg-help">
+          <strong>Vinkit:</strong> vedä hiirellä monta ruutua · kirjoita suoraan ruutuun (Enter tallentaa kaikkiin valittuihin) ·
+          vedä valinnan kulmasta oikealle tai alas kopioidaksesi · {MOD}+C / {MOD}+V kopioi ja liittää (myös Excelistä) ·
+          Delete poistaa · {MOD}+Z kumoaa
+        </p>
+      )}
 
       {pickedCells.length > 0 && (
         <div className="tg-bar" role="region" aria-label="Valitut ruudut">
@@ -557,7 +567,7 @@ export function ThemeGrid() {
             {common && <span className="tg-bar-theme truncate"><Icon name="sparkles" size={14} />{common.title}</span>}
           </span>
           <span className="tg-bar-actions">
-            {common && <Button variant="ghost" size="sm" onClick={pickSame} title={`Valitse kaikki ruudut, joissa on ”${common.title}”`}>Valitse samat</Button>}
+            {common && <Button variant="ghost" size="sm" className="tg-same" onClick={pickSame} title={`Valitse kaikki ruudut, joissa on ”${common.title}”`}>Valitse samat</Button>}
             <Button variant="ghost" size="sm" onClick={() => setPicked(new Set())}>Tyhjennä valinta</Button>
             {withTheme.length > 0 && <Button variant="outline" size="sm" icon="trash" onClick={clearPicked}>Poista teema</Button>}
             <Button variant="lime" size="md" icon={common ? 'edit' : 'sparkles'} onClick={() => setSheetOpen(true)}>{common ? 'Muokkaa teemaa' : 'Aseta teema'}</Button>

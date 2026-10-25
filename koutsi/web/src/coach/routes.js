@@ -16,7 +16,9 @@ export const TABS = [
   { id: 'ryhmat', label: 'Viikkohallinta', icon: 'calendar', path: '/valmentaja/ryhmat' },
   { id: 'pelaajat', label: 'Pelaajat', icon: 'user', path: '/valmentaja/pelaajat' },
 ];
-export const PHONE_TABS = [...TABS, { id: 'harjoitteet', label: 'Harjoitteet', icon: 'list', path: '/valmentaja/harjoitteet' }];
+// On a phone the fourth place is "Lisää": a drawer with Harjoitepankki, Suunnittele, Ryhmät,
+// Ilmoitukset, Tiedote and Profiili. It lights up on any of those pages (`ids`).
+export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['harjoitteet', 'suunnittele', 'ryhmalista', 'profiili'] }];
 // A computer's side nav also has Suunnittele (themes for many weeks, absences ahead, the season)
 // after Viikkohallinta and the Ryhmät list under Pelaajat. Phones get them later.
 export const DESKTOP_TABS = [
