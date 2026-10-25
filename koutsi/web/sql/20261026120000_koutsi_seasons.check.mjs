@@ -1,4 +1,5 @@
-// 20261026120000_koutsi_seasons.check.mjs — runs the migration next to it in PGlite against a small
+// 20261026120000_koutsi_seasons.check.mjs — runs the koutsi_seasons migration (applied 2026-10-25 as
+// supabase/migrations/20261025181126_koutsi_seasons.sql) in PGlite against a small
 // copy of production's Koutsi schema (tables, RLS, the functions it calls; copied 2026-10-23), then
 // checks the backfill, the trigger, the gate, publish, row security and the invite redeem.
 // PGlite is not a dependency of the repo, so it is not part of `npm run test:koutsi`. Before
@@ -14,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = await readFile(join(here, '20261026120000_koutsi_seasons.sql'), 'utf8');
+const MIGRATION = await readFile(join(here, '../../../supabase/migrations/20261025181126_koutsi_seasons.sql'), 'utf8');
 const { seasonDates, nextSeasonPreset } = await import(join(here, '../src/domain/season.js'));
 
 const COACH = '00000000-0000-4000-8000-0000000000a1';
