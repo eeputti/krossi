@@ -22,54 +22,66 @@ export function targetOf(linkPath, home) {
   return path.startsWith('/pelaaja/') || path.startsWith('/valmentaja/') ? path + suffix : null;
 }
 
-export function NotificationsButton({ uid, home, variant = 'soft' }) {
+/** The signed-in user's notifications: the list, how many are unread, and "mark all read". */
+export function useNotifications(uid) {
   const toast = useToast();
   const [items, setItems] = useState([]);
-  const [open, setOpen] = useState(false);
-  const load = useCallback(() => api.notifications.list(uid).then(setItems).catch(() => {}), [uid]);
+  const load = useCallback(() => (uid ? api.notifications.list(uid).then(setItems).catch(() => {}) : Promise.resolve()), [uid]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => api.notifications.subscribe(uid, load), [uid, load]);
+  useEffect(() => (uid ? api.notifications.subscribe(uid, load) : undefined), [uid, load]);
   const unread = items.filter((n) => !n.read).length;
-  const openSheet = async () => {
-    setOpen(true);
-    if (unread > 0) {
-      try {
-        await api.notifications.markRead(uid);
-        setItems((list) => list.map((n) => ({ ...n, read: true })));
-      } catch (err) { toast(err); }
-    }
-  };
+  const markRead = useCallback(async () => {
+    if (!items.some((n) => !n.read)) return;
+    try {
+      await api.notifications.markRead(uid);
+      setItems((list) => list.map((n) => ({ ...n, read: true })));
+    } catch (err) { toast(err); }
+  }, [items, uid, toast]);
+  return { items, unread, markRead };
+}
+
+/** The list itself; an item opens what it is about. */
+export function NotificationsSheet({ open, onClose, items, home }) {
+  return (
+    <Sheet open={open} onClose={onClose} title="Ilmoitukset" size="md">
+      {items.length === 0 ? (
+        <EmptyState compact art="mail" title="Ei vielä ilmoituksia" text="Täällä näkyvät uudet huomiot, kotiläksyt ja treenimuutokset." />
+      ) : (
+        <ul className="k-notifs">
+          {items.map((n) => {
+            const to = targetOf(n.linkPath, home);
+            const body = (
+              <>
+                <span className={cx('k-notif-dot', !n.read && 'is-new')} aria-hidden="true" />
+                <span className="k-notif-text">
+                  <span className="k-notif-title">{n.title}</span>
+                  {n.body && <span className="k-notif-body">{n.body}</span>}
+                  <span className="k-notif-date">{koutsiFmtEventDate(n.createdAt)}</span>
+                </span>
+              </>
+            );
+            return (
+              <li key={n.id}>
+                {to ? (
+                  <button type="button" className="k-notif is-link" onClick={() => { onClose(); navigate(to); }}>{body}</button>
+                ) : <div className="k-notif">{body}</div>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Sheet>
+  );
+}
+
+export function NotificationsButton({ uid, home, variant = 'soft' }) {
+  const { items, unread, markRead } = useNotifications(uid);
+  const [open, setOpen] = useState(false);
+  const openSheet = () => { setOpen(true); markRead(); };
   return (
     <>
       <IconButton icon="bell" label={unread ? `Ilmoitukset (${unread} uutta)` : 'Ilmoitukset'} variant={variant} badge={unread || undefined} onClick={openSheet} />
-      <Sheet open={open} onClose={() => setOpen(false)} title="Ilmoitukset" size="md">
-        {items.length === 0 ? (
-          <EmptyState compact art="mail" title="Ei vielä ilmoituksia" text="Täällä näkyvät uudet huomiot, kotiläksyt ja treenimuutokset." />
-        ) : (
-          <ul className="k-notifs">
-            {items.map((n) => {
-              const to = targetOf(n.linkPath, home);
-              const body = (
-                <>
-                  <span className={cx('k-notif-dot', !n.read && 'is-new')} aria-hidden="true" />
-                  <span className="k-notif-text">
-                    <span className="k-notif-title">{n.title}</span>
-                    {n.body && <span className="k-notif-body">{n.body}</span>}
-                    <span className="k-notif-date">{koutsiFmtEventDate(n.createdAt)}</span>
-                  </span>
-                </>
-              );
-              return (
-                <li key={n.id}>
-                  {to ? (
-                    <button type="button" className="k-notif is-link" onClick={() => { setOpen(false); navigate(to); }}>{body}</button>
-                  ) : <div className="k-notif">{body}</div>}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Sheet>
+      <NotificationsSheet open={open} onClose={() => setOpen(false)} items={items} home={home} />
     </>
   );
 }

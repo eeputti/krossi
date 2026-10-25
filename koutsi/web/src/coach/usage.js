@@ -91,6 +91,19 @@ export const USAGE_SECTIONS = [
     ],
   },
   {
+    title: 'Lisää-valikko (puhelin)',
+    events: [
+      ['lisaa.avaa', 'Lisää-valikko avattu'],
+      ['lisaa.harjoitteet', 'Harjoitepankki'],
+      ['lisaa.suunnittele', 'Suunnittele'],
+      ['lisaa.ryhmat', 'Ryhmät'],
+      ['lisaa.ilmoitukset', 'Ilmoitukset'],
+      ['lisaa.tiedote', 'Tiedote pelaajille'],
+      ['lisaa.profiili', 'Profiili'],
+      ['lisaa.yllapito', 'Ylläpito'],
+    ],
+  },
+  {
     title: 'Harjoitepankki',
     events: [
       ['pankki.avaa-kirjasto', 'Kirjaston harjoite avattu'],

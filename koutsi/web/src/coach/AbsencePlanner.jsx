@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
+import { useIsDesktop } from '../app/hooks.js';
 import { Avatar, Button, Icon, Input, Sheet } from '../ui/index.js';
 import { koutsiFmtShortDate, koutsiIsoWeekRangeLabel } from '../domain/core.js';
 import { groupsOf } from '../domain/week.js';
@@ -110,13 +111,14 @@ export function AbsenceSheet({ open, onClose, student }) {
   );
 }
 
-function PlayerPlanner({ student, onBack }) {
+function PlayerPlanner({ student, onBack, compact = false }) {
   const { state } = useData();
   const plan = useAbsencePlan(student, 'suunnittele');
   const groups = groupsOf(state, student.id);
   const nothing = !plan.changes.away.length && !plan.changes.back.length;
   return (
     <div className="ap-card">
+      {compact && <button type="button" className="ap-back" onClick={onBack}><Icon name="chevron-left" size={16} />Kaikki pelaajat</button>}
       <div className="ap-head">
         <Avatar person={student} size={44} />
         <div className="grow">
@@ -127,7 +129,7 @@ function PlayerPlanner({ student, onBack }) {
       </div>
       <AbsenceList plan={plan} />
       <div className="ap-actions">
-        <Button variant="soft" size="md" onClick={onBack}>Kaikki poissaolot</Button>
+        {!compact && <Button variant="soft" size="md" onClick={onBack}>Kaikki poissaolot</Button>}
         <Button variant="dark" size="md" loading={plan.busy} disabled={nothing} onClick={plan.save}>{saveLabel(plan.changes)}</Button>
       </div>
     </div>
@@ -161,20 +163,30 @@ function KnownAbsences({ onPick }) {
 /** Suunnittele → Poissaolot: pick a player on the left, plan their absences on the right. */
 export function AbsencePlannerPanel() {
   const { state } = useData();
+  const isDesktop = useIsDesktop();
   const [query, setQuery] = useState('');
   const [chosen, setChosen] = useState(null);
   const players = useMemo(() => [...state.students].sort((a, b) => a.name.localeCompare(b.name, 'fi')), [state.students]);
   const q = query.trim().toLocaleLowerCase('fi');
   const shown = q ? players.filter((s) => s.name.toLocaleLowerCase('fi').includes(q)) : players;
   const student = chosen ? state.students.find((s) => s.id === chosen) || null : null;
-  const pick = (id) => { setChosen(id); track('suunnittele.poissaolo-pelaaja'); };
+  const awayCount = useMemo(() => new Map(players.map((s) => [s.id, absenceCandidates(state, s.id, { days: DAYS_AHEAD }).filter((c) => c.absent).length])), [state, players]);
+  const pick = (id) => {
+    setChosen(id);
+    track('suunnittele.poissaolo-pelaaja');
+    if (!isDesktop) window.scrollTo({ top: 0 });
+  };
+  // a phone shows one thing at a time: the list, or the chosen player's sessions
+  if (!isDesktop && student) {
+    return <div className="ap-panel"><PlayerPlanner key={student.id} student={student} compact onBack={() => setChosen(null)} /></div>;
+  }
   return (
     <div className="ap-panel">
       <aside className="ap-players">
         <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae pelaajaa" aria-label="Hae pelaajaa" />
         <div className="ap-player-list">
           {shown.map((s) => {
-            const away = absenceCandidates(state, s.id, { days: DAYS_AHEAD }).filter((c) => c.absent).length;
+            const away = awayCount.get(s.id) || 0;
             return (
               <button key={s.id} type="button" className={cx('ap-player', chosen === s.id && 'is-on')} onClick={() => pick(s.id)}>
                 <Avatar person={s} size={30} />
