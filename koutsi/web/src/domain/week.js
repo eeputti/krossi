@@ -371,7 +371,7 @@ export function weekGroups(state, week) {
   const ids = new Set(state.trainings
     .filter((t) => t.groupId && t.loggedBy !== 'player' && t.date >= dates[0] && t.date <= dates[6])
     .map((t) => t.groupId));
-  return koutsiSortGroupsBySchedule(state.groups.filter((g) => ids.has(g.id)));
+  return koutsiSortGroupsBySchedule((state.allGroups || state.groups).filter((g) => ids.has(g.id)));
 }
 
 /** The players in some groups, once each (members without a player record left out). */

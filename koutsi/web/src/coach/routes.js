@@ -17,11 +17,23 @@ export const TABS = [
   { id: 'pelaajat', label: 'Pelaajat', icon: 'user', path: '/valmentaja/pelaajat' },
 ];
 export const PHONE_TABS = [...TABS, { id: 'harjoitteet', label: 'Harjoitteet', icon: 'list', path: '/valmentaja/harjoitteet' }];
+// A computer's side nav also has Suunnittele (themes for many weeks, absences ahead, the season)
+// after Viikkohallinta and the Ryhmät list under Pelaajat. Phones get them later.
+export const DESKTOP_TABS = [
+  TABS[0], TABS[1],
+  { id: 'suunnittele', label: 'Suunnittele', icon: 'grid', path: '/valmentaja/suunnittele' },
+  TABS[2],
+  { id: 'ryhmalista', label: 'Ryhmät', icon: 'users', path: '/valmentaja/ryhmalista' },
+];
 
 export const ROUTES = [
   { name: 'week', pattern: '/valmentaja/koti', tab: 'koti', type: 'tab' },
   { name: 'planner', pattern: '/valmentaja/teemat', tab: 'koti', type: 'overlay' },
+  // "Uusi kausi": the next season as a copy of the current one (SeasonSheet)
+  { name: 'season', pattern: '/valmentaja/kausi', tab: 'koti', type: 'overlay' },
   { name: 'groups', pattern: '/valmentaja/ryhmat', tab: 'ryhmat', type: 'tab' },
+  { name: 'plan', pattern: '/valmentaja/suunnittele', tab: 'suunnittele', type: 'tab' },
+  { name: 'groupList', pattern: '/valmentaja/ryhmalista', tab: 'ryhmalista', type: 'tab' },
   { name: 'group', pattern: '/valmentaja/ryhma/:id', tab: 'ryhmat', type: 'page' },
   { name: 'players', pattern: '/valmentaja/pelaajat', tab: 'pelaajat', type: 'tab' },
   { name: 'player', pattern: '/valmentaja/pelaaja/:id', tab: 'pelaajat', type: 'page' },

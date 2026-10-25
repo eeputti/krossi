@@ -2,7 +2,8 @@
 import { useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { Avatar, Card, Icon, IconButton, Page, PageHeader, useToast } from '../ui/index.js';
+import { navigate } from '../app/router.js';
+import { Avatar, Card, Icon, IconButton, ListRow, Page, PageHeader, useToast } from '../ui/index.js';
 import { AccountSection, EmailPrefToggle } from '../shared/account.jsx';
 import { koutsiGroupsForStudent } from '../domain/core.js';
 import { PlayerProfileSheet } from './sheets.jsx';
@@ -36,6 +37,13 @@ export function ProfileScreen() {
           </div>
           <IconButton icon="edit" label="Muokkaa tietoja" onClick={() => setEditOpen(true)} />
         </Card>
+        {/* The group page is no tab: Koti links to it only through the player's groups, so a player
+            with a coach but no group (private lessons only) needs this way to a join code. */}
+        <div className="list-group">
+          <ListRow icon="users" title={groups.length > 1 ? 'Ryhmät' : 'Ryhmä'}
+            subtitle={groups.length ? groups.map((g) => g.name).join(', ') : 'Liity ryhmään valmentajan koodilla'}
+            onClick={() => navigate('/pelaaja/ryhma')} />
+        </div>
         <Card interactive onClick={() => actions.openText('note')} className="goal-card">
           <div className="eyebrow"><Icon name="edit" size={13} /> Oma muistiinpano</div>
           {me.playerNote ? <p className="goal-text">{me.playerNote}</p> : <p className="k-faint">Kirjoita muistiinpano itsellesi ja valmentajalle — esim. mitä haluat muistaa seuraavasta treenistä.</p>}

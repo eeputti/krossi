@@ -26,7 +26,7 @@ import { AddSheet, BoardItemSheet, WeekPickerSheet } from './boardSheets.jsx';
 import { GroupFormSheet } from './groupForms.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { EVENT_ICON, EventSheet, TrainingSheet } from './trainingForms.jsx';
-import { openPlanner } from './nav.js';
+import { openPlanner, openSeason } from './nav.js';
 import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -130,6 +130,7 @@ export function BoardScreen({ query }) {
   const onAdd = (what) => {
     track(`viikko.lisaa-${what}`);
     if (what === 'teema') { close(); openPlanner({ week }); return; }
+    if (what === 'kausi') { close(); openSeason(); return; }
     const defaultDate = isCurrent ? today : dates[0];
     setSheet(what === 'ryhma' ? { kind: 'group' } : what === 'monta' ? { kind: 'bulk' } : what === 'tapahtuma' ? { kind: 'event', date: defaultDate } : { kind: 'training', date: defaultDate });
   };
@@ -138,7 +139,9 @@ export function BoardScreen({ query }) {
   // with sessions) and keep the strip above in step with the day in view.
   const daysRef = useRef(null);
   const [active, setActive] = useState(0);
-  const startDay = Math.max(0, isCurrent ? dates.indexOf(today) : board.days.findIndex((d) => d.items.length));
+  // Koti's day strip links straight to a day (?pv=): the phone opens on it, a computer marks it.
+  const focusDate = query.pv && dates.includes(query.pv) ? query.pv : null;
+  const startDay = focusDate ? dates.indexOf(focusDate) : Math.max(0, isCurrent ? dates.indexOf(today) : board.days.findIndex((d) => d.items.length));
   const scrollToDay = (i, smooth) => {
     const el = daysRef.current;
     const col = el?.children[i];
@@ -148,7 +151,7 @@ export function BoardScreen({ query }) {
   };
   useLayoutEffect(() => {
     if (!isDesktop) scrollToDay(startDay, false);
-  }, [isDesktop, week.year, week.week]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isDesktop, week.year, week.week, focusDate]); // eslint-disable-line react-hooks/exhaustive-deps
   const frame = useRef(0);
   const onScroll = () => {
     cancelAnimationFrame(frame.current);
@@ -178,7 +181,10 @@ export function BoardScreen({ query }) {
     </button>
   );
 
-  if (state.groups.length === 0 && board.sessions === 0 && board.events.bars.length === 0) {
+  // Only a coach with nothing at all gets the "first group" page: a coach with private lessons
+  // but no groups must still be able to step to the weeks that have sessions.
+  const hasOwnSessions = (state.trainings || []).some((t) => t.loggedBy !== 'player');
+  if (state.groups.length === 0 && !hasOwnSessions && board.sessions === 0 && board.events.bars.length === 0) {
     return (
       <Page>
         <header className="wb-head">
@@ -252,7 +258,7 @@ export function BoardScreen({ query }) {
           <div className="wb-heads" style={{ gridTemplateColumns: `var(--wb-axis) ${columns}` }}>
             <span className="wb-corner" aria-hidden="true" />
             {board.days.map((d, i) => (
-              <div key={d.date} className={cx('wb-dayhead', d.date === today && 'is-today', d.date < today && 'is-past')}>
+              <div key={d.date} className={cx('wb-dayhead', d.date === today && 'is-today', d.date < today && 'is-past', d.date === focusDate && 'is-focus')}>
                 <span className="wb-dayhead-dow">{DAY_SHORT[i]}</span>
                 <span className="wb-dayhead-date t-num">{dayMonth(d.date)}</span>
               </div>
@@ -289,7 +295,7 @@ export function BoardScreen({ query }) {
             <div className="wb-days" ref={daysRef} onScroll={onScroll} style={isDesktop ? { gridTemplateColumns: columns } : undefined}>
               {board.days.map((d, i) => (
                 <section key={d.date} aria-label={`${DAY_LONG[i]} ${dayMonth(d.date)}`}
-                  className={cx('wb-day', d.date === today && 'is-today', d.date < today && 'is-past')}>
+                  className={cx('wb-day', d.date === today && 'is-today', d.date < today && 'is-past', d.date === focusDate && 'is-focus')}>
                   {d.items.length === 0 && (
                     <div className="wb-day-empty">
                       <span className="wb-day-empty-text">Ei treenejä</span>

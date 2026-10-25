@@ -50,6 +50,15 @@ export const API_CONTRACT = {
 
   groups: ['create', 'update', 'remove', 'addMembers', 'removeMember', 'addSlot', 'deleteSlot', 'extendSeries'],
 
+  // Seasons — "Uusi kausi" (domain/season.js). CoachState carries `seasons` ([{ id, name, startsOn,
+  // endsOn, breaks }]), groups a `seasonId`, the unpublished `seasonDraft` and `seasonsReady`
+  // (false until the backend has seasons; the feature stays hidden). saveDraft(coachId, draft) keeps
+  // the next season unseen by players; publish(coachId, draft) → { seasonId, groups, sessions } creates
+  // the new season's groups, memberships and sessions at once (the old season stays as it was) and
+  // sends each player one notification; removeDraft(coachId) throws the draft away;
+  // update(seasonId, { name?, endsOn?, breaks? }) — "Muokkaa kautta" (the calendar is extended separately).
+  seasons: ['saveDraft', 'removeDraft', 'publish', 'update'],
+
   // save(rows: [{ groupId, year, week, title, lead }], { onlyNew }) → rows written.
   themes: ['save', 'remove'],
 
@@ -63,6 +72,14 @@ export const API_CONTRACT = {
   // player in one insert: each player gets their own copy (and their own notification).
   notes: ['add', 'addMany', 'update', 'remove'],
   homework: ['add', 'addMany', 'update', 'remove', 'toggleDone'],
+
+  // Tiedotteet (koutsi_announcements): a practical notice to groups or players — a different coach
+  // tomorrow, another court — shown on the players' Koti until `until` and never on anyone's
+  // Kehitys; each addressed player gets a notification. add(coachId, { text, groupIds, studentIds,
+  // until: 'YYYY-MM-DD' }) → { id }; remove(id). CoachState / PlayerState carry
+  // `announcements: [{ id, coachId, text, groupIds, studentIds, until, at }]` and `announcementsReady`
+  // (false while the table is missing: the Tiedote choice stays hidden).
+  announcements: ['add', 'remove'],
 
   videos: ['share', 'setRecipients', 'url', 'remove'],
   exercises: ['add', 'update', 'remove', 'setVideo', 'removeVideo', 'seedStarters'],

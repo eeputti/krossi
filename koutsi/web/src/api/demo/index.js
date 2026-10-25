@@ -13,6 +13,7 @@ import {
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
+import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/season.js';
 
 let role = 'coach';
 let state = null;
@@ -58,7 +59,14 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true };
+}
+
+/** The notices a player sees: to one of their groups or to them, still in date. */
+function announcementsFor(s, me, groupIds) {
+  const today = koutsiTodayStr();
+  return (s.announcements || []).filter((a) => a.until >= today
+    && ((a.groupIds || []).some((id) => groupIds.has(id)) || (a.studentIds || []).includes(me.id)));
 }
 
 function playerState(studentId) {
@@ -72,7 +80,7 @@ function playerState(studentId) {
   const groupIds = new Set(groups.map((g) => g.id));
   // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
   const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
-  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, announcements: announcementsFor(s, me, groupIds), announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
 }
 
 function hideHiddenMoods(snapshot) {
@@ -434,6 +442,58 @@ export const backend = {
     },
   },
 
+  // "Uusi kausi": the draft stays with the coach until publish; publishing writes the new season's
+  // own group rows (the old season keeps its groups, sessions and attendance as they were).
+  seasons: {
+    async saveDraft(coachId, draft) { await wait(); S().seasonDraft = clone(draft); },
+    async removeDraft() { await wait(); S().seasonDraft = null; },
+    async update(seasonId, { name, endsOn, breaks }) {
+      await wait();
+      const season = (S().seasons || []).find((x) => x.id === seasonId);
+      if (!season) throw new ApiError('Kautta ei löytynyt.');
+      if (name !== undefined) season.name = name;
+      if (endsOn !== undefined) season.endsOn = endsOn;
+      if (breaks !== undefined) season.breaks = clone(breaks);
+    },
+    async publish(coachId, draft) {
+      await wait();
+      const s = S();
+      if (!draft?.name?.trim() || !draft.startsOn || !draft.endsOn || draft.endsOn < draft.startsOn) throw new ApiError('Tarkista kauden nimi ja päivät.');
+      const active = activeGroups(draft);
+      if (!active.length) throw new ApiError('Kaudella ei ole yhtään ryhmää.');
+      const season = { id: newId('season'), coachId: COACH, name: draft.name.trim(), startsOn: draft.startsOn, endsOn: draft.endsOn, breaks: clone(draft.breaks || []) };
+      const ids = {};
+      (draft.newPlayers || []).forEach((p) => {
+        if (!active.some((dg) => (draft.members[dg.key] || []).includes(p.key))) return;
+        ids[p.key] = newId('demo-s');
+        s.students.push(student(ids[p.key], p.name));
+      });
+      let sessions = 0;
+      const created = active.map((dg) => {
+        const group = {
+          id: newId('g'), coachId: COACH, seasonId: season.id, continuesFrom: dg.fromId || null, name: dg.name.trim(), level: dg.level || 'Kaikki tasot',
+          day: dg.day, time: dg.time, durationMinutes: dg.durationMinutes || 60, slots: [], themes: [], annualPlan: null,
+          memberIds: [...new Set((draft.members[dg.key] || []).map((ref) => ids[ref] || ref))].filter((id) => s.students.some((x) => x.id === id)),
+        };
+        refreshThemes(group);
+        s.groups.push(group);
+        const seriesId = newId('ser');
+        const dates = seasonDates(dg, season);
+        dates.forEach((date) => s.trainings.push({ id: newId('tr'), date, time: dg.time, type: 'Ryhmätreeni', durationMinutes: group.durationMinutes, loggedBy: 'coach', notes: '', endDate: null, studentId: null, groupId: group.id, coachId: COACH, seriesId, absences: [] }));
+        sessions += dates.length;
+        return { group, dg };
+      });
+      s.seasons = [...(s.seasons || []), season];
+      s.seasonDraft = null;
+      // every player gets one notification about their own groups; the demo player sees theirs
+      const mine = created.filter(({ group }) => group.memberIds.includes(PLAYER)).map(({ dg }) => dg);
+      if (mine.length) {
+        s.playerNotifications.unshift({ id: newId('pn'), kind: 'season_published', title: `${season.name}: ryhmäsi ovat valmiina`, body: playerSeasonMessage(draft, mine, koutsiFmtShortDate), linkPath: '/pelaaja', createdAt: nowIso(), read: false });
+      }
+      return { seasonId: season.id, groups: created.length, sessions };
+    },
+  },
+
   themes: {
     async save(rows, { onlyNew = false } = {}) {
       await wait();
@@ -593,6 +653,19 @@ export const backend = {
       added.forEach((t) => S().exercises.push({ id: newId('e'), coachId: COACH, ...t, video: null }));
       return added.length;
     },
+  },
+
+  announcements: {
+    async add(coachId, { text, groupIds = [], studentIds = [], until }) {
+      await wait();
+      const body = (text || '').trim();
+      if (!body) throw new ApiError('Kirjoita tiedote.');
+      if (!groupIds.length && !studentIds.length) throw new ApiError('Valitse, kenelle tiedote menee.');
+      const row = { id: newId('an'), coachId, text: body, groupIds: [...groupIds], studentIds: [...studentIds], until: until || koutsiTodayStr(), at: nowIso() };
+      S().announcements = [row, ...(S().announcements || [])];
+      return { id: row.id };
+    },
+    async remove(id) { await wait(); S().announcements = (S().announcements || []).filter((a) => a.id !== id); },
   },
 
   events: {

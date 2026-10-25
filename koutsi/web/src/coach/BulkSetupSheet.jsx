@@ -10,6 +10,7 @@ import { DayPicker, DurationStepper, TimeSelect } from '../shared/fields.jsx';
 import { koutsiParseNameList, koutsiSortGroupsBySchedule } from '../domain/core.js';
 import { exactNameMatch } from '../domain/roster.js';
 import { useCoach } from './CoachRoot.jsx';
+import { WeeksChips, useDefaultWeeks } from './groupForms.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 let rowSeq = 0;
@@ -19,6 +20,7 @@ export function BulkSetupSheet({ open, onClose }) {
   const { state, reload } = useData();
   const { coachId } = useCoach();
   const toast = useToast();
+  const seasonWeeks = useDefaultWeeks();
   const [step, setStep] = useState(1);
   const [newGroups, setNewGroups] = useState([newGroupRow()]);
   const [existing, setExisting] = useState([]);
@@ -28,7 +30,7 @@ export function BulkSetupSheet({ open, onClose }) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!open) return;
-    setStep(1); setNewGroups([newGroupRow()]); setExisting([]); setWeeks(12); setPaste(''); setAssign({}); setBusy(false);
+    setStep(1); setNewGroups([newGroupRow()]); setExisting([]); setWeeks(seasonWeeks.initial); setPaste(''); setAssign({}); setBusy(false);
   }, [open]);
 
   const validNew = newGroups.filter((g) => g.name.trim() && g.time);
@@ -114,9 +116,7 @@ export function BulkSetupSheet({ open, onClose }) {
             </section>
           )}
           <Field label="Uusien ryhmien treenit kalenteriin">
-            <div className="k-weeks-row">
-              {[8, 12, 20, 30].map((w) => <button key={w} type="button" className={cx('planner-chip', weeks === w && 'is-on')} onClick={() => setWeeks(w)}>{w} vk</button>)}
-            </div>
+            <WeeksChips value={weeks} onChange={setWeeks} left={seasonWeeks.left} />
           </Field>
         </div>
       ) : (

@@ -161,7 +161,7 @@ function PlayerShell({ banner }) {
       <PlayerTextSheet open={sheet?.kind === 'text'} kind={sheet?.textKind} initial={textInitial} onClose={close} />
       <EntrySheet open={sheet?.kind === 'entry'} editing={sheet?.editing} onClose={close} />
       <VideoShareSheet open={sheet?.kind === 'video'} onClose={close} title="Lisää oma video" onSave={saveOwnVideo} />
-      <PlanSheet open={Boolean(planTraining)} training={planTraining} group={planTraining?.groupId ? state.groups.find((g) => g.id === planTraining.groupId) : null}
+      <PlanSheet open={Boolean(planTraining)} training={planTraining} group={planTraining?.groupId ? (state.allGroups || state.groups).find((g) => g.id === planTraining.groupId) : null}
         onClose={close} onPlayVideo={(v) => setVideo(v)} />
       <VideoPlayerSheet video={video} onClose={() => setVideo(null)} />
       <CheckInSheet open={Boolean(checkIn)} training={checkInTraining} all={checkIn?.all || null} initialScore={checkIn?.score ?? null}

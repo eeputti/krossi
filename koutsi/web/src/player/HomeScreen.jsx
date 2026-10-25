@@ -237,6 +237,32 @@ function MyGroups({ state, student }) {
   );
 }
 
+// EHDOTUS (haara koutsi-selkeys): a coach's Tiedote — practical news for the group (another coach,
+// another court) — first on Koti until its date. It never goes on Kehitys.
+function Notices({ state }) {
+  const today = koutsiTodayStr();
+  const list = (state.announcements || []).filter((a) => a.until >= today);
+  if (!list.length) return null;
+  return (
+    <div className="an-list">
+      {list.map((a) => {
+        const coach = koutsiCoachById(state, a.coachId) || state.coach;
+        const groups = [...new Set((a.groupIds || []).map((id) => koutsiGroupById(state, id)?.name).filter(Boolean))];
+        return (
+          <article key={a.id} className="an-card">
+            <span className="an-icon"><Icon name="info" size={18} /></span>
+            <div className="an-body">
+              <div className="an-eyebrow">Tiedote · {coach?.name || 'Valmentaja'}</div>
+              <p className="an-text">{a.text}</p>
+              <div className="an-foot">{[groups.join(', '), `${koutsiFmtEventDate(a.at)}`, `näkyy ${koutsiFmtShortDate(a.until)} asti`].filter(Boolean).join(' · ')}</div>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 export function HomeScreen() {
   const { state } = useData();
   const isDesktop = useIsDesktop();
@@ -249,6 +275,7 @@ export function HomeScreen() {
       <div className={isDesktop ? 'week-grid' : 'stack-5'}>
         <div className="stack-5">
           {!hasCoach && <JoinCard />}
+          <Notices state={state} />
           <Now state={state} student={student} />
           {hasCoach && (
             <Block title="Tulevat treenit">

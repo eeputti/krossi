@@ -4,7 +4,8 @@
 // (wrangler.jsonc); the worker only sees "/", robots.txt, sitemap.xml and paths with no
 // matching file, and maps those deep links to the right HTML shell.
 //
-// Koutsi hosts must route exactly as they did before the Krossi web rebuild:
+// Koutsi hosts route exactly as they did before the Krossi web rebuild, except that the app
+// addresses open the renewed Koutsi by default (see serveNewKoutsiSwitch):
 // tests/cloudflare-routing.test.mjs compares every Koutsi path against a frozen copy of
 // the previous worker (tests/fixtures/worker-before-krossi-web.js).
 
@@ -111,16 +112,16 @@ export function resolveAssetPath(input) {
     : resolveKrossiAssetPath(pathname);
 }
 
-// ── Renewed Koutsi (opt-in beta) ─────────────────────────────────────────────
-// koutsi/web is a rebuilt coach and player app on the same tables. Until it replaces the
-// old one it is opt-in per browser: /valmentaja?uusi=1 (or /pelaaja?uusi=1) sets a cookie,
-// and from then on /valmentaja/* and /pelaaja/* open the new app in that browser;
-// ?uusi=0 turns it to koutsi_uusi=0, which opens the old app as before but lets it show a
-// "Siirry uuteen" link, only to people who have used the new one. A request with neither
-// the parameter nor koutsi_uusi=1 never reaches this code, so it is answered exactly as
-// before (see the frozen-worker tests).
+// ── Renewed Koutsi (the default since 25.10.2026) ────────────────────────────
+// koutsi/web is the rebuilt coach and player app on the same tables. Every /valmentaja/* and
+// /pelaaja/* address opens it (up to three segments deep, /valmentaja/ryhma/<id>/...), unless
+// the browser chose the old app: "Palaa vanhaan" links to ?uusi=0, which sets koutsi_uusi=0
+// for a year and opens the old app, and the old app then shows "Siirry uuteen" (?uusi=1, which
+// sets koutsi_uusi=1 and opens the new one again). Pages outside the apps (landing, legal
+// pages, assets) never reach this switch, so they answer exactly as before.
+// To roll back to "old by default", redeploy the Cloudflare version from before the flip.
 
-export const NEW_KOUTSI_COOKIE = 'koutsi_uusi';
+const NEW_KOUTSI_COOKIE = 'koutsi_uusi';
 const NEW_KOUTSI_SHELLS = {
   [KOUTSI_HOST]: { valmentaja: '/koutsi-uusi-valmentaja.html', pelaaja: '/koutsi-uusi-pelaaja.html' },
   [DEMO_HOST]: { valmentaja: '/koutsi-uusi-valmentaja-demo.html', pelaaja: '/koutsi-uusi-pelaaja-demo.html' },
@@ -136,8 +137,8 @@ export function resolveNewKoutsiPath(input) {
   return null;
 }
 
-function hasNewKoutsiCookie(request) {
-  return (request.headers.get('cookie') || '').split(';').some((part) => part.trim() === `${NEW_KOUTSI_COOKIE}=1`);
+function choseOldKoutsi(request) {
+  return (request.headers.get('cookie') || '').split(';').some((part) => part.trim() === `${NEW_KOUTSI_COOKIE}=0`);
 }
 
 // Returns null when the request doesn't involve the switch at all.
@@ -146,18 +147,18 @@ async function serveNewKoutsiSwitch(request, env) {
   const choice = url.searchParams.get('uusi');
   const optIn = choice === '1';
   const optOut = choice === '0';
-  const cookie = hasNewKoutsiCookie(request);
-  if (!optIn && !optOut && !cookie) return null;
+  const newPath = resolveNewKoutsiPath(url);
+  if (!newPath && !optIn && !optOut) return null;
 
-  const newPath = (optIn || (cookie && !optOut)) ? resolveNewKoutsiPath(url) : null;
-  const assetPath = newPath || resolveAssetPath(url);
+  const old = optOut || (!optIn && choseOldKoutsi(request));
+  const assetPath = (!old && newPath) || resolveAssetPath(url);
   const response = await env.ASSETS.fetch(assetPath ? rewriteRequest(request, assetPath) : request);
 
   const headers = new Headers(response.headers);
   const cookieAttrs = 'Path=/; Secure; SameSite=Lax';
   if (optIn) headers.append('set-cookie', `${NEW_KOUTSI_COOKIE}=1; Max-Age=31536000; ${cookieAttrs}`);
   if (optOut) headers.append('set-cookie', `${NEW_KOUTSI_COOKIE}=0; Max-Age=31536000; ${cookieAttrs}`);
-  // The same address now answers with either app, so no cache may keep one for the other.
+  // The same address answers with either app, so no cache may keep one for the other.
   headers.set('cache-control', 'private, no-cache');
   headers.append('vary', 'Cookie');
   headers.delete('etag');

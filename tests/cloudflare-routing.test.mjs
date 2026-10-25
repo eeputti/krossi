@@ -124,14 +124,41 @@ test('every Koutsi host path resolves exactly as it did before the Krossi web re
   assert.equal(checked, KOUTSI_ORIGINS.length * KOUTSI_PATHS.length);
 });
 
-test('the worker answers every Koutsi request exactly like before, without network calls', async () => {
+test('outside the apps, the worker answers every Koutsi request exactly like before', async () => {
+  const echoAssets = { ASSETS: { fetch: async (request) => new Response(`${request.method} ${request.url}`, { headers: { 'content-type': 'text/html' } }) } };
+  let unchanged = 0;
+  await withFetch(refuseNetwork, async () => {
+    for (const origin of KOUTSI_ORIGINS) {
+      for (const path of KOUTSI_PATHS) {
+        const url = `${origin}${path}`;
+        const newShell = resolveNewKoutsiPath(url);
+        const now = await worker.fetch(new Request(url), echoAssets);
+        if (newShell) {
+          // The renewed Koutsi is the default for the app addresses.
+          const expected = new URL(url);
+          expected.pathname = newShell;
+          assert.equal(await now.text(), `GET ${expected}`, url);
+          continue;
+        }
+        const before = await previousWorker.fetch(new Request(url), echoAssets);
+        assert.equal(now.status, before.status, url);
+        assert.equal(now.headers.get('content-type'), before.headers.get('content-type'), url);
+        assert.equal(await now.text(), await before.text(), url);
+        unchanged += 1;
+      }
+    }
+  });
+  assert.ok(unchanged > KOUTSI_PATHS.length, 'most paths are outside the apps');
+});
+
+test('a browser that chose the old Koutsi gets exactly the old answers', async () => {
   const echoAssets = { ASSETS: { fetch: async (request) => new Response(`${request.method} ${request.url}`, { headers: { 'content-type': 'text/html' } }) } };
   await withFetch(refuseNetwork, async () => {
     for (const origin of KOUTSI_ORIGINS) {
       for (const path of KOUTSI_PATHS) {
         const url = `${origin}${path}`;
         const [now, before] = await Promise.all([
-          worker.fetch(new Request(url), echoAssets),
+          worker.fetch(new Request(url, { headers: { cookie: 'theme=dark; koutsi_uusi=0' } }), echoAssets),
           previousWorker.fetch(new Request(url), echoAssets),
         ]);
         assert.equal(now.status, before.status, url);
@@ -154,14 +181,19 @@ test('worker preserves query parameters while rewriting the asset path', async (
   );
   assert.equal(
     await response.text(),
-    'https://koutsi.krossi.app/koutsi-pelaaja.html?auth=login&koodi=ABC',
+    'https://koutsi.krossi.app/koutsi-uusi-pelaaja.html?auth=login&koodi=ABC',
   );
+  const old = await worker.fetch(
+    new Request('https://koutsi.krossi.app/pelaaja?auth=login&koodi=ABC', { headers: { cookie: 'koutsi_uusi=0' } }),
+    env,
+  );
+  assert.equal(await old.text(), 'https://koutsi.krossi.app/koutsi-pelaaja.html?auth=login&koodi=ABC');
 
   const demo = await worker.fetch(new Request('https://krossi.app/demo/pelit?suodatin=sisa'), env);
   assert.equal(await demo.text(), 'https://krossi.app/krossi-demo.html?suodatin=sisa');
 });
 
-// ── renewed Koutsi, opt-in with ?uusi=1 ──────────────────────────────────────
+// ── renewed Koutsi: the default, ?uusi=0 keeps the old one ──────────────────────────────────────
 
 const echoAsset = { ASSETS: { fetch: async (request) => new Response(new URL(request.url).pathname, { headers: { 'content-type': 'text/html', etag: '"abc"' } }) } };
 const koutsiRequest = (url, cookie) => new Request(url, cookie ? { headers: { cookie } } : undefined);
@@ -182,29 +214,30 @@ test('?uusi=1 opens the renewed Koutsi and remembers the choice in a cookie', as
   }
 });
 
-test('with the cookie, every app address of the renewed Koutsi opens it, two levels deep', async () => {
-  const cookie = 'theme=dark; koutsi_uusi=1';
-  for (const [url, shell] of [
-    ['https://koutsi.krossi.app/valmentaja', '/koutsi-uusi-valmentaja.html'],
-    ['https://koutsi.krossi.app/valmentaja/viikko', '/koutsi-uusi-valmentaja.html'],
-    ['https://koutsi.krossi.app/valmentaja/ryhma/5c1e0d4e-0000-4000-8000-000000000001', '/koutsi-uusi-valmentaja.html'],
-    ['https://koutsi.krossi.app/valmentaja/pelaaja/abc/', '/koutsi-uusi-valmentaja.html'],
-    ['https://koutsi.krossi.app/pelaaja/kehitys', '/koutsi-uusi-pelaaja.html'],
-    ['https://demo.koutsi.krossi.app/valmentaja/treeni/x', '/koutsi-uusi-valmentaja-demo.html'],
-  ]) {
-    const response = await worker.fetch(koutsiRequest(url, cookie), echoAsset);
-    assert.equal(await response.text(), shell, url);
-    assert.equal(response.headers.get('set-cookie'), null, url);
-  }
-  // Pages outside the apps stay what they were, and junk depths are still not app pages.
-  for (const [url, path] of [
-    ['https://koutsi.krossi.app/', '/koutsi.html'],
-    ['https://koutsi.krossi.app/tietosuoja', '/koutsi-tietosuoja.html'],
-    ['https://demo.koutsi.krossi.app/', '/koutsi-demo.html'],
-    ['https://koutsi.krossi.app/valmentaja/a/b/c/d', '/valmentaja/a/b/c/d'],
-  ]) {
-    const response = await worker.fetch(koutsiRequest(url, cookie), echoAsset);
-    assert.equal(await response.text(), path, url);
+test('without a choice or with koutsi_uusi=1, every app address opens the renewed Koutsi, two levels deep', async () => {
+  for (const cookie of ['theme=dark; koutsi_uusi=1', 'theme=dark', undefined]) {
+    for (const [url, shell] of [
+      ['https://koutsi.krossi.app/valmentaja', '/koutsi-uusi-valmentaja.html'],
+      ['https://koutsi.krossi.app/valmentaja/viikko', '/koutsi-uusi-valmentaja.html'],
+      ['https://koutsi.krossi.app/valmentaja/ryhma/5c1e0d4e-0000-4000-8000-000000000001', '/koutsi-uusi-valmentaja.html'],
+      ['https://koutsi.krossi.app/valmentaja/pelaaja/abc/', '/koutsi-uusi-valmentaja.html'],
+      ['https://koutsi.krossi.app/pelaaja/kehitys', '/koutsi-uusi-pelaaja.html'],
+      ['https://demo.koutsi.krossi.app/valmentaja/treeni/x', '/koutsi-uusi-valmentaja-demo.html'],
+    ]) {
+      const response = await worker.fetch(koutsiRequest(url, cookie), echoAsset);
+      assert.equal(await response.text(), shell, url);
+      assert.equal(response.headers.get('set-cookie'), null, url);
+    }
+    // Pages outside the apps stay what they were, and junk depths are still not app pages.
+    for (const [url, path] of [
+      ['https://koutsi.krossi.app/', '/koutsi.html'],
+      ['https://koutsi.krossi.app/tietosuoja', '/koutsi-tietosuoja.html'],
+      ['https://demo.koutsi.krossi.app/', '/koutsi-demo.html'],
+      ['https://koutsi.krossi.app/valmentaja/a/b/c/d', '/valmentaja/a/b/c/d'],
+    ]) {
+      const response = await worker.fetch(koutsiRequest(url, cookie), echoAsset);
+      assert.equal(await response.text(), path, url);
+    }
   }
 });
 
@@ -216,20 +249,36 @@ test('?uusi=0 returns to the old Koutsi and remembers it was left (the old app t
   assert.equal(await without.text(), '/koutsi-pelaaja.html');
 });
 
-test('only the exact cookie opts in, and only on the Koutsi hosts', async () => {
-  for (const cookie of ['koutsi_uusi=0', 'koutsi_uusi=10', 'xkoutsi_uusi=1', 'koutsi_uusi', '']) {
+test('only the exact koutsi_uusi=0 cookie keeps the old Koutsi, and only on the Koutsi hosts', async () => {
+  for (const cookie of ['koutsi_uusi=10', 'xkoutsi_uusi=0', 'koutsi_uusi', 'koutsi_uusi=', '']) {
     const response = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/valmentaja', cookie), echoAsset);
+    assert.equal(await response.text(), '/koutsi-uusi-valmentaja.html', cookie);
+  }
+  for (const cookie of ['koutsi_uusi=0', 'theme=dark; koutsi_uusi=0', 'koutsi_uusi=0; theme=dark']) {
+    const response = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/valmentaja/oppilaat', cookie), echoAsset);
     assert.equal(await response.text(), '/koutsi-valmentaja.html', cookie);
-    assert.equal(response.headers.get('etag'), '"abc"', `untouched response for "${cookie}"`);
+    // The old app shares its address with the new one, so it may not be cached either.
+    assert.equal(response.headers.get('cache-control'), 'private, no-cache', cookie);
+    assert.match(response.headers.get('vary'), /Cookie/, cookie);
+    assert.equal(response.headers.get('etag'), null, cookie);
+    assert.equal(response.headers.get('set-cookie'), null, cookie);
   }
   await withFetch(refuseNetwork, async () => {
     const krossi = await worker.fetch(koutsiRequest('https://krossi.app/pelaa?uusi=1', 'koutsi_uusi=1'), echoAsset);
     assert.equal(await krossi.text(), '/app.html');
     assert.equal(krossi.headers.get('set-cookie'), null);
-    const valmentaja = await worker.fetch(koutsiRequest('https://krossi.app/valmentaja', 'koutsi_uusi=1'), echoAsset);
+    const valmentaja = await worker.fetch(koutsiRequest('https://krossi.app/valmentaja'), echoAsset);
     assert.equal(await valmentaja.text(), '/valmentaja');
   });
   assert.equal(resolveNewKoutsiPath('https://krossi.app/valmentaja'), null);
+});
+
+test('pages outside the apps keep their own caching on the Koutsi hosts', async () => {
+  for (const url of ['https://koutsi.krossi.app/', 'https://koutsi.krossi.app/tietosuoja', 'https://demo.koutsi.krossi.app/']) {
+    const response = await worker.fetch(koutsiRequest(url), echoAsset);
+    assert.equal(response.headers.get('etag'), '"abc"', url);
+    assert.equal(response.headers.get('cache-control'), null, url);
+  }
 });
 
 test('the renewed Koutsi is staged next to the old one', async () => {

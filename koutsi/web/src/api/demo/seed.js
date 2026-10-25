@@ -12,6 +12,7 @@ import {
   koutsiHueFromId, koutsiInitialOf, koutsiSplitThemes, koutsiFmtShortDate, koutsiPad,
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
+import { seasonName } from '../../domain/season.js';
 
 export const COACH = 'demo-coach';
 export const COACH2 = 'demo-coach-2';
@@ -317,6 +318,12 @@ export function seed() {
   });
   groups.forEach(refreshThemes);
 
+  // The season these groups run in: from the first session week to the Sunday of the calendar's
+  // last week (Pelipäivä is a shorter series inside it). "Uusi kausi" copies it for the next one.
+  const lastDate = trainings.filter((t) => t.groupId !== G.peli).map((t) => t.date).sort().pop();
+  const season = { id: 'demo-season-1', coachId: COACH, name: seasonName(start), startsOn: start, endsOn: koutsiNextWeekday(lastDate, 'Su'), breaks: [] };
+  groups.forEach((g) => { g.seasonId = season.id; });
+
   // ── helpers over the calendar ─────────────────────────────────────────────
   const sessionsOf = (groupId) => trainings.filter((t) => t.groupId === groupId);
   /** The group's session in week `w` (0 = this week, -1 = last week …). */
@@ -487,6 +494,8 @@ export function seed() {
     students,
     groups,
     trainings,
+    seasons: [season],
+    seasonDraft: null,
     exercises: STARTER_EXERCISES.map((e, i) => ({ id: `demo-e-${i}`, coachId: COACH, ...e, video: null })),
     clubEvents: [
       { id: 'demo-ce-1', date: kisat, endDate: koutsiAddDays(kisat, 1), title: 'Seuran syyskisat', kind: 'kilpailu' },
@@ -510,6 +519,10 @@ export function seed() {
       { id: 'demo-wn-1', ...koutsiAddIsoWeeks(now, -3), score: 4, note: 'Kilparyhmän palautuspelit toimivat: kakkossyötön kimppuun meneminen alkaa näkyä. Alkeisryhmä sai ensimmäiset pitkät rallit syöttöviivalta.', updatedAt: isoAt(-17, 20) },
       { id: 'demo-wn-2', ...koutsiAddIsoWeeks(now, -2), score: 5, note: 'Paras viikko tähän asti. Maria löysi syöttöön saman heittokohdan, ja aamupäiväryhmä innostui syöttöharjoituksista.', updatedAt: isoAt(-10, 20) },
       { id: 'demo-wn-3', ...koutsiAddIsoWeeks(now, -1), score: 3, note: 'Junioreista viisi pois maanantaina ja keskiviikkona. Aikuisilla syötön rytmi vaatii vielä toistoja — jatketaan kakkossyötöllä kaksi viikkoa.', updatedAt: isoAt(-3, 20) },
+    ],
+    // Tiedotteet (ehdotus): a practical notice to Maria's groups, on their Koti until next Sunday.
+    announcements: [
+      { id: 'demo-an-1', coachId: COACH, text: 'Ensi viikolla treenit ovat kentällä 3, koska kentät 1–2 ovat turnauskäytössä. Kellonajat pysyvät samoina.', groupIds: [G.edisTi, G.edisTo], studentIds: [], until: koutsiAddDays(monday, 13), at: isoAt(0, 9, 15) },
     ],
     inviteCodes: [],
     joinCode: 'ANNA24',

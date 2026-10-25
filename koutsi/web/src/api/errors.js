@@ -27,6 +27,12 @@ const KNOWN = [
   [/invite code has reached its use limit/i, 'Koodi on jo käytetty. Pyydä valmentajalta uusi.', 'code_used'],
   [/authentication required/i, 'Istuntosi on vanhentunut. Kirjaudu sisään uudelleen.', 'auth_required'],
   [/Anna pelaajalle nimi/i, 'Anna pelaajalle nimi.', null],
+  // "Uusi kausi" (koutsi_publish_season)
+  [/Anna kaudelle nimi/i, 'Anna kaudelle nimi.', null],
+  [/Tarkista kauden päivät/i, 'Tarkista kauden alku ja loppu: loppu tulee alun jälkeen, enintään vuoden päähän.', null],
+  [/Kaudella ei ole yhtään ryhmää/i, 'Kaudella ei ole yhtään ryhmää. Jätä vähintään yksi ryhmä jatkumaan tai lisää uusi.', null],
+  [/Tarkista ryhmän (nimi ja päivä|kellonaika)/i, 'Tarkista jokaisen ryhmän nimi, päivä ja kellonaika.', null],
+  [/Virheellinen kausi/i, 'Kauden tiedot olivat vajaat. Päivitä sivu ja yritä uudelleen.', null],
   [/Tätä profiilia ei voi lunastaa/i, 'Tätä profiilia ei voi lunastaa. Pyydä valmentajalta uusi koodi.', 'cannot_claim'],
   [/own coach code|koutsi_coach_students_check/i, 'Tämä on oma valmentajakoodisi. Anna se pelaajalle — sinun ei tarvitse liittyä itse.', 'own_code'],
   [/invalid coach key/i, 'Väärä valmentaja-avain.', 'bad_key'],

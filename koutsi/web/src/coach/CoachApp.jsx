@@ -12,14 +12,17 @@ import { recapWeekDue } from '../domain/week.js';
 import { markRecapSeen, previewRecap, recapSeen, WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { useCoach } from './CoachRoot.jsx';
-import { PHONE_TABS, TABS } from './routes.js';
+import { DESKTOP_TABS, PHONE_TABS } from './routes.js';
 import { WeekScreen } from './WeekScreen.jsx';
 import { PlannerSheet } from './PlannerSheet.jsx';
 import { BoardScreen } from './BoardScreen.jsx';
+import { PlanScreen } from './PlanScreen.jsx';
+import { GroupListScreen } from './GroupListScreen.jsx';
 import { GroupScreen } from './GroupScreen.jsx';
 import { PlayersScreen } from './PlayersScreen.jsx';
 import { PlayerScreen } from './PlayerScreen.jsx';
 import { InvitesSheet } from './InvitesSheet.jsx';
+import { SeasonSheet } from './SeasonSheet.jsx';
 import { SessionScreen } from './SessionScreen.jsx';
 import { ExercisesScreen, ExerciseScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
@@ -42,8 +45,8 @@ function NotFound() {
 }
 
 const SCREENS = {
-  week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen,
-  players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet,
+  week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen, plan: PlanScreen, groupList: GroupListScreen,
+  players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet, season: SeasonSheet,
   session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen,
   profile: ProfileScreen, admin: AdminScreen,
   legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect, legacyCalendar: LegacyRedirect,
@@ -89,7 +92,7 @@ function WelcomeSheet() {
 function CoachShell() {
   const { state } = useData();
   const { acting, exitActing, isAdmin, adminChecked, coachId } = useCoach();
-  const { openMenu } = useRecord();
+  const { openMerkinta } = useRecord();
   const route = useRoute();
   const isDesktop = useIsDesktop();
   // What opens by itself, at most one thing, decided once: the welcome for a new account > the
@@ -118,12 +121,12 @@ function CoachShell() {
   return (
     <>
       <AppShell
-        tabs={isDesktop ? TABS : PHONE_TABS}
+        tabs={isDesktop ? DESKTOP_TABS : PHONE_TABS}
         screens={SCREENS}
         NotFound={NotFound}
         roleLabel="Valmentaja"
-        cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => openMenu()}>Merkitse</Button>}
-        center={{ label: 'Merkitse', icon: 'plus', onClick: () => openMenu() }}
+        cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => openMerkinta()}>Merkitse</Button>}
+        center={{ label: 'Merkitse', icon: 'plus', onClick: () => openMerkinta() }}
         extraLinks={extraLinks}
         me={acting ? null : { person: state.coach, sub: state.coach.tagline || 'Valmentaja', to: '/valmentaja/profiili' }}
         banner={acting ? <ActingBanner name={state.coach.name} onExit={exitActing} /> : null}

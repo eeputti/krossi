@@ -15,13 +15,39 @@ import { exactNameMatch, matchStudents } from '../domain/roster.js';
 import { weekDates, themeWeekShort } from '../domain/week.js';
 import { useCoach } from './CoachRoot.jsx';
 import { groupPath } from './nav.js';
+import { weeksLeftInSeason } from '../domain/season.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
+
+/**
+ * How many weeks of sessions a new group (or weekly time) gets. With seasons the first choice is
+ * "Kauden loppuun" — the sessions run to the season's end instead of a round number of weeks.
+ */
+export function useDefaultWeeks() {
+  const { state } = useData();
+  const left = weeksLeftInSeason(state);
+  return { left, initial: left || 12 };
+}
+
+export function WeeksChips({ value, onChange, left }) {
+  const rest = [8, 12, 20, 30].filter((w) => w !== left);
+  return (
+    <div className="k-weeks-row">
+      {left && (
+        <button type="button" className={cx('planner-chip', value === left && 'is-on')} onClick={() => onChange(left)}>
+          Kauden loppuun<span className="planner-chip-sub">{left} vk</span>
+        </button>
+      )}
+      {rest.map((w) => <button key={w} type="button" className={cx('planner-chip', value === w && 'is-on')} onClick={() => onChange(w)}>{w} vk</button>)}
+    </div>
+  );
+}
 
 /** Create or edit a group. Creating generates its weekly sessions for `weeks` weeks. */
 export function GroupFormSheet({ open, onClose, editing }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
+  const seasonWeeks = useDefaultWeeks();
   const isEdit = Boolean(editing);
   const [name, setName] = useState('');
   const [level, setLevel] = useState('');
@@ -35,8 +61,8 @@ export function GroupFormSheet({ open, onClose, editing }) {
   useEffect(() => {
     if (!open) return;
     setName(editing?.name || ''); setLevel(editing?.level || ''); setDay(editing?.day || 'Ma');
-    setTime(editing?.time || ''); setDuration(editing?.durationMinutes || 60); setWeeks(12); setMemberIds([]);
-  }, [open, editing]);
+    setTime(editing?.time || ''); setDuration(editing?.durationMinutes || 60); setWeeks(seasonWeeks.initial); setMemberIds([]);
+  }, [open, editing]); // eslint-disable-line react-hooks/exhaustive-deps
   const scheduleChanged = isEdit && (editing.day !== day || editing.time !== time || (editing.durationMinutes || 60) !== duration);
   const ready = name.trim() && time;
   const submit = async () => {
@@ -67,11 +93,7 @@ export function GroupFormSheet({ open, onClose, editing }) {
         {time && <p className="field-msg">{day} klo {koutsiTimeRangeLabel(time, duration)} viikoittain</p>}
         {(!isEdit || scheduleChanged) && (
           <Field label="Treenit kalenteriin" hint={isEdit ? 'Aikataulun muutos poistaa tulevat treenit ja luo uudet. Menneet treenit ja niiden läsnäolot säilyvät.' : 'Viikoittaiset treenit ilmestyvät kalenteriin heti. Kalenteria voi myöhemmin jatkaa.'}>
-            <div className="k-weeks-row">
-              {[8, 12, 20, 30].map((w) => (
-                <button key={w} type="button" className={cx('planner-chip', weeks === w && 'is-on')} onClick={() => setWeeks(w)}>{w} vk</button>
-              ))}
-            </div>
+            <WeeksChips value={weeks} onChange={setWeeks} left={seasonWeeks.left} />
           </Field>
         )}
         {!isEdit && players.length > 0 && (
@@ -96,12 +118,13 @@ export function GroupFormSheet({ open, onClose, editing }) {
 export function SlotFormSheet({ open, onClose, group }) {
   const { run } = useData();
   const { coachId } = useCoach();
+  const seasonWeeks = useDefaultWeeks();
   const [day, setDay] = useState('Ma');
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState(60);
   const [weeks, setWeeks] = useState(12);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) { setDay('Ma'); setTime(''); setDuration(group?.durationMinutes || 60); setWeeks(12); } }, [open, group]);
+  useEffect(() => { if (open) { setDay('Ma'); setTime(''); setDuration(group?.durationMinutes || 60); setWeeks(seasonWeeks.initial); } }, [open, group]); // eslint-disable-line react-hooks/exhaustive-deps
   const submit = async () => {
     if (!time || busy) return;
     setBusy(true);
@@ -119,9 +142,7 @@ export function SlotFormSheet({ open, onClose, group }) {
           <Field label="Kesto"><DurationStepper value={duration} onChange={setDuration} /></Field>
         </div>
         <Field label="Treenit kalenteriin">
-          <div className="k-weeks-row">
-            {[8, 12, 20, 30].map((w) => <button key={w} type="button" className={cx('planner-chip', weeks === w && 'is-on')} onClick={() => setWeeks(w)}>{w} vk</button>)}
-          </div>
+          <WeeksChips value={weeks} onChange={setWeeks} left={seasonWeeks.left} />
         </Field>
       </div>
     </Sheet>

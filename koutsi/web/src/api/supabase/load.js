@@ -8,9 +8,10 @@
 //      silently lose sessions;
 //   3. `.in()` id lists are chunked so a long season cannot outgrow the request URL.
 
-import { db, isMissingTable, must, selectAll, selectIn } from './client.js';
+import { db, isMissingFunction, isMissingTable, must, selectAll, selectIn } from './client.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
-import { mapClubEvent, mapCoach, mapExercise, mapGroup, mapRosterStub, mapStudent, mapTraining, mapWeekNote, groupBy } from './map.js';
+import { koutsiAddDays, koutsiTodayStr } from '../../domain/core.js';
+import { mapClubEvent, mapCoach, mapExercise, mapGroup, mapRosterStub, mapSeason, mapStudent, mapTraining, mapWeekNote, groupBy } from './map.js';
 
 const fromTable = (table) => db().from(table);
 
@@ -71,6 +72,21 @@ async function loadArchive(studentIds) {
   }
 }
 
+// Tiedotteet (koutsi_announcements, supabase/migrations/20261023114724_koutsi_announcements.sql). An
+// addition like the week diary: without the table both apps open as before and
+// `announcementsReady` keeps the Tiedote choice hidden. RLS decides whose rows a player gets.
+function mapAnnouncement(r) {
+  return { id: r.id, coachId: r.coach_id, text: r.body, groupIds: r.group_ids || [], studentIds: r.student_ids || [], until: r.until, at: r.created_at };
+}
+async function loadAnnouncements(narrow) {
+  const { data, error } = await narrow(fromTable('koutsi_announcements').select('id, coach_id, body, group_ids, student_ids, until, created_at'));
+  if (error) {
+    if (!isMissingTable(error)) console.warn('announcements unavailable:', error.message || error);
+    return { rows: [], ready: !isMissingTable(error) };
+  }
+  return { rows: (data || []).map(mapAnnouncement), ready: true };
+}
+
 export async function loadCoachState(coachId) {
   const [coachRow, profileRow] = await Promise.all([
     fromTable('koutsi_coaches').select('id, tagline, bio, experience, specialties, welcome_seen_at').eq('id', coachId).single().then(must),
@@ -87,7 +103,7 @@ export async function loadCoachState(coachId) {
 
   const [
     studentRows, studentProfiles, groupRows, exerciseRows, eventRows, ownTrainingRows, playerLogRows,
-    diary, homework, videos, moods, matchNotes, history, weekNotes, entries, archive,
+    diary, homework, videos, moods, matchNotes, history, weekNotes, entries, archive, seasons, notices,
   ] = await Promise.all([
     selectIn(studentIds, (ids) => fromTable('koutsi_students').select('*').in('id', ids)),
     selectIn(studentIds, (ids) => fromTable('profiles').select('id, name, avatar_url, age').in('id', ids)),
@@ -106,6 +122,8 @@ export async function loadCoachState(coachId) {
     loadWeekNotes(coachId),
     loadEntries(studentIds),
     loadArchive(studentIds),
+    loadCoachSeasons(coachId),
+    loadAnnouncements((q) => q.eq('coach_id', coachId).gte('until', koutsiAddDays(koutsiTodayStr(), -30)).order('created_at', { ascending: false })),
   ]);
 
   const trainingRows = [...ownTrainingRows, ...playerLogRows];
@@ -132,7 +150,47 @@ export async function loadCoachState(coachId) {
     weekNotes,
     entriesReady: entries.ready,
     archiveReady: archive.ready,
+    seasons: seasons.seasons,
+    seasonDraft: seasons.draft,
+    seasonsReady: seasons.ready,
+    announcements: notices.rows,
+    announcementsReady: notices.ready,
   });
+}
+
+// "Uusi kausi" (migration 20261026120000_koutsi_seasons): the coach's seasons, the unpublished
+// draft and whether the feature is open for this account (koutsi_seasons_enabled — beta testers and
+// admins first). Before the migration all three fall back quietly and the feature stays hidden.
+async function loadCoachSeasons(coachId) {
+  const [seasons, draft, enabled] = await Promise.all([
+    fromTable('koutsi_seasons').select('*').eq('coach_id', coachId).order('starts_on'),
+    fromTable('koutsi_season_drafts').select('draft, from_season_id').eq('coach_id', coachId).maybeSingle(),
+    db().rpc('koutsi_seasons_enabled'),
+  ]);
+  if (seasons.error) {
+    if (!isMissingTable(seasons.error)) console.warn('seasons unavailable:', seasons.error.message || seasons.error);
+    return { seasons: [], draft: null, ready: false };
+  }
+  if (enabled.error && !isMissingFunction(enabled.error)) console.warn('season gate unavailable:', enabled.error.message || enabled.error);
+  const row = draft.error ? null : draft.data;
+  return {
+    seasons: (seasons.data || []).map(mapSeason),
+    draft: row ? { ...row.draft, fromSeasonId: row.from_season_id || row.draft?.fromSeasonId || null } : null,
+    ready: !enabled.error && enabled.data === true,
+  };
+}
+
+// The seasons of the player's groups (RLS: a member reads them), so the player's lists show the
+// season that is on now. No gate: a coach who never made a season simply has none.
+async function loadPlayerSeasons(groupRows) {
+  const ids = [...new Set((groupRows || []).map((g) => g.season_id).filter(Boolean))];
+  if (!ids.length) return [];
+  const { data, error } = await fromTable('koutsi_seasons').select('*').in('id', ids);
+  if (error) {
+    if (!isMissingTable(error)) console.warn('seasons unavailable:', error.message || error);
+    return [];
+  }
+  return (data || []).map(mapSeason);
 }
 
 export async function loadPlayerState(studentId) {
@@ -155,7 +213,7 @@ export async function loadPlayerState(studentId) {
 
   const [
     coachRows, coachProfiles, groupRows, rosterRows, themeRows, slotRows, exerciseRows, eventRows,
-    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history, entries, moodSessions, archive,
+    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history, entries, moodSessions, archive, notices,
   ] = await Promise.all([
     selectIn(coachIds, (ids) => fromTable('koutsi_coaches').select('*').in('id', ids)),
     selectIn(coachIds, (ids) => fromTable('profiles').select('id, name, avatar_url').in('id', ids)),
@@ -176,10 +234,11 @@ export async function loadPlayerState(studentId) {
     loadEntries([studentId]),
     moodSessionsReady(),
     loadArchive([studentId]),
+    loadAnnouncements((q) => q.gte('until', koutsiTodayStr()).order('created_at', { ascending: false })),
   ]);
 
   const trainingRows = [...ownTrainings, ...groupTrainings.filter((t) => !ownTrainings.some((o) => o.id === t.id))];
-  const absencesByTraining = await loadAbsences(trainingRows.map((t) => t.id));
+  const [absencesByTraining, seasons] = await Promise.all([loadAbsences(trainingRows.map((t) => t.id)), loadPlayerSeasons(groupRows)]);
 
   const coachProfileById = new Map((coachProfiles || []).map((p) => [p.id, p]));
   const coaches = (coachRows || []).map((c) => mapCoach(c, coachProfileById.get(c.id)));
@@ -205,5 +264,8 @@ export async function loadPlayerState(studentId) {
     moodSessionsReady: moodSessions,
     archiveReady: archive.ready,
     longGoalReady: 'long_goal' in studentRow,
+    seasons,
+    announcements: notices.rows,
+    announcementsReady: notices.ready,
   };
 }

@@ -1,0 +1,155 @@
+/* planning.css — Suunnittele (theme grid, absences ahead, season) and the Ryhmät list.
+ * Same flat look as Viikkohallinta: white, greys, near-black, lime as the one accent. */
+
+.pl-page { padding-bottom: 120px; }
+.pl-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; padding: calc(16px + var(--safe-top, 0px)) 0 18px; }
+.pl-title { font-size: 36px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+
+/* ── theme grid ─────────────────────────────────────────── */
+.tg-wrap { display: grid; gap: 14px; }
+.tg-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px 20px; flex-wrap: wrap; }
+.tg-nav { display: flex; align-items: center; gap: 10px; }
+.tg-range { display: grid; min-width: 9.5em; text-align: center; }
+.tg-range-title { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+.tg-range-sub { font-size: 12.5px; color: var(--muted); }
+.tg-hint { font-size: 13px; color: var(--muted); }
+
+.tg-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+/* columns share the width; below the minimum the grid scrolls sideways instead of squeezing */
+.tg { display: grid; grid-template-columns: minmax(170px, 210px) repeat(var(--tg-weeks), minmax(0, 1fr)); min-width: calc(210px + var(--tg-weeks) * 118px); width: 100%; }
+.tg-row { display: contents; }
+.tg-row > * { border-bottom: 1px solid var(--line); }
+.tg-row:last-child > * { border-bottom: 0; }
+.tg-head > * { position: sticky; top: 0; z-index: 2; background: var(--surface-2); }
+.tg-corner { display: flex; align-items: flex-end; padding: 10px 14px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-right: 1px solid var(--line); }
+
+.tg-week { display: grid; gap: 1px; justify-items: start; padding: 10px 12px; text-align: left; border-left: 1px solid var(--line); cursor: pointer; transition: background .12s; }
+.tg-week:hover { background: var(--sand); }
+.tg-week.is-on { background: var(--lime-100); box-shadow: inset 0 -3px 0 var(--lime); }
+.tg-week-num { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
+.tg-week.is-now .tg-week-num::after { content: 'Tämä viikko'; margin-left: 6px; padding: 1px 6px; border-radius: var(--r-pill); background: var(--green-800); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0; vertical-align: 2px; }
+.tg-week-dates { font-size: 11.5px; color: var(--muted); }
+.tg-week-cov { font-size: 11px; font-weight: 700; color: var(--clay); }
+.tg-week-cov.is-full { color: var(--green-600); }
+
+.tg-group { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 0 6px 0 0; border-right: 1px solid var(--line); background: var(--surface); position: sticky; left: 0; z-index: 1; }
+.tg-group.is-on { background: var(--lime-100); }
+.tg-group-pick { flex: 1; min-width: 0; display: grid; gap: 1px; padding: 9px 8px 9px 14px; text-align: left; cursor: pointer; }
+.tg-group-when { font-size: 11.5px; font-weight: 800; color: var(--muted); }
+.tg-group-name { font-size: 14px; font-weight: 700; color: var(--ink); }
+.tg-group-open { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--r-sm); color: var(--faint); flex-shrink: 0; }
+.tg-group-open:hover { background: var(--sand); color: var(--ink); }
+
+.tg-cell { position: relative; display: flex; align-items: center; min-height: 54px; padding: 6px 8px; border-left: 1px solid var(--line); text-align: left; cursor: pointer; background: var(--surface); transition: background .1s; }
+.tg-cell:hover { background: var(--surface-2); }
+.tg-theme { display: block; width: 100%; padding: 5px 8px; border-radius: var(--r-sm); background: var(--sand); }
+.tg-theme-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; hyphens: auto; font-size: 12.5px; font-weight: 700; line-height: 1.3; color: var(--ink); }
+/* quiet: the week header already counts the missing ones in clay */
+.tg-empty { font-size: 12px; font-weight: 500; color: var(--faint); padding: 0 4px; }
+.tg-cell:hover .tg-empty { color: var(--ink-2); }
+.tg-gap { font-size: 11.5px; color: var(--faint); padding: 0 4px; }
+.tg-cell.is-off { background: repeating-linear-gradient(135deg, var(--surface) 0 7px, var(--surface-2) 7px 14px); }
+.tg-cell.is-on { background: var(--lime-100); box-shadow: inset 0 0 0 2px var(--lime); }
+.tg-cell.is-on .tg-theme { background: #fff; }
+.tg-check { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--green-800); color: var(--lime); }
+
+.tg-bar { position: sticky; bottom: 16px; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 8px 10px; flex-wrap: wrap; padding: 10px 12px 10px 16px; border-radius: var(--r-xl); background: var(--green-800); color: #fff; box-shadow: var(--shadow-3); }
+.tg-bar .k-faint { color: var(--on-dark-faint); }
+.tg-bar-count { font-size: 14px; white-space: nowrap; }
+.tg-bar-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tg-bar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-left: auto; }
+.tg-bar-actions .btn { flex-shrink: 0; }
+.tg-bar-theme { display: inline-flex; align-items: center; gap: 5px; max-width: 18em; padding: 3px 10px; border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.1); font-size: 13px; font-weight: 700; color: var(--lime); }
+.tg-bar .btn-ghost { color: #fff; }
+.tg-bar .btn-ghost:hover { background: rgba(255, 255, 255, 0.1); }
+.tg-bar .btn-outline { color: #fff; border-color: rgba(255, 255, 255, 0.35); background: transparent; }
+
+/* spreadsheet feel: drag to pick, type in a cell, drag chips, the fill handle */
+.tg { user-select: none; -webkit-user-select: none; outline: none; }
+.tg-cell.is-active { box-shadow: inset 0 0 0 2px var(--ink); }
+.tg-cell.is-on.is-active { box-shadow: inset 0 0 0 2px var(--ink); }
+.tg-cell.is-fill { background: var(--lime-100); outline: 2px dashed var(--ink); outline-offset: -3px; }
+.tg-cell.is-drop { background: var(--lime-200); box-shadow: inset 0 0 0 2px var(--green-800); }
+.tg-handle { position: absolute; right: -6px; bottom: -6px; z-index: 3; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 3px; background: var(--ink); cursor: crosshair; }
+.tg-handle:hover { transform: scale(1.25); }
+.tg-input { position: absolute; inset: 4px; z-index: 2; width: calc(100% - 8px); min-width: 0; padding: 0 8px; border: 2px solid var(--ink); border-radius: var(--r-sm); background: #fff; color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; outline: none; user-select: text; -webkit-user-select: text; }
+.tg-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.tg-palette-label { margin-right: 4px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.tg-chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface); color: var(--ink); font-size: 12.5px; font-weight: 700; cursor: grab; user-select: none; -webkit-user-select: none; }
+.tg-chip svg { color: var(--green-600); }
+.tg-chip:hover { border-color: var(--ink); background: var(--lime-100); }
+.tg-chip:active { cursor: grabbing; }
+.tg-help { font-size: 12.5px; line-height: 1.55; color: var(--muted); max-width: 70em; }
+.tg-help strong { color: var(--ink-2); }
+
+/* ── absences ahead ─────────────────────────────────────── */
+.ap-panel { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.ap-players { position: sticky; top: 16px; display: grid; gap: 10px; }
+.ap-player-list { display: grid; gap: 2px; max-height: calc(100vh - 220px); overflow-y: auto; padding-right: 4px; }
+.ap-player { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 7px 10px; border-radius: var(--r-md); text-align: left; font-size: 14px; font-weight: 600; cursor: pointer; }
+.ap-player:hover { background: var(--surface-2); }
+.ap-player.is-on { background: var(--green-800); color: #fff; }
+.ap-player-away { flex-shrink: 0; padding: 2px 7px; border-radius: var(--r-pill); background: var(--clay-100); color: var(--clay); font-size: 11px; font-weight: 800; }
+.ap-player.is-on .ap-player-away { background: rgba(255, 255, 255, 0.14); color: #fff; }
+
+.ap-card { display: grid; gap: 14px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.ap-card-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
+.ap-card-sub { font-size: 13px; margin-top: -8px; }
+.ap-head { display: flex; align-items: center; gap: 12px; }
+.ap-name { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+.ap-actions { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid var(--line); padding-top: 14px; }
+
+.ap-ranges { gap: 8px; align-items: center; }
+.ap-week { display: grid; gap: 6px; }
+.ap-week-label { font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--green-700); }
+.ap-week-label .k-faint { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.ap-list { display: grid; gap: 4px; }
+.ap-row { position: relative; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer; background: var(--surface); transition: background .1s, border-color .1s; }
+.ap-row:hover { background: var(--surface-2); }
+.ap-row input { position: absolute; opacity: 0; pointer-events: none; }
+.ap-row:focus-within { outline: 2px solid var(--green-800); outline-offset: 1px; }
+.ap-box { display: grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; border: 1.5px solid var(--line-strong); border-radius: 6px; background: #fff; color: #fff; }
+.ap-row.is-away { background: var(--clay-100); border-color: transparent; }
+.ap-row.is-away .ap-box { background: var(--clay); border-color: var(--clay); }
+.ap-when { width: 8.2em; flex-shrink: 0; font-size: 13.5px; font-weight: 800; color: var(--ink); }
+.ap-what { flex: 1; min-width: 0; font-size: 14px; color: var(--ink-2); }
+.ap-self { flex-shrink: 0; font-size: 11.5px; color: var(--muted); }
+.ap-state { flex-shrink: 0; min-width: 4.6em; text-align: right; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.ap-state.is-away { color: var(--clay); }
+
+.ap-known { display: grid; gap: 2px; }
+.ap-known-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.ap-known-row:last-child { border-bottom: 0; }
+.ap-known-who { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.ap-known-who .chip { cursor: pointer; }
+
+.k-player-actions { display: flex; gap: 10px; }
+.k-player-actions > :first-child { flex: 1; }
+
+/* ── season ─────────────────────────────────────────────── */
+.pl-season { display: grid; gap: 16px; max-width: 1080px; }
+.pl-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pl-card { display: grid; gap: 10px; align-content: start; justify-items: start; padding: 20px 22px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.pl-card > .row-between { width: 100%; }
+.pl-card.is-dark { background: var(--green-800); border-color: var(--green-800); color: #fff; }
+.pl-card.is-dark .eyebrow { color: var(--lime); }
+.pl-card.is-dark .pl-card-text { color: var(--on-dark-muted); }
+.pl-card-title { display: flex; align-items: center; gap: 6px; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.pl-card-text { font-size: 14px; line-height: 1.5; color: var(--muted); max-width: 46em; }
+.pl-cal-list { display: grid; width: 100%; }
+.pl-cal-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.pl-cal-row:last-child { border-bottom: 0; }
+.pl-cal-when { width: 5.5em; flex-shrink: 0; font-weight: 800; }
+.pl-cal-last { flex-shrink: 0; color: var(--muted); font-size: 13px; }
+.pl-cal-row.is-ending .pl-cal-last { color: var(--clay); font-weight: 700; }
+
+/* ── Ryhmät list ────────────────────────────────────────── */
+.gl-search { max-width: 360px; }
+.gl-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px 20px; align-items: start; }
+
+@media (max-width: 860px) {
+  .ap-panel { grid-template-columns: minmax(0, 1fr); }
+  .ap-players { position: static; }
+  .ap-player-list { max-height: 260px; }
+  .pl-title { font-size: 28px; }
+}

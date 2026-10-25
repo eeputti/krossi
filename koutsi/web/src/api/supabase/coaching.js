@@ -435,6 +435,28 @@ export const notes = {
   },
 };
 
+// Tiedotteet (koutsi_announcements, supabase/migrations/20261023114724_koutsi_announcements.sql): a
+// coach's practical notice to groups or players. RLS lets a coach address only their own groups and
+// current players; a trigger sends each addressed player one notification (and so an e-mail).
+export const announcements = {
+  async add(coachId, { text, groupIds = [], studentIds = [], until }) {
+    const body = String(text || '').trim();
+    if (!body) throw new ApiError('Kirjoita tiedote.');
+    if (body.length > 2000) throw new ApiError('Tiedote on liian pitkä (enintään 2000 merkkiä).');
+    if (!groupIds.length && !studentIds.length) throw new ApiError('Valitse, kenelle tiedote menee.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(until || '')) throw new ApiError('Valitse, kuinka kauan tiedote näkyy.');
+    const { data, error } = await from('koutsi_announcements')
+      .insert({ coach_id: coachId, body, group_ids: [...new Set(groupIds)], student_ids: [...new Set(studentIds)], until })
+      .select('id');
+    if (error && isMissingTable(error)) throw new ApiError('Tiedotteet otetaan käyttöön pian.', { code: 'not-yet' });
+    must({ data, error });
+    return { id: data?.[0]?.id || null };
+  },
+  async remove(id) {
+    must(await from('koutsi_announcements').delete().eq('id', id));
+  },
+};
+
 export const homework = {
   async add(studentId, text) {
     must(await from('koutsi_homework').insert({ student_id: studentId, text }));

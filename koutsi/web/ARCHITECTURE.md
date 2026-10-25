@@ -20,18 +20,22 @@ ja 49/80 pelaajalla ei ole tunnusta. Siksi:
   alhaalta nousevat paneelit, jokaisella näkymällä oma osoite, skeletonit, tyhjät tilat, pienet
   animaatiot.
 
-## 2. Rinnakkaiskäyttö (opt-in)
+## 2. Rinnakkaiskäyttö (uusi on oletus 25.10.2026 alkaen)
 
-Uusi sovellus palvellaan **samoista osoitteista** kuin vanha (`/valmentaja/*`, `/pelaaja/*`),
-mutta vain selaimelle, jolla on eväste `koutsi_uusi=1`:
+Uusi sovellus palvellaan **samoista osoitteista** kuin vanha (`/valmentaja/*`, `/pelaaja/*`), ja
+25.10.2026 alkaen se on **oletus** kaikille. Vanha aukeaa vain selaimelle, joka on valinnut sen:
 
-- `…/valmentaja?uusi=1` (tai `/pelaaja?uusi=1`) → worker asettaa evästeen ja palauttaa uuden kuoren.
-- `…?uusi=0` → eväste `koutsi_uusi=0` (vuodeksi): vanha kuori kuten ennen, mutta vanha sovellus näyttää
-  "Siirry uuteen" -napin — vain niille, jotka ovat jo käyttäneet uutta (eväste on olemassa).
-- Ilman evästettä worker toimii **täsmälleen kuten ennen** (testattu jäädytettyä workeria vasten).
+- Ilman evästettä tai evästeellä `koutsi_uusi=1` → uusi kuori (enintään kolme tasoa syvälle).
+- `…?uusi=0` ("Palaa vanhaan") → eväste `koutsi_uusi=0` (vuodeksi): vanha kuori kuten ennen, ja vanha
+  sovellus näyttää "Siirry uuteen" -napin (`?uusi=1`, joka asettaa `koutsi_uusi=1`).
+- Evästeellä `koutsi_uusi=0` worker vastaa **täsmälleen kuten vanha** (testattu jäädytettyä workeria
+  vasten); sovellusten ulkopuoliset sivut (etusivu, tietosuoja, tiedostot) eivät koske kytkimeen.
+- Sovellusosoitteiden vastaukset ovat `private, no-cache` + `Vary: Cookie`, koska sama osoite antaa
+  kumman tahansa sovelluksen.
+- Paluu "vanha oletuksena" -tilaan: julkaise Cloudflaressa vaihtoa edeltävä versio.
 - Sama origin → sama Supabase-istunto (oletus-storageKey), samat OAuth-paluuosoitteet,
   samat kutsulinkit (`/pelaaja?koodi=…&oppilas=…`) ja ilmoitusten `link_path`-arvot.
-- Toimii myös demossa: `demo.koutsi.krossi.app/valmentaja?uusi=1`.
+- Sama pätee demoon (`demo.koutsi.krossi.app`).
 - Uudessa sovelluksessa Profiili → "Palaa vanhaan Koutsiin" (`?uusi=0`).
 - Beta-palkki "[BETA] Koutsilla uusi ilme! Palaa vanhaan →" (ei erotinpisteitä) näkyy kaikille uuden Koutsin käyttäjille.
   Ylläpitäjän Valmentaja | Pelaaja -vaihto poistettiin 17.10.2026 molemmista sovelluksista;
@@ -159,6 +163,23 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   riveinä "vanha → uusi". "Tämä viikko" -kortti avaa kuukausikalenterin: mitä kunakin päivänä tehtiin.
   Migraatio `supabase/migrations/20261021085606_koutsi_timeline_archive.sql` (ajettu 21.10.2026 käyttäjän
   luvalla); tietokannassa ilman taulua `archiveReady: false` ja Muokkaa/Arkisto pysyvät piilossa.
+
+- Kaudet ja "Uusi kausi" (`domain/season.js`, `coach/SeasonSheet.jsx`, migraatio
+  `sql/20261026120000_koutsi_seasons.sql` — EI vielä ajettu, ajetaan vain käyttäjän "aja migraatio" -luvalla):
+  kausi = nimi, alku, loppu ja taukopäivät (`koutsi_seasons`), ryhmällä `season_id` ja `continues_from`.
+  Seuraavan kauden ryhmät ovat UUSIA rivejä: päättyvän kauden ryhmät, jäsenet, treenit, läsnäolot ja teemat
+  jäävät ennalleen, eikä vanhoja jäsenyyksiä päätetä (`koutsi_is_group_member` vaatii `ended_at is null`, joten
+  pelaaja menettäisi omat menneet treeninsä). Sovellus näyttää listoissa kunkin valmentajan aktiivisen kauden
+  ryhmät (`seasonView` DataProviderissa: käynnissä oleva, tauolla seuraava, muuten viimeisin); `allGroups`
+  sisältää kaikki, ja id-haut (`koutsiGroupById`, treenin ryhmä) käyttävät sitä. Luonnos on valmentajan oma rivi
+  (`koutsi_season_drafts`), julkaisu yksi RPC (`koutsi_publish_season`): kausi, ryhmät, jäsenet, uudet
+  paikkapelaajat ja treenit kerralla, rivikohtaiset treeni-ilmoitukset vaimennettuna, sitten yksi ilmoitus per
+  pelaaja. Uusi ryhmä liittyy valmentajan nykyiseen kauteen triggerillä (`koutsi_current_season`), vanhan kauden
+  ryhmälinkki liittää jatkoryhmään (`koutsi_latest_group` redeemissä). Ominaisuus näkyy, kun
+  `koutsi_seasons_enabled()` (beta-testaajat ja ylläpitäjät ensin) — kaikille avaaminen = funktion vaihto.
+  Kodin kortti 56 pv ennen kauden loppua: Suunnittele kevät / Jatka suunnittelua / julkaistu + "Muuta loppua"
+  (`SeasonEditSheet`: kauden pidennys jatkaa vain kauden loppuun asti ulottuvien ryhmien kalenterin).
+  Ryhmän luonnissa "Kauden loppuun (n vk)" on oletus. Ilman migraatiota `seasonsReady: false` ja kaikki on piilossa.
 
 ## 5. Reitit
 
