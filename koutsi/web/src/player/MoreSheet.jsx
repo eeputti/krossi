@@ -1,7 +1,7 @@
 // MoreSheet (player) — the phone tab bar's "Lisää" drawer, built like the coach's: the places
-// that have no tab of their own. Ryhmäsi (the group mates and the week's theme), Harjoitteet ja
-// videot, Ilmoitukset (with the unread count), Profiili and Anna palautetta. A computer has these
-// in the side nav, the bell on Koti and the card at the bottom.
+// that have no tab of their own. Ryhmäsi (the group mates and the week's theme), Liity ryhmään
+// (JoinGroupSheet: one more group with a code), Harjoitteet ja videot, Ilmoitukset (with the unread
+// count), Profiili and Anna palautetta. A computer has these in the side nav, the bell on Koti and the card at the bottom.
 import { useData } from '../app/data.jsx';
 import { navigate } from '../app/router.js';
 import { Avatar, ListRow, Sheet } from '../ui/index.js';
@@ -14,7 +14,7 @@ export function groupsSubtitle(groups) {
   return names.length === 1 ? names[0] : `${names.length} ryhmää · ${names.join(', ')}`;
 }
 
-export function MoreSheet({ open, onClose, unread, onNotifications, onFeedback }) {
+export function MoreSheet({ open, onClose, unread, onNotifications, onFeedback, onJoin }) {
   const { state } = useData();
   const me = state.students[0];
   const groups = koutsiGroupsForStudent(state, me.id);
@@ -23,6 +23,7 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onFeedback }
     <Sheet open={open} onClose={onClose} title="Lisää" size="sm" className="more-sheet">
       <div className="list-group more-list">
         <ListRow icon="users" title="Ryhmäsi" subtitle={groupsSubtitle(groups)} onClick={() => go('/pelaaja/ryhma')} />
+        <ListRow icon="plus" title="Liity ryhmään" subtitle={groups.length ? 'Liittymiskoodilla uuteen ryhmään' : 'Valmentajan antamalla liittymiskoodilla'} onClick={() => { onClose(); onJoin(); }} />
         <ListRow icon="play" title="Harjoitteet ja videot" subtitle={`${DRILL_COUNT} harjoitetta, valmentajan videot ja omat videosi`} onClick={() => go('/pelaaja/harjoitteet')} />
         <ListRow icon="bell" title="Ilmoitukset" subtitle={unread ? `${unread} ${unread === 1 ? 'uusi' : 'uutta'}` : 'Ei uusia'}
           right={unread ? <span className="more-badge t-num">{unread > 9 ? '9+' : unread}</span> : undefined}

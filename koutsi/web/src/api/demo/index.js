@@ -705,7 +705,13 @@ export const backend = {
     },
     async list() { return clone(S().inviteCodes); },
     async revoke(code) { const hit = S().inviteCodes.find((c) => c.code === code); if (hit) Object.assign(hit, { revokedAt: nowIso(), active: false }); },
-    async redeem() { await wait(); return { coach_id: COACH, coach_name: S().coach.name, group_id: 'demo-g-ti-aik1', group_name: 'tiistai aikuiset' }; },
+    // The demo player really joins: the first group they aren't in yet (so "Liity ryhmään" shows it).
+    async redeem() {
+      await wait();
+      const group = S().groups.find((g) => !g.memberIds.includes(PLAYER));
+      if (role === 'player' && group) group.memberIds.push(PLAYER);
+      return { coach_id: COACH, coach_name: S().coach.name, group_id: group?.id || null, group_name: group?.name || null, already_linked: true };
+    },
     async claim(code, studentId) {
       await wait();
       const st = findStudent(studentId);

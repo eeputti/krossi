@@ -14,11 +14,14 @@ import { PlayerApp } from './PlayerApp.jsx';
  * code that matches exactly one not-yet-joined name asks "oletko sinä?"; if nothing matches,
  * the player is asked whether they're already on the list before any names are shown — the
  * last word is always the player's, never the algorithm's.
+ * inline: a player already in the app joining one more group (JoinGroupSheet) — no match means
+ * "just join", and onJoined(result) is called at once (the sheet says it and stays open).
+ * initialCode: prefilled instead of the address's ?koodi=.
  */
-export function JoinCodeForm({ onJoined, autoFocus }) {
+export function JoinCodeForm({ onJoined, autoFocus, inline = false, initialCode = null }) {
   const params = new URLSearchParams(window.location.search);
-  const [code, setCode] = useState(() => (params.get('koodi') || '').trim().toUpperCase());
-  const targetStudent = params.get('oppilas') || '';
+  const [code, setCode] = useState(() => ((inline ? initialCode : initialCode ?? params.get('koodi')) || '').trim().toUpperCase());
+  const targetStudent = inline ? '' : params.get('oppilas') || '';
   const [phase, setPhase] = useState('form'); // form | suggestion | ask | roster
   const [submitted, setSubmitted] = useState('');
   const [suggestion, setSuggestion] = useState(null);
@@ -27,6 +30,7 @@ export function JoinCodeForm({ onJoined, autoFocus }) {
   const [info, setInfo] = useState('');
   const [busy, setBusy] = useState(false);
   const finish = (r) => {
+    if (inline) { onJoined(r); return; }
     setInfo(`Liityit${r?.group_name ? ` ryhmään ${r.group_name}` : ''}${r?.coach_name ? ` — valmentaja ${r.coach_name}` : ''}!`);
     // The invite is used: take it out of the address, or PlayerRoot would read it as someone
     // else's link and show the "olet jo kirjautuneena toisena käyttäjänä" warning to the new player.
@@ -35,22 +39,24 @@ export function JoinCodeForm({ onJoined, autoFocus }) {
       url.searchParams.delete('koodi'); url.searchParams.delete('oppilas');
       window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
     }
-    setTimeout(() => onJoined(), 1200);
+    setTimeout(() => onJoined(r), 1200);
   };
   const attempt = async (fn) => {
     setError(''); setBusy(true);
-    try { await fn(); } catch (err) { setError(err.userMessage || 'Koodi ei kelvannut.'); setPhase('form'); } finally { setBusy(false); }
+    try { await fn(); } catch (err) { setError(err?.userMessage || 'Koodi ei kelvannut.'); setPhase('form'); } finally { setBusy(false); }
   };
   const submit = (e) => {
     e.preventDefault();
-    const normalized = code.trim().toUpperCase();
-    if (!normalized) return;
+    if (busy) return;
+    const normalized = code.trim().toUpperCase().replace(/\s+/g, '');
+    if (!normalized) { setError('Kirjoita valmentajalta saamasi koodi.'); return; }
     setSubmitted(normalized);
     attempt(async () => {
       if (targetStudent) return finish(await api.invites.claim(normalized, targetStudent));
       const match = await api.invites.matchUnclaimed(normalized);
       if (match?.direct) return finish(await api.invites.claim(normalized, match.id));
       if (match) { setSuggestion(match); setPhase('suggestion'); return undefined; }
+      if (inline) return finish(await api.invites.redeem(normalized));
       setPhase('ask');
       return undefined;
     });
@@ -92,9 +98,9 @@ export function JoinCodeForm({ onJoined, autoFocus }) {
     <form className="stack-3" onSubmit={submit}>
       {error && <p className="field-msg field-msg-error" role="alert">{error}</p>}
       <Field label="Liittymiskoodi" htmlFor="join-code">
-        <Input id="join-code" size="lg" className="k-code-input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Esim. VHDC6P" autoFocus={autoFocus} autoComplete="off" autoCapitalize="characters" />
+        <Input id="join-code" size="lg" className="k-code-input" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(''); }} placeholder="Esim. VHDC6P" autoFocus={autoFocus} autoComplete="off" autoCapitalize="characters" />
       </Field>
-      <Button type="submit" variant="dark" size="lg" block disabled={!code.trim()} loading={busy}>{targetStudent ? 'Aktivoi oma pelaajaprofiili' : 'Liity'}</Button>
+      <Button type="submit" variant="dark" size="lg" block className={code.trim() ? undefined : 'is-incomplete'} loading={busy}>{targetStudent ? 'Aktivoi oma pelaajaprofiili' : 'Liity'}</Button>
     </form>
   );
 }
@@ -135,6 +141,7 @@ export function PlayerRoot() {
   const [row, setRow] = useState(undefined); // undefined = checking, null = no coach yet
   const [rowError, setRowError] = useState(null);
   const [mismatch, setMismatch] = useState(false);
+  const [joinCode, setJoinCode] = useState(null);
 
   const check = useCallback(async () => {
     if (!uid) return;
@@ -147,13 +154,18 @@ export function PlayerRoot() {
     check();
   }, [uid, session.needsOnboarding, check]);
 
-  // An invite in the URL while this account already has a student row: either the same link
-  // again (harmless) or someone else's link on this device (not harmless). Always surface it.
+  // An invite in the URL while this account already has a student row. A shared code (a group's
+  // or the coach's link) is one more group for this player: it opens "Liity ryhmään" with the code
+  // filled in. A personal link (?oppilas=) was made for one player — maybe someone else on this
+  // device — so that one still warns.
   useEffect(() => {
     if (!row) return;
     const url = new URL(window.location.href);
-    if (!url.searchParams.get('koodi') && !url.searchParams.get('oppilas')) return;
-    setMismatch(true);
+    const code = url.searchParams.get('koodi');
+    const personal = url.searchParams.get('oppilas');
+    if (!code && !personal) return;
+    if (personal) setMismatch(true);
+    else setJoinCode(code.trim().toUpperCase());
     url.searchParams.delete('koodi'); url.searchParams.delete('oppilas');
     window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
   }, [row]);
@@ -172,6 +184,7 @@ export function PlayerRoot() {
     <PlayerApp
       studentId={uid}
       banner={mismatch ? <InviteMismatchBanner onDismiss={() => setMismatch(false)} /> : null}
+      joinCode={joinCode}
     />
   );
 }
