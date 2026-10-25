@@ -165,7 +165,8 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   luvalla); tietokannassa ilman taulua `archiveReady: false` ja Muokkaa/Arkisto pysyvät piilossa.
 
 - Kaudet ja "Uusi kausi" (`domain/season.js`, `coach/SeasonSheet.jsx`, migraatio
-  `sql/20261026120000_koutsi_seasons.sql` — EI vielä ajettu, ajetaan vain käyttäjän "aja migraatio" -luvalla):
+  `supabase/migrations/20261025181126_koutsi_seasons.sql`, ajettu 25.10.2026 käyttäjän luvalla; uusien
+  SECURITY DEFINER -funktioiden oikeudet `20261025181234_koutsi_seasons_function_grants.sql`):
   kausi = nimi, alku, loppu ja taukopäivät (`koutsi_seasons`), ryhmällä `season_id` ja `continues_from`.
   Seuraavan kauden ryhmät ovat UUSIA rivejä: päättyvän kauden ryhmät, jäsenet, treenit, läsnäolot ja teemat
   jäävät ennalleen, eikä vanhoja jäsenyyksiä päätetä (`koutsi_is_group_member` vaatii `ended_at is null`, joten
