@@ -80,3 +80,33 @@ test('the health reminder: illness and injury words, not tennis words', () => {
   for (const t of ['Olen kipeänä tänään', 'Flunssa iski', 'Nilkka nyrjähti', 'lääkäri sanoi että', 'Polvessa vamma']) assert.equal(looksLikeHealth(t), true, t);
   for (const t of ['Polvet koukkuun syötössä', 'Pääsenkö torstaina?', 'Jalat olivat raskaat', 'Kiitos treenistä!']) assert.equal(looksLikeHealth(t), false, t);
 });
+
+// The real backend (api/supabase/messages.js) on a fake client: before the migration Viestit stays
+// hidden (ready: false) and nothing else is asked; after it, the coach's gate decides.
+test('the real app keeps Viestit hidden until the database has it', async () => {
+  const { setClientForTests } = await import('../src/api/supabase/client.js');
+  const { messages } = await import('../src/api/supabase/messages.js');
+  const calls = [];
+  const fake = (answers) => ({ rpc: async (name) => { calls.push(name); return answers[name]; } });
+  const missing = { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.koutsi_thread_overview' } };
+
+  setClientForTests(fake({ koutsi_thread_overview: missing }));
+  assert.deepEqual(await messages.overview('coach'), { ready: false, enabled: false, threads: [] });
+  assert.deepEqual(await messages.overview('player'), { ready: false, enabled: false, threads: [] });
+  assert.deepEqual(calls, ['koutsi_thread_overview', 'koutsi_thread_overview'], 'no gate asked before the migration');
+
+  const row = { id: 't1', coach_id: 'c', student_id: 's', enabled: true, enabled_at: '2026-10-25T10:00:00Z', last_message_at: '2026-10-26T18:42:00Z',
+    coach_read_at: null, player_read_at: null, last_body: 'Pääsenkö torstaina?', last_sender: 'player', last_ref_kind: null, unread: 2 };
+  setClientForTests(fake({ koutsi_thread_overview: { data: [row], error: null }, koutsi_messages_enabled: { data: false, error: null } }));
+  const off = await messages.overview('coach');
+  assert.equal(off.ready, true);
+  assert.equal(off.enabled, false, 'a coach outside the beta still sees nothing');
+  setClientForTests(fake({ koutsi_thread_overview: { data: [row], error: null }, koutsi_messages_enabled: { data: true, error: null } }));
+  const on = await messages.overview('coach');
+  assert.equal(on.enabled, true);
+  assert.deepEqual(on.threads[0].last, { body: 'Pääsenkö torstaina?', sender: 'player', refKind: null });
+  assert.equal(on.threads[0].unread, 2);
+  const player = await messages.overview('player');
+  assert.equal(player.enabled, true, 'a player with an open conversation');
+  setClientForTests(null);
+});
