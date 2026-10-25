@@ -1,4 +1,4 @@
--- PROPOSED, NOT APPLIED. Move to supabase/migrations only after the user's "aja migraatio".
+-- Applied 25.10.2026 after the user's "aja migraatio".
 -- Check: koutsi/web/sql/20261026090000_koutsi_account_deletion.check.mjs
 --
 -- Deleting an account must remove the person's Koutsi data, whoever deletes it. Until now only

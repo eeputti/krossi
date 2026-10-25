@@ -1,11 +1,11 @@
-// 20261026090000_koutsi_account_deletion.check.mjs — runs the proposed account-deletion migration
-// (koutsi/web/sql/20261026090000_koutsi_account_deletion.sql, NOT applied) in PGlite against a small
-// copy of production's Koutsi schema: the foreign keys around auth.users, profiles, koutsi_coaches and
-// koutsi_students, and every trigger that fires while those rows are deleted (copied 25.10.2026).
+// 20261026090000_koutsi_account_deletion.check.mjs — runs the account-deletion migration (applied
+// 25.10.2026 as supabase/migrations/20261025194559_koutsi_account_deletion.sql) in PGlite against a
+// small copy of production's Koutsi schema: the foreign keys around auth.users, profiles, koutsi_coaches
+// and koutsi_students, and every trigger that fires while those rows are deleted (copied 25.10.2026).
 // An account is deleted the way Supabase Auth does it: DELETE FROM auth.users as supabase_auth_admin,
 // a role with no rights on koutsi_private.
-// PGlite is not a dependency of the repo, so it is not part of `npm run test:koutsi`. Before
-// "aja migraatio" (tested with @electric-sql/pglite 0.5.11):
+// PGlite is not a dependency of the repo, so it is not part of `npm run test:koutsi`. To run it
+// (tested with @electric-sql/pglite 0.5.11):
 //   (in an empty temp folder) npm i @electric-sql/pglite
 //   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261026090000_koutsi_account_deletion.check.mjs
 import { test } from 'node:test';
@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = await readFile(join(here, '20261026090000_koutsi_account_deletion.sql'), 'utf8');
+const MIGRATION = await readFile(join(here, '../../../supabase/migrations/20261025194559_koutsi_account_deletion.sql'), 'utf8');
 
 const C = '00000000-0000-4000-8000-0000000000c1'; // coach
 const B = '00000000-0000-4000-8000-0000000000b1'; // another coach
