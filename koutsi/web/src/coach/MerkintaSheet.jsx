@@ -25,7 +25,7 @@ import {
   koutsiAddDays, koutsiCurrentIsoWeek, koutsiFmtShortDate, koutsiSortGroupsBySchedule, koutsiTodayStr, koutsiWeekThemeStatus, KOUTSI_THEME_LEAD_MAX, KOUTSI_THEME_TITLE_MAX,
 } from '../domain/core.js';
 import {
-  coachSessionsOn, groupMemberIds, JUST_ENDED_MINUTES, plannerDefaultWeek, presentPlayerIds, sessionEnd, sessionRoster, sessionStatus, weekDates, weekGroups,
+  coachSessionsOn, dayRecap, groupMemberIds, JUST_ENDED_MINUTES, merkitseContext, plannerDefaultWeek, presentPlayerIds, sessionEnd, sessionRoster, sessionStatus, weekDates, weekGroups, weekRecap,
 } from '../domain/week.js';
 import { useCoach } from './CoachRoot.jsx';
 import { AttendanceChips } from './attendance.jsx';
@@ -108,7 +108,7 @@ const kindFor = (chip) => (!chip ? 'huomio' : chip.status === 'now' ? 'lasnaolo'
  * open, onClose, trainingId (start on this session), initialIds (start on these players),
  * initialKind ('tiedote' | 'huomio' | 'lasnaolo' | 'teema'), onVideo(ids) — opens the video sheet for them.
  */
-export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [], initialKind = null, onVideo, onContinue }) {
+export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [], initialKind = null, onVideo, onContinue, onDay, onWeek, onAbsence }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const now = new Date();
@@ -318,6 +318,45 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
   };
 
   const shown = ids.map((id) => state.students.find((s) => s.id === id)).filter(Boolean);
+
+  // ── the first step: one line on the moment, six choices, and the rarer things below ──
+  const ctx = merkitseContext(state, now);
+  const ctxItem = ctx && ['now', 'ended', 'next'].includes(ctx.kind) ? ctx.items[0] : null;
+  const situation = ctxItem ? {
+    live: ctx.kind === 'now',
+    label: ctx.kind === 'now' ? 'Nyt käynnissä' : ctx.kind === 'ended' ? 'Juuri päättyi' : 'Seuraavaksi',
+    text: `${ctxItem.group?.name || ctxItem.student?.name || ctxItem.training.type} ${ctxItem.training.time}`,
+  } : null;
+  const pick = (v, homework = false) => { changeKind(v); setAsHomework(homework); setChoosing(false); if (homework) track('merkitse.laksy'); };
+  const missingThemes = themeStatus.missing.length;
+  const tiles = [
+    { id: 'lasnaolo', icon: 'user-check', label: 'Läsnäolo', sub: 'Kuka oli paikalla', run: () => pick('lasnaolo') },
+    { id: 'huomio', icon: 'flame', label: 'Huomio', sub: 'Palaute, jää kehitykseen', run: () => pick('huomio') },
+    { id: 'laksy', icon: 'check-circle', label: 'Kotiläksy', sub: 'Tehtävä kotiin', run: () => pick('huomio', true) },
+    ...(noticesReady ? [{ id: 'tiedote', icon: 'info', label: 'Tiedote', sub: 'Käytännön asia', run: () => pick('tiedote') }] : []),
+    { id: 'teema', icon: 'sparkles', label: 'Teema', sub: missingThemes ? `Puuttuu ${missingThemes === 1 ? '1 ryhmältä' : `${missingThemes} ryhmältä`}` : 'Viikon teema', run: () => pick('teema') },
+    { id: 'video', icon: 'play', label: 'Video', sub: 'Jaa pelaajille', run: () => pick('video') },
+  ].map((t) => ({ ...t, suggested: t.id === suggested }));
+  const fmtAvg = (x) => x.toFixed(1).replace('.', ',');
+  const summary = (() => {
+    if (!ctx || (ctx.kind !== 'day' && ctx.kind !== 'week')) return null;
+    if (ctx.kind === 'day') {
+      const r = dayRecap(state, today, now);
+      const sub = [r.expected ? `Läsnä ${r.present}/${r.expected}` : '', r.moodAverage != null ? `fiilis ${fmtAvg(r.moodAverage)}` : 'ei fiiliksiä vielä'].filter(Boolean).join(' · ');
+      return { id: 'paiva', icon: 'check-circle', title: 'Päivän yhteenveto', sub, run: () => { track('merkitse.paiva'); onDay?.(today); } };
+    }
+    const r = weekRecap(state, week, now);
+    const sub = r.sessions
+      ? [`${r.held}/${r.sessions} treeniä`, r.attendance != null ? `läsnä ${Math.round(r.attendance * 100)} %` : '', r.moodAverage != null ? `fiilis ${fmtAvg(r.moodAverage)}` : ''].filter(Boolean).join(' · ')
+      : 'Ei treenejä tällä viikolla';
+    return { id: 'viikko', icon: 'trophy', title: `Viikko ${week.week} paketissa · päiväkirja`, sub, run: () => { track('merkitse.viikko'); onWeek?.(week); } };
+  })();
+  const others = [
+    ...(summary ? [summary] : []),
+    // on a Sunday the week's recap above holds the diary too
+    ...(summary?.id === 'viikko' ? [] : [{ id: 'paivakirja', icon: 'edit', title: 'Viikkopäiväkirja', sub: 'Vain sinulle', run: () => { track('merkitse.paivakirja'); onWeek?.(week); } }]),
+    { id: 'poissaolo', icon: 'calendar', title: 'Poissaolo', sub: 'Pelaaja pois monesta treenistä', run: () => { track('merkitse.poissaolo'); onAbsence?.(); } },
+  ];
   const footer = video ? (
     <div className="sheet-actions">
       <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>
@@ -345,19 +384,33 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Merkitse" size="md" dismissible={!busy && !dirty} className="vs-sheet" footer={choosing ? null : footer}>
       {choosing ? (
-        <div className="vs-choose" role="group" aria-label="Mitä merkitset?">
-          <div className="vs-choose-q">Mitä merkitset?</div>
-          {[...(noticesReady ? ['tiedote'] : []), 'huomio', 'video', 'lasnaolo', 'teema'].map((v) => (
-            <button key={v} type="button" className={cx('vs-choose-tile', v === suggested && 'is-suggested')}
-              onClick={() => { changeKind(v); setChoosing(false); }}>
-              <span className="vs-choose-icon"><Icon name={KINDS[v].icon} size={22} /></span>
-              <span className="vs-choose-text">
-                <span className="vs-choose-title">{LABELS[v]}{v === suggested && <span className="vs-choose-badge">Ehdotus</span>}</span>
-                <span className="vs-choose-sub">{KINDS[v].short}</span>
-              </span>
-              <Icon name="chevron-right" size={18} className="k-chevron" />
-            </button>
-          ))}
+        <div className="vs-choose stack-4">
+          {situation && (
+            <p className="vs-situation">{situation.live && <span className="k-ctx-live" aria-hidden="true" />}<strong>{situation.label}</strong> · {situation.text}</p>
+          )}
+          <div className="vs-choose-grid" role="group" aria-label="Mitä merkitset?">
+            {tiles.map((t) => (
+              <button key={t.id} type="button" className={cx('vs-choose-tile', t.suggested && 'is-suggested')} onClick={t.run}>
+                <span className="vs-choose-icon"><Icon name={t.icon} size={21} /></span>
+                <span className="vs-choose-title">{t.label}{t.suggested && <span className="vs-choose-badge">Ehdotus</span>}</span>
+                <span className="vs-choose-sub">{t.sub}</span>
+              </button>
+            ))}
+          </div>
+          {others.length > 0 && (
+            <div className="vs-others">
+              <div className="vs-label">Muut</div>
+              <div className="ms-rows">
+                {others.map((r) => (
+                  <button key={r.id} type="button" className="vs-other" onClick={r.run}>
+                    <span className="vs-other-icon"><Icon name={r.icon} size={17} /></span>
+                    <span className="ms-row-main"><span className="ms-row-title">{r.title}</span><span className="ms-row-sub">{r.sub}</span></span>
+                    <Icon name="chevron-right" size={16} className="k-chevron" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
       <div className="stack-5">
@@ -365,7 +418,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
           <div className="vs-picked">
             <button type="button" className="vs-back" onClick={() => setChoosing(true)} aria-label="Takaisin valintaan"><Icon name="chevron-left" size={18} /></button>
             <span className="vs-picked-icon"><Icon name={k.icon} size={16} /></span>
-            <span className="vs-picked-title">{LABELS[kind]}</span>
+            <span className="vs-picked-title">{kind === 'huomio' && asHomework ? 'Kotiläksy' : LABELS[kind]}</span>
             <button type="button" className="k-textlink" onClick={() => setChoosing(true)}>Vaihda</button>
           </div>
           <p className="vs-help"><Icon name={k.icon} size={15} />{k.help}</p>
