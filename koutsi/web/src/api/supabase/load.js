@@ -90,7 +90,7 @@ async function loadAnnouncements(narrow) {
 export async function loadCoachState(coachId) {
   const [coachRow, profileRow] = await Promise.all([
     fromTable('koutsi_coaches').select('id, tagline, bio, experience, specialties, welcome_seen_at').eq('id', coachId).single().then(must),
-    fromTable('profiles').select('id, name, avatar_url, avatar_color').eq('id', coachId).maybeSingle().then(must),
+    fromTable('profiles').select('id, name, avatar_url, avatar_color, area').eq('id', coachId).maybeSingle().then(must),
   ]);
 
   const links = must(await fromTable('koutsi_coach_students').select('student_id').eq('coach_id', coachId).is('ended_at', null)) || [];
@@ -106,7 +106,7 @@ export async function loadCoachState(coachId) {
     diary, homework, videos, moods, matchNotes, history, weekNotes, entries, archive, seasons, notices,
   ] = await Promise.all([
     selectIn(studentIds, (ids) => fromTable('koutsi_students').select('*').in('id', ids)),
-    selectIn(studentIds, (ids) => fromTable('profiles').select('id, name, avatar_url, age').in('id', ids)),
+    selectIn(studentIds, (ids) => fromTable('profiles').select('id, name, avatar_url, age, bio').in('id', ids)),
     fromTable('koutsi_groups').select('*').eq('coach_id', coachId).then(must),
     fromTable('koutsi_exercises').select('*').eq('coach_id', coachId).then(must),
     fromTable('koutsi_coach_events').select('*').eq('coach_id', coachId).then(must),
@@ -196,7 +196,7 @@ async function loadPlayerSeasons(groupRows) {
 export async function loadPlayerState(studentId) {
   const [studentRow, profileRow] = await Promise.all([
     fromTable('koutsi_students').select('*').eq('id', studentId).single().then(must),
-    fromTable('profiles').select('id, name, avatar_url, avatar_color, age').eq('id', studentId).maybeSingle().then(must),
+    fromTable('profiles').select('id, name, avatar_url, avatar_color, age, bio, area').eq('id', studentId).maybeSingle().then(must),
   ]);
 
   const [coachLinks, memberRows] = await Promise.all([

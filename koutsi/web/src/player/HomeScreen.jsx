@@ -1,9 +1,14 @@
-// HomeScreen (player) — Koti: what is happening now. First "Ajankohtaista" — the sessions that
-// just ended to rate (the same slides as in Merkitse), the coach's latest note, new notifications
-// and the club's coming events — then the coming sessions with "En pääse", open homework, and the
-// player's groups (Ryhmä is a page under Koti, not a tab). Goals and numbers live on Kehitys;
-// logging anything is the Merkitse button's job.
-import { useCallback, useEffect, useState } from 'react';
+// HomeScreen (player) — Koti: the player's sessions read from the clock, then what is new.
+// A player can have many sessions a week, each with its own group and theme, so there is no single
+// "theme of the week" here. Instead, the way the coach's Koti does it:
+//   1. the dark card: hello and the week, a dot per session (a tap on a day opens that day's
+//      session coming up, or the day in Viikko when it has none)
+//   2. the coach's Tiedote, while it is valid
+//   3. Treenit — the one that just ended ("Miten meni?" right there), the one on now, the next one
+//      with its theme, plan and "En pääse", and a few after it; it moves on by itself every minute
+//   4. Ajankohtaista — open homework, the coach's latest note, new notifications, club events
+// Goals and the history live on Kehitys; the groups and their players behind Lisää → Ryhmäsi.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { useIsDesktop, useNow } from '../app/hooks.js';
@@ -12,42 +17,53 @@ import { Button, Card, Icon, Page } from '../ui/index.js';
 import { NotificationsButton, targetOf } from '../shared/Notifications.jsx';
 import { Block, Quiet } from '../shared/bits.jsx';
 import {
-  koutsiCurrentIsoWeek, koutsiIsoWeekRangeLabel, koutsiThemeForDate, koutsiGroupById, koutsiCoachById,
-  koutsiGroupsForStudent, koutsiTimeRangeLabel, koutsiTodayStr, koutsiAddDays, koutsiFmtShortDate, KOUTSI_EVENT_KINDS,
-  koutsiGroupThemeForWeek,
+  koutsiCurrentIsoWeek, koutsiIsoWeekRangeLabel, koutsiGroupById, koutsiCoachById, koutsiTimeRangeLabel, koutsiTodayStr,
+  koutsiAddDays, koutsiFmtShortDate, koutsiPad, KOUTSI_EVENT_KINDS,
 } from '../domain/core.js';
-import { relativeDay, shortDay, themeWeekShort } from '../domain/week.js';
-import { homeThemeCards, upcomingSessions } from '../domain/player.js';
+import { minutesLabel, relativeDay, weekParam } from '../domain/week.js';
+import { moodFor, sessionForDay, sessionLine, weekDots } from '../domain/playerNow.js';
 import { koutsiFmtEventDate } from '../domain/timeline.js';
 import { planSummary, readPlan } from '../domain/plan.js';
 import { firstName } from '../domain/roster.js';
+import { MOOD_LABELS } from '../lib/constants.js';
 import { usePlayerActions } from './PlayerApp.jsx';
 import { AfterSessions, useLead } from './MerkitseSheet.jsx';
+import { CoachSessionSheet } from './weekSheets.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DAY_LONG = ['Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai', 'Lauantai', 'Sunnuntai'];
+const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
-/** The dark top card: the week, hello, the bell, and this week's theme (the first group's; each
- *  group's own theme is on its "Ryhmäsi" row). */
-function Head({ student, groups }) {
+/** The dark top card: the week, hello, the bell, and the days with a dot per session. */
+function Head({ student, days, onDay }) {
   const week = koutsiCurrentIsoWeek();
-  const main = homeThemeCards(groups, week)[0];
+  const count = days.reduce((n, d) => n + d.sessions.length, 0);
   return (
-    <section className="week-hero on-dark court-lines home-hero">
+    <section className="week-hero on-dark court-lines home-hero ph-hero">
       <div className="week-hero-top">
         <span className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
         <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />
       </div>
       <h1 className="week-hero-title">Moi, {firstName(student.name) || 'pelaaja'}!</h1>
-      {main && (
-        <div className="hero-theme">
-          <div className="hero-theme-eyebrow">
-            {main.current ? 'Viikon teema' : `Viimeisin teema · ${themeWeekShort(main.theme)}`}{groups.length > 1 ? ` · ${[...new Set(main.groups.map((g) => g.name))].join(', ')}` : ''}
-          </div>
-          <div className="hero-theme-title">{main.theme.title}</div>
-          {main.theme.lead && <p className="hero-theme-lead">{main.theme.lead}</p>}
-        </div>
-      )}
+      <div className="wk-days" role="list" aria-label="Viikon päivät">
+        {days.map((d, i) => (
+          <button key={d.date} type="button" role="listitem" onClick={() => onDay(d)}
+            className={cx('wk-day', d.isToday && 'is-today', d.isPast && 'is-past', !d.sessions.length && !d.own && 'is-empty')}
+            aria-label={`${DAY_LONG[i]} ${d.day}.: ${d.sessions.length === 1 ? '1 treeni' : `${d.sessions.length} treeniä`}`}>
+            <span className="wk-day-name">{d.label}</span>
+            <span className="wk-day-num t-num">{d.day}</span>
+            <span className="wk-day-dots" aria-hidden="true">
+              {d.sessions.slice(0, 3).map((x) => <span key={x.training.id} className={cx('wk-dot', `is-${x.status}`, x.absent && 'is-absent')} />)}
+              {d.own > 0 && <span className="wk-dot is-own" />}
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="ph-hero-sub">
+        {count === 0 ? 'Ei valmennuksia tällä viikolla.' : `${count === 1 ? '1 valmennus' : `${count} valmennusta`} tällä viikolla`}
+        <span className="ph-legend" aria-hidden="true"><span className="wk-dot is-own" /> oma treeni</span>
+      </p>
     </section>
   );
 }
@@ -56,11 +72,164 @@ function JoinCard() {
   return (
     <Card className="stack-3">
       <h2 className="t-h3">Et ole vielä valmentajan ryhmässä</h2>
-      <p className="k-quiet-text">Kun liityt, näet täällä treenisi, viikon teeman ja valmentajan huomiot.</p>
+      <p className="k-quiet-text">Kun liityt, näet täällä treenisi, niiden teemat ja valmentajan huomiot.</p>
       <div><Button variant="lime" icon="users" onClick={() => navigate('/pelaaja/ryhma')}>Liity ryhmään koodilla</Button></div>
     </Card>
   );
 }
+
+// ── Treenit: the line from the clock ──────────────────────────
+
+/** "Päättyi 25 min sitten" / "Eilen klo 18:00–19:30" / "to 22.10. klo 18:00–19:30" */
+function pastWhen(it) {
+  const day = relativeDay(it.training.date);
+  if (day === 'Tänään' && it.minutesAgo < 120) return `Päättyi ${minutesLabel(it.minutesAgo)} sitten`;
+  return `${cap(day)} klo ${it.training.time}–${it.end}`;
+}
+
+function ThemeLine({ theme, empty }) {
+  if (!theme) return empty ? <span className="ph-theme is-empty"><Icon name="sparkles" size={13} />{empty}</span> : null;
+  return <span className="ph-theme"><Icon name="sparkles" size={13} />{theme.title}</span>;
+}
+
+function nameOf(it) { return it.group?.name || it.training.type; }
+
+/** The session that ended last, once it is rated (or skipped): when, what, how it went. */
+function PastItem({ it, student, onOpen }) {
+  const mood = moodFor(student, it.training);
+  return (
+    <li className="tt-item is-past">
+      <span className="tt-dot" aria-hidden="true"><Icon name="check" size={11} strokeWidth={3} /></span>
+      <button type="button" className="tt-card ph-card" onClick={() => onOpen(it)}>
+        <span className="tt-main">
+          <span className="ph-label">Edellinen</span>
+          <span className="tt-name">{nameOf(it)}</span>
+          <span className="tt-state">{pastWhen(it)}{mood ? ` · Fiilis: ${MOOD_LABELS[mood.score]}` : ''}</span>
+          <ThemeLine theme={it.theme} />
+        </span>
+        <Icon name="chevron-right" size={16} className="k-chevron" />
+      </button>
+    </li>
+  );
+}
+
+function NowItem({ it, onOpen }) {
+  const actions = usePlayerActions();
+  const plan = readPlan(it.training.notes);
+  return (
+    <li className="tt-item is-now">
+      <span className="tt-dot" aria-hidden="true" />
+      <div className="tt-card ph-card is-col">
+        <button type="button" className="tt-main" onClick={() => onOpen(it)}>
+          <span className="ph-label is-live"><span className="k-ctx-live" aria-hidden="true" />Nyt käynnissä</span>
+          <span className="tt-name">{nameOf(it)}</span>
+          <span className="tt-state"><span className="t-num">{it.training.time}–{it.end}</span> · {minutesLabel(it.minutesLeft)} jäljellä{it.absent ? ' · ilmoitit poissaolon' : ''}</span>
+          <ThemeLine theme={it.theme} />
+          <span className="tt-progress" aria-hidden="true"><span style={{ width: `${Math.round(it.progress * 100)}%` }} /></span>
+        </button>
+        {plan.items.length > 0 && (
+          <button type="button" className="tp-link" onClick={() => actions.openPlan(it.training)}>
+            <Icon name="list" size={16} /><span className="grow"><strong>Treenin runko</strong> · {planSummary(plan)}</span><Icon name="chevron-right" size={16} />
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/** The next session, big: when (and how soon), the group and coach, its theme, plan and "En pääse". */
+function NextItem({ it }) {
+  const actions = usePlayerActions();
+  const plan = readPlan(it.training.notes);
+  const day = relativeDay(it.training.date);
+  const soon = day === 'Tänään' && it.minutesUntil < 12 * 60 ? `alkaa ${minutesLabel(it.minutesUntil)} päästä` : '';
+  return (
+    <li className={cx('tt-item is-upcoming is-next', it.absent && 'is-absent')}>
+      <span className="tt-dot" aria-hidden="true" />
+      <div className="tt-card ph-next">
+        <span className="ph-label">Seuraavaksi</span>
+        <div className="ph-next-when">
+          <span className="ph-next-day">{cap(day)}</span>
+          <span className="t-num">klo {koutsiTimeRangeLabel(it.training.time, it.training.durationMinutes || it.group?.durationMinutes)}</span>
+          {soon && <span className="ph-next-soon">{soon}</span>}
+        </div>
+        <div className="ph-next-what">{[nameOf(it), it.group ? it.training.type : '', it.coach?.name].filter(Boolean).join(' · ')}</div>
+        {it.theme ? (
+          <div className="ph-next-theme">
+            <div className="eyebrow"><Icon name="sparkles" size={13} /> Treenin teema</div>
+            <strong>{it.theme.title}</strong>
+            {it.theme.lead && <p>{it.theme.lead}</p>}
+          </div>
+        ) : it.group && <p className="ph-next-notheme">Valmentaja ei ole vielä asettanut teemaa.</p>}
+        {plan.items.length > 0 && (
+          <button type="button" className="tp-link" onClick={() => actions.openPlan(it.training)}>
+            <Icon name="list" size={16} /><span className="grow"><strong>Treenin runko</strong> · {planSummary(plan)}</span><Icon name="chevron-right" size={16} />
+          </button>
+        )}
+        <div className="row wrap">
+          {it.absent ? (
+            <>
+              <span className="chip chip-md chip-warn">Ilmoitit poissaolon</span>
+              <Button variant="ghost" size="sm" onClick={() => actions.openAbsence(it.training)}>Pääsenkin</Button>
+            </>
+          ) : <Button variant="outline" size="sm" icon="close" onClick={() => actions.openAbsence(it.training)}>En pääse</Button>}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** A session after the next one: one line, with its own theme. */
+function LaterItem({ it, onOpen }) {
+  return (
+    <li className={cx('tt-item is-upcoming ph-later', it.absent && 'is-absent')}>
+      <span className="tt-dot" aria-hidden="true" />
+      <button type="button" className="tt-card ph-card" onClick={() => onOpen(it)}>
+        <span className="tt-main">
+          <span className="tt-time t-num">{cap(relativeDay(it.training.date))} {it.training.time}–{it.end}</span>
+          <span className="tt-name">{nameOf(it)}{it.absent ? <span className="ph-absent"> · poissa</span> : null}</span>
+          <ThemeLine theme={it.theme} empty={it.group ? 'Teema tulossa' : ''} />
+        </span>
+        <Icon name="chevron-right" size={16} className="k-chevron" />
+      </button>
+    </li>
+  );
+}
+
+function SessionLine({ student, now, onOpen }) {
+  const { state } = useData();
+  const { lead, skip } = useLead();
+  const line = sessionLine(state, student, { now });
+  const waiting = lead.ended.length > 0;
+  const hasPast = waiting || Boolean(line.previous);
+  const coming = Boolean(line.next) || line.now.length > 0;
+  if (!hasPast && !coming) return <Card><Quiet icon="calendar">Ei tulevia treenejä kalenterissa.</Quiet></Card>;
+  // The "Nyt" line sits between what is over and what is to come; a running session says it itself.
+  const nowLine = line.now.length === 0 && (
+    <li key="nyt" className="tt-now" aria-label="Nyt">
+      <span className="tt-now-label t-num">Nyt {koutsiPad(now.getHours())}:{koutsiPad(now.getMinutes())}</span>
+    </li>
+  );
+  return (
+    <ol className="tt-line ph-line">
+      {waiting ? (
+        <li className="tt-item is-past">
+          <span className="tt-dot" aria-hidden="true"><Icon name="check" size={11} strokeWidth={3} /></span>
+          <AfterSessions ended={lead.ended} onSkip={skip} className="is-card ph-after" />
+        </li>
+      ) : line.previous && <PastItem it={line.previous} student={student} onOpen={onOpen} />}
+      {hasPast && nowLine}
+      {line.now.map((it) => <NowItem key={it.training.id} it={it} onOpen={onOpen} />)}
+      {!hasPast && nowLine}
+      {line.next ? <NextItem it={line.next} /> : (
+        <li className="tt-item is-upcoming"><span className="tt-dot" aria-hidden="true" /><div className="tt-card"><Quiet icon="calendar">Ei tulevia treenejä kalenterissa.</Quiet></div></li>
+      )}
+      {line.later.map((it) => <LaterItem key={it.training.id} it={it} onOpen={onOpen} />)}
+    </ol>
+  );
+}
+
+// ── Ajankohtaista ─────────────────────────────────────────────
 
 /** Unread notifications, newest first (the bell marks them read when opened). */
 function useUnread(uid) {
@@ -75,18 +244,15 @@ const kindLabel = (kind) => KOUTSI_EVENT_KINDS.find((k) => k.value === kind)?.la
 const eventIcon = (kind) => ({ kilpailu: 'trophy', leiri: 'compass', seura: 'users' }[kind] || 'flag');
 
 /**
- * Ajankohtaista: one list of what is new or coming, each row once — the coach's latest note
- * (two weeks), unread notifications (not the note again, not "Miten meni?", which has its card),
- * and the club's events in the next three weeks.
+ * One list of what is new or coming, each row once — the coach's latest note (two weeks), unread
+ * notifications (not the note again, not "Miten meni?", which is on the session line), and the
+ * club's events in the next three weeks.
  */
-function News({ state, student }) {
-  const unread = useUnread(student.id);
+function newsRows(state, student, unread) {
   const today = koutsiTodayStr();
   const note = student.diary[0] && Date.now() - new Date(student.diary[0].at).getTime() < 14 * DAY_MS ? student.diary[0] : null;
   const rows = [];
-  if (note) {
-    rows.push({ id: `note-${note.id}`, icon: 'chat', title: 'Valmentajalta', body: note.text, meta: koutsiFmtEventDate(note.at), to: '/pelaaja/kehitys' });
-  }
+  if (note) rows.push({ id: `note-${note.id}`, icon: 'chat', title: 'Valmentajalta', body: note.text, meta: koutsiFmtEventDate(note.at), to: '/pelaaja/kehitys' });
   unread
     .filter((n) => !(note && n.kind === 'diary_added') && !String(n.linkPath || '').includes('fiilis='))
     .slice(0, 3)
@@ -100,7 +266,10 @@ function News({ state, student }) {
       meta: `${kindLabel(e.kind)} · ${koutsiFmtShortDate(e.date)}${e.endDate && e.endDate !== e.date ? `–${koutsiFmtShortDate(e.endDate)}` : ''}`,
       to: '/pelaaja/treenit',
     }));
-  if (!rows.length) return null;
+  return rows;
+}
+
+function NewsList({ rows }) {
   return (
     <ul className="home-news">
       {rows.map((r) => {
@@ -115,123 +284,40 @@ function News({ state, student }) {
             {r.to && <Icon name="chevron-right" size={16} className="k-chevron" />}
           </>
         );
-        return (
-          <li key={r.id}>
-            {r.to ? <button type="button" className="home-news-row" onClick={() => navigate(r.to)}>{inner}</button> : <div className="home-news-row">{inner}</div>}
-          </li>
-        );
+        return <li key={r.id}>{r.to ? <button type="button" className="home-news-row" onClick={() => navigate(r.to)}>{inner}</button> : <div className="home-news-row">{inner}</div>}</li>;
       })}
     </ul>
   );
 }
 
-function Now({ state, student }) {
-  const { lead, skip } = useLead();
-  const hasAfter = lead.ended.length > 0;
-  const news = <News state={state} student={student} />;
+/** Open homework, one tap to mark it done. */
+function HomeworkList({ open }) {
+  const { run } = useData();
+  return (
+    <div className="ph-hw">
+      <div className="ph-hw-head"><Icon name="book" size={16} /> Kotiläksyt · {open.length} tekemättä</div>
+      <div className="k-list">
+        {open.map((h) => (
+          <button key={h.id} type="button" className="k-hw" onClick={() => run(() => api.homework.toggleDone(h.id, true), 'Merkitty tehdyksi — hienoa!')}>
+            <span className="k-check-btn"><Icon name="check" size={14} strokeWidth={3} /></span>
+            <span className="grow">{h.text}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function News({ state, student }) {
+  const unread = useUnread(student.id);
+  const rows = newsRows(state, student, unread);
+  const open = student.homework.filter((h) => !h.done);
+  if (!rows.length && !open.length) return null;
   return (
     <Block title="Ajankohtaista" className="home-now">
       <div className="stack-3">
-        {hasAfter && <AfterSessions ended={lead.ended} onSkip={skip} className="is-card" />}
-        {news}
-      </div>
-    </Block>
-  );
-}
-
-function NextSession({ state, student }) {
-  const actions = usePlayerActions();
-  const nowMs = useNow(60_000);
-  const upcoming = upcomingSessions(state, student.id, new Date(nowMs));
-  const next = upcoming[0];
-  if (!next) return <Card><Quiet icon="calendar">Ei tulevia treenejä kalenterissa.</Quiet></Card>;
-  const group = next.groupId ? koutsiGroupById(state, next.groupId) : null;
-  const coach = koutsiCoachById(state, next.coachId);
-  const theme = group ? koutsiThemeForDate(group, next.date) : null;
-  const absent = (next.absences || []).some((a) => a.studentId === student.id);
-  const plan = readPlan(next.notes);
-  return (
-    <Card className={cx('next-session', absent && 'is-absent')}>
-      <div className="eyebrow">{relativeDay(next.date) === 'Tänään' ? 'Tänään' : 'Seuraava treeni'}</div>
-      <div className="next-session-when">
-        <span className="next-session-day">{relativeDay(next.date)}</span>
-        <span className="t-num">klo {koutsiTimeRangeLabel(next.time, next.durationMinutes || group?.durationMinutes)}</span>
-      </div>
-      <div className="next-session-what">{next.type}{group ? ` · ${group.name}` : ''}{coach ? ` · ${coach.name}` : ''}</div>
-      {theme && <div className="next-session-theme"><Icon name="sparkles" size={14} /> {theme.title}</div>}
-      {plan.items.length > 0 && (
-        <button type="button" className="tp-link" onClick={() => actions.openPlan(next)}>
-          <Icon name="list" size={16} /><span className="grow"><strong>Treenin runko</strong> · {planSummary(plan)}</span><Icon name="chevron-right" size={16} />
-        </button>
-      )}
-      <div className="row wrap">
-        {absent ? (
-          <>
-            <span className="chip chip-md chip-warn">Ilmoitit poissaolon</span>
-            <Button variant="ghost" size="sm" onClick={() => actions.openAbsence(next)}>Pääsenkin</Button>
-          </>
-        ) : <Button variant="outline" size="sm" icon="close" onClick={() => actions.openAbsence(next)}>En pääse</Button>}
-      </div>
-      {upcoming.length > 1 && (
-        <ul className="next-session-rest">
-          {upcoming.slice(1, 3).map((t) => {
-            const g = t.groupId ? koutsiGroupById(state, t.groupId) : null;
-            const hasRunko = readPlan(t.notes).items.length > 0;
-            return (
-              <li key={t.id}>
-                <span className="t-num">{shortDay(t.date)} {t.time}</span> · {t.type}{g ? ` · ${g.name}` : ''}
-                {hasRunko && <> · <button type="button" className="tp-inline is-text" onClick={() => actions.openPlan(t)}>Runko</button></>}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
-function Homework({ student }) {
-  const { run } = useData();
-  const open = student.homework.filter((h) => !h.done);
-  if (!student.homework.length) return null;
-  return (
-    <Block eyebrow="Kotiläksyt" title={open.length ? `${open.length} tekemättä` : 'Kaikki tehty — hyvää työtä!'}>
-      {open.length > 0 && (
-        <div className="k-list">
-          {open.map((h) => (
-            <button key={h.id} type="button" className="k-hw" onClick={() => run(() => api.homework.toggleDone(h.id, true), 'Merkitty tehdyksi — hienoa!')}>
-              <span className="k-check-btn"><Icon name="check" size={14} strokeWidth={3} /></span>
-              <span className="grow">{h.text}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </Block>
-  );
-}
-
-/** The player's groups, one row each (day, time, coach, this week's theme) → the group page. */
-function MyGroups({ state, student }) {
-  const groups = koutsiGroupsForStudent(state, student.id);
-  const week = koutsiCurrentIsoWeek();
-  if (!groups.length) return null;
-  return (
-    <Block title="Ryhmäsi">
-      <div className="ms-others-list">
-        {groups.map((g) => {
-          const coach = koutsiCoachById(state, g.coachId);
-          const theme = koutsiGroupThemeForWeek(g, week);
-          return (
-            <button key={g.id} type="button" className="ms-row" onClick={() => navigate('/pelaaja/ryhma')}>
-              <span className="ms-row-icon"><Icon name="users" size={16} /></span>
-              <span className="ms-row-main">
-                <span className="ms-row-title">{g.name}</span>
-                <span className="ms-row-sub">{[`${(g.day || '').toLowerCase()} ${g.time || ''}`.trim(), coach?.name, theme ? `Teema: ${theme.title}` : ''].filter(Boolean).join(' · ')}</span>
-              </span>
-              <Icon name="chevron-right" size={16} className="k-chevron" />
-            </button>
-          );
-        })}
+        {open.length > 0 && <HomeworkList open={open} />}
+        {rows.length > 0 && <NewsList rows={rows} />}
       </div>
     </Block>
   );
@@ -266,28 +352,39 @@ function Notices({ state }) {
 export function HomeScreen() {
   const { state } = useData();
   const isDesktop = useIsDesktop();
+  const nowMs = useNow(60_000);
+  const now = new Date(nowMs);
   const student = state.students[0];
   const hasCoach = (state.coaches || []).length > 0;
-  const groups = koutsiGroupsForStudent(state, student.id);
+  const days = weekDots(state, student, koutsiCurrentIsoWeek(), now);
+  // One session sheet over Koti: from a day in the strip or a row on the line.
+  const [picked, setPicked] = useState(null);
+  const last = useRef(null);
+  if (picked) last.current = picked;
+  const openDay = (d) => {
+    const it = sessionForDay(state, student, d.date, now);
+    if (it) setPicked(it);
+    else navigate(`/pelaaja/treenit?vko=${weekParam(koutsiCurrentIsoWeek())}&pv=${d.date}`);
+  };
+  const line = hasCoach && (
+    <Block title="Treenit">
+      <SessionLine student={student} now={now} onOpen={setPicked} />
+    </Block>
+  );
   return (
     <Page width="wide" className="week-page home-page">
-      <Head student={student} groups={groups} />
+      <Head student={student} days={days} onDay={openDay} />
       <div className={isDesktop ? 'week-grid' : 'stack-5'}>
         <div className="stack-5">
           {!hasCoach && <JoinCard />}
           <Notices state={state} />
-          <Now state={state} student={student} />
-          {hasCoach && (
-            <Block title="Tulevat treenit">
-              <NextSession state={state} student={student} />
-            </Block>
-          )}
+          {line}
         </div>
         <div className="stack-5">
-          <Homework student={student} />
-          <MyGroups state={state} student={student} />
+          <News state={state} student={student} />
         </div>
       </div>
+      <CoachSessionSheet open={Boolean(picked)} item={last.current} onClose={() => setPicked(null)} />
     </Page>
   );
 }

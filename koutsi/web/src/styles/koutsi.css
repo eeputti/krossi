@@ -348,6 +348,29 @@
 .planner-done .k-theme-card { width: 100%; text-align: left; }
 .planner-done-check { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: var(--success-bg); color: var(--success); }
 
+/* ── themes saved: what just happened (ThemeSaved) ───────── */
+.ts-head { display: flex; align-items: center; gap: 14px; }
+.ts-check { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: var(--lime); color: var(--ink); }
+.ts-head-text { min-width: 0; }
+.ts-head-text .t-h2 { margin: 0; }
+.ts-sub { margin: 2px 0 0; font-size: 13.5px; color: var(--muted); font-weight: 600; }
+.ts-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.ts-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line); }
+.ts-row-check { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: var(--ink); color: var(--lime); }
+.ts-row.is-kept .ts-row-check { background: transparent; border: 1.5px dashed var(--line-strong); }
+.ts-when { flex-shrink: 0; min-width: 62px; font-size: 13px; font-weight: 800; color: var(--ink); }
+.ts-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ts-name { font-size: 14px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-meta { font-size: 12.5px; color: var(--muted); }
+.ts-meta strong { color: var(--ink-2); font-weight: 700; }
+.ts-count { flex-shrink: 0; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.ts-week { display: grid; gap: 8px; justify-items: start; padding: 12px 14px; border-radius: var(--r-lg); background: var(--warn-bg); border: 1px solid rgba(138, 97, 0, 0.22); }
+.ts-week.is-ok { background: var(--lime-100); border-color: rgba(180, 205, 20, 0.45); }
+.ts-week-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: var(--ink); }
+.ts-week:not(.is-ok) .ts-week-title svg { color: var(--warn); }
+.ts-week-missing { font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+.ts-done > .k-copy-btn, .ts-done > button:last-child { justify-self: start; }
+
 /* ── group & player pages ────────────────────────────────── */
 .k-group-head, .k-session-head { display: grid; gap: 6px; justify-items: start; }
 .k-group-when { color: var(--ink-2); font-size: 14.5px; font-weight: 600; }

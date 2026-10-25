@@ -63,7 +63,9 @@ function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel })
       {roleLabel && <span className="k-role-pill">{roleLabel}</span>}
       {cta}
       <nav className="sidenav-links" aria-label="Päävalikko">
-        {tabs.map((t) => (
+        {/* a phone-only tab (a drawer button without an address) never belongs here, even for the
+            one render where a resize has reached one useIsDesktop() but not the other */}
+        {tabs.filter((t) => t.path).map((t) => (
           <Link key={t.id} to={t.path} className={cx('sidenav-link', tabOn === t.id && 'is-active')} aria-current={tabOn === t.id ? 'page' : undefined}>
             <Icon name={tabIcon(t.icon, tabOn === t.id)} size={20} />
             <span>{t.label}</span>

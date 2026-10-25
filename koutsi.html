@@ -142,17 +142,6 @@ window.krossiLoadPixel = function () {
   .phone-pair-back { transform: rotate(-6deg) translate(10px, 10px); z-index: 1; }
   .phone-pair-front { transform: rotate(6deg) translate(-10px, -14px); z-index: 2; margin-left: -66px; }
 
-  /* ── phone demo skin (light) ── */
-  .kp-light { background: #fff; }
-  .kp-screen, .kp-scroll-x { scrollbar-width: none; }
-  .kp-screen::-webkit-scrollbar, .kp-scroll-x::-webkit-scrollbar { display: none; }
-  .kp-card {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 12px; padding: 15px 16px;
-  }
-  @keyframes kcPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.75); } }
-  .kc-pulse { animation: kcPulse 1s ease-in-out infinite; }
   @media (max-width: 1080px) { .hero-stage { transform: scale(0.94); } }
   @media (max-width: 720px) { .hero-stage { transform: scale(0.86); margin-bottom: -10px; } }
   @media (max-width: 460px) { .hero-stage { transform: scale(0.72); margin-bottom: -80px; } }

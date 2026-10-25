@@ -92,7 +92,7 @@ function student(id, name, { age = null, level = null, placeholder = true } = {}
   return {
     id, name, initial: koutsiInitialOf(name), hue: koutsiHueFromId(id), avatarUrl: '', isPlaceholder: placeholder,
     age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
-    level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '', joinedAt: null, welcomeSeenAt: null,
+    level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '', bio: '', area: '', joinedAt: null, welcomeSeenAt: null,
     diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], ambitionHistory: [], archive: [], entries: [],
   };
 }
@@ -148,11 +148,27 @@ export const backend = {
       S().profileName[id] = name;
     },
     async uploadAvatar(id, file) {
+      await wait();
       const url = URL.createObjectURL(file);
       if (id === COACH) S().coach.avatarUrl = url;
       const st = findStudent(id);
       if (st) st.avatarUrl = url;
       return url;
+    },
+    async removeAvatar(id) {
+      await wait();
+      if (id === COACH) S().coach.avatarUrl = '';
+      const st = findStudent(id);
+      if (st) st.avatarUrl = '';
+    },
+    async saveAbout(id, fields) {
+      await wait();
+      const patch = {};
+      if ('bio' in fields) patch.bio = fields.bio || '';
+      if ('area' in fields && fields.area) patch.area = fields.area;
+      if (id === COACH) Object.assign(S().coach, patch);
+      const st = findStudent(id);
+      if (st) Object.assign(st, patch);
     },
     async recordAppOpen() {},
     async trackEvent() {},

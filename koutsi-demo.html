@@ -21,47 +21,69 @@
 <meta name="twitter:image" content="https://koutsi.krossi.app/assets/krossi-icon.png" />
 
 <link rel="icon" type="image/png" href="assets/ball-tight.png" />
-<link rel="stylesheet" href="lib/koutsi-shared.css" />
 <style>
+  /* Same look as the new Koutsi app and koutsi.krossi.app: white page, neutral greys,
+     near-black for dark surfaces, lime as the one accent, flat cards. */
+  :root {
+    --lime: #CFE414;
+    --paper: #FFFFFF;
+    --sand: #F1F1F1;
+    --line: #E8E8E8;
+    --ink: #121212;
+    --ink-2: #333333;
+    --muted: #6A6A6A;
+    --dark: #121212;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  h1, h2 { text-wrap: balance; margin: 0; }
+  p { text-wrap: pretty; margin: 0; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
   .demo-wrap { min-height: 100vh; display: flex; flex-direction: column; }
   .demo-nav { padding: 22px 24px; }
-  .demo-nav a { text-decoration: none; display: inline-flex; align-items: baseline; gap: 7px; }
+  .demo-nav a { text-decoration: none; display: inline-flex; align-items: baseline; gap: 8px; }
+  .demo-logo { font-weight: 800; font-size: 21px; letter-spacing: -0.6px; color: var(--lime); }
+  .koutsi-badge { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; background: var(--sand); color: var(--ink-2); padding: 3px 10px; border-radius: 999px; }
   .demo-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px 22px 60px; }
   .demo-inner { max-width: 880px; width: 100%; text-align: center; }
-  .demo-eyebrow { display: inline-flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8a6a4a; margin-bottom: 16px; }
-  .demo-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 3px rgba(207,228,20,0.25); }
-  .demo-title { font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 800; letter-spacing: -0.03em; color: var(--green-deep); margin-bottom: 12px; }
-  .demo-sub { font-size: clamp(1rem, 2vw, 1.15rem); color: #514c42; max-width: 560px; margin: 0 auto 44px; line-height: 1.55; }
+  .demo-eyebrow { display: inline-flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+  .demo-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); }
+  .demo-title { font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 800; letter-spacing: -0.03em; color: var(--ink); margin-bottom: clamp(32px, 5vw, 48px); }
   .demo-grid { display: grid; grid-template-columns: 1fr; gap: 20px; text-align: left; }
   @media (min-width: 720px) { .demo-grid { grid-template-columns: 1fr 1fr; } }
   .demo-card {
-    background: #fff; border: 1.5px solid var(--line); border-radius: 24px; padding: 32px 28px;
+    background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 32px 28px;
     display: flex; flex-direction: column; gap: 14px; text-decoration: none; color: inherit;
-    transition: transform .18s ease, box-shadow .2s ease, border-color .2s ease;
+    transition: border-color .2s ease, background .2s ease;
   }
-  .demo-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -22px rgba(20,20,10,0.25); border-color: var(--green-deep); }
+  .demo-card:hover { border-color: var(--ink); }
   .demo-card-icon {
-    width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
-    background: var(--green-deep);
+    width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    background: var(--dark);
   }
   .demo-card h2 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); }
-  .demo-card p { font-size: 14.5px; line-height: 1.55; color: #555049; }
-  .demo-card .go { margin-top: auto; font-weight: 700; font-size: 14.5px; color: var(--green-deep); display: inline-flex; align-items: center; gap: 6px; }
+  .demo-card p { font-size: 14.5px; line-height: 1.55; color: var(--muted); }
+  .demo-card .go { margin-top: auto; font-weight: 700; font-size: 14.5px; color: var(--ink); display: inline-flex; align-items: center; gap: 6px; }
 </style>
 </head>
 <body>
   <div class="demo-wrap">
     <div class="demo-nav">
       <a href="https://koutsi.krossi.app">
-        <span style="font-weight:800; font-size:21px; color:var(--green-deep); letter-spacing:-0.5px;">Krossi</span>
-        <span style="font-size:12px; font-weight:700; color:#8a857a;">Koutsi</span>
+        <span class="demo-logo">Krossi</span>
+        <span class="koutsi-badge">Koutsi</span>
       </a>
     </div>
     <div class="demo-main">
       <div class="demo-inner">
         <span class="demo-eyebrow"><span class="demo-dot"></span> Interaktiivinen demo</span>
         <h1 class="demo-title">Kumman näkymän<br />haluat kokeilla?</h1>
-        <p class="demo-sub">Krossi Koutsi yhdistää valmentajan ja pelaajan. Molemmilla on oma näkymänsä samaan dataan — kokeile kumpaa tahansa, tai molempia.</p>
         <div class="demo-grid">
           <a href="/valmentaja" class="demo-card">
             <div class="demo-card-icon">

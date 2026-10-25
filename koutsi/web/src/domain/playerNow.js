@@ -7,8 +7,11 @@
 // every session that began before it. Before the column exists every mood is the second kind,
 // so only the latest session is asked about, as before.
 
-import { koutsiAddDays, koutsiTrainingsForStudent, koutsiGroupById, koutsiAddMinutesToTime, koutsiPad } from './core.js';
+import {
+  koutsiAddDays, koutsiTrainingsForStudent, koutsiGroupById, koutsiAddMinutesToTime, koutsiPad, koutsiCoachById, koutsiThemeForDate,
+} from './core.js';
 import { upcomingSessions } from './player.js';
+import { weekDates } from './week.js';
 
 const hhmm = (d) => `${koutsiPad(d.getHours())}:${koutsiPad(d.getMinutes())}`;
 const dayOf = (d) => `${d.getFullYear()}-${koutsiPad(d.getMonth() + 1)}-${koutsiPad(d.getDate())}`;
@@ -74,6 +77,81 @@ export const firstOpenSlide = (ended) => Math.max(0, ended.findIndex((x) => !x.m
 export function spanLabel(ended) {
   if (!ended.length) return '';
   return `${ended[0].training.time || ''}–${ended[ended.length - 1].end}`;
+}
+
+// ── Koti's session line ─────────────────────────────────────
+// A player can have many sessions a week, each with its own group and theme, so Koti reads them
+// from the clock, the way the coach's day does: the one that just ended, the one on now, the
+// next one and a few after it.
+
+const MIN = 60 * 1000;
+
+/** A coach-run session as Koti shows it: where it stands now and how far from now it is. */
+function lineItem(state, student, training, nowMs) {
+  const group = training.groupId ? koutsiGroupById(state, training.groupId) : null;
+  const length = training.durationMinutes || group?.durationMinutes || 60;
+  const start = startOf(training).getTime();
+  const endMs = start + length * MIN;
+  const status = nowMs < start ? 'upcoming' : nowMs < endMs ? 'now' : 'past';
+  return {
+    training, group, status,
+    coach: state.coaches ? koutsiCoachById(state, training.coachId) : null,
+    theme: group ? koutsiThemeForDate(group, training.date) : null,
+    end: hhmm(new Date(endMs)),
+    absent: (training.absences || []).some((a) => a.studentId === student.id),
+    minutesUntil: Math.round((start - nowMs) / MIN),
+    minutesLeft: Math.round((endMs - nowMs) / MIN),
+    minutesAgo: Math.round((nowMs - endMs) / MIN),
+    progress: Math.min(1, Math.max(0, (nowMs - start) / (endMs - start))),
+  };
+}
+
+/**
+ * The player's coach-run sessions around now, for Koti:
+ *   previous — the latest one that ended in the last two days and the player was at (or null),
+ *   now      — the ones running now,
+ *   next     — the next one that hasn't started (or null),
+ *   later    — up to `later` more after it, within two weeks.
+ */
+export function sessionLine(state, student, { now = new Date(), later = 3 } = {}) {
+  const today = dayOf(now);
+  const nowMs = now.getTime();
+  const items = koutsiTrainingsForStudent(state, student.id)
+    .filter((t) => t.loggedBy !== 'player' && t.date >= koutsiAddDays(today, -2) && t.date <= koutsiAddDays(today, 14))
+    .map((t) => lineItem(state, student, t, nowMs));
+  const past = items.filter((x) => x.status === 'past' && !x.absent);
+  const upcoming = items.filter((x) => x.status === 'upcoming');
+  return {
+    previous: past[past.length - 1] || null,
+    now: items.filter((x) => x.status === 'now'),
+    next: upcoming[0] || null,
+    later: upcoming.slice(1, 1 + later),
+  };
+}
+
+/** The session a tap on a day opens: the day's first one that hasn't ended, else its last; null when the day has none. */
+export function sessionForDay(state, student, date, now = new Date()) {
+  const nowMs = now.getTime();
+  const day = koutsiTrainingsForStudent(state, student.id)
+    .filter((t) => t.loggedBy !== 'player' && t.date === date)
+    .map((t) => lineItem(state, student, t, nowMs));
+  return day.find((x) => x.status !== 'past') || day[day.length - 1] || null;
+}
+
+/** Koti's week strip: Monday to Sunday, a dot per coach-run session and whether there are own logs. */
+export function weekDots(state, student, week, now = new Date()) {
+  const today = dayOf(now);
+  const nowMs = now.getTime();
+  const all = koutsiTrainingsForStudent(state, student.id);
+  return weekDates(week).map((date, i) => {
+    const onDay = all.filter((t) => t.date === date);
+    return {
+      date, label: ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'][i], day: Number(date.slice(8)),
+      isToday: date === today, isPast: date < today,
+      sessions: onDay.filter((t) => t.loggedBy !== 'player').map((t) => lineItem(state, student, t, nowMs)),
+      own: onDay.filter((t) => t.loggedBy === 'player' && t.studentId === student.id).length,
+    };
+  });
 }
 
 /** Long-term ambition: what kind of player the player is aiming to be. */

@@ -6,6 +6,7 @@ import { useData } from '../app/data.jsx';
 import { Icon, IconButton, Sheet } from '../ui/index.js';
 import { koutsiFmtShortDate } from '../domain/core.js';
 import { monthCalendar, weekStrip, itemIcon } from '../domain/monthCal.js';
+import { activityStreak } from '../domain/player.js';
 import { ActivityIcon } from './ActivityIcon.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -31,11 +32,14 @@ export function WeekCard({ hidden, onOpen }) {
   const student = state.students[0];
   const days = weekStrip(state, student, { hidden });
   const done = days.filter((d) => d.items.length).length;
+  const streak = activityStreak(state, student);
+  const doneWord = done === 0 ? 'Ei vielä merkintöjä' : done === 1 ? '1 treenipäivä' : `${done} treenipäivää`;
+  const streakWord = streak.weeks > 1 ? `${streak.weeks} viikon putki` : '';
   return (
     <button type="button" className="mc-week" onClick={onOpen}>
       <span className="mc-week-head">
         <span className="mc-week-title">Tämä viikko</span>
-        <span className="mc-week-sub">{done === 0 ? 'Ei vielä merkintöjä' : done === 1 ? '1 treenipäivä' : `${done} treenipäivää`}</span>
+        <span className="mc-week-sub">{[doneWord, streakWord].filter(Boolean).join(' · ')}</span>
         <span className="mc-week-open">Kalenteri <Icon name="chevron-right" size={15} /></span>
       </span>
       <span className="mc-week-days">

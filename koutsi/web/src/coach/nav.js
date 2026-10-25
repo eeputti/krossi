@@ -7,13 +7,17 @@ export const playerPath = (id) => `/valmentaja/pelaaja/${encodeURIComponent(id)}
 export const sessionPath = (id) => `/valmentaja/treeni/${encodeURIComponent(id)}`;
 export const exercisePath = (id) => `/valmentaja/harjoite/${encodeURIComponent(id)}`;
 
-/** The weekly theme planner, as a sheet over the current page. */
-export function openPlanner({ week, groupId } = {}) {
+/** The weekly theme planner, as a sheet over the current page; groupId / groupIds start picked. */
+export function openPlanner({ week, groupId, groupIds } = {}) {
   const q = new URLSearchParams();
   if (week) q.set('vko', weekParam(week));
-  if (groupId) q.set('ryhma', groupId);
+  const ids = groupIds || (groupId ? [groupId] : []);
+  if (ids.length) q.set('ryhma', ids.join(','));
   const s = q.toString();
-  navigate(`/valmentaja/teemat${s ? `?${s}` : ''}`, { overlay: true });
+  // already on the planner (e.g. from "Jatka edellisillä" opened over it): swap it in place, so
+  // closing it lands back where the coach started, not on an older copy of it
+  const onPlanner = /\/valmentaja\/teemat\/?$/.test(window.location.pathname);
+  navigate(`/valmentaja/teemat${s ? `?${s}` : ''}`, { overlay: true, replace: onPlanner });
 }
 
 /** "Uusi kausi" — plan the next season (SeasonSheet). */

@@ -353,7 +353,7 @@ export function RecordProvider({ children }) {
       {children}
       <MerkintaSheet open={kind === 'viesti'} onClose={close} trainingId={last.current.viesti?.trainingId || null}
         initialIds={last.current.viesti?.ids || []} initialKind={last.current.viesti?.messageKind || null}
-        onVideo={(ids) => setSheet({ kind: 'video', ids })} onContinue={(week) => setSheet({ kind: 'continue', week })}
+        onVideo={(ids) => setSheet({ kind: 'video', ids })}
         onDay={(date) => setSheet({ kind: 'day', date })} onWeek={(week) => setSheet({ kind: 'week', week })} onAbsence={() => setSheet({ kind: 'absence' })} />
       <MerkitseSheet open={kind === 'menu'} onClose={close} onPick={setSheet} pickedIds={last.current.menu?.trainingIds || []}
         week={Boolean(last.current.menu?.allWeek)} focusId={last.current.menu?.focusId || null}

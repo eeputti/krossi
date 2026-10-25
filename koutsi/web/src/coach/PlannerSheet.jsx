@@ -1,5 +1,6 @@
 // PlannerSheet — "Viikon teemat": one theme for many groups in three steps (theme → groups →
-// done), the week's existing themes as clusters, "Jatka edellisillä", earlier themes to reuse,
+// done, where the coach sees every group it went to and who still lacks one — ThemeSaved), the
+// week's existing themes as clusters, "Jatka edellisillä", earlier themes to reuse,
 // and past weeks as a read-only archive. Ported from the old WeekThemePlanner rule by rule:
 //   - nothing is preselected; which groups get a theme is always the coach's choice
 //   - a group's existing different theme (or tarkennus) is replaced only after consent
@@ -9,16 +10,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useData } from '../app/data.jsx';
 import { goBack } from '../app/router.js';
 import { Button, Disclosure, Field, Icon, Input, Sheet, Textarea, useConfirm, useToast, confetti } from '../ui/index.js';
-import { CopyButton, ThemeCard, WeekStepper, Quiet } from '../shared/bits.jsx';
+import { ThemeCard, WeekStepper, Quiet } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiAddIsoWeeks, koutsiCompareIsoWeeks, koutsiWeekThemeStatus, koutsiThemeClusters,
   koutsiThemeLibrary, koutsiThemeHistory, koutsiThemeKey, koutsiGroupNameChips, koutsiIsoWeekKey,
-  koutsiThemeShareMessage, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX,
+  KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX,
 } from '../domain/core.js';
 import { DAY_NAMES, parseWeekParam, plannerDefaultWeek, themeWeekLabel } from '../domain/week.js';
 import { api } from '../api/index.js';
 import { useSaveThemes } from './themeActions.js';
 import { useRecord } from './merkitse.jsx';
+import { ThemeSaved } from './ThemeSaved.jsx';
+import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -57,10 +60,25 @@ export function PlannerSheet({ query }) {
   const [title, setTitle] = useState('');
   const [lead, setLead] = useState('');
   const [editingKey, setEditingKey] = useState(null);
-  const [selected, setSelected] = useState(() => new Set(query.ryhma && groups.some((g) => g.id === query.ryhma) ? [query.ryhma] : []));
+  // ?ryhma=<id>[,<id>…] opens with those groups picked (a group's page, "Aseta teema puuttuville")
+  const pickedFromQuery = () => new Set(String(query.ryhma || '').split(',').filter((id) => groups.some((g) => g.id === id)));
+  const [selected, setSelected] = useState(pickedFromQuery);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(null);
   const bodyTop = useRef(null);
+  // Opened again while already open (Jatka edellisillä → Valmis → Aseta teema puuttuville): start
+  // over on the new week with the new groups picked.
+  const queryKey = `${query.vko || ''}|${query.ryhma || ''}`;
+  const lastQuery = useRef(queryKey);
+  useEffect(() => {
+    if (lastQuery.current === queryKey) return;
+    lastQuery.current = queryKey;
+    const w = parseWeekParam(query.vko);
+    if (w) setWeek(w);
+    setTitle(''); setLead(''); setEditingKey(null); setSaved(null);
+    setSelected(pickedFromQuery());
+    setStep(1);
+  }, [queryKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isPast = koutsiCompareIsoWeeks(week, now) < 0;
   const status = koutsiWeekThemeStatus(groups, state.trainings, week);
@@ -121,6 +139,8 @@ export function PlannerSheet({ query }) {
     if (res.ok && editingKey === c.key) resetComposer();
   };
   const continueThemes = () => openContinue(week); // opens over the planner, each group's previous theme ready to edit
+  // from Valmis: a new theme for the groups still without one, those groups already picked
+  const themeForMissing = (ids) => { track('teemat.puuttuville'); setSaved(null); resetComposer(); setSelected(new Set(ids)); goStep(1); };
 
   const cleanTitle = title.trim();
   const cleanLead = lead.trim();
@@ -158,7 +178,18 @@ export function PlannerSheet({ query }) {
     setBusy(false);
     if (written == null) return;
     if (written === 0) { toast('Valituilla ryhmillä oli jo teema, eikä sitä muutettu.', { tone: 'info' }); return; }
-    setSaved({ title: cleanTitle, lead: cleanLead, week, count: written, kept: changes.length - written, groups: changes.map((r) => r.group) });
+    // Valmis lists every picked group: the ones that got it, what it replaced, and the ones left as they were
+    const skipped = conflicts.filter((r) => !list.includes(r));
+    setSaved({
+      week,
+      items: [...list, ...targets.filter((r) => keepsOwn(r))].map((r) => ({
+        group: r.group, title: cleanTitle, lead: cleanLead,
+        previous: r.theme && !sameTitle(r) ? r.theme.title : null,
+        already: Boolean(r.theme) && sameTitle(r) && (keepsOwn(r) || (r.theme.lead || '') === cleanLead),
+      })),
+      skipped: skipped.map((r) => ({ group: r.group, theme: r.theme })),
+    });
+    track('teemat.tallennettu');
     resetComposer();
     goStep(3);
   };
@@ -202,7 +233,7 @@ export function PlannerSheet({ query }) {
   else if (step === 1) footer = (
     <div className="sheet-actions">
       <Button variant="soft" size="lg" onClick={close}>Sulje</Button>
-      <Button variant="dark" size="lg" iconRight="arrow-right" disabled={!cleanTitle} onClick={() => cleanTitle && goStep(2)}>{cleanTitle ? 'Valitse ryhmät' : 'Kirjoita ensin teema'}</Button>
+      <Button variant="dark" size="lg" iconRight="arrow-right" disabled={!cleanTitle} onClick={() => cleanTitle && goStep(2)}>Valitse ryhmät</Button>
     </div>
   );
   else if (step === 2) footer = (
@@ -213,7 +244,7 @@ export function PlannerSheet({ query }) {
   );
   else if (step === 3) footer = (
     <div className="sheet-actions">
-      <Button variant="outline" size="lg" icon="plus" onClick={() => { setSaved(null); goStep(1); }}>Toinen teema</Button>
+      <Button variant="outline" size="lg" icon="plus" onClick={() => { setSaved(null); resetComposer(); goStep(1); }}>Uusi teema</Button>
       <Button variant="dark" size="lg" onClick={close}>Valmis</Button>
     </div>
   );
@@ -348,22 +379,7 @@ export function PlannerSheet({ query }) {
       )}
 
       {!isPast && step === 3 && saved && (
-        <div className="planner-done stack-4">
-          <div className="planner-done-check pop"><Icon name="check" size={28} strokeWidth={3} /></div>
-          <h3 className="t-h2">Teema tallennettu</h3>
-          <p className="k-quiet-text">
-            {saved.count === 1 ? '1 ryhmälle' : `${saved.count} ryhmälle`} viikolle {saved.week.week}
-            {saved.kept === 0 ? `: ${saved.groups.slice(0, 6).map((g) => `${g.day} ${g.time} ${g.name}`).join(', ')}${saved.groups.length > 6 ? ` ja ${saved.groups.length - 6} muuta` : ''}` : `. ${saved.kept === 1 ? '1 ryhmällä' : `${saved.kept} ryhmällä`} oli jo teema, jota ei muutettu.`}
-          </p>
-          <ThemeCard theme={{ title: saved.title, lead: saved.lead }} week={saved.week} />
-          <CopyButton variant="dark" size="md" icon="share" text={koutsiThemeShareMessage({ title: saved.title, lead: saved.lead, week: saved.week.week })}
-            label="Kopioi viesti pelaajille" copiedLabel="Kopioitu — liitä ryhmän WhatsAppiin" />
-          <p className={cx('k-quiet-text', fullNow && 'k-success-text')}>
-            {withoutTheme.length > 0
-              ? `${covered}/${pool.length} ryhmällä on nyt teema. ${withoutTheme.length === 1 ? '1 ryhmältä' : `${withoutTheme.length} ryhmältä`} puuttuu vielä teema.`
-              : `Kaikilla ${pool.length} ryhmällä on nyt teema viikolla ${saved.week.week}.`}
-          </p>
-        </div>
+        <ThemeSaved state={state} week={saved.week} items={saved.items} skipped={saved.skipped} onMissing={themeForMissing} />
       )}
     </Sheet>
   );

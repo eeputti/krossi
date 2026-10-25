@@ -19,7 +19,7 @@ import { calendarEndings, coachSessionsOn, playerActivity, plannerDefaultWeek, u
 import { weekGlance } from '../domain/glance.js';
 import { firstName } from '../domain/roster.js';
 import { useCoach } from './CoachRoot.jsx';
-import { openInvites, openSeason, playerPath } from './nav.js';
+import { openInvites, openPlanner, openSeason, playerPath } from './nav.js';
 import { currentSeason, draftSummary, groupsOfSeason, nextSeasonPreset, seasonNudge, seasonWord } from '../domain/season.js';
 import { ActivityRow, SessionRow } from './parts.jsx';
 import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
@@ -49,7 +49,9 @@ function WeekHero({ state, glance, week }) {
   const status = koutsiWeekThemeStatus(state.groups, state.trainings, themeWeek);
   const { covered, pool, carry } = status;
   const all = pool.length > 0 && covered === pool.length;
-  const go = () => record.openContinue(themeWeek); // the week's themes, each group's previous one ready to edit
+  const go = () => { track('koti.jatka-teemat'); record.openContinue(themeWeek); }; // each group's previous theme, ready to edit
+  // Viikon teemat, as in the old Koutsi: teema → ryhmät → valmis (what went where, who still lacks one)
+  const plan = () => { track('koti.teema'); openPlanner({ week: themeWeek }); };
   const openDay = (date) => { track('koti.paiva'); navigate(`/valmentaja/ryhmat?vko=${weekParam(week)}&pv=${date}`); };
   const missing = status.missing || [];
   const weekWord = isNow ? `Viikon ${themeWeek.week}` : `Ensi viikon (vko ${themeWeek.week})`;
@@ -57,18 +59,19 @@ function WeekHero({ state, glance, week }) {
     + (missing.length > 3 ? ` · +${missing.length - 3} muuta` : '');
   const themeRow = pool.length > 0 && (
     <div className={cx('wk-theme', 'wk-theme-top', all && 'is-ok')}>
-      <button type="button" className="wk-theme-open" onClick={() => record.openMerkinta({ kind: 'teema' })}>
+      <button type="button" className="wk-theme-open" onClick={plan}>
         <span className="wk-theme-icon"><Icon name={all ? 'check' : 'alert'} size={15} strokeWidth={all ? 3 : 2.2} /></span>
         <span className="wk-theme-text">
           <span className="wk-theme-title">{all ? `${weekWord} teemat asetettu` : `${weekWord} teema puuttuu ${missing.length === 1 ? '1 ryhmältä' : `${missing.length} ryhmältä`}`}<Icon name="chevron-right" size={15} /></span>
           <span className="wk-theme-sub">{all ? `Kaikilla ${pool.length} ryhmällä on teema.` : missingNames}</span>
         </span>
       </button>
-      {!all && (carry.length > 0 ? (
-        <Button variant="lime" size="sm" icon="repeat" onClick={go}>Jatka edellisillä</Button>
-      ) : (
-        <Button variant="lime" size="sm" icon="sparkles" onClick={() => record.openMerkinta({ kind: 'teema' })}>Aseta</Button>
-      ))}
+      {!all && (
+        <span className="wk-theme-actions">
+          <Button variant="lime" size="sm" icon="plus" onClick={plan}>Aseta teema</Button>
+          {carry.length > 0 && <Button variant="on-dark" size="sm" icon="repeat" onClick={go}>Jatka edellisillä</Button>}
+        </span>
+      )}
     </div>
   );
   return (

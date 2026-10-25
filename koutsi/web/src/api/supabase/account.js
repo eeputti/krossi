@@ -42,7 +42,7 @@ export const auth = {
 };
 
 async function uploadAvatarFile(uid, file) {
-  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5);
+  const ext = (String(file.name || '').split('.').pop() || 'jpg').toLowerCase().slice(0, 5) || 'jpg';
   const path = `${uid}/${Date.now()}.${ext}`;
   must(await db().storage.from('profile-avatars').upload(path, file, { upsert: true }));
   return path;
@@ -96,6 +96,20 @@ export const account = {
     const path = await uploadAvatarFile(uid, file);
     must(await db().from('profiles').update({ avatar_url: path }).eq('id', uid));
     return avatarUrl(path);
+  },
+  async removeAvatar(uid) {
+    must(await db().from('profiles').update({ avatar_url: null }).eq('id', uid));
+  },
+  /**
+   * The profile's own words and/or home town — the same row Krossi shows, so both apps agree.
+   * Only the keys given are written (a coach's description lives in koutsi_coaches, so a coach
+   * never touches profiles.bio).
+   */
+  async saveAbout(uid, fields) {
+    const patch = {};
+    if ('bio' in fields) patch.bio = fields.bio || null;
+    if ('area' in fields && fields.area) patch.area = fields.area;
+    if (Object.keys(patch).length) must(await db().from('profiles').update(patch).eq('id', uid));
   },
   /** Counts one real app open; never allowed to fail anything. */
   async recordAppOpen(appName) {

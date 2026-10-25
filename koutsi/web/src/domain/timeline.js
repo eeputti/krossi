@@ -199,7 +199,8 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
     push({
       id: `training-${t.id}`, kind: 'training', at: t.date,
       title: absence ? `${t.type} — ${reason}` : named ? own.title : t.type,
-      body: [t.groupName || '', t.themeTitle ? `Teema: ${t.themeTitle}` : '', own && t.durationMinutes ? `${t.durationMinutes} min` : '',
+      theme: t.themeTitle || '',
+      body: [t.groupName || '', own && t.durationMinutes ? `${t.durationMinutes} min` : '',
         own ? (named ? own.text : (t.notes || '').trim()) : '', absence?.note || '', tournamentSummary].filter(Boolean).join(' · '),
       time: t.time, absent: !!absence, own: t.loggedBy === 'player', trainingId: t.id,
       search: `${t.type} ${t.groupName || ''} treeni ${reason} ${absence?.note || ''} ${t.themeTitle || ''} ${t.loggedBy === 'player' ? t.notes || '' : ''}`,

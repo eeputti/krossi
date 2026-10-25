@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { Button, Icon, IconButton, Page, Segmented, Sheet, TopBar, useConfirm } from '../ui/index.js';
+import { Button, Icon, IconButton, Page, PageHeader, Segmented, Sheet, useConfirm } from '../ui/index.js';
 import { Block, Quiet } from '../shared/bits.jsx';
 import { koutsiFmtShortDate } from '../domain/core.js';
 import { buildDrillList } from '../domain/drills/index.js';
@@ -33,8 +33,8 @@ export function ExercisesScreen() {
   const videoCount = own.length + fromCoach.length;
   return (
     <>
-      <TopBar title="Harjoitteet ja videot" back="/pelaaja/kehitys" />
-      <Page className="stack-5 k-page-pad">
+      <Page className="stack-5">
+        <PageHeader title="Harjoitteet ja videot" />
         <Segmented ariaLabel="Näytä" value={tab} onChange={pickTab}
           options={[{ value: 'drills', label: 'Harjoitteet' }, { value: 'videos', label: 'Videot', badge: videoCount || null }]} />
         {tab === 'drills' ? (
