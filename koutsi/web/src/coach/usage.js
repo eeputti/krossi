@@ -68,6 +68,23 @@ export const USAGE_SECTIONS = [
     ],
   },
   {
+    title: 'Suunnittele (tietokone)',
+    events: [
+      ['suunnittele.teemat', 'Teemat-osio avattu'],
+      ['suunnittele.teema-tallennettu', 'Teema tallennettu monelle viikolle/ryhmälle'],
+      ['suunnittele.teema-muokattu', 'Teemaa muokattu monelta viikolta kerralla'],
+      ['suunnittele.teema-poistettu', 'Teema poistettu ruuduista'],
+      ['suunnittele.poissaolot', 'Poissaolot-osio avattu'],
+      ['suunnittele.poissaolo-pelaaja', 'Pelaaja valittu poissaoloihin'],
+      ['suunnittele.poissaolo-tallennettu', 'Poissaolot tallennettu (Suunnittele)'],
+      ['pelaaja.poissaolot', 'Pelaaja → Poissaolot'],
+      ['pelaaja.poissaolo-tallennettu', 'Poissaolot tallennettu (pelaajan sivu)'],
+      ['suunnittele.kausi', 'Kausi-osio avattu'],
+      ['suunnittele.uusi-kausi', 'Suunnittele seuraava kausi'],
+      ['viikko.lisaa-kausi', 'Plus-nappi → Uusi kausi'],
+    ],
+  },
+  {
     title: 'Harjoitepankki',
     events: [
       ['pankki.avaa-kirjasto', 'Kirjaston harjoite avattu'],

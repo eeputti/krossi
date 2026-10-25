@@ -24,6 +24,8 @@ import { coachMonthCalendar, playerMonthFacts } from '../domain/glance.js';
 import { itemIcon } from '../domain/monthCal.js';
 import { firstName } from '../domain/roster.js';
 import { ActivityIcon } from '../player/ActivityIcon.jsx';
+import { AbsenceSheet } from './AbsencePlanner.jsx';
+import { track } from './usage.js';
 
 function LevelSheet({ open, onClose, student }) {
   const { run } = useData();
@@ -355,7 +357,10 @@ export function PlayerScreen({ params }) {
 
         {student.isPlaceholder && <PlaceholderInvite student={student} />}
 
-        <Button variant="lime" size="lg" block icon="chat" onClick={() => record.openMerkinta({ ids: [student.id], kind: 'huomio' })}>Huomio {toName(student.name)}</Button>
+        <div className="k-player-actions">
+          <Button variant="lime" size="lg" block icon="chat" onClick={() => record.openMerkinta({ ids: [student.id], kind: 'huomio' })}>Huomio {toName(student.name)}</Button>
+          <Button variant="outline" size="lg" icon="calendar" onClick={() => { track('pelaaja.poissaolot'); setSheet({ kind: 'absence' }); }}>Poissaolot</Button>
+        </div>
 
         <MonthCard state={state} student={student} hidden={hiddenKeys} />
 
@@ -394,6 +399,7 @@ export function PlayerScreen({ params }) {
       </Page>
 
       <LevelSheet open={sheet?.kind === 'level'} student={student} onClose={close} />
+      <AbsenceSheet open={sheet?.kind === 'absence'} student={student} onClose={close} />
       <EditPlaceholderSheet open={sheet?.kind === 'edit'} student={student} onClose={close} />
       <MergeSheet open={sheet?.kind === 'merge'} student={student} onClose={close} />
       <AudienceSheet open={sheet?.kind === 'audience'} video={sheet?.item} onClose={close} />

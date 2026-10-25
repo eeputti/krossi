@@ -26,7 +26,7 @@ import { AddSheet, BoardItemSheet, WeekPickerSheet } from './boardSheets.jsx';
 import { GroupFormSheet } from './groupForms.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { EVENT_ICON, EventSheet, TrainingSheet } from './trainingForms.jsx';
-import { openPlanner } from './nav.js';
+import { openPlanner, openSeason } from './nav.js';
 import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -130,6 +130,7 @@ export function BoardScreen({ query }) {
   const onAdd = (what) => {
     track(`viikko.lisaa-${what}`);
     if (what === 'teema') { close(); openPlanner({ week }); return; }
+    if (what === 'kausi') { close(); openSeason(); return; }
     const defaultDate = isCurrent ? today : dates[0];
     setSheet(what === 'ryhma' ? { kind: 'group' } : what === 'monta' ? { kind: 'bulk' } : what === 'tapahtuma' ? { kind: 'event', date: defaultDate } : { kind: 'training', date: defaultDate });
   };

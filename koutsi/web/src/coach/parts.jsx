@@ -50,10 +50,10 @@ export function SessionRow({ item, showDate, now }) {
 }
 
 /** A group in a list: schedule, name, members, this week's theme status. */
-export function GroupRow({ group, week }) {
+export function GroupRow({ group, week, linkState }) {
   const theme = week ? koutsiGroupThemeForWeek(group, week) : group.theme;
   return (
-    <Link to={groupPath(group.id)} className="k-row k-group-row">
+    <Link to={groupPath(group.id)} state={linkState} className="k-row k-group-row">
       <span className="k-group-time t-num">{group.time || '—'}</span>
       <span className="k-row-main">
         <span className="k-row-title truncate">{group.name}</span>

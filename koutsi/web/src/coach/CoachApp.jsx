@@ -12,10 +12,12 @@ import { recapWeekDue } from '../domain/week.js';
 import { markRecapSeen, previewRecap, recapSeen, WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { useCoach } from './CoachRoot.jsx';
-import { PHONE_TABS, TABS } from './routes.js';
+import { DESKTOP_TABS, PHONE_TABS } from './routes.js';
 import { WeekScreen } from './WeekScreen.jsx';
 import { PlannerSheet } from './PlannerSheet.jsx';
 import { BoardScreen } from './BoardScreen.jsx';
+import { PlanScreen } from './PlanScreen.jsx';
+import { GroupListScreen } from './GroupListScreen.jsx';
 import { GroupScreen } from './GroupScreen.jsx';
 import { PlayersScreen } from './PlayersScreen.jsx';
 import { PlayerScreen } from './PlayerScreen.jsx';
@@ -43,7 +45,7 @@ function NotFound() {
 }
 
 const SCREENS = {
-  week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen,
+  week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen, plan: PlanScreen, groupList: GroupListScreen,
   players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet, season: SeasonSheet,
   session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen,
   profile: ProfileScreen, admin: AdminScreen,
@@ -119,7 +121,7 @@ function CoachShell() {
   return (
     <>
       <AppShell
-        tabs={isDesktop ? TABS : PHONE_TABS}
+        tabs={isDesktop ? DESKTOP_TABS : PHONE_TABS}
         screens={SCREENS}
         NotFound={NotFound}
         roleLabel="Valmentaja"

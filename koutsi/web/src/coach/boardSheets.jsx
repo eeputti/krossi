@@ -52,6 +52,8 @@ function Rows({ title = 'Muut', rows }) {
 
 /** The plus button's menu: the same tiles-and-rows shape as Merkitse. */
 export function AddSheet({ open, onClose, onPick, week }) {
+  const { state } = useData();
+  const seasonsOn = Boolean(state.seasonsReady && (state.seasons || []).length);
   return (
     <Sheet open={open} onClose={onClose} title="Mitä lisätään?" size="md">
       <div className="stack-4">
@@ -61,7 +63,10 @@ export function AddSheet({ open, onClose, onPick, week }) {
           <Tile icon="calendar-plus" tone="blue" title="Treeni" sub="Yksittäinen treeni tai yksityistunti" onClick={() => onPick('treeni')} />
           <Tile icon="flag" tone="clay" title="Tapahtuma" sub="Kilpailu, leiri tai seuran tapahtuma" onClick={() => onPick('tapahtuma')} />
         </div>
-        <Rows rows={[{ id: 'monta', icon: 'list', title: 'Monta ryhmää ja pelaajaa kerralla', sub: 'Koko kauden ryhmät ja pelaajat yhdellä kertaa', run: () => onPick('monta') }]} />
+        <Rows rows={[
+          { id: 'monta', icon: 'list', title: 'Monta ryhmää ja pelaajaa kerralla', sub: 'Koko kauden ryhmät ja pelaajat yhdellä kertaa', run: () => onPick('monta') },
+          ...(seasonsOn ? [{ id: 'kausi', icon: 'calendar-plus', title: 'Uusi kausi', sub: 'Seuraavan kauden ryhmät valmiiksi nykyisten pohjalta', run: () => onPick('kausi') }] : []),
+        ]} />
       </div>
     </Sheet>
   );
