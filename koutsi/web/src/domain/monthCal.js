@@ -1,6 +1,7 @@
 // monthCal.js — the player's month calendar (Kehitys → Kalenteri): what was done on each day,
 // as pure functions. A day shows the coach's sessions the player was at, their own logs (tennis,
 // a run, the gym …), matches, tournaments and own Kehitys entries. Archived items stay out.
+// Coach sessions carry groupId + trainingId so the coach's view can open the group.
 
 import { koutsiAddDays, koutsiDateFromStr, koutsiGroupById, koutsiPad, koutsiTrainingsForStudent, KOUTSI_MONTHS } from './core.js';
 import { activityById, ownEntry } from './ownWeek.js';
@@ -30,7 +31,7 @@ export function doneByDay(state, student, from, to, { hidden = new Set(), today 
     }
     if ((t.absences || []).some((a) => a.studentId === student.id)) continue;
     const group = t.groupId ? koutsiGroupById(state, t.groupId) : null;
-    add(t.date, { key, kind: 'coach', activity: 'tennis', title: group?.name || t.type, sub: group ? t.type : 'Valmennus', time: t.time || '', minutes: t.durationMinutes || group?.durationMinutes || 0 });
+    add(t.date, { key, kind: 'coach', activity: 'tennis', title: group?.name || t.type, sub: group ? t.type : 'Valmennus', time: t.time || '', minutes: t.durationMinutes || group?.durationMinutes || 0, groupId: group?.id || null, trainingId: t.id });
   }
   for (const n of student.matchNotes || []) {
     const result = n.result === 'voitto' ? 'Voitto' : n.result === 'tappio' ? 'Tappio' : '';

@@ -15,7 +15,7 @@ import { koutsiFmtEventDate } from '../domain/timeline.js';
 import { groupsOf } from '../domain/week.js';
 import { LEVELS, MOOD_LABELS } from '../lib/constants.js';
 import { useCoach } from './CoachRoot.jsx';
-import { groupPath } from './nav.js';
+import { groupPath, sessionPath } from './nav.js';
 import { AudienceSheet, EditPlaceholderSheet, MergeSheet, PlaceholderInvite, TextEntrySheet } from './playerForms.jsx';
 import { useRecord } from './merkitse.jsx';
 import { ambitionById } from '../domain/playerNow.js';
@@ -26,6 +26,7 @@ import { firstName } from '../domain/roster.js';
 import { ActivityIcon } from '../player/ActivityIcon.jsx';
 import { AbsenceSheet } from './AbsencePlanner.jsx';
 import { track } from './usage.js';
+import { tennisFacts } from '../domain/tennisProfile.js';
 import { useMessages } from '../shared/messages/MessagesProvider.jsx';
 import { TurnOnSheet } from './MessagesScreen.jsx';
 import { threadPath } from './nav.js';
@@ -227,16 +228,26 @@ function MonthCard({ state, student, hidden }) {
           <div className="eyebrow">{koutsiFmtShortDate(day.date)}</div>
           {day.items.length === 0 ? <p className="k-quiet-text">Ei merkintöjä tältä päivältä.</p> : (
             <ul className="mc-items">
-              {day.items.map((x) => (
-                <li key={`${x.key}-${day.date}`} className={cx('mc-item', `is-${x.kind}`)}>
-                  <span className="mc-item-icon"><DayIcon item={x} size={16} /></span>
-                  <span className="mc-item-main">
-                    <span className="mc-item-title">{x.title}</span>
-                    {x.sub && <span className="mc-item-sub">{x.sub}</span>}
-                  </span>
-                  {x.time && <span className="mc-item-time t-num">{x.time}</span>}
-                </li>
-              ))}
+              {day.items.map((x) => {
+                // a session (or a missed one) opens its group; a session without a group opens itself
+                const to = x.groupId ? groupPath(x.groupId) : x.trainingId ? sessionPath(x.trainingId) : null;
+                const body = (
+                  <>
+                    <span className="mc-item-icon"><DayIcon item={x} size={16} /></span>
+                    <span className="mc-item-main">
+                      <span className="mc-item-title">{x.title}</span>
+                      {x.sub && <span className="mc-item-sub">{x.sub}</span>}
+                    </span>
+                    {x.time && <span className="mc-item-time t-num">{x.time}</span>}
+                    {to && <Icon name="chevron-right" size={16} className="mc-item-go" />}
+                  </>
+                );
+                return (
+                  <li key={`${x.key}-${day.date}`} className={cx('mc-item', `is-${x.kind}`, to && 'is-link')}>
+                    {to ? <Link to={to} className="mc-item-link" aria-label={`${x.groupId ? 'Avaa ryhmä' : 'Avaa treeni'} ${x.title}`}>{body}</Link> : body}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
@@ -367,8 +378,12 @@ export function PlayerScreen({ params }) {
                 {groups.map((g) => <Link key={g.id} to={groupPath(g.id)} className="k-group-pill"><span className="t-num">{g.day} {g.time}</span><span className="truncate">{g.name}</span></Link>)}
               </div>
             )}
-            {/* the player's own words from their profile */}
+            {/* the player's own words and tennis profile (only the player writes these) */}
+            {tennisFacts(student).length > 0 && (
+              <div className="row wrap k-player-facts">{tennisFacts(student).map((t) => <span key={t} className="chip chip-sm chip-neutral">{t}</span>)}</div>
+            )}
             {student.bio && <p className="k-player-bio">{student.bio}</p>}
+            {student.tennisStory && <p className="k-player-bio k-player-story"><span className="k-player-story-label">Tennistausta</span>{student.tennisStory}</p>}
           </div>
         </header>
 

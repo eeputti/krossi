@@ -264,6 +264,7 @@ export async function loadPlayerState(studentId) {
     moodSessionsReady: moodSessions,
     archiveReady: archive.ready,
     longGoalReady: 'long_goal' in studentRow,
+    tennisProfileReady: 'plays_hand' in studentRow,
     seasons,
     announcements: notices.rows,
     announcementsReady: notices.ready,

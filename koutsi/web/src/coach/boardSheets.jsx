@@ -13,7 +13,9 @@ import { groupPath, playerPath, sessionPath } from './nav.js';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { AddMembersSheet, ExtendCalendarSheet } from './groupForms.jsx';
 import { TrainingSheet, useTrainingDelete } from './trainingForms.jsx';
+import { ScopeLine } from '../shared/scope.jsx';
 import { useRecord } from './merkitse.jsx';
+import { ChoiceGrid, ChoiceRows, ChoiceTile } from './tiles.jsx';
 import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -21,34 +23,11 @@ const DAY_LONG = ['Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai',
 const dayMonth = (date) => `${Number(date.slice(8))}.${Number(date.slice(5, 7))}.`;
 const weekdayOf = (date) => DAY_LONG[(new Date(`${date}T12:00:00`).getDay() + 6) % 7];
 const forPlayers = (n) => (n === 1 ? '1 pelaajalle' : `${n} pelaajalle`);
-
-function Tile({ icon, tone, title, sub, onClick }) {
-  return (
-    <button type="button" className="k-merkitse-tile ms-tile" onClick={onClick}>
-      <span className={cx('k-merkitse-icon', `is-${tone}`)}><Icon name={icon} size={22} /></span>
-      <span className="k-merkitse-title">{title}</span>
-      <span className="k-merkitse-sub">{sub}</span>
-    </button>
-  );
-}
-
-function Rows({ title = 'Muut', rows }) {
-  if (!rows.length) return null;
-  return (
-    <section className="ms-others" aria-label={title}>
-      <div className="eyebrow">{title}</div>
-      <div className="ms-others-list">
-        {rows.map((r) => (
-          <button key={r.id} type="button" className={cx('ms-row', r.danger && 'is-danger')} onClick={r.run}>
-            <span className="ms-row-icon"><Icon name={r.icon} size={16} /></span>
-            <span className="ms-row-main"><span className="ms-row-title">{r.title}</span>{r.sub && <span className="ms-row-sub">{r.sub}</span>}</span>
-            <Icon name="chevron-right" size={16} className="k-chevron" />
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
+// who a note from a session's sheet goes to: the ones there (once it has started), else everyone
+const forWho = (status, n, group) => (status === 'upcoming' ? (group ? `Ryhmän ${forPlayers(n)}` : forPlayers(n))
+  : status === 'now' ? `${n} paikalla olevalle` : `${n} paikalla olleelle`);
+const whoCount = (status, n) => (status === 'upcoming' ? (n === 1 ? '1 pelaaja' : `${n} pelaajaa`)
+  : status === 'now' ? (n === 1 ? '1 paikalla' : `${n} paikalla`) : (n === 1 ? '1 paikalla ollut' : `${n} paikalla ollutta`));
 
 /** The plus button's menu: the same tiles-and-rows shape as Merkitse. */
 export function AddSheet({ open, onClose, onPick, week }) {
@@ -58,12 +37,12 @@ export function AddSheet({ open, onClose, onPick, week }) {
     <Sheet open={open} onClose={onClose} title="Mitä lisätään?" size="md">
       <div className="stack-4">
         <div className="ms-grid">
-          <Tile icon="users" tone="lime" title="Ryhmä" sub="Viikoittaiset treenit kalenteriin" onClick={() => onPick('ryhma')} />
-          <Tile icon="sparkles" tone="sand" title="Teema" sub={`Viikon ${week.week} teema usealle ryhmälle`} onClick={() => onPick('teema')} />
-          <Tile icon="calendar-plus" tone="blue" title="Treeni" sub="Yksittäinen treeni tai yksityistunti" onClick={() => onPick('treeni')} />
-          <Tile icon="flag" tone="clay" title="Tapahtuma" sub="Kilpailu, leiri tai seuran tapahtuma" onClick={() => onPick('tapahtuma')} />
+          <ChoiceTile icon="users" tone="sand" title="Ryhmä" sub="Viikoittaiset treenit kalenteriin" onClick={() => onPick('ryhma')} />
+          <ChoiceTile icon="sparkles" tone="lime" title="Teema" sub={`Viikon ${week.week} teema usealle ryhmälle`} onClick={() => onPick('teema')} />
+          <ChoiceTile icon="calendar-plus" tone="blue" title="Treeni" sub="Yksittäinen treeni tai yksityistunti" onClick={() => onPick('treeni')} />
+          <ChoiceTile icon="flag" tone="clay" title="Tapahtuma" sub="Kilpailu, leiri tai seuran tapahtuma" onClick={() => onPick('tapahtuma')} />
         </div>
-        <Rows rows={[
+        <ChoiceRows rows={[
           { id: 'monta', icon: 'list', title: 'Monta ryhmää ja pelaajaa kerralla', sub: 'Koko kauden ryhmät ja pelaajat yhdellä kertaa', run: () => onPick('monta') },
           ...(seasonsOn ? [{ id: 'kausi', icon: 'calendar-plus', title: 'Uusi kausi', sub: 'Seuraavan kauden ryhmät valmiiksi nykyisten pohjalta', run: () => onPick('kausi') }] : []),
         ]} />
@@ -108,8 +87,15 @@ export function BoardItemSheet({ open, item, week, onClose }) {
 
   const roster = live ? sessionRoster(state, live) : [];
   const absent = live ? (live.absences || []).length : 0;
-  const ids = !live ? [] : item.status === 'upcoming' ? roster.map((s) => s.id) : presentPlayerIds(state, live);
-  const recordFor = (kind) => then(() => record.open(kind, { ids, source: 'viikko' }));
+  const upcoming = item.status === 'upcoming';
+  const ids = !live ? [] : upcoming ? roster.map((s) => s.id) : presentPlayerIds(state, live);
+  // The forms opened from here say on top which group (or player) and session they are for.
+  const scope = {
+    name, icon: group ? 'users' : 'user',
+    text: `${weekdayOf(item.date).slice(0, 2)} ${dayMonth(item.date)} klo ${item.time} · ${whoCount(item.status, ids.length)}`,
+  };
+  const recordFor = (kind) => then(() => record.open(kind, { ids, source: 'viikko', scope }));
+  const noticesReady = state.announcementsReady !== false;
 
   let status;
   if (issues.length) {
@@ -163,12 +149,29 @@ export function BoardItemSheet({ open, item, week, onClose }) {
   ] : [
     live && { id: 'runko', icon: 'list', title: 'Treenin runko', sub: livePlan.items.length ? planSummary(livePlan) : 'Valitse harjoitteet pankista',
       run: then(() => { track('viikko.runko'); navigate(`${sessionPath(live.id)}?runko=1`); }) },
-    group && theme && { id: 'teema', icon: 'sparkles', title: 'Vaihda teema', sub: theme.title, run: action('theme') },
+    // a coming session has Teema among the tiles
+    group && theme && !upcoming && { id: 'teema', icon: 'sparkles', title: 'Vaihda teema', sub: theme.title, run: action('theme') },
     { id: 'muokkaa', icon: 'edit', title: 'Muokkaa treeniä', sub: 'Siirrä toiseen aikaan tai päivään', run: action('edit') },
     group && { id: 'ryhma', icon: 'users', title: 'Avaa ryhmä', sub: name, run: then(() => navigate(groupPath(group.id))) },
     student && { id: 'pelaaja', icon: 'user', title: 'Avaa pelaaja', sub: student.name, run: then(() => navigate(playerPath(student.id))) },
     { id: 'poista', icon: 'trash', title: 'Poista treeni', sub: 'Pelaajat saavat ilmoituksen peruutuksesta', danger: true,
       run: then(() => removeTraining(live, `${dayMonth(item.date)} klo ${item.time} — ${name}`)) },
+  ].filter(Boolean);
+
+  // The same tiles as Merkitse, only for this session: a coming one also takes a Tiedote and
+  // its group's Teema for the week.
+  const who = forWho(item.status, ids.length, group);
+  const tiles = !live ? [] : [
+    { id: 'lasnaolo', look: 'lasnaolo',
+      sub: upcoming ? (absent ? `${absent} ilmoitti poissaolon` : `${roster.length} pelaajaa`) : `${roster.length - absent}/${roster.length} paikalla`,
+      run: then(() => { track('viikko.lasnaolo'); navigate(sessionPath(live.id)); }) },
+    { id: 'huomio', look: 'huomio', sub: who, run: recordFor('note') },
+    { id: 'laksy', look: 'laksy', sub: who, run: recordFor('homework') },
+    upcoming && group && noticesReady && { id: 'tiedote', look: 'tiedote', sub: 'Käytännön asia ryhmälle',
+      run: then(() => { track('viikko.tiedote'); record.openMerkinta({ kind: 'tiedote', groupIds: [group.id], date: item.date }); }) },
+    upcoming && group && { id: 'teema', look: 'teema', sub: theme ? theme.title : `Ei teemaa viikolle ${week.week}`,
+      run: then(() => { track('viikko.teema'); setSub({ kind: 'theme', group }); }) },
+    { id: 'video', look: 'video', sub: who, run: recordFor('video') },
   ].filter(Boolean);
 
   return (
@@ -178,16 +181,12 @@ export function BoardItemSheet({ open, item, week, onClose }) {
           {status}
           {facts.length > 0 && <div className="wb-facts">{facts.map((f) => <span key={f} className="wb-fact">{f}</span>)}</div>}
           {live && roster.length > 0 && (
-            <div className="ms-grid">
-              <Tile icon="user-check" tone="sand" title="Läsnäolo"
-                sub={item.status === 'upcoming' ? (absent ? `${absent} ilmoitti poissaolon` : `${roster.length} pelaajaa`) : `${roster.length - absent}/${roster.length} paikalla`}
-                onClick={then(() => { track('viikko.lasnaolo'); navigate(sessionPath(live.id)); })} />
-              <Tile icon="chat" tone="blue" title="Huomio" sub={forPlayers(ids.length)} onClick={recordFor('note')} />
-              <Tile icon="check-circle" tone="green" title="Kotiläksy" sub={forPlayers(ids.length)} onClick={recordFor('homework')} />
-              <Tile icon="play" tone="clay" title="Video" sub={forPlayers(ids.length)} onClick={recordFor('video')} />
-            </div>
+            <section className="wb-for stack-3" aria-label={group ? `Vain ryhmälle ${name}` : `Vain pelaajalle ${name}`}>
+              <ScopeLine scope={{ name, icon: scope.icon }} />
+              <ChoiceGrid label="Mitä merkitset tälle treenille?" tiles={tiles} />
+            </section>
           )}
-          <Rows rows={rows} />
+          <ChoiceRows rows={rows} />
         </div>
       </Sheet>
       {subs}

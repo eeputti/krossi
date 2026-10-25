@@ -10,6 +10,7 @@ import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Button, Field, Icon, Input, Sheet, Textarea } from '../ui/index.js';
 import { RecipientPicker } from '../shared/recipients.jsx';
+import { sameIds, ScopeLine } from '../shared/scope.jsx';
 import { exerciseFacts, exerciseHomeworkText, homeworkSuggestions } from '../domain/exercises.js';
 import { asExercises, buildDrillList } from '../domain/drills/index.js';
 import { DrillIcon } from '../shared/drills/art.jsx';
@@ -67,8 +68,11 @@ function ExercisePickerSheet({ open, exercises, onPick, onClose }) {
   );
 }
 
-/** open, kind: 'note' | 'homework', initialIds, initialText (e.g. a drill), onClose() */
-export function RecordSheet({ open, kind, initialIds = [], initialText = '', onClose }) {
+/**
+ * open, kind: 'note' | 'homework', initialIds, initialText (e.g. a drill), onClose(),
+ * scope (opened from a session or a group: which one — shown on top while those players are picked)
+ */
+export function RecordSheet({ open, kind, initialIds = [], initialText = '', scope = null, onClose }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const [ids, setIds] = useState(initialIds);
@@ -120,6 +124,7 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', onC
         )}>
         {/* The text first: the player list can be long, and the field must never sink under it. */}
         <div className="stack-4">
+          {scope && sameIds(ids, initialIds) && <ScopeLine scope={scope} />}
           <Field label={kind === 'homework' ? 'Läksy' : 'Huomio'} htmlFor="record-text">
             <Textarea id="record-text" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={k.placeholder} maxLength={4000} />
           </Field>

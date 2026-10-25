@@ -78,3 +78,18 @@
 .p-coach { align-items: flex-start; }
 .p-coach-bio { margin-top: 6px; font-size: 14px; line-height: 1.5; color: var(--ink-2); white-space: pre-line; }
 .p-coach-chips { margin-top: 8px; gap: 6px; }
+
+/* the tennis profile (20261025194643) */
+.profile-edit-year { max-width: 160px; }
+.k-player-facts { margin-top: 10px; gap: 6px; }
+.k-player-story-label { display: block; margin-bottom: 2px; font-size: 11.5px; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+/* Huomio + Poissaolot on a 375 px phone: the long lime button gives way instead of pushing
+   Poissaolot off the screen. Only the two-button row — the Viestit tiles (.is-tiles) size themselves. */
+.k-player-actions:not(.is-tiles) > :first-child { min-width: 0; overflow: hidden; }
+.k-player-actions:not(.is-tiles) > :first-child .btn-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.k-player-actions:not(.is-tiles) > :first-child svg { flex-shrink: 0; }
+.k-player-actions:not(.is-tiles) > :not(:first-child) { flex-shrink: 0; }
+@media (max-width: 420px) {
+  .k-player-actions:not(.is-tiles) .btn { padding-left: 16px; padding-right: 16px; }
+  .k-player-actions:not(.is-tiles) > :not(:first-child) svg { display: none; }
+}

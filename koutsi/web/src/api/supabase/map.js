@@ -112,6 +112,9 @@ export function mapStudent(studentRow, profileRow, rows) {
     isPlaceholder: Boolean(studentRow.placeholder_coach_id),
     // the player's own words and home town (profiles); the coach reads bio, only the player area
     bio: profileRow?.bio || '', area: profileRow?.area || '',
+    // the player's tennis profile (20261025194643); only the player writes it
+    playsHand: studentRow.plays_hand || '', favouriteShot: studentRow.favourite_shot || '',
+    playingSince: studentRow.playing_since ?? null, tennisStory: studentRow.tennis_story || '',
     ...age, level: studentRow.level,
     goal: studentRow.goal || '', lastSession: studentRow.last_session_note || '', focus: studentRow.focus || '',
     playerNote: studentRow.player_note || '', playerWish: studentRow.player_wish || '',

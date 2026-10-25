@@ -68,6 +68,8 @@ export const USAGE_SECTIONS = [
       ['viikko.huomio', 'Treeni → Huomio'],
       ['viikko.laksy', 'Treeni → Kotiläksy'],
       ['viikko.video', 'Treeni → Video'],
+      ['viikko.tiedote', 'Tuleva treeni → Tiedote'],
+      ['viikko.teema', 'Tuleva treeni → Teema'],
       ['viikko.lisaa', 'Plus-nappi avattu'],
       ['viikko.lisaa-ryhma', 'Lisää ryhmä'],
       ['viikko.lisaa-treeni', 'Lisää treeni'],

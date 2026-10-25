@@ -669,8 +669,21 @@
 .k-merkitse-icon.is-clay { background: var(--clay-100); color: #8A3A1A; }
 .k-merkitse-icon.is-sand { background: var(--sand); color: var(--green-800); }
 .k-merkitse-icon.is-ink { background: var(--green-800); color: var(--lime); }
+.k-merkitse-icon.is-warn { background: var(--warn-bg); color: var(--warn); }
 .k-merkitse-title { font-weight: 800; font-size: 15px; color: var(--ink); }
 .k-merkitse-sub { font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+
+/* "Vain tälle ryhmälle": who a session's tiles in Viikkohallinta, and the forms opened from them,
+   are for — the group (or player) as a small dark card (shared/scope.jsx) */
+.k-scope { display: grid; gap: 7px; min-width: 0; }
+.k-scope-label { font-size: var(--fs-micro); font-weight: 750; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.k-scope-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
+.k-scope-pill {
+  display: inline-flex; align-items: center; gap: 7px; max-width: 100%; min-width: 0; min-height: 32px; padding: 0 12px 0 10px;
+  border-radius: var(--r-md); background: var(--green-800); color: #fff; font-size: 13.5px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.k-scope-pill svg { flex-shrink: 0; color: var(--lime); }
+.k-scope-text { font-size: 13px; color: var(--ink-2); }
 
 /* who a note / homework / video is for (shared/recipients.jsx) */
 /* last in its sheet: the sheet scrolls, not a box inside it (a nested scroll traps the thumb) */

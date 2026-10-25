@@ -14,7 +14,7 @@
 //   Training    { id, date, time, type, durationMinutes, loggedBy: 'coach'|'player', notes, endDate,
 //                 studentId, groupId, coachId, seriesId, absences: [{ studentId, reason, reportedBy, updatedAt }] }
 //   Student     { id, name, initial, hue, avatarUrl, isPlaceholder, age, ageValue, ageLabel, level, goal,
-//                 playerNote, playerWish, bio, area, joinedAt, welcomeSeenAt, diary, homework, videos, moods,
+//                 playerNote, playerWish, bio, area, playsHand, favouriteShot, playingSince, tennisStory, joinedAt, welcomeSeenAt, diary, homework, videos, moods,
 //                 matchNotes, goalHistory, wishHistory, noteHistory, entries }   (roster stubs: { id, name, …, rosterOnly })
 //   Entry       { id, at, date: 'YYYY-MM-DD', text, how }   the player's own "what I did, when, how it went"
 //   CoachState / PlayerState also carry `entriesReady`: false while koutsi_player_entries is missing.
@@ -40,7 +40,7 @@ export const API_CONTRACT = {
   // the player's own log (domain/ownWeek.js); every coach of the player reads it.
   // addEntry(studentId, { date, text, how }), updateEntry(entryId, { date, text, how }), deleteEntry(entryId) —
   // the Kehitys page's own entries (koutsi_player_entries); every linked coach reads them.
-  player: ['fetchRow', 'load', 'subscribe', 'markWelcomeSeen', 'saveGoal', 'saveNote', 'saveWish', 'saveAge',
+  player: ['fetchRow', 'load', 'subscribe', 'markWelcomeSeen', 'saveGoal', 'saveNote', 'saveWish', 'saveAge', 'saveTennis',
     'addMood', 'updateMood', 'setMoodHidden', 'deleteMood', 'addMatchNote', 'updateMatchNote', 'deleteMatchNote',
     'addSelfTraining', 'updateSelfTraining', 'deleteSelfTraining', 'saveAim', 'addEntry', 'updateEntry', 'deleteEntry',
     'archiveItem', 'unarchiveItem', 'forgetArchived', 'deleteHistory'],

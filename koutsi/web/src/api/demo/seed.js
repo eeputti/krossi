@@ -58,6 +58,7 @@ function student(id, name, { age = null, level = 'Keskitaso', placeholder = fals
   return person(id, name, {
     isPlaceholder: placeholder, age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
     level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '', bio: '', area: '',
+    playsHand: '', favouriteShot: '', playingSince: null, tennisStory: '',
     joinedAt: placeholder ? null : isoAt(-joinedDaysAgo), welcomeSeenAt: placeholder ? null : isoAt(-joinedDaysAgo),
     diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], ambitionHistory: [], archive: [], entries: [],
     ...rest,
@@ -236,7 +237,9 @@ export function seed() {
     // Aikuiset edistyneet (Ti 17 + To 18)
     student(PLAYER, 'Maria K.', {
       age: 26, level: 'Edistynyt', joinedDaysAgo: 75, area: 'Lahti',
-      bio: 'Pelannut tennistä kahdeksan vuotta. Lempilyönti on rystylyönti alas linjaa — verkolle uskallan vielä harvoin.',
+      bio: 'Kilpailuhenkinen nelinpelaaja. Rysty alas linjaa onnistuu, verkolle uskallan vielä harvoin — siihen haluan muutoksen.',
+      playsHand: 'oikea', favouriteShot: 'rysty', playingSince: 2009,
+      tennisStory: 'Pelasin junnuna seurassa, sitten kuuden vuoden tauko opiskelujen takia. Palasin kentille 2022 ja nyt pelaan 2–3 kertaa viikossa.',
       goal: 'Varmempi kakkossyöttö ja rohkeampi verkkopeli',
       playerWish: 'Haluaisin harjoitella enemmän verkkopeliä ensi kerralla.',
       wishHistory: [said('wish', 'Haluaisin harjoitella enemmän verkkopeliä ensi kerralla.', isoAt(-16, 20, 30))],

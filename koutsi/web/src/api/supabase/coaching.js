@@ -113,6 +113,13 @@ export const player = {
     await savePlayerField(studentId, 'ambition', ambition || '');
     await savePlayerField(studentId, 'long_goal', longGoal || '');
   },
+  /** Pelikäsi, lempilyönti, pelannut vuodesta, tennistausta (state.tennisProfileReady). */
+  async saveTennis(studentId, { playsHand, favouriteShot, playingSince, tennisStory }) {
+    must(await from('koutsi_students').update({
+      plays_hand: playsHand || null, favourite_shot: favouriteShot || null,
+      playing_since: playingSince ?? null, tennis_story: tennisStory || null,
+    }).eq('id', studentId));
+  },
   /** The player's optional exact age: the shared profile and the student row, as before. */
   async saveAge(studentId, age) {
     must(await from('profiles').update({ age: age == null ? null : String(age) }).eq('id', studentId));

@@ -57,6 +57,11 @@ export function SessionScreen({ params }) {
   // after a session: the players who were there; before it: everyone expected
   const recipients = status === 'upcoming' ? roster.map((s) => s.id) : presentPlayerIds(state, training);
   const label = `${koutsiFmtShortDate(training.date)} klo ${training.time} — ${group ? group.name : training.type}`;
+  const one = recipients.length === 1;
+  const scope = {
+    name: group ? group.name : state.students.find((s) => s.id === training.studentId)?.name || training.type, icon: group ? 'users' : 'user',
+    text: `${koutsiFmtShortDate(training.date)} klo ${training.time} · ${status === 'upcoming' ? (one ? '1 pelaaja' : `${recipients.length} pelaajaa`) : status === 'now' ? `${recipients.length} paikalla` : (one ? '1 paikalla ollut' : `${recipients.length} paikalla ollutta`)}`,
+  };
 
   const setStatus = async (student, next) => {
     if (pending.has(student.id)) return;
@@ -138,9 +143,9 @@ export function SessionScreen({ params }) {
 
         {roster.length > 0 && (
           <div className="k-quick">
-            <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: recipients, source: 'treeni' })}>Huomio</Button>
-            <Button variant="outline" icon="check-circle" onClick={() => record.open('homework', { ids: recipients, source: 'treeni' })}>Kotiläksy</Button>
-            <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: recipients, source: 'treeni' })}>Video</Button>
+            <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: recipients, source: 'treeni', scope })}>Huomio</Button>
+            <Button variant="outline" icon="check-circle" onClick={() => record.open('homework', { ids: recipients, source: 'treeni', scope })}>Kotiläksy</Button>
+            <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: recipients, source: 'treeni', scope })}>Video</Button>
           </div>
         )}
 

@@ -41,7 +41,11 @@ const average = (x) => x.toFixed(1).replace('.', ',');
 const KIND_EVENT = { note: 'huomio', homework: 'laksy', video: 'video' };
 
 const RecordContext = createContext(null);
-/** { openMenu({ trainingId? }), open('note' | 'homework' | 'video', { ids, source: 'treeni' | 'ryhma' | 'pelaaja' | 'harjoite', text? }) } */
+/**
+ * { openMenu({ trainingId? }), open('note' | 'homework' | 'video', { ids, source: 'treeni' | 'ryhma' | 'pelaaja' | 'harjoite' | 'viikko', text?, scope? }),
+ *   openMerkinta({ trainingId?, ids?, kind?, groupIds?, date? }), openContinue(week) }
+ * scope ({ name, text, icon }) shows on top of the form which group or session it is for.
+ */
 export function useRecord() {
   const ctx = useContext(RecordContext);
   if (!ctx) throw new Error('useRecord must be used inside RecordProvider');
@@ -300,9 +304,9 @@ export function RecordProvider({ children }) {
     setSheet((s) => (s && (s.kind === 'menu' || s.kind === 'day' || s.kind === 'week') ? null : s));
   }, [route.path]);
 
-  const open = useCallback((kind, { ids = [], source, text = '' } = {}) => {
+  const open = useCallback((kind, { ids = [], source, text = '', scope = null } = {}) => {
     if (source) track(`${source}.${KIND_EVENT[kind]}`);
-    setSheet({ kind, ids, text });
+    setSheet({ kind, ids, text, scope });
   }, []);
   // The menu opens on the session asked for, else the one on now, just over or next today.
   const stateRef = useRef(state);
@@ -339,9 +343,9 @@ export function RecordProvider({ children }) {
 
   // EHDOTUS: the new Merkitse (MerkintaSheet.jsx) — a Tiedote, a Huomio or the Läsnäolo, for a
   // session's players (trainingId), some players (ids) or whoever the coach picks.
-  const openMerkinta = useCallback(({ trainingId = null, ids = [], kind = null } = {}) => {
+  const openMerkinta = useCallback(({ trainingId = null, ids = [], kind = null, groupIds = [], date = null } = {}) => {
     track('viesti.avaa');
-    setSheet({ kind: 'viesti', trainingId, ids, messageKind: kind });
+    setSheet({ kind: 'viesti', trainingId, ids, messageKind: kind, groupIds, date });
   }, []);
 
   // "Jatka edellisillä": every group's own previous theme, editable before saving (ContinueThemesSheet)
@@ -353,13 +357,16 @@ export function RecordProvider({ children }) {
       {children}
       <MerkintaSheet open={kind === 'viesti'} onClose={close} trainingId={last.current.viesti?.trainingId || null}
         initialIds={last.current.viesti?.ids || []} initialKind={last.current.viesti?.messageKind || null}
+        initialGroupIds={last.current.viesti?.groupIds || []} focusDate={last.current.viesti?.date || null}
         onVideo={(ids) => setSheet({ kind: 'video', ids })}
         onDay={(date) => setSheet({ kind: 'day', date })} onWeek={(week) => setSheet({ kind: 'week', week })} onAbsence={() => setSheet({ kind: 'absence' })} />
       <MerkitseSheet open={kind === 'menu'} onClose={close} onPick={setSheet} pickedIds={last.current.menu?.trainingIds || []}
         week={Boolean(last.current.menu?.allWeek)} focusId={last.current.menu?.focusId || null}
         onToggleSession={toggleSession} onToggleWeek={toggleWeek} />
-      <RecordSheet open={kind === 'note' || kind === 'homework'} kind={last.current.record?.kind || 'note'} initialIds={sheet?.ids || []} initialText={sheet?.text || ''} onClose={close} />
-      <VideoShareSheet open={kind === 'video'} onClose={close} recipients={state.students} initialIds={sheet?.ids || []} groups={state.groups} onSave={shareVideo} />
+      <RecordSheet open={kind === 'note' || kind === 'homework'} kind={last.current.record?.kind || 'note'} initialIds={sheet?.ids || []} initialText={sheet?.text || ''}
+        scope={last.current.record?.scope || null} onClose={close} />
+      <VideoShareSheet open={kind === 'video'} onClose={close} recipients={state.students} initialIds={sheet?.ids || []} groups={state.groups} onSave={shareVideo}
+        scope={last.current.video?.scope || null} />
       <DaySummarySheet open={kind === 'day'} date={last.current.day?.date} onClose={close} />
       <WeekRecapSheet open={kind === 'week'} week={last.current.week?.week} onClose={close} />
       <ContinueThemesSheet open={kind === 'continue'} week={last.current.continue?.week || null} onClose={close} />
