@@ -120,6 +120,7 @@ export function coachMonthCalendar(state, student, year, month, { hidden, now = 
     byDate.get(t.date).items.push({
       key: `absent-${t.id}`, kind: 'absent', activity: 'tennis', title: group?.name || t.type,
       sub: a?.reportedBy === student.id ? 'Poissa · ilmoitti itse' : 'Poissa', time: t.time || '', minutes: 0,
+      groupId: group?.id || null, trainingId: t.id,
     });
   });
   return { ...cal, missed: [...byDate.values()].reduce((n, d) => n + d.items.filter((x) => x.kind === 'absent').length, 0) };
