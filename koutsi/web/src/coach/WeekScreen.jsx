@@ -30,6 +30,7 @@ import { MOOD_LABELS } from '../lib/constants.js';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { TodayTimeline } from './today.jsx';
 import { useRecord } from './merkitse.jsx';
+import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const pct = (x) => (x == null ? '–' : `${Math.round(x * 100)}\u00a0%`);
@@ -38,7 +39,8 @@ const dec = (x) => (x == null ? '–' : x.toFixed(1).replace('.', ','));
 // EHDOTUS (haara koutsi-selkeys): the dark top card is the week at one glance — every day with a
 // dot per session (lime = held, ring = on now, outline = to come, clay = still without a theme),
 // four numbers (held, attendance, the players' own trainings, feeling) and the theme status
-// with its one-tap fix. A day opens Viikkohallinta on that week.
+// with its one-tap fix, right under the greeting (which groups still lack one). A day opens
+// Viikkohallinta on that day (?pv=).
 function WeekHero({ state, glance, week }) {
   const { uid, acting } = useCoach();
   const isDesktop = useIsDesktop();
@@ -51,7 +53,27 @@ function WeekHero({ state, glance, week }) {
   const { covered, pool, carry } = status;
   const all = pool.length > 0 && covered === pool.length;
   const go = async () => { setBusy(true); await continueThemes(carry, themeWeek); setBusy(false); };
-  const openWeek = () => navigate(`/valmentaja/ryhmat?vko=${weekParam(week)}`);
+  const openDay = (date) => { track('koti.paiva'); navigate(`/valmentaja/ryhmat?vko=${weekParam(week)}&pv=${date}`); };
+  const missing = status.missing || [];
+  const weekWord = isNow ? `Viikon ${themeWeek.week}` : `Ensi viikon (vko ${themeWeek.week})`;
+  const missingNames = missing.slice(0, 3).map((g) => `${g.day} ${g.time} ${g.name}`).join(' · ')
+    + (missing.length > 3 ? ` · +${missing.length - 3} muuta` : '');
+  const themeRow = pool.length > 0 && (
+    <div className={cx('wk-theme', 'wk-theme-top', all && 'is-ok')}>
+      <button type="button" className="wk-theme-open" onClick={() => record.openMerkinta({ kind: 'teema' })}>
+        <span className="wk-theme-icon"><Icon name={all ? 'check' : 'alert'} size={15} strokeWidth={all ? 3 : 2.2} /></span>
+        <span className="wk-theme-text">
+          <span className="wk-theme-title">{all ? `${weekWord} teemat asetettu` : `${weekWord} teema puuttuu ${missing.length === 1 ? '1 ryhmältä' : `${missing.length} ryhmältä`}`}<Icon name="chevron-right" size={15} /></span>
+          <span className="wk-theme-sub">{all ? `Kaikilla ${pool.length} ryhmällä on teema.` : missingNames}</span>
+        </span>
+      </button>
+      {!all && (carry.length > 0 ? (
+        <Button variant="lime" size="sm" icon="repeat" loading={busy} onClick={go}>Jatka edellisillä</Button>
+      ) : (
+        <Button variant="lime" size="sm" icon="sparkles" onClick={() => record.openMerkinta({ kind: 'teema' })}>Aseta</Button>
+      ))}
+    </div>
+  );
   return (
     <section className="week-hero on-dark wk-hero rise">
       <div className="week-hero-top">
@@ -68,13 +90,14 @@ function WeekHero({ state, glance, week }) {
         )}
       </div>
       <h1 className="week-hero-title">Moi, {firstName(state.coach.name) || 'valmentaja'}!</h1>
+      {state.groups.length > 0 && themeRow}
       {state.groups.length === 0 ? (
         <p className="week-hero-sub">Aloita luomalla ryhmä — sen treenit ilmestyvät kalenteriin ja voit asettaa niille viikon teeman.</p>
       ) : (
         <>
           <div className="wk-days" role="list" aria-label="Viikon päivät">
             {glance.days.map((d) => (
-              <button key={d.date} type="button" role="listitem" onClick={openWeek}
+              <button key={d.date} type="button" role="listitem" onClick={() => openDay(d.date)} title="Avaa päivä Viikkohallinnassa"
                 className={cx('wk-day', d.isToday && 'is-today', d.isPast && 'is-past', !d.sessions.length && 'is-empty')}
                 aria-label={`${d.label} ${d.day}.: ${d.sessions.length} treeniä`}>
                 <span className="wk-day-name">{d.label}</span>
@@ -90,20 +113,6 @@ function WeekHero({ state, glance, week }) {
             <div className="wk-stat"><span className="wk-stat-num t-num">{pct(glance.attendance)}</span><span className="wk-stat-label">läsnä</span></div>
             <div className="wk-stat"><span className="wk-stat-num t-num">{glance.own}</span><span className="wk-stat-label">omaa treeniä</span></div>
             <div className="wk-stat"><span className="wk-stat-num t-num">{dec(glance.moodAverage)}</span><span className="wk-stat-label">fiilis</span></div>
-          </div>
-          <div className={cx('wk-theme', all && 'is-ok')}>
-            <button type="button" className="wk-theme-open" onClick={() => record.openMerkinta({ kind: 'teema' })}>
-              <span className="wk-theme-icon"><Icon name={all ? 'check' : 'sparkles'} size={15} strokeWidth={all ? 3 : 2} /></span>
-              <span className="wk-theme-text">
-                <span className="wk-theme-title">Viikon teemat{isNow ? '' : ` · vko ${themeWeek.week}`}<Icon name="chevron-right" size={15} /></span>
-                <span className="wk-theme-sub">{all ? 'Kaikilla ryhmillä on teema' : `${covered}/${pool.length} ryhmällä`}</span>
-              </span>
-            </button>
-            {!all && (carry.length > 0 ? (
-              <Button variant="lime" size="sm" icon="repeat" loading={busy} onClick={go}>Jatka edellisillä</Button>
-            ) : (
-              <Button variant="lime" size="sm" icon="sparkles" onClick={() => record.openMerkinta({ kind: 'teema' })}>Aseta</Button>
-            ))}
           </div>
         </>
       )}

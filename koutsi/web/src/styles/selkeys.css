@@ -191,3 +191,8 @@
 .an-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
 .an-text { font-size: 15px; font-weight: 650; line-height: 1.45; color: var(--ink); }
 .an-foot { font-size: 12.5px; color: var(--muted); }
+
+/* the theme status sits right under "Moi, …!" and names the groups still without a theme */
+.wk-theme-top { margin-top: -2px; padding: 10px 10px 10px 8px; border-radius: var(--r-lg); background: rgba(224, 89, 42, 0.12); }
+.wk-theme-top.is-ok { background: rgba(207, 228, 20, 0.1); }
+.wk-theme-top .wk-theme-sub { white-space: normal; }

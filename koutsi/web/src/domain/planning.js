@@ -6,7 +6,7 @@
 import {
   koutsiAddDays, koutsiAddIsoWeeks, koutsiCompareIsoWeeks, koutsiGroupThemeForWeek, koutsiIsoWeekKey,
   koutsiIsoWeekOfDateStr, koutsiPad, koutsiSortGroupsBySchedule, koutsiStudentById, koutsiThemeKey,
-  koutsiTrainingsForStudent, koutsiGroupById,
+  koutsiTrainingsForStudent, koutsiGroupById, KOUTSI_THEME_TITLE_MAX,
 } from './core.js';
 import { sessionEnd } from './week.js';
 
@@ -177,4 +177,187 @@ export function knownAbsences(state, { now = new Date(), days = 28 } = {}) {
         .sort((a, b) => a.name.localeCompare(b.name, 'fi')),
     }))
     .filter((x) => x.students.length > 0);
+}
+
+// ── Excel-like editing of the theme grid ─────────────────────────────────────
+// Cells are addressed by position: r = row (group, schedule order), c = column (week). A change is
+// { cell, theme: { title, lead } | null } — null clears the cell. Every write keeps a snapshot of
+// what the cells held before, so one "Kumoa" (⌘Z) puts them back.
+
+/** The rectangle between two positions, corners in any order. */
+export const rectOf = (a, b) => ({ r0: Math.min(a.r, b.r), r1: Math.max(a.r, b.r), c0: Math.min(a.c, b.c), c1: Math.max(a.c, b.c) });
+
+/** Cells inside `rect`; by default only weeks the group trains (a break week is never painted). */
+export function cellsIn(rows, rect, { trainingOnly = true } = {}) {
+  const out = [];
+  for (let r = rect.r0; r <= rect.r1; r += 1) {
+    for (let c = rect.c0; c <= rect.c1; c += 1) {
+      const cell = rows[r]?.cells[c];
+      if (cell && (!trainingOnly || cell.sessions)) out.push(cell);
+    }
+  }
+  return out;
+}
+
+/** Where each cell key sits: key → { r, c }. */
+export function positions(rows) {
+  const out = new Map();
+  rows.forEach((row, r) => row.cells.forEach((cell, c) => out.set(cell.key, { r, c })));
+  return out;
+}
+
+/** The smallest rectangle around the picked keys, or null when nothing is picked. */
+export function boundsOf(rows, keys) {
+  const pos = positions(rows);
+  let rect = null;
+  for (const k of keys) {
+    const p = pos.get(k);
+    if (!p) continue;
+    rect = rect ? { r0: Math.min(rect.r0, p.r), r1: Math.max(rect.r1, p.r), c0: Math.min(rect.c0, p.c), c1: Math.max(rect.c1, p.c) } : { r0: p.r, r1: p.r, c0: p.c, c1: p.c };
+  }
+  return rect;
+}
+
+/** The picked rectangle if the pick is one solid block (every training cell in it picked), else null. */
+export function pickedRect(rows, keys) {
+  const set = keys instanceof Set ? keys : new Set(keys);
+  if (!set.size) return null;
+  const rect = boundsOf(rows, set);
+  if (!rect) return null;
+  return cellsIn(rows, rect).every((c) => set.has(c.key)) ? rect : null;
+}
+
+/** A theme written over a cell keeps the cell's own lead when the title stays the same. */
+export function withLead(cell, theme) {
+  if (!theme) return null;
+  const title = (theme.title || '').trim().slice(0, KOUTSI_THEME_TITLE_MAX);
+  if (!title) return null;
+  const lead = (theme.lead || '').trim();
+  if (!lead && cell.theme && koutsiThemeKey(cell.theme.title) === koutsiThemeKey(title)) return { title, lead: cell.theme.lead || '' };
+  return { title, lead };
+}
+
+/** Only the changes that change something. */
+export function effectiveChanges(changes) {
+  return changes.filter(({ cell, theme }) => (theme
+    ? !(cell.theme && cell.theme.title === theme.title && (cell.theme.lead || '') === (theme.lead || ''))
+    : Boolean(cell.theme)));
+}
+
+/** Rows to save and theme ids to remove for a list of (effective) changes. */
+export function changesToWrites(changes) {
+  const save = [];
+  const remove = [];
+  for (const { cell, theme } of changes) {
+    if (theme) save.push({ groupId: cell.group.id, year: cell.week.year, week: cell.week.week, title: theme.title, lead: theme.lead || '' });
+    else if (cell.theme) remove.push(cell.theme.id);
+  }
+  return { save, remove };
+}
+
+/** What the changed cells held before: enough to undo. */
+export function snapshotOf(changes) {
+  return changes.map(({ cell }) => ({
+    groupId: cell.group.id, year: cell.week.year, week: cell.week.week,
+    before: cell.theme ? { title: cell.theme.title, lead: cell.theme.lead || '' } : null,
+  }));
+}
+
+/** Undo against the groups as they are now: put back what was there, remove what was added. */
+export function undoWrites(groups, snapshot) {
+  const save = [];
+  const remove = [];
+  for (const s of snapshot) {
+    const group = (groups || []).find((g) => g.id === s.groupId);
+    if (!group) continue;
+    const now = koutsiGroupThemeForWeek(group, s);
+    if (s.before) {
+      if (!now || now.title !== s.before.title || (now.lead || '') !== s.before.lead) {
+        save.push({ groupId: s.groupId, year: s.year, week: s.week, title: s.before.title, lead: s.before.lead });
+      }
+    } else if (now) remove.push(now.id);
+  }
+  return { save, remove };
+}
+
+/**
+ * The fill handle: dragged from the picked block `src` to position `to`, the block grows along one
+ * axis (the one dragged further, like Excel) and every new cell copies the source cell at the same
+ * offset, so a 2-week pattern repeats. Empty source cells and weeks without training are skipped.
+ */
+export function fillChanges(rows, src, to) {
+  const down = to.r > src.r1 ? to.r - src.r1 : to.r < src.r0 ? to.r - src.r0 : 0;
+  const right = to.c > src.c1 ? to.c - src.c1 : to.c < src.c0 ? to.c - src.c0 : 0;
+  if (!down && !right) return { rect: src, changes: [] };
+  const vertical = Math.abs(down) >= Math.abs(right);
+  const rect = vertical
+    ? (down > 0 ? { ...src, r1: to.r } : { ...src, r0: to.r })
+    : (right > 0 ? { ...src, c1: to.c } : { ...src, c0: to.c });
+  const h = src.r1 - src.r0 + 1;
+  const w = src.c1 - src.c0 + 1;
+  const mod = (n, m) => ((n % m) + m) % m;
+  const changes = [];
+  for (let r = rect.r0; r <= rect.r1; r += 1) {
+    for (let c = rect.c0; c <= rect.c1; c += 1) {
+      if (r >= src.r0 && r <= src.r1 && c >= src.c0 && c <= src.c1) continue;
+      const cell = rows[r]?.cells[c];
+      if (!cell || !cell.sessions) continue;
+      const from = rows[src.r0 + mod(r - src.r0, h)].cells[src.c0 + mod(c - src.c0, w)];
+      if (!from.theme) continue;
+      changes.push({ cell, theme: { title: from.theme.title, lead: from.theme.lead || '' } });
+    }
+  }
+  return { rect, changes };
+}
+
+/** The picked cells' themes as a block (rows × weeks); unpicked or empty cells are null. */
+export function clipOf(rows, keys) {
+  const set = keys instanceof Set ? keys : new Set(keys);
+  const rect = boundsOf(rows, set);
+  if (!rect) return [];
+  const out = [];
+  for (let r = rect.r0; r <= rect.r1; r += 1) {
+    const line = [];
+    for (let c = rect.c0; c <= rect.c1; c += 1) {
+      const cell = rows[r].cells[c];
+      line.push(set.has(cell.key) && cell.theme ? { title: cell.theme.title, lead: cell.theme.lead || '' } : null);
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+/** A block as tab-separated text, the way Excel and Google Sheets copy and paste. */
+export const clipToText = (clip) => clip.map((line) => line.map((x) => (x ? x.title.replace(/[\t\n\r]+/g, ' ') : '')).join('\t')).join('\n');
+
+/** Text pasted from anywhere (Excel, Sheets, a list) as a block of titles. */
+export function clipFromText(text) {
+  const lines = String(text || '').replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+  if (lines.length === 1 && !lines[0].trim()) return [];
+  return lines.map((line) => line.split('\t').map((v) => {
+    const title = v.trim().replace(/^"(.*)"$/, '$1').trim().slice(0, KOUTSI_THEME_TITLE_MAX);
+    return title ? { title, lead: '' } : null;
+  }));
+}
+
+/**
+ * Pasting a block: one value fills every picked cell (Excel's "paste into a selection"); a bigger
+ * block lands with its top-left corner at `at`, cell by cell. Empty values never clear a cell, and
+ * weeks without training are skipped (the block keeps its shape).
+ */
+export function pasteChanges(rows, clip, at, pickedCells = []) {
+  if (!clip.length || !clip[0].length) return [];
+  if (clip.length === 1 && clip[0].length === 1) {
+    const value = clip[0][0];
+    if (!value) return [];
+    const targets = pickedCells.length ? pickedCells : [rows[at.r]?.cells[at.c]].filter(Boolean);
+    return targets.map((cell) => ({ cell, theme: withLead(cell, value) })).filter((x) => x.theme);
+  }
+  const changes = [];
+  clip.forEach((line, i) => line.forEach((value, j) => {
+    const cell = rows[at.r + i]?.cells[at.c + j];
+    if (!value || !cell || !cell.sessions) return;
+    changes.push({ cell, theme: withLead(cell, value) });
+  }));
+  return changes.filter((x) => x.theme);
 }

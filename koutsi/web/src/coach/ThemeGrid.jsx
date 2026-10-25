@@ -1,9 +1,14 @@
-// ThemeGrid — Suunnittele → Teemat: every group (rows) × the coming weeks (columns), one cell =
-// one group's theme for one week. The coach picks cells — one by one, a whole week from its
-// header, a whole group from its name — and writes one theme to all of them at once, or edits
-// a theme across many weeks (pick its cells, "Muokkaa"). A cell with another theme is replaced
-// only after the coach's OK, like in Viikon teemat.
-import { useMemo, useState } from 'react';
+// ThemeGrid — Suunnittele → Teemat, edited like a spreadsheet: every group (rows) × the coming
+// weeks (columns), one cell = one group's theme for one week.
+//   - pick many at once: drag over cells, week headers or group names; Shift extends, ⌘/Ctrl adds
+//   - type straight into a cell (double-click or just start typing); Enter writes to every picked
+//     cell, or moves down when one cell is picked; Tab moves right
+//   - drag a theme chip onto a cell (or onto the picked cells), or drag the fill handle in the
+//     picked block's corner to copy its themes right or down (a 2-week pattern repeats)
+//   - ⌘/Ctrl+C and V copy and paste, also straight from Excel or Google Sheets
+//   - Delete clears, ⌘/Ctrl+Z (or "Kumoa" in the toast) undoes the last change
+// There are no "are you sure" questions on the way: every change can be undone instead.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Button, Field, Icon, IconButton, Input, Sheet, Textarea, useConfirm, useToast } from '../ui/index.js';
@@ -12,8 +17,11 @@ import {
   koutsiThemeKey, koutsiThemeLibrary, KOUTSI_THEME_LEAD_MAX, KOUTSI_THEME_TITLE_MAX,
 } from '../domain/core.js';
 import { plannerDefaultWeek } from '../domain/week.js';
-import { commonTheme, gridWeeks, pickSummary, themeGrid, themeWritePlan, trainingCells, GRID_WEEKS } from '../domain/planning.js';
-import { useSaveThemes } from './themeActions.js';
+import {
+  boundsOf, cellsIn, changesToWrites, clipFromText, clipOf, clipToText, commonTheme, effectiveChanges, fillChanges,
+  gridWeeks, pasteChanges, pickedRect, pickSummary, rectOf, snapshotOf, themeGrid, themeWritePlan, undoWrites, withLead,
+  GRID_WEEKS,
+} from '../domain/planning.js';
 import { groupPath } from './nav.js';
 import { Link } from '../app/router.js';
 import { track } from './usage.js';
@@ -21,19 +29,29 @@ import { track } from './usage.js';
 const cx = (...c) => c.filter(Boolean).join(' ');
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const summaryText = ({ groups, weeks }) => `${plural(groups, 'ryhmä', 'ryhmää')} · ${plural(weeks, 'viikko', 'viikkoa')}`;
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+const MOD = isMac ? '⌘' : 'Ctrl';
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+const THEME_TYPE = 'application/x-koutsi-theme';
 
-/** Writes one theme to the picked cells (or edits the theme they share). */
-function ThemeWriteSheet({ open, cells, onClose, onSaved }) {
+function droppedTheme(dt) {
+  try {
+    const raw = dt.getData(THEME_TYPE);
+    if (raw) { const t = JSON.parse(raw); if (t?.title) return { title: String(t.title), lead: String(t.lead || '') }; }
+  } catch { /* fall back to plain text */ }
+  const text = (dt.getData('text/plain') || '').split(/\r?\n/)[0].split('\t')[0].trim().slice(0, KOUTSI_THEME_TITLE_MAX);
+  return text ? { title: text, lead: '' } : null;
+}
+
+/** The picked cells' theme with its lead (tarkennus), as a form. */
+function ThemeWriteSheet({ open, cells, onClose, onApply }) {
   const { state } = useData();
   const confirm = useConfirm();
-  const toast = useToast();
-  const saveThemes = useSaveThemes();
   const common = useMemo(() => commonTheme(cells), [cells]);
   const [title, setTitle] = useState('');
   const [lead, setLead] = useState('');
   const [busy, setBusy] = useState(false);
   const [seeded, setSeeded] = useState(null);
-  // fill the form once per opening: the shared theme to edit, or empty
   const seedKey = open ? cells.map((c) => c.key).join(',') : null;
   if (seedKey !== seeded) {
     setSeeded(seedKey);
@@ -47,7 +65,7 @@ function ThemeWriteSheet({ open, cells, onClose, onSaved }) {
 
   const save = async () => {
     if (!cleanTitle || busy) return;
-    let { fresh, replace } = plan;
+    let skip = new Set();
     if (plan.conflicts.length > 0) {
       const names = [...new Set(plan.conflicts.map((c) => c.theme.title))];
       const choice = await confirm({
@@ -56,22 +74,14 @@ function ThemeWriteSheet({ open, cells, onClose, onSaved }) {
         confirmLabel: 'Korvaa nekin', secondaryLabel: 'Tallenna vain muihin', secondaryValue: 'skip', cancelLabel: 'Peruuta',
       });
       if (!choice) return;
-      if (choice === 'skip') {
-        const skip = new Set(plan.conflicts.map((c) => c.key));
-        replace = replace.filter((r) => !skip.has(`${r.groupId}|${koutsiIsoWeekKey(r)}`));
-      }
+      if (choice === 'skip') skip = new Set(plan.conflicts.map((c) => c.key));
     }
-    if (fresh.length + replace.length === 0) {
-      toast('Valituissa ruuduissa on jo tämä teema.', { tone: 'info' });
-      return;
-    }
+    const byKey = new Map([...plan.fresh, ...plan.replace].map((row) => [`${row.groupId}|${koutsiIsoWeekKey(row)}`, row]));
+    const changes = cells.filter((c) => byKey.has(c.key) && !skip.has(c.key)).map((c) => ({ cell: c, theme: { title: byKey.get(c.key).title, lead: byKey.get(c.key).lead } }));
     setBusy(true);
-    const written = await saveThemes({ fresh, replace });
+    const ok = await onApply(changes, common ? 'suunnittele.teema-muokattu' : 'suunnittele.teema-tallennettu');
     setBusy(false);
-    if (written == null) return;
-    track(common ? 'suunnittele.teema-muokattu' : 'suunnittele.teema-tallennettu');
-    toast(written === 0 ? 'Ruuduissa oli jo teema, eikä sitä muutettu.' : `Teema ”${cleanTitle}” tallennettu ${plural(written, 'ruutuun', 'ruutuun')}.`, { tone: written === 0 ? 'info' : undefined });
-    onSaved();
+    if (ok) onClose();
   };
 
   return (
@@ -90,7 +100,6 @@ function ThemeWriteSheet({ open, cells, onClose, onSaved }) {
         <Field label="Teema" htmlFor="tg-title">
           <Input id="tg-title" size="lg" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={KOUTSI_THEME_TITLE_MAX}
             list="tg-library" placeholder="Esim. Syöttö / smash" autoFocus onKeyDown={(e) => { if (e.key === 'Enter') save(); }} />
-          <datalist id="tg-library">{library.map((t) => <option key={t.key} value={t.title} />)}</datalist>
         </Field>
         {!common && library.length > 0 && !cleanTitle && (
           <div className="planner-recent">
@@ -118,71 +127,344 @@ function ThemeWriteSheet({ open, cells, onClose, onSaved }) {
 
 export function ThemeGrid() {
   const { state, run } = useData();
-  const confirm = useConfirm();
+  const toast = useToast();
   const now = koutsiCurrentIsoWeek();
   const first = plannerDefaultWeek();
   const [start, setStart] = useState(first);
-  const [picked, setPicked] = useState(() => new Set());
-  const [writing, setWriting] = useState(false);
-  const weeks = useMemo(() => gridWeeks(start, GRID_WEEKS), [start]);
+  const wrapRef = useRef(null);
+  const [cols, setCols] = useState(GRID_WEEKS);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const fit = () => setCols(clamp(Math.floor((el.clientWidth - 200) / 132), 4, 12));
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const weeks = useMemo(() => gridWeeks(start, cols), [start, cols]);
   const rows = useMemo(() => themeGrid(state.groups, state.trainings, weeks), [state.groups, state.trainings, weeks]);
   const allCells = useMemo(() => rows.flatMap((r) => r.cells), [rows]);
-  const pickedCells = allCells.filter((c) => picked.has(c.key));
+  const library = useMemo(() => koutsiThemeLibrary(state.groups).slice(0, 14), [state.groups]);
+
+  const [picked, setPicked] = useState(() => new Set());
+  const [anchor, setAnchor] = useState(null); // { r, c } — where Shift extends from
+  const [active, setActive] = useState(null); // { r, c } — the cell the keyboard is on
+  const [editing, setEditing] = useState(null); // { r, c, initial }
+  const [fillTo, setFillTo] = useState(null);
+  const [dropKey, setDropKey] = useState(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [undoStack, setUndoStack] = useState([]);
+  const gridRef = useRef(null);
+  const drag = useRef(null); // { mode: 'cells' | 'rows' | 'cols' | 'fill', ... }
+  const editRef = useRef(null);
+  const clipRef = useRef(null);
+  const kbMove = useRef(false);
+  const latest = useRef({});
+  latest.current = { state, rows, picked, active, anchor, undoStack, fillTo };
+
+  useEffect(() => { setPicked(new Set()); setAnchor(null); setActive(null); setEditing(null); editRef.current = null; }, [start, cols]);
+
+  const pickedCells = useMemo(() => allCells.filter((c) => picked.has(c.key)), [allCells, picked]);
+  const rect = useMemo(() => pickedRect(rows, picked), [rows, picked]);
   const common = commonTheme(pickedCells);
   const withTheme = pickedCells.filter((c) => c.theme);
   const atStart = koutsiCompareIsoWeeks(start, first) <= 0;
+  const fullRect = { r0: 0, r1: rows.length - 1, c0: 0, c1: weeks.length - 1 };
 
+  // ── writing, with undo ──
+  const write = useCallback(async (changes, done, event) => {
+    const eff = effectiveChanges(changes);
+    if (!eff.length) { toast('Ei muutoksia — ruuduissa oli jo tämä.', { tone: 'info' }); return true; }
+    const snap = snapshotOf(eff);
+    const { save, remove } = changesToWrites(eff);
+    const res = await run(async () => {
+      if (save.length) await api.themes.save(save);
+      if (remove.length) await api.themes.remove(remove);
+    });
+    if (!res.ok) return false;
+    if (event) track(event);
+    setUndoStack((s) => [...s.slice(-19), snap]);
+    toast(done(eff.length), { action: { label: 'Kumoa', onClick: () => undoRef.current() }, duration: 7000 });
+    return true;
+  }, [run, toast]);
+  const writeRef = useRef(write);
+  writeRef.current = write;
+
+  const undo = async () => {
+    const stack = latest.current.undoStack;
+    if (!stack.length) { toast('Ei kumottavaa.', { tone: 'info' }); return; }
+    const snap = stack[stack.length - 1];
+    setUndoStack((s) => s.slice(0, -1));
+    const { save, remove } = undoWrites(latest.current.state.groups, snap);
+    if (!save.length && !remove.length) { toast('Ei kumottavaa.', { tone: 'info' }); return; }
+    const res = await run(async () => {
+      if (save.length) await api.themes.save(save);
+      if (remove.length) await api.themes.remove(remove);
+    }, 'Muutos kumottu.');
+    if (res.ok) track('suunnittele.kumoa');
+  };
+  const undoRef = useRef(undo);
+  undoRef.current = undo;
+
+  // ── picking ──
+  const keysIn = (r) => {
+    const keys = new Set(cellsIn(rows, r).map((c) => c.key));
+    if (r.r0 === r.r1 && r.c0 === r.c1 && rows[r.r0]) keys.add(rows[r.r0].cells[r.c0].key); // one clicked cell, even a break week
+    return keys;
+  };
+  const pickRect = (a, b) => setPicked(keysIn(rectOf(a, b)));
   const toggleKeys = (keys) => setPicked((prev) => {
     const next = new Set(prev);
-    const off = keys.length > 0 && keys.every((k) => prev.has(k));
+    const off = keys.length > 0 && keys.every((k) => next.has(k));
     keys.forEach((k) => (off ? next.delete(k) : next.add(k)));
     return next;
   });
-  const toggleCell = (c) => toggleKeys([c.key]);
-  const toggleRow = (row) => toggleKeys(trainingCells(row.cells).map((c) => c.key));
-  const toggleWeek = (i) => toggleKeys(rows.flatMap((r) => (r.cells[i].sessions ? [r.cells[i].key] : [])));
-  const pickSame = () => {
-    if (!common) return;
-    setPicked(new Set(allCells.filter((c) => c.theme && koutsiThemeKey(c.theme.title) === common.key).map((c) => c.key)));
+  const focusGrid = () => gridRef.current?.focus({ preventScroll: true });
+
+  const onCellDown = (e, r, c) => {
+    if (e.button !== 0 || editRef.current) return;
+    e.preventDefault();
+    focusGrid();
+    const p = { r, c };
+    const key = rows[r].cells[c].key;
+    if (e.shiftKey && anchor) { pickRect(anchor, p); setActive(p); return; }
+    if (e.metaKey || e.ctrlKey) { toggleKeys([key]); setAnchor(p); setActive(p); return; }
+    setAnchor(p); setActive(p); setPicked(new Set([key]));
+    drag.current = { mode: 'cells', anchor: p };
   };
+  const onCellEnter = (r, c) => {
+    const d = drag.current;
+    if (!d) return;
+    if (d.mode === 'cells') { pickRect(d.anchor, { r, c }); setActive({ r, c }); }
+    if (d.mode === 'fill') setFillTo({ r, c });
+    if (d.mode === 'rows') setPicked(keysIn({ ...fullRect, r0: Math.min(d.from, r), r1: Math.max(d.from, r) }));
+    if (d.mode === 'cols') setPicked(keysIn({ ...fullRect, c0: Math.min(d.from, c), c1: Math.max(d.from, c) }));
+  };
+  const onRowDown = (e, r) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    focusGrid();
+    const keys = [...keysIn({ ...fullRect, r0: r, r1: r })];
+    if (e.metaKey || e.ctrlKey) toggleKeys(keys);
+    else if (e.shiftKey && anchor) setPicked(keysIn({ ...fullRect, r0: Math.min(anchor.r, r), r1: Math.max(anchor.r, r) }));
+    else { setPicked(new Set(keys)); drag.current = { mode: 'rows', from: r }; }
+    if (!e.shiftKey) setAnchor({ r, c: 0 });
+    setActive({ r, c: 0 });
+  };
+  const onColDown = (e, c) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    focusGrid();
+    const keys = [...keysIn({ ...fullRect, c0: c, c1: c })];
+    if (e.metaKey || e.ctrlKey) toggleKeys(keys);
+    else if (e.shiftKey && anchor) setPicked(keysIn({ ...fullRect, c0: Math.min(anchor.c, c), c1: Math.max(anchor.c, c) }));
+    else { setPicked(new Set(keys)); drag.current = { mode: 'cols', from: c }; }
+    if (!e.shiftKey) setAnchor({ r: 0, c });
+    setActive({ r: 0, c });
+  };
+
+  // ── the fill handle ──
+  const startFill = (e) => {
+    if (e.button !== 0 || !rect) return;
+    e.preventDefault();
+    e.stopPropagation();
+    drag.current = { mode: 'fill', src: rect };
+    setFillTo(null);
+  };
+  useEffect(() => {
+    const up = async () => {
+      const d = drag.current;
+      drag.current = null;
+      if (d?.mode !== 'fill') return;
+      const to = latest.current.fillTo;
+      setFillTo(null);
+      if (!to) return;
+      const { rect: grown, changes } = fillChanges(latest.current.rows, d.src, to);
+      setPicked(new Set(cellsIn(latest.current.rows, grown).map((c) => c.key)));
+      if (!changes.length) return;
+      await writeRef.current(changes, (n) => `Teemat kopioitu ${plural(n, 'ruutuun', 'ruutuun')}.`, 'suunnittele.taytto');
+    };
+    window.addEventListener('mouseup', up);
+    return () => window.removeEventListener('mouseup', up);
+  }, []);
+  const fillPreview = drag.current?.mode === 'fill' && fillTo ? fillChanges(rows, drag.current.src, fillTo).rect : null;
+  const inRect = (r, c, q) => q && r >= q.r0 && r <= q.r1 && c >= q.c0 && c <= q.c1;
+
+  // ── typing ──
+  const startEdit = (p, initial) => {
+    const cell = rows[p.r]?.cells[p.c];
+    if (!cell) return;
+    if (!picked.has(cell.key)) { setPicked(new Set([cell.key])); setAnchor(p); }
+    setActive(p);
+    editRef.current = { r: p.r, c: p.c };
+    setEditing({ r: p.r, c: p.c, initial: initial ?? (cell.theme?.title || '') });
+  };
+  const moveActive = (from, dr, dc) => {
+    const { rows: rws } = latest.current;
+    const next = { r: clamp(from.r + dr, 0, rws.length - 1), c: clamp(from.c + dc, 0, weeks.length - 1) };
+    kbMove.current = true;
+    setActive(next);
+    setAnchor(next);
+    setPicked(new Set([rws[next.r].cells[next.c].key]));
+  };
+  const commitEdit = async (value, move) => {
+    const ed = editRef.current;
+    if (!ed) return;
+    editRef.current = null;
+    setEditing(null);
+    focusGrid();
+    const { rows: rws, picked: pk } = latest.current;
+    const cell = rws[ed.r]?.cells[ed.c];
+    if (!cell) return;
+    const title = value.trim().slice(0, KOUTSI_THEME_TITLE_MAX);
+    const many = pk.size > 1 && pk.has(cell.key);
+    const targets = many ? rws.flatMap((r) => r.cells).filter((c) => pk.has(c.key)) : [cell];
+    if (!many && move) moveActive(ed, move === 'down' ? 1 : 0, move === 'right' ? 1 : move === 'left' ? -1 : 0);
+    if (!many && title === (cell.theme?.title || '')) return;
+    const changes = targets.map((c) => ({ cell: c, theme: title ? withLead(c, { title, lead: '' }) : null }));
+    await writeRef.current(changes, (n) => (title ? `”${title}” · ${plural(n, 'ruutu', 'ruutua')}.` : `Teema poistettu ${plural(n, 'ruudusta', 'ruudusta')}.`), 'suunnittele.kirjoitus');
+  };
+  const cancelEdit = () => { editRef.current = null; setEditing(null); focusGrid(); };
+
+  const clearPicked = () => {
+    const cells = latest.current.rows.flatMap((r) => r.cells).filter((c) => latest.current.picked.has(c.key) && c.theme);
+    if (!cells.length) return;
+    write(cells.map((cell) => ({ cell, theme: null })), (n) => `Teema poistettu ${plural(n, 'ruudusta', 'ruudusta')}.`, 'suunnittele.teema-poistettu');
+  };
+  const applyTheme = (theme, targets) => {
+    if (!targets.length) { toast('Valitse ensin ruudut, tai vedä teema suoraan ruutuun.', { tone: 'info' }); return; }
+    write(targets.map((cell) => ({ cell, theme: withLead(cell, theme) })).filter((x) => x.theme),
+      (n) => `”${theme.title}” · ${plural(n, 'ruutu', 'ruutua')}.`, 'suunnittele.teema-vedetty');
+  };
+
+  // ── keys ──
+  const onKeyDown = (e) => {
+    if (editRef.current) {
+      // letters typed in the moment before the cell's input takes focus still belong to it
+      if (e.target === gridRef.current && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setEditing((ed) => (ed ? { ...ed, initial: ed.initial + e.key } : ed));
+      }
+      return;
+    }
+    const mod = e.metaKey || e.ctrlKey;
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (mod && key === 'z') { e.preventDefault(); undo(); return; }
+    if (mod && key === 'a') { e.preventDefault(); setPicked(new Set(cellsIn(rows, fullRect).map((c) => c.key))); return; }
+    if (mod || e.altKey) return; // copy and paste arrive as their own events
+    const moves = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (moves[e.key]) {
+      e.preventDefault();
+      const cur = active || { r: 0, c: 0 };
+      if (!active) { moveActive(cur, 0, 0); return; }
+      const [dr, dc] = moves[e.key];
+      const next = { r: clamp(cur.r + dr, 0, rows.length - 1), c: clamp(cur.c + dc, 0, weeks.length - 1) };
+      kbMove.current = true;
+      setActive(next);
+      if (e.shiftKey) pickRect(anchor || cur, next);
+      else { setAnchor(next); setPicked(new Set([rows[next.r].cells[next.c].key])); }
+      return;
+    }
+    if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); startEdit(active || { r: 0, c: 0 }); return; }
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); clearPicked(); return; }
+    if (e.key === 'Escape') { setPicked(new Set()); return; }
+    if (e.key.length === 1 && e.key !== ' ') { e.preventDefault(); startEdit(active || { r: 0, c: 0 }, e.key); }
+  };
+  useEffect(() => {
+    if (!kbMove.current || !active) return;
+    kbMove.current = false;
+    const cell = rows[active.r]?.cells[active.c];
+    if (cell) document.getElementById(`tg-${cell.key}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [active, rows]);
+
+  // ── copy and paste (also from Excel / Sheets) ──
+  useEffect(() => {
+    const inGrid = () => gridRef.current && gridRef.current.contains(document.activeElement) && !editRef.current;
+    const onCopy = (e) => {
+      if (!inGrid()) return;
+      const { rows: rws, picked: pk } = latest.current;
+      if (!pk.size) return;
+      const clip = clipOf(rws, pk);
+      const text = clipToText(clip);
+      e.clipboardData.setData('text/plain', text);
+      e.preventDefault();
+      clipRef.current = { clip, text };
+      const n = clip.flat().filter(Boolean).length;
+      toast(n ? `Kopioitu ${plural(n, 'teema', 'teemaa')}. Valitse kohta ja liitä (${MOD}+V).` : 'Valituissa ruuduissa ei ole teemaa.', { tone: n ? undefined : 'info' });
+    };
+    const onPaste = (e) => {
+      if (!inGrid()) return;
+      const text = (e.clipboardData?.getData('text/plain') || '').replace(/\r\n?/g, '\n').replace(/\n+$/, '');
+      e.preventDefault();
+      const clip = clipRef.current && clipRef.current.text === text ? clipRef.current.clip : clipFromText(text);
+      if (!clip.length) return;
+      const { rows: rws, picked: pk, active: act } = latest.current;
+      const bounds = boundsOf(rws, pk);
+      const at = bounds ? { r: bounds.r0, c: bounds.c0 } : act;
+      if (!at) { toast('Valitse ensin ruutu, johon liität.', { tone: 'info' }); return; }
+      const pc = rws.flatMap((r) => r.cells).filter((c) => pk.has(c.key));
+      const changes = pasteChanges(rws, clip, at, pc);
+      if (!changes.length) { toast('Liitettävässä ei ollut teemoja.', { tone: 'info' }); return; }
+      setPicked(new Set(changes.map((x) => x.cell.key)));
+      writeRef.current(changes, (n) => `Liitetty ${plural(n, 'ruutuun', 'ruutuun')}.`, 'suunnittele.liita');
+    };
+    document.addEventListener('copy', onCopy);
+    document.addEventListener('paste', onPaste);
+    return () => { document.removeEventListener('copy', onCopy); document.removeEventListener('paste', onPaste); };
+  }, [toast]);
+
   const move = (n) => setStart((s) => {
     const next = koutsiAddIsoWeeks(s, n);
     return koutsiCompareIsoWeeks(next, first) < 0 ? first : next;
   });
-
-  const removeThemes = async () => {
-    if (!withTheme.length) return;
-    const ok = await confirm({
-      title: `Poista teema ${plural(withTheme.length, 'ruudusta', 'ruudusta')}?`,
-      message: `${[...new Set(withTheme.map((c) => c.theme.title))].slice(0, 4).join(', ')}. Muiden viikkojen teemat säilyvät.`,
-      confirmLabel: 'Poista', danger: true,
-    });
-    if (!ok) return;
-    const res = await run(() => api.themes.remove(withTheme.map((c) => c.theme.id)), `Teema poistettu ${plural(withTheme.length, 'ruudusta', 'ruudusta')}.`);
-    if (res.ok) { track('suunnittele.teema-poistettu'); setPicked(new Set()); }
+  const pickSame = () => {
+    if (!common) return;
+    setPicked(new Set(allCells.filter((c) => c.theme && koutsiThemeKey(c.theme.title) === common.key).map((c) => c.key)));
   };
 
   if (rows.length === 0) {
     return <p className="k-quiet">Luo ensin ryhmä Viikkohallinnassa — sen viikot tulevat tähän.</p>;
   }
   const sum = pickSummary(pickedCells);
+  const activeKey = active ? rows[active.r]?.cells[active.c]?.key : null;
+  const dropOnPicked = dropKey && picked.has(dropKey) && picked.size > 1;
   return (
-    <div className="tg-wrap">
+    <div className="tg-wrap" ref={wrapRef}>
       <div className="tg-toolbar">
         <div className="tg-nav">
-          <IconButton icon="chevron-left" label="Aiemmat viikot" variant="soft" onClick={() => move(-4)} disabled={atStart} />
+          <IconButton icon="chevron-left" label="Aiemmat viikot" variant="soft" onClick={() => move(-Math.max(2, Math.floor(cols / 2)))} disabled={atStart} />
           <div className="tg-range">
             <span className="tg-range-title">Viikot {weeks[0].week}–{weeks[weeks.length - 1].week}</span>
             <span className="tg-range-sub t-num">{koutsiIsoWeekRangeLabel(weeks[0].year, weeks[0].week).split('–')[0]}–{koutsiIsoWeekRangeLabel(weeks[weeks.length - 1].year, weeks[weeks.length - 1].week).split('–')[1]}</span>
           </div>
-          <IconButton icon="chevron-right" label="Seuraavat viikot" variant="soft" onClick={() => move(4)} />
+          <IconButton icon="chevron-right" label="Seuraavat viikot" variant="soft" onClick={() => move(Math.max(2, Math.floor(cols / 2)))} />
           {!atStart && <button type="button" className="wb-today-btn" onClick={() => setStart(first)}>Tämä viikko</button>}
         </div>
-        <p className="tg-hint">Valitse ruudut: napauta ruutua, viikkoa tai ryhmän nimeä. Sitten kirjoitat teeman kerran.</p>
+        {undoStack.length > 0 && <Button variant="outline" size="sm" icon="undo" onClick={undo}>Kumoa</Button>}
+      </div>
+
+      <div className="tg-palette" aria-label="Teemat vedettäväksi">
+        <span className="tg-palette-label">Vedä teema ruutuihin</span>
+        {library.length === 0 && <span className="k-faint">Kirjoita ensimmäinen teema suoraan ruutuun.</span>}
+        {library.map((t) => (
+          <button key={t.key} type="button" draggable className="tg-chip" title={t.lead ? `${t.title} — ${t.lead}` : t.title}
+            onDragStart={(e) => {
+              e.dataTransfer.setData(THEME_TYPE, JSON.stringify({ title: t.title, lead: t.lead || '' }));
+              e.dataTransfer.setData('text/plain', t.title);
+              e.dataTransfer.effectAllowed = 'copy';
+            }}
+            onDragEnd={() => setDropKey(null)}
+            onClick={() => applyTheme({ title: t.title, lead: t.lead || '' }, pickedCells)}>
+            <Icon name="sparkles" size={12} />{t.title}
+          </button>
+        ))}
       </div>
 
       <div className="tg-scroll">
-        <div className="tg" role="grid" aria-label="Teemat viikoittain" style={{ '--tg-weeks': weeks.length }}>
+        <div ref={gridRef} className={cx('tg', editing && 'is-editing')} role="grid" tabIndex={0} aria-label="Teemat viikoittain" aria-multiselectable="true"
+          aria-activedescendant={activeKey ? `tg-${activeKey}` : undefined}
+          onKeyDown={onKeyDown} style={{ '--tg-weeks': weeks.length }}>
           <div className="tg-row tg-head" role="row">
             <div className="tg-corner" role="columnheader">Ryhmä</div>
             {weeks.map((week, i) => {
@@ -191,41 +473,68 @@ export function ThemeGrid() {
               const keys = pool.map((r) => r.cells[i].key);
               const on = keys.length > 0 && keys.every((k) => picked.has(k));
               return (
-                <button key={koutsiIsoWeekKey(week)} type="button" role="columnheader" aria-pressed={on}
+                <div key={koutsiIsoWeekKey(week)} role="columnheader" aria-selected={on}
                   className={cx('tg-week', on && 'is-on', koutsiCompareIsoWeeks(week, now) === 0 && 'is-now')}
-                  onClick={() => toggleWeek(i)} title={`Valitse koko viikko ${week.week}`}>
+                  onMouseDown={(e) => onColDown(e, i)} onMouseEnter={() => onCellEnter(0, i)} title={`Valitse viikko ${week.week} — vedä valitaksesi monta viikkoa`}>
                   <span className="tg-week-num">Vko {week.week}</span>
                   <span className="tg-week-dates t-num">{koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
                   <span className={cx('tg-week-cov', pool.length > 0 && covered === pool.length && 'is-full')}>{pool.length ? `${covered}/${pool.length} teema` : 'ei treenejä'}</span>
-                </button>
+                </div>
               );
             })}
           </div>
-          {rows.map((row) => {
-            const keys = trainingCells(row.cells).map((c) => c.key);
+          {rows.map((row, r) => {
+            const keys = cellsIn(rows, { r0: r, r1: r, c0: 0, c1: weeks.length - 1 }).map((c) => c.key);
             const rowOn = keys.length > 0 && keys.every((k) => picked.has(k));
             return (
               <div key={row.group.id} className="tg-row" role="row">
                 <div className={cx('tg-group', rowOn && 'is-on')} role="rowheader">
-                  <button type="button" className="tg-group-pick" onClick={() => toggleRow(row)} aria-pressed={rowOn} title="Valitse ryhmän kaikki viikot">
+                  <div className="tg-group-pick" onMouseDown={(e) => onRowDown(e, r)} onMouseEnter={() => onCellEnter(r, 0)} title="Valitse ryhmän viikot — vedä valitaksesi monta ryhmää">
                     <span className="tg-group-when t-num">{row.group.day} {row.group.time}</span>
                     <span className="tg-group-name truncate">{row.group.name}</span>
-                  </button>
+                  </div>
                   <Link to={groupPath(row.group.id)} className="tg-group-open" aria-label={`Avaa ryhmä ${row.group.name}`} title="Avaa ryhmä"><Icon name="chevron-right" size={16} /></Link>
                 </div>
-                {row.cells.map((c) => {
+                {row.cells.map((c, ci) => {
                   const on = picked.has(c.key);
+                  const isActive = c.key === activeKey;
+                  const isEditing = editing && editing.r === r && editing.c === ci;
+                  const corner = rect && !editing && !fillPreview && r === rect.r1 && ci === rect.c1;
+                  const filling = fillPreview && inRect(r, ci, fillPreview) && !inRect(r, ci, drag.current?.src);
+                  const dropping = dropKey === c.key || (dropOnPicked && on);
                   return (
-                    <button key={c.key} type="button" role="gridcell" aria-pressed={on}
-                      className={cx('tg-cell', on && 'is-on', c.theme && 'has-theme', !c.sessions && 'is-off')}
-                      onClick={() => toggleCell(c)}
-                      title={c.theme ? `${c.theme.title}${c.theme.lead ? ` — ${c.theme.lead}` : ''}` : c.sessions ? 'Ei teemaa' : c.gap === 'break' ? 'Ei treeniä tällä viikolla' : 'Kalenteri ei jatku tähän asti'}>
-                      {on && <span className="tg-check"><Icon name="check" size={12} strokeWidth={3} /></span>}
-                      {c.theme
-                        ? <span className="tg-theme">{c.theme.title}</span>
+                    <div key={c.key} id={`tg-${c.key}`} role="gridcell" aria-selected={on}
+                      className={cx('tg-cell', on && 'is-on', isActive && 'is-active', c.theme && 'has-theme', !c.sessions && 'is-off', filling && 'is-fill', dropping && 'is-drop')}
+                      onMouseDown={(e) => onCellDown(e, r, ci)} onMouseEnter={() => onCellEnter(r, ci)}
+                      onDoubleClick={() => startEdit({ r, c: ci })}
+                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (dropKey !== c.key) setDropKey(c.key); }}
+                      onDragLeave={() => setDropKey((k) => (k === c.key ? null : k))}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDropKey(null);
+                        const theme = droppedTheme(e.dataTransfer);
+                        if (!theme) return;
+                        applyTheme(theme, on && picked.size > 1 ? pickedCells : [c]);
+                      }}
+                      title={c.theme ? `${c.theme.title}${c.theme.lead ? ` — ${c.theme.lead}` : ''}` : c.sessions ? 'Ei teemaa — kirjoita tai vedä teema tähän' : c.gap === 'break' ? 'Ei treeniä tällä viikolla' : 'Kalenteri ei jatku tähän asti'}>
+                      {isEditing ? (
+                        <input className="tg-input" autoFocus defaultValue={editing.initial} list="tg-library" maxLength={KOUTSI_THEME_TITLE_MAX}
+                          aria-label={`Teema: ${row.group.name}, viikko ${c.week.week}`}
+                          onFocus={(e) => { const v = e.currentTarget.value; e.currentTarget.setSelectionRange(v.length, v.length); }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => {
+                            e.stopPropagation();
+                            if (e.key === 'Enter') { e.preventDefault(); commitEdit(e.currentTarget.value, 'down'); }
+                            else if (e.key === 'Tab') { e.preventDefault(); commitEdit(e.currentTarget.value, e.shiftKey ? 'left' : 'right'); }
+                            else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                          }}
+                          onBlur={(e) => commitEdit(e.currentTarget.value, null)} />
+                      ) : c.theme
+                        ? <span className="tg-theme"><span className="tg-theme-text">{c.theme.title}</span></span>
                         : c.sessions ? <span className="tg-empty">Ei teemaa</span>
                           : <span className="tg-gap">{c.gap === 'break' ? 'Tauko' : 'Ei kalenterissa'}</span>}
-                    </button>
+                      {corner && <span className="tg-handle" onMouseDown={startFill} title="Vedä oikealle tai alas: teemat kopioituvat" />}
+                    </div>
                   );
                 })}
               </div>
@@ -233,20 +542,31 @@ export function ThemeGrid() {
           })}
         </div>
       </div>
+      <datalist id="tg-library">{koutsiThemeLibrary(state.groups).map((t) => <option key={t.key} value={t.title} />)}</datalist>
+
+      <p className="tg-help">
+        <strong>Vinkit:</strong> vedä hiirellä monta ruutua · kirjoita suoraan ruutuun (Enter tallentaa kaikkiin valittuihin) ·
+        vedä valinnan kulmasta oikealle tai alas kopioidaksesi · {MOD}+C / {MOD}+V kopioi ja liittää (myös Excelistä) ·
+        Delete poistaa · {MOD}+Z kumoaa
+      </p>
 
       {pickedCells.length > 0 && (
         <div className="tg-bar" role="region" aria-label="Valitut ruudut">
-          <span className="tg-bar-count"><strong>{plural(pickedCells.length, 'ruutu', 'ruutua')}</strong><span className="k-faint"> · {summaryText(sum)}</span></span>
-          {common && <span className="tg-bar-theme truncate"><Icon name="sparkles" size={14} />{common.title}</span>}
-          <span className="grow" />
-          {common && <Button variant="ghost" size="sm" onClick={pickSame}>Valitse kaikki ”{common.title}”</Button>}
-          <Button variant="ghost" size="sm" onClick={() => setPicked(new Set())}>Tyhjennä</Button>
-          {withTheme.length > 0 && <Button variant="outline" size="sm" icon="trash" onClick={removeThemes}>Poista teema</Button>}
-          <Button variant="lime" size="md" icon={common ? 'edit' : 'sparkles'} onClick={() => setWriting(true)}>{common ? 'Muokkaa teemaa' : 'Aseta teema'}</Button>
+          <span className="tg-bar-info">
+            <span className="tg-bar-count"><strong>{plural(pickedCells.length, 'ruutu', 'ruutua')}</strong><span className="k-faint"> · {summaryText(sum)}</span></span>
+            {common && <span className="tg-bar-theme truncate"><Icon name="sparkles" size={14} />{common.title}</span>}
+          </span>
+          <span className="tg-bar-actions">
+            {common && <Button variant="ghost" size="sm" onClick={pickSame} title={`Valitse kaikki ruudut, joissa on ”${common.title}”`}>Valitse samat</Button>}
+            <Button variant="ghost" size="sm" onClick={() => setPicked(new Set())}>Tyhjennä valinta</Button>
+            {withTheme.length > 0 && <Button variant="outline" size="sm" icon="trash" onClick={clearPicked}>Poista teema</Button>}
+            <Button variant="lime" size="md" icon={common ? 'edit' : 'sparkles'} onClick={() => setSheetOpen(true)}>{common ? 'Muokkaa teemaa' : 'Aseta teema'}</Button>
+          </span>
         </div>
       )}
 
-      <ThemeWriteSheet open={writing} cells={pickedCells} onClose={() => setWriting(false)} onSaved={() => { setWriting(false); setPicked(new Set()); }} />
+      <ThemeWriteSheet open={sheetOpen} cells={pickedCells} onClose={() => setSheetOpen(false)}
+        onApply={(changes, event) => write(changes, (n) => `Teema tallennettu ${plural(n, 'ruutuun', 'ruutuun')}.`, event)} />
     </div>
   );
 }

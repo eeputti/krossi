@@ -123,3 +123,114 @@ test('knownAbsences: who is away at coming sessions', () => {
   const k = knownAbsences(absState(), { now: NOW, days: 28 });
   assert.deepEqual(k.map((x) => [x.training.id, x.students.map((s) => s.id)]), [['ke44', ['lumi']], ['ke45', ['aino']]]);
 });
+
+// ── Excel-like editing ──
+import {
+  boundsOf, cellsIn, changesToWrites, clipFromText, clipOf, clipToText, effectiveChanges, fillChanges,
+  pasteChanges, pickedRect, rectOf, snapshotOf, undoWrites, withLead,
+} from '../src/domain/planning.js';
+
+// 3 groups × 4 weeks (44–47); group c has a break in week 46
+const xlGroups = () => [
+  { id: 'a', name: 'A', day: 'Ma', time: '16:00', memberIds: [], themes: [{ id: 'ta44', ...w(44), title: 'Syöttö', lead: 'Heitto' }, { id: 'ta45', ...w(45), title: 'Palautus', lead: '' }] },
+  { id: 'b', name: 'B', day: 'Ti', time: '16:00', memberIds: [], themes: [] },
+  { id: 'c', name: 'C', day: 'Ke', time: '16:00', memberIds: [], themes: [{ id: 'tc47', ...w(47), title: 'Volley', lead: '' }] },
+];
+const xlTrainings = () => {
+  const out = [];
+  for (const [g, day] of [['a', 0], ['b', 1], ['c', 2]]) {
+    for (const wk of [44, 45, 46, 47]) {
+      if (g === 'c' && wk === 46) continue; // c: break
+      const d = new Date(`${MON[wk]}T12:00:00`); d.setDate(d.getDate() + day);
+      out.push(tr(`${g}${wk}`, g, d.toISOString().slice(0, 10)));
+    }
+  }
+  return out;
+};
+const xlRows = (groups = xlGroups()) => themeGrid(groups, xlTrainings(), gridWeeks(w(44), 4));
+const keysOf = (cells) => cells.map((c) => c.key);
+const at = (rows, r, c) => rows[r].cells[c];
+
+test('cellsIn / pickedRect: blocks skip break weeks; a scattered pick is no block', () => {
+  const rows = xlRows();
+  const rect = rectOf({ r: 2, c: 3 }, { r: 1, c: 1 });
+  assert.deepEqual(rect, { r0: 1, r1: 2, c0: 1, c1: 3 });
+  const cells = cellsIn(rows, rect);
+  assert.equal(cells.length, 5, 'c46 (break) is left out');
+  assert.deepEqual(pickedRect(rows, keysOf(cells)), rect);
+  assert.equal(pickedRect(rows, [at(rows, 0, 0).key, at(rows, 2, 3).key]), null);
+  assert.deepEqual(boundsOf(rows, [at(rows, 0, 0).key, at(rows, 2, 3).key]), { r0: 0, r1: 2, c0: 0, c1: 3 });
+});
+
+test('withLead keeps the own lead on the same title; effectiveChanges drops no-ops', () => {
+  const rows = xlRows();
+  const a44 = at(rows, 0, 0);
+  assert.deepEqual(withLead(a44, { title: 'syöttö' }), { title: 'syöttö', lead: 'Heitto' });
+  assert.deepEqual(withLead(a44, { title: 'Volley' }), { title: 'Volley', lead: '' });
+  assert.equal(withLead(a44, { title: '   ' }), null);
+  const eff = effectiveChanges([
+    { cell: a44, theme: { title: 'Syöttö', lead: 'Heitto' } }, // same → dropped
+    { cell: at(rows, 1, 0), theme: null }, // empty already → dropped
+    { cell: at(rows, 0, 1), theme: null }, // clears Palautus
+    { cell: at(rows, 1, 1), theme: { title: 'Syöttö', lead: '' } },
+  ]);
+  assert.equal(eff.length, 2);
+  assert.deepEqual(changesToWrites(eff), {
+    save: [{ groupId: 'b', year: 2026, week: 45, title: 'Syöttö', lead: '' }],
+    remove: ['ta45'],
+  });
+});
+
+test('fillChanges: drag right repeats the pattern; drag down copies; empty sources and breaks skipped', () => {
+  const rows = xlRows();
+  // a44..a45 (Syöttö, Palautus) dragged to week 47 → a46 Syöttö, a47 Palautus
+  const right = fillChanges(rows, { r0: 0, r1: 0, c0: 0, c1: 1 }, { r: 0, c: 3 });
+  assert.deepEqual(right.rect, { r0: 0, r1: 0, c0: 0, c1: 3 });
+  assert.deepEqual(right.changes.map((x) => `${x.cell.key}=${x.theme.title}`), ['a|2026-46=Syöttö', 'a|2026-47=Palautus']);
+  // a45 dragged down to c → b45, c45 get Palautus
+  const down = fillChanges(rows, { r0: 0, r1: 0, c0: 1, c1: 1 }, { r: 2, c: 1 });
+  assert.deepEqual(down.changes.map((x) => x.cell.key), ['b|2026-45', 'c|2026-45']);
+  // a45 dragged down over c46 column? week 46 of c is a break: nothing written there
+  const breakCol = fillChanges(rows, { r0: 0, r1: 0, c0: 2, c1: 2 }, { r: 2, c: 2 });
+  assert.equal(breakCol.changes.length, 0, 'a46 is empty: nothing to copy');
+  // diagonal drag picks the longer axis
+  assert.deepEqual(fillChanges(rows, { r0: 0, r1: 0, c0: 0, c1: 0 }, { r: 1, c: 3 }).rect, { r0: 0, r1: 0, c0: 0, c1: 3 });
+  assert.equal(fillChanges(rows, { r0: 0, r1: 0, c0: 0, c1: 0 }, { r: 0, c: 0 }).changes.length, 0);
+});
+
+test('copy as text, paste from Excel: one value fills the pick, a block keeps its shape', () => {
+  const rows = xlRows();
+  const clip = clipOf(rows, [at(rows, 0, 0).key, at(rows, 0, 1).key]);
+  assert.equal(clipToText(clip), 'Syöttö\tPalautus');
+  assert.deepEqual(clipFromText('Syöttö\tPalautus\r\nVolley\t\n'), [[{ title: 'Syöttö', lead: '' }, { title: 'Palautus', lead: '' }], [{ title: 'Volley', lead: '' }, null]]);
+  assert.deepEqual(clipFromText(''), []);
+  // one value into three picked cells
+  const picked = [at(rows, 1, 0), at(rows, 1, 1), at(rows, 2, 0)];
+  assert.deepEqual(pasteChanges(rows, [[{ title: 'Liikkuminen', lead: '' }]], { r: 1, c: 0 }, picked).map((x) => x.cell.key), ['b|2026-44', 'b|2026-45', 'c|2026-44']);
+  // a 2×2 block at b45: c46 is a break → skipped, null never clears
+  const block = clipFromText('X\tY\nZ\t');
+  assert.deepEqual(pasteChanges(rows, block, { r: 1, c: 1 }).map((x) => `${x.cell.key}=${x.theme.title}`), ['b|2026-45=X', 'b|2026-46=Y', 'c|2026-45=Z']);
+  // pasting the same title over a cell with a lead keeps the lead
+  assert.equal(pasteChanges(rows, [[{ title: 'Syöttö', lead: '' }]], { r: 0, c: 0 })[0].theme.lead, 'Heitto');
+});
+
+test('undoWrites puts back what was there and removes what was added', () => {
+  const groups = xlGroups();
+  const rows = xlRows(groups);
+  const changes = effectiveChanges([
+    { cell: at(rows, 0, 0), theme: { title: 'Uusi', lead: '' } }, // replaced Syöttö/Heitto
+    { cell: at(rows, 1, 0), theme: { title: 'Uusi', lead: '' } }, // was empty
+    { cell: at(rows, 2, 3), theme: null }, // cleared Volley
+  ]);
+  const snap = snapshotOf(changes);
+  // the groups after the write
+  groups[0].themes[0] = { id: 'ta44', ...w(44), title: 'Uusi', lead: '' };
+  groups[1].themes.push({ id: 'new-b44', ...w(44), title: 'Uusi', lead: '' });
+  groups[2].themes = [];
+  const undo = undoWrites(groups, snap);
+  assert.deepEqual(undo.save, [
+    { groupId: 'a', year: 2026, week: 44, title: 'Syöttö', lead: 'Heitto' },
+    { groupId: 'c', year: 2026, week: 47, title: 'Volley', lead: '' },
+  ]);
+  assert.deepEqual(undo.remove, ['new-b44']);
+});
