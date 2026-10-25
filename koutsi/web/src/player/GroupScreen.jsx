@@ -1,25 +1,38 @@
-// GroupScreen (player) — one card per group: schedule, coach, this week's theme and what the
-// group has worked on, the next sessions, and the group mates (names only — another player's
-// level or anything else from their coaching is never shown here).
+// GroupScreen (player) — Ryhmäsi (Lisää → Ryhmäsi, or "Ryhmä" on a session). One card per group,
+// in the order a player asks: when and with whom, what we work on this week (and next), who is
+// in the group (names and photos only — another player's level or anything else from their
+// coaching is never shown here), and the coming sessions with "En pääse". The theme history is
+// on Kehitys (Treenit on the timeline). ?ryhma=<id> puts that group first.
 import { useData } from '../app/data.jsx';
-import { Avatar, AvatarStack, Button, Card, Disclosure, EmptyState, Icon, Page, TopBar } from '../ui/index.js';
-import { ThemeCard, useShowMore } from '../shared/bits.jsx';
+import { Avatar, Button, Card, Disclosure, EmptyState, Icon, Page, PageHeader } from '../ui/index.js';
+import { ThemeCard } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiGroupsForStudent, koutsiCoachById, koutsiTimeRangeLabel, koutsiTrainingsForGroup,
   koutsiTodayStr, koutsiAddIsoWeeks, koutsiGroupThemeForWeek, koutsiStudentById,
 } from '../domain/core.js';
 import { DAY_NAMES, sessionStatus, shortDay, themeWeekShort } from '../domain/week.js';
+import { firstName } from '../domain/roster.js';
 import { JoinCodeForm } from './PlayerRoot.jsx';
 import { usePlayerActions } from './PlayerApp.jsx';
 
-function History({ themes }) {
-  const [shown, more] = useShowMore(themes || [], 8);
-  if (!themes?.length) return null;
+const cx = (...c) => c.filter(Boolean).join(' ');
+
+function Mates({ state, group, me }) {
+  const people = group.memberIds.map((id) => koutsiStudentById(state, id)).filter(Boolean)
+    .sort((a, b) => (a.id === me.id ? -1 : b.id === me.id ? 1 : a.name.localeCompare(b.name, 'fi')));
+  if (people.length <= 1) return null;
   return (
-    <Disclosure title="Teemahistoria" summary={themes.length === 1 ? '1 viikko' : `${themes.length} viikkoa`} icon="clock">
-      <ul className="k-history">{shown.map((t) => <li key={t.id} className="k-history-row"><span className="k-history-week">{themeWeekShort(t)}</span><span className="grow">{t.title}{t.lead && <span className="k-faint"> — {t.lead}</span>}</span></li>)}</ul>
-      {more}
-    </Disclosure>
+    <div className="stack-2">
+      <div className="field-label">Ryhmässä {people.length} pelaajaa</div>
+      <ul className="pg-mates">
+        {people.map((p) => (
+          <li key={p.id} className={cx('pg-mate', p.id === me.id && 'is-me')}>
+            <Avatar person={p} size={40} />
+            <span className="pg-mate-name">{p.id === me.id ? 'Sinä' : firstName(p.name) || p.name}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -33,9 +46,8 @@ function GroupCard({ state, group, me }) {
   // sessions that haven't ended yet; "En pääse" only until a session starts
   const upcoming = koutsiTrainingsForGroup(state, group.id)
     .filter((t) => t.date >= koutsiTodayStr() && sessionStatus(t, group) !== 'past').slice(0, 3);
-  const mates = group.memberIds.filter((id) => id !== me.id).map((id) => koutsiStudentById(state, id)).filter(Boolean);
   return (
-    <Card className="p-group stack-4">
+    <Card className="p-group stack-4" id={`ryhma-${group.id}`}>
       <header>
         <div className="eyebrow">{DAY_NAMES[group.day] || ''} klo {koutsiTimeRangeLabel(group.time, group.durationMinutes)}</div>
         <h2 className="t-h2">{group.name}</h2>
@@ -45,7 +57,7 @@ function GroupCard({ state, group, me }) {
         : latest ? <ThemeCard theme={latest} eyebrow={`Viimeisin teema · ${themeWeekShort(latest)}`} note="Tämän viikon teema puuttuu vielä." />
           : <p className="k-quiet">Viikon teema ilmestyy tähän, kun valmentaja asettaa sen.</p>}
       {next && <p className="k-next-theme"><Icon name="arrow-right" size={14} /> Ensi viikko: <strong>{next.title}</strong></p>}
-      <History themes={group.pastThemes} />
+      <Mates state={state} group={group} me={me} />
       {upcoming.length > 0 && (
         <div className="stack-2">
           <div className="field-label">Seuraavat treenit</div>
@@ -53,7 +65,7 @@ function GroupCard({ state, group, me }) {
             const absent = (t.absences || []).some((a) => a.studentId === me.id);
             const started = sessionStatus(t, group) !== 'upcoming';
             return (
-              <div key={t.id} className="p-session">
+              <div key={t.id} className={cx('p-session', absent && 'is-absent')}>
                 <span className="grow">
                   <span className="k-row-title">{t.date === koutsiTodayStr() ? 'Tänään' : shortDay(t.date)}</span>
                   <span className="k-faint">klo {koutsiTimeRangeLabel(t.time, t.durationMinutes || group.durationMinutes)}{started ? ' · käynnissä' : ''}</span>
@@ -66,40 +78,29 @@ function GroupCard({ state, group, me }) {
           })}
         </div>
       )}
-      {mates.length > 0 && (
-        <div className="stack-2">
-          <div className="field-label">Ryhmässä ({group.memberIds.length})</div>
-          <div className="p-mates">
-            <AvatarStack people={mates} max={6} size={30} />
-            <span className="k-faint truncate">{mates.slice(0, 4).map((m) => m.name.split(' ')[0]).join(', ')}{mates.length > 4 ? ` ja ${mates.length - 4} muuta` : ''}</span>
-          </div>
-        </div>
-      )}
     </Card>
   );
 }
 
-export function GroupScreen() {
+export function GroupScreen({ query = {} }) {
   const { state, reload } = useData();
   const me = state.students[0];
-  const groups = koutsiGroupsForStudent(state, me.id);
+  const all = koutsiGroupsForStudent(state, me.id);
+  const groups = query.ryhma ? [...all].sort((a, b) => Number(b.id === query.ryhma) - Number(a.id === query.ryhma)) : all;
   if ((state.coaches || []).length === 0) {
     return (
-      <>
-      <TopBar title="Liity ryhmään" back="/pelaaja/koti" />
-      <Page className="k-page-pad">
+      <Page>
+        <PageHeader title="Liity ryhmään" />
         <Card className="stack-4">
           <EmptyState compact art="players" title="Et ole vielä valmentajan ryhmässä" text="Syötä valmentajaltasi saamasi liittymiskoodi, niin näet ryhmäsi treenit ja viikon teeman." />
           <JoinCodeForm onJoined={() => reload()} />
         </Card>
       </Page>
-      </>
     );
   }
   return (
-    <>
-    <TopBar title="Ryhmäsi" back="/pelaaja/koti" />
-    <Page className="k-page-pad">
+    <Page>
+      <PageHeader title="Ryhmäsi" subtitle="Viikon teema, ryhmäläiset ja seuraavat treenit." />
       <div className="stack-5">
         {groups.length === 0 && <p className="k-quiet-text">Valmentajasi ei ole vielä lisännyt sinua ryhmään.</p>}
         {groups.map((g) => <GroupCard key={g.id} state={state} group={g} me={me} />)}
@@ -114,6 +115,5 @@ export function GroupScreen() {
         </Disclosure>
       </div>
     </Page>
-    </>
   );
 }

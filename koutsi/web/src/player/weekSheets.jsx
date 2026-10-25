@@ -4,6 +4,7 @@
 import { useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
+import { navigate } from '../app/router.js';
 import { Button, Icon, IconButton, Sheet, useConfirm } from '../ui/index.js';
 import { koutsiAddDays, koutsiPad, koutsiTimeRangeLabel, koutsiTodayStr, koutsiTrainingsForStudent, KOUTSI_MONTHS } from '../domain/core.js';
 import { minutesLabel, weekDates } from '../domain/week.js';
@@ -56,7 +57,7 @@ export function CoachSessionSheet({ open, item, onClose }) {
         </div>
         {theme && (
           <div className="pw-theme">
-            <div className="eyebrow"><Icon name="sparkles" size={13} /> Viikon teema</div>
+            <div className="eyebrow"><Icon name="sparkles" size={13} /> Treenin teema</div>
             <strong className="pw-theme-title">{theme.title}</strong>
             {theme.lead && <p className="pw-theme-lead">{theme.lead}</p>}
           </div>
@@ -64,6 +65,11 @@ export function CoachSessionSheet({ open, item, onClose }) {
         {plan.items.length > 0 && (
           <button type="button" className="tp-link" onClick={then(() => actions.openPlan(live))}>
             <Icon name="list" size={16} /><span className="grow"><strong>Treenin runko</strong> · {planSummary(plan)}</span><Icon name="chevron-right" size={16} />
+          </button>
+        )}
+        {group && (
+          <button type="button" className="tp-link" onClick={then(() => navigate(`/pelaaja/ryhma?ryhma=${encodeURIComponent(group.id)}`))}>
+            <Icon name="users" size={16} /><span className="grow"><strong>Ryhmä</strong> · {group.memberIds.length === 1 ? '1 pelaaja' : `${group.memberIds.length} pelaajaa`}</span><Icon name="chevron-right" size={16} />
           </button>
         )}
       </div>

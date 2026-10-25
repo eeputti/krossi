@@ -200,14 +200,14 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/valmentaja/profiili`, `/valmentaja/yllapito` | profile, admin | tab / page |
 | `/valmentaja/oppilaat`, `/treenit`, `/kalenteri` | vanhat osoitteet | ohjaus uusiin (`/kalenteri?vko=` säilyttää viikon) |
 
-**Pelaaja** (`/pelaaja`, välilehdet: Koti · Viikko · [Merkitse] · Kehitys · Profiili; Ryhmä on Kodin alasivu)
+**Pelaaja** (`/pelaaja`, puhelimessa: Koti · Viikko · [Merkitse] · Kehitys · Lisää — Lisää-laatikossa Ryhmäsi, Harjoitteet ja videot, Ilmoitukset, Profiili, Anna palautetta; tietokoneella samat sivupalkissa, Profiili alhaalla)
 
 | Polku | Nimi |
 |---|---|
-| `/pelaaja/koti` | home |
-| `/pelaaja/kehitys` | progress |
-| `/pelaaja/treenit` (`?vko=2026-43`) | trainings — pelaajan viikko kuten valmentajan Viikkohallinta: kotiläksyt ensin, valmentajan treenit ja omat merkinnät aikaruudukossa, plus-nappi / tyhjän kohdan napautus kirjaa |
-| `/pelaaja/ryhma` | group — sivu (takaisin Kotiin), avautuu Kodin "Ryhmäsi"-riveiltä |
+| `/pelaaja/koti` | home — kellon mukaan: viikon päivät (päivän napautus avaa sen tulevan treenin, muuten Viikon sillä päivällä), Tiedote, Treenit (juuri ohi / nyt / seuraavaksi / myöhemmin, `domain/playerNow.js sessionLine`), Ajankohtaista |
+| `/pelaaja/kehitys` | progress — tavoite yhdellä vilkaisulla (napautus avaa tähtäimen, pitkän ajan ja aiemmat), toive, Tämä viikko → kalenteri, aikajana suodattimilla Kaikki · Treenit · Valmentajalta · Omat |
+| `/pelaaja/treenit` (`?vko=2026-43&pv=2026-10-21`) | trainings — pelaajan viikko kuten valmentajan Viikkohallinta: kotiläksyt ensin, valmentajan treenit ja omat merkinnät aikaruudukossa, plus-nappi / tyhjän kohdan napautus kirjaa; `pv` avaa päivän |
+| `/pelaaja/ryhma` (`?ryhma=<id>`) | group — Lisää → Ryhmäsi tai treenin "Ryhmä": viikon teema → ryhmäläiset → seuraavat treenit |
 | `/pelaaja/harjoitteet` | exercises |
 | `/pelaaja/profiili` | profile |
 

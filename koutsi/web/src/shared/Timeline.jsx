@@ -1,7 +1,7 @@
 // Timeline.jsx — the Kehitys timeline: one newest-first stream, grouped by month, filterable
 // by kind and searchable. The builder is domain/timeline.js (unchanged from the old app).
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Icon, Input } from '../ui/index.js';
+import { Button, Icon, IconButton, Input } from '../ui/index.js';
 import {
   koutsiBuildTimeline, koutsiTlDay, koutsiTlMonthLabel, koutsiTlDayLabel, KOUTSI_TL_KINDS, KOUTSI_TL_KIND_ORDER, KOUTSI_TL_PREVIOUS_LABELS,
 } from '../domain/timeline.js';
@@ -9,6 +9,15 @@ import { KOUTSI_TAG_LABELS, koutsiTodayStr } from '../domain/core.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const PAGE = 40;
+// The player's timeline filters in four plain groups (the coach keeps one chip per kind).
+// "Treenit" is every session with its theme — the player's theme history, week by week.
+const isOwnVideo = (e) => e.kind === 'video' && e.video?.addedBy === 'player';
+const PLAYER_FILTERS = [
+  { id: 'kaikki', label: 'Kaikki', test: () => true },
+  { id: 'treenit', label: 'Treenit', test: (e) => e.kind === 'training' },
+  { id: 'valmentaja', label: 'Valmentajalta', test: (e) => e.kind === 'diary' || e.kind === 'homework' || (e.kind === 'video' && !isOwnVideo(e)) },
+  { id: 'omat', label: 'Omat', test: (e) => ['entry', 'mood', 'match', 'goal', 'wish', 'note'].includes(e.kind) || (e.kind === 'training' && e.own) || isOwnVideo(e) },
+];
 const KIND_ICON = { goal: 'target', entry: 'check', diary: 'edit', homework: 'check-circle', mood: 'heart', match: 'trophy', video: 'play', wish: 'chat', note: 'edit', event: 'flag', training: 'ball', start: 'flag' };
 
 /** A change of goal or aim, one small line: when it changed and from what to what. */
@@ -51,6 +60,7 @@ function Event({ event, onOpenVideo, renderActions, onArchive }) {
           </div>
         </div>
       ) : event.body ? <p className={cx('tl-body', event.done && 'is-done')}>{event.body}</p> : null}
+      {event.theme && <p className="tl-theme"><Icon name="sparkles" size={13} />{event.theme}</p>}
       {event.how && (
         <div className="tl-previous">
           <span className="tl-previous-label">Miten meni</span>
@@ -86,6 +96,8 @@ function Event({ event, onOpenVideo, renderActions, onArchive }) {
 export function Timeline({ student, trainings, clubEvents, onOpenVideo, renderActions, actions, emptyText, showStats = true, viewer = 'player', isHidden, onArchive }) {
   const [kind, setKind] = useState('kaikki');
   const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const grouped = viewer === 'player';
   const [limit, setLimit] = useState(PAGE);
   const all = useMemo(() => {
     const built = koutsiBuildTimeline(student, trainings, clubEvents, { viewer });
@@ -98,8 +110,10 @@ export function Timeline({ student, trainings, clubEvents, onOpenVideo, renderAc
   }, [all]);
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('fi');
-    return all.filter((e) => (kind === 'kaikki' || e.kind === kind) && (!q || (e.search || '').toLocaleLowerCase('fi').includes(q)));
-  }, [all, kind, query]);
+    const filter = grouped ? (PLAYER_FILTERS.find((f) => f.id === kind) || PLAYER_FILTERS[0]).test : (e) => kind === 'kaikki' || e.kind === kind;
+    return all.filter((e) => filter(e) && (!q || (e.search || '').toLocaleLowerCase('fi').includes(q)));
+  }, [all, kind, query, grouped]);
+  const groupCounts = useMemo(() => Object.fromEntries(PLAYER_FILTERS.map((f) => [f.id, all.filter(f.test).length])), [all]);
   useEffect(() => { setLimit(PAGE); }, [kind, query]);
   const shown = filtered.slice(0, limit);
   const months = useMemo(() => {
@@ -132,9 +146,25 @@ export function Timeline({ student, trainings, clubEvents, onOpenVideo, renderAc
           <div className="stat-tile"><div className="stat-tile-value t-num">{matches.length}</div><div className="stat-tile-label">Otteluita</div>{(wins || losses) ? <div className="stat-tile-sub">{wins} V – {losses} T</div> : null}</div>
         </div>
       )}
-      {actions && <div className="row wrap tl-actions">{actions}</div>}
-      {all.length > 6 && <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae merkinnöistä" aria-label="Hae aikajanalta" />}
-      {activeKinds.length > 1 && (
+      {(actions || (grouped && all.length > 6)) && (
+        <div className="row wrap tl-actions">
+          {actions}
+          {grouped && all.length > 6 && (
+            <IconButton icon={searching ? 'close' : 'search'} label={searching ? 'Sulje haku' : 'Hae merkinnöistä'} variant="soft" size="sm"
+              onClick={() => { if (searching) setQuery(''); setSearching((v) => !v); }} />
+          )}
+        </div>
+      )}
+      {grouped && all.length > 0 && (
+        <div className="tl-filters tl-filters-four" role="group" aria-label="Suodata">
+          {PLAYER_FILTERS.filter((f) => f.id === 'kaikki' || groupCounts[f.id] > 0).map((f) => (
+            <button key={f.id} type="button" className={cx('planner-chip', kind === f.id && 'is-on')} aria-pressed={kind === f.id} onClick={() => setKind(f.id)}>{f.label}</button>
+          ))}
+        </div>
+      )}
+      {grouped && searching && <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae merkinnöistä" aria-label="Hae aikajanalta" autoFocus />}
+      {!grouped && all.length > 6 && <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae merkinnöistä" aria-label="Hae aikajanalta" />}
+      {!grouped && activeKinds.length > 1 && (
         <div className="tl-filters" role="group" aria-label="Suodata">
           <button type="button" className={cx('planner-chip', kind === 'kaikki' && 'is-on')} onClick={() => setKind('kaikki')}>Kaikki <span className="planner-chip-sub">{all.length}</span></button>
           {activeKinds.map((k) => (

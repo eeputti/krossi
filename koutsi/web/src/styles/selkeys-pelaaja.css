@@ -1,0 +1,83 @@
+/* selkeys-pelaaja.css — the player's clearer Koutsi: Koti read from the clock, Ryhmäsi with the
+   group's players, Kehitys at one glance, and the feedback sheet's thank-you. Comes after
+   selkeys.css, whose week strip (.wk-days) and the coach's day line (.tt-* in board.css) it reuses. */
+
+/* ── Koti: the dark card's week strip ───────────────────────── */
+.ph-hero .wk-days { margin-top: 2px; }
+.wk-dot.is-own { background: #fff; box-shadow: none; }
+.wk-dot.is-absent { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.25); background: transparent; opacity: 0.6; }
+.ph-hero-sub { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--on-dark-muted); }
+.ph-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--on-dark-faint); }
+
+/* ── Koti: Treenit, the line from the clock ─────────────────── */
+.ph-line { gap: 12px; }
+.ph-card { width: 100%; text-align: left; flex-wrap: nowrap; }
+.ph-card.is-col { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 10px; }
+/* in a column the shared flex-basis (180px, meant as a width) would turn into height */
+.ph-card.is-col > .tt-main { flex: 0 0 auto; text-align: left; }
+button.tt-card:active, .ph-card > button.tt-main:active { opacity: 0.85; }
+.ph-label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.ph-label.is-live { color: var(--green-800); }
+.ph-theme { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 13px; font-weight: 700; color: var(--success); }
+.ph-theme.is-empty { font-weight: 600; color: var(--muted); }
+.ph-absent { font-weight: 600; color: #8A3A1A; }
+.tt-item.is-absent .tt-card { background: var(--surface-2); }
+.tt-item.is-absent .tt-name { color: var(--muted); }
+
+/* the next session: the biggest card on Koti */
+.tt-item.is-next .tt-dot { background: var(--lime); border-color: var(--green-800); }
+.ph-next { flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 8px; padding: 16px; border-color: var(--line-strong); box-shadow: var(--shadow-2, var(--shadow-1)); }
+.tt-item.is-next.is-absent .ph-next { background: var(--surface-2); border-color: var(--line); }
+.ph-next-when { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.ph-next-day { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.ph-next-when .t-num { font-size: 16px; font-weight: 750; color: var(--ink-2); }
+.ph-next-soon { padding: 2px 8px; border-radius: 999px; background: var(--lime); color: var(--ink); font-size: 12px; font-weight: 800; }
+.ph-next-what { font-size: 14px; color: var(--ink-2); }
+.ph-next-theme { display: grid; gap: 3px; padding: 12px 14px; border-radius: var(--r-md); background: var(--lime-100); border: 1px solid var(--lime-200); }
+.ph-next-theme .eyebrow { display: inline-flex; align-items: center; gap: 5px; color: var(--green-800); }
+.ph-next-theme strong { font-size: 17px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.25; }
+.ph-next-theme p { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.ph-next-notheme { font-size: 13px; color: var(--muted); }
+.ph-next .tp-link { margin: 0; }
+
+/* "Miten meni?" sits on the line as the session that just ended */
+.ph-after.is-card { box-shadow: var(--shadow-1); }
+
+/* Ajankohtaista: the open homework on top */
+.ph-hw { display: grid; gap: 8px; padding: 12px; border-radius: var(--r-lg); background: var(--clay-100, #fbeee6); border: 1px solid rgba(214, 140, 44, 0.25); }
+.ph-hw-head { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #8A5A12; }
+
+/* ── Ryhmäsi: who is in the group ───────────────────────────── */
+.pg-mates { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 12px 8px; margin: 0; padding: 0; list-style: none; }
+.pg-mate { display: grid; justify-items: center; gap: 5px; min-width: 0; }
+.pg-mate-name { max-width: 100%; font-size: 12.5px; font-weight: 650; color: var(--ink-2); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-mate.is-me .pg-mate-name { font-weight: 800; color: var(--ink); }
+
+/* ── Kehitys: the goal at one glance ────────────────────────── */
+.pk-goal { gap: 0; }
+.pk-goal-head { display: grid; gap: 6px; width: 100%; text-align: left; padding-right: 36px; }
+.pk-goal-head .eyebrow { padding-right: 0; }
+.pk-goal-more { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; font-size: 13px; font-weight: 700; color: var(--green-800); }
+.pk-goal .goal-edit:hover { background: var(--lime); border-color: var(--lime); }
+.pk-goal-body { display: grid; gap: 14px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.pk-goal-row { display: grid; gap: 4px; justify-items: start; }
+.pk-aim { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+.pk-earlier { display: grid; gap: 6px; width: 100%; margin: 0; padding: 0; list-style: none; }
+.pk-earlier li { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--ink-2); }
+.pk-earlier li .k-faint { flex-shrink: 0; font-size: 12px; }
+.pk-wish .goal-text { font-size: 14px; font-weight: 600; }
+
+/* the timeline: four filters on one row, search behind the magnifier, each session's theme on its own line */
+.tl-filters-four { gap: 6px; padding-bottom: 0; }
+.tl-filters-four .planner-chip { flex: 1 1 auto; justify-content: center; padding: 0 10px; }
+.tl-theme { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 13px; font-weight: 700; color: var(--success); }
+
+/* Viikko: the day tapped on Koti */
+.wb-dayhead.is-picked { border-bottom-color: var(--green-800); }
+
+/* ── Anna palautetta ────────────────────────────────────────── */
+.fb-help { margin: -2px 0 8px; font-size: 13px; color: var(--muted); }
+.fb-thanks { display: grid; justify-items: center; gap: 8px; padding: 18px 8px 8px; text-align: center; }
+.fb-thanks-icon { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; background: var(--lime); color: var(--ink); }
+.fb-thanks-title { margin-top: 6px; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.fb-thanks-text { font-size: 15px; color: var(--ink-2); }

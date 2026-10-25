@@ -171,6 +171,7 @@ export function TrainingsScreen({ query }) {
   const setWeek = (w) => navigate(koutsiCompareIsoWeeks(w, current) === 0 ? BASE : `${BASE}?vko=${weekParam(w)}`, { replace: true });
   const today = koutsiTodayStr();
   const dates = weekDates(week);
+  const picked = dates.includes(query.pv) ? query.pv : null;
   const board = useMemo(() => playerWeek(state, student, week, now), [state, student, week.year, week.week, Math.floor(nowMs / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
   const { grid, summary } = board;
   const relative = themeWeekRelative(week);
@@ -192,7 +193,8 @@ export function TrainingsScreen({ query }) {
   // with something on it) and keep the strip above in step with the day in view.
   const daysRef = useRef(null);
   const [active, setActive] = useState(0);
-  const startDay = Math.max(0, isCurrent ? dates.indexOf(today) : board.days.findIndex((d) => d.items.length));
+  // ?pv= (a day tapped on Koti) opens that day
+  const startDay = Math.max(0, dates.includes(query.pv) ? dates.indexOf(query.pv) : isCurrent ? dates.indexOf(today) : board.days.findIndex((d) => d.items.length));
   const scrollToDay = (i, smooth) => {
     const el = daysRef.current;
     const col = el?.children[i];
@@ -202,7 +204,7 @@ export function TrainingsScreen({ query }) {
   };
   useLayoutEffect(() => {
     if (!isDesktop) scrollToDay(startDay, false);
-  }, [isDesktop, week.year, week.week]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isDesktop, week.year, week.week, query.pv]); // eslint-disable-line react-hooks/exhaustive-deps
   const frame = useRef(0);
   const onScroll = () => {
     cancelAnimationFrame(frame.current);
@@ -307,7 +309,7 @@ export function TrainingsScreen({ query }) {
           <div className="wb-heads" style={{ gridTemplateColumns: `var(--wb-axis) ${columns}` }}>
             <span className="wb-corner" aria-hidden="true" />
             {board.days.map((d, i) => (
-              <div key={d.date} className={cx('wb-dayhead', d.date === today && 'is-today', d.date < today && 'is-past')}>
+              <div key={d.date} className={cx('wb-dayhead', d.date === today && 'is-today', d.date < today && 'is-past', d.date === picked && 'is-picked')}>
                 <span className="wb-dayhead-dow">{DAY_SHORT[i]}</span>
                 <span className="wb-dayhead-date t-num">{dayMonth(d.date)}</span>
               </div>
