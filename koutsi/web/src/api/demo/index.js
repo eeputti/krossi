@@ -80,7 +80,7 @@ function playerState(studentId) {
   const groupIds = new Set(groups.map((g) => g.id));
   // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
   const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
-  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, announcements: announcementsFor(s, me, groupIds), announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true };
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, announcements: announcementsFor(s, me, groupIds), announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, tennisProfileReady: true };
 }
 
 function hideHiddenMoods(snapshot) {
@@ -92,7 +92,7 @@ function student(id, name, { age = null, level = null, placeholder = true } = {}
   return {
     id, name, initial: koutsiInitialOf(name), hue: koutsiHueFromId(id), avatarUrl: '', isPlaceholder: placeholder,
     age, ageRange: null, ageValue: age == null ? '' : String(age), ageLabel: age == null ? '' : `${age} v`,
-    level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '', bio: '', area: '', joinedAt: null, welcomeSeenAt: null,
+    level, goal: '', lastSession: '', focus: '', playerNote: '', playerWish: '', ambition: '', longGoal: '', bio: '', area: '', playsHand: '', favouriteShot: '', playingSince: null, tennisStory: '', joinedAt: null, welcomeSeenAt: null,
     diary: [], homework: [], videos: [], moods: [], matchNotes: [], goalHistory: [], wishHistory: [], noteHistory: [], longGoalHistory: [], ambitionHistory: [], archive: [], entries: [],
   };
 }
@@ -207,6 +207,10 @@ export const backend = {
       const st = findStudent(id);
       addHistory(st, 'ambition', ambition || '');
       addHistory(st, 'long_goal', longGoal || '');
+    },
+    async saveTennis(id, { playsHand, favouriteShot, playingSince, tennisStory }) {
+      await wait();
+      Object.assign(findStudent(id), { playsHand: playsHand || '', favouriteShot: favouriteShot || '', playingSince: playingSince ?? null, tennisStory: tennisStory || '' });
     },
     async saveAge(id, age) {
       await wait();

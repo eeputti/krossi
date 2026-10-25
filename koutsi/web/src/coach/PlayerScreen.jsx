@@ -26,6 +26,7 @@ import { firstName } from '../domain/roster.js';
 import { ActivityIcon } from '../player/ActivityIcon.jsx';
 import { AbsenceSheet } from './AbsencePlanner.jsx';
 import { track } from './usage.js';
+import { tennisFacts } from '../domain/tennisProfile.js';
 
 function LevelSheet({ open, onClose, student }) {
   const { run } = useData();
@@ -362,8 +363,12 @@ export function PlayerScreen({ params }) {
                 {groups.map((g) => <Link key={g.id} to={groupPath(g.id)} className="k-group-pill"><span className="t-num">{g.day} {g.time}</span><span className="truncate">{g.name}</span></Link>)}
               </div>
             )}
-            {/* the player's own words from their profile */}
+            {/* the player's own words and tennis profile (only the player writes these) */}
+            {tennisFacts(student).length > 0 && (
+              <div className="row wrap k-player-facts">{tennisFacts(student).map((t) => <span key={t} className="chip chip-sm chip-neutral">{t}</span>)}</div>
+            )}
             {student.bio && <p className="k-player-bio">{student.bio}</p>}
+            {student.tennisStory && <p className="k-player-bio k-player-story"><span className="k-player-story-label">Tennistausta</span>{student.tennisStory}</p>}
           </div>
         </header>
 

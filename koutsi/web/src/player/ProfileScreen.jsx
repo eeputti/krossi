@@ -6,6 +6,7 @@ import { Card, Icon, Page, PageHeader } from '../ui/index.js';
 import { AccountSection, EmailPrefToggle } from '../shared/account.jsx';
 import { ProfileCard } from '../shared/profileCard.jsx';
 import { koutsiGroupsForStudent } from '../domain/core.js';
+import { tennisFacts } from '../domain/tennisProfile.js';
 import { usePlayerActions } from './PlayerApp.jsx';
 
 export function ProfileScreen() {
@@ -21,6 +22,7 @@ export function ProfileScreen() {
           lines={[
             [me.ageLabel, me.level, me.area].filter(Boolean).join(' · ') || 'Pelaaja',
             groups.length > 0 ? groups.map((g) => `${g.day} ${g.time} ${g.name}`).join(' · ') : null,
+            tennisFacts(me).join(' · ') || null,
           ]}
           bio={me.bio} addBio="Lisää esittely itsestäsi" />
         <Card interactive onClick={() => actions.openText('note')} className="goal-card">
