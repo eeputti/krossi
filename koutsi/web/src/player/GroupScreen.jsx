@@ -107,7 +107,13 @@ export function GroupScreen({ query = {} }) {
         {(state.coaches || []).map((c) => (
           <Card key={c.id} className="p-coach">
             <Avatar person={c} size={48} />
-            <div className="grow"><div className="k-row-title">{c.name}</div><div className="k-faint">{c.tagline || 'Valmentaja'}</div></div>
+            <div className="grow">
+              <div className="k-row-title">{c.name}</div>
+              <div className="k-faint">{c.tagline || 'Valmentaja'}</div>
+              {c.bio && <p className="p-coach-bio">{c.bio}</p>}
+              {c.experience && <p className="k-faint">{c.experience}</p>}
+              {(c.specialties || []).length > 0 && <div className="row wrap p-coach-chips">{c.specialties.map((s) => <span key={s} className="chip chip-sm chip-neutral">{s}</span>)}</div>}
+            </div>
           </Card>
         ))}
         <Disclosure title={groups.length ? 'Liity toiseen ryhmään' : 'Liity ryhmään'} summary="Liittymiskoodilla" icon="plus">

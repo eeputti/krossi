@@ -22,6 +22,7 @@ import { TrainingsScreen } from './TrainingsScreen.jsx';
 import { GroupScreen } from './GroupScreen.jsx';
 import { ExercisesScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
+import { ProfileEditScreen } from './ProfileEditScreen.jsx';
 import { AbsenceSheet, MatchNoteSheet, MoodSheet, PlayerTextSheet, SelfTrainingSheet } from './sheets.jsx';
 import { EntrySheet } from './EntrySheet.jsx';
 import { MerkitseSheet } from './MerkitseSheet.jsx';
@@ -44,7 +45,7 @@ function NotFound() {
   );
 }
 
-const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen };
+const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen, profileEdit: ProfileEditScreen };
 
 /** First visit: what Koutsi is for (players took the old app for a video box). */
 function WelcomeSheet({ student }) {

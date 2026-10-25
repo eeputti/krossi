@@ -24,4 +24,5 @@ export const ROUTES = [
   { name: 'group', pattern: '/pelaaja/ryhma', tab: 'ryhma', type: 'tab' },
   { name: 'exercises', pattern: '/pelaaja/harjoitteet', tab: 'harjoitteet', type: 'tab' },
   { name: 'profile', pattern: '/pelaaja/profiili', tab: 'profiili', type: 'tab' },
+  { name: 'profileEdit', pattern: '/pelaaja/profiili/muokkaa', tab: 'profiili', type: 'page' },
 ];
