@@ -16,6 +16,7 @@ import { checkInCandidate } from '../domain/player.js';
 import { useToast } from '../ui/index.js';
 import { PHONE_TABS, TABS } from './routes.js';
 import { MoreSheet } from './MoreSheet.jsx';
+import { JoinGroupSheet } from './JoinGroupSheet.jsx';
 import { HomeScreen } from './HomeScreen.jsx';
 import { ProgressScreen } from './ProgressScreen.jsx';
 import { TrainingsScreen } from './TrainingsScreen.jsx';
@@ -36,7 +37,7 @@ import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } 
 const ActionsContext = createContext(null);
 /** openMerkitse(), openSelfTraining(date?, { time?, editing?, activity?, homeworkId?, locked? }?), openMood(score?),
  *  openCheckIn(training?, { all? }?), openMatch({ editing?, date? }), openAbsence(training), openText(kind), openGoals(),
- *  openEntry(editing?), openVideo(), playVideo(video), openPlan(training) */
+ *  openEntry(editing?), openVideo(), playVideo(video), openPlan(training), openJoin(code?) */
 export function usePlayerActions() { return useContext(ActionsContext); }
 
 function NotFound() {
@@ -91,7 +92,7 @@ function pickStartup(state, student) {
   return ask;
 }
 
-function PlayerShell({ banner }) {
+function PlayerShell({ banner, joinCode = null }) {
   const { state, ownerId, reload } = useData();
   const toast = useToast();
   const student = state.students[0];
@@ -99,6 +100,9 @@ function PlayerShell({ banner }) {
   const [video, setVideo] = useState(null);
   const [startup] = useState(() => pickStartup(state, student));
   const [checkIn, setCheckIn] = useState(() => (startup?.kind === 'checkin' ? startup : null));
+  // "Liity ryhmään": a group link opened while signed in brings its code (PlayerRoot)
+  const [join, setJoin] = useState(() => (joinCode ? { code: joinCode } : null));
+  useEffect(() => { if (joinCode) setJoin({ code: joinCode }); }, [joinCode]);
   const close = () => setSheet(null);
   // Phone: the tab bar's "Lisää" drawer, with the notifications in it (Koti keeps its bell too)
   const isDesktop = useIsDesktop();
@@ -110,6 +114,7 @@ function PlayerShell({ banner }) {
   const extraLinks = [
     { to: '/pelaaja/ryhma', label: 'Ryhmäsi', icon: 'users', pages: ['group'] },
     { to: '/pelaaja/harjoitteet', label: 'Harjoitteet ja videot', icon: 'play', pages: ['exercises'] },
+    { key: 'liity', label: 'Liity ryhmään', icon: 'plus', onClick: () => setJoin({ code: null }) },
     { key: 'palaute', label: 'Anna palautetta', icon: 'chat', onClick: () => setFeedbackOpen(true) },
   ];
   const actions = useMemo(() => ({
@@ -132,6 +137,7 @@ function PlayerShell({ banner }) {
     openVideo: () => setSheet({ kind: 'video' }),
     playVideo: (v) => setVideo(v),
     openPlan: (training) => setSheet({ kind: 'plan', trainingId: training.id }),
+    openJoin: (code = null) => setJoin({ code }),
   }), []);
   const saveOwnVideo = useCallback(async (payload) => {
     await api.videos.share({ ...payload, studentIds: [ownerId], addedById: ownerId });
@@ -179,10 +185,11 @@ function PlayerShell({ banner }) {
       {!isDesktop && (
         <>
           <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} messages={messageLinks.length ? { unread: msgs.unread } : null}
-            onNotifications={() => { setNotifsOpen(true); notes.markRead(); }} onFeedback={() => setFeedbackOpen(true)} />
+            onNotifications={() => { setNotifsOpen(true); notes.markRead(); }} onFeedback={() => setFeedbackOpen(true)} onJoin={() => setJoin({ code: null })} />
           <NotificationsSheet open={notifsOpen} onClose={() => setNotifsOpen(false)} items={notes.items} home="/pelaaja/koti" />
         </>
       )}
+      <JoinGroupSheet open={Boolean(join)} initialCode={join?.code || null} onClose={() => setJoin(null)} />
       <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} uid={ownerId} />
       <MerkitseSheet open={sheet?.kind === 'merkitse'} onClose={close} />
       <GoalsSheet open={sheet?.kind === 'goals'} onClose={close} />
@@ -205,7 +212,7 @@ function PlayerShell({ banner }) {
   );
 }
 
-export function PlayerApp({ studentId, banner }) {
+export function PlayerApp({ studentId, banner, joinCode = null }) {
   return (
     <DataProvider
       ownerId={studentId}
@@ -215,7 +222,7 @@ export function PlayerApp({ studentId, banner }) {
       renderError={(error, retry) => <GateError message="Tietojasi ei saatu ladattua. Tarkista verkkoyhteys ja yritä uudelleen." error={error} onRetry={retry} onSignOut={() => api.auth.signOut()} />}
     >
       <MessagesProvider role="player" ownerId={studentId}>
-        <PlayerShell banner={banner} />
+        <PlayerShell banner={banner} joinCode={joinCode} />
       </MessagesProvider>
     </DataProvider>
   );

@@ -4,7 +4,7 @@
 // coaching is never shown here), and the coming sessions with "En pääse". The theme history is
 // on Kehitys (Treenit on the timeline). ?ryhma=<id> puts that group first.
 import { useData } from '../app/data.jsx';
-import { Avatar, Button, Card, Disclosure, EmptyState, Icon, Page, PageHeader } from '../ui/index.js';
+import { Avatar, Button, Card, EmptyState, Icon, Page, PageHeader } from '../ui/index.js';
 import { ThemeCard } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiGroupsForStudent, koutsiCoachById, koutsiTimeRangeLabel, koutsiTrainingsForGroup,
@@ -84,6 +84,7 @@ function GroupCard({ state, group, me }) {
 
 export function GroupScreen({ query = {} }) {
   const { state, reload } = useData();
+  const actions = usePlayerActions();
   const me = state.students[0];
   const all = koutsiGroupsForStudent(state, me.id);
   const groups = query.ryhma ? [...all].sort((a, b) => Number(b.id === query.ryhma) - Number(a.id === query.ryhma)) : all;
@@ -116,9 +117,7 @@ export function GroupScreen({ query = {} }) {
             </div>
           </Card>
         ))}
-        <Disclosure title={groups.length ? 'Liity toiseen ryhmään' : 'Liity ryhmään'} summary="Liittymiskoodilla" icon="plus">
-          <JoinCodeForm onJoined={() => reload()} />
-        </Disclosure>
+        <Button variant="outline" size="lg" block icon="plus" onClick={() => actions.openJoin()}>{groups.length ? 'Liity toiseen ryhmään' : 'Liity ryhmään'}</Button>
       </div>
     </Page>
   );

@@ -15,10 +15,13 @@ async function uploadVideoFile(uploaderId, shareId, file, onProgress) {
   if (file.size > VIDEO_MAX_BYTES) {
     throw new ApiError(`Video on liian suuri (${Math.round(file.size / 1048576)} Mt). Tiedostolatauksen raja on 50 Mt — jaa pitkä video linkkinä.`);
   }
-  const mimeType = file.type || 'video/mp4';
   const mimeExtensions = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm', 'video/x-m4v': 'm4v', 'video/mpeg': 'mpeg' };
   const fileExtension = (file.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5);
-  const ext = mimeExtensions[mimeType] || fileExtension || 'mp4';
+  // The bucket takes only the types above. Phones also hand over 'video/3gpp', '' or other
+  // MP4-family types: they go up as mp4 (same container), so the upload isn't refused.
+  const byExtension = { mov: 'video/quicktime', webm: 'video/webm', m4v: 'video/x-m4v' };
+  const mimeType = mimeExtensions[file.type] ? file.type : byExtension[fileExtension] || 'video/mp4';
+  const ext = mimeExtensions[mimeType];
   const path = `${uploaderId}/${shareId}.${ext}`;
   const report = typeof onProgress === 'function' ? onProgress : () => {};
   report(0);
