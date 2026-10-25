@@ -288,12 +288,17 @@
 .tt-now-label { font-size: 12px; font-weight: 800; color: #8A3A1A; }
 .tt-tomorrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; }
 .tt-tomorrow-label { margin-right: 2px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.tt-chip {
-  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 32px; padding: 0 12px; border-radius: var(--r-pill);
-  background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 650; color: var(--ink-2);
+.tt-tomorrow-label + .tt-chip { margin-left: 2px; }
+/* A group as a small brand card, like Merkitse's picked group cards: near-black, the time in lime,
+   the name in white. Koti's "Huomenna", a session's group and a player's groups use it. */
+.tt-chip, .k-group-pill {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; min-height: 36px; padding: 0 13px 0 11px;
+  border: 0; border-radius: var(--r-md); background: var(--green-800); color: #fff; font-size: 13.5px; font-weight: 700;
+  text-decoration: none; transition: background-color var(--dur-2, .12s), transform var(--dur-2, .12s);
 }
-.tt-chip:hover { border-color: var(--line-strong); }
-.tt-chip .t-num { font-weight: 800; color: var(--green-800); }
+.tt-chip:hover, .k-group-pill:hover { background: var(--green-700); }
+.tt-chip:active, .k-group-pill:active { transform: scale(0.97); }
+.tt-chip .t-num, .k-group-pill .t-num { font-weight: 800; color: var(--lime); }
 @media (max-width: 899px) {
   /* the session on now: its two buttons share the card's width under the text */
   .tt-item.is-highlight .tt-actions { width: 100%; }

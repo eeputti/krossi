@@ -98,7 +98,7 @@ export function SessionScreen({ params }) {
           <div className="eyebrow">{status === 'now' ? 'Käynnissä nyt' : status === 'past' ? 'Pidetty' : 'Tulossa'}</div>
           <h1 className="t-title">{koutsiFmtLongDate(training.date).replace(/^./, (c) => c.toUpperCase())}</h1>
           <p className="k-group-when">klo {koutsiTimeRangeLabel(training.time, training.durationMinutes || group?.durationMinutes)} · {training.type}</p>
-          {group && <Link to={groupPath(group.id)} className="chip chip-sm chip-outline">{group.day} {group.time} · {group.name}</Link>}
+          {group && <Link to={groupPath(group.id)} className="k-group-pill"><span className="t-num">{group.day} {group.time}</span><span className="truncate">{group.name}</span></Link>}
         </header>
 
         {/* Every "Läsnäolo" button lands here, so the list comes first: nothing to scroll past. */}
