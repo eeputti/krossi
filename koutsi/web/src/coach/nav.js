@@ -6,6 +6,9 @@ export const groupPath = (id) => `/valmentaja/ryhma/${encodeURIComponent(id)}`;
 export const playerPath = (id) => `/valmentaja/pelaaja/${encodeURIComponent(id)}`;
 export const sessionPath = (id) => `/valmentaja/treeni/${encodeURIComponent(id)}`;
 export const exercisePath = (id) => `/valmentaja/harjoite/${encodeURIComponent(id)}`;
+/** Viestit, and one conversation by the player's id; `ref` = { kind, id } quotes a Toive / Miten meni? in the reply. */
+export const messagesPath = '/valmentaja/viestit';
+export const threadPath = (studentId, ref = null) => `/valmentaja/viestit/${encodeURIComponent(studentId)}${ref ? `?vastaa=${encodeURIComponent(`${ref.kind}:${ref.id}`)}` : ''}`;
 
 /** The weekly theme planner, as a sheet over the current page. */
 export function openPlanner({ week, groupId } = {}) {

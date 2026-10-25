@@ -5,7 +5,7 @@
 -- "aja migraatio" (apply_migration with this name), then move the file to supabase/migrations.
 -- Tested in PGlite against a stub of the production schema:
 --   koutsi/web/sql/20261109120000_koutsi_messages.check.mjs
--- Everything is additive: two new tables, seven functions, three triggers, two cron jobs. No
+-- Everything is additive: two new tables, ten functions, two triggers, two cron jobs. No
 -- existing table, function or policy changes, and the old Koutsi reads none of it.
 -- Rollback: drop the two tables (cascade), the functions and the two cron jobs.
 --
@@ -121,6 +121,38 @@ as $function$
        and public.koutsi_messages_coach_enabled(t.coach_id)
        and exists (select 1 from auth.users u where u.id = t.student_id)
   );
+$function$;
+
+-- The signed-in user's conversations in one read, for the lists and the unread badges: each with
+-- its latest message (a preview, at most 200 characters) and how many of the other side's messages
+-- the caller has not read. SECURITY INVOKER: the policies below decide which rows come back.
+create or replace function public.koutsi_thread_overview()
+returns table (
+  id uuid, coach_id uuid, student_id uuid, enabled boolean, enabled_at timestamptz, last_message_at timestamptz,
+  coach_read_at timestamptz, player_read_at timestamptz, last_body text, last_sender text, last_ref_kind text, unread integer
+)
+language sql
+stable
+security invoker
+set search_path = ''
+as $function$
+  select t.id, t.coach_id, t.student_id, t.enabled, t.enabled_at, t.last_message_at, t.coach_read_at, t.player_read_at,
+         left(l.body, 200), l.sender, l.ref_kind,
+         (select count(*)::integer
+            from public.koutsi_messages m
+           where m.thread_id = t.id
+             and (
+               (t.coach_id = (select auth.uid()) and m.sender = 'player' and m.created_at > coalesce(t.coach_read_at, '-infinity'::timestamptz))
+               or (t.student_id = (select auth.uid()) and m.sender = 'coach' and m.created_at > coalesce(t.player_read_at, '-infinity'::timestamptz))
+             ))
+    from public.koutsi_threads t
+    left join lateral (
+      select m.body, m.sender, m.ref_kind
+        from public.koutsi_messages m
+       where m.thread_id = t.id
+       order by m.created_at desc
+       limit 1
+    ) l on true;
 $function$;
 
 -- ── row security ────────────────────────────────────────────────────────────
@@ -419,6 +451,7 @@ $function$;
 
 revoke all on function public.koutsi_messages_coach_enabled(uuid) from public, anon, authenticated;
 revoke all on function public.koutsi_messages_enabled() from public, anon;
+revoke all on function public.koutsi_thread_overview() from public, anon;
 revoke all on function public.koutsi_thread_open_for_me(uuid) from public, anon;
 revoke all on function public.koutsi_set_messages(uuid[], boolean) from public, anon;
 revoke all on function public.koutsi_mark_thread_read(uuid) from public, anon;
@@ -427,6 +460,7 @@ revoke all on function public.koutsi_message_after_change() from public, anon, a
 revoke all on function public.koutsi_queue_message_emails(timestamptz) from public, anon, authenticated;
 revoke all on function public.koutsi_prune_messages(timestamptz) from public, anon, authenticated;
 grant execute on function public.koutsi_messages_enabled() to authenticated;
+grant execute on function public.koutsi_thread_overview() to authenticated;
 grant execute on function public.koutsi_thread_open_for_me(uuid) to authenticated;
 grant execute on function public.koutsi_set_messages(uuid[], boolean) to authenticated;
 grant execute on function public.koutsi_mark_thread_read(uuid) to authenticated;

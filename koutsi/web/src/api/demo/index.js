@@ -14,6 +14,8 @@ import {
 import { writePlan } from '../../domain/plan.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
 import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/season.js';
+import { seedMessages } from './messagesSeed.js';
+import { MESSAGE_MAX } from '../../domain/messages.js';
 
 let role = 'coach';
 let state = null;
@@ -43,13 +45,15 @@ function addPutki(s) {
   }));
   return s;
 }
-const S = () => { if (!state) state = previewPutki ? addPutki(seed()) : seed(); return state; };
+const S = () => { if (!state) state = seedMessages(previewPutki ? addPutki(seed()) : seed(), role); return state; };
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const wait = () => new Promise((r) => setTimeout(r, latencyMs));
 const nowIso = () => new Date().toISOString();
 const findStudent = (id) => S().students.find((s) => s.id === id);
 const findGroup = (id) => S().groups.find((g) => g.id === id);
 const notAllowed = () => { throw new ApiError('Tätä ei voi tehdä demossa.', { code: 'demo' }); };
+const messageListeners = new Set();
+const emitMessages = (threadId) => { setTimeout(() => messageListeners.forEach((cb) => cb({ threadId })), 0); };
 
 // Sub-records live inside their student; edits look them up by id across all of them.
 function eachList(key, fn) { S().students.forEach((s) => { s[key] = fn(s[key] || [], s); }); }
@@ -666,6 +670,87 @@ export const backend = {
       return { id: row.id };
     },
     async remove(id) { await wait(); S().announcements = (S().announcements || []).filter((a) => a.id !== id); },
+  },
+
+  // Viestit: the conversations live in memory like everything else; a change tells this page's
+  // listeners (the badges, an open conversation) right away.
+  messages: {
+    async overview(who) {
+      await wait();
+      const st = S();
+      const mine = (t) => (who === 'player' ? t.studentId === PLAYER : t.coachId === COACH);
+      const threads = st.threads.filter(mine).map((t) => {
+        const list = st.messages.filter((m) => m.threadId === t.id).sort((a, b) => a.at.localeCompare(b.at));
+        const last = list[list.length - 1] || null;
+        const readAt = who === 'player' ? t.playerReadAt : t.coachReadAt;
+        const theirs = who === 'player' ? 'coach' : 'player';
+        return {
+          ...clone(t), lastMessageAt: last ? last.at : null,
+          last: last ? { body: last.body.slice(0, 200), sender: last.sender, refKind: last.refKind } : null,
+          unread: list.filter((m) => m.sender === theirs && (!readAt || m.at > readAt)).length,
+        };
+      });
+      return { ready: true, enabled: who === 'player' ? threads.some((t) => t.enabled) : Boolean(st.messagesOn), threads };
+    },
+    async list(threadId) {
+      await wait();
+      return clone(S().messages.filter((m) => m.threadId === threadId).sort((a, b) => a.at.localeCompare(b.at)))
+        .map(({ threadId: _t, ...m }) => m);
+    },
+    async send(threadId, { body, refKind = null, refId = null }) {
+      await wait();
+      const st = S();
+      const t = st.threads.find((x) => x.id === threadId);
+      const text = String(body || '').trim();
+      if (!t || !t.enabled) throw new ApiError('Viestit eivät ole käytössä tässä keskustelussa.');
+      if (findStudent(t.studentId)?.isPlaceholder) throw new ApiError('Pelaaja ei ole vielä liittynyt Koutsiin. Viestit toimivat, kun hän liittyy.');
+      if (!text) throw new ApiError('Kirjoita viesti.');
+      if (text.length > MESSAGE_MAX) throw new ApiError(`Viesti on liian pitkä (enintään ${MESSAGE_MAX} merkkiä).`);
+      const sender = role === 'player' ? 'player' : 'coach';
+      const row = { id: newId('m'), threadId, sender, body: text, refKind: refKind && refId ? refKind : null, refId: refKind && refId ? refId : null, at: nowIso() };
+      st.messages.push(row);
+      if (sender === 'coach') t.coachReadAt = row.at; else t.playerReadAt = row.at;
+      emitMessages(threadId);
+      const { threadId: _t, ...out } = row;
+      return clone(out);
+    },
+    async remove(messageId) {
+      await wait();
+      const st = S();
+      const m = st.messages.find((x) => x.id === messageId);
+      if (!m) return;
+      if (m.sender !== (role === 'player' ? 'player' : 'coach')) throw new ApiError('Voit poistaa vain omia viestejäsi.');
+      st.messages = st.messages.filter((x) => x.id !== messageId);
+      emitMessages(m.threadId);
+    },
+    async markRead(threadId) {
+      const t = S().threads.find((x) => x.id === threadId);
+      if (!t) return;
+      if (role === 'player') t.playerReadAt = nowIso(); else t.coachReadAt = nowIso();
+      emitMessages(threadId);
+    },
+    async setEnabled(studentIds, on) {
+      await wait();
+      if (role === 'player') notAllowed();
+      const st = S();
+      let changed = 0;
+      for (const id of studentIds || []) {
+        if (!findStudent(id)) continue;
+        const t = st.threads.find((x) => x.studentId === id && x.coachId === COACH);
+        if (t) {
+          if (t.enabled !== Boolean(on)) { t.enabled = Boolean(on); t.enabledAt = nowIso(); changed += 1; }
+        } else {
+          st.threads.push({ id: `demo-th-${id}`, coachId: COACH, studentId: id, enabled: Boolean(on), enabledAt: nowIso(), coachReadAt: null, playerReadAt: null });
+          changed += 1;
+        }
+      }
+      if (changed) emitMessages(null);
+      return changed;
+    },
+    subscribe(cb) {
+      messageListeners.add(cb);
+      return () => { messageListeners.delete(cb); };
+    },
   },
 
   events: {

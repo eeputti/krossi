@@ -26,6 +26,9 @@ import { firstName } from '../domain/roster.js';
 import { ActivityIcon } from '../player/ActivityIcon.jsx';
 import { AbsenceSheet } from './AbsencePlanner.jsx';
 import { track } from './usage.js';
+import { useMessages } from '../shared/messages/MessagesProvider.jsx';
+import { TurnOnSheet } from './MessagesScreen.jsx';
+import { threadPath } from './nav.js';
 
 function LevelSheet({ open, onClose, student }) {
   const { run } = useData();
@@ -242,7 +245,7 @@ function MonthCard({ state, student, hidden }) {
   );
 }
 
-function Details({ state, student }) {
+function Details({ state, student, onReplyWish }) {
   const now = new Date();
   const month = koutsiMonthlySummary(state, student.id, now.getFullYear(), now.getMonth());
   const moods = student.moods || [];
@@ -258,6 +261,9 @@ function Details({ state, student }) {
       <Card className="stack-4">
         {field('Tavoite', student.goal, 'Pelaaja ei ole vielä asettanut tavoitetta.')}
         {field('Toive seuraavalle kerralle', student.playerWish, 'Ei toivetta.')}
+        {student.playerWish && onReplyWish && (
+          <button type="button" className="k-textlink an-reply" onClick={onReplyWish}><Icon name="chat" size={15} />Vastaa toiveeseen viestillä</button>
+        )}
         {field('Pelaajan muistiinpano', student.playerNote, 'Ei muistiinpanoa.')}
       </Card>
       <div className="k-stats k-stats-3">
@@ -283,8 +289,10 @@ function Details({ state, student }) {
 
 export function PlayerScreen({ params }) {
   const { state, run } = useData();
-  const { coachId } = useCoach();
+  const { coachId, acting } = useCoach();
   const record = useRecord();
+  const msgs = useMessages();
+  const [turnOnOpen, setTurnOnOpen] = useState(false);
   const confirm = useConfirm();
   const [tab, setTab] = useState('kehitys');
   const [sheet, setSheet] = useState(null); // { kind, item }
@@ -309,6 +317,13 @@ export function PlayerScreen({ params }) {
   }
   const groups = groupsOf(state, student.id);
   const close = () => setSheet(null);
+  const messagesOn = msgs.ready && msgs.enabled && !acting;
+  const thread = messagesOn ? msgs.byStudent(student.id) : null;
+  const openMessage = () => {
+    track('pelaaja.viesti');
+    if (thread?.enabled) navigate(threadPath(student.id));
+    else setTurnOnOpen(true);
+  };
 
   const endCoaching = async () => {
     const twin = state.students.find((s) => s.id !== student.id && s.name.trim().toLocaleLowerCase('fi') === student.name.trim().toLocaleLowerCase('fi'));
@@ -357,10 +372,19 @@ export function PlayerScreen({ params }) {
 
         {student.isPlaceholder && <PlaceholderInvite student={student} />}
 
-        <div className="k-player-actions">
-          <Button variant="lime" size="lg" block icon="chat" onClick={() => record.openMerkinta({ ids: [student.id], kind: 'huomio' })}>Huomio {toName(student.name)}</Button>
-          <Button variant="outline" size="lg" icon="calendar" onClick={() => { track('pelaaja.poissaolot'); setSheet({ kind: 'absence' }); }}>Poissaolot</Button>
-        </div>
+        {messagesOn ? (
+          // Viestit on: Huomio · Viesti · Poissaolot as three tiles (they fit a 390 px phone)
+          <div className="k-player-actions is-tiles">
+            <Button variant="lime" size="lg" icon="chat" onClick={() => record.openMerkinta({ ids: [student.id], kind: 'huomio' })}>Huomio</Button>
+            <Button variant="outline" size="lg" icon="send" onClick={openMessage}>Viesti</Button>
+            <Button variant="outline" size="lg" icon="calendar" onClick={() => { track('pelaaja.poissaolot'); setSheet({ kind: 'absence' }); }}>Poissaolot</Button>
+          </div>
+        ) : (
+          <div className="k-player-actions">
+            <Button variant="lime" size="lg" block icon="chat" onClick={() => record.openMerkinta({ ids: [student.id], kind: 'huomio' })}>Huomio {toName(student.name)}</Button>
+            <Button variant="outline" size="lg" icon="calendar" onClick={() => { track('pelaaja.poissaolot'); setSheet({ kind: 'absence' }); }}>Poissaolot</Button>
+          </div>
+        )}
 
         <MonthCard state={state} student={student} hidden={hiddenKeys} />
 
@@ -384,7 +408,7 @@ export function PlayerScreen({ params }) {
             onOpenVideo={setVideo}
             onAudience={(v) => setSheet({ kind: 'audience', item: v })} />
         )}
-        {tab === 'tiedot' && <Details state={state} student={student} />}
+        {tab === 'tiedot' && <Details state={state} student={student} onReplyWish={messagesOn && thread?.enabled && !student.isPlaceholder && (student.wishHistory || [])[0] ? () => { track('pelaaja.vastaa-toiveeseen'); navigate(threadPath(student.id, { kind: 'wish', id: student.wishHistory[0].id })); } : null} />}
 
         <Disclosure title="Hallinta" summary="Valmennuksen päättäminen, yhdistäminen" icon="settings">
           <div className="stack-3">
@@ -399,6 +423,7 @@ export function PlayerScreen({ params }) {
       </Page>
 
       <LevelSheet open={sheet?.kind === 'level'} student={student} onClose={close} />
+      {messagesOn && <TurnOnSheet open={turnOnOpen} onClose={() => setTurnOnOpen(false)} student={student} onOn={() => navigate(threadPath(student.id))} />}
       <AbsenceSheet open={sheet?.kind === 'absence'} student={student} onClose={close} />
       <EditPlaceholderSheet open={sheet?.kind === 'edit'} student={student} onClose={close} />
       <MergeSheet open={sheet?.kind === 'merge'} student={student} onClose={close} />

@@ -182,6 +182,17 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   (`SeasonEditSheet`: kauden pidennys jatkaa vain kauden loppuun asti ulottuvien ryhmien kalenterin).
   Ryhmän luonnissa "Kauden loppuun (n vk)" on oletus. Ilman migraatiota `seasonsReady: false` ja kaikki on piilossa.
 
+- Viestit (`domain/messages.js`, `shared/messages/`, `coach/MessagesScreen.jsx`, `coach/ThreadScreen.jsx`,
+  `player/MessagesScreen.jsx`, tyylit `styles/messages.css`): yksi keskustelu per valmentaja–pelaaja-pari, pois
+  päältä kunnes valmentaja ottaa sen käyttöön (aikuisten ryhmät tai yksittäinen pelaaja; alaikäisille myöhemmin
+  huoltajan kautta). Vain kaksi osapuolta lukee; vastaus voi lainata toivetta, tiedotetta tai Miten meni?
+  -vastausta (tallentuu vain id); "Nähty" oman viimeisen viestin alla; muistutus terveystiedoista kirjoituskentän
+  yläpuolella. Oma kevyt tila (`MessagesProvider`, `api.messages.overview`), ei osa valmentajan tilannekuvaa,
+  joten viesti ei lataa koko viikkoa uudelleen. Tietokanta: ehdotettu migraatio
+  `koutsi/web/sql/20261109120000_koutsi_messages.sql` — **EI AJETTU**; ilman sitä `ready: false` ja kaikki pysyy
+  piilossa (ominaisuuskytkin `koutsi_messages_coach_enabled`: beta + ylläpitäjät ensin). Demo: Annan aikuisten
+  ryhmillä viestit päällä (`api/demo/messagesSeed.js`).
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)
@@ -198,6 +209,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/valmentaja/treeni/:id` | session | page |
 | `/valmentaja/harjoitteet`, `/valmentaja/harjoite/:id` | exercises, exercise | page |
 | `/valmentaja/profiili`, `/valmentaja/yllapito` | profile, admin | tab / page |
+| `/valmentaja/viestit`, `/valmentaja/viestit/:pelaajaId` | messages, thread — Viestit (puhelimessa Lisää-valikosta, keskustelu koko näytöllä) | page / full |
 | `/valmentaja/oppilaat`, `/treenit`, `/kalenteri` | vanhat osoitteet | ohjaus uusiin (`/kalenteri?vko=` säilyttää viikon) |
 
 **Pelaaja** (`/pelaaja`, välilehdet: Koti · Viikko · [Merkitse] · Kehitys · Profiili; Ryhmä on Kodin alasivu)
@@ -210,6 +222,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/pelaaja/ryhma` | group — sivu (takaisin Kotiin), avautuu Kodin "Ryhmäsi"-riveiltä |
 | `/pelaaja/harjoitteet` | exercises |
 | `/pelaaja/profiili` | profile |
+| `/pelaaja/viestit`, `/pelaaja/viestit/:valmentajaId` | messages, thread — Viestit (Kodin kuvake kellon vieressä; yhden valmentajan pelaaja menee suoraan keskusteluun) |
 
 Vanhat osoitteet (`/pelaaja/koti` jne.) ovat samat; `link_path` `/pelaaja` → koti.
 

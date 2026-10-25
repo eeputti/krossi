@@ -8,6 +8,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
+import { navigate } from '../app/router.js';
+import { useMessages } from '../shared/messages/MessagesProvider.jsx';
 import { useNow } from '../app/hooks.js';
 import { Button, Icon, Sheet, useToast } from '../ui/index.js';
 import { koutsiGroupById, koutsiThemeForDate, koutsiTimeRangeLabel } from '../domain/core.js';
@@ -199,6 +201,8 @@ export function MerkitseSheet({ open, onClose }) {
   const { state } = useData();
   const actions = usePlayerActions();
   const student = state.students[0];
+  const msgs = useMessages();
+  const canMessage = msgs.ready && msgs.threads.some((t) => t.enabled);
   const { lead, skip } = useLead();
   const openHomework = (student.homework || []).filter((h) => !h.done);
   // Games first (what players asked for), then training of their own, then anything else.
@@ -247,6 +251,13 @@ export function MerkitseSheet({ open, onClose }) {
             <span className="ms-row-main"><span className="ms-row-title">Toive valmentajalle</span><span className="ms-row-sub">{student.playerWish || 'Mitä haluaisit harjoitella seuraavaksi?'}</span></span>
             <Icon name="chevron-right" size={16} className="k-chevron" />
           </button>
+          {canMessage && (
+            <button type="button" className="ms-row" onClick={() => { onClose(); navigate('/pelaaja/viestit'); }}>
+              <span className="ms-row-icon"><Icon name="send" size={16} /></span>
+              <span className="ms-row-main"><span className="ms-row-title">Viesti valmentajalle</span><span className="ms-row-sub">Kysy tai kerro jotain kahden kesken</span></span>
+              <Icon name="chevron-right" size={16} className="k-chevron" />
+            </button>
+          )}
         </div>
       </div>
     </Sheet>

@@ -81,6 +81,16 @@ export const API_CONTRACT = {
   // (false while the table is missing: the Tiedote choice stays hidden).
   announcements: ['add', 'remove'],
 
+  // Viestit (koutsi_threads / koutsi_messages, domain/messages.js): one conversation per coach–player
+  // pair, off until the coach turns it on for the player (adults first). Only the two of them read it.
+  // overview(role: 'coach' | 'player') → { ready, enabled, threads: Thread[] } — ready is false while the
+  // tables are missing (everything stays hidden), enabled is the coach's feature gate (beta first) or,
+  // for a player, whether any conversation is on. list(threadId) → Message[] (oldest first);
+  // send(threadId, { body, refKind?, refId? }) → Message; remove(messageId) — one's own; markRead(threadId);
+  // setEnabled(studentIds, on) → how many changed (coach); subscribe(cb) → unsubscribe: cb({ threadId })
+  // on any change the signed-in user can see.
+  messages: ['overview', 'list', 'send', 'remove', 'markRead', 'setEnabled', 'subscribe'],
+
   videos: ['share', 'setRecipients', 'url', 'remove'],
   exercises: ['add', 'update', 'remove', 'setVideo', 'removeVideo', 'seedStarters'],
   events: ['add', 'update', 'remove'],
@@ -103,4 +113,4 @@ export const API_CONTRACT = {
 
 // Functions that return synchronously-usable values (subscriptions) — not wrapped in
 // error conversion because they return an unsubscribe function, not a promise.
-export const SYNC_FUNCTIONS = new Set(['auth.onChange', 'coach.subscribe', 'player.subscribe', 'notifications.subscribe']);
+export const SYNC_FUNCTIONS = new Set(['auth.onChange', 'coach.subscribe', 'player.subscribe', 'notifications.subscribe', 'messages.subscribe']);

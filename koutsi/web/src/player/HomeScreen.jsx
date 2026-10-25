@@ -8,7 +8,10 @@ import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { useIsDesktop, useNow } from '../app/hooks.js';
 import { navigate } from '../app/router.js';
-import { Button, Card, Icon, Page } from '../ui/index.js';
+import { Button, Card, Icon, IconButton, Page } from '../ui/index.js';
+import { useMessages } from '../shared/messages/MessagesProvider.jsx';
+import { listTime, previewOf } from '../domain/messages.js';
+import { playerThreadPath, visibleThreads } from './MessagesScreen.jsx';
 import { NotificationsButton, targetOf } from '../shared/Notifications.jsx';
 import { Block, Quiet } from '../shared/bits.jsx';
 import {
@@ -32,11 +35,18 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 function Head({ student, groups }) {
   const week = koutsiCurrentIsoWeek();
   const main = homeThemeCards(groups, week)[0];
+  const msgs = useMessages();
+  const hasMessages = msgs.ready && visibleThreads(msgs.threads).length > 0;
   return (
     <section className="week-hero on-dark court-lines home-hero">
       <div className="week-hero-top">
         <span className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
-        <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />
+        {hasMessages ? (
+          <span className="home-hero-icons">
+            <IconButton icon="chat" variant="on-dark" label={msgs.unread ? `Viestit (${msgs.unread} uutta)` : 'Viestit'} badge={msgs.unread || undefined} onClick={() => navigate('/pelaaja/viestit')} />
+            <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />
+          </span>
+        ) : <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />}
       </div>
       <h1 className="week-hero-title">Moi, {firstName(student.name) || 'pelaaja'}!</h1>
       {main && (
@@ -81,9 +91,17 @@ const eventIcon = (kind) => ({ kilpailu: 'trophy', leiri: 'compass', seura: 'use
  */
 function News({ state, student }) {
   const unread = useUnread(student.id);
+  const msgs = useMessages();
   const today = koutsiTodayStr();
   const note = student.diary[0] && Date.now() - new Date(student.diary[0].at).getTime() < 14 * DAY_MS ? student.diary[0] : null;
   const rows = [];
+  // A coach's unread message first: who and the start of it, a tap opens the conversation.
+  if (msgs.ready) {
+    msgs.threads.filter((t) => t.unread > 0 && t.last?.sender === 'coach').forEach((t) => {
+      const coach = koutsiCoachById(state, t.coachId);
+      rows.push({ id: `m-${t.id}`, icon: 'chat', title: 'Viesti valmentajalta', body: `${coach?.name || 'Valmentaja'}: ${previewOf(t, 'player')}`, meta: listTime(t.lastMessageAt), to: playerThreadPath(t.coachId), isNew: true });
+    });
+  }
   if (note) {
     rows.push({ id: `note-${note.id}`, icon: 'chat', title: 'Valmentajalta', body: note.text, meta: koutsiFmtEventDate(note.at), to: '/pelaaja/kehitys' });
   }
@@ -241,6 +259,7 @@ function MyGroups({ state, student }) {
 // another court) — first on Koti until its date. It never goes on Kehitys.
 function Notices({ state }) {
   const today = koutsiTodayStr();
+  const msgs = useMessages();
   const list = (state.announcements || []).filter((a) => a.until >= today);
   if (!list.length) return null;
   return (
@@ -255,6 +274,11 @@ function Notices({ state }) {
               <div className="an-eyebrow">Tiedote · {coach?.name || 'Valmentaja'}</div>
               <p className="an-text">{a.text}</p>
               <div className="an-foot">{[groups.join(', '), `${koutsiFmtEventDate(a.at)}`, `näkyy ${koutsiFmtShortDate(a.until)} asti`].filter(Boolean).join(' · ')}</div>
+              {msgs.ready && msgs.byCoach(a.coachId)?.enabled && (
+                <button type="button" className="k-textlink an-reply" onClick={() => navigate(playerThreadPath(a.coachId, { kind: 'announcement', id: a.id }))}>
+                  <Icon name="chat" size={15} />Vastaa valmentajalle
+                </button>
+              )}
             </div>
           </article>
         );

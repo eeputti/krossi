@@ -24,6 +24,8 @@ import { MerkitseSheet } from './MerkitseSheet.jsx';
 import { GoalsSheet } from './GoalsSheet.jsx';
 import { CheckInSheet } from './CheckInSheet.jsx';
 import { PlanSheet } from '../shared/drills/plan.jsx';
+import { MessagesProvider, useMessages } from '../shared/messages/MessagesProvider.jsx';
+import { MessagesScreen, ThreadScreen, visibleThreads } from './MessagesScreen.jsx';
 import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } from './checkin.js';
 
 const ActionsContext = createContext(null);
@@ -40,7 +42,7 @@ function NotFound() {
   );
 }
 
-const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen };
+const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen, messages: MessagesScreen, thread: ThreadScreen };
 
 /** First visit: what Koutsi is for (players took the old app for a video box). */
 function WelcomeSheet({ student }) {
@@ -133,6 +135,11 @@ function PlayerShell({ banner }) {
     dropQueryParam('fiilis');
     dropQueryParam('toive');
   }, [route.query.fiilis, route.query.toive]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Viestit on a computer: a side-nav link with the unread count (a phone has the icon on Koti)
+  const msgs = useMessages();
+  const messageLinks = msgs.ready && visibleThreads(msgs.threads).length
+    ? [{ to: '/pelaaja/viestit', label: 'Viestit', icon: 'chat', pages: ['messages', 'thread'], badge: msgs.unread }]
+    : [];
   const checkInTraining = checkIn?.trainingId ? state.trainings.find((t) => t.id === checkIn.trainingId) || null : null;
   const planTraining = sheet?.kind === 'plan' ? state.trainings.find((t) => t.id === sheet.trainingId) || null : null;
   const textInitial = sheet?.kind === 'text' ? { goal: student.goal, wish: student.playerWish, note: student.playerNote }[sheet.textKind] : '';
@@ -145,7 +152,7 @@ function PlayerShell({ banner }) {
         roleLabel="Pelaaja"
         cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => actions.openMerkitse()}>Merkitse</Button>}
         center={{ label: 'Merkitse', icon: 'plus', onClick: () => actions.openMerkitse() }}
-        extraLinks={[{ to: '/pelaaja/harjoitteet', label: 'Harjoitteet ja videot', icon: 'play', pages: ['exercises'] }]}
+        extraLinks={[...messageLinks, { to: '/pelaaja/harjoitteet', label: 'Harjoitteet ja videot', icon: 'play', pages: ['exercises'] }]}
         me={{ person: student, sub: student.level || 'Pelaaja', to: '/pelaaja/profiili' }}
         banner={banner}
         signupUrl="https://koutsi.krossi.app/pelaaja?uusi=1"
@@ -181,7 +188,9 @@ export function PlayerApp({ studentId, banner }) {
       fallback={<Splash />}
       renderError={(error, retry) => <GateError message="Tietojasi ei saatu ladattua. Tarkista verkkoyhteys ja yritä uudelleen." error={error} onRetry={retry} onSignOut={() => api.auth.signOut()} />}
     >
-      <PlayerShell banner={banner} />
+      <MessagesProvider role="player" ownerId={studentId}>
+        <PlayerShell banner={banner} />
+      </MessagesProvider>
     </DataProvider>
   );
 }

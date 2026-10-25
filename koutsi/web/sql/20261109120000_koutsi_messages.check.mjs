@@ -188,6 +188,27 @@ test('read markers, "Nähty" and the order of conversations', async () => {
   assert.ok(r.error || r.rows.length === 0, 'markers change only through the function');
 });
 
+test('overview: each side gets its own conversations, a preview and its own unread count', async () => {
+  const t = await thread(ANNA, MARIA);
+  await db.exec(`update koutsi_threads set coach_read_at = null, player_read_at = null where id = '${t.id}'`);
+  let r = await as(ANNA, `select * from public.koutsi_thread_overview() order by student_id`);
+  assert.equal(r.error, null, r.error?.message);
+  assert.deepEqual(r.rows.map((x) => x.student_id).sort(), [JUSSI, MARIA, PH].sort(), "Anna's three conversations (the placeholder's too)");
+  const maria = r.rows.find((x) => x.student_id === MARIA);
+  assert.equal(maria.last_sender, 'player');
+  assert.equal(maria.last_body, 'Vastaus tiedotteeseen');
+  assert.equal(maria.last_ref_kind, 'announcement');
+  assert.equal(maria.unread, 3, "Maria's three messages are unread for Anna");
+  r = await as(MARIA, `select * from public.koutsi_thread_overview()`);
+  assert.deepEqual(r.rows.map((x) => x.coach_id), [ANNA], 'Maria sees only her conversation with Anna');
+  assert.equal(r.rows[0].unread, 1, "Anna's one message is unread for Maria");
+  r = await as(JUHO, `select * from public.koutsi_thread_overview()`);
+  assert.equal(r.rows.length, 0, 'another coach gets nothing');
+  await as(ANNA, `select public.koutsi_mark_thread_read('${t.id}')`);
+  r = await as(ANNA, `select unread from public.koutsi_thread_overview() where student_id = '${MARIA}'`);
+  assert.equal(r.rows[0].unread, 0, 'read: nothing unread');
+});
+
 test('a placeholder cannot be written to until they claim; then the conversation follows them', async () => {
   const t = await thread(ANNA, PH);
   let r = await send(ANNA, t.id, 'Tervetuloa!');
@@ -341,12 +362,12 @@ test('function rights: the API roles get only what the app calls', async () => {
   const rows = (await db.query(`
     select p.proname, has_function_privilege('anon', p.oid, 'execute') as anon, has_function_privilege('authenticated', p.oid, 'execute') as auth
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-     where n.nspname = 'public' and p.proname in ('koutsi_messages_coach_enabled', 'koutsi_messages_enabled', 'koutsi_thread_open_for_me',
+     where n.nspname = 'public' and p.proname in ('koutsi_messages_coach_enabled', 'koutsi_messages_enabled', 'koutsi_thread_overview', 'koutsi_thread_open_for_me',
        'koutsi_set_messages', 'koutsi_mark_thread_read', 'koutsi_message_before_insert', 'koutsi_message_after_change',
        'koutsi_queue_message_emails', 'koutsi_prune_messages') order by 1`)).rows;
   const map = Object.fromEntries(rows.map((r) => [r.proname, r]));
   for (const name of Object.keys(map)) assert.equal(map[name].anon, false, `anon cannot run ${name}`);
-  for (const name of ['koutsi_messages_enabled', 'koutsi_thread_open_for_me', 'koutsi_set_messages', 'koutsi_mark_thread_read']) {
+  for (const name of ['koutsi_messages_enabled', 'koutsi_thread_overview', 'koutsi_thread_open_for_me', 'koutsi_set_messages', 'koutsi_mark_thread_read']) {
     assert.equal(map[name].auth, true, `the app can run ${name}`);
   }
   for (const name of ['koutsi_messages_coach_enabled', 'koutsi_message_before_insert', 'koutsi_message_after_change', 'koutsi_queue_message_emails', 'koutsi_prune_messages']) {

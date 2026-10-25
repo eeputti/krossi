@@ -22,4 +22,7 @@ export const ROUTES = [
   { name: 'group', pattern: '/pelaaja/ryhma', tab: 'koti', type: 'page' },
   { name: 'exercises', pattern: '/pelaaja/harjoitteet', tab: 'kehitys', type: 'page' },
   { name: 'profile', pattern: '/pelaaja/profiili', tab: 'profiili', type: 'tab' },
+  // Viestit: the conversations with one's coaches (from Koti's chat icon), one conversation full screen
+  { name: 'messages', pattern: '/pelaaja/viestit', tab: 'koti', type: 'page' },
+  { name: 'thread', pattern: '/pelaaja/viestit/:id', tab: 'koti', type: 'full' },
 ];

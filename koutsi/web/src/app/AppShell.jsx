@@ -77,6 +77,7 @@ function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel })
         ) : (
           <Link key={l.to} to={l.to} className={cx('sidenav-link', 'sidenav-link-sub', extraOn === l && 'is-active-sub')} aria-current={extraOn === l ? 'page' : undefined}>
             <Icon name={l.icon} size={20} /><span>{l.label}</span>
+            {l.badge > 0 && <span className="sidenav-badge">{l.badge > 9 ? '9+' : l.badge}</span>}
           </Link>
         )))}
       </nav>
@@ -124,7 +125,7 @@ function renderScreen(screens, NotFound, match, query) {
 /**
  * AppShell
  *   tabs: [{ id, label, icon, path }]   screens: { routeName: Component }   NotFound: Component
- *   badges: { tabId: count }   cta: node (side nav)   extraLinks: [{ to, label, icon, pages: [route names] } | { key, label, icon, onClick }]
+ *   badges: { tabId: count }   cta: node (side nav)   extraLinks: [{ to, label, icon, pages: [route names], badge? } | { key, label, icon, onClick }]
  *   center: { label, icon, onClick } — the phone tab bar's big middle button
  *   me: { person, sub, to }   roleLabel   banner: node shown above the page (acting mode etc.)
  *   signupUrl: where the demo banner points   beta: show the "Koutsilla uusi ilme!" bar instead

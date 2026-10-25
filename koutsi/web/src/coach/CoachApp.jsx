@@ -12,7 +12,7 @@ import { recapWeekDue } from '../domain/week.js';
 import { markRecapSeen, previewRecap, recapSeen, WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { useCoach } from './CoachRoot.jsx';
-import { DESKTOP_TABS, PHONE_TABS } from './routes.js';
+import { DESKTOP_TABS, MESSAGES_TAB, PHONE_TABS } from './routes.js';
 import { WeekScreen } from './WeekScreen.jsx';
 import { PlannerSheet } from './PlannerSheet.jsx';
 import { BoardScreen } from './BoardScreen.jsx';
@@ -32,6 +32,10 @@ import { MoreSheet } from './MoreSheet.jsx';
 import { track } from './usage.js';
 import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
 import { FeedbackSheet } from '../shared/account.jsx';
+import { MessagesProvider, useMessages } from '../shared/messages/MessagesProvider.jsx';
+import { MessagesScreen } from './MessagesScreen.jsx';
+import { ThreadScreen } from './ThreadScreen.jsx';
+import { namesLine, unanswered } from '../domain/messages.js';
 
 function LegacyRedirect({ route, query }) {
   const to = route.keepWeek && query.vko ? `${route.redirect}?vko=${encodeURIComponent(query.vko)}` : route.redirect;
@@ -52,7 +56,7 @@ const SCREENS = {
   week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen, plan: PlanScreen, groupList: GroupListScreen,
   players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet, season: SeasonSheet,
   session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen,
-  profile: ProfileScreen, admin: AdminScreen,
+  profile: ProfileScreen, admin: AdminScreen, messages: MessagesScreen, thread: ThreadScreen,
   legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect, legacyCalendar: LegacyRedirect,
 };
 
@@ -105,6 +109,21 @@ function CoachShell() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const notes = useNotifications(isDesktop || acting ? null : uid);
   const phoneTabs = PHONE_TABS.map((t) => (t.id === 'lisaa' ? { ...t, onClick: () => { track('lisaa.avaa'); setMoreOpen(true); } } : t));
+  // Viestit, once the database has it and the coach has the feature (beta first): a computer's side nav
+  // gets the tab after Pelaajat, a phone the first row of Lisää; the unread count rides on both.
+  const msgs = useMessages();
+  const messagesOn = msgs.ready && msgs.enabled && !acting;
+  const desktopTabs = messagesOn ? [...DESKTOP_TABS.slice(0, 3), MESSAGES_TAB, ...DESKTOP_TABS.slice(3)] : DESKTOP_TABS;
+  const waitingNames = messagesOn
+    ? unanswered(msgs.threads).map((t) => state.students.find((s) => s.id === t.studentId)?.name).filter(Boolean)
+    : [];
+  const messageInfo = messagesOn ? {
+    unread: msgs.unread,
+    on: msgs.threads.some((t) => t.enabled),
+    waiting: waitingNames.length ? `${namesLine(waitingNames)} ${waitingNames.length === 1 ? 'odottaa' : 'odottavat'} vastausta` : '',
+  } : null;
+  const phoneBadge = notes.unread + (messagesOn ? msgs.unread : 0);
+  const badges = isDesktop ? (messagesOn && msgs.unread ? { viestit: msgs.unread } : undefined) : (phoneBadge ? { lisaa: phoneBadge } : undefined);
   // What opens by itself, at most one thing, decided once: the welcome for a new account > the
   // renewed-look note > "Viikko paketissa" after the week's last session (never while acting).
   const [startup] = useState(() => {
@@ -132,8 +151,8 @@ function CoachShell() {
   return (
     <>
       <AppShell
-        tabs={isDesktop ? DESKTOP_TABS : phoneTabs}
-        badges={!isDesktop && notes.unread ? { lisaa: notes.unread } : undefined}
+        tabs={isDesktop ? desktopTabs : phoneTabs}
+        badges={badges}
         screens={SCREENS}
         NotFound={NotFound}
         roleLabel="Valmentaja"
@@ -150,7 +169,7 @@ function CoachShell() {
       <WeekRecapSheet open={Boolean(recapWeek)} week={recapWeek} onClose={closeRecap} />
       {!isDesktop && (
         <>
-          <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} isAdmin={isAdmin} acting={acting}
+          <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} isAdmin={isAdmin} acting={acting} messages={messageInfo}
             onNotifications={() => { setNotifsOpen(true); notes.markRead(); }}
             onNotice={() => openMerkinta({ kind: 'tiedote' })}
             onFeedback={() => setFeedbackOpen(true)} />
@@ -163,7 +182,7 @@ function CoachShell() {
 }
 
 export function CoachApp() {
-  const { coachId } = useCoach();
+  const { coachId, acting } = useCoach();
   const session = { signOut: () => api.auth.signOut() };
   return (
     <DataProvider
@@ -174,7 +193,9 @@ export function CoachApp() {
       renderError={(error, retry) => <GateError message="Valmennustietojasi ei saatu ladattua. Tarkista verkkoyhteys ja yritä uudelleen." error={error} onRetry={retry} onSignOut={session.signOut} />}
     >
       <RecordProvider>
-        <CoachShell />
+        <MessagesProvider role="coach" ownerId={coachId} off={acting}>
+          <CoachShell />
+        </MessagesProvider>
       </RecordProvider>
     </DataProvider>
   );

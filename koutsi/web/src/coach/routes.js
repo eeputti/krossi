@@ -18,7 +18,10 @@ export const TABS = [
 ];
 // On a phone the fourth place is "Lisää": a drawer with Harjoitepankki, Suunnittele, Ryhmät,
 // Ilmoitukset, Tiedote and Profiili. It lights up on any of those pages (`ids`).
-export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['harjoitteet', 'suunnittele', 'ryhmalista', 'profiili'] }];
+export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['harjoitteet', 'suunnittele', 'ryhmalista', 'profiili', 'viestit'] }];
+// Viestit (when the database has it and the coach has the feature): a computer's side nav gets it after
+// Pelaajat with the unread count, a phone reaches it from Lisää (CoachApp adds the tab).
+export const MESSAGES_TAB = { id: 'viestit', label: 'Viestit', icon: 'chat', path: '/valmentaja/viestit' };
 // A computer's side nav also has Suunnittele (themes for many weeks, absences ahead, the season)
 // after Viikkohallinta and the Ryhmät list under Pelaajat. Phones get them later.
 export const DESKTOP_TABS = [
@@ -40,6 +43,9 @@ export const ROUTES = [
   { name: 'players', pattern: '/valmentaja/pelaajat', tab: 'pelaajat', type: 'tab' },
   { name: 'player', pattern: '/valmentaja/pelaaja/:id', tab: 'pelaajat', type: 'page' },
   { name: 'invites', pattern: '/valmentaja/kutsut', tab: 'pelaajat', type: 'overlay' },
+  // Viestit: the conversations, and one conversation by the player's id (full screen on a phone)
+  { name: 'messages', pattern: '/valmentaja/viestit', tab: 'viestit', type: 'page' },
+  { name: 'thread', pattern: '/valmentaja/viestit/:id', tab: 'viestit', type: 'full' },
   { name: 'session', pattern: '/valmentaja/treeni/:id', tab: 'ryhmat', type: 'page' },
   // a tab, not a page: on a phone it is the fourth tab, so it lights its own icon instead of
   // keeping the previous tab lit (on a desktop the side nav lights its Harjoitepankki link)
