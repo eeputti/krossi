@@ -1,20 +1,24 @@
 // MoreSheet — the phone tab bar's "Lisää" drawer: the places that have no tab of their own on a
-// phone. Harjoitepankki, Suunnittele, Ryhmät, Ilmoitukset (with the unread count), Tiedote pelaajille
-// (Merkitse's notice: a message to groups or players, on their Koti and by e-mail), Profiili, Anna
-// palautetta, and Ylläpito for admins. (A computer has these in the side nav, the bell on Koti and the avatar.)
+// phone. Liittymiskoodini (JoinCodesSheet), Harjoitepankki, Suunnittele, Ryhmät, Ilmoitukset (with the unread
+// count), Tiedote pelaajille (Merkitse's notice: a message to groups or players, on their Koti and by e-mail),
+// Profiili, Anna palautetta, and Ylläpito for admins. (A computer has these in the side nav, the bell on Koti and the avatar.)
 import { useData } from '../app/data.jsx';
 import { navigate } from '../app/router.js';
 import { Avatar, ListRow, Sheet } from '../ui/index.js';
 import { bankSummary } from './ExercisesScreen.jsx';
 import { track } from './usage.js';
 
-export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, onFeedback, isAdmin, acting }) {
+export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, onFeedback, onCodes, isAdmin, acting }) {
   const { state } = useData();
   const go = (to, event) => { track(`lisaa.${event}`); onClose(); navigate(to); };
   const noticesReady = state.announcementsReady !== false;
   return (
     <Sheet open={open} onClose={onClose} title="Lisää" size="sm" className="more-sheet">
       <div className="list-group more-list">
+        {!acting && (
+          <ListRow icon="link" title="Liittymiskoodini" subtitle="Ryhmien koodit ja oma koodisi pelaajille"
+            onClick={() => { track('lisaa.liittymiskoodit'); onClose(); onCodes(); }} />
+        )}
         <ListRow icon="list" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => go('/valmentaja/harjoitteet', 'harjoitteet')} />
         <ListRow icon="grid" title="Suunnittele" subtitle="Teemat monelle viikolle, poissaolot, kausi" onClick={() => go('/valmentaja/suunnittele', 'suunnittele')} />
         <ListRow icon="users" title="Ryhmät" subtitle={`${state.groups.length} ryhmää listana`} onClick={() => go('/valmentaja/ryhmalista', 'ryhmat')} />
