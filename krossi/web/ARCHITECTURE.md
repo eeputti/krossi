@@ -44,7 +44,7 @@ krossi/
       styles/             tokens.css, base.css, ui.css, shell.css + yksi tiedosto per näkymäalue
     test/                 node:test -testit (sopimus, gamification, reititys)
     dist/                 build-tuotos (ei versionhallinnassa)
-  ios/  android/          mobiilisovellus (Expo, toistaiseksi ~/developer/krossi) — ks. README
+  ios/  android/          mobiilisovellus (Expo, toistaiseksi ~/developer/krossi-mobiili) — ks. README
 ```
 
 Julkaisu: `scripts/build-cloudflare.mjs` kopioi `krossi/web/dist/*` ja `krossi/web/landing/*`
