@@ -193,7 +193,7 @@
 .k-activity:hover { background: var(--surface); }
 .k-activity-icon { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; background: var(--sand); color: var(--green-800); }
 .k-activity-icon.is-mood { background: #E8F0FC; color: #2A5D94; }
-.k-activity-icon.is-self { background: var(--lime-100); color: var(--ink-2); }
+.k-activity-icon.is-self, .k-activity-icon.is-entry { background: var(--lime-100); color: var(--ink-2); }
 .k-activity-icon.is-match { background: var(--clay-100); color: #8A3A1A; }
 .k-activity-icon.is-homework { background: var(--success-bg); color: var(--success); }
 .k-activity-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }

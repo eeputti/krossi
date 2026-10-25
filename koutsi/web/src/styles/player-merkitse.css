@@ -90,3 +90,13 @@ button.home-news-row:hover { background: var(--surface-2); }
 @media (max-width: 420px) { .goals-cards { grid-template-columns: 1fr; } }
 .k-streak { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 13.5px; color: var(--ink-2); flex-wrap: wrap; }
 .k-streak svg { color: var(--clay); flex-shrink: 0; }
+
+/* Valmentajalta — the coach's latest note in full on Koti (the old "Viimeisin palaute valmentajalta") */
+.cn-card { display: flex; gap: 12px; padding: 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
+.cn-icon { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; display: grid; place-items: center; background: #E8F0FC; color: #2A5D94; }
+.cn-body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.cn-eyebrow { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.cn-new { flex-shrink: 0; padding: 1px 7px; border-radius: 999px; background: var(--lime); color: var(--green-800); letter-spacing: 0.02em; }
+.cn-text { font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
+.cn-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.cn-all { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; }

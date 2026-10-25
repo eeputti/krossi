@@ -131,8 +131,9 @@ export function calendarEndings(state, withinDays = 42, today = koutsiTodayStr()
 }
 
 /**
- * What players did lately that a coach would want to see: their own practice logs, moods
- * they didn't hide, wishes and notes, match notes, finished homework. Newest first.
+ * What players did lately that a coach would want to see: their own practice logs, Kehitys
+ * entries ("Oma merkintä"), moods they didn't hide, wishes and notes, match notes, finished
+ * homework. Newest first.
  */
 export function playerActivity(state, sinceDays = 14, today = koutsiTodayStr()) {
   const since = koutsiAddDays(today, -sinceDays);
@@ -142,6 +143,7 @@ export function playerActivity(state, sinceDays = 14, today = koutsiTodayStr()) 
     for (const m of s.moods || []) if (day(m.at) >= since) items.push({ kind: 'mood', at: m.at, student: s, mood: m });
     for (const h of s.wishHistory || []) if (day(h.at) >= since && h.value) items.push({ kind: 'wish', at: h.at, student: s, text: h.value });
     for (const h of s.noteHistory || []) if (day(h.at) >= since && h.value) items.push({ kind: 'note', at: h.at, student: s, text: h.value });
+    for (const e of s.entries || []) if ((e.date || day(e.at)) >= since && e.text) items.push({ kind: 'entry', at: e.at, student: s, text: e.text, how: e.how || '' });
     for (const n of s.matchNotes || []) if ((n.date || day(n.at)) >= since) items.push({ kind: 'match', at: n.at || n.date, student: s, match: n });
     for (const h of s.homework || []) if (h.done && h.doneAt && day(h.doneAt) >= since) items.push({ kind: 'homework', at: h.doneAt, student: s, text: h.text });
   }

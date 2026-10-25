@@ -11,7 +11,7 @@
 .vs-help { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .vs-help svg { flex-shrink: 0; margin-top: 2px; color: var(--ink-2); }
 .vs-label { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.vs-to { display: grid; gap: 10px; }
+.vs-to { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .vs-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 @media (min-width: 900px) { .vs-chips { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .vs-chip {
@@ -227,3 +227,5 @@
 
 /* Koti's theme box: Aseta teema (Viikon teemat) and, when groups can carry on, Jatka edellisillä */
 .wk-theme-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: 38px; }
+/* A phone: "Lähetä 40 pelaajalle" fits next to Peruuta (it was cut with an ellipsis) */
+@media (max-width: 420px) { .vs-sheet .sheet-actions > .btn-lg { padding-inline: 16px; } }

@@ -279,7 +279,7 @@ function WeekDiary({ state }) {
   const notes = [...(state.weekNotes || [])].sort((a, b) => b.year - a.year || b.week - a.week);
   const hasCurrent = notes.some((n) => n.year === current.year && n.week === current.week);
   return (
-    <Block eyebrow="Vain sinulle" title="Viikkopäiväkirja"
+    <Block eyebrow="Vain sinulle" title="Oma viikkomuistio"
       action={<Button variant="outline" size="sm" icon="edit" onClick={() => setOpenWeek(current)}>{hasCurrent ? 'Tämä viikko' : 'Kirjaa viikko'}</Button>}>
       {notes.length === 0 ? (
         <Quiet icon="edit">Kirjaa viikon päätteeksi, miten treeniviikko sujui. Merkinnät näkyvät vain sinulle, ja niistä näet kauden kulun.</Quiet>

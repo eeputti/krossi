@@ -28,6 +28,13 @@ export function JoinCodeForm({ onJoined, autoFocus }) {
   const [busy, setBusy] = useState(false);
   const finish = (r) => {
     setInfo(`Liityit${r?.group_name ? ` ryhmään ${r.group_name}` : ''}${r?.coach_name ? ` — valmentaja ${r.coach_name}` : ''}!`);
+    // The invite is used: take it out of the address, or PlayerRoot would read it as someone
+    // else's link and show the "olet jo kirjautuneena toisena käyttäjänä" warning to the new player.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('koodi') || url.searchParams.has('oppilas')) {
+      url.searchParams.delete('koodi'); url.searchParams.delete('oppilas');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
     setTimeout(() => onJoined(), 1200);
   };
   const attempt = async (fn) => {

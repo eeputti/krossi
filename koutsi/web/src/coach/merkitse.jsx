@@ -203,7 +203,7 @@ function MerkitseSheet({ open, onClose, onPick, pickedIds, week: weekOn, focusId
     { id: 'teemat', icon: 'sparkles', title: 'Viikon teemat',
       sub: themes.pool.length ? `${themes.covered}/${themes.pool.length} ryhmällä · vko ${themeWeek.week}` : 'Usealle ryhmälle kerralla',
       run: () => { onClose(); openPlanner({ week: themeWeek }); } },
-    { id: 'paivakirja', icon: 'book', title: 'Viikkopäiväkirja', sub: 'Vain sinulle', run: () => onPick({ kind: 'week', week: koutsiCurrentIsoWeek() }) },
+    { id: 'paivakirja', icon: 'book', title: 'Oma viikkomuistio', sub: 'Vain sinulle', run: () => onPick({ kind: 'week', week: koutsiCurrentIsoWeek() }) },
   ].filter(Boolean);
   const openGroup = (group) => { track('merkitse.ryhma'); onClose(); navigate(groupPath(group.id), { state: { tab: 'ryhmat' } }); };
   const weekPlayers = week ? preset.length : groupMemberIds(state, groupsThisWeek).length;
