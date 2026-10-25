@@ -52,6 +52,7 @@ export const ROUTES = [
   { name: 'exercises', pattern: '/valmentaja/harjoitteet', tab: 'harjoitteet', type: 'tab' },
   { name: 'exercise', pattern: '/valmentaja/harjoite/:id', tab: 'harjoitteet', type: 'page' },
   { name: 'profile', pattern: '/valmentaja/profiili', tab: 'profiili', type: 'tab' },
+  { name: 'profileEdit', pattern: '/valmentaja/profiili/muokkaa', tab: 'profiili', type: 'page' },
   { name: 'admin', pattern: '/valmentaja/yllapito', tab: 'profiili', type: 'page' },
   // earlier addresses: the old app's tabs, the home page's first name and the Kalenteri tab
   // (now part of Viikkohallinta; its ?vko= week is kept)

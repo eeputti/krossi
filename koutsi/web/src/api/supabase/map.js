@@ -110,6 +110,8 @@ export function mapStudent(studentRow, profileRow, rows) {
     // comes from koutsi_students.display_name.
     name: profileRow?.name || studentRow.display_name || 'Pelaaja',
     isPlaceholder: Boolean(studentRow.placeholder_coach_id),
+    // the player's own words and home town (profiles); the coach reads bio, only the player area
+    bio: profileRow?.bio || '', area: profileRow?.area || '',
     ...age, level: studentRow.level,
     goal: studentRow.goal || '', lastSession: studentRow.last_session_note || '', focus: studentRow.focus || '',
     playerNote: studentRow.player_note || '', playerWish: studentRow.player_wish || '',
@@ -153,7 +155,7 @@ export function mapCoach(coachRow, profileRow) {
     id: coachRow.id, initial: koutsiInitialOf(profileRow?.name), hue: koutsiHueFromId(coachRow.id),
     avatarUrl: avatarUrl(profileRow?.avatar_url),
     name: profileRow?.name || 'Valmentaja', tagline: coachRow.tagline || '', bio: coachRow.bio || '',
-    experience: coachRow.experience || '', specialties: coachRow.specialties || [],
+    experience: coachRow.experience || '', specialties: coachRow.specialties || [], area: profileRow?.area || '',
     welcomeSeenAt: coachRow.welcome_seen_at || null,
   };
 }

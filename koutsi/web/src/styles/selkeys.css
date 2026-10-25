@@ -53,13 +53,6 @@
 .vs-chip-sub.is-missing { color: #8A3A1A; }
 .vs-chip.is-on .vs-chip-sub { color: var(--on-dark-muted); }
 .vs-chip.is-on .vs-chip-sub.is-missing { color: #F6A784; }
-.vs-optional { margin-left: 4px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--faint); }
-.vs-carry {
-  width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 14px; text-align: left;
-  border-radius: var(--r-lg); background: var(--lime-100); border: 1px solid rgba(207, 228, 20, 0.7);
-}
-.vs-carry:active { transform: scale(0.99); }
-.vs-carry-icon { width: 36px; height: 36px; flex-shrink: 0; border-radius: 11px; display: grid; place-items: center; background: var(--green-800); color: var(--lime); }
 .vs-sent { display: grid; gap: 8px; margin-top: 12px; }
 .vs-sent-list { display: grid; margin: 0; padding: 0; list-style: none; border-radius: var(--r-lg); border: 1px solid var(--line); overflow: hidden; }
 .vs-sent-row { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 12px; }
@@ -67,7 +60,6 @@
 .vs-sent-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .vs-sent-text { font-size: 14px; font-weight: 650; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vs-sent-sub { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vs-planner-link { justify-self: start; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; }
 
 /* ── attendance chips ─────────────────────────────────────────────────── */
 .ta { display: grid; gap: 10px; }
@@ -207,12 +199,9 @@
 .vs-choose-q { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .vs-choose-tile { display: flex; align-items: center; gap: 14px; width: 100%; padding: 15px 14px; border: 1px solid var(--line); border-radius: var(--r-xl); background: var(--surface); text-align: left; transition: transform var(--dur-2, .12s), background-color .12s; }
 .vs-choose-tile:active { transform: scale(0.985); background: var(--surface-2); }
-.vs-choose-tile.is-suggested { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .vs-choose-icon { display: grid; place-items: center; width: 46px; height: 46px; flex-shrink: 0; border-radius: 13px; background: var(--lime-100); color: var(--ink); }
-.vs-choose-tile.is-suggested .vs-choose-icon { background: var(--lime); }
 .vs-choose-text { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .vs-choose-title { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 800; color: var(--ink); }
-.vs-choose-badge { padding: 2px 8px; border-radius: 999px; background: var(--ink); color: var(--lime); font-size: 11px; font-weight: 800; letter-spacing: 0.02em; }
 .vs-choose-sub { font-size: 13px; line-height: 1.4; color: var(--muted); }
 .vs-picked { display: flex; align-items: center; gap: 10px; }
 .vs-back { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px; background: var(--surface-2); color: var(--ink); }
@@ -234,7 +223,6 @@
 .vs-choose-grid .vs-choose-icon { width: 40px; height: 40px; border-radius: 12px; margin-bottom: 6px; }
 .vs-choose-grid .vs-choose-title { font-size: 16px; flex-wrap: wrap; row-gap: 4px; }
 .vs-choose-grid .vs-choose-sub { font-size: 12.5px; }
-.vs-choose-tile.is-suggested { border-color: var(--lime); box-shadow: inset 0 0 0 1.5px var(--lime), 0 0 0 1px var(--lime); }
 .vs-others { display: grid; gap: 6px; }
 .vs-other { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); text-align: left; }
 .vs-other + .vs-other { margin-top: 6px; }
@@ -248,3 +236,6 @@
 /* the first step's long lines (a week recap's numbers) wrap or end in … instead of widening the sheet */
 .vs-choose > *, .vs-others, .ms-rows, .vs-other { min-width: 0; }
 .vs-other .ms-row-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Koti's theme box: Aseta teema (Viikon teemat) and, when groups can carry on, Jatka edellisillä */
+.wk-theme-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: 38px; }

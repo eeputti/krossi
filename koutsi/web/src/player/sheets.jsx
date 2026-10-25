@@ -1,5 +1,5 @@
 // sheets.jsx — the player's own writes: mood, match note, own training (and its edit), goal / wish / note,
-// "En pääse", and age. Every free-text field carries the health-data reminder.
+// "En pääse". Every free-text field carries the health-data reminder.
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
@@ -292,39 +292,6 @@ export function AbsenceSheet({ open, onClose, training }) {
         </Field>
       )}
       <p className="field-msg">Valmentajasi näkee poissaolon heti. Syytä ei kysytä eikä tallenneta.</p>
-    </Sheet>
-  );
-}
-
-/** The player's own name and optional exact age (shared profile row). */
-export function PlayerProfileSheet({ open, onClose, student }) {
-  const { run, ownerId } = useData();
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open && student) { setName(student.name || ''); setAge(student.age == null ? '' : String(student.age)); } }, [open, student]);
-  if (!student) return null;
-  const n = age ? Number(age) : null;
-  const ageValid = n == null || (Number.isInteger(n) && n >= 1 && n < 120);
-  const save = async () => {
-    if (!name.trim() || !ageValid || busy) return;
-    setBusy(true);
-    const res = await run(async () => {
-      if (name.trim() !== student.name) await api.account.saveDisplayName(ownerId, name.trim());
-      if ((student.age ?? null) !== n) await api.player.saveAge(ownerId, n);
-    }, 'Tiedot tallennettu.');
-    setBusy(false);
-    if (res.ok) onClose();
-  };
-  return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Omat tiedot" size="sm"
-      footer={<Button variant="dark" size="lg" block disabled={!name.trim() || !ageValid} loading={busy} onClick={save}>Tallenna</Button>}>
-      <div className="stack-4">
-        <Field label="Nimi" htmlFor="pp-name"><Input id="pp-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} /></Field>
-        <Field label="Ikä" optional htmlFor="pp-age" error={!ageValid ? 'Iän pitää olla 1–119 vuotta.' : null} hint="Ikää ei tarvitse ilmoittaa.">
-          <Input id="pp-age" inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} />
-        </Field>
-      </div>
     </Sheet>
   );
 }

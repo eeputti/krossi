@@ -14,7 +14,7 @@
 //   Training    { id, date, time, type, durationMinutes, loggedBy: 'coach'|'player', notes, endDate,
 //                 studentId, groupId, coachId, seriesId, absences: [{ studentId, reason, reportedBy, updatedAt }] }
 //   Student     { id, name, initial, hue, avatarUrl, isPlaceholder, age, ageValue, ageLabel, level, goal,
-//                 playerNote, playerWish, joinedAt, welcomeSeenAt, diary, homework, videos, moods,
+//                 playerNote, playerWish, bio, area, joinedAt, welcomeSeenAt, diary, homework, videos, moods,
 //                 matchNotes, goalHistory, wishHistory, noteHistory, entries }   (roster stubs: { id, name, …, rosterOnly })
 //   Entry       { id, at, date: 'YYYY-MM-DD', text, how }   the player's own "what I did, when, how it went"
 //   CoachState / PlayerState also carry `entriesReady`: false while koutsi_player_entries is missing.
@@ -24,10 +24,11 @@ export const API_CONTRACT = {
   auth: ['getSession', 'onChange', 'signInWithPassword', 'signUp', 'signInWithOAuth', 'resetPassword',
     'resendConfirmation', 'updatePassword', 'signOut'],
 
-  // The shared Krossi profile row and account-level actions. trackEvent(name) counts one tap
+  // The shared Krossi profile row and account-level actions. saveAbout(uid, { bio, area }) writes the
+  // profile's own words and home town (profiles.bio / area, shared with Krossi); removeAvatar(uid) clears the photo. trackEvent(name) counts one tap
   // (an event name, no content) for Ylläpito → Käyttö; it never throws.
   account: ['getProfile', 'getPilotAcknowledgement', 'acceptPilot', 'createProfile', 'saveDisplayName',
-    'uploadAvatar', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
+    'uploadAvatar', 'removeAvatar', 'saveAbout', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
 
   // Coach role: fetchRow(uid) → { id } | null; load(coachId) → CoachState; subscribe(coachId, cb) → unsubscribe.
   // saveWeekNote(coachId, { year, week, score, note }) — the coach's private weekly diary.

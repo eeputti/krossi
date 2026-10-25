@@ -74,3 +74,50 @@ test('ambitions have Finnish labels', () => {
   assert.equal(ambitionById('huippu').label, 'Tähtään huipulle');
   assert.equal(ambitionById('nope'), null);
 });
+
+// ── Koti's session line ────────────────────────────────────────────────────
+import { sessionLine, sessionForDay, weekDots } from '../src/domain/playerNow.js';
+import { koutsiCurrentIsoWeek } from '../src/domain/core.js';
+
+test('Koti follows the clock: just over, on now, next and later', () => {
+  const tomorrow = koutsiAddDays(today, 1);
+  const state = stateOf([session('a', '16:00'), session('b', '17:30'), session('c', '19:00'), session('d', '17:00', tomorrow), session('e', '18:00', tomorrow)]);
+  const line = sessionLine(state, student(), { now: at('17:45') });
+  assert.equal(line.previous.training.id, 'a');
+  assert.equal(line.previous.minutesAgo, 45);
+  assert.deepEqual(line.now.map((x) => x.training.id), ['b']);
+  assert.equal(line.now[0].minutesLeft, 45);
+  assert.equal(line.next.training.id, 'c');
+  assert.equal(line.next.minutesUntil, 75);
+  assert.deepEqual(line.later.map((x) => x.training.id), ['d', 'e']);
+  // an hour later b is over and c is on: everything moves up by itself
+  const later = sessionLine(state, student(), { now: at('19:10') });
+  assert.equal(later.previous.training.id, 'b');
+  assert.deepEqual(later.now.map((x) => x.training.id), ['c']);
+  assert.equal(later.next.training.id, 'd');
+});
+
+test('a session the player said they miss is not "the last one", and old ones drop off', () => {
+  const state = stateOf([
+    session('old', '17:00', koutsiAddDays(today, -4)),
+    session('a', '15:00'),
+    session('b', '16:00', today, { absences: [{ studentId: 's1' }] }),
+    session('own', '12:00', today, { loggedBy: 'player', studentId: 's1' }),
+  ]);
+  const line = sessionLine(state, student(), { now: at('18:00') });
+  assert.equal(line.previous.training.id, 'a');
+  assert.equal(line.next, null);
+  assert.equal(sessionLine(stateOf([session('old', '17:00', koutsiAddDays(today, -4))]), student(), { now: at('18:00') }).previous, null);
+});
+
+test('a tap on a day opens the session coming up then, else the day itself', () => {
+  const state = stateOf([session('a', '10:00'), session('b', '18:00'), session('own', '12:00', koutsiAddDays(today, 1), { loggedBy: 'player', studentId: 's1' })]);
+  assert.equal(sessionForDay(state, student(), today, at('12:00')).training.id, 'b', 'the one still to come');
+  assert.equal(sessionForDay(state, student(), today, at('20:00')).training.id, 'b', 'all over: the last one');
+  assert.equal(sessionForDay(state, student(), koutsiAddDays(today, 1), at('12:00')), null, 'own logs only: the day opens');
+  const days = weekDots(state, student(), koutsiCurrentIsoWeek(), at('12:00'));
+  const t = days.find((d) => d.date === today);
+  assert.equal(days.length, 7);
+  assert.ok(t.isToday);
+  assert.deepEqual(t.sessions.map((x) => x.status), ['past', 'upcoming']);
+});

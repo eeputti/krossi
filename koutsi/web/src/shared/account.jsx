@@ -22,27 +22,40 @@ export function EmailPrefToggle({ uid }) {
   return <Toggle icon="mail" checked={enabled} onChange={toggle} label="Sähköposti-ilmoitukset" hint="Uusista huomioista, kotiläksyistä ja treenimuutoksista." />;
 }
 
+/** Anna palautetta: what it is about, the words, and a clear thank-you once it has arrived. */
 export function FeedbackSheet({ open, onClose, uid }) {
   const toast = useToast();
   const [category, setCategory] = useState(FEEDBACK_CATEGORIES[0].id);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) { setCategory(FEEDBACK_CATEGORIES[0].id); setMessage(''); } }, [open]);
+  const [sent, setSent] = useState(false);
+  useEffect(() => { if (open) { setCategory(FEEDBACK_CATEGORIES[0].id); setMessage(''); setSent(false); } }, [open]);
   const send = async () => {
     if (!message.trim() || busy) return;
     setBusy(true);
     try {
       await api.account.submitFeedback(uid, { category, message: message.trim() });
-      toast('Kiitos palautteesta!');
-      onClose();
+      setSent(true);
     } catch (err) { toast(err); } finally { setBusy(false); }
   };
+  if (sent) {
+    return (
+      <Sheet open={open} onClose={onClose} size="sm" title="Anna palautetta"
+        footer={<Button variant="dark" size="lg" block onClick={onClose}>Sulje</Button>}>
+        <div className="fb-thanks" role="status">
+          <span className="fb-thanks-icon"><Icon name="check" size={28} strokeWidth={3} /></span>
+          <strong className="fb-thanks-title">Kiitos palautteestasi!</strong>
+          <span className="fb-thanks-text">Palaute vastaanotettu!</span>
+        </div>
+      </Sheet>
+    );
+  }
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Anna palautetta" subtitle="Kerro, mikä tässä sovelluksessa toimii ja mikä ei — jos jokin ei toimi, ei täsmää tai on hankala, tai jos jokin toimii tosi hyvin!" size="md" dismissible={!busy && !message.trim()}
+    <Sheet open={open} onClose={() => !busy && onClose()} title="Anna palautetta" subtitle="Kerro, mikä sovelluksessa toimii ja mikä ei. Kaikenlainen palaute on tärkeää!" size="md" dismissible={!busy && !message.trim()}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!message.trim()} loading={busy} onClick={send}>Lähetä</Button></div>}>
       <div className="stack-4">
         <Field label="Mistä on kyse?"><ChipSelect size="sm" options={FEEDBACK_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} value={category} onChange={(v) => v && setCategory(v)} ariaLabel="Aihe" /></Field>
-        <Field label="Kerro tarkemmin" htmlFor="fb-msg"><Textarea id="fb-msg" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Mitä huomasit?" maxLength={4000} /></Field>
+        <Field label="Kertoisitko hieman tarkemmin?" htmlFor="fb-msg"><p className="fb-help">Tämä auttaa kehittämään koko sovellusta eteenpäin!</p><Textarea id="fb-msg" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Mitä huomasit?" maxLength={4000} /></Field>
       </div>
     </Sheet>
   );

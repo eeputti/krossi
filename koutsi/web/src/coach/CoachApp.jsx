@@ -26,6 +26,7 @@ import { SeasonSheet } from './SeasonSheet.jsx';
 import { SessionScreen } from './SessionScreen.jsx';
 import { ExercisesScreen, ExerciseScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
+import { ProfileEditScreen } from './ProfileEditScreen.jsx';
 import { AdminScreen } from './AdminScreen.jsx';
 import { RecordProvider, useRecord } from './merkitse.jsx';
 import { MoreSheet } from './MoreSheet.jsx';
@@ -56,7 +57,7 @@ const SCREENS = {
   week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen, plan: PlanScreen, groupList: GroupListScreen,
   players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet, season: SeasonSheet,
   session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen,
-  profile: ProfileScreen, admin: AdminScreen, messages: MessagesScreen, thread: ThreadScreen,
+  profile: ProfileScreen, profileEdit: ProfileEditScreen, admin: AdminScreen, messages: MessagesScreen, thread: ThreadScreen,
   legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect, legacyCalendar: LegacyRedirect,
 };
 
@@ -140,7 +141,7 @@ function CoachShell() {
   useEffect(() => {
     // Ylläpito is a real address; once the check says no (or we act as a coach), leave it.
     if (route.name === 'admin' && adminChecked && !isAdmin) navigate('/valmentaja/koti', { replace: true });
-    if (acting && route.name === 'profile') navigate('/valmentaja/koti', { replace: true });
+    if (acting && (route.name === 'profile' || route.name === 'profileEdit')) navigate('/valmentaja/koti', { replace: true });
   }, [route.name, isAdmin, adminChecked, acting]);
 
   const extraLinks = [

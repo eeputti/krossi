@@ -32,6 +32,8 @@ export const USAGE_SECTIONS = [
       ['teemat.jatka-avaa', 'Jatka edellisillä avattu'],
       ['teemat.jatka-tallennettu', 'Jatka edellisillä tallennettu'],
       ['teemat.jatka-muutettu', '…ja yksittäistä teemaa muutettiin'],
+      ['teemat.tallennettu', 'Viikon teemat: teema tallennettu (Valmis)'],
+      ['teemat.puuttuville', 'Valmis → Aseta teema puuttuville'],
       ['merkitse.paivakirja', 'Viikkopäiväkirja'],
     ],
   },
@@ -40,6 +42,8 @@ export const USAGE_SECTIONS = [
     events: [
       ['koti.merkitse', 'Koti: aikajanan treeni → Merkitse'],
       ['koti.paiva', 'Koti: päivä → Viikkohallinta'],
+      ['koti.teema', 'Koti: teemalaatikko → Viikon teemat'],
+      ['koti.jatka-teemat', 'Koti: Jatka edellisillä'],
       ['ryhma.merkitse', 'Ryhmä: tämän päivän treeni → Merkitse'],
       ['treeni.huomio', 'Treeni → Huomio'],
       ['treeni.laksy', 'Treeni → Kotiläksy'],

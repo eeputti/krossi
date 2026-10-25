@@ -9,15 +9,20 @@ import { GateError, Splash } from '../shared/gates.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
 import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
+import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
+import { FeedbackSheet } from '../shared/account.jsx';
+import { useIsDesktop } from '../app/hooks.js';
 import { checkInCandidate } from '../domain/player.js';
 import { useToast } from '../ui/index.js';
-import { TABS } from './routes.js';
+import { PHONE_TABS, TABS } from './routes.js';
+import { MoreSheet } from './MoreSheet.jsx';
 import { HomeScreen } from './HomeScreen.jsx';
 import { ProgressScreen } from './ProgressScreen.jsx';
 import { TrainingsScreen } from './TrainingsScreen.jsx';
 import { GroupScreen } from './GroupScreen.jsx';
 import { ExercisesScreen } from './ExercisesScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
+import { ProfileEditScreen } from './ProfileEditScreen.jsx';
 import { AbsenceSheet, MatchNoteSheet, MoodSheet, PlayerTextSheet, SelfTrainingSheet } from './sheets.jsx';
 import { EntrySheet } from './EntrySheet.jsx';
 import { MerkitseSheet } from './MerkitseSheet.jsx';
@@ -42,7 +47,7 @@ function NotFound() {
   );
 }
 
-const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen, messages: MessagesScreen, thread: ThreadScreen };
+const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen, profileEdit: ProfileEditScreen, messages: MessagesScreen, thread: ThreadScreen };
 
 /** First visit: what Koutsi is for (players took the old app for a video box). */
 function WelcomeSheet({ student }) {
@@ -54,8 +59,8 @@ function WelcomeSheet({ student }) {
     run(() => api.player.markWelcomeSeen(ownerId), null);
   };
   const items = [
-    ['sparkles', 'Viikon teema', 'Mitä ryhmässäsi harjoitellaan nyt — ja mitä on harjoiteltu aiemmin.'],
-    ['flame', 'Kehitys', 'Treenit, teemat, valmentajan huomiot, tavoitteet ja ottelut yhdellä aikajanalla.'],
+    ['home', 'Koti', 'Seuraava treeni teemoineen, juuri päättynyt treeni ja mitä valmentaja on kertonut.'],
+    ['flame', 'Kehitys', 'Tavoitteesi ja kaikki treenisi teemoineen yhdellä aikajanalla.'],
     ['plus', 'Merkitse', 'Iso nappi keskellä: treeni, ottelu, fiilis tai tavoite yhdellä napautuksella. Treenin jälkeen se kysyy, miten meni.'],
   ];
   return (
@@ -66,7 +71,7 @@ function WelcomeSheet({ student }) {
           <li key={title} className="k-welcome-item"><span className="k-welcome-icon"><Icon name={icon} size={20} /></span><span><strong>{title}</strong><span className="k-welcome-text">{text}</span></span></li>
         ))}
       </ul>
-      <p className="k-fine">Jos jokin ei toimi tai tuntuu epäselvältä, kerro siitä Profiilin <strong>Anna palautetta</strong> -napilla.</p>
+      <p className="k-fine">Jos jokin ei toimi tai tuntuu epäselvältä, kerro siitä <strong>Anna palautetta</strong> -kohdassa (puhelimella Lisää-valikossa, tietokoneella sivupalkissa).</p>
     </Sheet>
   );
 }
@@ -95,6 +100,18 @@ function PlayerShell({ banner }) {
   const [startup] = useState(() => pickStartup(state, student));
   const [checkIn, setCheckIn] = useState(() => (startup?.kind === 'checkin' ? startup : null));
   const close = () => setSheet(null);
+  // Phone: the tab bar's "Lisää" drawer, with the notifications in it (Koti keeps its bell too)
+  const isDesktop = useIsDesktop();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [notifsOpen, setNotifsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const notes = useNotifications(isDesktop ? null : ownerId);
+  const phoneTabs = PHONE_TABS.map((t) => (t.id === 'lisaa' ? { ...t, onClick: () => setMoreOpen(true) } : t));
+  const extraLinks = [
+    { to: '/pelaaja/ryhma', label: 'Ryhmäsi', icon: 'users', pages: ['group'] },
+    { to: '/pelaaja/harjoitteet', label: 'Harjoitteet ja videot', icon: 'play', pages: ['exercises'] },
+    { key: 'palaute', label: 'Anna palautetta', icon: 'chat', onClick: () => setFeedbackOpen(true) },
+  ];
   const actions = useMemo(() => ({
     openMerkitse: () => setSheet({ kind: 'merkitse' }),
     openSelfTraining: (date, opts = {}) => setSheet({
@@ -146,18 +163,27 @@ function PlayerShell({ banner }) {
   return (
     <ActionsContext.Provider value={actions}>
       <AppShell
-        tabs={TABS}
+        tabs={isDesktop ? TABS : phoneTabs}
+        badges={!isDesktop && notes.unread + (messageLinks.length ? msgs.unread : 0) ? { lisaa: notes.unread + (messageLinks.length ? msgs.unread : 0) } : undefined}
         screens={SCREENS}
         NotFound={NotFound}
         roleLabel="Pelaaja"
         cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => actions.openMerkitse()}>Merkitse</Button>}
         center={{ label: 'Merkitse', icon: 'plus', onClick: () => actions.openMerkitse() }}
-        extraLinks={[...messageLinks, { to: '/pelaaja/harjoitteet', label: 'Harjoitteet ja videot', icon: 'play', pages: ['exercises'] }]}
+        extraLinks={[...messageLinks, ...extraLinks]}
         me={{ person: student, sub: student.level || 'Pelaaja', to: '/pelaaja/profiili' }}
         banner={banner}
         signupUrl="https://koutsi.krossi.app/pelaaja?uusi=1"
         beta={showBetaBar()}
       />
+      {!isDesktop && (
+        <>
+          <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} messages={messageLinks.length ? { unread: msgs.unread } : null}
+            onNotifications={() => { setNotifsOpen(true); notes.markRead(); }} onFeedback={() => setFeedbackOpen(true)} />
+          <NotificationsSheet open={notifsOpen} onClose={() => setNotifsOpen(false)} items={notes.items} home="/pelaaja/koti" />
+        </>
+      )}
+      <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} uid={ownerId} />
       <MerkitseSheet open={sheet?.kind === 'merkitse'} onClose={close} />
       <GoalsSheet open={sheet?.kind === 'goals'} onClose={close} />
       <SelfTrainingSheet open={sheet?.kind === 'self'} defaultDate={sheet?.date} defaultTime={sheet?.time} editing={sheet?.editing} preset={sheet?.preset}

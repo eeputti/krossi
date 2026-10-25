@@ -2,27 +2,24 @@
 // coach records goes through this one sheet, in the order a coach thinks it:
 //   1. what: a Tiedote (a practical notice — another coach tomorrow, a different court — on the
 //      players' Koti until a date, never on their Kehitys), a Huomio (feedback that stays on the
-//      player's Kehitys, optionally as a homework or with a video), the Läsnäolo of a session, or
-//      the week's Teema for some groups
-//   2. for whom: today's and tomorrow's sessions as chips (the one just over, on now or next is
-//      already picked), the week's groups, or anyone from the full list — for a Teema, the groups
-//      still without one this week
+//      player's Kehitys, optionally as a homework or with a video), or the Läsnäolo of a session.
+//      Teema opens Viikon teemat (PlannerSheet: teema → ryhmät → valmis, as in the old Koutsi).
+//   2. for whom: today's and tomorrow's sessions as chips (only a session on now or just over is
+//      already picked — nothing is guessed), the week's groups, or anyone from the full list
 //   3. the text (or, for Läsnäolo, the players to tap away).
-// It opens on what the moment needs: during a session Läsnäolo, after one Huomio, before one
-// Tiedote; on a day without sessions, while some groups lack this week's theme, Teema.
-// Opened from the big button it first asks what (four big choices, the moment's one marked
-// "Ehdotus") and only then shows the form; "Vaihda" goes back. Opened with a kind (the drawer's
-// Tiedote, a player's Huomio, Koti's theme box) it goes straight to the form.
-// For whom: group cards like Teema's — the groups training today or tomorrow first (the moment's
-// one picked), the rest behind "+ N ryhmää", all of the week's groups at once, or single players.
+// Opened from the big button it first asks what (six choices, none of them marked as a
+// suggestion: the coach knows what they came to do) and only then shows the form; "Vaihda" goes
+// back. Opened with a kind (the drawer's Tiedote, a player's Huomio) it goes straight to the form.
+// For whom: group cards — the groups training today or tomorrow first, the rest behind
+// "+ N ryhmää", all of the week's groups at once, or single players.
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { Avatar, Button, Icon, IconButton, Input, Sheet, Textarea, useConfirm, useToast } from '../ui/index.js';
+import { Avatar, Button, Icon, IconButton, Sheet, Textarea, useConfirm } from '../ui/index.js';
 import { navigate } from '../app/router.js';
 import { RecipientPicker, recipientSummary } from '../shared/recipients.jsx';
 import {
-  koutsiAddDays, koutsiCurrentIsoWeek, koutsiFmtShortDate, koutsiSortGroupsBySchedule, koutsiTodayStr, koutsiWeekThemeStatus, KOUTSI_THEME_LEAD_MAX, KOUTSI_THEME_TITLE_MAX,
+  koutsiAddDays, koutsiCurrentIsoWeek, koutsiFmtShortDate, koutsiSortGroupsBySchedule, koutsiTodayStr, koutsiWeekThemeStatus,
 } from '../domain/core.js';
 import {
   coachSessionsOn, dayRecap, groupMemberIds, JUST_ENDED_MINUTES, merkitseContext, plannerDefaultWeek, presentPlayerIds, sessionEnd, sessionRoster, sessionStatus, weekDates, weekGroups, weekRecap,
@@ -30,14 +27,13 @@ import {
 import { useCoach } from './CoachRoot.jsx';
 import { AttendanceChips } from './attendance.jsx';
 import { openPlanner } from './nav.js';
-import { useSaveThemes } from './themeActions.js';
 import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const HEALTH_NOTE = 'Älä kirjoita vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.';
 const players = (n) => (n === 1 ? '1 pelaajalle' : `${n} pelaajalle`);
 
-const LABELS = { tiedote: 'Tiedote', huomio: 'Huomio', video: 'Video', lasnaolo: 'Läsnäolo', teema: 'Teema' };
+const LABELS = { tiedote: 'Tiedote', huomio: 'Huomio', video: 'Video', lasnaolo: 'Läsnäolo' };
 const KINDS = {
   tiedote: {
     icon: 'info',
@@ -60,11 +56,6 @@ const KINDS = {
     icon: 'user-check',
     short: 'Kuka oli paikalla tämän päivän treenissä.',
     help: 'Kaikki ovat paikalla, ellet napauta toisin. Pelaajan oma "En pääse" on jo merkitty.',
-  },
-  teema: {
-    icon: 'sparkles',
-    short: 'Viikon teema ryhmille. Näkyy pelaajien etusivulla koko viikon.',
-    help: 'Viikon teema näkyy ryhmän pelaajille etusivulla koko viikon. Kirjoita se kerran ja valitse ryhmät.',
   },
 };
 
@@ -96,10 +87,10 @@ function sessionChips(state, now) {
   ];
 }
 
-/** The chip a fresh sheet starts on: on now > just over > next today > first tomorrow. */
+/** The chip a fresh sheet starts on: the session on now, else the one just over — never a guess. */
 function defaultChip(chips) {
   const ended = chips.filter((c) => c.justEnded);
-  return chips.find((c) => c.status === 'now') || ended[ended.length - 1] || chips.find((c) => c.status === 'upcoming') || null;
+  return chips.find((c) => c.status === 'now') || ended[ended.length - 1] || null;
 }
 
 const kindFor = (chip) => (!chip ? 'huomio' : chip.status === 'now' ? 'lasnaolo' : chip.status === 'upcoming' ? 'tiedote' : 'huomio');
@@ -108,7 +99,7 @@ const kindFor = (chip) => (!chip ? 'huomio' : chip.status === 'now' ? 'lasnaolo'
  * open, onClose, trainingId (start on this session), initialIds (start on these players),
  * initialKind ('tiedote' | 'huomio' | 'lasnaolo' | 'teema'), onVideo(ids) — opens the video sheet for them.
  */
-export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [], initialKind = null, onVideo, onContinue, onDay, onWeek, onAbsence }) {
+export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [], initialKind = null, onVideo, onDay, onWeek, onAbsence }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const now = new Date();
@@ -120,7 +111,6 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
 
   const [kind, setKind] = useState('huomio');
   const [choosing, setChoosing] = useState(false); // phone: "Mitä merkitset?" first
-  const [suggested, setSuggested] = useState(null);
   const [picked, setPicked] = useState([]); // Läsnäolo: the session (chip key)
   const [targets, setTargets] = useState([]); // Tiedote / Huomio: 'g:<groupId>' and 't:<trainingId>' (a private lesson)
   const [allTargets, setAllTargets] = useState(false); // show every group, not only today's and tomorrow's
@@ -130,17 +120,10 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
   const [until, setUntil] = useState(today);
   const [asHomework, setAsHomework] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Teema: one theme for the picked groups this week — the planner's quick path.
+  // Teema opens Viikon teemat; the tile only says how many groups still lack this week's theme.
   const themeWeek = plannerDefaultWeek(now);
   const themeStatus = useMemo(() => koutsiWeekThemeStatus(state.groups, state.trainings, themeWeek), [state, open]); // eslint-disable-line react-hooks/exhaustive-deps
-  const themeRows = themeStatus.rows.filter((r) => !r.skips);
-  const [themeIds, setThemeIds] = useState([]);
-  const [allGroups, setAllGroups] = useState(false);
-  const [title, setTitle] = useState('');
-  const [lead, setLead] = useState('');
-  const saveThemes = useSaveThemes();
   const confirm = useConfirm();
-  const toast = useToast();
 
   useEffect(() => {
     if (!open) return;
@@ -152,19 +135,12 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     setPickerOpen(false);
     setText('');
     setAsHomework(false);
-    setThemeIds(themeStatus.missing.map((g) => g.id));
-    setAllGroups(!themeStatus.missing.length);
-    setTitle('');
-    setLead('');
-    const first = initialKind || (initialIds.length ? 'huomio' : !start && themeStatus.missing.length ? 'teema' : kindFor(start));
-    const firstKind = first === 'tiedote' && !noticesReady ? 'huomio' : first;
-    setKind(firstKind);
-    setSuggested(firstKind);
+    const first = initialKind || (initialIds.length ? 'huomio' : kindFor(start));
+    setKind(first === 'tiedote' && !noticesReady ? 'huomio' : first);
     setChoosing(!initialKind);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const attendance = kind === 'lasnaolo';
-  const theme = kind === 'teema';
   const video = kind === 'video';
   // Tiedotteet need their table (supabase/migrations/20261023114724_koutsi_announcements.sql); until then the
   // choice stays hidden. The coach's notices still in date can be taken back.
@@ -261,39 +237,9 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     setKind(v);
   };
 
-  const dirty = theme ? Boolean(title.trim() || lead.trim()) : Boolean(text.trim());
-  const ready = theme ? Boolean(title.trim()) && themeIds.length > 0 && !busy : dirty && ids.length > 0 && !busy;
+  const dirty = Boolean(text.trim());
+  const ready = dirty && ids.length > 0 && !busy;
   const k = KINDS[kind];
-
-  // Teema: groups without a theme first (already picked); the ones with a theme behind a tap.
-  const shownThemeRows = allGroups ? themeRows : themeRows.filter((r) => !r.theme || themeIds.includes(r.group.id));
-  const hiddenThemeRows = themeRows.length - shownThemeRows.length;
-  const toggleThemeGroup = (id) => setThemeIds((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
-  const carryOn = () => { track('merkitse.jatka-teemat'); onContinue?.(themeWeek); };
-  const submitTheme = async () => {
-    const t = title.trim();
-    const l = lead.trim();
-    if (!t || !themeIds.length || busy) return;
-    const pickedRows = themeRows.filter((r) => themeIds.includes(r.group.id));
-    const row = (g) => ({ groupId: g.id, year: themeWeek.year, week: themeWeek.week, title: t, lead: l });
-    // A group's own different theme is replaced only after the coach says so.
-    const changing = pickedRows.filter((r) => r.theme && (r.theme.title !== t || (r.theme.lead || '') !== l));
-    if (changing.length) {
-      const ok = await confirm({
-        title: changing.length === 1 ? `Vaihdetaanko ryhmän ${changing[0].group.name} teema?` : `Vaihdetaanko ${changing.length} ryhmän teema?`,
-        message: `Nykyinen teema (${[...new Set(changing.map((r) => r.theme.title))].slice(0, 3).join(', ')}) korvataan teemalla ${t}.`,
-        confirmLabel: 'Vaihda teema',
-      });
-      if (!ok) return;
-    }
-    setBusy(true);
-    const written = await saveThemes({ fresh: pickedRows.filter((r) => !r.theme).map((r) => row(r.group)), replace: changing.map((r) => row(r.group)) });
-    setBusy(false);
-    if (written == null) return;
-    toast(pickedRows.length === 1 ? 'Teema tallennettu.' : `Teema tallennettu ${pickedRows.length} ryhmälle.`);
-    track('tallennettu.teema');
-    onClose();
-  };
 
   const submit = async () => {
     if (!ready) return;
@@ -334,9 +280,10 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     { id: 'huomio', icon: 'flame', label: 'Huomio', sub: 'Palaute, jää kehitykseen', run: () => pick('huomio') },
     { id: 'laksy', icon: 'check-circle', label: 'Kotiläksy', sub: 'Tehtävä kotiin', run: () => pick('huomio', true) },
     ...(noticesReady ? [{ id: 'tiedote', icon: 'info', label: 'Tiedote', sub: 'Käytännön asia', run: () => pick('tiedote') }] : []),
-    { id: 'teema', icon: 'sparkles', label: 'Teema', sub: missingThemes ? `Puuttuu ${missingThemes === 1 ? '1 ryhmältä' : `${missingThemes} ryhmältä`}` : 'Viikon teema', run: () => pick('teema') },
+    { id: 'teema', icon: 'sparkles', label: 'Teema', sub: missingThemes ? `Puuttuu ${missingThemes === 1 ? '1 ryhmältä' : `${missingThemes} ryhmältä`}` : 'Viikon teema',
+      run: () => { track('merkitse.teemat'); onClose(); openPlanner({ week: themeWeek }); } },
     { id: 'video', icon: 'play', label: 'Video', sub: 'Jaa pelaajille', run: () => pick('video') },
-  ].map((t) => ({ ...t, suggested: t.id === suggested }));
+  ];
   const fmtAvg = (x) => x.toFixed(1).replace('.', ',');
   const summary = (() => {
     if (!ctx || (ctx.kind !== 'day' && ctx.kind !== 'week')) return null;
@@ -366,13 +313,6 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     </div>
   ) : attendance ? (
     <Button variant="dark" size="lg" block onClick={onClose}>Valmis</Button>
-  ) : theme ? (
-    <div className="sheet-actions">
-      <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
-      <Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submitTheme}>
-        {themeIds.length > 1 ? `Tallenna ${themeIds.length} ryhmälle` : 'Tallenna'}
-      </Button>
-    </div>
   ) : (
     <div className="sheet-actions">
       <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
@@ -390,9 +330,9 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
           )}
           <div className="vs-choose-grid" role="group" aria-label="Mitä merkitset?">
             {tiles.map((t) => (
-              <button key={t.id} type="button" className={cx('vs-choose-tile', t.suggested && 'is-suggested')} onClick={t.run}>
+              <button key={t.id} type="button" className="vs-choose-tile" onClick={t.run}>
                 <span className="vs-choose-icon"><Icon name={t.icon} size={21} /></span>
-                <span className="vs-choose-title">{t.label}{t.suggested && <span className="vs-choose-badge">Ehdotus</span>}</span>
+                <span className="vs-choose-title">{t.label}</span>
                 <span className="vs-choose-sub">{t.sub}</span>
               </button>
             ))}
@@ -424,53 +364,6 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
           <p className="vs-help"><Icon name={k.icon} size={15} />{k.help}</p>
         </div>
 
-        {theme ? (
-          <>
-            {themeStatus.carry.length > 0 && (
-              <button type="button" className="vs-carry" onClick={carryOn}>
-                <span className="vs-carry-icon"><Icon name="repeat" size={17} /></span>
-                <span className="ms-row-main">
-                  <span className="ms-row-title">Jatka viime viikon teemoilla</span>
-                  <span className="ms-row-sub">{themeStatus.carry.length === 1 ? '1 ryhmä' : `${themeStatus.carry.length} ryhmää`} · {[...new Set(themeStatus.carry.map((x) => x.from.title))].slice(0, 2).join(', ')}</span>
-                </span>
-                <Icon name="chevron-right" size={16} className="k-chevron" />
-              </button>
-            )}
-            <section className="vs-to" aria-label="Mille ryhmille">
-              <div className="vs-label">Mille ryhmille · vko {themeWeek.week}</div>
-              <div className="vs-chips" role="group" aria-label="Valitse ryhmät">
-                {shownThemeRows.map(({ group, theme: current }) => {
-                  const on = themeIds.includes(group.id);
-                  return (
-                    <button key={group.id} type="button" aria-pressed={on} className={cx('vs-chip', on && 'is-on')} onClick={() => toggleThemeGroup(group.id)}>
-                      <span className="vs-chip-check" aria-hidden="true">{on && <Icon name="check" size={12} strokeWidth={3} />}</span>
-                      <span className="vs-chip-when">{group.day} {group.time}</span>
-                      <span className="vs-chip-name">{group.name}</span>
-                      <span className={cx('vs-chip-sub', !current && 'is-missing')}>{current ? current.title : 'Ei teemaa'}</span>
-                    </button>
-                  );
-                })}
-                {hiddenThemeRows > 0 && (
-                  <button type="button" className="vs-chip is-more" onClick={() => setAllGroups(true)}>
-                    <span className="vs-chip-when"><Icon name="plus" size={13} /> {hiddenThemeRows} ryhmää</span>
-                    <span className="vs-chip-name">Joilla on jo teema</span>
-                  </button>
-                )}
-              </div>
-            </section>
-            <div className="stack-2">
-              <label className="vs-label" htmlFor="merkinta-teema">Teema</label>
-              <Input id="merkinta-teema" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Kakkossyöttö" maxLength={KOUTSI_THEME_TITLE_MAX} />
-            </div>
-            <div className="stack-2">
-              <label className="vs-label" htmlFor="merkinta-tarkennus">Tarkennus <span className="vs-optional">vapaaehtoinen</span></label>
-              <Textarea id="merkinta-tarkennus" rows={2} value={lead} onChange={(e) => setLead(e.target.value)} placeholder="Esim. Kierre ja korkeus verkon yli — varmuus ennen vauhtia." maxLength={KOUTSI_THEME_LEAD_MAX} />
-            </div>
-            <button type="button" className="k-textlink vs-planner-link" onClick={() => { onClose(); openPlanner({ week: themeWeek }); }}>
-              Koko teemasuunnittelu ja aiemmat teemat <Icon name="arrow-right" size={14} />
-            </button>
-          </>
-        ) : (
         <>
         <section className="vs-to" aria-label={attendance ? 'Mikä treeni' : 'Kenelle'}>
           <div className="vs-label">{attendance ? 'Mikä treeni · tänään' : 'Mille ryhmille'}</div>
@@ -593,7 +486,6 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
           </>
         )}
         </>
-        )}
       </div>
       )}
     </Sheet>

@@ -367,6 +367,8 @@ export function PlayerScreen({ params }) {
                 {groups.map((g) => <Link key={g.id} to={groupPath(g.id)} className="k-group-pill"><span className="t-num">{g.day} {g.time}</span><span className="truncate">{g.name}</span></Link>)}
               </div>
             )}
+            {/* the player's own words from their profile */}
+            {student.bio && <p className="k-player-bio">{student.bio}</p>}
           </div>
         </header>
 
