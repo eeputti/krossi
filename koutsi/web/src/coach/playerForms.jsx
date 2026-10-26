@@ -43,9 +43,9 @@ export function AddPlayerSheet({ open, onClose }) {
       res = await run(() => api.students.bulkSetup(coachId, {
         groups: [{ client_id: ref, existing_id: groupId }],
         players: [{ name: name.trim(), age: parsedAge, level: level || null, group_refs: [ref] }], themes: [],
-      }), `${name.trim()} lisätty ryhmään.`);
+      }), `${name.trim()} lisätty ryhmään.`, { waitForRefresh: true });
     } else {
-      res = await run(() => api.students.create(coachId, { name: name.trim(), age: parsedAge, level: level || null }), `${name.trim()} lisätty.`);
+      res = await run(() => api.students.create(coachId, { name: name.trim(), age: parsedAge, level: level || null }), `${name.trim()} lisätty.`, { waitForRefresh: true });
     }
     setBusy(false);
     if (res.ok) {

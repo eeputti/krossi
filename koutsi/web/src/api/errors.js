@@ -58,6 +58,7 @@ const KNOWN = [
   [/payload too large|exceeded the maximum allowed size/i, 'Tiedosto on liian suuri.', 'too_large'],
   [/mime type .* is not supported|invalid_mime_type/i, 'Tätä tiedostotyyppiä ei tueta.', 'bad_type'],
   [/failed to fetch|networkerror|network request failed|load failed/i, 'Yhteysvirhe. Tarkista verkkoyhteys ja yritä uudelleen.', 'network'],
+  [/aborted|aborterror|timed? ?out|timeout/i, 'Yhteys katkesi tai on liian hidas. Tarkista verkko ja yritä uudelleen.', 'network'],
   [/jwt expired|invalid claim|session.*expired/i, 'Istunto vanheni. Kirjaudu uudelleen sisään.', 'auth_required'],
 ];
 

@@ -18,7 +18,7 @@ import { Button, Card, Icon, IconButton, Page, useToast } from '../ui/index.js';
 import { useMessages } from '../shared/messages/MessagesProvider.jsx';
 import { listTime, previewOf } from '../domain/messages.js';
 import { playerThreadPath, visibleThreads } from './MessagesScreen.jsx';
-import { NotificationsButton, targetOf } from '../shared/Notifications.jsx';
+import { NotificationsButton, targetOf, useNotifications } from '../shared/Notifications.jsx';
 import { Block, Quiet } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiIsoWeekRangeLabel, koutsiGroupById, koutsiCoachById, koutsiTimeRangeLabel, koutsiTodayStr,
@@ -241,13 +241,9 @@ function SessionLine({ student, now, onOpen }) {
 
 // ── Ajankohtaista ─────────────────────────────────────────────
 
-/** Unread notifications, newest first (the bell marks them read when opened). */
+/** Unread notifications, newest first — the same list as the bell, so reading them anywhere clears them here. */
 function useUnread(uid) {
-  const [items, setItems] = useState([]);
-  const load = useCallback(() => api.notifications.list(uid).then(setItems).catch(() => {}), [uid]);
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => api.notifications.subscribe(uid, load), [uid, load]);
-  return items.filter((n) => !n.read);
+  return useNotifications(uid).items.filter((n) => !n.read);
 }
 
 const kindLabel = (kind) => KOUTSI_EVENT_KINDS.find((k) => k.value === kind)?.label || 'Tapahtuma';
@@ -270,7 +266,7 @@ function newsRows(state, student, unread, threads = []) {
   unread
     .filter((n) => !(note && n.kind === 'diary_added') && !String(n.linkPath || '').includes('fiilis='))
     .slice(0, 3)
-    .forEach((n) => rows.push({ id: `n-${n.id}`, icon: 'bell', title: n.title, body: n.body || '', meta: koutsiFmtEventDate(n.createdAt), to: targetOf(n.linkPath, '/pelaaja/koti'), isNew: true }));
+    .forEach((n) => rows.push({ id: `n-${n.id}`, icon: 'bell', title: n.title, body: n.body || '', meta: koutsiFmtEventDate(n.createdAt), to: targetOf(n.linkPath, '/pelaaja/koti', n.kind), isNew: true }));
   (state.clubEvents || [])
     .filter((e) => (e.endDate || e.date) >= today && e.date <= koutsiAddDays(today, 21))
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -308,8 +304,13 @@ function NewsList({ rows }) {
 function HomeworkList({ open }) {
   const { run } = useData();
   const toast = useToast();
+  // a tap shows at once (the tick fills) and a second tap on the same row waits for the first
+  const [pending, setPending] = useState([]);
   const markDone = async (h) => {
+    if (pending.includes(h.id)) return;
+    setPending((p) => [...p, h.id]);
     const res = await run(() => api.homework.toggleDone(h.id, true));
+    setPending((p) => p.filter((x) => x !== h.id));
     if (res?.ok) toast('Merkitty tehdyksi — hienoa!', { action: { label: 'Kumoa', onClick: () => run(() => api.homework.toggleDone(h.id, false)) }, duration: 5000 });
   };
   return (
@@ -317,7 +318,7 @@ function HomeworkList({ open }) {
       <div className="ph-hw-head"><Icon name="book" size={16} /> Kotiläksyt · {open.length} tekemättä</div>
       <div className="k-list">
         {open.map((h) => (
-          <button key={h.id} type="button" className="k-hw" onClick={() => markDone(h)}>
+          <button key={h.id} type="button" className={`k-hw${pending.includes(h.id) ? ' is-done' : ''}`} aria-busy={pending.includes(h.id) || undefined} onClick={() => markDone(h)}>
             <span className="k-check-btn"><Icon name="check" size={14} strokeWidth={3} /></span>
             <span className="grow">{h.text}</span>
           </button>

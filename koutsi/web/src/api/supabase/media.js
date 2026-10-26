@@ -11,7 +11,9 @@ const bucket = (name) => db().storage.from(name);
 
 // A file is stored once under the uploader's folder and referenced by one koutsi_videos row
 // per recipient; storage RLS authorises reads through those rows.
-async function uploadVideoFile(uploaderId, shareId, file, onProgress) {
+const cancelled = () => new ApiError('Lataus peruttiin.', { code: 'cancelled' });
+
+async function uploadVideoFile(uploaderId, shareId, file, onProgress, signal = null) {
   if (file.size > VIDEO_MAX_BYTES) {
     throw new ApiError(`Video on liian suuri (${Math.round(file.size / 1048576)} Mt). Tiedostolatauksen raja on 50 Mt — jaa pitkä video linkkinä.`);
   }
@@ -45,6 +47,7 @@ async function uploadVideoFile(uploaderId, shareId, file, onProgress) {
         onProgress: (uploaded, total) => report(total > 0 ? Math.round((uploaded / total) * 100) : 0),
         onSuccess: resolve,
       });
+      signal?.addEventListener('abort', () => { upload.abort(true).catch(() => {}); reject(cancelled()); }, { once: true });
       upload.findPreviousUploads()
         .then((previous) => { if (previous.length) upload.resumeFromPreviousUpload(previous[0]); upload.start(); })
         .catch(reject);
@@ -59,14 +62,19 @@ async function uploadVideoFile(uploaderId, shareId, file, onProgress) {
 }
 
 export const videos = {
-  async share({ shareId, title, date, tags, studentIds, addedById, file, externalUrl, onProgress }) {
+  async share({ shareId, title, date, tags, studentIds, addedById, file, externalUrl, onProgress, signal = null }) {
     const resolvedShareId = shareId || randomUuid();
     // A retry after a lost response must not insert a second copy for a recipient.
     const existing = must(await from('koutsi_videos').select('student_id').eq('share_id', resolvedShareId)) || [];
     const already = new Set(existing.map((r) => r.student_id));
     const pending = (studentIds || []).filter((id) => !already.has(id));
     if (!pending.length) return resolvedShareId;
-    const uploaded = file ? await uploadVideoFile(addedById, resolvedShareId, file, onProgress) : null;
+    const uploaded = file ? await uploadVideoFile(addedById, resolvedShareId, file, onProgress, signal) : null;
+    // Peruuta while a small file was still going up: nothing gets shared, and the file goes too.
+    if (signal?.aborted) {
+      if (uploaded) await bucket('koutsi-videos').remove([uploaded.path]).catch(() => {});
+      throw cancelled();
+    }
     const rows = pending.map((studentId) => ({
       share_id: resolvedShareId, student_id: studentId, added_by_id: addedById, title, date, tags,
       storage_path: uploaded ? uploaded.path : null,

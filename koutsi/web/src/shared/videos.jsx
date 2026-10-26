@@ -50,6 +50,7 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const errorRef = useRef(null);
+  const abortRef = useRef(null);
   useEffect(() => {
     if (!open) return;
     setShareId(koutsiRandomUuid()); setTitle(''); setDate(koutsiTodayStr()); setTags([]); setIds(initialIds);
@@ -78,20 +79,27 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
     if (busy) return;
     if (missing) { showError(missing); return; }
     setBusy(true); setProgress(0); setError('');
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
-      await onSave({ shareId, title: title.trim() || defaultVideoTitle(file, link), date, tags, studentIds: ids, file: file || null, externalUrl: file ? null : link, onProgress: setProgress });
-      onClose();
+      await onSave({ shareId, title: title.trim() || defaultVideoTitle(file, link), date, tags, studentIds: ids, file: file || null, externalUrl: file ? null : link, onProgress: setProgress, signal: ctrl.signal });
+      if (!ctrl.signal.aborted) onClose();
     } catch (err) {
-      showError(err?.userMessage || 'Videon tallennus epäonnistui. Tarkista nettiyhteys ja yritä uudelleen.');
+      if (!ctrl.signal.aborted) showError(err?.userMessage || 'Videon tallennus epäonnistui. Tarkista nettiyhteys ja yritä uudelleen.');
     } finally {
-      setBusy(false);
+      if (abortRef.current === ctrl) { abortRef.current = null; setBusy(false); }
     }
+  };
+  // An upload can take minutes on a phone: Peruuta stops it (nothing is shared, the file is removed).
+  const cancel = () => {
+    if (busy && abortRef.current) { abortRef.current.abort(); abortRef.current = null; setBusy(false); }
+    onClose();
   };
   const label = busy && file ? `Ladataan ${progress} %` : recipients ? (ids.length > 1 ? `Jaa ${ids.length} pelaajalle` : 'Jaa') : 'Tallenna';
   const fileInput = <input type="file" accept="video/*" className="sr-only" tabIndex={-1} disabled={busy} onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />;
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={sheetTitle} size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" className={missing ? 'is-incomplete' : undefined} loading={busy} onClick={submit}>{label}</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={cancel} disabled={busy && !file}>{busy && file ? 'Peru lataus' : 'Peruuta'}</Button><Button variant="dark" size="lg" className={missing ? 'is-incomplete' : undefined} loading={busy} onClick={submit}>{label}</Button></div>}>
       <div className="stack-4">
         {scope && sameIds(ids, initialIds) && <ScopeLine scope={scope} />}
         {file ? (

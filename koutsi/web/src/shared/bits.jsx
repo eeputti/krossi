@@ -10,11 +10,11 @@ import { themeWeekRelative, weekRangeLabel } from '../domain/week.js';
 const cx = (...c) => c.filter(Boolean).join(' ');
 
 /** Copies `text`; the label flips to `copiedLabel` for a moment. */
-export function CopyButton({ text, label = 'Kopioi', copiedLabel = 'Kopioitu!', variant = 'outline', size = 'sm', icon = 'copy', block, className }) {
+export function CopyButton({ text, label = 'Kopioi', copiedLabel = 'Kopioitu!', variant = 'outline', size = 'sm', icon = 'copy', block, className, missing = null }) {
   const toast = useToast();
   const [copied, setCopied] = useState(false);
   return (
-    <Button variant={variant} size={size} icon={copied ? 'check' : icon} block={block} className={className}
+    <Button variant={variant} size={size} icon={copied ? 'check' : icon} block={block} className={className} missing={missing}
       onClick={async () => {
         if (await copyText(text)) { setCopied(true); setTimeout(() => setCopied(false), 2200); }
         else toast('Kopiointi ei onnistunut — valitse teksti ja kopioi käsin.', { tone: 'error' });
@@ -28,7 +28,7 @@ export function CopyButton({ text, label = 'Kopioi', copiedLabel = 'Kopioitu!', 
  * Opens the phone's share sheet with a ready message (WhatsApp is one tap away there); on a
  * desktop without a share sheet it copies the message instead.
  */
-export function ShareTextButton({ text, title, label = 'Jaa', variant = 'dark', size = 'sm', icon = 'share', block, className }) {
+export function ShareTextButton({ text, title, label = 'Jaa', variant = 'dark', size = 'sm', icon = 'share', block, className, missing = null }) {
   const toast = useToast();
   const onClick = async () => {
     try {
@@ -39,7 +39,7 @@ export function ShareTextButton({ text, title, label = 'Jaa', variant = 'dark', 
     if (await copyText(text)) toast('Viesti kopioitu — liitä se WhatsAppiin tai tekstiviestiin.', { icon: 'copy' });
     else toast('Kopiointi ei onnistunut.', { tone: 'error' });
   };
-  return <Button variant={variant} size={size} icon={icon} block={block} className={className} onClick={onClick}>{label}</Button>;
+  return <Button variant={variant} size={size} icon={icon} block={block} className={className} missing={missing} onClick={onClick}>{label}</Button>;
 }
 
 /** QR rendered locally as SVG — an invite link never leaves the device to be drawn. */

@@ -73,7 +73,7 @@ export function GroupFormSheet({ open, onClose, editing }) {
     const fields = { name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time, durationMinutes: duration, weeksAhead: weeks };
     const res = isEdit
       ? await run(() => api.groups.update(editing.id, fields), 'Ryhmä päivitetty.')
-      : await run(() => api.groups.create(coachId, { ...fields, memberIds }), 'Ryhmä luotu — treenit ovat kalenterissa.');
+      : await run(() => api.groups.create(coachId, { ...fields, memberIds }), 'Ryhmä luotu — treenit ovat kalenterissa.', { waitForRefresh: true });
     busyRef.current = false; setBusy(false);
     if (res.ok) {
       onClose();
@@ -444,8 +444,14 @@ export function AnnualPlanBlock({ group }) {
     await run(() => api.plans.upload(group.id, file), 'Vuosisuunnitelma lähetetty — tarkistamme sen ja viemme teemat Koutsiin.');
     setBusy(false);
   };
+  // The tab opens in the tap itself (an iPhone blocks a window opened after waiting for the
+  // network) and gets its address when the signed link arrives.
   const open = async () => {
-    try { const url = await api.plans.url(plan.storagePath); if (url) window.open(url, '_blank', 'noopener'); } catch (err) { toast(err); }
+    const tab = window.open('', '_blank');
+    try {
+      const url = await api.plans.url(plan.storagePath);
+      if (url && tab) tab.location.href = url; else if (url) window.location.href = url; else tab?.close();
+    } catch (err) { tab?.close(); toast(err); }
   };
   const remove = async () => {
     if (!(await confirm({ title: 'Poista vuosisuunnitelma?', message: plan.filename, confirmLabel: 'Poista', danger: true }))) return;
@@ -463,7 +469,7 @@ export function AnnualPlanBlock({ group }) {
       ) : <Quiet>Ei vuosisuunnitelmaa.</Quiet>}
       <div className="row wrap">
         {plan && <Button variant="outline" size="sm" icon="external" onClick={open}>Avaa</Button>}
-        <FilePick accept=".pdf,.xlsx,.xls,.doc,.docx,.csv" onPick={upload} className="btn btn-outline btn-sm">{busy ? 'Lähetetään…' : plan ? 'Vaihda tiedosto' : 'Lähetä tiedosto'}</FilePick>
+        <FilePick accept=".pdf,.xlsx,.xls,.doc,.docx,.csv" onPick={(f) => { if (!busy) upload(f); }} className="btn btn-outline btn-sm">{busy ? 'Lähetetään…' : plan ? 'Vaihda tiedosto' : 'Lähetä tiedosto'}</FilePick>
         {plan && <Button variant="ghost" size="sm" icon="trash" onClick={remove}>Poista</Button>}
       </div>
     </div>
