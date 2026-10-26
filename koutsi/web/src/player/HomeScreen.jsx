@@ -18,7 +18,7 @@ import { Button, Card, Icon, IconButton, Page, useToast } from '../ui/index.js';
 import { useMessages } from '../shared/messages/MessagesProvider.jsx';
 import { listTime, previewOf } from '../domain/messages.js';
 import { playerThreadPath, visibleThreads } from './MessagesScreen.jsx';
-import { NotificationsButton, targetOf, useNotifications } from '../shared/Notifications.jsx';
+import { NotificationsButton, notificationKind, targetOf, useNotifications } from '../shared/Notifications.jsx';
 import { Block, Quiet } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiIsoWeekRangeLabel, koutsiGroupById, koutsiCoachById, koutsiTimeRangeLabel, koutsiTodayStr,
@@ -264,7 +264,7 @@ function newsRows(state, student, unread, threads = []) {
     rows.push({ id: `m-${t.id}`, icon: 'chat', title: 'Viesti valmentajalta', body: `${coach?.name || 'Valmentaja'}: ${previewOf(t, 'player')}`, meta: listTime(t.lastMessageAt), to: playerThreadPath(t.coachId), isNew: true });
   });
   unread
-    .filter((n) => !(note && n.kind === 'diary_added') && !String(n.linkPath || '').includes('fiilis='))
+    .filter((n) => !(note && notificationKind(n.kind) === 'diary_added') && !String(n.linkPath || '').includes('fiilis='))
     .slice(0, 3)
     .forEach((n) => rows.push({ id: `n-${n.id}`, icon: 'bell', title: n.title, body: n.body || '', meta: koutsiFmtEventDate(n.createdAt), to: targetOf(n.linkPath, '/pelaaja/koti', n.kind), isNew: true }));
   (state.clubEvents || [])
@@ -352,7 +352,7 @@ function CoachNote({ state, student, unread }) {
   if (!note) return null;
   const coaches = state.coaches || [];
   const who = coaches.length === 1 ? coaches[0].name : '';
-  const isNew = unread.some((n) => n.kind === 'diary_added');
+  const isNew = unread.some((n) => notificationKind(n.kind) === 'diary_added');
   return (
     <article className="cn-card">
       <span className="cn-icon"><Icon name="chat" size={18} /></span>

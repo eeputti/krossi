@@ -10,13 +10,17 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 
 // Most stored notifications point at the app's root ('/pelaaja'); a tap then opens where the thing
 // actually is, by its kind — not Koti, where a tap seemed to do nothing.
+// The database triggers write 'diary', 'homework', 'video' and 'announcement'; older rows and the
+// demo seed say 'diary_added', 'homework_added', 'video_added'/'video_shared'. Both mean the same.
+const KIND_ALIASES = { diary: 'diary_added', homework: 'homework_added', video: 'video_added', video_shared: 'video_added' };
+export const notificationKind = (kind) => KIND_ALIASES[kind] || kind;
 const PLAYER_PLACE = {
   training_added: '/pelaaja/treenit',
   training_cancelled: '/pelaaja/treenit',
   homework_added: '/pelaaja/treenit',
   diary_added: '/pelaaja/kehitys?nayta=valmentajalta',
   video_added: '/pelaaja/harjoitteet',
-  video_shared: '/pelaaja/harjoitteet',
+  announcement: '/pelaaja/koti',
 };
 
 /** Maps a stored link_path ('/pelaaja', '/valmentaja', …) to a canonical in-app path. A
@@ -29,7 +33,7 @@ export function targetOf(linkPath, home, kind = null) {
   const keep = new URLSearchParams();
   ['fiilis', 'toive'].forEach((key) => { if (from.get(key)) keep.set(key, from.get(key)); });
   const suffix = keep.toString() ? `?${keep}` : '';
-  if (path === '/pelaaja' && !suffix && PLAYER_PLACE[kind]) return PLAYER_PLACE[kind];
+  if (path === '/pelaaja' && !suffix && PLAYER_PLACE[notificationKind(kind)]) return PLAYER_PLACE[notificationKind(kind)];
   if (path === '/pelaaja' || path === '/valmentaja') return home + suffix;
   return path.startsWith('/pelaaja/') || path.startsWith('/valmentaja/') ? path + suffix : null;
 }
@@ -47,7 +51,19 @@ function joinStore(uid, listener) {
     store = { items: [], listeners: new Set(), unsubscribe: null };
     stores.set(uid, store);
     loadStore(uid, store);
-    store.unsubscribe = api.notifications.subscribe(uid, () => loadStore(uid, store)) || null;
+    const unsubscribe = api.notifications.subscribe(uid, () => loadStore(uid, store)) || null;
+    // The notifications table is not in the realtime feed, so the bell would stay as it was at
+    // start-up: read it again when the app comes back to the front and once a minute while open.
+    const refresh = () => { if (document.visibilityState === 'visible') loadStore(uid, store); };
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    const timer = setInterval(refresh, 60000);
+    store.unsubscribe = () => {
+      unsubscribe?.();
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+      clearInterval(timer);
+    };
   }
   store.listeners.add(listener);
   return () => {

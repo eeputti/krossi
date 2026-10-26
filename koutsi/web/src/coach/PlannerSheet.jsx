@@ -250,7 +250,7 @@ export function PlannerSheet({ query }) {
   );
 
   return (
-    <Sheet open={open} onClose={close} onClosed={() => goBack('/valmentaja/koti')} size="lg" title="Viikon teemat" footer={footer} dismissible={!busy && !(step === 1 && (cleanTitle || cleanLead) && !saved)}>
+    <Sheet open={open} onClose={close} onClosed={() => goBack('/valmentaja/koti')} size="lg" title="Viikon teemat" footer={footer} dismissible={!busy} confirmClose={(step === 1 || step === 2) && Boolean(cleanTitle || cleanLead) && !saved}>
       <div ref={bodyTop} />
       <WeekStepper
         week={week}

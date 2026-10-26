@@ -128,16 +128,19 @@ export function SelfTrainingSheet({ open, onClose, defaultDate, defaultTime, edi
   const [f, setF] = useState(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const startText = useRef('');
   useEffect(() => {
     if (!open) { setF(null); return; }
     if (editing) {
       const e = ownEntry(editing);
+      startText.current = e.activity === 'turnaus' ? (editing.notes || '') : e.text;
       setF({ activity: e.activity, date: editing.date, time: editing.time || '17:00', duration: editing.durationMinutes || 60, endDate: editing.endDate || '', text: e.activity === 'turnaus' ? (editing.notes || '') : e.text, homeworkId: null });
       return;
     }
     const activity = preset?.activity || 'tennis';
     const date = defaultDate || koutsiTodayStr();
     const hw = preset?.homeworkId || openHomework[0]?.id || null;
+    startText.current = '';
     setF({
       activity, date, time: defaultTime || defaultLogTime(date), duration: activityById(activity).duration || 60, endDate: '',
       text: activity === 'kotilaksy' ? (openHomework.find((h) => h.id === hw)?.text || '') : '', homeworkId: activity === 'kotilaksy' ? hw : null,
@@ -186,8 +189,11 @@ export function SelfTrainingSheet({ open, onClose, defaultDate, defaultTime, edi
   const tiles = ACTIVITIES.filter((x) => (!x.hidden || x.id === f.activity) && (!x.homework || openHomework.length > 0 || x.id === f.activity) && (!editing || !x.match));
   // From Merkitse the kind was already picked with one tap: the form opens under its name.
   const locked = Boolean(preset?.locked) && !editing;
+  // Words the player wrote (not the homework text filled in for them) are asked about before closing.
+  const autoText = a.homework ? (openHomework.find((h) => h.id === f.homeworkId)?.text || '') : '';
+  const typed = Boolean(f.text.trim()) && f.text.trim() !== startText.current.trim() && f.text.trim() !== autoText.trim();
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa merkintää' : locked ? a.title : 'Kirjaa oma treeni'} subtitle="Oma merkintäsi. Kaikki valmentajasi näkevät sen." size="md"
+    <Sheet open={open} onClose={() => !busy && onClose()} confirmClose={!busy && typed} title={editing ? 'Muokkaa merkintää' : locked ? a.title : 'Kirjaa oma treeni'} subtitle="Oma merkintäsi. Kaikki valmentajasi näkevät sen." size="md"
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={a.match ? null : !coachId ? 'Liity ensin valmentajan ryhmään (Lisää → Liity ryhmään), niin voit kirjata treenejä.' : !f.date ? 'Valitse päivä.' : !isTournament && !f.time ? 'Valitse kellonaika.' : !isTournament && !(f.duration > 0) ? 'Valitse kesto.' : null} loading={busy} onClick={save}>{a.match ? 'Jatka ottelun kirjaukseen' : 'Tallenna'}</Button></div>}>
       <div className="stack-4">
         {!locked && <div className="pw-acts" role="radiogroup" aria-label="Mitä teit?">

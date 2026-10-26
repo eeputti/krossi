@@ -258,6 +258,23 @@
 /* ── time & duration ─────────────────────────────────────── */
 .k-time { display: flex; align-items: center; gap: 6px; }
 .k-time .select-wrap { flex: 1; min-width: 0; }
+/* Two-digit hours and minutes: a slim arrow so the number shows on every phone (the general
+   40 px arrow space left 2–16 px for "16" on 320–375 px screens). */
+.k-time .select { padding: 0 26px 0 12px; }
+.k-time .select-chevron { right: 8px; width: 16px; height: 16px; }
+
+/* Side-by-side rows that hold a date, a time or a duration go one under the other where they
+   would not fit: dates and times on the narrowest phones, the duration stepper below 400 px,
+   and rows inside a card (Lisää monta kerralla, Uusi kausi) below 480 px. */
+@media (max-width: 359px) {
+  .k-two:has(.k-time), .k-two:has(input[type="date"]) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 400px) {
+  .k-two:has(.k-duration) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .k-subcard .k-two, .season-fields .k-two { grid-template-columns: minmax(0, 1fr); }
+}
 .k-time-sep { font-weight: 800; color: var(--muted); }
 .k-duration { display: flex; align-items: center; gap: 8px; }
 .k-duration-unit { color: var(--muted); font-size: 13px; font-weight: 600; }

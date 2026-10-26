@@ -51,7 +51,7 @@ export function FeedbackSheet({ open, onClose, uid }) {
     );
   }
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Anna palautetta" subtitle="Kerro, mikä sovelluksessa toimii ja mikä ei. Kaikenlainen palaute on tärkeää!" size="md" dismissible={!busy && !message.trim()}
+    <Sheet open={open} onClose={() => !busy && onClose()} title="Anna palautetta" subtitle="Kerro, mikä sovelluksessa toimii ja mikä ei. Kaikenlainen palaute on tärkeää!" size="md" dismissible={!busy} confirmClose={Boolean(message.trim())}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={!message.trim() ? 'Kirjoita palautteesi ensin.' : null} loading={busy} onClick={send}>Lähetä</Button></div>}>
       <div className="stack-4">
         <Field label="Mistä on kyse?"><ChipSelect size="sm" options={FEEDBACK_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} value={category} onChange={(v) => v && setCategory(v)} ariaLabel="Aihe" /></Field>
