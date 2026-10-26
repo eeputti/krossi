@@ -292,6 +292,8 @@ body.sheet-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 .sheet-root.is-closing .sheet { animation: k-sheet-down 240ms var(--ease-in-out) both; }
 /* a closing sheet no longer catches taps meant for the page or the tab bar */
 .sheet-root.is-closing { pointer-events: none; }
+/* sliding up: the second tap of a double tap doesn't hit a row of the sheet */
+.sheet-root.is-opening .sheet { pointer-events: none; }
 /* the keyboard is up: the root is the visible area above it (Sheet.jsx useKeyboardInset) */
 .sheet-root.has-keyboard .sheet { max-height: calc(100% - 8px); }
 .sheet-root.is-closing .sheet-backdrop { animation: k-fade-in 240ms reverse both; }
@@ -422,9 +424,10 @@ button.medal:active { transform: scale(0.96); }
    Ohita, the homework tick. (Audit 26.10.: many were 20–32 px, a finger needs ~44.) */
 @media (pointer: coarse) {
   .sheet-header .icon-btn-sm, .sheet-close-floating.icon-btn-sm { width: 40px; height: 40px; }
-  .icon-btn-sm::after, .k-textlink::after, .pn-skip::after, .pn-link::after, .pw-hw-check::after, .pn-feel-num::after, .top-banner-cta::after {
+  .icon-btn-sm::after, .k-textlink::after, .pn-skip::after, .pn-link::after, .pw-hw-check::after, .pn-feel-num::after, .top-banner-cta::after,
+  .wb-range::after, .k-more::after, .stepper-btn::after {
     content: ''; position: absolute; inset: -8px -6px;
   }
-  .k-textlink, .pn-skip, .pn-link, .pw-hw-check, .pn-feel-num, .top-banner-cta { position: relative; }
+  .k-textlink, .pn-skip, .pn-link, .pw-hw-check, .pn-feel-num, .top-banner-cta, .wb-range, .k-more, .stepper-btn { position: relative; }
   .pn-feel-num::after { inset: -8px -2px; }
 }

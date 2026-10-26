@@ -106,6 +106,9 @@ function EventBar({ bar, onOpen, style }) {
   );
 }
 
+// the phone's day in view, kept while the app is open (back from a session lands on the same day)
+const lastBoardDay = { date: null };
+
 export function BoardScreen({ query }) {
   const { state } = useData();
   const isDesktop = useIsDesktop();
@@ -138,10 +141,13 @@ export function BoardScreen({ query }) {
   // On a phone the days scroll sideways one at a time: open on today (or the week's first day
   // with sessions) and keep the strip above in step with the day in view.
   const daysRef = useRef(null);
-  const [active, setActive] = useState(0);
+  const [active, setActiveState] = useState(0);
+  const setActive = (i) => { setActiveState(i); if (dates[i]) lastBoardDay.date = dates[i]; };
   // Koti's day strip links straight to a day (?pv=): the phone opens on it, a computer marks it.
+  // Else the day you were on (back from a session lands there again), else today.
   const focusDate = query.pv && dates.includes(query.pv) ? query.pv : null;
-  const startDay = focusDate ? dates.indexOf(focusDate) : Math.max(0, isCurrent ? dates.indexOf(today) : board.days.findIndex((d) => d.items.length));
+  const remembered = dates.includes(lastBoardDay.date) ? lastBoardDay.date : null;
+  const startDay = focusDate ? dates.indexOf(focusDate) : remembered ? dates.indexOf(remembered) : Math.max(0, isCurrent ? dates.indexOf(today) : board.days.findIndex((d) => d.items.length));
   const scrollToDay = (i, smooth) => {
     const el = daysRef.current;
     const col = el?.children[i];
@@ -150,7 +156,20 @@ export function BoardScreen({ query }) {
     setActive(i);
   };
   useLayoutEffect(() => {
-    if (!isDesktop) scrollToDay(startDay, false);
+    if (isDesktop) return;
+    scrollToDay(startDay, false);
+    // and down to what matters on that day: the now line, else its first session (the grid
+    // starts early, and at 17:30 the running session sat below the tab bar)
+    // (after the page's own scroll restore, which runs after this effect)
+    const raf = requestAnimationFrame(() => {
+      if (window.scrollY > 40) return; // coming back to a scrolled page: keep it
+      const col = daysRef.current?.children[startDay];
+      const target = col?.querySelector('.wb-now') || col?.querySelector('.wb-block');
+      if (!target) return;
+      const top = target.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.3;
+      if (top > 0) window.scrollTo({ top, behavior: 'auto' });
+    });
+    return () => cancelAnimationFrame(raf);
   }, [isDesktop, week.year, week.week, focusDate]); // eslint-disable-line react-hooks/exhaustive-deps
   const frame = useRef(0);
   const onScroll = () => {
@@ -168,7 +187,7 @@ export function BoardScreen({ query }) {
     <>
       <AddSheet open={sheet?.kind === 'add'} onClose={close} onPick={onAdd} week={week} />
       <BoardItemSheet open={sheet?.kind === 'item'} item={lastItem.current} week={week} onClose={close} />
-      <WeekPickerSheet open={sheet?.kind === 'pick'} week={week} onClose={close} onPick={(date) => { close(); setWeek(koutsiIsoWeekOfDateStr(date)); }} />
+      <WeekPickerSheet open={sheet?.kind === 'pick'} week={week} onClose={close} onPick={(date) => { close(); lastBoardDay.date = date; setWeek(koutsiIsoWeekOfDateStr(date)); }} />
       <GroupFormSheet open={sheet?.kind === 'group'} onClose={close} />
       <BulkSetupSheet open={sheet?.kind === 'bulk'} onClose={close} />
       <TrainingSheet open={sheet?.kind === 'training'} defaultDate={sheet?.date} onClose={close} />

@@ -163,7 +163,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
   const who = forWho(item.status, ids.length, group);
   const tiles = !live ? [] : [
     { id: 'lasnaolo', look: 'lasnaolo',
-      sub: upcoming ? (absent ? `${absent} ilmoitti poissaolon` : `${roster.length} pelaajaa`) : `${roster.length - absent}/${roster.length} paikalla`,
+      sub: upcoming ? (absent ? `${absent} ilmoitti poissaolon` : roster.length === 1 ? '1 pelaaja' : `${roster.length} pelaajaa`) : `${roster.length - absent}/${roster.length} paikalla`,
       run: then(() => { track('viikko.lasnaolo'); navigate(sessionPath(live.id)); }) },
     { id: 'huomio', look: 'huomio', sub: who, run: recordFor('note') },
     { id: 'laksy', look: 'laksy', sub: who, run: recordFor('homework') },

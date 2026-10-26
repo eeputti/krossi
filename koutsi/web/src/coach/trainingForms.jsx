@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Avatar, Button, ChipSelect, Field, Input, Segmented, Sheet, Toggle, useConfirm } from '../ui/index.js';
-import { TimeSelect } from '../shared/fields.jsx';
+import { DurationStepper, TimeSelect } from '../shared/fields.jsx';
 import { koutsiAddDays, koutsiTodayStr, koutsiWeeklyDates, koutsiFmtShortDate, KOUTSI_EVENT_KINDS, koutsiSortGroupsBySchedule } from '../domain/core.js';
 import { matchStudents } from '../domain/roster.js';
 import { TRAINING_TYPES } from '../lib/constants.js';
@@ -28,6 +28,10 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
   const [type, setType] = useState('Ryhmätreeni');
   const [repeat, setRepeat] = useState(false);
   const [query, setQuery] = useState('');
+  // the session's own length: empty until changed, then it overrides the group's (60 min for a private lesson)
+  const [duration, setDuration] = useState(null);
+  // a session opened on a group (an empty slot in the week) shows that group only, not a long list
+  const [allGroups, setAllGroups] = useState(true);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false); // a double tap must not book a year-long series twice
   useEffect(() => {
@@ -38,6 +42,8 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
     setDate(editing?.date || defaultDate || koutsiTodayStr());
     setTime(editing?.time || defaultTime || '');
     setType(editing?.type || (state.groups.length ? 'Ryhmätreeni' : 'Yksityistunti'));
+    setDuration(editing?.durationMinutes || null);
+    setAllGroups(!(defaultGroupId && !editing));
     setRepeat(false); setQuery('');
   }, [open, editing, defaultDate, defaultGroupId, defaultTime, state.groups.length]);
   useEffect(() => { if (!isEdit) setType(target === 'group' ? 'Ryhmätreeni' : 'Yksityistunti'); }, [target, isEdit]);
@@ -45,6 +51,11 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
   const repeatUntil = repeat && date ? koutsiAddDays(date, 365) : null;
   const occurrences = repeatUntil ? koutsiWeeklyDates(date, repeatUntil).length : 1;
   const ready = (target === 'student' ? studentId : groupId) && date && time && types.includes(type) && !busy;
+  const pickedGroup = (target === 'group' ? groupId : editing?.groupId) ? state.groups.find((g) => g.id === (target === 'group' ? groupId : editing?.groupId)) : null;
+  const baseDuration = pickedGroup?.durationMinutes || 60;
+  const shownDuration = duration || baseDuration;
+  // stored only when it differs from the group's own length (a group session follows its group)
+  const durationToSave = duration && duration !== (pickedGroup ? pickedGroup.durationMinutes || 60 : null) ? duration : (pickedGroup ? null : duration || 60);
   const missing = !(target === 'student' ? studentId : groupId) ? (target === 'student' ? 'Valitse pelaaja.' : 'Valitse ryhmä.')
     : !date ? 'Valitse päivä.' : !time ? 'Valitse kellonaika.' : !types.includes(type) ? 'Valitse treenin tyyppi.' : null;
   const students = useMemo(() => (query.trim() ? matchStudents(state.students, query, { limit: 40 }) : state.students.slice().sort((a, b) => a.name.localeCompare(b.name, 'fi'))), [state.students, query]);
@@ -54,8 +65,8 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
     if (!ready || busyRef.current) return;
     busyRef.current = true; setBusy(true);
     const res = isEdit
-      ? await run(() => api.trainings.update(editing.id, { date, time, type }), 'Treeni päivitetty.')
-      : await run(() => api.trainings.add({ coachId, studentId: target === 'student' ? studentId : null, groupId: target === 'group' ? groupId : null, date, time, type, repeatUntil }),
+      ? await run(() => api.trainings.update(editing.id, { date, time, type, durationMinutes: durationToSave }), 'Treeni päivitetty.')
+      : await run(() => api.trainings.add({ coachId, studentId: target === 'student' ? studentId : null, groupId: target === 'group' ? groupId : null, date, time, type, repeatUntil, durationMinutes: durationToSave }),
         repeatUntil ? `Viikoittainen sarja lisätty (${occurrences} kertaa).` : 'Treeni lisätty.');
     busyRef.current = false; setBusy(false);
     if (res.ok) onClose();
@@ -64,7 +75,7 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
     if (busyRef.current || !editing?.seriesId) return;
     busyRef.current = true; setBusy(true);
     const from = editing.date < koutsiTodayStr() ? koutsiTodayStr() : editing.date;
-    const res = await run(() => api.trainings.updateSeries(editing.seriesId, { time, type }, from), 'Koko sarja päivitetty.');
+    const res = await run(() => api.trainings.updateSeries(editing.seriesId, { time, type, durationMinutes: durationToSave }, from), 'Koko sarja päivitetty.');
     busyRef.current = false; setBusy(false);
     if (res.ok) onClose();
   };
@@ -94,12 +105,13 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
           <Field label="Ryhmä">
             {groups.length === 0 ? <p className="field-msg">Ei vielä ryhmiä — luo ryhmä Viikkohallinnan plus-napista.</p> : (
               <div className="k-pick-list">
-                {groups.map((g) => (
+                {(allGroups ? groups : groups.filter((g) => g.id === groupId)).map((g) => (
                   <label key={g.id} className={cx('k-pick', groupId === g.id && 'is-on')}>
                     <input type="radio" name="tr-group" checked={groupId === g.id} onChange={() => setGroupId(g.id)} />
                     <span className="grow"><span className="k-pick-title">{g.day} {g.time} · {g.name}</span><span className="k-faint">{[g.level, `${g.memberIds.length} pel.`].filter(Boolean).join(' · ')}</span></span>
                   </label>
                 ))}
+                {!allGroups && <button type="button" className="k-textlink" onClick={() => setAllGroups(true)}>Valitse toinen ryhmä</button>}
               </div>
             )}
           </Field>
@@ -121,6 +133,9 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
           <Field label="Päivä" htmlFor="tr-date"><Input id="tr-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
           <Field label="Kellonaika"><TimeSelect value={time} onChange={setTime} /></Field>
         </div>
+        <Field label="Kesto" hint={pickedGroup && !duration ? `Ryhmän oma kesto. Muuta, jos tämä ${isEdit || !repeat ? 'kerta' : 'sarja'} on eri mittainen.` : null}>
+          <DurationStepper value={shownDuration} onChange={setDuration} />
+        </Field>
         <Field label="Tyyppi"><ChipSelect size="sm" options={types.map((t) => ({ value: t, label: t }))} value={type} onChange={(v) => v && setType(v)} ariaLabel="Tyyppi" /></Field>
         {!isEdit && (
           <Toggle checked={repeat} onChange={setRepeat} label="Toistuu viikoittain" hint={repeat ? `Luodaan vuodeksi eteenpäin (${occurrences} kertaa). Sarjan voi lopettaa milloin tahansa.` : 'Esim. viikoittainen yksityistunti.'} icon="repeat" />
@@ -146,12 +161,13 @@ export function useTrainingDelete() {
     try { remaining = await api.trainings.countSeriesRemaining(t.seriesId, from); } catch { /* single-session wording */ }
     const choice = await confirm({
       title: 'Poista sarjan treenejä?',
-      message: `${label} kuuluu viikoittaiseen sarjaan${remaining ? ` (${remaining} tulevaa kertaa)` : ''}. Poistetaanko kaikki tulevat vai vain tämä? Menneet treenit säilyvät.`,
-      confirmLabel: remaining ? `Poista kaikki ${remaining} tulevaa` : 'Poista kaikki tulevat',
-      secondaryLabel: 'Vain tämä kerta', secondaryValue: 'once', cancelLabel: 'Peruuta', danger: true,
+      message: `${label} kuuluu viikoittaiseen sarjaan${remaining ? ` (${remaining} tulevaa kertaa)` : ''}. Poistetaanko vain tämä vai kaikki tulevat? Menneet treenit säilyvät.`,
+      // the common case (one session off) is the main button; the whole series is the second choice
+      confirmLabel: 'Poista vain tämä kerta',
+      secondaryLabel: remaining ? `Poista kaikki ${remaining} tulevaa` : 'Poista kaikki tulevat', secondaryValue: 'all', cancelLabel: 'Peruuta', danger: true,
     });
-    if (choice === true) return (await run(() => api.trainings.removeSeries(t.seriesId, from), 'Sarjan tulevat treenit poistettu.')).ok;
-    if (choice === 'once') return (await run(() => api.trainings.remove(t.id), 'Treeni poistettu.')).ok;
+    if (choice === 'all') return (await run(() => api.trainings.removeSeries(t.seriesId, from), 'Sarjan tulevat treenit poistettu.')).ok;
+    if (choice === true) return (await run(() => api.trainings.remove(t.id), 'Treeni poistettu.')).ok;
     return false;
   };
 }

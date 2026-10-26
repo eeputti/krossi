@@ -544,25 +544,25 @@ export const backend = {
   },
 
   trainings: {
-    async add({ coachId, studentId, groupId, date, time, type, repeatUntil }) {
+    async add({ coachId, studentId, groupId, date, time, type, repeatUntil, durationMinutes = null }) {
       await wait();
       const seriesId = repeatUntil && repeatUntil > date ? newId('ser') : null;
       const dates = seriesId ? koutsiWeeklyDates(date, repeatUntil) : [date];
       const group = groupId ? findGroup(groupId) : null;
       dates.forEach((d) => S().trainings.push({
-        id: newId('tr'), date: d, time, type, durationMinutes: group?.durationMinutes || null, loggedBy: 'coach', notes: '', endDate: null,
+        id: newId('tr'), date: d, time, type, durationMinutes: durationMinutes || group?.durationMinutes || null, loggedBy: 'coach', notes: '', endDate: null,
         studentId: studentId || null, groupId: groupId || null, coachId: coachId || COACH, seriesId, absences: [],
       }));
       return dates.length;
     },
-    async update(id, { date, time, type }) {
+    async update(id, { date, time, type, durationMinutes }) {
       await wait();
-      S().trainings = S().trainings.map((t) => (t.id === id ? { ...t, date, time, type } : t));
+      S().trainings = S().trainings.map((t) => (t.id === id ? { ...t, date, time, type, ...(durationMinutes !== undefined ? { durationMinutes: durationMinutes || null } : {}) } : t));
     },
-    async updateSeries(seriesId, { time, type }, fromDate) {
+    async updateSeries(seriesId, { time, type, durationMinutes }, fromDate) {
       await wait();
       const floor = fromDate || koutsiTodayStr();
-      S().trainings = S().trainings.map((t) => (t.seriesId === seriesId && t.date >= floor ? { ...t, time, type } : t));
+      S().trainings = S().trainings.map((t) => (t.seriesId === seriesId && t.date >= floor ? { ...t, time, type, ...(durationMinutes !== undefined ? { durationMinutes: durationMinutes || null } : {}) } : t));
     },
     async remove(id) { await wait(); S().trainings = S().trainings.filter((t) => t.id !== id); },
     async removeSeries(seriesId, fromDate) {

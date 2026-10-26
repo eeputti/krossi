@@ -105,7 +105,9 @@
 .page-wide { max-width: calc(1080px + 2 * var(--gutter)); }
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: calc(20px + var(--safe-top)) 0 16px; }
 .has-top-banner .page-header { padding-top: 18px; }
-.page-header-text { min-width: 0; }
+/* the buttons go under the title when both don't fit (a phone): the subtitle was squeezed to one word a line */
+.page-header { flex-wrap: wrap; }
+.page-header-text { min-width: 0; flex: 1 1 220px; }
 .page-title { font-size: 30px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.08; }
 .page-subtitle { margin-top: 6px; color: var(--muted); font-size: 14.5px; }
 .page-header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }

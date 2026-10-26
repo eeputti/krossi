@@ -17,6 +17,8 @@ const cx = (...c) => c.filter(Boolean).join(' ');
  * The coach's season links: { codes, linkFor(groupId), ensure(groups) }. ensure() makes the missing
  * ones (one call per group) and reloads; an existing link is always reused, never replaced.
  */
+const ensuring = new Map(); // coachId → the creation in progress
+
 export function useSeasonLinks(season) {
   const { coachId, acting } = useCoach();
   const [codes, setCodes] = useState(null);
@@ -24,14 +26,25 @@ export function useSeasonLinks(season) {
     try { setCodes(await api.invites.list(coachId)); } catch { setCodes([]); }
   }, [coachId]);
   const ensure = useCallback(async (groups) => {
-    const current = await api.invites.list(coachId);
-    const missing = groups.filter((g) => !seasonLinkFor(current, g.id));
-    for (const g of missing) {
-      await api.invites.create(g.id, { expiresDays: seasonLinkDays(season), maxUses: SEASON_LINK_USES, coachId: acting ? coachId : null });
+    // a second call while the first still runs (the sheet closed and opened again on a slow
+    // connection) waits for it instead of making a second code per group
+    while (ensuring.has(coachId)) await ensuring.get(coachId).catch(() => {});
+    const job = (async () => {
+      const current = await api.invites.list(coachId);
+      const missing = groups.filter((g) => !seasonLinkFor(current, g.id));
+      for (const g of missing) {
+        await api.invites.create(g.id, { expiresDays: seasonLinkDays(season), maxUses: SEASON_LINK_USES, coachId: acting ? coachId : null });
+      }
+      return missing.length ? api.invites.list(coachId) : current;
+    })();
+    ensuring.set(coachId, job);
+    try {
+      const next = await job;
+      setCodes(next);
+      return next;
+    } finally {
+      if (ensuring.get(coachId) === job) ensuring.delete(coachId);
     }
-    const next = missing.length ? await api.invites.list(coachId) : current;
-    setCodes(next);
-    return next;
   }, [coachId, acting, season]);
   const linkFor = useCallback((groupId) => seasonLinkFor(codes || [], groupId), [codes]);
   return { codes, load, ensure, linkFor };

@@ -130,7 +130,7 @@ export function GroupTodayCard({ state, group, now }) {
       </div>
       <div className="tt-actions">
         <Button variant={it.status === 'now' ? 'lime' : 'dark'} size="sm" icon="user-check" onClick={() => navigate(sessionPath(it.training.id))}>Läsnäolo</Button>
-        <Button variant={it.status === 'now' ? 'on-dark' : 'outline'} size="sm" icon="send" onClick={() => { track('ryhma.viesti'); record.openMerkinta({ trainingId: it.training.id }); }}>Viesti</Button>
+        <Button variant={it.status === 'now' ? 'on-dark' : 'outline'} size="sm" icon="plus" onClick={() => { track('ryhma.viesti'); record.openMerkinta({ trainingId: it.training.id }); }}>Merkitse</Button>
       </div>
     </div>
   );

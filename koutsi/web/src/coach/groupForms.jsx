@@ -168,6 +168,7 @@ export function AddMembersSheet({ open, onClose, group }) {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const nameRef = useRef(null);
+  const confirmLeave = useConfirm();
   useEffect(() => { if (open) { setSelected([]); setQuery(''); setName(''); setAge(''); setLevel(''); } }, [open]);
   if (!group) return null;
   const available = state.students.filter((s) => !group.memberIds.includes(s.id)).sort((a, b) => a.name.localeCompare(b.name, 'fi'));
@@ -177,9 +178,8 @@ export function AddMembersSheet({ open, onClose, group }) {
   const { age: parsedAge, valid: ageValid } = optionalAge(age);
   const createReady = name.trim() && ageValid && !existing && !creating;
   const toggle = (id) => setSelected((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
-  const create = async (e) => {
-    e.preventDefault();
-    if (!createReady) return;
+  // makes the typed player and puts them in the group; resolves whether it worked
+  const createTyped = async () => {
     setCreating(true);
     const ref = 'selected-existing-group';
     const res = await run(() => api.students.bulkSetup(coachId, {
@@ -191,11 +191,21 @@ export function AddMembersSheet({ open, onClose, group }) {
     if (res.ok) {
       toast(`${name.trim()} luotu ja lisätty ryhmään.`);
       setName(''); setAge(''); setLevel('');
-      setTimeout(() => nameRef.current?.focus(), 0);
     }
+    return res.ok;
   };
+  const create = async (e) => {
+    e.preventDefault();
+    if (!createReady) return;
+    if (await createTyped()) setTimeout(() => nameRef.current?.focus(), 0);
+  };
+  // The footer adds the ticked players — and a name typed above but not yet created, so it is
+  // never thrown away silently.
+  const typedPending = Boolean(name.trim()) && createReady;
   const save = async () => {
-    if (!selected.length || saving) return;
+    if (saving || creating) return;
+    if (typedPending && !(await createTyped())) return;
+    if (!selected.length) { onClose(); return; }
     setSaving(true);
     const res = await run(() => api.groups.addMembers(group.id, selected), selected.length === 1 ? 'Pelaaja lisätty ryhmään.' : `${selected.length} pelaajaa lisätty ryhmään.`);
     setSaving(false);
@@ -203,7 +213,11 @@ export function AddMembersSheet({ open, onClose, group }) {
   };
   return (
     <Sheet open={open} onClose={onClose} title="Lisää pelaajia" subtitle={group.name} size="md" dismissible={!creating && !saving}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Valmis</Button><Button variant="dark" size="lg" missing={!selected.length ? 'Valitse pelaajat listasta tai luo uusi pelaaja yllä.' : null} loading={saving} onClick={save}>Lisää ({selected.length})</Button></div>}>
+      confirmClose={name.trim() ? { title: 'Hylätäänkö kirjoittamasi nimi?', message: `${name.trim()} ei ole vielä listallasi.` } : false}
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={async () => {
+        if (name.trim() && !(await confirmLeave({ title: 'Hylätäänkö kirjoittamasi nimi?', message: `${name.trim()} ei ole vielä listallasi.`, confirmLabel: 'Hylkää', cancelLabel: 'Jatka', danger: true }))) return;
+        onClose();
+      }}>Valmis</Button><Button variant="dark" size="lg" missing={!selected.length && !typedPending ? (name.trim() ? 'Tarkista uuden pelaajan tiedot yllä.' : 'Valitse pelaajat listasta tai kirjoita uuden pelaajan nimi.') : null} loading={saving || creating} onClick={save}>Lisää ({selected.length + (typedPending ? 1 : 0)})</Button></div>}>
       <div className="stack-5">
         <form className="k-subcard stack-3" onSubmit={create}>
           <div className="k-subcard-title">Uusi pelaaja tähän ryhmään</div>
@@ -220,7 +234,7 @@ export function AddMembersSheet({ open, onClose, group }) {
             </div>
           )}
           {existing && group.memberIds.includes(existing.id) && <p className="k-warn-text">{existing.name} on jo tässä ryhmässä.</p>}
-          {existing && !group.memberIds.includes(existing.id) && <p className="k-warn-text">Sinulla on jo pelaaja nimeltä {existing.name}. Valitse hänet yltä — luominen on estetty, ettei hänelle synny toista profiilia.</p>}
+          {existing && !group.memberIds.includes(existing.id) && <p className="k-warn-text">Sinulla on jo pelaaja nimeltä {existing.name.replace(/\.+$/, '')}. Valitse hänet yltä — luominen on estetty, ettei hänelle synny toista profiilia.</p>}
           <div className="k-two">
             <Input value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} inputMode="numeric" placeholder="Ikä (valinn.)" aria-label="Ikä" />
             <Input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Taso (valinn.)" maxLength={80} aria-label="Taso" />
@@ -314,7 +328,8 @@ export function GroupInviteSheet({ open, onClose, group }) {
           </div>
         ) : (
           <div className="stack-3">
-            <p className="k-quiet-text">Yksi linkki koko kaudeksi: aikuiset pelaajat liittyvät sillä suoraan tähän ryhmään{season ? ` (${season.name}, ${koutsiFmtShortDate(season.endsOn)} asti)` : ''}.</p>
+            {/* the same date the link will show once made: a week past the season's end (seasonLinkDays) */}
+            <p className="k-quiet-text">Yksi linkki koko kaudeksi: aikuiset pelaajat liittyvät sillä suoraan tähän ryhmään{season ? ` (${season.name}; linkki toimii ${koutsiFmtShortDate(koutsiAddDays(koutsiTodayStr(), seasonLinkDays(season)))} asti)` : ''}.</p>
             <Button variant="dark" icon="link" loading={busy === 'season'} onClick={() => create('season')}>Luo kauden linkki</Button>
           </div>
         )}

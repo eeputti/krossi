@@ -10,11 +10,14 @@ import { GroupRow } from './parts.jsx';
 import { GroupFormSheet } from './groupForms.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 
+const remembered = { query: '' }; // back from a group finds the search as it was left
+
 export function GroupListScreen() {
   const { state } = useData();
   const [formOpen, setFormOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQueryState] = useState(remembered.query);
+  const setQuery = (v) => { remembered.query = v; setQueryState(v); };
   const week = plannerDefaultWeek();
   const status = koutsiWeekThemeStatus(state.groups, state.trainings, week);
   const q = query.trim().toLocaleLowerCase('fi');

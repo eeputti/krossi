@@ -82,7 +82,7 @@ export function GroupThemeSheet({ open, group, week, onClose }) {
         </Field>
         {library.length > 0 && (
           <div className="planner-recent">
-            <div className="field-label">Aiemmat teemat</div>
+            <div className="field-label">Teemasi muilta viikoilta</div>
             <div className="row wrap">
               {library.slice(0, 6).map((t) => (
                 <button key={t.key} type="button" className="planner-chip" onClick={() => { setTitle(t.title); setLead(t.lead || ''); }}>
