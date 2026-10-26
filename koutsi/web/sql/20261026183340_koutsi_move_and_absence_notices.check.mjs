@@ -1,10 +1,10 @@
-// 20261026180000_koutsi_move_and_absence_notices.check.mjs — runs the "Treeni siirtyi" / "<nimi> ei pääse"
-// migration (koutsi/web/sql/20261026180000_koutsi_move_and_absence_notices.sql) in PGlite on top of a small
+// 20261026183340_koutsi_move_and_absence_notices.check.mjs — runs the "Treeni siirtyi" / "<nimi> ei pääse"
+// migration (supabase/migrations/20261026183340_koutsi_move_and_absence_notices.sql, applied 26.10.2026) in PGlite on top of a small
 // stub of production's notification pipeline (the functions are the live koutsi_email_round versions, read
 // from supabase/migrations/20261026110257_koutsi_email_round.sql), then checks who hears what.
 // PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261026180000_koutsi_move_and_absence_notices.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261026183340_koutsi_move_and_absence_notices.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = await readFile(join(here, '20261026180000_koutsi_move_and_absence_notices.sql'), 'utf8');
+const MIGRATION = await readFile(join(here, '../../../supabase/migrations/20261026183340_koutsi_move_and_absence_notices.sql'), 'utf8');
 const EMAIL_ROUND = await readFile(join(here, '../../../supabase/migrations/20261026110257_koutsi_email_round.sql'), 'utf8');
 
 /** One `create or replace function public.<name>(…) … $tag$;` statement, exactly as in the file. */
