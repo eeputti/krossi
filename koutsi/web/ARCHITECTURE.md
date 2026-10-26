@@ -202,9 +202,9 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   → Videot), ja Merkitse → Video → "Omista videoista" jakaa saman videon uudelleen lataamatta sitä. Tietokanta:
   `koutsi_sends` (yksi rivi per lähetys, vain valmentaja lukee), `koutsi_coach_videos` (id = pelaajarivien `share_id`,
   tiedosto kerran valmentajan kansiossa) ja `koutsi_homework.coach_id/send_id`, `koutsi_diary_entries.send_id`.
-  Ehdotettu migraatio `koutsi/web/sql/20261026110000_koutsi_sends_and_video_library.sql` (testi samassa kansiossa,
-  PGlite) — **EI AJETTU**; ilman sitä `sendsReady: false`, ja Lähetetyt, Videot-välilehti ja "Omista videoista"
-  pysyvät piilossa, kaikki lähettäminen toimii kuten ennen. Demossa kaikki on päällä.
+  Migraatio `supabase/migrations/20261026084331_koutsi_sends_and_video_library.sql` (ajettu 26.10.2026 käyttäjän
+  luvalla; PGlite-testi `koutsi/web/sql/20261026084331_…check.mjs`). Tietokannassa ilman tauluja `sendsReady: false`,
+  ja Lähetetyt, Videot-välilehti ja "Omista videoista" pysyvät piilossa, kaikki lähettäminen toimii kuten ennen.
 
 ## 5. Reitit
 

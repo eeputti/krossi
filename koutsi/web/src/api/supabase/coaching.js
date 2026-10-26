@@ -427,7 +427,7 @@ export const attendance = {
   },
 };
 
-// Lähetetyt (koutsi_sends, koutsi/web/sql/20261026110000_koutsi_sends_and_video_library.sql): one row per
+// Lähetetyt (koutsi_sends, supabase/migrations/20261026084331_koutsi_sends_and_video_library.sql): one row per
 // sending, written before the copies so that each copy can point at it. `log` is passed only once the
 // table is there (state.sendsReady): { coachId, groupIds, refId } — refId is the first sending's id
 // when the same thing goes on to more players ("Lähetä myös muille").

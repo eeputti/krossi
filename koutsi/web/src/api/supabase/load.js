@@ -87,7 +87,7 @@ async function loadAnnouncements(narrow) {
   return { rows: (data || []).map(mapAnnouncement), ready: true };
 }
 
-// Lähetetyt and the coach's own videos (koutsi/web/sql/20261026110000_koutsi_sends_and_video_library.sql).
+// Lähetetyt and the coach's own videos (supabase/migrations/20261026084331_koutsi_sends_and_video_library.sql, applied 26.10.2026).
 // An addition like the week diary: without the tables the app opens as before and `sendsReady`
 // keeps Lähetetyt, the Videot tab and "Omista videoista" hidden. The newest 1000 sendings are plenty
 // for the page; a player's own copies (homework, notes, videos) are read with the players.

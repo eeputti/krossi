@@ -1,11 +1,10 @@
-// 20261026110000_koutsi_sends_and_video_library.check.mjs — runs the Lähetetyt / video library migration
-// (koutsi/web/sql/20261026110000_koutsi_sends_and_video_library.sql) in PGlite against a small stub of
+// 20261026084331_koutsi_sends_and_video_library.check.mjs — runs the Lähetetyt / video library migration
+// (supabase/migrations/20261026084331_koutsi_sends_and_video_library.sql, applied 26.10.2026) in PGlite against a small stub of
 // production's Koutsi schema (the tables, policies and helpers it leans on, copied 2026-10-26), then
 // checks who can read and write, what may change afterwards, and the deletion cascades.
-// PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. Before
-// "aja migraatio":
+// PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261026110000_koutsi_sends_and_video_library.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261026084331_koutsi_sends_and_video_library.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -15,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = await readFile(join(here, '20261026110000_koutsi_sends_and_video_library.sql'), 'utf8');
+const MIGRATION = await readFile(join(here, '../../../supabase/migrations/20261026084331_koutsi_sends_and_video_library.sql'), 'utf8');
 
 const ANNA = '00000000-0000-4000-8000-0000000000a1'; // coach
 const JUHO = '00000000-0000-4000-8000-0000000000b1'; // another coach

@@ -1,5 +1,7 @@
--- Lähetetyt and the coach's own videos (new Koutsi). PROPOSED — not applied yet.
--- Check: koutsi/web/sql/20261026110000_koutsi_sends_and_video_library.check.mjs
+-- Lähetetyt and the coach's own videos (new Koutsi).
+-- Applied 26.10.2026 after the user's "aja migraatio" as version 20261026084331 (the comments were
+-- trimmed in the applied copy; the SQL is the same).
+-- Check: koutsi/web/sql/20261026084331_koutsi_sends_and_video_library.check.mjs
 --
 -- A coach could not see what they had sent: a shared video or a homework showed only on each
 -- player's own page, one player at a time, and a homework did not even record which coach gave
