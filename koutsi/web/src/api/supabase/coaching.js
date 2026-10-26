@@ -367,8 +367,9 @@ export const themes = {
 };
 
 export const trainings = {
-  async add({ coachId, studentId, groupId, date, time, type, repeatUntil }) {
-    const base = { coach_id: coachId, student_id: studentId || null, group_id: groupId || null, time, type };
+  // durationMinutes: the session's own length; empty = the group's (or 60 min for a private lesson)
+  async add({ coachId, studentId, groupId, date, time, type, repeatUntil, durationMinutes = null }) {
+    const base = { coach_id: coachId, student_id: studentId || null, group_id: groupId || null, time, type, duration_minutes: durationMinutes || null };
     if (!repeatUntil || repeatUntil <= date) {
       must(await from('koutsi_trainings').insert({ ...base, date }));
       return 1;
@@ -378,12 +379,14 @@ export const trainings = {
     must(await from('koutsi_trainings').insert(rows));
     return rows.length;
   },
-  async update(trainingId, { date, time, type }) {
-    must(await from('koutsi_trainings').update({ date, time, type }).eq('id', trainingId));
+  async update(trainingId, { date, time, type, durationMinutes }) {
+    const fields = { date, time, type, ...(durationMinutes !== undefined ? { duration_minutes: durationMinutes || null } : {}) };
+    must(await from('koutsi_trainings').update(fields).eq('id', trainingId));
   },
-  // Time/type change for every not-yet-passed occurrence; dates stay.
-  async updateSeries(seriesId, { time, type }, fromDate) {
-    must(await from('koutsi_trainings').update({ time, type }).eq('series_id', seriesId).gte('date', fromDate || koutsiTodayStr()));
+  // Time/type (and length) change for every not-yet-passed occurrence; dates stay.
+  async updateSeries(seriesId, { time, type, durationMinutes }, fromDate) {
+    const fields = { time, type, ...(durationMinutes !== undefined ? { duration_minutes: durationMinutes || null } : {}) };
+    must(await from('koutsi_trainings').update(fields).eq('series_id', seriesId).gte('date', fromDate || koutsiTodayStr()));
   },
   async remove(trainingId) {
     must(await from('koutsi_trainings').delete().eq('id', trainingId));

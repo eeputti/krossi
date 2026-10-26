@@ -5,6 +5,7 @@ import { IconButton, Button } from './primitives.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const EXIT_MS = 240;
+const OPEN_GUARD_MS = 350;
 
 let openCount = 0;
 let lockedAt = null; // page the scroll position belongs to
@@ -79,10 +80,19 @@ if (typeof window !== 'undefined') {
     if (!top || currentGuard() === top.id) return;
     guards.pop();
     // The sheet says no (busy, or the person keeps what they wrote): it stays, with its entry back.
+    // Wait a moment first: a "Hylätäänkö?" dialog that just closed takes its own entry away, and
+    // an entry left behind by a sheet no longer open is taken over instead of stacking on it (a
+    // leftover entry made the next Back do nothing).
     Promise.resolve(top.tryClose()).then((closed) => {
       if (closed) return;
-      window.history.pushState({ ...(window.history.state || {}), sheetGuard: top.id }, '', window.location.href);
-      guards.push(top);
+      setTimeout(() => {
+        const cur = currentGuard();
+        const stale = cur && !guards.some((g) => g.id === cur);
+        const st = { ...(window.history.state || {}), sheetGuard: top.id };
+        if (stale) window.history.replaceState(st, '', window.location.href);
+        else if (cur !== top.id) window.history.pushState(st, '', window.location.href);
+        guards.push(top);
+      }, 80);
     });
   });
 }
@@ -131,6 +141,10 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dismissible = true, confirmClose = false, tone = 'default', className, bodyClassName, onClosed, children, labelledBy }) {
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
+  // a quick double tap on what opened the sheet must not land on its backdrop (closing it at once)
+  // or on a row of it while it slides up
+  const [opening, setOpening] = useState(false);
+  const openedAt = useRef(0);
   const root = useRef(null);
   const panel = useRef(null);
   const grabZone = useRef(null);
@@ -164,7 +178,12 @@ export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dis
   useKeyboardInset(root, mounted && !closing);
 
   useEffect(() => {
-    if (open) { setMounted(true); setClosing(false); return undefined; }
+    if (open) {
+      setMounted(true); setClosing(false); setOpening(true);
+      openedAt.current = performance.now();
+      const t = setTimeout(() => setOpening(false), OPEN_GUARD_MS);
+      return () => clearTimeout(t);
+    }
     if (!mounted) return undefined;
     setClosing(true);
     const t = setTimeout(() => { setMounted(false); setClosing(false); onClosed?.(); }, EXIT_MS);
@@ -282,8 +301,8 @@ export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dis
   if (!mounted) return null;
   const headerId = labelledBy || (title ? 'sheet-title' : undefined);
   return createPortal(
-    <div ref={root} className={cx('sheet-root', closing && 'is-closing')} role="presentation">
-      <div className="sheet-backdrop" onClick={dismissible ? requestClose : undefined} aria-hidden="true" />
+    <div ref={root} className={cx('sheet-root', closing && 'is-closing', opening && 'is-opening')} role="presentation">
+      <div className="sheet-backdrop" onClick={dismissible ? () => { if (performance.now() - openedAt.current > OPEN_GUARD_MS) requestClose(); } : undefined} aria-hidden="true" />
       <div
         ref={panel}
         role="dialog"

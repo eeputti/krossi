@@ -114,7 +114,7 @@ export function BulkSetupSheet({ open, onClose }) {
     footer = (
       <div className="sheet-actions">
         <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>
-        <Button variant="dark" size="lg" iconRight="arrow-right" missing={!groups.length ? 'Anna ainakin yhdelle ryhmälle nimi ja aika.' : null} onClick={() => next(2)}>{groups.length ? 'Pelaajat' : 'Anna ryhmälle nimi ja aika'}</Button>
+        <Button variant="dark" size="lg" iconRight="arrow-right" missing={!groups.length ? 'Anna ainakin yhdelle ryhmälle nimi ja aika.' : null} onClick={() => next(2)}>Pelaajat</Button>
       </div>
     );
   } else {

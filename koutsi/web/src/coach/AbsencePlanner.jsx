@@ -137,12 +137,13 @@ function PlayerPlanner({ student, onBack, compact = false }) {
 }
 
 function KnownAbsences({ onPick }) {
+  const isDesktop = useIsDesktop(); // the player list is on the left on a computer, above on a phone
   const { state } = useData();
   const list = useMemo(() => knownAbsences(state, { days: 28 }), [state]);
   return (
     <div className="ap-card">
       <div className="ap-card-title">Tiedossa olevat poissaolot</div>
-      <p className="k-faint ap-card-sub">Seuraavat neljä viikkoa. Valitse pelaaja vasemmalta, niin merkitset hänet poissa monesta treenistä kerralla.</p>
+      <p className="k-faint ap-card-sub">Seuraavat neljä viikkoa. Valitse pelaaja {isDesktop ? 'vasemmalta' : 'yltä'}, niin merkitset hänet poissa monesta treenistä kerralla.</p>
       {list.length === 0 ? <p className="k-quiet">Ei tiedossa olevia poissaoloja.</p> : (
         <div className="ap-known">
           {list.map((x) => (
