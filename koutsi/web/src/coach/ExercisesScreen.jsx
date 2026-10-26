@@ -6,8 +6,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { navigate } from '../app/router.js';
-import { Button, ChipSelect, EmptyState, Field, Icon, IconButton, Input, Page, Sheet, Stepper, Textarea, TopBar, useConfirm, useToast } from '../ui/index.js';
+import { navigate, useRoute } from '../app/router.js';
+import { Button, ChipSelect, EmptyState, Field, Icon, IconButton, Input, Page, Segmented, Sheet, Stepper, Textarea, TopBar, useConfirm, useToast } from '../ui/index.js';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
 import { KOUTSI_TAGS, KOUTSI_TAG_LABELS } from '../domain/core.js';
 import { LEVELS, buildDrillList, levelLabel, playersLabel, savedFields } from '../domain/drills/index.js';
@@ -19,6 +19,7 @@ import { useCoach } from './CoachRoot.jsx';
 import { useRecord } from './merkitse.jsx';
 import { track } from './usage.js';
 import { exercisePath } from './nav.js';
+import { VideosTab } from './VideosTab.jsx';
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
@@ -80,26 +81,51 @@ function ExerciseForm({ open, onClose, editing }) {
   );
 }
 
+// Harjoitteet · Videot (the coach's own videos, VideosTab) once the database has Lähetetyt; the tab is
+// kept while the coach goes into a drill and back, and ?nakyma=videot opens on the videos.
+let lastTab = 'drills';
+
 export function ExercisesScreen() {
   const { state } = useData();
+  const route = useRoute();
+  const record = useRecord();
   const [formOpen, setFormOpen] = useState(false);
-  const { library, failed, retry } = useDrillLibrary();
+  const videosOn = Boolean(state.sendsReady);
+  const [tabState, setTabState] = useState(() => (route.query.nakyma === 'videot' ? 'videos' : lastTab));
+  const tab = videosOn ? tabState : 'drills';
+  const pickTab = (v) => { lastTab = v; track(`pankki.${v === 'videos' ? 'videot' : 'harjoitteet'}`); setTabState(v); };
+  const { library, failed, retry } = useDrillLibrary(tab === 'drills');
   const items = useMemo(() => buildDrillList(state.exercises, { library: library || [] }), [state.exercises, library]);
   const own = state.exercises.length;
+  const videoCount = (state.videoLibrary || []).length;
+  const add = () => {
+    if (tab === 'videos') { track('videot.lisaa'); record.open('video', { allowEmpty: true }); return; }
+    track('pankki.uusi'); setFormOpen(true);
+  };
   return (
     <Page className="dl-page">
       <header className="dl-head">
-        <div className="eyebrow">Harjoitepankki</div>
+        <div className="eyebrow">{videosOn ? 'Harjoitteet ja videot' : 'Harjoitepankki'}</div>
         <div className="dl-head-row">
-          <h1 className="dl-title">Harjoitteet</h1>
-          <button type="button" className="dl-add" aria-label="Uusi oma harjoite" title="Uusi oma harjoite" onClick={() => { track('pankki.uusi'); setFormOpen(true); }}>
+          <h1 className="dl-title">{tab === 'videos' ? 'Videot' : 'Harjoitteet'}</h1>
+          <button type="button" className="dl-add" aria-label={tab === 'videos' ? 'Lisää video' : 'Uusi oma harjoite'} title={tab === 'videos' ? 'Lisää video' : 'Uusi oma harjoite'} onClick={add}>
             <Icon name="plus" size={24} strokeWidth={2.4} />
           </button>
         </div>
-        <p className="dl-sub"><span className="t-num">{library?.length || DRILL_COUNT}</span> valmista harjoitetta Krossin kirjastossa · <span className="t-num">{own}</span> omaa. Pelaajasi näkevät molemmat.</p>
+        {tab === 'videos' ? (
+          <p className="dl-sub">Jokainen jakamasi video tallentuu tänne. Jaa sama video myöhemmin muillekin lataamatta sitä uudelleen.</p>
+        ) : (
+          <p className="dl-sub"><span className="t-num">{library?.length || DRILL_COUNT}</span> valmista harjoitetta Krossin kirjastossa · <span className="t-num">{own}</span> omaa. Pelaajasi näkevät molemmat.</p>
+        )}
+        {videosOn && (
+          <Segmented ariaLabel="Näytä" value={tab} onChange={pickTab} className="dl-tabs"
+            options={[{ value: 'drills', label: 'Harjoitteet' }, { value: 'videos', label: 'Videot', badge: videoCount || null }]} />
+        )}
       </header>
-      <DrillBrowser items={items} role="coach" groups={state.groups} track={track} loading={!library && !failed} failed={failed} onRetry={retry}
-        onOpen={(it) => { track(it.own ? 'pankki.avaa-oma' : 'pankki.avaa-kirjasto'); navigate(exercisePath(it.key)); }} />
+      {tab === 'videos' ? <VideosTab /> : (
+        <DrillBrowser items={items} role="coach" groups={state.groups} track={track} loading={!library && !failed} failed={failed} onRetry={retry}
+          onOpen={(it) => { track(it.own ? 'pankki.avaa-oma' : 'pankki.avaa-kirjasto'); navigate(exercisePath(it.key)); }} />
+      )}
       <ExerciseForm open={formOpen} onClose={() => setFormOpen(false)} />
     </Page>
   );

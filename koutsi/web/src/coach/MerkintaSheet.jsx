@@ -18,6 +18,7 @@ import { useData } from '../app/data.jsx';
 import { Avatar, Button, Icon, IconButton, Sheet, Textarea, useConfirm, useToast } from '../ui/index.js';
 import { navigate } from '../app/router.js';
 import { RecipientPicker, recipientSummary } from '../shared/recipients.jsx';
+import { sendLogFor } from '../domain/sends.js';
 import {
   koutsiAddDays, koutsiCurrentIsoWeek, koutsiFmtShortDate, koutsiSortGroupsBySchedule, koutsiTodayStr, koutsiWeekThemeStatus,
 } from '../domain/core.js';
@@ -270,9 +271,9 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
       res = await run(() => api.announcements.add(coachId, { text: clean, groupIds, studentIds: ids.filter((id) => !inGroups.has(id)), until }),
         n === 1 ? 'Tiedote lähetetty.' : `Tiedote lähetetty ${n} pelaajalle.`);
     } else if (asHomework) {
-      res = await run(() => api.homework.addMany(ids, clean), n === 1 ? 'Kotiläksy annettu.' : `Kotiläksy annettu ${n} pelaajalle.`);
+      res = await run(() => api.homework.addMany(ids, clean, sendLogFor(state, coachId, ids)), n === 1 ? 'Kotiläksy annettu.' : `Kotiläksy annettu ${n} pelaajalle.`);
     } else {
-      res = await run(() => api.notes.addMany(coachId, ids, clean), n === 1 ? 'Huomio lähetetty.' : `Huomio lähetetty ${n} pelaajalle.`);
+      res = await run(() => api.notes.addMany(coachId, ids, clean, sendLogFor(state, coachId, ids)), n === 1 ? 'Huomio lähetetty.' : `Huomio lähetetty ${n} pelaajalle.`);
     }
     setBusy(false);
     if (!res.ok) return;
@@ -447,7 +448,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
             <div className="stack-2">
               <label className="vs-label" htmlFor="merkinta-text">{kind === 'tiedote' ? 'Tiedote' : asHomework ? 'Kotiläksy' : 'Huomio'}</label>
               <Textarea id="merkinta-text" rows={3} value={text} onChange={(e) => setText(e.target.value)}
-                placeholder={asHomework && kind === 'huomio' ? 'Esim. 20 rystylyöntiä seinää vasten…' : k.placeholder} maxLength={4000} />
+                placeholder={asHomework && kind === 'huomio' ? 'Esim. 20 rystylyöntiä seinää vasten…' : k.placeholder} maxLength={kind === 'tiedote' ? 2000 : 4000} />
             </div>
             {kind === 'tiedote' ? (
               <div className="stack-2">

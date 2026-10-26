@@ -13,6 +13,7 @@ import { RecipientPicker } from '../shared/recipients.jsx';
 import { sameIds, ScopeLine } from '../shared/scope.jsx';
 import { exerciseFacts, exerciseHomeworkText, homeworkSuggestions } from '../domain/exercises.js';
 import { asExercises, buildDrillList } from '../domain/drills/index.js';
+import { sendLogFor } from '../domain/sends.js';
 import { DrillIcon } from '../shared/drills/art.jsx';
 import { useDrillLibrary } from '../shared/drills/useLibrary.js';
 import { useCoach } from './CoachRoot.jsx';
@@ -111,7 +112,8 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', sco
     setBusy(true);
     const clean = text.trim();
     const n = ids.length;
-    const res = await run(() => (kind === 'homework' ? api.homework.addMany(ids, clean) : api.notes.addMany(coachId, ids, clean)), k.done(n));
+    const log = sendLogFor(state, coachId, ids);
+    const res = await run(() => (kind === 'homework' ? api.homework.addMany(ids, clean, log) : api.notes.addMany(coachId, ids, clean, log)), k.done(n));
     setBusy(false);
     if (!res.ok) return;
     track(`tallennettu.${k.event}`);

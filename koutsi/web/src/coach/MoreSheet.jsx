@@ -1,6 +1,7 @@
 // MoreSheet — the phone tab bar's "Lisää" drawer: the places that have no tab of their own on a
 // phone. Viestit first when it is on (who waits for an answer, the unread count; Tiedote then lives
-// inside Viestit and in Merkitse), Liittymiskoodini (JoinCodesSheet), Harjoitepankki, Suunnittele, Ryhmät, Ilmoitukset (with the unread
+// inside Viestit and in Merkitse), Liittymiskoodini (JoinCodesSheet), Lähetetyt and Harjoitteet ja videot
+// (Harjoitepankki until the database has Lähetetyt), Suunnittele, Ryhmät, Ilmoitukset (with the unread
 // count), Tiedote pelaajille (while Viestit is off), Profiili, Anna palautetta, and Ylläpito for admins.
 // (A computer has these in the side nav, the bell on Koti and the avatar.)
 import { useData } from '../app/data.jsx';
@@ -26,7 +27,14 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, on
           <ListRow icon="link" title="Liittymiskoodini" subtitle="Ryhmien koodit ja oma koodisi pelaajille"
             onClick={() => { track('lisaa.liittymiskoodit'); onClose(); onCodes(); }} />
         )}
-        <ListRow icon="list" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => go('/valmentaja/harjoitteet', 'harjoitteet')} />
+        {state.sendsReady ? (
+          <>
+            <ListRow icon="send" title="Lähetetyt" subtitle="Videot, kotiläksyt, huomiot ja tiedotteet: kenelle ja milloin" onClick={() => go('/valmentaja/lahetetyt', 'lahetetyt')} />
+            <ListRow icon="list" title="Harjoitteet ja videot" subtitle={`${bankSummary(state.exercises.length)} · ${(state.videoLibrary || []).length} videota`} onClick={() => go('/valmentaja/harjoitteet', 'harjoitteet')} />
+          </>
+        ) : (
+          <ListRow icon="list" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => go('/valmentaja/harjoitteet', 'harjoitteet')} />
+        )}
         <ListRow icon="grid" title="Suunnittele" subtitle="Teemat monelle viikolle, poissaolot, kausi" onClick={() => go('/valmentaja/suunnittele', 'suunnittele')} />
         <ListRow icon="users" title="Ryhmät" subtitle={`${state.groups.length} ryhmää listana`} onClick={() => go('/valmentaja/ryhmalista', 'ryhmat')} />
         {!acting && (

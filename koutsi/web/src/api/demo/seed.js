@@ -13,6 +13,7 @@ import {
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
 import { seasonName } from '../../domain/season.js';
+import { groupsCovering } from '../../domain/sends.js';
 
 export const COACH = 'demo-coach';
 export const COACH2 = 'demo-coach-2';
@@ -470,6 +471,30 @@ export function seed() {
     { ...log('tr-leo-tour', 'demo-s-leo', tourSat, '09:00', 'Turnaus', null, 'Junioriturnaus, Hollola'), endDate: tourSun },
   );
 
+  // ── Lähetetyt: a homework for Maria's Tuesday group, Anna's own videos ─────
+  // The homework Maria has open went to her whole Tuesday group: two have done it.
+  const hwText = '20 kakkossyöttöä keskelle ja 20 rystykulmaan — kirjaa, montako meni sisään.';
+  byId['demo-s-aleksi'].homework.push({ id: 'h1-aleksi', at: isoAt(-6, 19, 40), text: hwText, done: true, doneAt: isoAt(-4, 18, 5) });
+  byId['demo-s-sanna'].homework.push({ id: 'h1-sanna', at: isoAt(-6, 19, 40), text: hwText, done: true, doneAt: isoAt(-1, 20, 30) });
+  byId['demo-s-petri'].homework.push({ id: 'h1-petri', at: isoAt(-6, 19, 40), text: hwText, done: false, doneAt: null });
+  // Videos are links in the demo (nothing is uploaded): a search on YouTube stands in for the clip.
+  const yt = (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+  const videoLibrary = [
+    { id: 'demo-v-kick', title: 'Kick-syötön heitto ja kierre', tags: ['syotto'], at: isoAt(-5, 20, 10), hue: koutsiHueFromId('demo-v-kick'),
+      storagePath: null, externalUrl: yt('tennis kick serve toss'), mimeType: null, sizeBytes: null },
+    { id: 'demo-v-rysty', title: 'Rystyn yläkierre hidastettuna', tags: ['tekniikka'], at: isoAt(-1, 19, 30), hue: koutsiHueFromId('demo-v-rysty'),
+      storagePath: null, externalUrl: yt('tennis topspin backhand slow motion'), mimeType: null, sizeBytes: null },
+    // saved, not sent yet — Pirjo's group asked for more doubles
+    { id: 'demo-v-nelinpeli', title: 'Nelinpeli: kumpi ottaa keskeltä?', tags: ['taktiikka'], at: isoAt(-9, 21), hue: koutsiHueFromId('demo-v-nelinpeli'),
+      storagePath: null, externalUrl: yt('tennis doubles middle ball who takes it'), mimeType: null, sizeBytes: null },
+  ];
+  const giveVideo = (video, ids, at) => ids.forEach((sid) => byId[sid].videos.push({
+    id: `${video.id}-${sid}`, shareId: video.id, recipientIds: ids, at, title: video.title, date: at.slice(0, 10), tags: video.tags,
+    hue: video.hue, addedBy: 'coach', storagePath: null, externalUrl: video.externalUrl, mimeType: null,
+  }));
+  giveVideo(videoLibrary[0], [PLAYER, 'demo-s-aleksi', 'demo-s-sanna', 'demo-s-petri'], videoLibrary[0].at);
+  giveVideo(videoLibrary[1], kilpa, videoLibrary[1].at);
+
   // ── newest first, like the real backend returns them ─────────────────────
   const desc = (key) => (a, b) => String(b[key]).localeCompare(String(a[key]));
   students.forEach((s) => {
@@ -477,8 +502,10 @@ export function seed() {
     s.moods.sort(desc('at'));
     s.matchNotes.sort(desc('at'));
     s.homework.sort(desc('at'));
+    s.videos.sort(desc('at'));
     s.entries.sort(desc('date'));
   });
+  const sends = demoSends(students, groups, videoLibrary);
 
   const coach = person(COACH, 'Anna Koskinen', {
     tagline: 'Tennisvalmentaja · Lahti',
@@ -501,6 +528,8 @@ export function seed() {
     seasons: [season],
     seasonDraft: null,
     exercises: STARTER_EXERCISES.map((e, i) => ({ id: `demo-e-${i}`, coachId: COACH, ...e, video: null })),
+    sends,
+    videoLibrary,
     clubEvents: [
       { id: 'demo-ce-1', date: kisat, endDate: koutsiAddDays(kisat, 1), title: 'Seuran syyskisat', kind: 'kilpailu' },
       { id: 'demo-ce-2', date: koutsiNextWeekday(day(14), 'Ke'), endDate: null, title: 'Junioreiden vanhempainilta', kind: 'seura' },
@@ -535,4 +564,36 @@ export function seed() {
     profileName: { [COACH]: 'Anna Koskinen', [PLAYER]: 'Maria K.' },
     shortDate: koutsiFmtShortDate(today),
   };
+}
+
+/**
+ * The seed's sendings (koutsi_sends): copies with the same kind, text and moment went out together,
+ * as one sending; each copy gets its sendId (a homework also its coachId). Videos by their share.
+ * Groups are the ones the players make up as a whole, like the real app writes them.
+ */
+function demoSends(students, groups, videoLibrary) {
+  const out = new Map();
+  const add = (key, base, studentId) => {
+    if (!out.has(key)) out.set(key, { ...base, studentIds: [] });
+    out.get(key).studentIds.push(studentId);
+    return out.get(key);
+  };
+  students.forEach((st) => {
+    st.homework.forEach((h) => {
+      const send = add(`homework|${h.at}|${h.text}`, { id: `send-hw-${h.id}`, kind: 'homework', videoId: null, title: h.text, at: h.at }, st.id);
+      h.sendId = send.id;
+      h.coachId = COACH;
+    });
+    st.diary.forEach((d) => {
+      const send = add(`note|${d.at}|${d.text}`, { id: `send-d-${d.id}`, kind: 'note', videoId: null, title: d.text, at: d.at }, st.id);
+      d.sendId = send.id;
+    });
+    st.videos.forEach((v) => {
+      const video = videoLibrary.find((x) => x.id === v.shareId);
+      if (video) add(`video|${v.shareId}`, { id: `send-v-${v.shareId}`, kind: 'video', videoId: v.shareId, title: video.title, at: v.at }, st.id);
+    });
+  });
+  return [...out.values()]
+    .map((x) => ({ ...x, refId: x.videoId || x.id, groupIds: groupsCovering(groups, x.studentIds) }))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
 }

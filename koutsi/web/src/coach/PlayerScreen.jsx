@@ -391,10 +391,11 @@ export function PlayerScreen({ params }) {
         {student.isPlaceholder && <PlaceholderInvite student={student} />}
 
         {/* Like the old app's "+ Päiväkirja" / "+ Kotiläksy": the plain form for just this player
-            (RecordSheet with the player as its scope), as tiles: Huomio · Kotiläksy (· Viesti) · Poissaolot */}
-        <div className={cx('k-player-actions is-tiles', messagesOn && 'is-four')}>
+            (RecordSheet with the player as its scope), as tiles: Huomio · Kotiläksy · Video (· Viesti) · Poissaolot */}
+        <div className={cx('k-player-actions is-tiles', messagesOn ? 'is-five' : 'is-four')}>
           <Button variant="lime" size="lg" icon="chat" onClick={() => record.open('note', { ids: [student.id], source: 'pelaaja', scope: { name: student.name, icon: 'user' } })}>Huomio</Button>
           <Button variant="outline" size="lg" icon="check-circle" onClick={() => record.open('homework', { ids: [student.id], source: 'pelaaja', scope: { name: student.name, icon: 'user' } })}>Kotiläksy</Button>
+          <Button variant="outline" size="lg" icon="play" onClick={() => record.open('video', { ids: [student.id], source: 'pelaaja', scope: { name: student.name, icon: 'user' } })}>Video</Button>
           {messagesOn && <Button variant="outline" size="lg" icon="send" onClick={openMessage}>Viesti</Button>}
           <Button variant="outline" size="lg" icon="calendar" onClick={() => { track('pelaaja.poissaolot'); setSheet({ kind: 'absence' }); }}>Poissaolot</Button>
         </div>

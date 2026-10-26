@@ -25,6 +25,7 @@ import { InvitesSheet } from './InvitesSheet.jsx';
 import { SeasonSheet } from './SeasonSheet.jsx';
 import { SessionScreen } from './SessionScreen.jsx';
 import { ExercisesScreen, ExerciseScreen } from './ExercisesScreen.jsx';
+import { SentScreen } from './SentScreen.jsx';
 import { ProfileScreen } from './ProfileScreen.jsx';
 import { ProfileEditScreen } from './ProfileEditScreen.jsx';
 import { AdminScreen } from './AdminScreen.jsx';
@@ -57,7 +58,7 @@ function NotFound() {
 const SCREENS = {
   week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen, plan: PlanScreen, groupList: GroupListScreen,
   players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet, season: SeasonSheet,
-  session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen,
+  session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen, sent: SentScreen,
   profile: ProfileScreen, profileEdit: ProfileEditScreen, admin: AdminScreen, messages: MessagesScreen, thread: ThreadScreen,
   legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect, legacyCalendar: LegacyRedirect,
 };
@@ -148,7 +149,8 @@ function CoachShell() {
   }, [route.name, isAdmin, adminChecked, acting]);
 
   const extraLinks = [
-    { to: '/valmentaja/harjoitteet', label: 'Harjoitepankki', icon: 'list', pages: ['exercises', 'exercise'] },
+    { to: '/valmentaja/harjoitteet', label: state.sendsReady ? 'Harjoitteet ja videot' : 'Harjoitepankki', icon: 'list', pages: ['exercises', 'exercise'] },
+    ...(state.sendsReady ? [{ to: '/valmentaja/lahetetyt', label: 'Lähetetyt', icon: 'send', pages: ['sent'] }] : []),
     ...(isAdmin ? [{ to: '/valmentaja/yllapito', label: 'Ylläpito', icon: 'shield', pages: ['admin'] }] : []),
     ...(acting ? [] : [{ key: 'palaute', label: 'Anna palautetta', icon: 'chat', onClick: () => { track('palaute.avaa'); setFeedbackOpen(true); } }]),
   ];
