@@ -6,11 +6,12 @@ export const EMAIL_CHOICES = {
   player: [
     { id: 'valmentaja', label: 'Valmentajan huomiot, kotiläksyt ja videot' },
     { id: 'tiedotteet', label: 'Tiedotteet', hint: 'Käytännön asiat, esim. vaihtuva kenttä' },
-    { id: 'treenit', label: 'Treenien muutokset', hint: 'Uudet ja perutut treenit' },
+    { id: 'treenit', label: 'Treenien muutokset', hint: 'Uudet, siirretyt ja perutut treenit' },
     { id: 'muistutus', label: 'Muistutus treenipäivän aamuna', hint: 'Aika, teema ja paikka' },
     { id: 'mitenmeni', label: 'Miten meni? treenin jälkeen', hint: 'Fiilis yhdellä napautuksella ja toive valmentajalle' },
   ],
   coach: [
+    { id: 'poissaolot', label: 'Pelaajien poissaolot', hint: 'Kun pelaaja ilmoittaa, ettei pääse treeniin' },
     { id: 'ottelut', label: 'Pelaajien ottelumuistiinpanot' },
   ],
 };
