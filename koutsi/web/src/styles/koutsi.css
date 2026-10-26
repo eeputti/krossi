@@ -753,3 +753,4 @@ label.btn { cursor: pointer; }
 .k-moved-from { color: var(--muted); }
 .k-moved-arrow { margin-top: 2px; color: var(--muted); }
 .k-moved-to { font-weight: 700; color: var(--ink); }
+label.k-avatar-pick { cursor: pointer; }

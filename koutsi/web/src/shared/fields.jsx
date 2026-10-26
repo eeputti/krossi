@@ -1,5 +1,4 @@
 // fields.jsx — form controls Koutsi needs beyond the UI kit.
-import { useRef } from 'react';
 import { ChipSelect, Select, Stepper } from '../ui/index.js';
 import { koutsiRoundTimeToQuarterHour, koutsiRoundToQuarterHourMinutes } from '../domain/core.js';
 import { WEEKDAY_CODES } from '../lib/constants.js';
@@ -38,14 +37,14 @@ export function DurationStepper({ value, onChange }) {
   );
 }
 
-/** A file picker button that hands back the chosen file. */
+/** A file picker button that hands back the chosen file: a label around the input, which every
+ *  phone opens reliably (a script click on a hidden input is ignored by some iPhones). */
 export function FilePick({ accept, onPick, children, className }) {
-  const ref = useRef(null);
   return (
-    <>
-      <button type="button" className={className || 'btn btn-outline btn-md'} onClick={() => ref.current?.click()}>{children}</button>
-      <input ref={ref} type="file" accept={accept} hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onPick(f); }} />
-    </>
+    <label className={className || 'btn btn-outline btn-md'}>
+      {children}
+      <input type="file" accept={accept} className="sr-only" tabIndex={-1} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onPick(f); }} />
+    </label>
   );
 }
 
