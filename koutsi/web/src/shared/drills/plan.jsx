@@ -97,7 +97,7 @@ export function PlanSheet({ open, training, group, onClose, onPlayVideo }) {
   const drill = picked ? resolvePlanItem(picked, drills) : null;
   const when = `${relativeDay(training.date)} klo ${koutsiTimeRangeLabel(training.time, training.durationMinutes || group?.durationMinutes)}`;
   return (
-    <Sheet open={open} onClose={close} size="lg" title={picked ? picked.name : 'Treenin runko'}
+    <Sheet open={open} onClose={close} onBack={() => { if (!picked) return false; setPicked(null); return true; }} size="lg" title={picked ? picked.name : 'Treenin runko'}
       subtitle={picked ? `${picked.minutes} min tässä treenissä` : `${when} · ${planSummary(plan)}`} onClosed={() => setPicked(null)}>
       {picked ? (
         <div className="stack-4" ref={box}>

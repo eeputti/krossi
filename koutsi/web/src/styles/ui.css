@@ -172,6 +172,9 @@
   -webkit-appearance: none; appearance: none;
 }
 .input-lg { height: 54px; font-size: 17px; }
+/* iPhone draws a date field's text centred and lets it push past a narrow column; keep it inside. */
+.input[type="date"] { min-width: 0; display: block; text-align: left; }
+.input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
 .input::placeholder { color: var(--faint); }
 .input:hover { border-color: var(--line-strong); }
 .input:focus { border-color: var(--ink); box-shadow: none; outline: none; }
@@ -425,9 +428,9 @@ button.medal:active { transform: scale(0.96); }
 @media (pointer: coarse) {
   .sheet-header .icon-btn-sm, .sheet-close-floating.icon-btn-sm { width: 40px; height: 40px; }
   .icon-btn-sm::after, .k-textlink::after, .pn-skip::after, .pn-link::after, .pw-hw-check::after, .pn-feel-num::after, .top-banner-cta::after,
-  .wb-range::after, .k-more::after, .stepper-btn::after {
+  .wb-range::after, .k-more::after, .stepper-btn::after, .tl-hide::after, .pw-hw-toggle::after {
     content: ''; position: absolute; inset: -8px -6px;
   }
-  .k-textlink, .pn-skip, .pn-link, .pw-hw-check, .pn-feel-num, .top-banner-cta, .wb-range, .k-more, .stepper-btn { position: relative; }
+  .k-textlink, .pn-skip, .pn-link, .pw-hw-check, .pn-feel-num, .top-banner-cta, .wb-range, .k-more, .stepper-btn, .tl-hide, .pw-hw-toggle { position: relative; }
   .pn-feel-num::after { inset: -8px -2px; }
 }

@@ -15,7 +15,7 @@ import { useData } from '../app/data.jsx';
 import { useIsDesktop, useNow } from '../app/hooks.js';
 import { navigate } from '../app/router.js';
 import { Button, Card, Icon, Page, useToast } from '../ui/index.js';
-import { NotificationsButton, targetOf, useNotifications } from '../shared/Notifications.jsx';
+import { NotificationsButton, notificationKind, targetOf, useNotifications } from '../shared/Notifications.jsx';
 import { Block, Quiet } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiIsoWeekRangeLabel, koutsiGroupById, koutsiCoachById, koutsiTimeRangeLabel, koutsiTodayStr,
@@ -249,7 +249,7 @@ function newsRows(state, student, unread) {
   const note = student.diary[0] || null;
   const rows = [];
   unread
-    .filter((n) => !(note && n.kind === 'diary_added') && !String(n.linkPath || '').includes('fiilis='))
+    .filter((n) => !(note && notificationKind(n.kind) === 'diary_added') && !String(n.linkPath || '').includes('fiilis='))
     .slice(0, 3)
     .forEach((n) => rows.push({ id: `n-${n.id}`, icon: 'bell', title: n.title, body: n.body || '', meta: koutsiFmtEventDate(n.createdAt), to: targetOf(n.linkPath, '/pelaaja/koti', n.kind), isNew: true }));
   (state.clubEvents || [])
@@ -336,7 +336,7 @@ function CoachNote({ state, student, unread }) {
   if (!note) return null;
   const coaches = state.coaches || [];
   const who = coaches.length === 1 ? coaches[0].name : '';
-  const isNew = unread.some((n) => n.kind === 'diary_added');
+  const isNew = unread.some((n) => notificationKind(n.kind) === 'diary_added');
   return (
     <article className="cn-card">
       <span className="cn-icon"><Icon name="chat" size={18} /></span>

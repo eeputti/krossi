@@ -135,10 +135,12 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  *   dismissible             default true: backdrop tap, Esc, ✕, Back and drag-down close it
  *   confirmClose            true (or { title, message }) while something typed would be lost: closing by
  *                           those gestures asks "Hylätäänkö?" first. The form's own Peruuta still closes.
+ *   onBack                  a step back inside the sheet (a drill → its list): return true when it took the
+ *                           step, and the phone's Back stops there instead of closing the sheet
  *   tone: 'default' | 'dark'
  *   onClosed                called after the exit animation finished
  */
-export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dismissible = true, confirmClose = false, tone = 'default', className, bodyClassName, onClosed, children, labelledBy }) {
+export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dismissible = true, confirmClose = false, onBack, tone = 'default', className, bodyClassName, onClosed, children, labelledBy }) {
   const [mounted, setMounted] = useState(open);
   const [closing, setClosing] = useState(false);
   // a quick double tap on what opened the sheet must not land on its backdrop (closing it at once)
@@ -160,6 +162,8 @@ export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dis
   const confirm = useContext(ConfirmContext);
   const confirmCloseRef = useRef(confirmClose);
   confirmCloseRef.current = confirmClose;
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
   // Every way out except the form's own buttons: backdrop, ✕, Esc, drag, Back. Resolves whether it closed.
   const requestClose = useCallback(async () => {
     if (!dismissibleRef.current) return false;
@@ -204,7 +208,8 @@ export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dis
     if (!open) return undefined;
     const token = {};
     sheetStack.push(token);
-    const guard = { id: `s${Date.now().toString(36)}-${(guardSeq += 1)}`, tryClose: () => requestClose() };
+    // Back first takes a step inside the sheet when it has one (onBack returns true), and only then closes it.
+    const guard = { id: `s${Date.now().toString(36)}-${(guardSeq += 1)}`, tryClose: () => (onBackRef.current?.() === true ? false : requestClose()) };
     claimGuard(guard);
     const onKey = (e) => {
       if (sheetStack[sheetStack.length - 1] !== token) return;
