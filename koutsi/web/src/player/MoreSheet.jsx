@@ -28,7 +28,7 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onFeedback, 
         <ListRow icon="bell" title="Ilmoitukset" subtitle={unread ? `${unread} ${unread === 1 ? 'uusi' : 'uutta'}` : 'Ei uusia'}
           right={unread ? <span className="more-badge t-num">{unread > 9 ? '9+' : unread}</span> : undefined}
           onClick={() => { onClose(); onNotifications(); }} />
-        <ListRow leading={<Avatar person={me} size={32} />} title="Profiili" subtitle="Omat tiedot, muistiinpano, ilmoitusasetukset, tili"
+        <ListRow leading={<Avatar person={me} size={32} />} title="Profiili" subtitle="Omat tiedot, kommentti valmentajalle, ilmoitukset, tili"
           onClick={() => go('/pelaaja/profiili')} />
         <ListRow icon="chat" title="Anna palautetta" subtitle="Kerro, mikä toimii ja mikä ei" onClick={() => { onClose(); onFeedback(); }} />
       </div>

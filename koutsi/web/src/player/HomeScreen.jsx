@@ -14,7 +14,7 @@ import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { useIsDesktop, useNow } from '../app/hooks.js';
 import { navigate } from '../app/router.js';
-import { Button, Card, Icon, Page } from '../ui/index.js';
+import { Button, Card, Icon, Page, useToast } from '../ui/index.js';
 import { NotificationsButton, targetOf } from '../shared/Notifications.jsx';
 import { Block, Quiet } from '../shared/bits.jsx';
 import {
@@ -289,15 +289,20 @@ function NewsList({ rows }) {
   );
 }
 
-/** Open homework, one tap to mark it done. */
+/** Open homework, one tap to mark it done (with Kumoa in the toast, for a slip of the thumb). */
 function HomeworkList({ open }) {
   const { run } = useData();
+  const toast = useToast();
+  const markDone = async (h) => {
+    const res = await run(() => api.homework.toggleDone(h.id, true));
+    if (res?.ok) toast('Merkitty tehdyksi — hienoa!', { action: { label: 'Kumoa', onClick: () => run(() => api.homework.toggleDone(h.id, false)) }, duration: 5000 });
+  };
   return (
     <div className="ph-hw">
       <div className="ph-hw-head"><Icon name="book" size={16} /> Kotiläksyt · {open.length} tekemättä</div>
       <div className="k-list">
         {open.map((h) => (
-          <button key={h.id} type="button" className="k-hw" onClick={() => run(() => api.homework.toggleDone(h.id, true), 'Merkitty tehdyksi — hienoa!')}>
+          <button key={h.id} type="button" className="k-hw" onClick={() => markDone(h)}>
             <span className="k-check-btn"><Icon name="check" size={14} strokeWidth={3} /></span>
             <span className="grow">{h.text}</span>
           </button>

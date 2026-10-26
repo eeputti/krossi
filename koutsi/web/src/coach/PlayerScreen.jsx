@@ -267,7 +267,7 @@ function Details({ state, student }) {
       <Card className="stack-4">
         {field('Tavoite', student.goal, 'Pelaaja ei ole vielä asettanut tavoitetta.')}
         {field('Toive seuraavalle kerralle', student.playerWish, 'Ei toivetta.')}
-        {field('Pelaajan muistiinpano', student.playerNote, 'Ei muistiinpanoa.')}
+        {field('Pelaajan kommentti', student.playerNote, 'Ei kommenttia.')}
       </Card>
       <div className="k-stats k-stats-3">
         <StatTile label="Treenit tässä kuussa" value={month.categories.find((c) => c.key === 'ryhmatreeni').count + month.categories.find((c) => c.key === 'valmennus').count} />

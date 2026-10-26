@@ -262,14 +262,26 @@ function Alerts({ state }) {
   );
 }
 
+const ACTIVITY_FIRST = 8;
+
 function Activity({ state }) {
-  const items = useMemo(() => playerActivity(state, 14).slice(0, 8), [state]);
+  const all = useMemo(() => playerActivity(state, 14), [state]);
+  // the newest eight; the rest one tap away, so a busy fortnight doesn't hide wishes and comments
+  const [showAll, setShowAll] = useState(false);
+  const items = showAll ? all : all.slice(0, ACTIVITY_FIRST);
   return (
     <Block eyebrow="Pelaajilta" title="Viimeiset kaksi viikkoa">
-      {items.length === 0 ? (
+      {all.length === 0 ? (
         <Quiet icon="heart">Pelaajien omat merkinnät näkyvät tässä: fiilikset treenien jälkeen, omat treenit, toiveet ja ottelut.</Quiet>
       ) : (
-        <div className="k-list">{items.map((item, i) => <ActivityRow key={`${item.kind}-${item.student.id}-${i}`} item={item} />)}</div>
+        <div className="stack-2">
+          <div className="k-list">{items.map((item, i) => <ActivityRow key={`${item.kind}-${item.student.id}-${i}`} item={item} />)}</div>
+          {all.length > ACTIVITY_FIRST && (
+            <button type="button" className="k-textlink" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? 'Näytä vähemmän' : `Näytä kaikki (${all.length})`}
+            </button>
+          )}
+        </div>
       )}
     </Block>
   );

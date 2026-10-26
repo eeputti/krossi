@@ -44,6 +44,17 @@ test('"Miten treeni meni?" is asked once a session is over, and not again after 
   assert.equal(checkInCandidate(state, student(), new Set(['t1']), at('19:00')), null, 'not after dismissing it');
 });
 
+test('"Miten meni?" stays for a session when the mood logged after it names another session', () => {
+  const morning = session('tA', today, '10:00');
+  const evening = session('t1', today, '17:00');
+  const state = { groups: [group], trainings: [morning, evening], students: [student()] };
+  // rated the morning session late in the evening: that answers the morning, not the evening
+  const ratedMorning = student({ moods: [{ id: 'm1', score: 4, at: at('18:45').toISOString(), trainingId: 'tA' }] });
+  assert.equal(checkInCandidate(state, ratedMorning, new Set(), at('19:00'))?.id, 't1');
+  const ratedEvening = student({ moods: [{ id: 'm2', score: 5, at: at('18:45').toISOString(), trainingId: 't1' }] });
+  assert.equal(checkInCandidate(state, ratedEvening, new Set(), at('19:00')), null);
+});
+
 test('the calendar alert lists groups whose sessions run out within six weeks', () => {
   const g2 = { ...group, id: 'g2', name: 'torstai aikuiset', day: 'To' };
   const state = {
