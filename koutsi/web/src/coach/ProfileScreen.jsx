@@ -37,8 +37,9 @@ function SharedPlanSheet({ open, onClose }) {
   return (
     <Sheet open={open} onClose={onClose} title="Lähetä vuosisuunnitelma" subtitle="Jos sinulla on usean ryhmän viikkoteemat Excelissä, lähetä se meille — viemme teemat Koutsiin puolestasi." size="md">
       <div className="stack-4">
-        <Button variant="dark" icon="download" loading={busy} onClick={() => ref.current?.click()}>Valitse Excel (.xlsx)</Button>
-        <input ref={ref} type="file" accept=".xlsx" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) upload(f); }} />
+        <Button as="label" variant="dark" icon="download" loading={busy}>Valitse Excel (.xlsx)
+          <input ref={ref} type="file" accept=".xlsx" className="sr-only" tabIndex={-1} disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) upload(f); }} />
+        </Button>
         {list.length > 0 && (
           <div className="stack-2">
             <div className="field-label">Lähetetyt</div>

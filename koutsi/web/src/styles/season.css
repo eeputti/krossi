@@ -97,5 +97,5 @@
 .jc-when b { color: var(--ink); font-weight: 800; }
 .jc-name { font-weight: 750; flex: 1 1 auto; min-width: 0; }
 .jc-row-code { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.jc-code { font-family: var(--font-num); font-weight: 800; font-size: 22px; letter-spacing: 0.14em; user-select: all; -webkit-user-select: all; }
+.jc-code { font-family: var(--font-num); font-weight: 800; font-size: 20px; letter-spacing: 0.1em; user-select: all; -webkit-user-select: all; }
 .jc-row-actions { display: flex; gap: 6px; }

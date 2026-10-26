@@ -391,12 +391,13 @@ export function OnboardingScreen({ role }) {
           : 'Sama profiili näkyy koko Krossissa. Voit täydentää valmentajatietosi myöhemmin.'}</p>
         {error && <Alert tone="error">{error}</Alert>}
         {!isPlayer && (
-          <button type="button" className="k-avatar-pick" onClick={() => fileRef.current?.click()} aria-label="Valitse profiilikuva">
+          // a label around the input: every phone opens its picker from a tap on it
+          <label className="k-avatar-pick" aria-label="Valitse profiilikuva">
             {preview ? <img src={preview} alt="" /> : <Icon name="camera" size={26} />}
             <span className="k-avatar-pick-badge"><Icon name="plus" size={14} /></span>
-          </button>
+            <input ref={fileRef} type="file" accept="image/*" className="sr-only" tabIndex={-1} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { setAvatarFile(f); setPreview(URL.createObjectURL(f)); } }} />
+          </label>
         )}
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) { setAvatarFile(f); setPreview(URL.createObjectURL(f)); } }} />
         <div className="stack-4">
           <Field label="Nimi" htmlFor="onb-name"><Input id="onb-name" size="lg" value={name} onChange={(e) => setName(e.target.value)} placeholder="Etunimi Sukunimi" autoComplete="name" /></Field>
           <Field label="Ikä" optional htmlFor="onb-age" error={!ageValid ? 'Jos annat iän, sen pitää olla 1–119 vuotta.' : null}>
