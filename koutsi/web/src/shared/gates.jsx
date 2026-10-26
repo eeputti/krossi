@@ -257,6 +257,10 @@ export function AuthScreen({ role }) {
                     <AppleMark size={19} /><span className="btn-label">{busy === 'apple' ? 'Avataan Applea…' : 'Jatka Applella'}</span>
                   </button>
                 </div>
+                {/* iPhone home-screen app: Google/Apple can finish in Safari instead of here */}
+                {typeof navigator !== 'undefined' && navigator.standalone === true && (
+                  <p className="field-msg auth-pwa-note">Kotinäytön sovelluksessa Google- tai Apple-kirjautuminen voi jäädä Safariin. Jos et palaa tänne kirjautuneena, kirjaudu sähköpostilla.</p>
+                )}
                 <div className="auth-divider" role="separator"><span>tai sähköpostilla</span></div>
               </>
             )}
