@@ -121,7 +121,7 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', sco
 
   return (
     <>
-      <Sheet open={open} onClose={() => !busy && onClose()} title={k.title} subtitle={k.subtitle} size="md" dismissible={!busy && !dirty}
+      <Sheet open={open} onClose={() => !busy && onClose()} title={k.title} subtitle={k.subtitle} size="md" dismissible={!busy} confirmClose={dirty}
         footer={(
           <div className="sheet-actions">
             <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>

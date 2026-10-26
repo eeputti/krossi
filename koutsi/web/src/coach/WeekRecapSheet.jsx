@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Button, Field, Sheet, StatTile, Textarea } from '../ui/index.js';
-import { koutsiAddIsoWeeks, koutsiIsoWeekRangeLabel, koutsiWeekThemeStatus } from '../domain/core.js';
+import { koutsiAddIsoWeeks, koutsiCompareIsoWeeks, koutsiCurrentIsoWeek, koutsiIsoWeekRangeLabel, koutsiWeekThemeStatus } from '../domain/core.js';
 import { weekRecap } from '../domain/week.js';
 import { firstName } from '../domain/roster.js';
 import { MoodPicker } from '../player/sheets.jsx';
@@ -66,10 +66,13 @@ export function WeekRecapSheet({ open, week, onClose }) {
   const carryOn = () => { onClose(); openContinue(next); };
 
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} size="md" title={`Viikko ${week.week} paketissa`}
+    <Sheet open={open} onClose={() => !busy && onClose()} size="md"
+      // mid-week (from Merkitse → Oma viikkomuistio) the week isn't "paketissa" yet
+      title={koutsiCompareIsoWeeks(week, koutsiCurrentIsoWeek()) < 0 || new Date().getDay() === 0 ? `Viikko ${week.week} paketissa` : `Oma viikkomuistio · viikko ${week.week}`}
       subtitle={koutsiIsoWeekRangeLabel(week.year, week.week)}
-      footer={score
-        ? <Button variant="dark" size="lg" block loading={busy} onClick={save}>{existing ? 'Tallenna muutokset' : 'Tallenna viikkomuistioon'}</Button>
+      confirmClose={note.trim() !== (existing?.note || '').trim()}
+      footer={score || note.trim()
+        ? <Button variant="dark" size="lg" block loading={busy} missing={!score ? 'Valitse ensin, miltä viikko tuntui (1–5).' : null} onClick={save}>{existing ? 'Tallenna muutokset' : 'Tallenna viikkomuistioon'}</Button>
         : <Button variant="soft" size="lg" block onClick={onClose}>Sulje</Button>}>
       <div className="stack-5">
         <div className="k-stats k-stats-3">

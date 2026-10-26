@@ -56,7 +56,7 @@ export function AddPlayerSheet({ open, onClose }) {
   };
   const groupOptions = state.groups.map((g) => ({ value: g.id, label: `${g.day} ${g.time} · ${g.name}` }));
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Lisää pelaaja" subtitle="Nimi riittää. Pelaaja voi liittyä myöhemmin omalla linkillään." size="md" dismissible={!busy}
+    <Sheet open={open} onClose={() => !busy && onClose()} title="Lisää pelaaja" subtitle="Nimi riittää. Pelaaja voi liittyä myöhemmin omalla linkillään." size="md" dismissible={!busy} confirmClose={Boolean(name.trim())}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!name.trim() ? 'Kirjoita pelaajan nimi.' : !valid ? 'Iän pitää olla 1–119 vuotta.' : exact ? `Sinulla on jo pelaaja nimeltä ${exact.name}. Erota nimet toisistaan.` : null} loading={busy} onClick={submit}>Lisää</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="p-name">
@@ -137,7 +137,7 @@ export function TextEntrySheet({ open, onClose, title, subtitle, initial = '', p
     if (ok) onClose();
   };
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={title} subtitle={subtitle} size="md" dismissible={!busy && !dirty}
+    <Sheet open={open} onClose={() => !busy && onClose()} title={title} subtitle={subtitle} size="md" dismissible={!busy} confirmClose={dirty}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!text.trim() ? 'Kirjoita teksti ensin.' : null} loading={busy} onClick={submit}>{saveLabel}</Button></div>}>
       <div className="stack-3">
         <Textarea rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} autoFocus maxLength={4000} aria-label={title} />

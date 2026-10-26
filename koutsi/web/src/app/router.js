@@ -101,7 +101,10 @@ export function navigate(to, { replace = false, state = {}, overlay = false } = 
   const tab = target && target.route.type !== 'tab' ? (state.tab || current.state.tab || current.route?.tab) : undefined;
   const next = { ...state, key: newKey(), idx, ...(bg ? { bg } : {}), ...(tab ? { tab } : {}) };
   const href = toBrowser(url.pathname) + url.search + url.hash;
-  if (replace) window.history.replaceState(next, '', href);
+  // An open sheet holds a history entry of its own (ui/Sheet.jsx). Going somewhere from inside it
+  // takes that entry over, so Back from the new page lands on the page under the sheet, not on a
+  // copy of it.
+  if (replace || window.history.state?.sheetGuard) window.history.replaceState(next, '', href);
   else window.history.pushState(next, '', href);
   lastNavigation = replace ? 'replace' : 'push';
   emit();
@@ -136,7 +139,15 @@ function subscribe(cb) {
 }
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('popstate', () => { lastNavigation = 'pop'; emit(); });
+  window.addEventListener('popstate', () => {
+    // Back that only took a sheet's own entry away (same page, same key): the sheet closes
+    // itself; the page must not count it as a navigation (no scroll restore, no re-render).
+    const prev = snapshot;
+    const next = read();
+    if (prev && next.path === prev.path && next.search === prev.search && next.key === prev.key) { snapshot = next; return; }
+    lastNavigation = 'pop';
+    emit();
+  });
 }
 
 export function useRoute() {
