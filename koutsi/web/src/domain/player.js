@@ -7,6 +7,7 @@ import {
   koutsiTodayStr, koutsiAddDays, koutsiTrainingsForStudent, koutsiIsoWeekOfDateStr, koutsiGroupById,
   koutsiAddMinutesToTime, koutsiPad,
 } from './core.js';
+import { moodAnswers } from './playerNow.js';
 
 /**
  * Koti's theme cards: each group's theme this week, or — until the coach sets one — its latest
@@ -61,9 +62,9 @@ export function checkInCandidate(state, student, dismissed = new Set(), now = ne
   });
   const last = past[past.length - 1];
   if (!last) return null;
-  const start = new Date(`${last.date}T${last.time || '00:00'}:00`);
-  const loggedAfter = (student.moods || []).some((m) => new Date(m.at) >= start);
-  return loggedAfter ? null : last;
+  // a mood names its session (training_id): rating a later session no longer answers this one
+  const answered = (student.moods || []).some((m) => moodAnswers(m, last));
+  return answered ? null : last;
 }
 
 /** Themes the player's groups worked on, oldest first, one entry per week (titles merged). */

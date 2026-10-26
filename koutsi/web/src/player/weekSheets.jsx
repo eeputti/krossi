@@ -11,6 +11,7 @@ import { minutesLabel, weekDates } from '../domain/week.js';
 import { eventRangeLabel } from '../domain/board.js';
 import { readPlan, planSummary } from '../domain/plan.js';
 import { ownEntry } from '../domain/ownWeek.js';
+import { moodAnswers } from '../domain/playerNow.js';
 import { ActivityIcon } from './ActivityIcon.jsx';
 import { usePlayerActions } from './PlayerApp.jsx';
 
@@ -34,10 +35,10 @@ export function CoachSessionSheet({ open, item, onClose }) {
   const absent = (live.absences || []).some((a) => a.studentId === student.id);
   const { group, coach, theme, status } = item;
   const plan = readPlan(live.notes);
-  const start = new Date(`${live.date}T${live.time || '00:00'}:00`);
-  // "Miten meni?" for three days after it, unless a feeling was logged after it began
+  // "Miten meni?" for three days after it, unless it has its answer (a mood naming this session,
+  // or an older-style one logged after it began — domain/playerNow moodAnswers)
   const askMood = status === 'past' && !absent && live.date >= koutsiAddDays(koutsiTodayStr(), -3)
-    && !(student.moods || []).some((m) => new Date(m.at) >= start);
+    && !(student.moods || []).some((m) => moodAnswers(m, live));
   const then = (fn) => () => { onClose(); fn(); };
   return (
     <Sheet open={open} onClose={onClose} size="sm" title={group ? group.name : live.type}

@@ -241,7 +241,7 @@ export function PlayerTextSheet({ open, onClose, kind, initial }) {
   const meta = {
     goal: { title: 'Tavoitteeni', hint: 'Mitä haluat oppia tai saavuttaa tällä kaudella?', placeholder: 'Esim. Varmempi kakkossyöttö', save: (t) => api.player.saveGoal(ownerId, t), done: 'Tavoite tallennettu.' },
     wish: { title: 'Toive valmentajalle', hint: 'Mitä haluaisit harjoitella seuraavaksi?', placeholder: 'Esim. Enemmän verkkopeliä', save: (t) => api.player.saveWish(ownerId, t), done: 'Toive lähetetty valmentajalle.' },
-    note: { title: 'Oma muistiinpano', hint: 'Muistiinpano itsellesi ja valmentajalle.', placeholder: '', save: (t) => api.player.saveNote(ownerId, t), done: 'Muistiinpano tallennettu.' },
+    note: { title: 'Kommentti valmentajalle', hint: 'Valmentajasi näkee tämän.', placeholder: '', save: (t) => api.player.saveNote(ownerId, t), done: 'Kommentti tallennettu.' },
   }[kind || 'goal'];
   const save = async () => {
     if (busy) return;

@@ -101,7 +101,7 @@ export function ActivityRow({ item }) {
   if (item.kind === 'mood') text = <>Fiilis {item.mood.score}/5 — {MOOD_LABELS[item.mood.score]}{item.mood.note ? `: “${item.mood.note}”` : ''}</>;
   else if (item.kind === 'self') text = selfLogLine(item.training);
   else if (item.kind === 'wish') text = <>Toive: “{item.text}”</>;
-  else if (item.kind === 'note') text = <>Muistiinpano: “{item.text}”</>;
+  else if (item.kind === 'note') text = <>Kommentti: “{item.text}”</>;
   else if (item.kind === 'entry') text = <>Merkintä: “{item.text}”{item.how ? ` — ${item.how}` : ''}</>;
   else if (item.kind === 'match') text = <>Ottelu vs. {item.match.opponentName}{item.match.result ? ` — ${item.match.result === 'voitto' ? 'voitto' : 'tappio'}` : ''}{item.match.score ? ` ${item.match.score}` : ''}</>;
   else if (item.kind === 'homework') text = <>Teki kotiläksyn: {item.text}</>;

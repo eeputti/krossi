@@ -10,7 +10,7 @@ import {
 } from './core.js';
 
 const KOUTSI_TL_MOOD_LABELS = { 1: 'Raskas', 2: 'Vaisu', 3: 'Ihan ok', 4: 'Hyvä', 5: 'Loistava' };
-const KOUTSI_TL_PREVIOUS_LABELS = { goal: 'Aiempi tavoite', wish: 'Aiempi toive', note: 'Aiempi muistiinpano' };
+const KOUTSI_TL_PREVIOUS_LABELS = { goal: 'Aiempi tavoite', wish: 'Aiempi toive', note: 'Aiempi kommentti' };
 
 // One entry per event kind: the filter chip label, the rail dot colour, and the little
 // glyph in the card's badge. Order here is the order the filter chips appear in.
@@ -23,7 +23,7 @@ const KOUTSI_TL_KINDS = {
   match: { label: 'Ottelut', short: 'Ottelu', fg: '#a13b2f', bg: 'rgba(161,59,47,0.11)', dot: '#a13b2f', icon: '⚑' },
   video: { label: 'Videot', short: 'Video', fg: '#6a389c', bg: 'rgba(148,88,214,0.13)', dot: '#9458d6', icon: '▶' },
   wish: { label: 'Toiveet', short: 'Toive', fg: '#1f6b5c', bg: 'rgba(31,107,92,0.12)', dot: '#1f6b5c', icon: '✱' },
-  note: { label: 'Muistiinpanot', short: 'Muistiinpano', fg: '#6a6a6a', bg: '#f1f1f1', dot: '#6a6a6a', icon: '✐' },
+  note: { label: 'Kommentit', short: 'Kommentti', fg: '#6a6a6a', bg: '#f1f1f1', dot: '#6a6a6a', icon: '✐' },
   event: { label: 'Tapahtumat', short: 'Tapahtuma', fg: '#94571a', bg: 'rgba(214,140,44,0.13)', dot: '#c07820', icon: '★' },
   training: { label: 'Treenit', short: 'Treeni', fg: '#4a4a4a', bg: '#f1f1f1', dot: '#a8a8a8', icon: '●' },
   start: { label: 'Alku', short: 'Alku', fg: '#4a4a4a', bg: '#f1f1f1', dot: '#a8a8a8', icon: '⚑' },
@@ -171,9 +171,9 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
 
   (student.noteHistory || []).forEach((n) => push({
     id: `note-${n.id}`, kind: 'note', at: n.at, source: n,
-    title: n.previousValue ? 'Muistiinpano päivitetty' : 'Oma muistiinpano',
-    body: n.value || '(muistiinpano tyhjennetty)', previous: n.previousValue || '',
-    search: `${n.value || ''} ${n.previousValue || ''} muistiinpano`,
+    title: n.previousValue ? 'Kommentti päivitetty' : 'Kommentti valmentajalle',
+    body: n.value || '(kommentti tyhjennetty)', previous: n.previousValue || '',
+    search: `${n.value || ''} ${n.previousValue || ''} kommentti muistiinpano`,
   }));
 
   // Only sessions that have already happened belong on a history timeline; the upcoming

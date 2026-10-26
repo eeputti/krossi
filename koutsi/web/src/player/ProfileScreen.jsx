@@ -26,8 +26,9 @@ export function ProfileScreen() {
           ]}
           bio={me.bio} addBio="Lisää esittely itsestäsi" />
         <Card interactive onClick={() => actions.openText('note')} className="goal-card">
-          <div className="eyebrow"><Icon name="edit" size={13} /> Oma muistiinpano</div>
-          {me.playerNote ? <p className="goal-text">{me.playerNote}</p> : <p className="k-faint">Kirjoita muistiinpano itsellesi ja valmentajalle — esim. mitä haluat muistaa seuraavasta treenistä.</p>}
+          <div className="eyebrow"><Icon name="edit" size={13} /> Kommentti valmentajalle</div>
+          {me.playerNote ? <p className="goal-text">{me.playerNote}</p> : <p className="k-faint">Kerro valmentajallesi, mitä haluat hänen tietävän — esim. mitä haluat muistaa seuraavasta treenistä.</p>}
+          <p className="k-faint">Valmentajasi näkee tämän.</p>
         </Card>
         <section className="stack-2">
           <div className="eyebrow">Ilmoitukset</div>
