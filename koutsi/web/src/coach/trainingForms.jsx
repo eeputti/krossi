@@ -186,7 +186,7 @@ export function EventSheet({ open, onClose, editing, defaultDate }) {
     if (res.ok) onClose();
   };
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa tapahtumaa' : 'Uusi tapahtuma'} subtitle="Kilpailut, leirit ja seuran tapahtumat näkyvät pelaajien kalenterissa." size="sm"
+    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa tapahtumaa' : 'Uusi tapahtuma'} confirmClose={!editing && Boolean(title.trim())} subtitle="Kilpailut, leirit ja seuran tapahtumat näkyvät pelaajien kalenterissa." size="sm"
       footer={<div className="sheet-actions">{editing ? <Button variant="ghost" size="lg" onClick={remove}>Poista</Button> : <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>}<Button variant="dark" size="lg" missing={!title.trim() ? 'Anna tapahtumalle nimi.' : !date ? 'Valitse päivä.' : endDate && endDate < date ? 'Loppupäivä ei voi olla ennen alkua.' : null} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="ev-title"><Input id="ev-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Seuran syyskisat" maxLength={120} /></Field>

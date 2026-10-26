@@ -339,7 +339,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     </div>
   );
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Merkitse" size="md" dismissible={!busy && !dirty} className="vs-sheet" footer={choosing ? null : footer}>
+    <Sheet open={open} onClose={() => !busy && onClose()} title="Merkitse" size="md" dismissible={!busy} confirmClose={dirty} className="vs-sheet" footer={choosing ? null : footer}>
       {choosing ? (
         <div className="vs-choose stack-4">
           {situation && (

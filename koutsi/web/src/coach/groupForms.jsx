@@ -82,7 +82,7 @@ export function GroupFormSheet({ open, onClose, editing }) {
   };
   const players = state.students.slice().sort((a, b) => a.name.localeCompare(b.name, 'fi'));
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={isEdit ? 'Muokkaa ryhmää' : 'Uusi ryhmä'} size="md" dismissible={!busy}
+    <Sheet open={open} onClose={() => !busy && onClose()} title={isEdit ? 'Muokkaa ryhmää' : 'Uusi ryhmä'} size="md" dismissible={!busy} confirmClose={!isEdit && Boolean(name.trim())}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!name.trim() ? 'Anna ryhmälle nimi.' : !time ? 'Valitse kellonaika.' : null} loading={busy} onClick={submit}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="g-name"><Input id="g-name" size="lg" value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. tiistai aikuiset" maxLength={120} /></Field>

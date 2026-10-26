@@ -86,7 +86,7 @@ export function MatchNoteSheet({ open, onClose, editing, defaultDate }) {
   };
   const doubles = f.format === 'nelinpeli';
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa ottelua' : 'Ottelumuistiinpano'} size="md"
+    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa ottelua' : 'Ottelumuistiinpano'} size="md" confirmClose={!editing && Boolean(f.opponentName.trim() || f.note.trim() || f.score.trim())}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={!f.opponentName.trim() ? 'Kirjoita vastustajan nimi.' : !f.date ? 'Valitse päivä.' : null} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Segmented ariaLabel="Laji" value={f.format} onChange={set('format')} options={[{ value: 'kaksinpeli', label: 'Kaksinpeli' }, { value: 'nelinpeli', label: 'Nelinpeli' }]} />
@@ -251,7 +251,7 @@ export function PlayerTextSheet({ open, onClose, kind, initial }) {
     if (res.ok) onClose();
   };
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={meta.title} subtitle={meta.hint} size="sm" dismissible={!busy}
+    <Sheet open={open} onClose={() => !busy && onClose()} title={meta.title} subtitle={meta.hint} size="sm" dismissible={!busy} confirmClose={text.trim() !== (initial || '').trim()}
       footer={<Button variant="dark" size="lg" block loading={busy} disabled={text.trim() === (initial || '').trim()} onClick={save}>Tallenna</Button>}>
       <div className="stack-3">
         <Textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder={meta.placeholder} autoFocus maxLength={1000} aria-label={meta.title} />

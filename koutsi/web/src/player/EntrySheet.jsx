@@ -27,7 +27,7 @@ export function EntrySheet({ open, onClose, editing }) {
     if (res.ok) onClose();
   };
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa merkintää' : 'Uusi merkintä'}
+    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa merkintää' : 'Uusi merkintä'} confirmClose={!editing && Boolean(f.text.trim())}
       subtitle="Mitä teit, milloin ja miten meni. Näkyy Kehityksessä sinulle ja valmentajallesi." size="md" dismissible={!busy}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={!f.text.trim() ? 'Kirjoita, mitä teit.' : !f.date ? 'Valitse päivä.' : null} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
