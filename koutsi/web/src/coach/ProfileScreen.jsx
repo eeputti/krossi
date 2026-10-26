@@ -6,7 +6,7 @@ import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { navigate } from '../app/router.js';
 import { Button, Card, Icon, ListRow, Page, PageHeader, Sheet, useToast } from '../ui/index.js';
-import { AccountSection, EmailPrefToggle } from '../shared/account.jsx';
+import { AccountSection, EmailPrefs } from '../shared/account.jsx';
 import { ProfileCard } from '../shared/profileCard.jsx';
 import { useCoach } from './CoachRoot.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
@@ -77,7 +77,7 @@ export function ProfileScreen() {
           ) : null} />
         <section className="stack-2">
           <div className="eyebrow">Ilmoitukset</div>
-          <Card><EmailPrefToggle uid={uid} /></Card>
+          <Card><EmailPrefs uid={uid} role="coach" /></Card>
         </section>
         <section className="stack-2">
           <div className="eyebrow">Työkalut</div>

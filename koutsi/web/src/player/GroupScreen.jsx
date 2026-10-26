@@ -51,6 +51,7 @@ function GroupCard({ state, group, me }) {
       <header>
         <div className="eyebrow">{DAY_NAMES[group.day] || ''} klo {koutsiTimeRangeLabel(group.time, group.durationMinutes)}</div>
         <h2 className="t-h2">{group.name}</h2>
+        {group.place && <p className="k-group-place"><Icon name="pin" size={14} />{group.place}</p>}
         <p className="k-faint">{[group.level, coach ? `Valmentaja ${coach.name}` : '', (group.slots || []).length ? `myös ${group.slots.map((s) => `${s.day} ${s.time}`).join(', ')}` : ''].filter(Boolean).join(' · ')}</p>
       </header>
       {current ? <ThemeCard theme={current} week={now} />

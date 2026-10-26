@@ -3,7 +3,7 @@
 // opens Valitse kuva / Ota uusi kuva.
 import { useData } from '../app/data.jsx';
 import { Card, Icon, Page, PageHeader } from '../ui/index.js';
-import { AccountSection, EmailPrefToggle } from '../shared/account.jsx';
+import { AccountSection, EmailPrefs } from '../shared/account.jsx';
 import { ProfileCard } from '../shared/profileCard.jsx';
 import { koutsiGroupsForStudent } from '../domain/core.js';
 import { tennisFacts } from '../domain/tennisProfile.js';
@@ -32,7 +32,7 @@ export function ProfileScreen() {
         </Card>
         <section className="stack-2">
           <div className="eyebrow">Ilmoitukset</div>
-          <Card><EmailPrefToggle uid={ownerId} /></Card>
+          <Card><EmailPrefs uid={ownerId} role="player" /></Card>
         </section>
         <AccountSection role="player" uid={ownerId} profileName={me.name} />
       </div>

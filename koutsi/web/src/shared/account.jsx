@@ -5,21 +5,39 @@ import { api, isDemo } from '../api/index.js';
 import { useSession } from '../app/session.jsx';
 import { Button, ChipSelect, Field, Icon, ListRow, Sheet, Textarea, Toggle, useConfirm, useToast } from '../ui/index.js';
 import { FEEDBACK_CATEGORIES, SUPPORT_EMAIL } from '../lib/constants.js';
+import { EMAIL_CHOICES, withChoice } from '../domain/emailPrefs.js';
 
-export function EmailPrefToggle({ uid }) {
+/** Profiili → Sähköpostit: all e-mails on or off, and each kind on its own. Saves at once. */
+export function EmailPrefs({ uid, role = 'player' }) {
   const toast = useToast();
-  const [enabled, setEnabled] = useState(null);
+  const [prefs, setPrefs] = useState(null);
   useEffect(() => {
     let alive = true;
-    api.notifications.getEmailPref(uid).then((v) => alive && setEnabled(v)).catch(() => alive && setEnabled(true));
+    api.notifications.getEmailPrefs(uid).then((v) => alive && setPrefs(v)).catch(() => alive && setPrefs({ enabled: true, off: [] }));
     return () => { alive = false; };
   }, [uid]);
-  if (enabled === null) return null;
-  const toggle = async (next) => {
-    setEnabled(next);
-    try { await api.notifications.setEmailPref(uid, next); } catch (err) { setEnabled(!next); toast(err); }
+  if (prefs === null) return null;
+  const save = async (next) => {
+    const before = prefs;
+    setPrefs(next);
+    try { await api.notifications.setEmailPrefs(uid, next); toast('Sähköpostiasetukset tallennettu.'); } catch (err) { setPrefs(before); toast(err); }
   };
-  return <Toggle icon="mail" checked={enabled} onChange={toggle} label="Sähköposti-ilmoitukset" hint="Uusista huomioista, kotiläksyistä ja treenimuutoksista." />;
+  const choices = EMAIL_CHOICES[role] || EMAIL_CHOICES.player;
+  return (
+    <div className="email-prefs">
+      <Toggle icon="mail" checked={prefs.enabled} onChange={(on) => save({ ...prefs, enabled: on })} label="Sähköpostit"
+        hint={prefs.enabled ? 'Valitse alta, mitkä haluat. Sovelluksen kello näyttää kaiken joka tapauksessa.' : 'Et saa sähköposteja. Sovelluksen kello näyttää kaiken.'} />
+      {prefs.enabled && (
+        <div className="email-prefs-list">
+          {choices.map((c) => (
+            <Toggle key={c.id} checked={!prefs.off.includes(c.id)} label={c.label} hint={c.hint}
+              onChange={(on) => save({ ...prefs, off: withChoice(prefs.off, c.id, on) })} />
+          ))}
+          <p className="email-prefs-note">Useammat asiat tulevat yhtenä koosteena, korkeintaan kolmen tunnin välein eikä yöllä.</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** Anna palautetta: what it is about, the words, and a clear thank-you once it has arrived. */

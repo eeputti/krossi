@@ -148,6 +148,7 @@ export function GroupScreen({ params }) {
         <header className="k-group-head">
           <h1 className="t-title">{group.name}</h1>
           <p className="k-group-when">{groupWhen(group)}</p>
+          {group.place && <p className="k-group-place"><Icon name="pin" size={14} />{group.place}</p>}
           {(group.slots || []).length > 0 && <p className="k-faint">+ {group.slots.map((s) => `${s.day} ${koutsiTimeRangeLabel(s.time, s.durationMinutes)}`).join(', ')}</p>}
           <div className={endsSoon ? 'k-calendar-end is-soon' : 'k-calendar-end'}>
             <Icon name="calendar" size={16} />

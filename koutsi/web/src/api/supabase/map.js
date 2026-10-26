@@ -27,7 +27,7 @@ export function mapGroup(g, memberIds, themeRows, slotRows) {
     .filter((s) => s.group_id === g.id)
     .map((s) => ({ id: s.id, day: s.weekday, time: s.time ? s.time.slice(0, 5) : '', durationMinutes: s.duration_minutes || 60, seriesId: s.series_id || null }));
   return {
-    id: g.id, coachId: g.coach_id, name: g.name, level: g.level, day: g.weekday, time: g.time ? g.time.slice(0, 5) : '',
+    id: g.id, coachId: g.coach_id, name: g.name, level: g.level, place: g.place || '', day: g.weekday, time: g.time ? g.time.slice(0, 5) : '',
     durationMinutes: g.duration_minutes || 60,
     seasonId: g.season_id || null, continuesFrom: g.continues_from || null,
     memberIds,

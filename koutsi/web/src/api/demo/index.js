@@ -395,21 +395,21 @@ export const backend = {
   },
 
   groups: {
-    async create(coachId, { name, level, day, time, durationMinutes, memberIds = [], weeksAhead }) {
+    async create(coachId, { name, level, place = '', day, time, durationMinutes, memberIds = [], weeksAhead }) {
       await wait();
-      const group = { id: newId('g'), coachId: COACH, name, level, day, time, durationMinutes: durationMinutes || 60, memberIds: [...memberIds], slots: [], themes: [], annualPlan: null };
+      const group = { id: newId('g'), coachId: COACH, name, level, place: place || '', day, time, durationMinutes: durationMinutes || 60, memberIds: [...memberIds], slots: [], themes: [], annualPlan: null };
       refreshThemes(group);
       S().groups.push(group);
       S().trainings.push(...weeklySessions(group, koutsiTodayStr(), koutsiClampGroupTrainingWeeks(weeksAhead ?? KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS)));
       return group.id;
     },
-    async update(groupId, { name, level, day, time, durationMinutes, weeksAhead }) {
+    async update(groupId, { name, level, place, day, time, durationMinutes, weeksAhead }) {
       await wait();
       const s = S();
       const group = findGroup(groupId);
       const duration = durationMinutes || 60;
       const changed = group.day !== day || group.time !== time || (group.durationMinutes || 60) !== duration;
-      Object.assign(group, { name, level, day, time, durationMinutes: duration });
+      Object.assign(group, { name, level, day, time, durationMinutes: duration, ...(place !== undefined ? { place: place || '' } : {}) });
       if (!changed) return;
       const today = koutsiTodayStr();
       const slotSeries = new Set((group.slots || []).map((sl) => sl.seriesId).filter(Boolean));
@@ -827,8 +827,8 @@ export const backend = {
   notifications: {
     async list() { return clone(role === 'player' ? S().playerNotifications : S().notifications).map((n) => ({ ...n, date: koutsiFmtShortDate(n.createdAt.slice(0, 10)) })); },
     async markRead() { (role === 'player' ? S().playerNotifications : S().notifications).forEach((n) => { n.read = true; }); },
-    async getEmailPref() { return S().emailPref; },
-    async setEmailPref(id, enabled) { S().emailPref = !!enabled; },
+    async getEmailPrefs() { const s = S(); return { enabled: s.emailPref !== false, off: [...(s.emailOff || [])] }; },
+    async setEmailPrefs(id, { enabled, off }) { const s = S(); s.emailPref = Boolean(enabled); s.emailOff = [...(off || [])]; },
     subscribe() { return () => {}; },
   },
 

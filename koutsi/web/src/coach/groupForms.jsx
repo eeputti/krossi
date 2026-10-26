@@ -53,6 +53,7 @@ export function GroupFormSheet({ open, onClose, editing }) {
   const isEdit = Boolean(editing);
   const [name, setName] = useState('');
   const [level, setLevel] = useState('');
+  const [place, setPlace] = useState('');
   const [day, setDay] = useState('Ma');
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState(60);
@@ -62,7 +63,7 @@ export function GroupFormSheet({ open, onClose, editing }) {
   const busyRef = useRef(false); // a double tap must not create two groups with two series
   useEffect(() => {
     if (!open) return;
-    setName(editing?.name || ''); setLevel(editing?.level || ''); setDay(editing?.day || 'Ma');
+    setName(editing?.name || ''); setLevel(editing?.level || ''); setPlace(editing?.place || ''); setDay(editing?.day || 'Ma');
     setTime(editing?.time || ''); setDuration(editing?.durationMinutes || 60); setWeeks(seasonWeeks.initial); setMemberIds([]);
   }, [open, editing]); // eslint-disable-line react-hooks/exhaustive-deps
   const scheduleChanged = isEdit && (editing.day !== day || editing.time !== time || (editing.durationMinutes || 60) !== duration);
@@ -70,7 +71,7 @@ export function GroupFormSheet({ open, onClose, editing }) {
   const submit = async () => {
     if (!ready || busyRef.current) return;
     busyRef.current = true; setBusy(true);
-    const fields = { name: name.trim(), level: level.trim() || 'Kaikki tasot', day, time, durationMinutes: duration, weeksAhead: weeks };
+    const fields = { name: name.trim(), level: level.trim() || 'Kaikki tasot', place: place.trim(), day, time, durationMinutes: duration, weeksAhead: weeks };
     const res = isEdit
       ? await run(() => api.groups.update(editing.id, fields), 'Ryhmä päivitetty.')
       : await run(() => api.groups.create(coachId, { ...fields, memberIds }), 'Ryhmä luotu — treenit ovat kalenterissa.', { waitForRefresh: true });
@@ -82,11 +83,14 @@ export function GroupFormSheet({ open, onClose, editing }) {
   };
   const players = state.students.slice().sort((a, b) => a.name.localeCompare(b.name, 'fi'));
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={isEdit ? 'Muokkaa ryhmää' : 'Uusi ryhmä'} size="md" dismissible={!busy} confirmClose={!isEdit && Boolean(name.trim())}
+    <Sheet open={open} onClose={() => !busy && onClose()} title={isEdit ? 'Muokkaa ryhmää' : 'Uusi ryhmä'} size="md" dismissible={!busy} confirmClose={isEdit ? (name.trim() !== (editing.name || '') || place.trim() !== (editing.place || '')) : Boolean(name.trim() || place.trim())}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!name.trim() ? 'Anna ryhmälle nimi.' : !time ? 'Valitse kellonaika.' : null} loading={busy} onClick={submit}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="g-name"><Input id="g-name" size="lg" value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. tiistai aikuiset" maxLength={120} /></Field>
         <Field label="Taso" optional htmlFor="g-level"><Input id="g-level" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Esim. Keskitaso" maxLength={80} /></Field>
+        <Field label="Paikka" optional htmlFor="g-place" hint="Näkyy pelaajille ryhmän sivulla ja treenipäivän muistutuksessa.">
+          <Input id="g-place" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Esim. Lahden tennishalli, kenttä 3" maxLength={120} />
+        </Field>
         <Field label="Viikonpäivä"><DayPicker value={day} onChange={setDay} /></Field>
         <div className="k-two">
           <Field label="Kellonaika"><TimeSelect value={time} onChange={setTime} /></Field>
