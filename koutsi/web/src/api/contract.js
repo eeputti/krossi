@@ -71,8 +71,18 @@ export const API_CONTRACT = {
 
   // Coach's notes to a player (koutsi_diary_entries) and homework. addMany writes one row per
   // player in one insert: each player gets their own copy (and their own notification).
+  // notes.addMany(coachId, ids, text, log?) / homework.addMany(ids, text, log?): with
+  // log = { coachId, groupIds, refId? } (only while state.sendsReady) the sending also goes to Lähetetyt
+  // and every copy carries its sendId (homework also its coachId).
   notes: ['add', 'addMany', 'update', 'remove'],
   homework: ['add', 'addMany', 'update', 'remove', 'toggleDone'],
+
+  // Lähetetyt (koutsi_sends; domain/sends.js). CoachState carries `sends: [{ id, kind: 'video' | 'homework'
+  // | 'note', videoId, refId, title, groupIds, studentIds, at }]` (newest first), `videoLibrary` (the coach's
+  // own videos: [{ id, title, tags, at, hue, storagePath, externalUrl, mimeType, sizeBytes }]) and
+  // `sendsReady` (false while the tables are missing: Lähetetyt and the Videot tab stay hidden).
+  // update(sendId, text) — a homework's or note's every copy; remove(sendId) — takes it back from its players.
+  sends: ['update', 'remove'],
 
   // Tiedotteet (koutsi_announcements): a practical notice to groups or players — a different coach
   // tomorrow, another court — shown on the players' Koti until `until` and never on anyone's
@@ -82,7 +92,11 @@ export const API_CONTRACT = {
   // (false while the table is missing: the Tiedote choice stays hidden).
   announcements: ['add', 'remove'],
 
-  videos: ['share', 'setRecipients', 'url', 'remove'],
+  // share(...) — a player's own video, or a coach's before Lähetetyt; the coach's own videos:
+  // save({ coachId, id?, title, tags, file | externalUrl, onProgress, signal }) → id,
+  // shareSaved({ coachId, videoId, studentIds, groupIds, date? }) → { sendId, added } (only those without it),
+  // updateSaved(videoId, { title, tags }), removeSaved(videoId) — from everyone, for good.
+  videos: ['share', 'setRecipients', 'url', 'remove', 'save', 'shareSaved', 'updateSaved', 'removeSaved'],
   exercises: ['add', 'update', 'remove', 'setVideo', 'removeVideo', 'seedStarters'],
   events: ['add', 'update', 'remove'],
 

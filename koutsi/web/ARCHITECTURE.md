@@ -182,6 +182,19 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   (`SeasonEditSheet`: kauden pidennys jatkaa vain kauden loppuun asti ulottuvien ryhmien kalenterin).
   Ryhmän luonnissa "Kauden loppuun (n vk)" on oletus. Ilman migraatiota `seasonsReady: false` ja kaikki on piilossa.
 
+- Lähetetyt ja valmentajan videot (`domain/sends.js`, `coach/SentScreen.jsx`, `coach/sent.jsx`, `coach/VideosTab.jsx`,
+  tyylit `styles/sent.css`): kaikki, mitä valmentaja on lähettänyt pelaajille — videot, kotiläksyt, huomiot ja
+  tiedotteet — päivittäin uusin ensin: kenelle (kokonaiset ryhmät nimellä, muut etunimellä), milloin ja kotiläksystä
+  "3/8 tehty". Avattuna: kuka on tehnyt, Muokkaa (kaikki kopiot kerralla), Poista kaikilta ja "Lähetä myös muille"
+  (jo saaneet näkyvät "Saanut" eikä heitä voi valita). Ryhmän sivulla "Ryhmälle lähetetty" (3 uusinta →
+  `/valmentaja/lahetetyt?ryhma=`). Jokainen jaettu video tallentuu valmentajan omiin videoihin (Harjoitteet ja videot
+  → Videot), ja Merkitse → Video → "Omista videoista" jakaa saman videon uudelleen lataamatta sitä. Tietokanta:
+  `koutsi_sends` (yksi rivi per lähetys, vain valmentaja lukee), `koutsi_coach_videos` (id = pelaajarivien `share_id`,
+  tiedosto kerran valmentajan kansiossa) ja `koutsi_homework.coach_id/send_id`, `koutsi_diary_entries.send_id`.
+  Ehdotettu migraatio `koutsi/web/sql/20261026110000_koutsi_sends_and_video_library.sql` (testi samassa kansiossa,
+  PGlite) — **EI AJETTU**; ilman sitä `sendsReady: false`, ja Lähetetyt, Videot-välilehti ja "Omista videoista"
+  pysyvät piilossa, kaikki lähettäminen toimii kuten ennen. Demossa kaikki on päällä.
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)
@@ -196,7 +209,8 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/valmentaja/pelaaja/:id` | player | page |
 | `/valmentaja/kutsut` | invites | overlay |
 | `/valmentaja/treeni/:id` | session | page |
-| `/valmentaja/harjoitteet`, `/valmentaja/harjoite/:id` | exercises, exercise | page |
+| `/valmentaja/harjoitteet` (`?nakyma=videot`), `/valmentaja/harjoite/:id` | exercises (Harjoitteet · Videot), exercise | page |
+| `/valmentaja/lahetetyt` (`?laji=video\|laksy\|huomio\|tiedote`, `?ryhma=<id>`) | sent — Lähetetyt (puhelimessa Lisää-valikosta) | tab |
 | `/valmentaja/profiili`, `/valmentaja/yllapito` | profile, admin | tab / page |
 | `/valmentaja/oppilaat`, `/treenit`, `/kalenteri` | vanhat osoitteet | ohjaus uusiin (`/kalenteri?vko=` säilyttää viikon) |
 

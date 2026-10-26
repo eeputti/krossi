@@ -11,7 +11,7 @@
 import { db, isMissingFunction, isMissingTable, must, selectAll, selectIn } from './client.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
 import { koutsiAddDays, koutsiTodayStr } from '../../domain/core.js';
-import { mapClubEvent, mapCoach, mapExercise, mapGroup, mapRosterStub, mapSeason, mapStudent, mapTraining, mapWeekNote, groupBy } from './map.js';
+import { mapClubEvent, mapCoach, mapCoachVideo, mapExercise, mapGroup, mapRosterStub, mapSeason, mapSend, mapStudent, mapTraining, mapWeekNote, groupBy } from './map.js';
 
 const fromTable = (table) => db().from(table);
 
@@ -87,6 +87,23 @@ async function loadAnnouncements(narrow) {
   return { rows: (data || []).map(mapAnnouncement), ready: true };
 }
 
+// Lähetetyt and the coach's own videos (koutsi/web/sql/20261026110000_koutsi_sends_and_video_library.sql).
+// An addition like the week diary: without the tables the app opens as before and `sendsReady`
+// keeps Lähetetyt, the Videot tab and "Omista videoista" hidden. The newest 1000 sendings are plenty
+// for the page; a player's own copies (homework, notes, videos) are read with the players.
+async function loadSends(coachId) {
+  const [sends, videos] = await Promise.all([
+    fromTable('koutsi_sends').select('*').eq('coach_id', coachId).order('created_at', { ascending: false }).limit(1000),
+    fromTable('koutsi_coach_videos').select('*').eq('coach_id', coachId).order('created_at', { ascending: false }),
+  ]);
+  const error = sends.error || videos.error;
+  if (error) {
+    if (!isMissingTable(error)) console.warn('sends unavailable:', error.message || error);
+    return { sends: [], videoLibrary: [], ready: false };
+  }
+  return { sends: (sends.data || []).map(mapSend), videoLibrary: (videos.data || []).map(mapCoachVideo), ready: true };
+}
+
 export async function loadCoachState(coachId) {
   const [coachRow, profileRow] = await Promise.all([
     fromTable('koutsi_coaches').select('id, tagline, bio, experience, specialties, welcome_seen_at').eq('id', coachId).single().then(must),
@@ -103,7 +120,7 @@ export async function loadCoachState(coachId) {
 
   const [
     studentRows, studentProfiles, groupRows, exerciseRows, eventRows, ownTrainingRows, playerLogRows,
-    diary, homework, videos, moods, matchNotes, history, weekNotes, entries, archive, seasons, notices,
+    diary, homework, videos, moods, matchNotes, history, weekNotes, entries, archive, seasons, notices, sent,
   ] = await Promise.all([
     selectIn(studentIds, (ids) => fromTable('koutsi_students').select('*').in('id', ids)),
     selectIn(studentIds, (ids) => fromTable('profiles').select('id, name, avatar_url, age, bio').in('id', ids)),
@@ -123,7 +140,9 @@ export async function loadCoachState(coachId) {
     loadEntries(studentIds),
     loadArchive(studentIds),
     loadCoachSeasons(coachId),
-    loadAnnouncements((q) => q.eq('coach_id', coachId).gte('until', koutsiAddDays(koutsiTodayStr(), -30)).order('created_at', { ascending: false })),
+    // a month back is enough for Merkitse's list; Lähetetyt shows the ones the nightly prune keeps (60 pv)
+    loadAnnouncements((q) => q.eq('coach_id', coachId).gte('until', koutsiAddDays(koutsiTodayStr(), -60)).order('created_at', { ascending: false })),
+    loadSends(coachId),
   ]);
 
   const trainingRows = [...ownTrainingRows, ...playerLogRows];
@@ -155,6 +174,9 @@ export async function loadCoachState(coachId) {
     seasonsReady: seasons.ready,
     announcements: notices.rows,
     announcementsReady: notices.ready,
+    sends: sent.sends,
+    videoLibrary: sent.videoLibrary,
+    sendsReady: sent.ready,
   });
 }
 

@@ -16,6 +16,7 @@ import { playerPath } from './nav.js';
 import { groupWhen, SessionRow } from './parts.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { useRecord } from './merkitse.jsx';
+import { GroupSent } from './sent.jsx';
 import { GroupTodayCard } from './today.jsx';
 import { Link } from '../app/router.js';
 import {
@@ -162,6 +163,7 @@ export function GroupScreen({ params }) {
             <Button variant="outline" icon="play" onClick={() => record.open('video', { ids: memberIds, source: 'ryhma', scope })}>Video</Button>
           </div>
         )}
+        <GroupSent groupId={group.id} />
         <ThemeSection group={group} />
         <Sessions state={state} group={group} />
         <Members state={state} group={group} onAdd={() => setSheet('members')} onInvite={() => setSheet('invite')} />

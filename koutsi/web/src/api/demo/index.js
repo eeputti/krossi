@@ -61,7 +61,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true, sends: s.sends || [], videoLibrary: s.videoLibrary || [], sendsReady: true };
 }
 
 /** The notices a player sees: to one of their groups or to them, still in date. */
@@ -120,6 +120,14 @@ function demoEntry({ date, text, how }) {
 const sortEntries = (st) => { st.entries = (st.entries || []).sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.at).localeCompare(String(a.at))); };
 
 const validAge = (age) => age == null || (Number.isInteger(age) && age >= 1 && age < 120);
+
+const findVideo = (id) => (S().videoLibrary || []).find((v) => v.id === id);
+/** One sending to Lähetetyt (log = { groupIds, refId? }); returns its id for the copies. */
+function logSend(kind, text, ids, log, at) {
+  const id = newId('send');
+  S().sends = [{ id, kind, videoId: null, refId: log.refId || id, title: text, groupIds: [...new Set(log.groupIds || [])], studentIds: ids, at }, ...(S().sends || [])];
+  return id;
+}
 
 const SIGNUP = () => (role === 'player' ? 'https://koutsi.krossi.app/pelaaja' : 'https://koutsi.krossi.app/valmentaja');
 
@@ -603,11 +611,12 @@ export const backend = {
       const at = nowIso();
       findStudent(studentId).diary.unshift({ id: newId('d'), at, date: koutsiFmtShortDate(at.slice(0, 10)), text });
     },
-    async addMany(coachId, studentIds, text) {
+    async addMany(coachId, studentIds, text, log = null) {
       await wait();
       const at = nowIso();
       const ids = [...new Set(studentIds)];
-      ids.forEach((studentId) => findStudent(studentId).diary.unshift({ id: newId('d'), at, date: koutsiFmtShortDate(at.slice(0, 10)), text }));
+      const sendId = log ? logSend('note', text, ids, log, at) : null;
+      ids.forEach((studentId) => findStudent(studentId).diary.unshift({ id: newId('d'), at, date: koutsiFmtShortDate(at.slice(0, 10)), text, sendId }));
       return ids.length;
     },
     async update(id, text) { await wait(); patchById('diary', id, { text }); },
@@ -616,10 +625,12 @@ export const backend = {
 
   homework: {
     async add(studentId, text) { await wait(); findStudent(studentId).homework.unshift({ id: newId('h'), at: nowIso(), text, done: false, doneAt: null }); },
-    async addMany(studentIds, text) {
+    async addMany(studentIds, text, log = null) {
       await wait();
+      const at = nowIso();
       const ids = [...new Set(studentIds)];
-      ids.forEach((studentId) => findStudent(studentId).homework.unshift({ id: newId('h'), at: nowIso(), text, done: false, doneAt: null }));
+      const sendId = log ? logSend('homework', text, ids, log, at) : null;
+      ids.forEach((studentId) => findStudent(studentId).homework.unshift({ id: newId('h'), at, text, done: false, doneAt: null, sendId, coachId: sendId ? COACH : null }));
       return ids.length;
     },
     async update(id, text) { await wait(); patchById('homework', id, { text }); },
@@ -655,6 +666,78 @@ export const backend = {
     },
     async url(storagePath) { return storagePath || null; },
     async remove(id) { await wait(); removeById('videos', id); },
+
+    // the coach's own videos (koutsi_coach_videos in the real backend)
+    async save({ id = null, title, tags = [], file = null, externalUrl = null, onProgress }) {
+      await wait();
+      const videoId = id || newId('vid');
+      if (findVideo(videoId)) return videoId;
+      if (file && onProgress) onProgress(100);
+      const name = String(title || '').trim().slice(0, 200) || 'Video';
+      S().videoLibrary = [{
+        id: videoId, title: name, tags: tags || [], at: nowIso(), hue: koutsiHueFromId(videoId),
+        storagePath: file ? URL.createObjectURL(file) : null, externalUrl: file ? null : (externalUrl || null),
+        mimeType: file ? file.type : null, sizeBytes: file ? file.size : null,
+      }, ...(S().videoLibrary || [])];
+      return videoId;
+    },
+    async shareSaved({ videoId, studentIds, groupIds = [], date = koutsiTodayStr() }) {
+      await wait();
+      const video = findVideo(videoId);
+      if (!video) throw new ApiError('Videota ei enää löydy. Päivitä sivu.');
+      const pending = [...new Set(studentIds || [])].filter((sid) => findStudent(sid) && !findStudent(sid).videos.some((v) => v.shareId === videoId));
+      if (!pending.length) return { sendId: null, added: 0 };
+      const at = nowIso();
+      const sendId = newId('send');
+      S().sends = [{ id: sendId, kind: 'video', videoId, refId: videoId, title: video.title, groupIds: [...new Set(groupIds)], studentIds: pending, at }, ...(S().sends || [])];
+      pending.forEach((sid) => findStudent(sid).videos.unshift({
+        id: newId('v'), shareId: videoId, recipientIds: pending, at, title: video.title, date, tags: video.tags || [], hue: video.hue,
+        addedBy: 'coach', storagePath: video.storagePath, externalUrl: video.externalUrl, mimeType: video.mimeType,
+      }));
+      return { sendId, added: pending.length };
+    },
+    async updateSaved(videoId, { title, tags = [] }) {
+      await wait();
+      const name = String(title || '').trim();
+      if (!name) throw new ApiError('Anna videolle nimi.');
+      const video = findVideo(videoId);
+      if (video) Object.assign(video, { title: name, tags });
+      eachList('videos', (list) => list.map((v) => (v.shareId === videoId ? { ...v, title: name, tags } : v)));
+      (S().sends || []).forEach((x) => { if (x.videoId === videoId) x.title = name; });
+    },
+    async removeSaved(videoId) {
+      await wait();
+      eachList('videos', (list) => list.filter((v) => v.shareId !== videoId));
+      S().videoLibrary = (S().videoLibrary || []).filter((v) => v.id !== videoId);
+      S().sends = (S().sends || []).filter((x) => x.videoId !== videoId);
+    },
+  },
+
+  // Lähetetyt: a sending as a whole (see the real backend's coaching.js `sends`)
+  sends: {
+    async update(sendId, text) {
+      await wait();
+      const body = String(text || '').trim();
+      if (!body) throw new ApiError('Kirjoita teksti.');
+      const send = (S().sends || []).find((x) => x.id === sendId);
+      if (!send) throw new ApiError('Lähetystä ei enää löydy. Päivitä sivu.');
+      if (send.kind === 'video') throw new ApiError('Videon nimen voi vaihtaa Videoista.');
+      eachList(send.kind === 'homework' ? 'homework' : 'diary', (list) => list.map((x) => (x.sendId === sendId ? { ...x, text: body } : x)));
+      send.title = body;
+    },
+    async remove(sendId) {
+      await wait();
+      const send = (S().sends || []).find((x) => x.id === sendId);
+      if (!send) return;
+      if (send.kind === 'video') {
+        const keep = new Set((S().sends || []).filter((x) => x.id !== sendId && x.videoId === send.videoId).flatMap((x) => x.studentIds));
+        const drop = new Set(send.studentIds.filter((id) => !keep.has(id)));
+        eachList('videos', (list, st) => (drop.has(st.id) ? list.filter((v) => v.shareId !== send.videoId) : list));
+      } else {
+        eachList(send.kind === 'homework' ? 'homework' : 'diary', (list) => list.filter((x) => x.sendId !== sendId));
+      }
+      S().sends = S().sends.filter((x) => x.id !== sendId);
+    },
   },
 
   exercises: {

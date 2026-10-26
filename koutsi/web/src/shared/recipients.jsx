@@ -3,11 +3,13 @@
 // already picked (after a session, from a group's page) it starts folded to one summary line.
 // It goes last in its sheet, and its list grows with the sheet instead of scrolling inside it.
 import { useEffect, useMemo, useState } from 'react';
-import { Avatar, Input } from '../ui/index.js';
+import { Avatar, Icon, Input } from '../ui/index.js';
 import { koutsiSortGroupsBySchedule } from '../domain/core.js';
 import { firstName, matchStudents } from '../domain/roster.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
+/** "19.10." of a timestamp or a date */
+const shortDay = (at) => { if (!at) return ''; const d = new Date(at); return Number.isNaN(d.getTime()) ? '' : `${d.getDate()}.${d.getMonth() + 1}.`; };
 
 /** "Aino, Onni ja 2 muuta" */
 export function recipientSummary(students, ids) {
@@ -22,8 +24,10 @@ export function recipientSummary(students, ids) {
  *   students: [{ id, name, … }]   groups: the coach's groups (for the one-tap picks)
  *   value: picked ids   onChange(ids)   open: the sheet is open (resets the fold)
  */
-/*   boxed: the list scrolls in a box of its own (Merkitse, where the text field comes after it) */
-export function RecipientPicker({ students, groups = [], value, onChange, open = true, boxed = false }) {
+/*   boxed: the list scrolls in a box of its own (Merkitse, where the text field comes after it)
+ *   received: Map id → when — players who already have it ("Lähetä myös muille"): shown as "Saanut",
+ *   they can't be picked, and a group's tap picks only its others */
+export function RecipientPicker({ students, groups = [], value, onChange, open = true, boxed = false, received = null }) {
   const [expanded, setExpanded] = useState(value.length === 0);
   const [query, setQuery] = useState('');
   useEffect(() => {
@@ -33,9 +37,13 @@ export function RecipientPicker({ students, groups = [], value, onChange, open =
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const known = useMemo(() => new Set(students.map((s) => s.id)), [students]);
+  const has = (id) => Boolean(received && received.has(id));
   const sortedGroups = useMemo(() => koutsiSortGroupsBySchedule(groups)
-    .map((g) => ({ ...g, ids: g.memberIds.filter((id) => known.has(id)) }))
-    .filter((g) => g.ids.length > 0), [groups, known]);
+    .map((g) => {
+      const ids = g.memberIds.filter((id) => known.has(id));
+      return { ...g, ids, free: ids.filter((id) => !(received && received.has(id))) };
+    })
+    .filter((g) => g.ids.length > 0), [groups, known, received]);
   const list = useMemo(() => {
     const base = query.trim() ? matchStudents(students, query, { limit: 60 }) : students.slice().sort((a, b) => a.name.localeCompare(b.name, 'fi'));
     return base;
@@ -43,8 +51,8 @@ export function RecipientPicker({ students, groups = [], value, onChange, open =
 
   const picked = new Set(value);
   const toggle = (id) => onChange(picked.has(id) ? value.filter((x) => x !== id) : [...value, id]);
-  const groupOn = (g) => g.ids.every((id) => picked.has(id));
-  const toggleGroup = (g) => onChange(groupOn(g) ? value.filter((id) => !g.ids.includes(id)) : [...new Set([...value, ...g.ids])]);
+  const groupOn = (g) => g.free.length > 0 && g.free.every((id) => picked.has(id));
+  const toggleGroup = (g) => onChange(groupOn(g) ? value.filter((id) => !g.free.includes(id)) : [...new Set([...value, ...g.free])]);
 
   if (!expanded) {
     const shown = value.map((id) => students.find((s) => s.id === id)).filter(Boolean);
@@ -65,21 +73,31 @@ export function RecipientPicker({ students, groups = [], value, onChange, open =
     <div className="stack-2">
       {sortedGroups.length > 0 && (
         <div className="k-recipient-groups" role="group" aria-label="Valitse ryhmä">
-          {sortedGroups.map((g) => (
+          {sortedGroups.map((g) => (g.free.length === 0 ? (
+            <span key={g.id} className="planner-chip is-received" title="Kaikki ryhmäläiset ovat jo saaneet tämän">
+              {g.day} {g.time} {g.name}<span className="planner-chip-sub">Saanut</span>
+            </span>
+          ) : (
             <button key={g.id} type="button" className={cx('planner-chip', groupOn(g) && 'is-on')} aria-pressed={groupOn(g)} onClick={() => toggleGroup(g)}>
-              {g.day} {g.time} {g.name}<span className="planner-chip-sub">{g.ids.length}</span>
+              {g.day} {g.time} {g.name}<span className="planner-chip-sub">{g.free.length < g.ids.length ? `${g.free.length}/${g.ids.length}` : g.ids.length}</span>
             </button>
-          ))}
+          )))}
         </div>
       )}
       {students.length > 8 && <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae nimellä" aria-label="Hae pelaajaa" />}
       <div className={cx('k-pick-list k-recipient-list', boxed && 'is-boxed')}>
-        {list.map((s) => (
+        {list.map((s) => (has(s.id) ? (
+          <div key={s.id} className="k-pick is-received">
+            <span className="k-pick-received" aria-hidden="true"><Icon name="check" size={13} strokeWidth={3} /></span>
+            <Avatar person={s} size={28} /><span className="truncate grow">{s.name}</span>
+            <span className="k-pick-when">Saanut {shortDay(received.get(s.id))}</span>
+          </div>
+        ) : (
           <label key={s.id} className={cx('k-pick', picked.has(s.id) && 'is-on')}>
             <input type="checkbox" checked={picked.has(s.id)} onChange={() => toggle(s.id)} />
             <Avatar person={s} size={28} /><span className="truncate">{s.name}</span>
           </label>
-        ))}
+        )))}
         {list.length === 0 && <p className="k-quiet">Ei osumia.</p>}
       </div>
     </div>

@@ -20,6 +20,7 @@ import { useNow } from '../app/hooks.js';
 import { navigate, useRoute } from '../app/router.js';
 import { Icon, Sheet, useToast } from '../ui/index.js';
 import { VideoShareSheet } from '../shared/videos.jsx';
+import { groupsCovering, libraryItems, libraryLine } from '../domain/sends.js';
 import { koutsiCurrentIsoWeek, koutsiFmtShortDate, koutsiTodayStr, koutsiWeekThemeStatus } from '../domain/core.js';
 import {
   attendanceSession, dayRecap, groupMemberIds, merkitseContext, plannerDefaultWeek, presentPlayerIdsOf, sessionStatus, todayTimeline,
@@ -304,9 +305,10 @@ export function RecordProvider({ children }) {
     setSheet((s) => (s && (s.kind === 'menu' || s.kind === 'day' || s.kind === 'week') ? null : s));
   }, [route.path]);
 
-  const open = useCallback((kind, { ids = [], source, text = '', scope = null } = {}) => {
+  // allowEmpty (video): "Lisää video" on the Videot tab — saving with nobody picked keeps it in the coach's videos
+  const open = useCallback((kind, { ids = [], source, text = '', scope = null, allowEmpty = false } = {}) => {
     if (source) track(`${source}.${KIND_EVENT[kind]}`);
-    setSheet({ kind, ids, text, scope });
+    setSheet({ kind, ids, text, scope, allowEmpty });
   }, []);
   // The menu opens on the session asked for, else the one on now, just over or next today.
   const stateRef = useRef(state);
@@ -332,14 +334,27 @@ export function RecordProvider({ children }) {
   }), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The video sheet shows a failed upload itself (and keeps the form), so no toast for errors.
+  // With Lähetetyt (state.sendsReady) every video goes to the coach's own videos first (the sheet's
+  // shareId is its id, so a retry doesn't upload twice) and is then shared from there; a picked one
+  // from "Omista videoista" is only shared.
   const shareVideo = async (payload) => {
-    await api.videos.share({ ...payload, addedById: coachId });
-    await reload().catch(() => {});
     const n = payload.studentIds.length;
-    toast(n > 1 ? `Video jaettu ${n} pelaajalle.` : 'Video jaettu.');
-    track('tallennettu.video');
+    if (state.sendsReady) {
+      const videoId = payload.savedId || await api.videos.save({
+        coachId, id: payload.shareId, title: payload.title, tags: payload.tags, file: payload.file, externalUrl: payload.externalUrl,
+        onProgress: payload.onProgress, signal: payload.signal,
+      });
+      if (n) await api.videos.shareSaved({ coachId, videoId, studentIds: payload.studentIds, groupIds: groupsCovering(state.groups, payload.studentIds), date: payload.date });
+    } else {
+      await api.videos.share({ ...payload, addedById: coachId });
+    }
+    // like run(): the sheet closes once the list has caught up, or after 1.5 s on a slow connection
+    await Promise.race([reload().catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
+    toast(n === 0 ? 'Video tallennettu Videoihin.' : n > 1 ? `Video jaettu ${n} pelaajalle.` : 'Video jaettu.');
+    track(n === 0 ? 'tallennettu.video-omiin' : payload.savedId ? 'tallennettu.video-omista' : 'tallennettu.video');
     if (n > 1) track('tallennettu.video-monelle');
   };
+  const library = useMemo(() => (state.sendsReady ? libraryItems(state).map((v) => ({ ...v, line: libraryLine(state, v) })) : null), [state]);
 
   // EHDOTUS: the new Merkitse (MerkintaSheet.jsx) — a Tiedote, a Huomio or the Läsnäolo, for a
   // session's players (trainingId), some players (ids) or whoever the coach picks.
@@ -366,7 +381,8 @@ export function RecordProvider({ children }) {
       <RecordSheet open={kind === 'note' || kind === 'homework'} kind={last.current.record?.kind || 'note'} initialIds={sheet?.ids || []} initialText={sheet?.text || ''}
         scope={last.current.record?.scope || null} onClose={close} />
       <VideoShareSheet open={kind === 'video'} onClose={close} recipients={state.students} initialIds={sheet?.ids || []} groups={state.groups} onSave={shareVideo}
-        scope={last.current.video?.scope || null} />
+        scope={last.current.video?.scope || null} library={library} allowEmpty={Boolean(last.current.video?.allowEmpty) && Boolean(state.sendsReady)}
+        title={last.current.video?.allowEmpty && state.sendsReady ? 'Lisää video' : 'Jaa video'} />
       <DaySummarySheet open={kind === 'day'} date={last.current.day?.date} onClose={close} />
       <WeekRecapSheet open={kind === 'week'} week={last.current.week?.week} onClose={close} />
       <ContinueThemesSheet open={kind === 'continue'} week={last.current.continue?.week || null} onClose={close} />

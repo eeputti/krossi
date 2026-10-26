@@ -121,8 +121,9 @@ export function mapStudent(studentRow, profileRow, rows) {
     ambition: studentRow.ambition || '', longGoal: studentRow.long_goal || '',
     joinedAt: studentRow.created_at || null,
     welcomeSeenAt: studentRow.welcome_seen_at || null,
-    diary: mine(diary).map((d) => ({ id: d.id, at: d.created_at, date: koutsiFmtShortDateFromTimestamp(d.created_at), text: d.text })).sort(newestFirst),
-    homework: mine(homework).map((h) => ({ id: h.id, at: h.created_at, doneAt: h.done_at || null, text: h.text, done: h.done })).sort(newestFirst),
+    // sendId ties a copy to its sending (koutsi_sends, Lähetetyt); null on rows from before it or the old app
+    diary: mine(diary).map((d) => ({ id: d.id, at: d.created_at, date: koutsiFmtShortDateFromTimestamp(d.created_at), text: d.text, sendId: d.send_id || null })).sort(newestFirst),
+    homework: mine(homework).map((h) => ({ id: h.id, at: h.created_at, doneAt: h.done_at || null, text: h.text, done: h.done, sendId: h.send_id || null, coachId: h.coach_id || null })).sort(newestFirst),
     videos: mine(videos).map((v) => ({
       id: v.id,
       shareId: v.share_id || v.id,
@@ -195,5 +196,21 @@ export function mapSeason(row) {
   return {
     id: row.id, coachId: row.coach_id, name: row.name, startsOn: row.starts_on, endsOn: row.ends_on,
     breaks: Array.isArray(row.breaks) ? row.breaks : [],
+  };
+}
+
+/** One sending (koutsi_sends): a video, a homework or a note to some groups and players. */
+export function mapSend(r) {
+  return {
+    id: r.id, kind: r.kind, videoId: r.video_id || null, refId: r.ref_id, title: r.title || '',
+    groupIds: r.group_ids || [], studentIds: r.student_ids || [], at: r.created_at,
+  };
+}
+
+/** One of the coach's own videos (koutsi_coach_videos): its id is the share_id players' rows carry. */
+export function mapCoachVideo(r) {
+  return {
+    id: r.id, title: r.title, tags: r.tags || [], at: r.created_at, hue: koutsiHueFromId(r.id),
+    storagePath: r.storage_path || null, externalUrl: r.external_url || null, mimeType: r.mime_type || null, sizeBytes: r.size_bytes || null,
   };
 }

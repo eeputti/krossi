@@ -427,14 +427,36 @@ export const attendance = {
   },
 };
 
+// Lähetetyt (koutsi_sends, koutsi/web/sql/20261026110000_koutsi_sends_and_video_library.sql): one row per
+// sending, written before the copies so that each copy can point at it. `log` is passed only once the
+// table is there (state.sendsReady): { coachId, groupIds, refId } — refId is the first sending's id
+// when the same thing goes on to more players ("Lähetä myös muille").
+async function startSend(coachId, kind, text, ids, log) {
+  const id = randomUuid();
+  must(await from('koutsi_sends').insert({
+    id, coach_id: coachId, kind, ref_id: log.refId || id, title: text,
+    group_ids: [...new Set(log.groupIds || [])], student_ids: ids,
+  }));
+  return id;
+}
+// The copies didn't land: the log line goes too (best effort; the error that matters is thrown).
+const dropSend = (id) => from('koutsi_sends').delete().eq('id', id).then(() => {}, () => {});
+
 export const notes = {
   async add(coachId, studentId, text) {
     must(await from('koutsi_diary_entries').insert({ coach_id: coachId, student_id: studentId, text }));
   },
-  async addMany(coachId, studentIds, text) {
+  async addMany(coachId, studentIds, text, log = null) {
     const ids = [...new Set((studentIds || []).filter(Boolean))];
     if (ids.length === 0) return 0;
-    must(await from('koutsi_diary_entries').insert(ids.map((studentId) => ({ coach_id: coachId, student_id: studentId, text }))));
+    const sendId = log ? await startSend(coachId, 'note', text, ids, log) : null;
+    const { error } = await from('koutsi_diary_entries').insert(ids.map((studentId) => ({
+      coach_id: coachId, student_id: studentId, text, ...(sendId ? { send_id: sendId } : {}),
+    })));
+    if (error) {
+      if (sendId) await dropSend(sendId);
+      must({ data: null, error });
+    }
     return ids.length;
   },
   async update(entryId, text) {
@@ -471,10 +493,18 @@ export const homework = {
   async add(studentId, text) {
     must(await from('koutsi_homework').insert({ student_id: studentId, text }));
   },
-  async addMany(studentIds, text) {
+  // log: { coachId, groupIds, refId } once Lähetetyt is there — then each copy also knows its coach.
+  async addMany(studentIds, text, log = null) {
     const ids = [...new Set((studentIds || []).filter(Boolean))];
     if (ids.length === 0) return 0;
-    must(await from('koutsi_homework').insert(ids.map((studentId) => ({ student_id: studentId, text }))));
+    const sendId = log ? await startSend(log.coachId, 'homework', text, ids, log) : null;
+    const { error } = await from('koutsi_homework').insert(ids.map((studentId) => ({
+      student_id: studentId, text, ...(sendId ? { send_id: sendId, coach_id: log.coachId } : {}),
+    })));
+    if (error) {
+      if (sendId) await dropSend(sendId);
+      must({ data: null, error });
+    }
     return ids.length;
   },
   async update(homeworkId, text) {
@@ -485,6 +515,38 @@ export const homework = {
   },
   async toggleDone(homeworkId, done) {
     must(await from('koutsi_homework').update({ done, done_at: done ? new Date().toISOString() : null }).eq('id', homeworkId));
+  },
+};
+
+// One sending as a whole, from Lähetetyt. A video is renamed or deleted through videos.updateSaved /
+// removeSaved (it lives in the coach's videos); here it can only be taken back from its players.
+export const sends = {
+  // update(sendId, text): a homework's or a note's text on every copy still tied to it, and its log line
+  async update(sendId, text) {
+    const body = String(text || '').trim();
+    if (!body) throw new ApiError('Kirjoita teksti.');
+    if (body.length > 4000) throw new ApiError('Teksti on liian pitkä (enintään 4000 merkkiä).');
+    const send = must(await from('koutsi_sends').select('id, kind').eq('id', sendId).maybeSingle());
+    if (!send) throw new ApiError('Lähetystä ei enää löydy. Päivitä sivu.');
+    if (send.kind === 'video') throw new ApiError('Videon nimen voi vaihtaa Videoista.');
+    must(await from(send.kind === 'homework' ? 'koutsi_homework' : 'koutsi_diary_entries').update({ text: body }).eq('send_id', sendId));
+    must(await from('koutsi_sends').update({ title: body }).eq('id', sendId));
+  },
+  // remove(sendId): takes it back from its players — homework and notes are deleted, a video is taken
+  // from them (it stays in the coach's videos; whoever got it in another sending keeps it) — and the
+  // log line goes.
+  async remove(sendId) {
+    const send = must(await from('koutsi_sends').select('*').eq('id', sendId).maybeSingle());
+    if (!send) return;
+    if (send.kind === 'video') {
+      const others = must(await from('koutsi_sends').select('student_ids').eq('video_id', send.video_id).neq('id', sendId)) || [];
+      const keep = new Set(others.flatMap((o) => o.student_ids || []));
+      const drop = (send.student_ids || []).filter((id) => !keep.has(id));
+      if (drop.length) must(await from('koutsi_videos').delete().eq('share_id', send.video_id).in('student_id', drop));
+    } else {
+      must(await from(send.kind === 'homework' ? 'koutsi_homework' : 'koutsi_diary_entries').delete().eq('send_id', sendId));
+    }
+    must(await from('koutsi_sends').delete().eq('id', sendId));
   },
 };
 

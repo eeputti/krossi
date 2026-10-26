@@ -2,7 +2,8 @@
 // Same storage paths, RLS assumptions and cleanup/rollback rules as the old lib/koutsi-data.js.
 
 import * as tus from 'tus-js-client';
-import { db, must, randomUuid, requireSession, SUPABASE_URL, SUPABASE_ANON_KEY } from './client.js';
+import { db, isMissingTable, must, randomUuid, requireSession, SUPABASE_URL, SUPABASE_ANON_KEY } from './client.js';
+import { koutsiTodayStr } from '../../domain/core.js';
 import { ApiError } from '../errors.js';
 import { VIDEO_MAX_BYTES, VIDEO_TUS_CHUNK_BYTES, PLAN_MAX_BYTES } from '../../lib/constants.js';
 
@@ -61,6 +62,17 @@ async function uploadVideoFile(uploaderId, shareId, file, onProgress, signal = n
   return { path, mimeType, sizeBytes: file.size };
 }
 
+// A file one of the coach's own videos (koutsi_coach_videos) still holds must stay when the last
+// player's copy goes. Without the table (migration not run) nothing holds it.
+async function libraryHolds(path) {
+  const { count, error } = await from('koutsi_coach_videos').select('id', { count: 'exact', head: true }).eq('storage_path', path);
+  if (error) {
+    if (isMissingTable(error)) return false;
+    throw error;
+  }
+  return (count || 0) > 0;
+}
+
 export const videos = {
   async share({ shareId, title, date, tags, studentIds, addedById, file, externalUrl, onProgress, signal = null }) {
     const resolvedShareId = shareId || randomUuid();
@@ -110,12 +122,82 @@ export const videos = {
       references = count || 0;
     }
     must(await from('koutsi_videos').delete().eq('id', videoId));
-    if (!path || references > 1) return;
+    if (!path || references > 1 || await libraryHolds(path)) return;
     const { error: storageErr } = await bucket('koutsi-videos').remove([path]);
     if (!storageErr) return;
     // keep row and file in agreement: put the last reference back
     await from('koutsi_videos').insert(video);
     throw storageErr;
+  },
+
+  // ── The coach's own videos ("Harjoitteet ja videot" → Videot; koutsi_coach_videos) ──
+  // save({ coachId, id?, title, tags, file | externalUrl, onProgress, signal }) → id. The file goes up
+  // once, to the coach's own folder; the id is also the share_id of every player's copy.
+  async save({ coachId, id = null, title, tags = [], file = null, externalUrl = null, onProgress, signal = null }) {
+    const videoId = id || randomUuid();
+    const name = String(title || '').trim().slice(0, 200) || 'Video';
+    // a retry after a lost response must not upload or insert twice
+    if (must(await from('koutsi_coach_videos').select('id').eq('id', videoId).maybeSingle())) return videoId;
+    const uploaded = file ? await uploadVideoFile(coachId, videoId, file, onProgress, signal) : null;
+    if (signal?.aborted) {
+      if (uploaded) await bucket('koutsi-videos').remove([uploaded.path]).catch(() => {});
+      throw cancelled();
+    }
+    const { error } = await from('koutsi_coach_videos').insert({
+      id: videoId, coach_id: coachId, title: name, tags: tags || [],
+      storage_path: uploaded ? uploaded.path : null, external_url: uploaded ? null : (externalUrl || null),
+      mime_type: uploaded ? uploaded.mimeType : null, size_bytes: uploaded ? uploaded.sizeBytes : null,
+    });
+    if (error) {
+      if (uploaded) await bucket('koutsi-videos').remove([uploaded.path]).catch(() => {});
+      throw error;
+    }
+    return videoId;
+  },
+  // shareSaved({ coachId, videoId, studentIds, groupIds, date }) → { sendId, added }: the players who
+  // don't have it yet get it (one row each — the file stays one, each gets a notification) and the
+  // sending goes to Lähetetyt. Players who already have it are left as they are.
+  async shareSaved({ coachId, videoId, studentIds, groupIds = [], date = koutsiTodayStr() }) {
+    const video = must(await from('koutsi_coach_videos').select('*').eq('id', videoId).maybeSingle());
+    if (!video) throw new ApiError('Videota ei enää löydy. Päivitä sivu.');
+    const existing = must(await from('koutsi_videos').select('student_id').eq('share_id', videoId)) || [];
+    const have = new Set(existing.map((r) => r.student_id));
+    const pending = [...new Set((studentIds || []).filter(Boolean))].filter((id) => !have.has(id));
+    if (!pending.length) return { sendId: null, added: 0 };
+    const sendId = randomUuid();
+    must(await from('koutsi_sends').insert({
+      id: sendId, coach_id: coachId, kind: 'video', video_id: videoId, ref_id: videoId, title: video.title,
+      group_ids: [...new Set(groupIds || [])], student_ids: pending,
+    }));
+    const { error } = await from('koutsi_videos').insert(pending.map((studentId) => ({
+      share_id: videoId, student_id: studentId, added_by_id: coachId, title: video.title, date, tags: video.tags || [],
+      storage_path: video.storage_path, external_url: video.external_url, mime_type: video.mime_type, size_bytes: video.size_bytes,
+    })));
+    if (error) {
+      await from('koutsi_sends').delete().eq('id', sendId).then(() => {}, () => {});
+      throw error;
+    }
+    return { sendId, added: pending.length };
+  },
+  // updateSaved(videoId, { title, tags }): the name and topics everywhere the video shows
+  async updateSaved(videoId, { title, tags = [] }) {
+    const name = String(title || '').trim();
+    if (!name) throw new ApiError('Anna videolle nimi.');
+    if (name.length > 200) throw new ApiError('Nimi on liian pitkä (enintään 200 merkkiä).');
+    must(await from('koutsi_coach_videos').update({ title: name, tags }).eq('id', videoId));
+    must(await from('koutsi_videos').update({ title: name, tags }).eq('share_id', videoId));
+    must(await from('koutsi_sends').update({ title: name }).eq('video_id', videoId));
+  },
+  // removeSaved(videoId): the video goes for good — from every player, from Lähetetyt and the file.
+  async removeSaved(videoId) {
+    const video = must(await from('koutsi_coach_videos').select('*').eq('id', videoId).maybeSingle());
+    if (!video) return;
+    must(await from('koutsi_videos').delete().eq('share_id', videoId));
+    must(await from('koutsi_coach_videos').delete().eq('id', videoId)); // its sendings go with it
+    if (!video.storage_path) return;
+    const { error } = await bucket('koutsi-videos').remove([video.storage_path]);
+    // the rows are gone already; a file left behind is unreachable and harmless
+    if (error) console.warn('video file not removed:', error.message || error);
   },
 };
 
