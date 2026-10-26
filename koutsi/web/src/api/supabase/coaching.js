@@ -268,10 +268,10 @@ export const students = {
 };
 
 export const groups = {
-  async create(coachId, { name, level, day, time, durationMinutes, memberIds = [], weeksAhead }) {
+  async create(coachId, { name, level, place, day, time, durationMinutes, memberIds = [], weeksAhead }) {
     const duration = durationMinutes || 60;
     const data = must(await from('koutsi_groups')
-      .insert({ coach_id: coachId, name, level, weekday: day, time, duration_minutes: duration }).select('id').single());
+      .insert({ coach_id: coachId, name, level, weekday: day, time, duration_minutes: duration, ...(place !== undefined ? { place: place || null } : {}) }).select('id').single());
     if (memberIds.length > 0) {
       must(await from('koutsi_group_members').insert(memberIds.map((studentId) => ({ group_id: data.id, student_id: studentId }))));
     }
@@ -280,10 +280,11 @@ export const groups = {
   },
   // Renaming doesn't touch the calendar. Moving the weekly slot drops and regenerates only
   // future sessions of the primary slot (extra slots keep their own series).
-  async update(groupId, { name, level, day, time, durationMinutes, weeksAhead }) {
+  async update(groupId, { name, level, place, day, time, durationMinutes, weeksAhead }) {
     const duration = durationMinutes || 60;
     const existing = must(await from('koutsi_groups').select('coach_id, weekday, time, duration_minutes').eq('id', groupId).single());
-    must(await from('koutsi_groups').update({ name, level, weekday: day, time, duration_minutes: duration }).eq('id', groupId));
+    // the place changes only when the form sends one (other callers leave it as it is)
+    must(await from('koutsi_groups').update({ name, level, weekday: day, time, duration_minutes: duration, ...(place !== undefined ? { place: place || null } : {}) }).eq('id', groupId));
     const scheduleChanged = existing.weekday !== day
       || (existing.time || '').slice(0, 5) !== (time || '').slice(0, 5)
       || (existing.duration_minutes || 60) !== duration;

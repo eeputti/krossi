@@ -288,8 +288,10 @@ export function seed() {
   ];
   const byId = Object.fromEntries(students.map((s) => [s.id, s]));
 
+  // Juniors on the indoor courts, adults in the bubble hall: the place shows in the training-day reminder.
+  const placeOf = (n) => (/^Juniorit/.test(n) ? 'Lahden tennishalli, kentät 1–2' : n === 'Pelipäivä' ? 'Lahden tennishalli, kentät 1–4' : 'Kuplahalli, kenttä 3');
   const group = (id, name, weekday, time, durationMinutes, level, memberIds, themes) => ({
-    id, coachId: COACH, name, level, day: weekday, time, durationMinutes, memberIds, slots: [], annualPlan: null,
+    id, coachId: COACH, name, level, place: placeOf(name), day: weekday, time, durationMinutes, memberIds, slots: [], annualPlan: null,
     themes: themes.map((t, i) => (t ? { id: newId('t'), ...koutsiAddIsoWeeks(now, i - 6), ...t } : null)).filter(Boolean),
   });
   const kilpa = ['demo-s-leo', 'demo-s-ilona', 'demo-s-emil', 'demo-s-saga', 'demo-s-rasmus'];

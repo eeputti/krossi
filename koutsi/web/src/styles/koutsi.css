@@ -775,3 +775,12 @@ label.k-avatar-pick { cursor: pointer; }
 /* Merkitse "Pelaaja…": the player list in its own box, so the text field below stays near */
 .k-recipient-list.is-boxed { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: var(--r-md); padding: 4px; }
 .vs-pill.is-incomplete { opacity: 0.55; }
+
+/* ── a group's place (group pages; also in the training-day reminder e-mail) ── */
+.k-group-place { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.k-group-place svg { flex-shrink: 0; }
+
+/* ── Profiili → Sähköpostit: one switch per kind of e-mail ── */
+.email-prefs { display: grid; gap: 2px; }
+.email-prefs-list { display: grid; gap: 2px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
+.email-prefs-note { margin-top: 8px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }

@@ -59,13 +59,14 @@ export const notifications = {
   async markRead(uid) {
     must(await from('koutsi_notifications').update({ read_at: new Date().toISOString() }).eq('recipient_id', uid).is('read_at', null));
   },
-  async getEmailPref(uid) {
-    const data = must(await from('koutsi_notification_prefs').select('email_enabled').eq('user_id', uid).maybeSingle());
-    return data ? data.email_enabled : true; // opted in until they say otherwise
+  // E-mails: all on until the person says otherwise; `off` lists the kinds they turned off one by one.
+  async getEmailPrefs(uid) {
+    const data = must(await from('koutsi_notification_prefs').select('email_enabled, email_off').eq('user_id', uid).maybeSingle());
+    return { enabled: data ? data.email_enabled !== false : true, off: (data && data.email_off) || [] };
   },
-  async setEmailPref(uid, enabled) {
+  async setEmailPrefs(uid, { enabled, off }) {
     must(await from('koutsi_notification_prefs')
-      .upsert({ user_id: uid, email_enabled: enabled, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }));
+      .upsert({ user_id: uid, email_enabled: Boolean(enabled), email_off: off || [], updated_at: new Date().toISOString() }, { onConflict: 'user_id' }));
   },
   subscribe(uid, cb) {
     const channel = db().channel(`koutsi-notif-${uid}-${notifSeq++}`)

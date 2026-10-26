@@ -115,8 +115,9 @@ export const API_CONTRACT = {
 
   plans: ['upload', 'url', 'remove', 'uploadShared', 'submissions'],
 
-  // list(uid), markRead(uid), getEmailPref(uid), setEmailPref(uid, enabled), subscribe(uid, cb) → unsubscribe
-  notifications: ['list', 'markRead', 'getEmailPref', 'setEmailPref', 'subscribe'],
+  // list(uid), markRead(uid), getEmailPrefs(uid) → { enabled, off: [category] }, setEmailPrefs(uid, { enabled, off }),
+  // subscribe(uid, cb) → unsubscribe
+  notifications: ['list', 'markRead', 'getEmailPrefs', 'setEmailPrefs', 'subscribe'],
 
   // Ylläpito — every RPC behind these re-checks koutsi_is_admin() server-side.
   // usage(days | null) → [{ event, clicks, users, adminClicks, lastAt }] (admins' own taps apart).
