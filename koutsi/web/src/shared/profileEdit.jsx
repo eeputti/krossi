@@ -48,6 +48,8 @@ export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave =
   const confirm = useConfirm();
   const photo = useProfilePhoto({ uid, person });
   const saved = useRef(false);
+  const leavingTo = useRef(null); // set while we take that entry back on the way out
+  const asking = useRef(false);   // a "Hylätäänkö?" is open: its own Back entry comes and goes
 
   useEffect(() => {
     if (!dirty) return undefined;
@@ -56,21 +58,69 @@ export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave =
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [dirty]);
 
+  const ask = async () => {
+    asking.current = true;
+    const ok = await confirm({
+      title: 'Hylätäänkö muutokset?',
+      message: 'Et ole tallentanut muutoksiasi. Jos poistut nyt, ne menetetään.',
+      confirmLabel: 'Hylkää', cancelLabel: 'Jatka muokkausta', danger: true,
+    });
+    // the dialog takes its own history entry away just after it closes; wait for that
+    await new Promise((r) => setTimeout(r, 700));
+    asking.current = false;
+    return ok;
+  };
+  // Out of the page: first our own entry (if it is on top), then the page itself.
+  const exit = () => {
+    if (window.history.state?.pageGuard) {
+      leavingTo.current = back;
+      window.history.back();
+    } else goBack(back);
+  };
+  // Lives as long as the page (saving can turn `dirty` off before we are out).
+  useEffect(() => {
+    const onPop = () => {
+      if (!leavingTo.current) return;
+      const to = leavingTo.current;
+      leavingTo.current = null;
+      goBack(to);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // The phone's Back (or a swipe) with unsaved changes asks first, like the ✕ of a form does.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const id = `pe-${Date.now().toString(36)}`;
+    const pushGuard = () => window.history.pushState({ ...(window.history.state || {}), pageGuard: id }, '', window.location.href);
+    pushGuard();
+    const onPop = async () => {
+      if (leavingTo.current || asking.current || saved.current) return;
+      const st = window.history.state || {};
+      if (st.pageGuard === id || st.sheetGuard) return;
+      pushGuard(); // stay on the page while asking
+      if (await ask()) { saved.current = true; exit(); }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      // changes undone: take the entry back so the next Back is not a dead tap
+      if (!saved.current && !leavingTo.current && window.history.state?.pageGuard === id) window.history.back();
+    };
+  }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const leave = async () => {
     if (dirty && !saved.current) {
-      const ok = await confirm({
-        title: 'Hylätäänkö muutokset?',
-        message: 'Et ole tallentanut muutoksiasi. Jos poistut nyt, ne menetetään.',
-        confirmLabel: 'Hylkää', cancelLabel: 'Jatka muokkausta', danger: true,
-      });
-      if (!ok) return;
+      if (!(await ask())) return;
+      saved.current = true;
     }
-    goBack(back);
+    exit();
   };
   const save = async () => {
     if (!canSave || busy) return;
     const ok = await onSave();
-    if (ok) { saved.current = true; goBack(back); }
+    if (ok) { saved.current = true; exit(); }
   };
 
   return (

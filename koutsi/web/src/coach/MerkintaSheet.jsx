@@ -12,7 +12,7 @@
 // back. Opened with a kind (the drawer's Tiedote, a player's Huomio) it goes straight to the form.
 // For whom: group cards — the groups training today or tomorrow first, the rest behind
 // "+ N ryhmää", all of the week's groups at once, or single players.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Avatar, Button, Icon, IconButton, Sheet, Textarea, useConfirm, useToast } from '../ui/index.js';
@@ -40,13 +40,13 @@ const KINDS = {
   tiedote: {
     icon: 'info',
     short: 'Käytännön asia ryhmälle, esim. toinen valmentaja tai eri kenttä. Näkyy pelaajien Kodissa.',
-    help: 'Käytännön asia, esim. toinen valmentaja tai eri kenttä. Pelaajat saavat ilmoituksen. Ei jää kehitykseen.',
+    help: 'Käytännön asia, esim. toinen valmentaja tai eri kenttä. Näkyy pelaajien Kodissa. Ei jää kehitykseen.',
     placeholder: 'Esim. Huomenna valmentajana Juho. Treeni alkaa normaalisti.',
   },
   huomio: {
     icon: 'chat',
     short: 'Palautetta pelaajalle. Jää hänen Kehitykseensä, myös kotiläksynä tai videona.',
-    help: 'Palautetta pelaajalle. Jää hänen Kehitys-sivulleen, ja hän saa ilmoituksen.',
+    help: 'Palautetta pelaajalle. Jää hänen Kehitys-sivulleen.',
     placeholder: 'Esim. Hyvä nousu syötössä — heitto pysyy jo samassa kohdassa.',
   },
   video: {
@@ -126,6 +126,9 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
   const [aboutDate, setAboutDate] = useState(null); // the session day a Tiedote is about
   const [asHomework, setAsHomework] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The group of the session on now (or just over) is picked for the coach; "Yksittäin" then means
+  // "these players instead", so that a note meant for one player doesn't go to the whole group.
+  const autoPicked = useRef(false);
   // Teema opens Viikon teemat; the tile only says how many groups still lack this week's theme.
   const themeWeek = plannerDefaultWeek(now);
   const themeStatus = useMemo(() => koutsiWeekThemeStatus(state.groups, state.trainings, themeWeek), [state, open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -139,6 +142,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
         : (initialIds.length ? null : defaultChip(chips));
     setPicked(start ? [start.key] : []);
     setTargets(fromGroups ? initialGroupIds.map((id) => `g:${id}`) : start ? [start.group ? `g:${start.group.id}` : `t:${start.key}`] : []);
+    autoPicked.current = Boolean(start) && !trainingId && !fromGroups;
     setAboutDate(focusDate && focusDate >= today ? focusDate : null);
     setAllTargets(false);
     setCustom(initialIds);
@@ -161,7 +165,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     ...(a.studentIds || []).map((id) => state.students.find((st) => st.id === id)?.name).filter(Boolean),
   ])].join(', ');
   const removeNotice = async (a) => {
-    const ok = await confirm({ title: 'Poistetaanko tiedote?', message: `”${a.text}” katoaa pelaajien etusivulta. Jo lähetetyt ilmoitukset jäävät.`, confirmLabel: 'Poista', danger: true });
+    const ok = await confirm({ title: 'Poistetaanko tiedote?', message: `”${a.text}” katoaa pelaajien etusivulta.`, confirmLabel: 'Poista', danger: true });
     if (ok) await run(() => api.announcements.remove(a.id), 'Tiedote poistettu.');
   };
   // Läsnäolo is one of today's sessions; the others are for anyone.
@@ -231,10 +235,12 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
   const toggleChip = (key) => { track('merkitse.valitse'); setPicked([key]); }; // Läsnäolo: one session
   const toggleTarget = (key) => {
     track('merkitse.valitse');
+    autoPicked.current = false;
     setTargets((v) => (v.includes(key) ? v.filter((k) => k !== key) : [...v, key]));
   };
   const toggleWeek = () => {
     track('merkitse.koko-viikko');
+    autoPicked.current = false;
     setAllTargets(true);
     setTargets((v) => (allWeek ? v.filter((k) => !weekKeys.includes(k)) : [...new Set([...v, ...weekKeys])]));
   };
@@ -420,7 +426,10 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
                   <span className="vs-chip-name">Kaikki viikon ryhmät</span>
                 </button>
               )}
-              <button type="button" aria-pressed={pickerOpen} className={cx('vs-chip', 'is-more', pickerOpen && 'is-on')} onClick={() => setPickerOpen((v) => !v)}>
+              <button type="button" aria-pressed={pickerOpen} className={cx('vs-chip', 'is-more', pickerOpen && 'is-on')} onClick={() => {
+                if (!pickerOpen && autoPicked.current) { autoPicked.current = false; setTargets([]); }
+                setPickerOpen((v) => !v);
+              }}>
                 <span className="vs-chip-when"><Icon name="user" size={13} /> Yksittäin</span>
                 <span className="vs-chip-name">Pelaaja…</span>
               </button>

@@ -42,6 +42,8 @@ export function SeasonSheet() {
     return saved ? copy(saved) : draftFromSeason(state, current);
   });
   const [busy, setBusy] = useState(null);
+  // what the sheet opened with: a changed draft is asked about before ✕ / Back throws it away
+  const startDraft = useRef(JSON.stringify(draft));
   const top = useRef(null);
   // every step starts from its top, not where the previous step was scrolled to
   useEffect(() => { top.current?.closest('.sheet-body')?.scrollTo({ top: 0 }); }, [step]);
@@ -75,7 +77,7 @@ export function SeasonSheet() {
   const publish = async () => {
     const ok = await confirm({
       title: `Julkaise ${draft.name}?`,
-      message: `${summary.groups.active.length} ryhmää ja ${summary.sessions} treeniä tulevat kalenteriin. Jokainen pelaaja saa yhden ilmoituksen omista ryhmistään. ${current.name} jatkuu ennallaan loppuun asti.`,
+      message: `${summary.groups.active.length} ryhmää ja ${summary.sessions} treeniä tulevat kalenteriin. ${current.name} jatkuu ennallaan loppuun asti.`,
       confirmLabel: 'Julkaise kausi',
     });
     if (!ok) return;
@@ -104,6 +106,7 @@ export function SeasonSheet() {
 
   return (
     <Sheet open={open} onClose={close} onClosed={() => goBack('/valmentaja/koti')} size="lg" dismissible={!busy}
+      confirmClose={JSON.stringify(draft) !== startDraft.current ? { title: 'Hylätäänkö kauden muutokset?', message: 'Tallenna luonnos, niin voit jatkaa myöhemmin.' } : false}
       title={step === 1 ? 'Uusi kausi' : draft.name} subtitle={`${step}/4 · ${STEPS[step - 1]}`} footer={footer} className="season-sheet">
       <ol ref={top} className="season-steps" aria-hidden="true">
         {STEPS.map((label, i) => <li key={label} className={cx(i + 1 === step && 'is-on', i + 1 < step && 'is-done')} />)}
@@ -487,7 +490,7 @@ function StepReview({ draft, summary, current }) {
               <span className="season-notice-text">{playerSeasonMessage(draft, exampleGroups, fmt)}</span>
             </span>
           </div>
-          <p className="k-faint">Jokainen saa yhden ilmoituksen omista ryhmistään. Esimerkki: {example.name}</p>
+          <p className="k-faint">Pelaajat näkevät uudet ryhmänsä Koutsissa. Esimerkki: {example.name}</p>
         </section>
       )}
       {p.noAccount > 0 && (
@@ -558,6 +561,7 @@ export function SeasonEditSheet({ open, onClose, season }) {
   if (!season) return null;
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} size="md" title="Muokkaa kautta" subtitle={`${fmt(season.startsOn)}–${fmt(season.endsOn)}`} dismissible={!busy}
+      confirmClose={name !== season.name || endsOn !== season.endsOn || extra.length > 0 ? { title: 'Hylätäänkö muutokset?', message: 'Kautta ei ole vielä tallennettu.' } : false}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={valid ? null : !name.trim() ? 'Anna kaudelle nimi.' : !endsOn ? 'Valitse kauden loppu.' : 'Kautta voi vain jatkaa: valitse loppu nykyisen lopun jälkeen ja tulevaisuudesta.'} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-5">
         <Field label="Kauden nimi" htmlFor="season-edit-name">
@@ -578,7 +582,7 @@ export function SeasonEditSheet({ open, onClose, season }) {
             </div>
           </Field>
         )}
-        {longer && <p className="field-msg">{groups.length} ryhmän treenit jatkuvat {fmt(endsOn)} asti. Pelaajat saavat yhden ilmoituksen ryhmää kohden — ei jokaisesta treenistä.</p>}
+        {longer && <p className="field-msg">{groups.length} ryhmän treenit jatkuvat {fmt(endsOn)} asti.</p>}
       </div>
     </Sheet>
   );

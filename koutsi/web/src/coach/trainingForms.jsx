@@ -152,7 +152,7 @@ export function useTrainingDelete() {
   const confirm = useConfirm();
   return async (t, label) => {
     if (!t.seriesId) {
-      if (!(await confirm({ title: 'Poista treeni?', message: `${label}. Pelaajat saavat ilmoituksen peruutuksesta.`, confirmLabel: 'Poista', danger: true }))) return false;
+      if (!(await confirm({ title: 'Poista treeni?', message: `${label}. Treeni poistuu pelaajien kalenterista.`, confirmLabel: 'Poista', danger: true }))) return false;
       return (await run(() => api.trainings.remove(t.id), 'Treeni poistettu.')).ok;
     }
     // "Kaikki tulevat" never reaches into the past, even from an already-held session.

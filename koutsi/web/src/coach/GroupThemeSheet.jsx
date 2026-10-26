@@ -66,7 +66,8 @@ export function GroupThemeSheet({ open, group, week, onClose }) {
   const toPlanner = () => { onClose(); openPlanner({ week }); };
 
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} size="md"
+    <Sheet open={open} onClose={() => !busy && onClose()} size="md" dismissible={!busy}
+      confirmClose={cleanTitle !== (current?.title || '') || cleanLead !== (current?.lead || '')}
       title={current ? 'Vaihda teema' : 'Aseta teema'}
       subtitle={`${group.day} ${group.time} · ${group.name} · ${themeWeekLabel(week)}`}
       footer={(

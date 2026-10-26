@@ -154,7 +154,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
     { id: 'muokkaa', icon: 'edit', title: 'Muokkaa treeniä', sub: 'Siirrä toiseen aikaan tai päivään', run: action('edit') },
     group && { id: 'ryhma', icon: 'users', title: 'Avaa ryhmä', sub: name, run: then(() => navigate(groupPath(group.id))) },
     student && { id: 'pelaaja', icon: 'user', title: 'Avaa pelaaja', sub: student.name, run: then(() => navigate(playerPath(student.id))) },
-    { id: 'poista', icon: 'trash', title: 'Poista treeni', sub: 'Pelaajat saavat ilmoituksen peruutuksesta', danger: true,
+    { id: 'poista', icon: 'trash', title: 'Poista treeni', sub: 'Treeni poistuu pelaajien kalenterista', danger: true,
       run: then(() => removeTraining(live, `${dayMonth(item.date)} klo ${item.time} — ${name}`)) },
   ].filter(Boolean);
 

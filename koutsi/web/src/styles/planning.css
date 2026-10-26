@@ -86,7 +86,9 @@
 .ap-player-away { flex-shrink: 0; padding: 2px 7px; border-radius: var(--r-pill); background: var(--clay-100); color: var(--clay); font-size: 11px; font-weight: 800; }
 .ap-player.is-on .ap-player-away { background: rgba(255, 255, 255, 0.14); color: #fff; }
 
-.ap-card { display: grid; gap: 14px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+/* minmax(0, 1fr): a player in many groups has a long one-line group list, which must not widen the card past a phone screen */
+.ap-card { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 14px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.ap-head .grow { min-width: 0; }
 .ap-card-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
 .ap-card-sub { font-size: 13px; margin-top: -8px; }
 .ap-head { display: flex; align-items: center; gap: 12px; }
@@ -128,10 +130,11 @@
 .k-player-actions.is-tiles .btn .btn-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── season ─────────────────────────────────────────────── */
-.pl-season { display: grid; gap: 16px; max-width: 1080px; }
-.pl-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.pl-season { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; max-width: 1080px; }
+.pl-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 16px; }
 .pl-card { display: grid; gap: 10px; align-content: start; justify-items: start; padding: 20px 22px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
-.pl-card > .row-between { width: 100%; }
+.pl-card { grid-template-columns: minmax(0, 1fr); } /* its rows fit a phone instead of widening the card */
+.pl-card > .row-between { width: 100%; flex-wrap: wrap; gap: 8px; }
 .pl-card.is-dark { background: var(--green-800); border-color: var(--green-800); color: #fff; }
 .pl-card.is-dark .eyebrow { color: var(--lime); }
 .pl-card.is-dark .pl-card-text { color: var(--on-dark-muted); }
@@ -146,7 +149,7 @@
 
 /* ── Ryhmät list ────────────────────────────────────────── */
 .gl-search { max-width: 360px; }
-.gl-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px 20px; align-items: start; }
+.gl-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 24px 20px; align-items: start; }
 
 @media (max-width: 860px) {
   .ap-panel { grid-template-columns: minmax(0, 1fr); }

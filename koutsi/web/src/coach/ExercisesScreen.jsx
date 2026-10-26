@@ -59,7 +59,8 @@ function ExerciseForm({ open, onClose, editing }) {
     if (res.ok) onClose();
   };
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa harjoitetta' : 'Uusi oma harjoite'} size="md"
+    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa harjoitetta' : 'Uusi oma harjoite'} size="md" dismissible={!busy}
+      confirmClose={f.name.trim() !== (editing?.name || '').trim() || f.goal.trim() !== (editing?.own?.goal || '').trim()}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={!f.name.trim() ? 'Anna harjoitteelle nimi.' : null} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="ex-name"><Input id="ex-name" value={f.name} onChange={set('name')} placeholder="Esim. Kakkossyöttö + suunta" maxLength={120} /></Field>

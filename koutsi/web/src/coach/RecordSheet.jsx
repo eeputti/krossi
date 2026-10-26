@@ -24,7 +24,7 @@ const HEALTH_NOTE = 'Älä kirjoita vammoja, sairauksia, diagnooseja, lääkityk
 const KINDS = {
   note: {
     title: 'Huomio',
-    subtitle: 'Näkyy pelaajan aikajanalla, ja hän saa ilmoituksen.',
+    subtitle: 'Näkyy pelaajan aikajanalla.',
     placeholder: 'Esim. Hyvä nousu syötössä tällä viikolla…',
     event: 'huomio',
     done: (n) => (n === 1 ? 'Huomio lähetetty.' : `Huomio lähetetty ${n} pelaajalle.`),
