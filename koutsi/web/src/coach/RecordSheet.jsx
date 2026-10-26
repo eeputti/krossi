@@ -104,6 +104,7 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', sco
   };
   const dirty = Boolean(text.trim());
   const ready = text.trim() && ids.length > 0 && !busy;
+  const missing = !text.trim() ? (kind === 'homework' ? 'Kirjoita kotiläksy ensin.' : 'Kirjoita huomio ensin.') : ids.length === 0 ? 'Valitse ainakin yksi pelaaja.' : null;
 
   const submit = async () => {
     if (!ready) return;
@@ -124,7 +125,7 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', sco
         footer={(
           <div className="sheet-actions">
             <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
-            <Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>{ids.length > 1 ? `Lähetä ${ids.length} pelaajalle` : 'Lähetä'}</Button>
+            <Button variant="dark" size="lg" missing={missing} loading={busy} onClick={submit}>{ids.length > 1 ? `Lähetä ${ids.length} pelaajalle` : 'Lähetä'}</Button>
           </div>
         )}>
         {/* The text first: the player list can be long, and the field must never sink under it. */}

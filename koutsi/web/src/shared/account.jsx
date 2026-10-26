@@ -52,7 +52,7 @@ export function FeedbackSheet({ open, onClose, uid }) {
   }
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Anna palautetta" subtitle="Kerro, mikä sovelluksessa toimii ja mikä ei. Kaikenlainen palaute on tärkeää!" size="md" dismissible={!busy && !message.trim()}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!message.trim()} loading={busy} onClick={send}>Lähetä</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={!message.trim() ? 'Kirjoita palautteesi ensin.' : null} loading={busy} onClick={send}>Lähetä</Button></div>}>
       <div className="stack-4">
         <Field label="Mistä on kyse?"><ChipSelect size="sm" options={FEEDBACK_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} value={category} onChange={(v) => v && setCategory(v)} ariaLabel="Aihe" /></Field>
         <Field label="Kertoisitko hieman tarkemmin?" htmlFor="fb-msg"><p className="fb-help">Tämä auttaa kehittämään koko sovellusta eteenpäin!</p><Textarea id="fb-msg" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Mitä huomasit?" maxLength={4000} /></Field>

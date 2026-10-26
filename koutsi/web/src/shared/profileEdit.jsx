@@ -42,7 +42,9 @@ export function AreaField({ value, onChange }) {
  *   person, uid: whose photo   back: the profile page   photoText: a line under the photo
  *   dirty, canSave, busy, onSave   children: the EditCards
  */
-export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave = true, busy, onSave, children }) {
+export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave = true, missing = null, busy, onSave, children }) {
+  // nothing changed: nothing to save (grey); changed but not valid: the button says what to fix
+  const why = dirty && !canSave ? missing || 'Tarkista punaisella merkityt kentät.' : null;
   const confirm = useConfirm();
   const photo = useProfilePhoto({ uid, person });
   const saved = useRef(false);
@@ -74,7 +76,7 @@ export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave =
   return (
     <>
       <TopBar title="Muokkaa profiilia" onBack={leave}
-        actions={<Button variant="dark" size="sm" loading={busy} disabled={!canSave} onClick={save}>Tallenna</Button>} />
+        actions={<Button variant="dark" size="sm" loading={busy} disabled={!dirty} missing={why} onClick={save}>Tallenna</Button>} />
       <Page className="k-page-pad profile-edit">
         <div className="profile-edit-photo">
           <button type="button" className="profile-edit-avatar" onClick={photo.open} disabled={photo.busy} aria-label="Vaihda profiilikuva">
@@ -88,7 +90,7 @@ export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave =
         </div>
         {children}
         <div className="profile-edit-bottom">
-          <Button variant="dark" size="lg" block icon="check" loading={busy} disabled={!canSave} onClick={save}>Tallenna muutokset</Button>
+          <Button variant="dark" size="lg" block icon="check" loading={busy} disabled={!dirty} missing={why} onClick={save}>Tallenna muutokset</Button>
         </div>
       </Page>
       {photo.sheets}

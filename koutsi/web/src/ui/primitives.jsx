@@ -2,6 +2,7 @@
 import { forwardRef } from 'react';
 import { Icon } from './Icon.jsx';
 import { Spinner } from './feedback.jsx';
+import { useToastMaybe } from './Toast.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -11,19 +12,29 @@ const cx = (...c) => c.filter(Boolean).join(' ');
  *   size: 'sm' | 'md' | 'lg'      block: full width      loading: shows spinner, disables
  *   icon / iconRight: Icon names   as: 'button' | 'a' (pass href)
  */
+/**
+ * missing: what the form still needs ("Kirjoita teksti."). The button then looks unfinished but stays
+ * tappable, and a tap says what is missing instead of doing nothing — a grey button that ignores a
+ * tap was the most common "tämä ei toimi" on phones. Use `disabled` only when there is nothing to say.
+ */
 export const Button = forwardRef(function Button(
-  { variant = 'dark', size = 'md', block, loading, icon, iconRight, className, children, disabled, as = 'button', type, ...rest },
+  { variant = 'dark', size = 'md', block, loading, icon, iconRight, className, children, disabled, missing, onClick, as = 'button', type, ...rest },
   ref,
 ) {
   const Tag = as;
   const iconSize = size === 'sm' ? 16 : size === 'lg' ? 20 : 18;
+  const toast = useToastMaybe();
+  const blocked = Boolean(missing) && !loading && !disabled;
+  const click = blocked ? (e) => { e.preventDefault(); toast?.(missing, { tone: 'info' }); } : onClick;
   return (
     <Tag
       ref={ref}
       type={Tag === 'button' ? type || 'button' : undefined}
-      className={cx('btn', `btn-${variant}`, `btn-${size}`, block && 'btn-block', loading && 'is-loading', className)}
+      className={cx('btn', `btn-${variant}`, `btn-${size}`, block && 'btn-block', loading && 'is-loading', blocked && 'is-incomplete', className)}
       disabled={Tag === 'button' ? disabled || loading : undefined}
       aria-busy={loading || undefined}
+      aria-disabled={blocked || undefined}
+      onClick={click}
       {...rest}
     >
       {loading ? <Spinner size={iconSize} className="btn-spinner" /> : icon ? <Icon name={icon} size={iconSize} /> : null}

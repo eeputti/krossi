@@ -92,7 +92,7 @@ function ThemeWriteSheet({ open, cells, onClose, onApply }) {
       footer={(
         <div className="sheet-actions">
           <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
-          <Button variant="dark" size="lg" loading={busy} disabled={!cleanTitle} onClick={save}>
+          <Button variant="dark" size="lg" loading={busy} missing={!cleanTitle ? 'Kirjoita teema ensin.' : null} onClick={save}>
             {cleanTitle ? `Tallenna ${plural(plan.fresh.length + plan.replace.length, 'ruutuun', 'ruutuun')}` : 'Kirjoita teema'}
           </Button>
         </div>

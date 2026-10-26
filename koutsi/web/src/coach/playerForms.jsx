@@ -57,7 +57,7 @@ export function AddPlayerSheet({ open, onClose }) {
   const groupOptions = state.groups.map((g) => ({ value: g.id, label: `${g.day} ${g.time} · ${g.name}` }));
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Lisää pelaaja" subtitle="Nimi riittää. Pelaaja voi liittyä myöhemmin omalla linkillään." size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>Lisää</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!name.trim() ? 'Kirjoita pelaajan nimi.' : !valid ? 'Iän pitää olla 1–119 vuotta.' : exact ? `Sinulla on jo pelaaja nimeltä ${exact.name}. Erota nimet toisistaan.` : null} loading={busy} onClick={submit}>Lisää</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="p-name">
           <Input id="p-name" size="lg" value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. Onni Virtanen" maxLength={120} autoComplete="off" />
@@ -109,7 +109,7 @@ export function EditPlaceholderSheet({ open, onClose, student }) {
   };
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Muokkaa perustietoja" subtitle={`${student.name} ei ole vielä liittynyt, joten voit muokata näitä hänen puolestaan.`} size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>Tallenna</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!name.trim() ? 'Kirjoita pelaajan nimi.' : !valid ? 'Iän pitää olla 1–119 vuotta.' : exact ? `Sinulla on jo pelaaja nimeltä ${exact.name}. Erota nimet toisistaan.` : null} loading={busy} onClick={submit}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="e-name" error={exact ? `Sinulla on jo toinen pelaaja nimeltä ${exact.name}. Erota nimet toisistaan.` : null}>
           <Input id="e-name" size="lg" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
@@ -138,7 +138,7 @@ export function TextEntrySheet({ open, onClose, title, subtitle, initial = '', p
   };
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={title} subtitle={subtitle} size="md" dismissible={!busy && !dirty}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!text.trim()} loading={busy} onClick={submit}>{saveLabel}</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!text.trim() ? 'Kirjoita teksti ensin.' : null} loading={busy} onClick={submit}>{saveLabel}</Button></div>}>
       <div className="stack-3">
         <Textarea rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} autoFocus maxLength={4000} aria-label={title} />
         <p className="k-warn-text">{HEALTH_NOTE}</p>
@@ -164,7 +164,7 @@ export function AudienceSheet({ open, onClose, video }) {
   const players = state.students.slice().sort((a, b) => a.name.localeCompare(b.name, 'fi'));
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Kuka näkee videon" subtitle={video.title} size="md"
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!ids.length} loading={busy} onClick={submit}>Tallenna</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!ids.length ? 'Valitse ainakin yksi pelaaja.' : null} loading={busy} onClick={submit}>Tallenna</Button></div>}>
       <div className="k-pick-list">
         {players.map((s) => (
           <label key={s.id} className={cx('k-pick', ids.includes(s.id) && 'is-on')}>
@@ -201,7 +201,7 @@ export function MergeSheet({ open, onClose, student }) {
   };
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Yhdistä toiseen pelaajaan" subtitle="Kahdesta profiilista jää yksi. Ryhmät, treenit ja merkinnät siirtyvät sille — mitään ei häviä." size="md"
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!sides} loading={busy} onClick={submit}>Yhdistä</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!sides ? 'Hae ja valitse pelaaja, johon yhdistetään.' : null} loading={busy} onClick={submit}>Yhdistä</Button></div>}>
       <div className="stack-4">
         <div className="k-merge">
           <div className="k-merge-side"><Avatar person={student} size={32} /><span className="truncate">{student.name}</span></div>

@@ -45,6 +45,8 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
   const repeatUntil = repeat && date ? koutsiAddDays(date, 365) : null;
   const occurrences = repeatUntil ? koutsiWeeklyDates(date, repeatUntil).length : 1;
   const ready = (target === 'student' ? studentId : groupId) && date && time && types.includes(type) && !busy;
+  const missing = !(target === 'student' ? studentId : groupId) ? (target === 'student' ? 'Valitse pelaaja.' : 'Valitse ryhmä.')
+    : !date ? 'Valitse päivä.' : !time ? 'Valitse kellonaika.' : !types.includes(type) ? 'Valitse treenin tyyppi.' : null;
   const students = useMemo(() => (query.trim() ? matchStudents(state.students, query, { limit: 40 }) : state.students.slice().sort((a, b) => a.name.localeCompare(b.name, 'fi'))), [state.students, query]);
   const groups = koutsiSortGroupsBySchedule(state.groups);
 
@@ -71,13 +73,13 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
     <div className={cx('sheet-actions', isEdit && editing?.seriesId && 'sheet-actions-stack')}>
       {isEdit && editing?.seriesId ? (
         <>
-          <Button variant="dark" size="lg" block disabled={!time} loading={busy} onClick={saveSeries}>Muuta koko sarja (aika ja tyyppi)</Button>
-          <Button variant="outline" size="lg" block disabled={!ready} onClick={save}>Muuta vain tämä kerta</Button>
+          <Button variant="dark" size="lg" block missing={!time ? 'Valitse kellonaika.' : null} loading={busy} onClick={saveSeries}>Muuta koko sarja (aika ja tyyppi)</Button>
+          <Button variant="outline" size="lg" block missing={missing} disabled={busy} onClick={save}>Muuta vain tämä kerta</Button>
         </>
       ) : (
         <>
           <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
-          <Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={save}>{isEdit ? 'Tallenna' : occurrences > 1 ? `Lisää ${occurrences} kertaa` : 'Lisää'}</Button>
+          <Button variant="dark" size="lg" missing={missing} loading={busy} onClick={save}>{isEdit ? 'Tallenna' : occurrences > 1 ? `Lisää ${occurrences} kertaa` : 'Lisää'}</Button>
         </>
       )}
     </div>
@@ -185,7 +187,7 @@ export function EventSheet({ open, onClose, editing, defaultDate }) {
   };
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa tapahtumaa' : 'Uusi tapahtuma'} subtitle="Kilpailut, leirit ja seuran tapahtumat näkyvät pelaajien kalenterissa." size="sm"
-      footer={<div className="sheet-actions">{editing ? <Button variant="ghost" size="lg" onClick={remove}>Poista</Button> : <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>}<Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={save}>Tallenna</Button></div>}>
+      footer={<div className="sheet-actions">{editing ? <Button variant="ghost" size="lg" onClick={remove}>Poista</Button> : <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>}<Button variant="dark" size="lg" missing={!title.trim() ? 'Anna tapahtumalle nimi.' : !date ? 'Valitse päivä.' : endDate && endDate < date ? 'Loppupäivä ei voi olla ennen alkua.' : null} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="ev-title"><Input id="ev-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Seuran syyskisat" maxLength={120} /></Field>
         <Field label="Laji"><ChipSelect size="sm" options={EVENT_KIND_OPTIONS} value={kind} onChange={(v) => v && setKind(v)} ariaLabel="Laji" /></Field>

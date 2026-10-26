@@ -29,7 +29,7 @@ export function EntrySheet({ open, onClose, editing }) {
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa merkintää' : 'Uusi merkintä'}
       subtitle="Mitä teit, milloin ja miten meni. Näkyy Kehityksessä sinulle ja valmentajallesi." size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={save}>Tallenna</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={!f.text.trim() ? 'Kirjoita, mitä teit.' : !f.date ? 'Valitse päivä.' : null} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Field label="Mitä teit?" htmlFor="en-text">
           <Textarea id="en-text" rows={3} value={f.text} onChange={set('text')} maxLength={2000} autoFocus={!editing}

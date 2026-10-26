@@ -58,7 +58,7 @@ export function ContinueThemesSheet({ open, week, onClose }) {
       footer={saved ? <Button variant="dark" size="lg" block onClick={onClose}>Valmis</Button> : (
         <div className="sheet-actions">
           <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
-          <Button variant="dark" size="lg" loading={busy} disabled={!picked.length} onClick={save}>
+          <Button variant="dark" size="lg" loading={busy} missing={!picked.length ? 'Valitse ainakin yksi ryhmä, jolla on teema.' : null} onClick={save}>
             {picked.length ? `Tallenna ${picked.length === 1 ? '1 ryhmälle' : `${picked.length} ryhmälle`}` : 'Valitse ryhmät'}
           </Button>
         </div>

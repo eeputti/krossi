@@ -90,9 +90,9 @@ export function SeasonSheet() {
 
   const back = <Button variant="soft" size="lg" icon="arrow-left" onClick={() => setStep(step - 1)} disabled={Boolean(busy)}>Takaisin</Button>;
   const footer = step === 1 ? (
-    <div className="sheet-actions"><Button variant="soft" size="lg" onClick={close}>Peruuta</Button><Button variant="dark" size="lg" iconRight="arrow-right" disabled={!datesOk} onClick={() => setStep(2)}>Ryhmät</Button></div>
+    <div className="sheet-actions"><Button variant="soft" size="lg" onClick={close}>Peruuta</Button><Button variant="dark" size="lg" iconRight="arrow-right" missing={!draft.name.trim() ? 'Anna kaudelle nimi.' : !draft.startsOn || !draft.endsOn ? 'Valitse kauden alku ja loppu.' : !datesOk ? 'Kauden lopun pitää olla alun jälkeen.' : null} onClick={() => setStep(2)}>Ryhmät</Button></div>
   ) : step === 2 ? (
-    <div className="sheet-actions">{back}<Button variant="dark" size="lg" iconRight="arrow-right" disabled={!summary.groups.active.length} onClick={() => setStep(3)}>Pelaajat</Button></div>
+    <div className="sheet-actions">{back}<Button variant="dark" size="lg" iconRight="arrow-right" missing={!summary.groups.active.length ? 'Valitse ainakin yksi ryhmä jatkamaan.' : null} onClick={() => setStep(3)}>Pelaajat</Button></div>
   ) : step === 3 ? (
     <div className="sheet-actions">{back}<Button variant="dark" size="lg" iconRight="arrow-right" onClick={() => setStep(4)}>Tarkista</Button></div>
   ) : (
@@ -252,7 +252,7 @@ function DraftGroupSheet({ draft, groupKey, onClose, onSave }) {
       title={isNew ? 'Uusi ryhmä' : dg?.name} subtitle={isNew ? `${draft.name} · pelaajat lisäät seuraavassa vaiheessa` : `${when(from || dg)} · ${count} pelaajaa`}
       footer={<div className="sheet-actions">
         {dg?.status === 'uusi' ? <Button variant="ghost" size="lg" icon="trash" onClick={remove}>Poista</Button> : <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>}
-        <Button variant="dark" size="lg" disabled={!valid} onClick={save}>{isNew ? 'Lisää ryhmä' : 'Valmis'}</Button>
+        <Button variant="dark" size="lg" missing={valid ? null : !form.name.trim() ? 'Anna ryhmälle nimi.' : 'Valitse kellonaika.'} onClick={save}>{isNew ? 'Lisää ryhmä' : 'Valmis'}</Button>
       </div>}>
       <div className="stack-4">
         {!isNew && dg?.status !== 'uusi' && (
@@ -404,7 +404,7 @@ function SignupsSheet({ open, draft, onClose, onSave }) {
     <Sheet open={open} onClose={() => { reset(); onClose(); }} size="md" title="Lisää ilmoittautuneet" subtitle={`${draft.name} · esim. seuran ilmoittautumislistalta`}
       footer={<div className="sheet-actions">
         <Button variant="soft" size="lg" onClick={() => { reset(); onClose(); }}>Peruuta</Button>
-        <Button variant="dark" size="lg" disabled={!ready.length} onClick={() => { onSave(ready); reset(); }}>{ready.length ? `Lisää ${ready.length}` : 'Lisää'}</Button>
+        <Button variant="dark" size="lg" missing={!ready.length ? 'Liitä nimet ja valitse kullekin ryhmä.' : null} onClick={() => { onSave(ready); reset(); }}>{ready.length ? `Lisää ${ready.length}` : 'Lisää'}</Button>
       </div>}>
       <div className="stack-4">
         <Field label="Nimet" hint="Yksi per rivi — esim. suoraan Excelistä (ensimmäinen sarake). Jo listallasi olevat tunnistetaan, joten kenestäkään ei tule kahta." htmlFor="season-names">
@@ -558,7 +558,7 @@ export function SeasonEditSheet({ open, onClose, season }) {
   if (!season) return null;
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} size="md" title="Muokkaa kautta" subtitle={`${fmt(season.startsOn)}–${fmt(season.endsOn)}`} dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!valid} loading={busy} onClick={save}>Tallenna</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={valid ? null : !name.trim() ? 'Anna kaudelle nimi.' : !endsOn ? 'Valitse kauden loppu.' : 'Kautta voi vain jatkaa: valitse loppu nykyisen lopun jälkeen ja tulevaisuudesta.'} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-5">
         <Field label="Kauden nimi" htmlFor="season-edit-name">
           <Input id="season-edit-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />

@@ -250,6 +250,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
 
   const dirty = Boolean(text.trim());
   const ready = dirty && ids.length > 0 && !busy;
+  const missing = ids.length === 0 ? 'Valitse ensin ryhmät tai pelaajat.' : !dirty ? (kind === 'tiedote' ? 'Kirjoita tiedote ensin.' : 'Kirjoita huomio ensin.') : null;
   const k = KINDS[kind];
   const look = RECORD_LOOK[kind === 'huomio' && asHomework ? 'laksy' : kind] || RECORD_LOOK.huomio;
 
@@ -332,7 +333,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
   ) : (
     <div className="sheet-actions">
       <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
-      <Button variant="dark" size="lg" icon="send" disabled={!ready} loading={busy} onClick={() => submit()}>
+      <Button variant="dark" size="lg" icon="send" missing={missing} loading={busy} onClick={() => submit()}>
         {ids.length ? `Lähetä ${players(ids.length)}` : 'Lähetä'}
       </Button>
     </div>

@@ -51,6 +51,9 @@ export function ToastProvider({ children }) {
   );
 }
 
+/** The same toast, or null outside a provider (for the Button's `missing` note). */
+export function useToastMaybe() { return useContext(ToastContext); }
+
 export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error('useToast must be used inside <ToastProvider>');
