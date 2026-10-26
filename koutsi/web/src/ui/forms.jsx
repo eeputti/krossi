@@ -136,8 +136,16 @@ export function Segmented({ options, value, onChange, tone = 'default', size = '
   const wrap = useRef(null);
   const [ind, setInd] = useState(null);
   useLayoutEffect(() => {
-    const el = wrap.current?.querySelector('[aria-selected="true"]');
-    if (el) setInd({ x: el.offsetLeft, w: el.offsetWidth });
+    const measure = () => {
+      const el = wrap.current?.querySelector('[aria-selected="true"]');
+      if (el) setInd({ x: el.offsetLeft, w: el.offsetWidth });
+    };
+    measure();
+    // a turned phone or a narrower window resizes the buttons: the highlight follows
+    if (typeof ResizeObserver === 'undefined' || !wrap.current) return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrap.current);
+    return () => ro.disconnect();
   }, [value, options.length]);
   return (
     <div ref={wrap} role="tablist" aria-label={ariaLabel} className={cx('segmented', `segmented-${tone}`, `segmented-${size}`, className)}>
@@ -145,7 +153,7 @@ export function Segmented({ options, value, onChange, tone = 'default', size = '
       {options.map((o) => (
         <button key={o.value} type="button" role="tab" aria-selected={value === o.value} className={cx('segmented-btn', value === o.value && 'is-on')} onClick={() => onChange(o.value)}>
           {o.icon && <Icon name={o.icon} size={16} />}
-          <span>{o.label}</span>
+          <span className="segmented-label">{o.label}</span>
           {o.badge ? <span className="segmented-badge">{o.badge}</span> : null}
         </button>
       ))}

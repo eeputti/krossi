@@ -36,7 +36,7 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, on
             onClick={() => { track('lisaa.ilmoitukset'); onClose(); onNotifications(); }} />
         )}
         {noticesReady && (
-          <ListRow icon="send" title="Tiedote pelaajille" subtitle="Viesti ryhmille tai pelaajille: näkyy heidän Kodissaan ja sähköpostissa"
+          <ListRow icon="send" title="Tiedote pelaajille" subtitle="Viesti ryhmille tai pelaajille: näkyy heidän Kodissaan"
             onClick={() => { track('lisaa.tiedote'); onClose(); onNotice(); }} />
         )}
         {!acting && (

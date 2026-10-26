@@ -53,7 +53,8 @@ export function ContinueThemesSheet({ open, week, onClose }) {
   const themeForMissing = (ids) => { track('teemat.puuttuville'); onClose(); openPlanner({ week, groupIds: ids }); };
 
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} size="md" title={`Viikon teemat · vko ${week.week}`}
+    <Sheet open={open} onClose={() => !busy && onClose()} size="md" title={`Viikon teemat · vko ${week.week}`} dismissible={!busy}
+      confirmClose={!saved && rows.some((r) => r.title.trim() !== r.from.title)}
       subtitle={saved ? null : 'Jatka edellisillä: jokainen ryhmä saa oman edellisen teemansa. Voit muuttaa yksittäistä teemaa tai jättää ryhmän pois ennen tallennusta.'}
       footer={saved ? <Button variant="dark" size="lg" block onClick={onClose}>Valmis</Button> : (
         <div className="sheet-actions">

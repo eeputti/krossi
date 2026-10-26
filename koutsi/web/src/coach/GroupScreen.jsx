@@ -20,7 +20,7 @@ import { GroupSent } from './sent.jsx';
 import { GroupTodayCard } from './today.jsx';
 import { Link } from '../app/router.js';
 import {
-  AddMembersSheet, AnnualPlanBlock, ExtendCalendarSheet, GroupFormSheet, GroupInviteSheet, SlotFormSheet, lastSessionDate, useGroupDelete,
+  AddMembersSheet, AnnualPlanBlock, ExtendCalendarSheet, GroupFormSheet, GroupInviteSheet, SlotFormSheet, calendarGoal, calendarReaches, lastSessionDate, useGroupDelete,
 } from './groupForms.jsx';
 
 function ThemeSection({ group }) {
@@ -152,7 +152,8 @@ export function GroupScreen({ params }) {
           <div className={endsSoon ? 'k-calendar-end is-soon' : 'k-calendar-end'}>
             <Icon name="calendar" size={16} />
             <span className="grow">{last ? `Treenit kalenterissa ${koutsiFmtShortDate(last)} asti` : 'Ei treenejä kalenterissa'}</span>
-            <Button variant={endsSoon ? 'dark' : 'ghost'} size="sm" icon="repeat" onClick={() => setSheet('extend')}>Jatka</Button>
+            {/* only when there is something to continue: a calendar that already reaches the season's end needs no button */}
+            {!calendarReaches(last, calendarGoal(state, group)) && <Button variant={endsSoon ? 'dark' : 'ghost'} size="sm" icon="repeat" onClick={() => setSheet('extend')}>Jatka</Button>}
           </div>
         </header>
         <GroupTodayCard state={state} group={group} now={new Date(nowMs)} />

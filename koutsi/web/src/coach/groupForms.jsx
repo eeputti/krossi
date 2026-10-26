@@ -362,6 +362,16 @@ function seasonEnd(today = koutsiTodayStr()) {
   return `${y}-08-31`;
 }
 
+/** The day a group's weekly calendar is meant to reach: the end of its season when Koutsi knows
+ *  the seasons (and it is still ahead), else the usual end of the term. */
+export function calendarGoal(state, group, today = koutsiTodayStr()) {
+  const season = (group?.seasonId && (state.seasons || []).find((x) => x.id === group.seasonId)) || (state.seasonsReady ? currentSeason(state) : null);
+  return season?.endsOn && season.endsOn > today ? season.endsOn : seasonEnd(today);
+}
+
+/** True when the weekly sessions already reach `until`: the next one would fall after it. */
+export const calendarReaches = (last, until) => Boolean(last && until && last > koutsiAddDays(until, -7));
+
 /**
  * Continue the weekly sessions of the chosen groups up to a date, optionally skipping whole
  * weeks (holidays). One server call per group; the players get one summary notification.
@@ -369,12 +379,13 @@ function seasonEnd(today = koutsiTodayStr()) {
 export function ExtendCalendarSheet({ open, onClose, groups }) {
   const { state, run } = useData();
   const toast = useToast();
-  const [until, setUntil] = useState(seasonEnd());
+  const goal = calendarGoal(state, (groups || [])[0]);
+  const [until, setUntil] = useState(goal);
   const [chosen, setChosen] = useState([]);
   const [skipWeeks, setSkipWeeks] = useState([]);
   const [busy, setBusy] = useState(false);
   const lastOf = (g) => state.trainings.filter((t) => t.groupId === g.id && t.loggedBy !== 'player').map((t) => t.date).sort().pop() || null;
-  useEffect(() => { if (open) { setChosen((groups || []).map((g) => g.id)); setSkipWeeks([]); setUntil(seasonEnd()); } }, [open, groups]);
+  useEffect(() => { if (open) { setChosen((groups || []).map((g) => g.id)); setSkipWeeks([]); setUntil(goal); } }, [open, groups]); // eslint-disable-line react-hooks/exhaustive-deps
   const earliest = useMemo(() => (groups || []).map(lastOf).filter(Boolean).sort()[0] || koutsiTodayStr(), [groups, state]); // eslint-disable-line react-hooks/exhaustive-deps
   const weeks = useMemo(() => {
     const out = [];
@@ -401,14 +412,16 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
     });
     setBusy(false);
     if (res.ok) {
-      toast(added > 0 ? `Kalenteria jatkettu — ${added} treeniä lisätty ${koutsiFmtShortDate(until)} asti.` : 'Kalenteri oli jo valmiiksi pidempi.');
+      toast(added > 0 ? `Kalenteria jatkettu — ${added} treeniä lisätty ${koutsiFmtShortDate(until)} asti.` : `Treenit olivat jo kalenterissa ${koutsiFmtShortDate(until)} asti — mitään ei lisätty.`, added > 0 ? undefined : { tone: 'info' });
       onClose();
     }
   };
   const valid = until > koutsiTodayStr();
+  // every picked group already has its sessions up to the chosen day: say so before the tap
+  const nothingToAdd = chosen.length > 0 && (groups || []).filter((g) => chosen.includes(g.id)).every((g) => calendarReaches(lastOf(g), until));
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Jatka kalenteria" subtitle="Ryhmien viikoittaiset treenit jatkuvat samaan aikaan." size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!chosen.length ? 'Valitse ainakin yksi ryhmä.' : !valid ? 'Valitse päivä tämän päivän jälkeen.' : null} loading={busy} onClick={submit}>{chosen.length > 1 ? `Jatka ${chosen.length} ryhmää` : 'Jatka kalenteria'}</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!chosen.length ? 'Valitse ainakin yksi ryhmä.' : !valid ? 'Valitse päivä tämän päivän jälkeen.' : nothingToAdd ? `Treenit ovat jo kalenterissa ${koutsiFmtShortDate(until)} asti. Valitse myöhäisempi päivä.` : null} loading={busy} onClick={submit}>{chosen.length > 1 ? `Jatka ${chosen.length} ryhmää` : 'Jatka kalenteria'}</Button></div>}>
       <div className="stack-4">
         <Field label="Jatka asti" htmlFor="extend-until" hint="Esim. kauden viimeinen treeniviikko.">
           <Input id="extend-until" type="date" value={until} min={koutsiAddDays(koutsiTodayStr(), 1)} onChange={(e) => setUntil(e.target.value)} />
@@ -429,7 +442,8 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
             })}
           </div>
         </Field>
-        {weeks.length > 0 && (
+        {nothingToAdd && <p className="field-msg">Treenit ovat jo kalenterissa {koutsiFmtShortDate(until)} asti. Jatka vain, jos haluat treenejä tämän päivän jälkeen.</p>}
+        {weeks.length > 0 && !nothingToAdd && (
           <Field label="Taukoviikot" optional hint="Näille viikoille ei lisätä treenejä (esim. joulu- tai hiihtoloma).">
             <div className="k-weeks-row">
               {weeks.map((w) => (
@@ -441,7 +455,7 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
             </div>
           </Field>
         )}
-        <p className="field-msg">Pelaajat saavat yhden ilmoituksen jatkosta — ei jokaisesta treenistä erikseen.</p>
+        <p className="field-msg">Treenit tulevat ryhmän pelaajien kalenteriin.</p>
       </div>
     </Sheet>
   );

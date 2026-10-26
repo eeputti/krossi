@@ -130,7 +130,7 @@ export function BulkSetupSheet({ open, onClose }) {
   }
 
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Lisää monta kerralla" subtitle={`${done ? 4 : step}/4 · ${STEPS[(done ? 4 : step) - 1]}`} size="lg" dismissible={!busy} confirmClose={groups.length > 0 && !done ? { title: 'Hylätäänkö täytetyt ryhmät?', message: 'Mitään ei ole vielä tallennettu.' } : false} footer={footer}>
+    <Sheet open={open} onClose={() => !busy && onClose()} title="Lisää monta kerralla" subtitle={`${done ? 4 : step}/4 · ${STEPS[(done ? 4 : step) - 1]}`} size="lg" dismissible={!busy} confirmClose={!done && rows.some((g) => g.name.trim() || g.level.trim() || g.time || g.names.trim() || g.theme.trim()) ? { title: 'Hylätäänkö täytetyt ryhmät?', message: 'Mitään ei ole vielä tallennettu.' } : false} footer={footer}>
       <ol className="bs-steps" aria-label="Vaiheet">
         {STEPS.map((label, i) => (
           <li key={label} className={`bs-step${(done ? 4 : step) === i + 1 ? ' is-on' : ''}${(done ? 5 : step) > i + 1 ? ' is-done' : ''}`}>

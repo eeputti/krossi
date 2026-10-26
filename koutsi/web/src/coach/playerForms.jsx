@@ -109,6 +109,7 @@ export function EditPlaceholderSheet({ open, onClose, student }) {
   };
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Muokkaa perustietoja" subtitle={`${student.name} ei ole vielä liittynyt, joten voit muokata näitä hänen puolestaan.`} size="md" dismissible={!busy}
+      confirmClose={name.trim() !== (student.name || '').trim() || age !== (student.age == null ? '' : String(student.age)) || level.trim() !== (student.level || '').trim() ? { title: 'Hylätäänkö muutokset?', message: 'Tietoja ei ole vielä tallennettu.' } : false}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!name.trim() ? 'Kirjoita pelaajan nimi.' : !valid ? 'Iän pitää olla 1–119 vuotta.' : exact ? `Sinulla on jo pelaaja nimeltä ${exact.name}. Erota nimet toisistaan.` : null} loading={busy} onClick={submit}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="e-name" error={exact ? `Sinulla on jo toinen pelaaja nimeltä ${exact.name}. Erota nimet toisistaan.` : null}>
