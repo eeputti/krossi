@@ -150,7 +150,8 @@ export function AppShell({ tabs, screens, NotFound, badges, cta, center, extraLi
   const bgMatch = overlay ? matchRoute(bgPathname) : null;
   const pageMatch = overlay ? bgMatch : (route.route ? { name: route.name, params: route.params, route: route.route } : null);
   const pageQuery = overlay ? Object.fromEntries(new URLSearchParams(bgSearch || '')) : route.query;
-  const pageKey = overlay ? bgPath : route.path;
+  // by the path alone: opening an overlay from a page with ?vko=… must not remount the page under it
+  const pageKey = overlay ? bgPathname : route.path;
   const pageType = pageMatch?.route?.type;
   const activeTab = route.state.tab || (overlay ? bgMatch?.route?.tab : route.route?.tab) || null;
   const hideChrome = !isDesktop && pageType === 'full';

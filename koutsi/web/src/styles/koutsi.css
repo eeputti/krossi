@@ -754,3 +754,7 @@ label.btn { cursor: pointer; }
 .k-moved-arrow { margin-top: 2px; color: var(--muted); }
 .k-moved-to { font-weight: 700; color: var(--ink); }
 label.k-avatar-pick { cursor: pointer; }
+
+/* Merkitse "Pelaaja…": the player list in its own box, so the text field below stays near */
+.k-recipient-list.is-boxed { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: var(--r-md); padding: 4px; }
+.vs-pill.is-incomplete { opacity: 0.55; }

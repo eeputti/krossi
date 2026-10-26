@@ -415,3 +415,16 @@ button.medal:active { transform: scale(0.96); }
 @keyframes tball-shadow { from { transform: scale(0.55); opacity: 0.45; } to { transform: scale(1); opacity: 1; } }
 @keyframes tball-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-6px) rotate(18deg); } }
 @media (prefers-reduced-motion: reduce) { .tball .tball-svg, .tball .tball-shadow { animation: none; } }
+
+/* ── finger-sized tap areas on touch screens ──────────────────────────────
+   Small controls keep their look, but an invisible margin around them takes the tap: a sheet's ✕,
+   round icon buttons, text links (Vaihda, Vastaa valmentajalle, Näytä kaikki), the 1–5 numbers,
+   Ohita, the homework tick. (Audit 26.10.: many were 20–32 px, a finger needs ~44.) */
+@media (pointer: coarse) {
+  .sheet-header .icon-btn-sm, .sheet-close-floating.icon-btn-sm { width: 40px; height: 40px; }
+  .icon-btn-sm::after, .k-textlink::after, .pn-skip::after, .pn-link::after, .pw-hw-check::after, .pn-feel-num::after, .top-banner-cta::after {
+    content: ''; position: absolute; inset: -8px -6px;
+  }
+  .k-textlink, .pn-skip, .pn-link, .pw-hw-check, .pn-feel-num, .top-banner-cta { position: relative; }
+  .pn-feel-num::after { inset: -8px -2px; }
+}

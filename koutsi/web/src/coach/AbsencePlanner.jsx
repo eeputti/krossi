@@ -174,7 +174,11 @@ export function AbsencePlannerPanel({ compact = false }) {
   const pick = (id) => {
     setChosen(id);
     track('suunnittele.poissaolo-pelaaja');
-    if (!isDesktop) window.scrollTo({ top: 0 });
+    if (!isDesktop) {
+      window.scrollTo({ top: 0 });
+      // inside a sheet the sheet's own body is what scrolled
+      requestAnimationFrame(() => document.querySelectorAll('.sheet-body').forEach((el) => { el.scrollTop = 0; }));
+    }
   };
   // a phone shows one thing at a time: the list, or the chosen player's sessions
   if (!isDesktop && student) {

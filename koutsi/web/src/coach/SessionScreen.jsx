@@ -17,6 +17,7 @@ import { TrainingSheet, useTrainingDelete } from './trainingForms.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { useRecord } from './merkitse.jsx';
 import { SessionPlan } from './SessionPlan.jsx';
+import { saveAttendance } from './attendance.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -27,7 +28,6 @@ export function SessionScreen({ params }) {
   const record = useRecord();
   const [editOpen, setEditOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
-  const [pending, setPending] = useState(() => new Set());
   // ?runko=1 (Viikkohallinta → Treenin runko): scroll to the plan once the sheet has closed.
   const route = useRoute();
   useEffect(() => {
@@ -63,28 +63,8 @@ export function SessionScreen({ params }) {
     text: `${koutsiFmtShortDate(training.date)} klo ${training.time} · ${status === 'upcoming' ? (one ? '1 pelaaja' : `${recipients.length} pelaajaa`) : status === 'now' ? `${recipients.length} paikalla` : (one ? '1 paikalla ollut' : `${recipients.length} paikalla ollutta`)}`,
   };
 
-  const setStatus = async (student, next) => {
-    if (pending.has(student.id)) return;
-    setPending((p) => new Set(p).add(student.id));
-    // optimistic: the tap shows at once; the reload after the write is the truth
-    mutate((s) => ({
-      ...s,
-      trainings: s.trainings.map((t) => (t.id !== training.id ? t : {
-        ...t,
-        absences: next === 'poissa'
-          ? [...(t.absences || []).filter((a) => a.studentId !== student.id), { studentId: student.id, reason: 'poissa', reportedBy: null, updatedAt: new Date().toISOString() }]
-          : (t.absences || []).filter((a) => a.studentId !== student.id),
-      })),
-    }));
-    try {
-      await api.attendance.set([training.id], student.id, next);
-    } catch (err) {
-      toast(err);
-    } finally {
-      setPending((p) => { const n = new Set(p); n.delete(student.id); return n; });
-      reload().catch(() => {});
-    }
-  };
+  // optimistic: the tap shows at once; saved in order, one reload after the last (attendance.jsx)
+  const setStatus = (student, next) => saveAttendance({ trainingId: training.id, studentId: student.id, next, mutate, reload, toast });
 
   const remove = async () => {
     if (await removeTraining(training, label)) goBack('/valmentaja/ryhmat');

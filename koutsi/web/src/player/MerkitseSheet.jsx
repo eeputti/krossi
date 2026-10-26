@@ -134,7 +134,7 @@ export function AfterSessions({ ended, onSkip, className }) {
       <div className="pn-after-foot">
         {many && <div className="pn-dots" aria-hidden="true">{ended.map((x, i) => <span key={x.training.id} className={cx('pn-dot', i === index && 'is-on', x.mood && 'is-done')} />)}</div>}
         <span className="grow" />
-        {many && !allDone && perSession && <Button variant="ghost" size="sm" onClick={() => actions.openCheckIn(null, { all: ended.map((x) => x.training) })}>Kaikista kerralla</Button>}
+        {many && !allDone && perSession && <Button variant="ghost" size="sm" onClick={() => actions.openCheckIn(null, { all: ended.filter((x) => !x.mood).map((x) => x.training) })}>Kaikista kerralla</Button>}
         {!allDone && onSkip && (
           <button type="button" className="pn-skip" onClick={() => onSkip(ended.filter((x) => !x.mood).map((x) => x.training.id))}>Ohita</button>
         )}

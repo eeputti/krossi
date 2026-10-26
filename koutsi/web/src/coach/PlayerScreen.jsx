@@ -296,6 +296,8 @@ function Details({ state, student, onReplyWish }) {
   );
 }
 
+const tabByPlayer = new Map(); // back from a linked page comes back to the same tab
+
 export function PlayerScreen({ params }) {
   const { state, run } = useData();
   const { coachId, acting } = useCoach();
@@ -303,7 +305,8 @@ export function PlayerScreen({ params }) {
   const msgs = useMessages();
   const [turnOnOpen, setTurnOnOpen] = useState(false);
   const confirm = useConfirm();
-  const [tab, setTab] = useState('kehitys');
+  const [tab, setTabState] = useState(() => tabByPlayer.get(params.id) || 'kehitys');
+  const setTab = (v) => { tabByPlayer.set(params.id, v); setTabState(v); };
   const [sheet, setSheet] = useState(null); // { kind, item }
   const [video, setVideo] = useState(null);
   const student = state.students.find((s) => s.id === params.id);

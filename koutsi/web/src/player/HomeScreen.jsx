@@ -22,7 +22,7 @@ import { NotificationsButton, targetOf, useNotifications } from '../shared/Notif
 import { Block, Quiet } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiIsoWeekRangeLabel, koutsiGroupById, koutsiCoachById, koutsiTimeRangeLabel, koutsiTodayStr,
-  koutsiAddDays, koutsiFmtShortDate, koutsiPad, KOUTSI_EVENT_KINDS,
+  koutsiAddDays, koutsiFmtShortDate, koutsiPad, KOUTSI_EVENT_KINDS, koutsiIsoWeekOfDateStr,
 } from '../domain/core.js';
 import { minutesLabel, relativeDay, weekParam } from '../domain/week.js';
 import { moodFor, sessionForDay, sessionLine, weekDots } from '../domain/playerNow.js';
@@ -274,7 +274,7 @@ function newsRows(state, student, unread, threads = []) {
     .forEach((e) => rows.push({
       id: `e-${e.id}`, icon: eventIcon(e.kind), title: e.title,
       meta: `${kindLabel(e.kind)} · ${koutsiFmtShortDate(e.date)}${e.endDate && e.endDate !== e.date ? `–${koutsiFmtShortDate(e.endDate)}` : ''}`,
-      to: '/pelaaja/treenit',
+      to: `/pelaaja/treenit?vko=${weekParam(koutsiIsoWeekOfDateStr(e.date < today ? today : e.date))}&pv=${e.date < today ? today : e.date}`,
     }));
   return rows;
 }

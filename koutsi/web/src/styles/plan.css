@@ -60,7 +60,7 @@
   display: flex; align-items: center; gap: 9px; width: 100%; min-height: 44px; padding: 0 12px; text-align: left;
   border-radius: var(--r-md); background: var(--green-800); color: #fff; font-size: 14px;
 }
-.tp-link .grow { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-link .grow { min-width: 0; line-height: 1.35; } /* wraps: "· 83 min" must not be cut off */
 .tp-link strong { color: var(--lime); font-weight: 800; }
 .tp-inline {
   display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 4px; padding: 3px 0; text-align: left; white-space: nowrap;

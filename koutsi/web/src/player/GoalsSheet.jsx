@@ -45,7 +45,7 @@ export function GoalsSheet({ open, onClose }) {
   const hadAny = Boolean((student.goal || '').trim() || (student.longGoal || '').trim());
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Tavoitteet" subtitle="Kaikki valmentajasi näkevät nämä." size="md" dismissible={!busy} confirmClose={goalChanged || aimChanged}
-      footer={<Button variant="dark" size="lg" block loading={busy} disabled={!goalChanged && !aimChanged} onClick={save}>Tallenna</Button>}>
+      footer={<Button variant="dark" size="lg" block loading={busy} missing={!goalChanged && !aimChanged ? 'Kirjoita tai muuta tavoitetta ensin.' : null} onClick={save}>Tallenna</Button>}>
       <div className="stack-5">
         <Field label="Tämän kauden tavoite" hint="Mitä haluat oppia tai saavuttaa tällä kaudella?" htmlFor="goal-now">
           <Textarea id="goal-now" rows={2} value={goal} onChange={(e) => setGoal(e.target.value)} maxLength={1000} placeholder="Esim. Varmempi kakkossyöttö" />

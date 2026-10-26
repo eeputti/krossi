@@ -22,7 +22,8 @@ export function recipientSummary(students, ids) {
  *   students: [{ id, name, … }]   groups: the coach's groups (for the one-tap picks)
  *   value: picked ids   onChange(ids)   open: the sheet is open (resets the fold)
  */
-export function RecipientPicker({ students, groups = [], value, onChange, open = true }) {
+/*   boxed: the list scrolls in a box of its own (Merkitse, where the text field comes after it) */
+export function RecipientPicker({ students, groups = [], value, onChange, open = true, boxed = false }) {
   const [expanded, setExpanded] = useState(value.length === 0);
   const [query, setQuery] = useState('');
   useEffect(() => {
@@ -72,7 +73,7 @@ export function RecipientPicker({ students, groups = [], value, onChange, open =
         </div>
       )}
       {students.length > 8 && <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae nimellä" aria-label="Hae pelaajaa" />}
-      <div className="k-pick-list k-recipient-list">
+      <div className={cx('k-pick-list k-recipient-list', boxed && 'is-boxed')}>
         {list.map((s) => (
           <label key={s.id} className={cx('k-pick', picked.has(s.id) && 'is-on')}>
             <input type="checkbox" checked={picked.has(s.id)} onChange={() => toggle(s.id)} />
