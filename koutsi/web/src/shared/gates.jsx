@@ -345,7 +345,7 @@ export function SetPasswordScreen() {
             <Field label="Uusi salasana uudelleen" htmlFor="pw2" error={pw2 && pw !== pw2 ? 'Salasanat eivät täsmää.' : null}>
               <Input id="pw2" type="password" size="lg" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
             </Field>
-            <Button type="submit" variant="dark" size="lg" block disabled={!ready} loading={busy}>Tallenna salasana</Button>
+            <Button type="submit" variant="dark" size="lg" block missing={pw.length < MIN_PASSWORD ? `Salasanassa pitää olla vähintään ${MIN_PASSWORD} merkkiä.` : pw !== pw2 ? 'Salasanat eivät täsmää.' : null} loading={busy}>Tallenna salasana</Button>
             <Button variant="ghost" block onClick={() => { signOut(); endRecovery(); }}>Peruuta</Button>
           </form>
         )}
@@ -406,7 +406,7 @@ export function OnboardingScreen({ role }) {
             <ChipSelect options={AREA_OPTIONS.map((a) => ({ value: a, label: a }))} value={area} onChange={setArea} ariaLabel="Kotikaupunki" />
           </Field>
         </div>
-        <Button variant="dark" size="lg" block disabled={!ready} loading={busy} onClick={save} className="k-gate-cta">Jatka</Button>
+        <Button variant="dark" size="lg" block missing={!name.trim() ? 'Kirjoita nimesi.' : !area ? 'Valitse kotikaupunki.' : !ageValid ? 'Iän pitää olla 1–119 vuotta (tai jätä tyhjäksi).' : null} loading={busy} onClick={save} className="k-gate-cta">Jatka</Button>
         <Button variant="ghost" block onClick={signOut}>Kirjaudu ulos</Button>
       </div>
     </div>
@@ -438,7 +438,7 @@ export function PilotGate({ role }) {
           <span>Ymmärrän, ettei Koutsiin saa kirjata vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.</span>
         </label>
         <p className="k-fine">Vahvistus tallennetaan käyttäjätilillesi. Lue myös <a href="/kayttoehdot" target="_blank" rel="noopener">käyttöehdot</a> ja <a href="/tietosuoja" target="_blank" rel="noopener">tietosuojaseloste</a>.</p>
-        <Button variant="dark" size="lg" block disabled={!rules} loading={busy} onClick={submit}>Vahvista ja jatka</Button>
+        <Button variant="dark" size="lg" block missing={!rules ? 'Rastita ensin yllä oleva kohta.' : null} loading={busy} onClick={submit}>Vahvista ja jatka</Button>
         <Button variant="ghost" block onClick={signOut} disabled={busy}>Kirjaudu ulos</Button>
       </div>
     </div>

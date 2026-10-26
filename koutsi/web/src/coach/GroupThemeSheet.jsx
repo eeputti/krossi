@@ -72,7 +72,7 @@ export function GroupThemeSheet({ open, group, week, onClose }) {
       footer={(
         <div className="sheet-actions">
           <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
-          <Button variant="dark" size="lg" loading={busy} disabled={!cleanTitle} onClick={save}>{current ? 'Tallenna' : 'Aseta teema'}</Button>
+          <Button variant="dark" size="lg" loading={busy} missing={!cleanTitle ? 'Kirjoita teema ensin.' : null} onClick={save}>{current ? 'Tallenna' : 'Aseta teema'}</Button>
         </div>
       )}>
       <div className="stack-4">

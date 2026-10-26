@@ -53,7 +53,7 @@ export function ProfileEditScreen() {
   };
 
   return (
-    <ProfileEditPage person={me} uid={ownerId} back="/pelaaja/profiili" dirty={dirty} canSave={canSave} busy={busy} onSave={save}
+    <ProfileEditPage person={me} uid={ownerId} back="/pelaaja/profiili" dirty={dirty} canSave={canSave} missing={!f.name.trim() ? 'Kirjoita nimesi.' : !ageValid ? 'Tarkista ikä (1–119).' : !sinceValid ? 'Tarkista vuosi, jolloin aloitit tenniksen.' : null} busy={busy} onSave={save}
       photoText="Kasvokuva auttaa valmentajaa ja ryhmäkavereita tunnistamaan sinut.">
       <EditCard title="Perustiedot" icon="user">
         <Field label="Nimi" htmlFor="pe-name" error={!f.name.trim() ? 'Kirjoita nimesi.' : null}>

@@ -233,13 +233,13 @@ export function PlannerSheet({ query }) {
   else if (step === 1) footer = (
     <div className="sheet-actions">
       <Button variant="soft" size="lg" onClick={close}>Sulje</Button>
-      <Button variant="dark" size="lg" iconRight="arrow-right" disabled={!cleanTitle} onClick={() => cleanTitle && goStep(2)}>Valitse ryhmät</Button>
+      <Button variant="dark" size="lg" iconRight="arrow-right" missing={!cleanTitle ? 'Kirjoita teema ensin.' : null} onClick={() => goStep(2)}>Valitse ryhmät</Button>
     </div>
   );
   else if (step === 2) footer = (
     <div className="sheet-actions">
       <Button variant="soft" size="lg" icon="arrow-left" className="btn-square" aria-label="Takaisin" title="Takaisin" onClick={() => goStep(1)} />
-      <Button variant="lime" size="lg" disabled={!canSave} loading={busy} onClick={save}>{targets.length === 0 ? 'Valitse ryhmät' : `Tallenna ${targets.length} ryhmälle`}</Button>
+      <Button variant="lime" size="lg" missing={!cleanTitle ? 'Kirjoita teema ensin.' : targets.length === 0 ? 'Valitse ainakin yksi ryhmä.' : null} disabled={isPast} loading={busy} onClick={save}>{targets.length === 0 ? 'Valitse ryhmät' : `Tallenna ${targets.length} ryhmälle`}</Button>
     </div>
   );
   else if (step === 3) footer = (

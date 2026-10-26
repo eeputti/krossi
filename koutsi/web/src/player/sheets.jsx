@@ -45,7 +45,7 @@ export function MoodSheet({ open, onClose, studentId, initialScore = null, title
   };
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={title} size="sm"
-      footer={<Button variant="dark" size="lg" block disabled={!score} loading={busy} onClick={save}>Tallenna</Button>}>
+      footer={<Button variant="dark" size="lg" block missing={!score ? 'Valitse ensin fiilis 1–5.' : null} loading={busy} onClick={save}>Tallenna</Button>}>
       <div className="stack-4">
         <MoodPicker value={score} onChange={setScore} />
         <Field label="Miksi?" optional htmlFor="mood-note"><Textarea id="mood-note" rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} /></Field>
@@ -87,7 +87,7 @@ export function MatchNoteSheet({ open, onClose, editing, defaultDate }) {
   const doubles = f.format === 'nelinpeli';
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa ottelua' : 'Ottelumuistiinpano'} size="md"
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={save}>Tallenna</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={!f.opponentName.trim() ? 'Kirjoita vastustajan nimi.' : !f.date ? 'Valitse päivä.' : null} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Segmented ariaLabel="Laji" value={f.format} onChange={set('format')} options={[{ value: 'kaksinpeli', label: 'Kaksinpeli' }, { value: 'nelinpeli', label: 'Nelinpeli' }]} />
         {doubles && <Field label="Parisi" optional htmlFor="mn-partner"><Input id="mn-partner" value={f.partnerName} onChange={set('partnerName')} maxLength={120} /></Field>}
@@ -188,7 +188,7 @@ export function SelfTrainingSheet({ open, onClose, defaultDate, defaultTime, edi
   const locked = Boolean(preset?.locked) && !editing;
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa merkintää' : locked ? a.title : 'Kirjaa oma treeni'} subtitle="Oma merkintäsi. Kaikki valmentajasi näkevät sen." size="md"
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" disabled={!a.match && !ready} loading={busy} onClick={save}>{a.match ? 'Jatka ottelun kirjaukseen' : 'Tallenna'}</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={a.match ? null : !coachId ? 'Liity ensin valmentajan ryhmään (Lisää → Liity ryhmään), niin voit kirjata treenejä.' : !isTournament && !f.time ? 'Valitse kellonaika.' : !isTournament && !(f.duration > 0) ? 'Valitse kesto.' : null} loading={busy} onClick={save}>{a.match ? 'Jatka ottelun kirjaukseen' : 'Tallenna'}</Button></div>}>
       <div className="stack-4">
         {!locked && <div className="pw-acts" role="radiogroup" aria-label="Mitä teit?">
           {tiles.map((x) => (

@@ -83,7 +83,7 @@ export function GroupFormSheet({ open, onClose, editing }) {
   const players = state.students.slice().sort((a, b) => a.name.localeCompare(b.name, 'fi'));
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={isEdit ? 'Muokkaa ryhmää' : 'Uusi ryhmä'} size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!ready} loading={busy} onClick={submit}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!name.trim() ? 'Anna ryhmälle nimi.' : !time ? 'Valitse kellonaika.' : null} loading={busy} onClick={submit}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="g-name"><Input id="g-name" size="lg" value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. tiistai aikuiset" maxLength={120} /></Field>
         <Field label="Taso" optional htmlFor="g-level"><Input id="g-level" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Esim. Keskitaso" maxLength={80} /></Field>
@@ -136,7 +136,7 @@ export function SlotFormSheet({ open, onClose, group }) {
   };
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Lisää harjoitusaika" subtitle="Toinen viikoittainen aika samalle ryhmälle." size="sm"
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!time} loading={busy} onClick={submit}>Lisää</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!time ? 'Valitse kellonaika.' : null} loading={busy} onClick={submit}>Lisää</Button></div>}>
       <div className="stack-4">
         <Field label="Viikonpäivä"><DayPicker value={day} onChange={setDay} /></Field>
         <div className="k-two">
@@ -203,7 +203,7 @@ export function AddMembersSheet({ open, onClose, group }) {
   };
   return (
     <Sheet open={open} onClose={onClose} title="Lisää pelaajia" subtitle={group.name} size="md" dismissible={!creating && !saving}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Valmis</Button><Button variant="dark" size="lg" disabled={!selected.length} loading={saving} onClick={save}>Lisää ({selected.length})</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Valmis</Button><Button variant="dark" size="lg" missing={!selected.length ? 'Valitse pelaajat listasta tai luo uusi pelaaja yllä.' : null} loading={saving} onClick={save}>Lisää ({selected.length})</Button></div>}>
       <div className="stack-5">
         <form className="k-subcard stack-3" onSubmit={create}>
           <div className="k-subcard-title">Uusi pelaaja tähän ryhmään</div>
@@ -226,7 +226,7 @@ export function AddMembersSheet({ open, onClose, group }) {
             <Input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Taso (valinn.)" maxLength={80} aria-label="Taso" />
           </div>
           {!ageValid && <p className="field-msg field-msg-error">Iän pitää olla 1–119 vuotta.</p>}
-          <Button type="submit" variant="dark" size="md" block disabled={!createReady} loading={creating} icon="plus">Luo ja lisää ryhmään</Button>
+          <Button type="submit" variant="dark" size="md" block missing={!name.trim() ? 'Kirjoita pelaajan nimi.' : !ageValid ? 'Iän pitää olla 1–119 vuotta.' : existing ? `${existing.name} on jo listallasi — valitse hänet yltä.` : null} loading={creating} icon="plus">Luo ja lisää ryhmään</Button>
         </form>
         <div className="stack-3">
           <div className="field-label">Valitse nykyisistä pelaajista</div>
@@ -393,7 +393,7 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
   const valid = until > koutsiTodayStr();
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Jatka kalenteria" subtitle="Ryhmien viikoittaiset treenit jatkuvat samaan aikaan." size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" disabled={!chosen.length || !valid} loading={busy} onClick={submit}>{chosen.length > 1 ? `Jatka ${chosen.length} ryhmää` : 'Jatka kalenteria'}</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!chosen.length ? 'Valitse ainakin yksi ryhmä.' : !valid ? 'Valitse päivä tämän päivän jälkeen.' : null} loading={busy} onClick={submit}>{chosen.length > 1 ? `Jatka ${chosen.length} ryhmää` : 'Jatka kalenteria'}</Button></div>}>
       <div className="stack-4">
         <Field label="Jatka asti" htmlFor="extend-until" hint="Esim. kauden viimeinen treeniviikko.">
           <Input id="extend-until" type="date" value={until} min={koutsiAddDays(koutsiTodayStr(), 1)} onChange={(e) => setUntil(e.target.value)} />

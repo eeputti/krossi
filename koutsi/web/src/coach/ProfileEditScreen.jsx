@@ -71,7 +71,7 @@ export function ProfileEditScreen() {
   };
 
   return (
-    <ProfileEditPage person={c} uid={uid} back="/valmentaja/profiili" dirty={dirty} canSave={canSave} busy={busy} onSave={save}
+    <ProfileEditPage person={c} uid={uid} back="/valmentaja/profiili" dirty={dirty} canSave={canSave} missing={!f.name.trim() ? 'Kirjoita nimesi.' : null} busy={busy} onSave={save}
       photoText="Pelaajasi näkevät kuvasi ja esittelysi omassa Koutsissaan.">
       <EditCard title="Perustiedot" icon="user">
         <Field label="Nimi" htmlFor="ce-name" error={!f.name.trim() ? 'Kirjoita nimesi.' : null}>

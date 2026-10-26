@@ -41,7 +41,7 @@ function CoachKeyGate({ onRedeemed }) {
           <Field label="Valmentaja-avain" htmlFor="coach-key" error={error || null}>
             <Input id="coach-key" size="lg" type="password" value={key} onChange={(e) => setKey(e.target.value)} autoFocus autoComplete="off" />
           </Field>
-          <Button type="submit" variant="dark" size="lg" block disabled={!key.trim()} loading={busy}>Vahvista</Button>
+          <Button type="submit" variant="dark" size="lg" block missing={!key.trim() ? 'Kirjoita valmentaja-avain.' : null} loading={busy}>Vahvista</Button>
         </form>
         <Button variant="ghost" block onClick={signOut}>Kirjaudu ulos</Button>
       </div>
