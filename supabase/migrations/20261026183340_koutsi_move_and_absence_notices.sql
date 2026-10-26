@@ -3,7 +3,7 @@
 --   * a coach hears when a player says "En pääse" ("Aatu Laine ei pääse"), and when the player
 --     takes it back ("… pääseekin"). The player app already told the player "Poissaolo ilmoitettu
 --     valmentajalle", but nothing reached the coach.
--- NOT APPLIED. Proposed for production; shown to the owner first.
+-- Applied to production 2026-10-26 after the owner read it and said yes.
 --
 -- Everything goes through koutsi_notify and keeps the koutsi_smart_notifications rules: a burst
 -- within 10 minutes is one notice ("Treenisi muuttuivat", "Aatu Laine ei pääse 4 treeniin").
