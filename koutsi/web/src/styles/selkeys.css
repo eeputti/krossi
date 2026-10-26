@@ -49,7 +49,7 @@
 }
 .vs-pill.is-on { background: var(--green-800); border-color: var(--green-800); color: #fff; }
 .vs-pill:disabled { opacity: 0.45; }
-.vs-chip-sub { font-size: 12px; font-weight: 650; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vs-chip-sub { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; font-weight: 650; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vs-chip-sub.is-missing { color: #8A3A1A; }
 .vs-chip.is-on .vs-chip-sub { color: var(--on-dark-muted); }
 .vs-chip.is-on .vs-chip-sub.is-missing { color: #F6A784; }

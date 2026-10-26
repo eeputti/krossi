@@ -67,7 +67,7 @@ function koutsiTlDayLabel(dayStr) {
 // Turns one student (plus the trainings that concern them) into a flat, newest-first list
 // of timeline events. `search` on each event is the blob the free-text filter matches, so
 // searching "Venla" finds the match note and searching "syöttö" finds the coach's note.
-function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player' } = {}) {
+function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player', now = new Date() } = {}) {
   const items = [];
   const push = (e) => { if (e.at) items.push(e); };
 
@@ -177,9 +177,13 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
   }));
 
   // Only sessions that have already happened belong on a history timeline; the upcoming
-  // ones live on the Treenit tab.
+  // ones live on the Treenit tab. Today's coach-run sessions count once they have started
+  // (a player's own log is shown as soon as it is written).
   const today = koutsiTodayStr();
-  (trainings || []).filter((t) => t.date <= today).forEach((t) => {
+  const clock = now;
+  const nowTime = `${String(clock.getHours()).padStart(2, '0')}:${String(clock.getMinutes()).padStart(2, '0')}`;
+  const happened = (t) => t.date < today || (t.date === today && (t.loggedBy === 'player' || !t.time || String(t.time).slice(0, 5) <= nowTime));
+  (trainings || []).filter(happened).forEach((t) => {
     const absence = (t.absences || []).find((a) => a.studentId === student.id);
     const reason = absence ? (KOUTSI_ABSENCE_REASON_LABELS[absence.reason] || 'Poissa') : '';
     // A tournament entry's matches are logged as separate match notes linked back to it

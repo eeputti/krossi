@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { Avatar, Button, Icon, IconButton, Sheet, Textarea, useConfirm } from '../ui/index.js';
+import { Avatar, Button, Icon, IconButton, Sheet, Textarea, useConfirm, useToast } from '../ui/index.js';
 import { navigate } from '../app/router.js';
 import { RecipientPicker, recipientSummary } from '../shared/recipients.jsx';
 import {
@@ -105,6 +105,7 @@ const kindFor = (chip) => (!chip ? 'huomio' : chip.status === 'now' ? 'lasnaolo'
 export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [], initialGroupIds = [], focusDate = null, initialKind = null, onVideo, onDay, onWeek, onAbsence }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
+  const toast = useToast();
   const now = new Date();
   const chips = useMemo(() => sessionChips(state, now), [state, open]); // eslint-disable-line react-hooks/exhaustive-deps
   const week = koutsiCurrentIsoWeek();
@@ -285,7 +286,13 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
   // ── the first step: one line on the moment, six choices, and the rarer things below ──
   const ctx = merkitseContext(state, now);
   const ctxItem = ctx && ['now', 'ended', 'next'].includes(ctx.kind) ? ctx.items[0] : null;
-  const situation = ctxItem ? {
+  const fromTraining = trainingId ? state.trainings.find((t) => t.id === trainingId) : null;
+  const fromGroup = fromTraining?.groupId ? state.groups.find((g) => g.id === fromTraining.groupId) : null;
+  const situation = fromTraining ? {
+    live: false,
+    label: fromTraining.date === today ? 'Tänään' : koutsiFmtShortDate(fromTraining.date),
+    text: `${fromGroup?.name || fromTraining.type} ${fromTraining.time}`,
+  } : ctxItem ? {
     live: ctx.kind === 'now',
     label: ctx.kind === 'now' ? 'Nyt käynnissä' : ctx.kind === 'ended' ? 'Juuri päättyi' : 'Seuraavaksi',
     text: `${ctxItem.group?.name || ctxItem.student?.name || ctxItem.training.type} ${ctxItem.training.time}`,
@@ -426,7 +433,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
           )}
           {!attendance && pickerOpen && (
             <div className="vs-picker">
-              <RecipientPicker students={state.students} groups={state.groups} value={custom} onChange={setCustom} open={pickerOpen} />
+              <RecipientPicker students={state.students} groups={[]} value={custom} onChange={setCustom} open={pickerOpen} boxed />
             </div>
           )}
         </section>
@@ -473,7 +480,8 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
                   <button type="button" aria-pressed={asHomework} className={cx('vs-pill', asHomework && 'is-on')} onClick={() => setAsHomework((v) => !v)}>
                     <Icon name="check-circle" size={15} />Kotiläksyksi
                   </button>
-                  <button type="button" className="vs-pill" disabled={!ids.length || busy} onClick={() => (dirty ? submit({ thenVideo: true }) : onVideo?.(ids))}>
+                  <button type="button" className={cx('vs-pill', !ids.length && 'is-incomplete')} disabled={busy}
+                    onClick={() => { if (!ids.length) { toast('Valitse ensin ryhmät tai pelaajat.', { tone: 'info' }); return; } if (dirty) submit({ thenVideo: true }); else onVideo?.(ids); }}>
                     <Icon name="play" size={15} />{dirty ? 'Lähetä ja lisää video' : 'Lisää video'}
                   </button>
                 </div>

@@ -58,10 +58,15 @@ function rowChip(student, days, absent) {
   return days != null && days <= 14 ? <Chip tone="success" size="sm">{activityLabel(days)}</Chip> : null;
 }
 
+// kept while the app is open: back from a player's page finds the list as it was left
+const remembered = { filter: 'all', query: '' };
+
 export function PlayersScreen() {
   const { state } = useData();
-  const [filter, setFilter] = useState('all');
-  const [query, setQuery] = useState('');
+  const [filter, setFilterState] = useState(remembered.filter);
+  const [query, setQueryState] = useState(remembered.query);
+  const setFilter = (v) => { remembered.filter = v; setFilterState(v); };
+  const setQuery = (v) => { remembered.query = v; setQueryState(v); };
   const [addOpen, setAddOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [mergeFor, setMergeFor] = useState(null);

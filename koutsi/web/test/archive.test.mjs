@@ -20,7 +20,9 @@ const student = (extra = {}) => ({
   wishHistory: [], noteHistory: [], longGoalHistory: [], ambitionHistory: [{ id: 'a1', at: `${today}T10:01:00`, value: 'kilpailu', previousValue: 'kehitys', byPlayer: true }],
   archive: [], ...extra,
 });
-const events = (st) => koutsiBuildTimeline(st, [coachSession, ownRun], []);
+// late in the day, so today's 17:00 session has happened (a session still to come is not history)
+const lateToday = new Date(); lateToday.setHours(23, 59, 0, 0);
+const events = (st) => koutsiBuildTimeline(st, [coachSession, ownRun], [], { now: lateToday });
 
 test('what the player made is theirs; the coach\'s notes and sessions are not', () => {
   const byId = new Map(events(student()).map((e) => [e.id, e]));

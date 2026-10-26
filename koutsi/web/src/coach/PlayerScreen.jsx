@@ -290,12 +290,15 @@ function Details({ state, student }) {
   );
 }
 
+const tabByPlayer = new Map(); // back from a linked page comes back to the same tab
+
 export function PlayerScreen({ params }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const record = useRecord();
   const confirm = useConfirm();
-  const [tab, setTab] = useState('kehitys');
+  const [tab, setTabState] = useState(() => tabByPlayer.get(params.id) || 'kehitys');
+  const setTab = (v) => { tabByPlayer.set(params.id, v); setTabState(v); };
   const [sheet, setSheet] = useState(null); // { kind, item }
   const [video, setVideo] = useState(null);
   const student = state.students.find((s) => s.id === params.id);

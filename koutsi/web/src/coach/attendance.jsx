@@ -2,7 +2,6 @@
 // used on Koti's Tänään card and in Merkitse → Läsnäolo. Everyone is there unless tapped away
 // (presence is "no row", like on the session page); a player's own "En pääse" is already marked.
 // A tap shows at once and is saved in the background.
-import { useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Avatar, Icon, useToast } from '../ui/index.js';
@@ -11,32 +10,46 @@ import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
+// Taps are saved one after another per player (a quick second tap that undoes the first lands
+// last), and the view reloads once, after the last write — a reload between two taps would flip
+// the second chip back on a slow connection.
+const chains = new Map(); // `${trainingId}:${studentId}` → the latest write
+let writing = 0;
+let reloadTimer = null;
+
+/** Shows the change at once and saves it in the background (Koti, Merkitse → Läsnäolo, the session page). */
+export function saveAttendance({ trainingId, studentId, next, mutate, reload, toast }) {
+  mutate((s) => ({
+    ...s,
+    trainings: s.trainings.map((t) => (t.id !== trainingId ? t : {
+      ...t,
+      absences: next === 'poissa'
+        ? [...(t.absences || []).filter((a) => a.studentId !== studentId), { studentId, reason: 'poissa', reportedBy: null, updatedAt: new Date().toISOString() }]
+        : (t.absences || []).filter((a) => a.studentId !== studentId),
+    })),
+  }));
+  writing += 1;
+  clearTimeout(reloadTimer);
+  const key = `${trainingId}:${studentId}`;
+  const write = (chains.get(key) || Promise.resolve())
+    .then(() => api.attendance.set([trainingId], studentId, next))
+    .catch((err) => toast(err));
+  chains.set(key, write);
+  write.finally(() => {
+    if (chains.get(key) === write) chains.delete(key);
+    writing -= 1;
+    if (writing === 0) reloadTimer = setTimeout(() => { reload().catch(() => {}); }, 400);
+  });
+}
+
 /** toggle(student, 'paikalla' | 'poissa') for one session: optimistic, then saved. */
 export function useAttendanceToggle(training, source = 'koti') {
   const { mutate, reload } = useData();
   const toast = useToast();
-  const [pending, setPending] = useState(() => new Set());
-  return async (student, next) => {
-    if (!training || pending.has(student.id)) return;
-    setPending((p) => new Set(p).add(student.id));
+  return (student, next) => {
+    if (!training) return;
     track(`${source}.${next === 'poissa' ? 'poissa' : 'paikalla'}`);
-    mutate((s) => ({
-      ...s,
-      trainings: s.trainings.map((t) => (t.id !== training.id ? t : {
-        ...t,
-        absences: next === 'poissa'
-          ? [...(t.absences || []).filter((a) => a.studentId !== student.id), { studentId: student.id, reason: 'poissa', reportedBy: null, updatedAt: new Date().toISOString() }]
-          : (t.absences || []).filter((a) => a.studentId !== student.id),
-      })),
-    }));
-    try {
-      await api.attendance.set([training.id], student.id, next);
-    } catch (err) {
-      toast(err);
-    } finally {
-      setPending((p) => { const n = new Set(p); n.delete(student.id); return n; });
-      reload().catch(() => {});
-    }
+    saveAttendance({ trainingId: training.id, studentId: student.id, next, mutate, reload, toast });
   };
 }
 

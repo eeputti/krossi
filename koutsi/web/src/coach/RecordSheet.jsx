@@ -152,6 +152,9 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', sco
               </div>
             </div>
           )}
+          {kind === 'homework' && !suggested && bank.length > 0 && (
+            <button type="button" className="k-textlink" onClick={() => setBankOpen(true)}>Valitse harjoitepankista</button>
+          )}
           <p className="k-warn-text">{HEALTH_NOTE}</p>
           {onePlayer && !pickOthers ? (
             <button type="button" className="k-textlink" onClick={() => setPickOthers(true)}>Lähetä myös muille pelaajille</button>

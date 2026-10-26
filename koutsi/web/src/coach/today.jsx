@@ -56,14 +56,15 @@ function TimelineItem({ it, open, now }) {
           {!showChips && (it.status === 'past' ? (
             <Button variant="outline" size="sm" icon="user-check" onClick={() => setExpanded(true)}>Läsnäolo</Button>
           ) : (
-            <IconButton icon="send" label={`Viesti: ${nameOf(it)}`} variant="soft" size="sm" className="tt-plus" onClick={viesti} />
+            <IconButton icon="plus" label={`Merkitse: ${nameOf(it)}`} variant="soft" size="sm" className="tt-plus" onClick={viesti} />
           ))}
         </div>
         {showChips && <AttendanceChips training={it.training} />}
         {showChips && (
           <div className="tt-foot">
-            <Button variant="lime" size="sm" icon="send" onClick={viesti}>{it.group ? 'Viesti ryhmälle' : 'Viesti pelaajalle'}</Button>
+            <Button variant="lime" size="sm" icon="plus" onClick={viesti}>{it.group ? 'Merkitse ryhmälle' : 'Merkitse pelaajalle'}</Button>
             <Button variant="ghost" size="sm" onClick={() => navigate(sessionPath(it.training.id))}>Avaa treeni</Button>
+            {expanded && !open && <Button variant="ghost" size="sm" icon="chevron-up" onClick={() => setExpanded(false)}>Piilota</Button>}
           </div>
         )}
       </div>

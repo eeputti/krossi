@@ -24,7 +24,7 @@ export function defaultVideoTitle(file, url) {
   if (/drive\.google|docs\.google/i.test(url)) return 'Drive-video';
   return 'Video';
 }
-const megabytes = (bytes) => `${Math.max(1, Math.round(bytes / 1048576))} Mt`;
+const megabytes = (bytes) => (bytes < 1048576 ? `${Math.max(1, Math.round(bytes / 1024))} kt` : `${Math.round(bytes / 1048576)} Mt`);
 
 /**
  * VideoShareSheet
@@ -159,7 +159,8 @@ export function VideoPlayerSheet({ video, onClose }) {
         </div>
       ) : error ? <p className="field-msg field-msg-error">{error}</p> : src ? (
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video className="k-video" src={src} controls playsInline preload="metadata" />
+        <video className="k-video" src={src} controls playsInline preload="metadata"
+          onError={() => setError('Video ei toistu tällä laitteella (esim. iPhonen HEVC-video Androidilla). Avaa se toisella laitteella tai jaa video linkkinä.')} />
       ) : <div className="center k-video-loading"><Spinner /></div>}
     </Sheet>
   );

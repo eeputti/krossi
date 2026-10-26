@@ -164,7 +164,7 @@ export function SelfTrainingSheet({ open, onClose, defaultDate, defaultTime, edi
   // An entry stays with the coach it was written under while that coaching goes on; a new one,
   // or one whose coach has left, goes under a current coach. Every coach of the player sees it.
   const coachId = editing && coaches.some((c) => c.id === editing.coachId) ? editing.coachId : coaches[0]?.id || null;
-  const ready = !busy && coachId && (isTournament || (f.time && f.duration > 0));
+  const ready = !busy && coachId && f.date && (isTournament || (f.time && f.duration > 0));
   const save = async () => {
     if (a.match) { onClose(); onSwitchToMatch?.(f.date); return; }
     if (!ready || busyRef.current) return;
@@ -188,7 +188,7 @@ export function SelfTrainingSheet({ open, onClose, defaultDate, defaultTime, edi
   const locked = Boolean(preset?.locked) && !editing;
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa merkintää' : locked ? a.title : 'Kirjaa oma treeni'} subtitle="Oma merkintäsi. Kaikki valmentajasi näkevät sen." size="md"
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={a.match ? null : !coachId ? 'Liity ensin valmentajan ryhmään (Lisää → Liity ryhmään), niin voit kirjata treenejä.' : !isTournament && !f.time ? 'Valitse kellonaika.' : !isTournament && !(f.duration > 0) ? 'Valitse kesto.' : null} loading={busy} onClick={save}>{a.match ? 'Jatka ottelun kirjaukseen' : 'Tallenna'}</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button><Button variant="dark" size="lg" missing={a.match ? null : !coachId ? 'Liity ensin valmentajan ryhmään (Lisää → Liity ryhmään), niin voit kirjata treenejä.' : !f.date ? 'Valitse päivä.' : !isTournament && !f.time ? 'Valitse kellonaika.' : !isTournament && !(f.duration > 0) ? 'Valitse kesto.' : null} loading={busy} onClick={save}>{a.match ? 'Jatka ottelun kirjaukseen' : 'Tallenna'}</Button></div>}>
       <div className="stack-4">
         {!locked && <div className="pw-acts" role="radiogroup" aria-label="Mitä teit?">
           {tiles.map((x) => (
@@ -252,7 +252,7 @@ export function PlayerTextSheet({ open, onClose, kind, initial }) {
   };
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={meta.title} subtitle={meta.hint} size="sm" dismissible={!busy} confirmClose={text.trim() !== (initial || '').trim()}
-      footer={<Button variant="dark" size="lg" block loading={busy} disabled={text.trim() === (initial || '').trim()} onClick={save}>Tallenna</Button>}>
+      footer={<Button variant="dark" size="lg" block loading={busy} missing={text.trim() === (initial || '').trim() ? (text.trim() ? 'Et ole muuttanut tekstiä.' : 'Kirjoita ensin.') : null} onClick={save}>Tallenna</Button>}>
       <div className="stack-3">
         <Textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder={meta.placeholder} autoFocus maxLength={1000} aria-label={meta.title} />
         {kind === 'goal' && (initial || '').trim() && <p className="field-msg">Vanha tavoite jää talteen Kehitys-aikajanalle.</p>}
@@ -291,7 +291,7 @@ export function AbsenceSheet({ open, onClose, training }) {
           <ChipSelect size="sm" options={candidates.map((t, i) => ({ value: String(i + 1), label: i === 0 ? 'Vain tähän' : `${i + 1} treeniin (${koutsiFmtShortDate(t.date)} asti)` }))} value={String(count)} onChange={(v) => v && setCount(Number(v))} ariaLabel="Montako treeniä" />
         </Field>
       )}
-      <p className="field-msg">Valmentajasi näkee poissaolon heti. Syytä ei kysytä eikä tallenneta.</p>
+      <p className="field-msg">{absentNow ? 'Valmentajasi näkee heti, että tuletkin paikalle.' : 'Valmentajasi näkee poissaolon heti. Syytä ei kysytä eikä tallenneta.'}</p>
     </Sheet>
   );
 }

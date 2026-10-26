@@ -284,7 +284,7 @@ export function AuthScreen({ role }) {
               {mode === 'login' && (
                 <div className="auth-forgot"><button type="button" className="auth-textlink" onClick={() => switchMode('reset')}>Unohditko salasanan?</button></div>
               )}
-              <Button type="submit" variant="lime" size="lg" block loading={busy === 'form'} disabled={(!!busy && busy !== 'form') || (mode === 'register' && !ageReady)} iconRight={mode === 'reset' ? 'send' : 'arrow-right'} className="auth-submit">
+              <Button type="submit" variant="lime" size="lg" block loading={busy === 'form'} disabled={!!busy && busy !== 'form'} missing={mode === 'register' && !ageReady ? 'Vahvista ensin yllä, että olet vähintään 18-vuotias.' : null} iconRight={mode === 'reset' ? 'send' : 'arrow-right'} className="auth-submit">
                 {copy.submit}
               </Button>
             </form>

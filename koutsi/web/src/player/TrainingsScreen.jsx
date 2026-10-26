@@ -158,6 +158,9 @@ function Bar({ bar, onOpen, style }) {
   );
 }
 
+// the phone's day in view, kept while the app is open (back from a session lands on the same day)
+const lastDay = { date: null };
+
 export function TrainingsScreen({ query }) {
   const { state } = useData();
   const actions = usePlayerActions();
@@ -192,9 +195,11 @@ export function TrainingsScreen({ query }) {
   // On a phone the days scroll sideways one at a time: open on today (or the week's first day
   // with something on it) and keep the strip above in step with the day in view.
   const daysRef = useRef(null);
-  const [active, setActive] = useState(0);
-  // ?pv= (a day tapped on Koti) opens that day
-  const startDay = Math.max(0, dates.includes(query.pv) ? dates.indexOf(query.pv) : isCurrent ? dates.indexOf(today) : board.days.findIndex((d) => d.items.length));
+  const [active, setActiveState] = useState(0);
+  const setActive = (i) => { setActiveState(i); if (dates[i]) lastDay.date = dates[i]; };
+  // ?pv= (a day tapped on Koti) opens that day; else the day you were last on in this week
+  const remembered = dates.includes(lastDay.date) ? lastDay.date : null;
+  const startDay = Math.max(0, dates.includes(query.pv) ? dates.indexOf(query.pv) : remembered ? dates.indexOf(remembered) : isCurrent ? dates.indexOf(today) : board.days.findIndex((d) => d.items.length));
   const scrollToDay = (i, smooth) => {
     const el = daysRef.current;
     const col = el?.children[i];

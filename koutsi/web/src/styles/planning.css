@@ -210,3 +210,6 @@ button.sidenav-link { width: 100%; text-align: left; }
 .bs-review-when { width: 5.4em; flex-shrink: 0; font-weight: 800; }
 .bs-done { justify-items: start; }
 .bs-done-check { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 999px; background: var(--lime); color: var(--ink); }
+
+/* iOS zooms the whole page into a field under 16px and leaves it zoomed */
+@media (pointer: coarse) { .tg-input { font-size: 16px; } }
