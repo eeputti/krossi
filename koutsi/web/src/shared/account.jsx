@@ -33,7 +33,7 @@ export function EmailPrefs({ uid, role = 'player' }) {
             <Toggle key={c.id} checked={!prefs.off.includes(c.id)} label={c.label} hint={c.hint}
               onChange={(on) => save({ ...prefs, off: withChoice(prefs.off, c.id, on) })} />
           ))}
-          <p className="email-prefs-note">Useammat asiat tulevat yhtenä koosteena, korkeintaan kolmen tunnin välein eikä yöllä.</p>
+          <p className="email-prefs-note">Useammat asiat tulevat yhtenä koosteena, korkeintaan kolmen tunnin välein eikä yöllä. {role === 'coach' ? 'Poissaolot tulevat heti, paitsi yöllä.' : 'Treenin peruminen tai siirto tulee heti.'}</p>
         </div>
       )}
     </div>

@@ -141,6 +141,7 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
           <Toggle checked={repeat} onChange={setRepeat} label="Toistuu viikoittain" hint={repeat ? `Luodaan vuodeksi eteenpäin (${occurrences} kertaa). Sarjan voi lopettaa milloin tahansa.` : 'Esim. viikoittainen yksityistunti.'} icon="repeat" />
         )}
         {isEdit && editing?.seriesId && <p className="field-msg">Tämä treeni kuuluu viikoittaiseen sarjaan. Päivän voi muuttaa vain tälle kerralle.</p>}
+        {isEdit && <p className="field-msg">Jos päivä tai kellonaika muuttuu, pelaajat saavat ilmoituksen.</p>}
       </div>
     </Sheet>
   );

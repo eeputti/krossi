@@ -17,6 +17,7 @@ export const notificationKind = (kind) => KIND_ALIASES[kind] || kind;
 const PLAYER_PLACE = {
   training_added: '/pelaaja/treenit',
   training_cancelled: '/pelaaja/treenit',
+  training_moved: '/pelaaja/treenit',
   homework_added: '/pelaaja/treenit',
   diary_added: '/pelaaja/kehitys?nayta=valmentajalta',
   video_added: '/pelaaja/harjoitteet',

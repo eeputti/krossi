@@ -297,7 +297,7 @@ export function AbsenceSheet({ open, onClose, training }) {
           <ChipSelect size="sm" options={candidates.map((t, i) => ({ value: String(i + 1), label: i === 0 ? 'Vain tähän' : `${i + 1} treeniin (${koutsiFmtShortDate(t.date)} asti)` }))} value={String(count)} onChange={(v) => v && setCount(Number(v))} ariaLabel="Montako treeniä" />
         </Field>
       )}
-      <p className="field-msg">{absentNow ? 'Valmentajasi näkee heti, että tuletkin paikalle.' : 'Valmentajasi näkee poissaolon heti. Syytä ei kysytä eikä tallenneta.'}</p>
+      <p className="field-msg">{absentNow ? 'Valmentajasi saa heti tiedon, että tuletkin paikalle.' : 'Valmentajasi saa poissaolosta heti tiedon. Syytä ei kysytä eikä tallenneta.'}</p>
     </Sheet>
   );
 }
