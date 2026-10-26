@@ -62,8 +62,8 @@ export function GroupLinksSheet({ open, onClose, season }) {
       <Sheet open={open} onClose={onClose} size="lg" title="Jaa ryhmälinkit"
         subtitle={`${season ? `${season.name} · ` : ''}${joined}/${total} pelaajaa liittynyt`}
         footer={<div className="sheet-actions">
-          <CopyButton text={message} label="Kopioi" size="lg" variant="soft" />
-          <ShareTextButton text={message} title="Liity Koutsiin" label={busy ? 'Luodaan linkkejä…' : 'Jaa viesti'} size="lg" variant="lime" />
+          <CopyButton text={message} label="Kopioi" size="lg" variant="soft" missing={ready ? null : chosen.length ? 'Linkkejä luodaan vielä — hetki.' : 'Valitse ainakin yksi ryhmä.'} />
+          <ShareTextButton text={message} title="Liity Koutsiin" label={busy ? 'Luodaan linkkejä…' : 'Jaa viesti'} size="lg" variant="lime" missing={ready ? null : chosen.length ? 'Linkkejä luodaan vielä — hetki.' : 'Valitse ainakin yksi ryhmä.'} />
         </div>}>
         <div className="stack-5">
           <p className="season-lead">Lähetä yksi viesti, esimerkiksi myClubin tiedotteena tai ryhmän WhatsAppiin. Jokainen liittyy oman ryhmänsä linkillä, ja linkki toimii koko kauden.</p>

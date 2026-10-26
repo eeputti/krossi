@@ -1,6 +1,6 @@
 // Notifications.jsx — the bell: the other half of the email notifications, for whoever turned
 // email off. Items open what they are about (the old bell was a dead list).
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import { api } from '../api/index.js';
 import { navigate } from '../app/router.js';
 import { EmptyState, IconButton, Sheet, useToast } from '../ui/index.js';
@@ -8,9 +8,20 @@ import { koutsiFmtEventDate } from '../domain/timeline.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
+// Most stored notifications point at the app's root ('/pelaaja'); a tap then opens where the thing
+// actually is, by its kind — not Koti, where a tap seemed to do nothing.
+const PLAYER_PLACE = {
+  training_added: '/pelaaja/treenit',
+  training_cancelled: '/pelaaja/treenit',
+  homework_added: '/pelaaja/treenit',
+  diary_added: '/pelaaja/kehitys?nayta=valmentajalta',
+  video_added: '/pelaaja/harjoitteet',
+  video_shared: '/pelaaja/harjoitteet',
+};
+
 /** Maps a stored link_path ('/pelaaja', '/valmentaja', …) to a canonical in-app path. A
  *  "Treenit ohi! Miten meni?" keeps its ?fiilis= (and ?toive=) so the player app opens the pop-up. */
-export function targetOf(linkPath, home) {
+export function targetOf(linkPath, home, kind = null) {
   if (!linkPath) return null;
   const [raw, query = ''] = String(linkPath).split('?');
   const path = raw.replace(/\/+$/, '');
@@ -18,25 +29,47 @@ export function targetOf(linkPath, home) {
   const keep = new URLSearchParams();
   ['fiilis', 'toive'].forEach((key) => { if (from.get(key)) keep.set(key, from.get(key)); });
   const suffix = keep.toString() ? `?${keep}` : '';
+  if (path === '/pelaaja' && !suffix && PLAYER_PLACE[kind]) return PLAYER_PLACE[kind];
   if (path === '/pelaaja' || path === '/valmentaja') return home + suffix;
   return path.startsWith('/pelaaja/') || path.startsWith('/valmentaja/') ? path + suffix : null;
+}
+
+// One list per signed-in user, shared by every place that shows it (the Koti bell, the Lisää badge
+// and drawer row, the player's "Uusi" marks): reading them in one place clears them everywhere.
+const stores = new Map(); // uid → { items, listeners, unsubscribe }
+function emitStore(store) { store.listeners.forEach((l) => l()); }
+function loadStore(uid, store) {
+  return api.notifications.list(uid).then((items) => { store.items = items; emitStore(store); }).catch(() => {});
+}
+function joinStore(uid, listener) {
+  let store = stores.get(uid);
+  if (!store) {
+    store = { items: [], listeners: new Set(), unsubscribe: null };
+    stores.set(uid, store);
+    loadStore(uid, store);
+    store.unsubscribe = api.notifications.subscribe(uid, () => loadStore(uid, store)) || null;
+  }
+  store.listeners.add(listener);
+  return () => {
+    store.listeners.delete(listener);
+    if (store.listeners.size === 0) { store.unsubscribe?.(); stores.delete(uid); }
+  };
 }
 
 /** The signed-in user's notifications: the list, how many are unread, and "mark all read". */
 export function useNotifications(uid) {
   const toast = useToast();
-  const [items, setItems] = useState([]);
-  const load = useCallback(() => (uid ? api.notifications.list(uid).then(setItems).catch(() => {}) : Promise.resolve()), [uid]);
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => (uid ? api.notifications.subscribe(uid, load) : undefined), [uid, load]);
+  const [, rerender] = useReducer((x) => x + 1, 0);
+  useEffect(() => (uid ? joinStore(uid, rerender) : undefined), [uid]);
+  const items = (uid && stores.get(uid)?.items) || [];
   const unread = items.filter((n) => !n.read).length;
   const markRead = useCallback(async () => {
-    if (!items.some((n) => !n.read)) return;
-    try {
-      await api.notifications.markRead(uid);
-      setItems((list) => list.map((n) => ({ ...n, read: true })));
-    } catch (err) { toast(err); }
-  }, [items, uid, toast]);
+    const store = uid ? stores.get(uid) : null;
+    if (!store || !store.items.some((n) => !n.read)) return;
+    store.items = store.items.map((n) => ({ ...n, read: true }));
+    emitStore(store);
+    try { await api.notifications.markRead(uid); } catch (err) { toast(err); loadStore(uid, store); }
+  }, [uid, toast]);
   return { items, unread, markRead };
 }
 
@@ -49,7 +82,7 @@ export function NotificationsSheet({ open, onClose, items, home }) {
       ) : (
         <ul className="k-notifs">
           {items.map((n) => {
-            const to = targetOf(n.linkPath, home);
+            const to = targetOf(n.linkPath, home, n.kind);
             const body = (
               <>
                 <span className={cx('k-notif-dot', !n.read && 'is-new')} aria-hidden="true" />

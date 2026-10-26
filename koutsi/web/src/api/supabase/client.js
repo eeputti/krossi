@@ -11,10 +11,23 @@ import { ApiError } from '../errors.js';
 
 let client = null;
 
+// A request that hangs (weak signal at the courts, a captive Wi-Fi, a phone just woken up) ends
+// after this with "Yhteys katkesi…" instead of a spinner that never stops. File uploads and
+// downloads (storage objects) keep their own pace.
+export const REQUEST_TIMEOUT_MS = 25000;
+export function timedFetch(input, init = {}) {
+  const url = typeof input === 'string' ? input : input?.url || String(input);
+  if (init.signal || /\/storage\/v1\/object\//.test(url)) return fetch(input, init);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
 export function db() {
   if (!client) {
     client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true },
+      global: { fetch: timedFetch },
     });
   }
   return client;

@@ -181,7 +181,10 @@ function Plans() {
   const { data, error, loading, reload } = useLoad(fetchPlans);
   if (loading && !data) return <SkeletonList count={3} />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
-  const open = async (path) => { try { const url = await api.plans.url(path); if (url) window.open(url, '_blank', 'noopener'); } catch (err) { toast(err); } };
+  const open = async (path) => {
+    const tab = window.open('', '_blank'); // in the tap: iPhone blocks a window opened after an await
+    try { const url = await api.plans.url(path); if (url && tab) tab.location.href = url; else tab?.close(); } catch (err) { tab?.close(); toast(err); }
+  };
   const publish = async (p) => { try { await api.admin.publishPlan(p.groupId); toast('Merkitty käyttöön.'); reload(); } catch (err) { toast(err); } };
   const handled = async (s) => { try { await api.admin.handleSubmission(s.id); toast('Merkitty käsitellyksi.'); reload(); } catch (err) { toast(err); } };
   if (!data.pending.length && !data.shared.length) return <EmptyState compact art="calendar" title="Ei odottavia vuosisuunnitelmia" />;

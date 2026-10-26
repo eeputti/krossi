@@ -16,23 +16,38 @@ import { currentSeason } from '../domain/season.js';
 
 function PersonalInviteRow({ student, coachName, groups }) {
   const toast = useToast();
-  const [state, setState] = useState('idle'); // idle | busy | sent
+  const [state, setState] = useState('idle'); // idle | busy | ready | sent
+  // The code is fetched before the tap: an iPhone only lets a tap share or copy right away, not
+  // after waiting for the network. If it isn't here yet, the first tap fetches it and the button
+  // becomes "Jaa nyt" for a second tap.
+  const [code, setCode] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api.students.placeholderJoinCode(student.id).then((c) => { if (alive && c) setCode(c); }).catch(() => {});
+    return () => { alive = false; };
+  }, [student.id]);
+  const copyInstead = async (message) => {
+    if (await copyText(message)) { toast(`Viesti kopioitu — liitä se ${student.name.split(' ')[0]}lle WhatsAppiin.`, { icon: 'copy' }); setState('sent'); }
+    else { toast('Kopiointi ei onnistunut. Avaa pelaajan sivu ja kopioi linkki sieltä.', { tone: 'error' }); setState(code ? 'idle' : 'ready'); }
+  };
+  const shareNow = (c) => {
+    const message = koutsiInviteMessage(c, coachName, null, student.id);
+    if (navigator.share) {
+      navigator.share({ title: 'Liity Koutsiin', text: message })
+        .then(() => setState('sent'))
+        .catch((err) => { if (err?.name === 'AbortError') setState('idle'); else copyInstead(message); });
+      return;
+    }
+    copyInstead(message);
+  };
   const send = async () => {
+    if (code) { shareNow(code); return; }
     setState('busy');
     try {
-      const code = await api.students.placeholderJoinCode(student.id);
-      const message = koutsiInviteMessage(code, coachName, null, student.id);
-      let shared = false;
-      try {
-        if (navigator.share) { await navigator.share({ title: 'Liity Koutsiin', text: message }); shared = true; }
-      } catch (err) {
-        if (err?.name === 'AbortError') { setState('idle'); return; }
-      }
-      if (!shared) {
-        if (await copyText(message)) toast(`Viesti kopioitu — liitä se ${student.name.split(' ')[0]}lle WhatsAppiin.`, { icon: 'copy' });
-        else { toast('Kopiointi ei onnistunut.', { tone: 'error' }); setState('idle'); return; }
-      }
-      setState('sent');
+      const c = await api.students.placeholderJoinCode(student.id);
+      if (!c) throw new Error('Liittymiskoodia ei löytynyt. Päivitä sivu.');
+      setCode(c);
+      setState('ready');
     } catch (err) {
       toast(err);
       setState('idle');
@@ -45,8 +60,8 @@ function PersonalInviteRow({ student, coachName, groups }) {
         <span className="k-row-title truncate">{student.name}</span>
         <span className="k-faint truncate">{groups.map((g) => `${g.day} ${g.time}`).join(', ') || 'Ei ryhmää'}{student.ageLabel ? ` · ${student.ageLabel}` : ''}</span>
       </span>
-      <Button variant={state === 'sent' ? 'soft' : 'dark'} size="sm" icon={state === 'sent' ? 'check' : 'send'} loading={state === 'busy'} onClick={send}>
-        {state === 'sent' ? 'Lähetetty' : 'Lähetä'}
+      <Button variant={state === 'sent' ? 'soft' : state === 'ready' ? 'lime' : 'dark'} size="sm" icon={state === 'sent' ? 'check' : 'send'} loading={state === 'busy'} onClick={send}>
+        {state === 'sent' ? 'Lähetetty' : state === 'ready' ? 'Jaa nyt' : 'Lähetä'}
       </Button>
     </div>
   );
