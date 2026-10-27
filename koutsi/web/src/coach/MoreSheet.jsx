@@ -3,7 +3,7 @@
 // inside Viestit and in Merkitse), Liittymiskoodini (JoinCodesSheet), Lähetetyt and Harjoitteet ja videot
 // (Harjoitepankki until the database has Lähetetyt), Suunnittele, Ryhmät, Ilmoitukset (with the unread
 // count), Tiedote pelaajille (while Viestit is off), Profiili, Anna palautetta, and Ylläpito for admins.
-// (A computer has these in the side nav, the bell on Koti and the avatar.)
+// (A computer has these in the side nav; the bell sits on the profile card at its foot.)
 import { useData } from '../app/data.jsx';
 import { navigate } from '../app/router.js';
 import { Avatar, ListRow, Sheet } from '../ui/index.js';

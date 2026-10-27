@@ -52,28 +52,43 @@
 .has-top-banner .sidenav { top: 33px; height: calc(100vh - 33px); height: calc(100dvh - 33px); }
 .sidenav-logo { font-size: 30px; font-weight: 800; letter-spacing: -0.04em; color: var(--lime); padding: 0 8px; }
 .sidenav-cta { margin-top: 4px; }
-.sidenav-links { display: flex; flex-direction: column; gap: 3px; }
+/* On a low screen only the links scroll, so the foot (feedback, codes, profile + bell) stays in view;
+   the side padding keeps the active link's lime bar (left: -18px) inside the scroll box. */
+.sidenav-links { display: flex; flex-direction: column; gap: 3px; min-height: 0; overflow-y: auto; scrollbar-width: thin; margin: 0 -18px; padding: 0 18px; }
 .sidenav-link {
-  position: relative; display: flex; align-items: center; gap: 12px; height: 46px; padding: 0 14px; border-radius: var(--r-md);
+  position: relative; display: flex; align-items: center; gap: 12px; height: 46px; flex-shrink: 0; padding: 0 14px; border-radius: var(--r-md);
   color: var(--on-dark-muted); font-weight: 650; font-size: 15px; transition: background-color var(--dur-2), color var(--dur-2);
 }
 .sidenav-link:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
 .sidenav-link.is-active { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .sidenav-link.is-active::before { content: ""; position: absolute; left: -18px; top: 11px; bottom: 11px; width: 4px; border-radius: 0 4px 4px 0; background: var(--lime); }
-.sidenav-link-sub { height: 40px; font-size: 14px; }
-.sidenav-link-sub:first-of-type { margin-top: 10px; }
 .sidenav-badge { margin-left: auto; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--lime); color: var(--ink); font-size: 11.5px; font-weight: 800; display: grid; place-items: center; }
+/* the foot, pushed to the bottom: Anna palautetta (red like the profile's button), a small
+   Liittymiskoodini, the profile card with the bell */
+.sidenav-foot { margin-top: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; }
+.sidenav-feedback { background: rgba(210, 47, 39, 0.22); color: #FF8077; }
+.sidenav-feedback:hover { background: rgba(210, 47, 39, 0.34); color: #FFA8A1; }
+.sidenav-small {
+  display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 15px; border-radius: var(--r-md); width: 100%; text-align: left;
+  color: var(--on-dark-muted); font-weight: 650; font-size: 13px; transition: background-color var(--dur-2), color var(--dur-2);
+}
+.sidenav-small:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
 .sidenav-me {
-  margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: var(--r-lg);
+  display: flex; align-items: center; gap: 4px; padding: 0 8px 0 0; border-radius: var(--r-lg);
   background: rgba(255, 255, 255, 0.07); transition: background-color var(--dur-2);
 }
-.sidenav-me:hover { background: rgba(255, 255, 255, 0.12); }
-/* a link right above the card (the coach's Liittymiskoodini): it takes the push to the bottom */
-.sidenav-before-me { margin-top: auto; margin-bottom: 8px; }
-.sidenav-me.has-before { margin-top: 0; }
+.sidenav-me:has(.sidenav-me-link:hover) { background: rgba(255, 255, 255, 0.12); }
+.sidenav-me-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 10px 0 10px 10px; color: inherit; }
+.sidenav-me-link:only-child { padding-right: 10px; }
 .sidenav-me-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .sidenav-me-name { font-weight: 750; font-size: 14.5px; }
 .sidenav-me-sub { font-size: 12.5px; color: var(--on-dark-muted); }
+.sidenav-bell .icon-btn-badge { top: -2px; right: -3px; box-shadow: 0 0 0 2px #242424; }
+@media (max-height: 780px) {
+  .sidenav { gap: 12px; padding-top: 20px; }
+  .sidenav-links { gap: 2px; }
+  .sidenav-link { height: 40px; }
+}
 
 /* ── top bar (pushed pages) ──────────────────────────────── */
 .topbar {

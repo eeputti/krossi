@@ -1,7 +1,7 @@
 // MoreSheet (player) — the phone tab bar's "Lisää" drawer, built like the coach's: the places
 // that have no tab of their own. Viestit (when a coach has opened a conversation), Ryhmäsi (the group
 // mates and the week's theme), Liity ryhmään (JoinGroupSheet: one more group with a code), Harjoitteet ja videot, Ilmoitukset (with the unread count), Profiili and
-// Anna palautetta. A computer has these in the side nav, the bell on Koti and the card at the bottom.
+// Anna palautetta. A computer has these in the side nav, the bell on the profile card at its foot.
 import { useData } from '../app/data.jsx';
 import { navigate } from '../app/router.js';
 import { Avatar, ListRow, Sheet } from '../ui/index.js';

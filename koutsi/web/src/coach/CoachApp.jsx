@@ -106,13 +106,15 @@ function CoachShell() {
   const { openMerkinta } = useRecord();
   const route = useRoute();
   const isDesktop = useIsDesktop();
-  // Phone: the tab bar's "Lisää" drawer, with the notifications in it (a computer keeps the bell on Koti)
+  // Phone: the tab bar's "Lisää" drawer, with the notifications in it; a computer has the bell on
+  // the profile card at the foot of the side nav
   const [moreOpen, setMoreOpen] = useState(false);
   const [notifsOpen, setNotifsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [codesOpen, setCodesOpen] = useState(false);
   const openCodes = () => { track('liittymiskoodit.nappi'); setCodesOpen(true); };
-  const notes = useNotifications(isDesktop || acting ? null : uid);
+  const notes = useNotifications(acting ? null : uid);
+  const openNotifs = () => { setNotifsOpen(true); notes.markRead(); };
   const phoneTabs = PHONE_TABS.map((t) => (t.id === 'lisaa' ? { ...t, onClick: () => { track('lisaa.avaa'); setMoreOpen(true); } } : t));
   // Viestit, once the database has it and the coach has the feature (beta first): a computer's side nav
   // gets the tab after Pelaajat, a phone the first row of Lisää; the unread count rides on both.
@@ -149,10 +151,9 @@ function CoachShell() {
   }, [route.name, isAdmin, adminChecked, acting]);
 
   const extraLinks = [
-    { to: '/valmentaja/harjoitteet', label: state.sendsReady ? 'Harjoitteet ja videot' : 'Harjoitepankki', icon: 'list', pages: ['exercises', 'exercise'] },
+    { to: '/valmentaja/harjoitteet', label: state.sendsReady ? 'Harjoitteet ja videot' : 'Harjoitepankki', icon: 'book', pages: ['exercises', 'exercise'] },
     ...(state.sendsReady ? [{ to: '/valmentaja/lahetetyt', label: 'Lähetetyt', icon: 'send', pages: ['sent'] }] : []),
     ...(isAdmin ? [{ to: '/valmentaja/yllapito', label: 'Ylläpito', icon: 'shield', pages: ['admin'] }] : []),
-    ...(acting ? [] : [{ key: 'palaute', label: 'Anna palautetta', icon: 'chat', onClick: () => { track('palaute.avaa'); setFeedbackOpen(true); } }]),
   ];
   return (
     <>
@@ -165,8 +166,9 @@ function CoachShell() {
         cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => openMerkinta()}>Merkitse</Button>}
         center={{ label: 'Merkitse', icon: 'plus', onClick: () => openMerkinta() }}
         extraLinks={extraLinks}
-        me={acting ? null : { person: state.coach, sub: state.coach.tagline || 'Valmentaja', to: '/valmentaja/profiili' }}
+        me={acting ? null : { person: state.coach, sub: state.coach.tagline || 'Valmentaja', to: '/valmentaja/profiili', notifications: { unread: notes.unread, onOpen: openNotifs } }}
         beforeMe={acting ? null : { label: 'Liittymiskoodini', icon: 'link', onClick: openCodes }}
+        feedback={acting ? null : { label: 'Anna palautetta', icon: 'mail', onClick: () => { track('palaute.avaa'); setFeedbackOpen(true); } }}
         banner={acting ? <ActingBanner name={state.coach.name} onExit={exitActing} /> : null}
         signupUrl="https://koutsi.krossi.app/valmentaja?uusi=1"
         beta={showBetaBar() && !acting}
@@ -175,14 +177,12 @@ function CoachShell() {
       <RenewedIntro role="coach" eligible={startup?.kind === 'renewed'} />
       <WeekRecapSheet open={Boolean(recapWeek)} week={recapWeek} onClose={closeRecap} />
       {!isDesktop && (
-        <>
-          <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} isAdmin={isAdmin} acting={acting} messages={messageInfo}
-            onNotifications={() => { setNotifsOpen(true); notes.markRead(); }}
-            onNotice={() => openMerkinta({ kind: 'tiedote' })}
-            onFeedback={() => setFeedbackOpen(true)} onCodes={openCodes} />
-          <NotificationsSheet open={notifsOpen} onClose={() => setNotifsOpen(false)} items={notes.items} home="/valmentaja/koti" />
-        </>
+        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} isAdmin={isAdmin} acting={acting} messages={messageInfo}
+          onNotifications={openNotifs}
+          onNotice={() => openMerkinta({ kind: 'tiedote' })}
+          onFeedback={() => setFeedbackOpen(true)} onCodes={openCodes} />
       )}
+      <NotificationsSheet open={notifsOpen} onClose={() => setNotifsOpen(false)} items={notes.items} home="/valmentaja/koti" />
       {!acting && <JoinCodesSheet open={codesOpen} onClose={() => setCodesOpen(false)} />}
       {!acting && <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} uid={uid} />}
     </>

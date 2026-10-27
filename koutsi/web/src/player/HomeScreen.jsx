@@ -44,16 +44,18 @@ function Head({ student, days, onDay }) {
   const count = days.reduce((n, d) => n + d.sessions.length, 0);
   const msgs = useMessages();
   const hasMessages = msgs.ready && visibleThreads(msgs.threads).length > 0;
+  const isDesktop = useIsDesktop();
   return (
     <section className="week-hero on-dark court-lines home-hero ph-hero">
       <div className="week-hero-top">
         <span className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
+        {/* a computer has the bell on the profile card at the foot of the side nav */}
         {hasMessages ? (
           <span className="home-hero-icons">
             <IconButton icon="chat" variant="on-dark" label={msgs.unread ? `Viestit (${msgs.unread} uutta)` : 'Viestit'} badge={msgs.unread || undefined} onClick={() => navigate('/pelaaja/viestit')} />
-            <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />
+            {!isDesktop && <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />}
           </span>
-        ) : <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />}
+        ) : !isDesktop && <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />}
       </div>
       <h1 className="week-hero-title">Moi, {firstName(student.name) || 'pelaaja'}!</h1>
       <div className="wk-days" role="list" aria-label="Viikon päivät">

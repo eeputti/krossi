@@ -182,7 +182,7 @@
   .ap-actions .btn { flex: 1; }
 }
 
-/* the side nav's Anna palautetta is a button among links */
+/* side-nav links that open a sheet (Anna palautetta, Liity ryhmään) are buttons */
 button.sidenav-link { width: 100%; text-align: left; }
 
 /* "Jatka edellisillä": each group with its previous theme, editable */

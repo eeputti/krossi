@@ -104,18 +104,19 @@ function PlayerShell({ banner, joinCode = null }) {
   const [join, setJoin] = useState(() => (joinCode ? { code: joinCode } : null));
   useEffect(() => { if (joinCode) setJoin({ code: joinCode }); }, [joinCode]);
   const close = () => setSheet(null);
-  // Phone: the tab bar's "Lisää" drawer, with the notifications in it (Koti keeps its bell too)
+  // Phone: the tab bar's "Lisää" drawer, with the notifications in it (Koti keeps its bell too);
+  // a computer has the bell on the profile card at the foot of the side nav
   const isDesktop = useIsDesktop();
   const [moreOpen, setMoreOpen] = useState(false);
   const [notifsOpen, setNotifsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const notes = useNotifications(isDesktop ? null : ownerId);
+  const notes = useNotifications(ownerId);
+  const openNotifs = () => { setNotifsOpen(true); notes.markRead(); };
   const phoneTabs = PHONE_TABS.map((t) => (t.id === 'lisaa' ? { ...t, onClick: () => setMoreOpen(true) } : t));
   const extraLinks = [
     { to: '/pelaaja/ryhma', label: 'Ryhmäsi', icon: 'users', pages: ['group'] },
     { to: '/pelaaja/harjoitteet', label: 'Harjoitteet ja videot', icon: 'play', pages: ['exercises'] },
     { key: 'liity', label: 'Liity ryhmään', icon: 'plus', onClick: () => setJoin({ code: null }) },
-    { key: 'palaute', label: 'Anna palautetta', icon: 'chat', onClick: () => setFeedbackOpen(true) },
   ];
   const actions = useMemo(() => ({
     openMerkitse: () => setSheet({ kind: 'merkitse' }),
@@ -177,18 +178,17 @@ function PlayerShell({ banner, joinCode = null }) {
         cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => actions.openMerkitse()}>Merkitse</Button>}
         center={{ label: 'Merkitse', icon: 'plus', onClick: () => actions.openMerkitse() }}
         extraLinks={[...messageLinks, ...extraLinks]}
-        me={{ person: student, sub: student.level || 'Pelaaja', to: '/pelaaja/profiili' }}
+        me={{ person: student, sub: student.level || 'Pelaaja', to: '/pelaaja/profiili', notifications: { unread: notes.unread, onOpen: openNotifs } }}
+        feedback={{ label: 'Anna palautetta', icon: 'mail', onClick: () => setFeedbackOpen(true) }}
         banner={banner}
         signupUrl="https://koutsi.krossi.app/pelaaja?uusi=1"
         beta={showBetaBar()}
       />
       {!isDesktop && (
-        <>
-          <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} messages={messageLinks.length ? { unread: msgs.unread } : null}
-            onNotifications={() => { setNotifsOpen(true); notes.markRead(); }} onFeedback={() => setFeedbackOpen(true)} onJoin={() => setJoin({ code: null })} />
-          <NotificationsSheet open={notifsOpen} onClose={() => setNotifsOpen(false)} items={notes.items} home="/pelaaja/koti" />
-        </>
+        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} messages={messageLinks.length ? { unread: msgs.unread } : null}
+          onNotifications={openNotifs} onFeedback={() => setFeedbackOpen(true)} onJoin={() => setJoin({ code: null })} />
       )}
+      <NotificationsSheet open={notifsOpen} onClose={() => setNotifsOpen(false)} items={notes.items} home="/pelaaja/koti" />
       <JoinGroupSheet open={Boolean(join)} initialCode={join?.code || null} onClose={() => setJoin(null)} />
       <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} uid={ownerId} />
       <MerkitseSheet open={sheet?.kind === 'merkitse'} onClose={close} />
