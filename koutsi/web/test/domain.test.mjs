@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { koutsiTodayStr, koutsiAddDays, koutsiCurrentIsoWeek, koutsiAddIsoWeeks } from '../src/domain/core.js';
 import {
   sessionStatus, calendarEndings, themeWeekRelative, themeWeekLabel, merkitseContext, attendanceSession, presentPlayerIds,
-  todayTimeline, minutesLabel, groupWeekBoard, weekDates, playerSections, sessionWhen, presentPlayerIdsOf, weekGroups, groupMemberIds,
+  todayTimeline, dayTimeline, minutesLabel, groupWeekBoard, weekDates, playerSections, sessionWhen, presentPlayerIdsOf, weekGroups, groupMemberIds,
 } from '../src/domain/week.js';
 import { upcomingSessions, checkInCandidate } from '../src/domain/player.js';
 import { koutsiBuildTimeline } from '../src/domain/timeline.js';
@@ -253,6 +253,23 @@ test("today's timeline says which sessions are over, running and still to come",
   assert.equal(minutesLabel(25), '25 min');
   assert.equal(minutesLabel(60), '1 h');
   assert.equal(minutesLabel(115), '1 h 55 min');
+});
+
+test("tomorrow's timeline: every session still to come, with no 'alkaa … päästä' countdown", () => {
+  const tomorrow = koutsiAddDays(today, 1);
+  const state = {
+    groups: [group],
+    students: [student(), student({ id: 's2', name: 'Leo K.' })],
+    trainings: [
+      session('t-late', tomorrow, '19:15', { absences: [{ studentId: 's2', reason: 'poissa' }] }),
+      session('t-early', tomorrow, '12:00'),
+      session('t-today', today, '18:00'),
+    ],
+  };
+  const line = dayTimeline(state, tomorrow, at('21:54'));
+  assert.deepEqual(line.map((x) => [x.training.id, x.status]), [['t-early', 'upcoming'], ['t-late', 'upcoming']], "today's session stays on today's line");
+  assert.deepEqual(line.map((x) => x.minutesUntil), [null, null]);
+  assert.equal(line[1].absent, 1, "a player's own 'En pääse' shows on tomorrow's card");
 });
 
 test('the Ryhmät week board puts every group under the days it trains, and shows a missing session', () => {
