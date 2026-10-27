@@ -43,8 +43,9 @@ export const ROUTES = [
   { name: 'players', pattern: '/valmentaja/pelaajat', tab: 'pelaajat', type: 'tab' },
   { name: 'player', pattern: '/valmentaja/pelaaja/:id', tab: 'pelaajat', type: 'page' },
   { name: 'invites', pattern: '/valmentaja/kutsut', tab: 'pelaajat', type: 'overlay' },
-  // Viestit: the conversations, and one conversation by the player's id (full screen on a phone)
-  { name: 'messages', pattern: '/valmentaja/viestit', tab: 'viestit', type: 'page' },
+  // Viestit: the conversations, and one conversation by the player's id (full screen on a phone).
+  // A tab, so it lights its own side-nav link (a phone lights Lisää) instead of the previous tab.
+  { name: 'messages', pattern: '/valmentaja/viestit', tab: 'viestit', type: 'tab' },
   { name: 'thread', pattern: '/valmentaja/viestit/:id', tab: 'viestit', type: 'full' },
   { name: 'session', pattern: '/valmentaja/treeni/:id', tab: 'ryhmat', type: 'page' },
   // a tab, not a page: on a phone it is the fourth tab, so it lights its own icon instead of

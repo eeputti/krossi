@@ -92,6 +92,10 @@ const P = {
   'user-fill': <><circle cx="12" cy="8" r="4" fill="currentColor" /><path d="M4 21a8 8 0 0 1 16 0z" fill="currentColor" /></>,
   'list-fill': <><path d="M8.5 6H21M8.5 12H21M8.5 18H21" strokeWidth="3.2" /><circle cx="3.5" cy="6" r="1.9" fill="currentColor" stroke="none" /><circle cx="3.5" cy="12" r="1.9" fill="currentColor" stroke="none" /><circle cx="3.5" cy="18" r="1.9" fill="currentColor" stroke="none" /></>,
   'flame-fill': <path d="M12 22c4.2 0 7-2.8 7-6.8 0-3.4-2.1-5.6-3.7-7.4-.3 2.1-1.4 3.4-2.8 4 .3-3.7-1.3-6.9-4.6-9.3-.1 3.3-1.8 5.4-3.3 7.4C3.4 11.5 5 22 12 22z" fill="currentColor" />,
+  'grid-fill': <g fill="currentColor"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" /></g>,
+  'send-fill': <path d="M21.5 2.5 15 21l-4-8-8-4z" fill="currentColor" />,
+  'shield-fill': <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="currentColor" />,
+  'play-fill': <path d="M7 4v16l13-8z" fill="currentColor" />,
 };
 
 export const ICON_NAMES = Object.keys(P).filter((k) => P[k]);
