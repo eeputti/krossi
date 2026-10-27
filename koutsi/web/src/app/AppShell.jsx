@@ -4,7 +4,7 @@
 
 import { useLayoutEffect } from 'react';
 import { isDemo } from '../api/index.js';
-import { Avatar, Icon, ICON_NAMES } from '../ui/index.js';
+import { Avatar, Icon, IconButton, ICON_NAMES } from '../ui/index.js';
 import { useIsDesktop } from './hooks.js';
 import { Link, canonBase, matchRoute, navigationType, savedScroll, useRoute, homePath } from './router.js';
 
@@ -51,10 +51,13 @@ function TabBar({ tabs, active, badges, center }) {
   );
 }
 
-function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel, beforeMe }) {
+// The side nav's foot, top to bottom: Anna palautetta (red, so it stands out), a small
+// Liittymiskoodini (the coach's `beforeMe`) and the profile card with the notifications bell.
+function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel, beforeMe, feedback }) {
   // A page that has its own side-nav link (Harjoitepankki, Ylläpito) lights that link, not the tab.
   const extraOn = (extraLinks || []).find((l) => (l.pages || []).includes(page));
   const tabOn = extraOn ? null : active;
+  const bell = me?.notifications;
   return (
     <aside className="sidenav on-dark court-lines">
       <Link to={homePath()} className="sidenav-logo k-logo" aria-label="Krossi Koutsi — etusivu">
@@ -73,30 +76,43 @@ function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel, b
           </Link>
         ))}
         {(extraLinks || []).map((l) => (l.onClick ? (
-          <button key={l.key || l.label} type="button" className="sidenav-link sidenav-link-sub" onClick={l.onClick} aria-haspopup="dialog">
+          <button key={l.key || l.label} type="button" className="sidenav-link" onClick={l.onClick} aria-haspopup="dialog">
             <Icon name={l.icon} size={20} /><span>{l.label}</span>
           </button>
         ) : (
-          <Link key={l.to} to={l.to} className={cx('sidenav-link', 'sidenav-link-sub', extraOn === l && 'is-active')} aria-current={extraOn === l ? 'page' : undefined}>
+          <Link key={l.to} to={l.to} className={cx('sidenav-link', extraOn === l && 'is-active')} aria-current={extraOn === l ? 'page' : undefined}>
             <Icon name={tabIcon(l.icon, extraOn === l)} size={20} /><span>{l.label}</span>
           </Link>
         )))}
       </nav>
-      {beforeMe && (
-        <button type="button" className="sidenav-link sidenav-before-me" onClick={beforeMe.onClick} aria-haspopup="dialog">
-          <Icon name={beforeMe.icon} size={20} /><span>{beforeMe.label}</span>
-        </button>
-      )}
-      {me && (
-        <Link to={me.to} className={cx('sidenav-me', beforeMe && 'has-before')}>
-          <Avatar person={me.person} size={38} ring />
-          <span className="sidenav-me-text">
-            <span className="sidenav-me-name truncate">{me.person?.name}</span>
-            <span className="sidenav-me-sub truncate">{me.sub}</span>
-          </span>
-          <Icon name="chevron-right" size={18} />
-        </Link>
-      )}
+      <div className="sidenav-foot">
+        {feedback && (
+          <button type="button" className="sidenav-link sidenav-feedback" onClick={feedback.onClick} aria-haspopup="dialog">
+            <Icon name={feedback.icon} size={20} /><span>{feedback.label}</span>
+          </button>
+        )}
+        {beforeMe && (
+          <button type="button" className="sidenav-small" onClick={beforeMe.onClick} aria-haspopup="dialog">
+            <Icon name={beforeMe.icon} size={16} /><span>{beforeMe.label}</span>
+          </button>
+        )}
+        {me && (
+          <div className="sidenav-me">
+            <Link to={me.to} className="sidenav-me-link" aria-label={`${me.person?.name || 'Profiili'} — profiili ja asetukset`}>
+              <Avatar person={me.person} size={38} ring />
+              <span className="sidenav-me-text">
+                <span className="sidenav-me-name truncate">{me.person?.name}</span>
+                <span className="sidenav-me-sub truncate">{me.sub}</span>
+              </span>
+              {!bell && <Icon name="chevron-right" size={18} />}
+            </Link>
+            {bell && (
+              <IconButton icon="bell" variant="on-dark" size="sm" iconSize={18} className="sidenav-bell" onClick={bell.onOpen}
+                label={bell.unread ? `Ilmoitukset (${bell.unread} uutta)` : 'Ilmoitukset'} badge={bell.unread || undefined} aria-haspopup="dialog" />
+            )}
+          </div>
+        )}
+      </div>
     </aside>
   );
 }
@@ -133,10 +149,12 @@ function renderScreen(screens, NotFound, match, query) {
  *   tabs: [{ id, label, icon, path }]   screens: { routeName: Component }   NotFound: Component
  *   badges: { tabId: count }   cta: node (side nav)   extraLinks: [{ to, label, icon, pages: [route names] } | { key, label, icon, onClick }]
  *   center: { label, icon, onClick } — the phone tab bar's big middle button
- *   me: { person, sub, to }   roleLabel   banner: node shown above the page (acting mode etc.)
+ *   me: { person, sub, to, notifications?: { unread, onOpen } } — the card at the foot of the side nav (with the bell)
+ *   beforeMe: { label, icon, onClick } — a small link right above the card   feedback: { label, icon, onClick } — above that, in red
+ *   roleLabel   banner: node shown above the page (acting mode etc.)
  *   signupUrl: where the demo banner points   beta: show the "Koutsilla uusi ilme!" bar instead
  */
-export function AppShell({ tabs, screens, NotFound, badges, cta, center, extraLinks, me, beforeMe = null, roleLabel, banner, signupUrl, beta = false }) {
+export function AppShell({ tabs, screens, NotFound, badges, cta, center, extraLinks, me, beforeMe = null, feedback = null, roleLabel, banner, signupUrl, beta = false }) {
   const route = useRoute();
   const isDesktop = useIsDesktop();
   const type = route.route?.type;
@@ -166,7 +184,7 @@ export function AppShell({ tabs, screens, NotFound, badges, cta, center, extraLi
   return (
     <div className={cx('shell', (beta || isDemo) && 'has-top-banner', hideChrome && 'no-chrome')}>
       {beta ? <BetaBanner /> : isDemo && <DemoBanner signupUrl={signupUrl} />}
-      {isDesktop && <SideNav tabs={tabs} active={activeTab} page={pageMatch?.name} badges={badges} cta={cta} extraLinks={extraLinks} me={me} beforeMe={beforeMe} roleLabel={roleLabel} />}
+      {isDesktop && <SideNav tabs={tabs} active={activeTab} page={pageMatch?.name} badges={badges} cta={cta} extraLinks={extraLinks} me={me} beforeMe={beforeMe} feedback={feedback} roleLabel={roleLabel} />}
       <div className="shell-main">
         {banner}
         <div key={pageKey} className={cx('shell-page', pageMatch?.name && `shell-page-${pageMatch.name}`, transition)}>

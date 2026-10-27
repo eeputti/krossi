@@ -79,14 +79,13 @@ function WeekHero({ state, glance, week }) {
     <section className="week-hero on-dark wk-hero rise">
       <div className="week-hero-top">
         <span className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
-        {!acting && (
+        {/* a computer has the bell and the profile on the card at the foot of the side nav */}
+        {!acting && !isDesktop && (
           <span className="week-hero-tools">
             <NotificationsButton uid={uid} home="/valmentaja/koti" variant="on-dark" />
-            {!isDesktop && (
-              <Link to="/valmentaja/profiili" className="week-hero-me" aria-label="Profiili ja asetukset">
-                <Avatar person={state.coach} size={36} />
-              </Link>
-            )}
+            <Link to="/valmentaja/profiili" className="week-hero-me" aria-label="Profiili ja asetukset">
+              <Avatar person={state.coach} size={36} />
+            </Link>
           </span>
         )}
       </div>

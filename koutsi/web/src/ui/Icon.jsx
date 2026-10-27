@@ -96,6 +96,7 @@ const P = {
   'send-fill': <path d="M21.5 2.5 15 21l-4-8-8-4z" fill="currentColor" />,
   'shield-fill': <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="currentColor" />,
   'play-fill': <path d="M7 4v16l13-8z" fill="currentColor" />,
+  'book-fill': <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z" fill="currentColor" /><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5" /></>,
 };
 
 export const ICON_NAMES = Object.keys(P).filter((k) => P[k]);

@@ -39,11 +39,13 @@ const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 function Head({ student, days, onDay }) {
   const week = koutsiCurrentIsoWeek();
   const count = days.reduce((n, d) => n + d.sessions.length, 0);
+  const isDesktop = useIsDesktop();
   return (
     <section className="week-hero on-dark court-lines home-hero ph-hero">
       <div className="week-hero-top">
         <span className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
-        <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />
+        {/* a computer has the bell on the profile card at the foot of the side nav */}
+        {!isDesktop && <NotificationsButton uid={student.id} home="/pelaaja/koti" variant="on-dark" />}
       </div>
       <h1 className="week-hero-title">Moi, {firstName(student.name) || 'pelaaja'}!</h1>
       <div className="wk-days" role="list" aria-label="Viikon päivät">
