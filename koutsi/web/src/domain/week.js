@@ -401,13 +401,14 @@ export function minutesLabel(minutes) {
 }
 
 /**
- * Today's coach-run sessions as a timeline, by time: each with where it stands ('past' | 'now'
- * | 'upcoming'), when it ends, the minutes left (running) or until it starts (upcoming), how far
- * it has run (0–1), and who is expected and who is there.
+ * A day's coach-run sessions as a timeline, by time: each with where it stands ('past' | 'now'
+ * | 'upcoming'), when it ends, the minutes left (running) or until it starts (upcoming, today
+ * only), how far it has run (0–1), and who is expected and who is there.
  */
-export function todayTimeline(state, now = new Date()) {
+export function dayTimeline(state, dateStr, now = new Date()) {
   const minutesNow = toMinutes(nowHHMM(now));
-  return coachSessionsOn(state, koutsiTodayStr()).map((item) => {
+  const isToday = dateStr === koutsiTodayStr();
+  return coachSessionsOn(state, dateStr).map((item) => {
     const { training, group } = item;
     const status = sessionStatus(training, group, now);
     const end = sessionEnd(training, group);
@@ -423,10 +424,15 @@ export function todayTimeline(state, now = new Date()) {
       absent,
       present: Math.max(0, roster - absent),
       minutesLeft: status === 'now' ? stop - minutesNow : null,
-      minutesUntil: status === 'upcoming' ? start - minutesNow : null,
+      minutesUntil: status === 'upcoming' && isToday ? start - minutesNow : null,
       progress: status === 'past' ? 1 : status === 'now' ? Math.min(1, Math.max(0, (minutesNow - start) / (stop - start))) : 0,
     };
   });
+}
+
+/** Today's sessions as a timeline (dayTimeline for today). */
+export function todayTimeline(state, now = new Date()) {
+  return dayTimeline(state, koutsiTodayStr(), now);
 }
 
 /** A group's weekly times: its own day and time, then its extra slots. */

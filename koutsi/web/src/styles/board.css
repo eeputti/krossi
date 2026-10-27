@@ -286,11 +286,9 @@
 }
 .tt-now::after { content: ""; flex: 1; height: 2px; border-radius: 2px; background: var(--clay); opacity: 0.5; }
 .tt-now-label { font-size: 12px; font-weight: 800; color: #8A3A1A; }
-.tt-tomorrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; }
-.tt-tomorrow-label { margin-right: 2px; font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.tt-tomorrow-label + .tt-chip { margin-left: 2px; }
+.tt-plan { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 650; color: var(--ink-2); }
 /* A group as a small brand card, like Merkitse's picked group cards: near-black, the time in lime,
-   the name in white. Koti's "Huomenna", a session's group and a player's groups use it. */
+   the name in white. A session's group and a player's groups use it. */
 .tt-chip, .k-group-pill {
   display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; min-height: 36px; padding: 0 13px 0 11px;
   border: 0; border-radius: var(--r-md); background: var(--green-800); color: #fff; font-size: 13.5px; font-weight: 700;
@@ -303,6 +301,14 @@
   /* the session on now: its two buttons share the card's width under the text */
   .tt-item.is-highlight .tt-actions { width: 100%; }
   .tt-item.is-highlight .tt-actions > * { flex: 1 1 0; }
+  /* tomorrow: Läsnäolo · Runko · Teema share the card's width under the text */
+  .tt-item.is-coming .tt-actions { width: 100%; }
+  .tt-item.is-coming .tt-actions > * { flex: 1 1 auto; min-width: 0; }
+}
+@media (max-width: 419px) {
+  /* a narrow phone: the three words need the room more than their icons do */
+  .tt-item.is-coming .tt-actions > .btn { padding: 0 10px; }
+  .tt-item.is-coming .tt-actions > .btn > .icon { display: none; }
 }
 
 /* a group's page: its session today */

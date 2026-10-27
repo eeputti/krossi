@@ -53,8 +53,8 @@ export function useAttendanceToggle(training, source = 'koti') {
   };
 }
 
-/** Everyone in the session as a chip: lime check = there, clay cross = away. */
-export function AttendanceChips({ training, source = 'koti', hint = 'Napauta poissaolleet' }) {
+/** Everyone in the session as a chip: lime check = there (or coming), clay cross = away. */
+export function AttendanceChips({ training, source = 'koti', hint = 'Napauta poissaolleet', countLabel = 'Läsnä', awayLabel = 'Poissa' }) {
   const { state } = useData();
   const live = state.trainings.find((t) => t.id === training.id) || training;
   const roster = sessionRoster(state, live);
@@ -65,7 +65,7 @@ export function AttendanceChips({ training, source = 'koti', hint = 'Napauta poi
   return (
     <div className="ta">
       <div className="ta-head">
-        <span className="ta-count t-num">Läsnä {present}/{roster.length}</span>
+        <span className="ta-count t-num">{countLabel} {present}/{roster.length}</span>
         <span className="ta-hint">{hint}</span>
       </div>
       <ul className="ta-grid">
@@ -79,7 +79,7 @@ export function AttendanceChips({ training, source = 'koti', hint = 'Napauta poi
                 <Avatar person={s} size={28} />
                 <span className="ta-who">
                   <span className="ta-name">{s.name}</span>
-                  {a && <span className="ta-sub">{self ? 'Ilmoitti itse' : 'Poissa'}</span>}
+                  {a && <span className="ta-sub">{self ? 'Ilmoitti itse' : awayLabel}</span>}
                 </span>
                 <span className="ta-mark" aria-hidden="true">{a ? <Icon name="close" size={13} strokeWidth={3} /> : <Icon name="check" size={13} strokeWidth={3} />}</span>
               </button>
