@@ -77,8 +77,8 @@ function SideNav({ tabs, active, page, badges, cta, extraLinks, me, roleLabel, b
             <Icon name={l.icon} size={20} /><span>{l.label}</span>
           </button>
         ) : (
-          <Link key={l.to} to={l.to} className={cx('sidenav-link', 'sidenav-link-sub', extraOn === l && 'is-active-sub')} aria-current={extraOn === l ? 'page' : undefined}>
-            <Icon name={l.icon} size={20} /><span>{l.label}</span>
+          <Link key={l.to} to={l.to} className={cx('sidenav-link', 'sidenav-link-sub', extraOn === l && 'is-active')} aria-current={extraOn === l ? 'page' : undefined}>
+            <Icon name={tabIcon(l.icon, extraOn === l)} size={20} /><span>{l.label}</span>
           </Link>
         )))}
       </nav>

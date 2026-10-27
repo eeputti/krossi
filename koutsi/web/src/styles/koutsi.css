@@ -10,7 +10,6 @@
   color: var(--lime); font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
 }
 .auth-hero-top .k-role-pill { margin: 0; }
-.sidenav-link.is-active-sub { background: rgba(255, 255, 255, 0.1); color: #fff; }
 .tabbar-label { white-space: nowrap; }
 .k-page-pad { padding-top: 8px; padding-bottom: 24px; }
 .sheet-actions-stack { flex-direction: column; }
