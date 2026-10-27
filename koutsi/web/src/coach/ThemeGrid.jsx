@@ -484,10 +484,13 @@ export function ThemeGrid() {
               const covered = pool.filter((r) => r.cells[i].theme).length;
               const keys = pool.map((r) => r.cells[i].key);
               const on = keys.length > 0 && keys.every((k) => picked.has(k));
+              const isNow = koutsiCompareIsoWeeks(week, now) === 0;
               return (
                 <div key={koutsiIsoWeekKey(week)} role="columnheader" aria-selected={on}
-                  className={cx('tg-week', on && 'is-on', koutsiCompareIsoWeeks(week, now) === 0 && 'is-now')}
+                  className={cx('tg-week', on && 'is-on', isNow && 'is-now')}
                   onMouseDown={(e) => onColDown(e, i)} onMouseEnter={() => onCellEnter(0, i)} title={`Valitse viikko ${week.week} — vedä valitaksesi monta viikkoa`}>
+                  {/* its own line above the number: beside it, the tag broke in two in a narrow column */}
+                  {isNow && <span className="tg-week-now">Tämä viikko</span>}
                   <span className="tg-week-num">Vko {week.week}</span>
                   <span className="tg-week-dates t-num">{koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
                   <span className={cx('tg-week-cov', pool.length > 0 && covered === pool.length && 'is-full')}>{pool.length ? `${covered}/${pool.length} teema` : 'ei treenejä'}</span>
