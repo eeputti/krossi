@@ -166,7 +166,8 @@ function CoachShell() {
         cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => openMerkinta()}>Merkitse</Button>}
         center={{ label: 'Merkitse', icon: 'plus', onClick: () => openMerkinta() }}
         extraLinks={extraLinks}
-        me={acting ? null : { person: state.coach, sub: state.coach.tagline || 'Valmentaja', to: '/valmentaja/profiili', notifications: { unread: notes.unread, onOpen: openNotifs } }}
+        // the card's second line is the role only: a long title (Tennisvalmentaja …) never fit
+        me={acting ? null : { person: state.coach, sub: 'Valmentaja', to: '/valmentaja/profiili', notifications: { unread: notes.unread, onOpen: openNotifs } }}
         beforeMe={acting ? null : { label: 'Liittymiskoodini', icon: 'link', onClick: openCodes }}
         feedback={acting ? null : { label: 'Anna palautetta', icon: 'mail', onClick: () => { track('palaute.avaa'); setFeedbackOpen(true); } }}
         banner={acting ? <ActingBanner name={state.coach.name} onExit={exitActing} /> : null}
