@@ -195,7 +195,8 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   kokeilussa ja tilauksella oleville; kokeilun jälkeen vain jo laskuttaneelle (vanhat laskut, maksetuksi merkintä).
   Muistutus 7 pv ennen kokeilun loppua (`koutsi_trial_reminders`, cron `koutsi-trial-reminders`, ilmoituslaji
   `trial_ending`). Tietokanta: `supabase/migrations/20261029193756_koutsi_coach_plans.sql` (ajettu 29.10.2026 käyttäjän
-  luvalla, kokeilu ilman avainta KIINNI; PGlite-testi `koutsi/web/sql/20261029193756_…check.mjs`); ilman sitä
+  luvalla; PGlite-testi `koutsi/web/sql/20261029193756_…check.mjs`) ja kokeilu ilman avainta AVATTU samana iltana
+  (`20261029195741_koutsi_open_self_serve.sql`, Stripe-asetukset tehty); ilman niitä
   `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta: migraatio
   luo `koutsi_self_serve_open()`:n kiinni (`select false`, sovellus näyttää avainsivun kuten ennen); avaaminen on yhden
   rivin korvaus (`select true`), eikä migraation uudelleenajo sulje sitä. Demo: Anna on kokeilussa; kehityksessä
