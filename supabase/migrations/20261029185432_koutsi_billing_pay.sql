@@ -1,8 +1,7 @@
--- 20261110130000_koutsi_billing_pay.sql — Laskutus, vaihe 2: the player pays an invoice online.
+-- 20261029185432_koutsi_billing_pay.sql — Laskutus, vaihe 2: the player pays an invoice online.
 --
--- NOT APPLIED — a proposal (29.10.2026). Apply only on the user's go-ahead (apply_migration
--- koutsi_billing_pay), then move the file to supabase/migrations. Tested in PGlite on top of
--- 20261029162350_koutsi_billing: koutsi/web/sql/20261110130000_koutsi_billing_pay.check.mjs
+-- Applied to production 2026-10-29 (apply_migration koutsi_billing_pay) on the user's "Aja ja julkaise".
+-- Tested in PGlite on top of 20261029162350_koutsi_billing: koutsi/web/sql/20261029185432_koutsi_billing_pay.check.mjs
 -- Additive: new columns, one new function, and replaced versions of the phase-1 invoice guard,
 -- koutsi_set_invoice_paid, koutsi_invoice_public and koutsi_my_billing_terms. The old Koutsi reads none of it.
 --
