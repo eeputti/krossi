@@ -1,8 +1,7 @@
--- 20261110120000_koutsi_billing.sql — Laskutus, vaihe 1, in the renewed Koutsi (koutsi/web).
+-- 20261029162350_koutsi_billing.sql — Laskutus, vaihe 1, in the renewed Koutsi (koutsi/web).
 --
--- NOT APPLIED — a proposal (29.10.2026). Apply only on the user's "aja migraatio" (apply_migration
--- with this name), then move the file to supabase/migrations. Tested in PGlite against a stub of the
--- production schema: koutsi/web/sql/20261110120000_koutsi_billing.check.mjs
+-- Applied to production 2026-10-29 (apply_migration koutsi_billing) on the user's "Aja ja julkaise".
+-- Tested in PGlite against a stub of the production schema: koutsi/web/sql/20261029162350_koutsi_billing.check.mjs
 -- Everything is additive: four new tables and their functions. No existing table, function or
 -- policy changes, and the old Koutsi reads none of it.
 -- Rollback: drop the four tables (cascade) and the functions below.
@@ -412,7 +411,7 @@ drop policy if exists koutsi_invoice_lines_delete on public.koutsi_invoice_lines
 create policy koutsi_invoice_lines_delete on public.koutsi_invoice_lines for delete to authenticated
   using (public.koutsi_invoice_editable(invoice_id));
 
-revoke all on public.koutsi_billers, public.koutsi_invoices, public.koutsi_invoice_lines from anon;
+revoke all on public.koutsi_billers, public.koutsi_invoices, public.koutsi_invoice_lines from anon, authenticated;
 grant select, insert, update on public.koutsi_billers to authenticated;
 grant select, insert, update, delete on public.koutsi_invoices, public.koutsi_invoice_lines to authenticated;
 

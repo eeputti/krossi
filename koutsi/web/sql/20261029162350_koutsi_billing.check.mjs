@@ -1,11 +1,10 @@
-// 20261110120000_koutsi_billing.check.mjs — runs the proposed Laskutus migration
-// (koutsi/web/sql/20261110120000_koutsi_billing.sql, NOT applied) in PGlite against a small stub of
+// 20261029162350_koutsi_billing.check.mjs — runs the Laskutus migration
+// (supabase/migrations/20261029162350_koutsi_billing.sql, applied 2026-10-29) in PGlite against a small stub of
 // production's Koutsi schema (the tables, policies and helpers it leans on, as of 2026-10-29), then
 // checks who can do what, billing once, the lock after sending, numbers, links, claims and deletions.
-// PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. Before
-// "aja migraatio":
+// PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261110120000_koutsi_billing.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261029162350_koutsi_billing.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -15,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = await readFile(join(here, '20261110120000_koutsi_billing.sql'), 'utf8');
+const MIGRATION = await readFile(join(here, '../../../supabase/migrations/20261029162350_koutsi_billing.sql'), 'utf8');
 
 const ANNA = '00000000-0000-4000-8000-0000000000a1'; // coach, Laskutus on
 const JUHO = '00000000-0000-4000-8000-0000000000b1'; // coach, Laskutus off (like Alpo)

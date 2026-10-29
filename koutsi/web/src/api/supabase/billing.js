@@ -1,5 +1,5 @@
 // billing.js — Laskutus over koutsi_billers / koutsi_invoices / koutsi_invoice_lines (migration
-// koutsi/web/sql/20261110120000_koutsi_billing.sql, NOT applied yet). Until it is, overview() and
+// supabase/migrations/20261029162350_koutsi_billing.sql, applied 2026-10-29). Without it overview() and
 // mine() answer { ready: false } and both apps keep Laskutus hidden. Row security decides who reads
 // and writes; numbering, sending, paid and void are the database's functions.
 
