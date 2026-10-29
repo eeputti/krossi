@@ -210,9 +210,10 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   muille valmentaja jakaa linkin `koutsi.krossi.app/lasku/<token>` (ei kirjautumista, worker antaa
   `X-Robots-Tag: noindex`, myös vanhan Koutsin valinneille). Lasku tulostuu PDF:ksi selaimen tulostuksella. Pelaaja
   näkee laskunsa (Lisää → Laskut, `/pelaaja/laskut/:id`) ja "En pääse" kertoo, jos peruutus on myöhäinen.
-  Tila on oma `BillingProvider` (kuten Viestit), ei osa tilannekuvaa. Tietokanta: ehdotettu migraatio
-  `koutsi/web/sql/20261110120000_koutsi_billing.sql` — **EI AJETTU**; PGlite-testi samassa kansiossa. Ilman sitä
-  `ready: false` ja kaikki pysyy piilossa. Ominaisuus näkyy vain ylläpitäjille ja `koutsi_billing_coaches`-listan
+  Tila on oma `BillingProvider` (kuten Viestit), ei osa tilannekuvaa. Tietokanta: migraatio
+  `supabase/migrations/20261029162350_koutsi_billing.sql` (ajettu 29.10.2026 käyttäjän luvalla; PGlite-testi
+  `koutsi/web/sql/20261029162350_koutsi_billing.check.mjs`). Ilman sitä `ready: false` ja kaikki pysyy piilossa.
+  Ominaisuus näkyy vain ylläpitäjille ja `koutsi_billing_coaches`-listan
   valmentajille (käsin; Alpo ei ole listalla). Demo: Annan kausi, hinnat ja neljä lähetettyä laskua (`api/demo/billingSeed.js`).
   Maksu sovelluksessa (Stripe Connect) on seuraava vaihe.
 
