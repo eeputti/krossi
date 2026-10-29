@@ -59,6 +59,8 @@ export function mapTraining(t, absencesByTraining) {
       note: a.note || '',
       reportedBy: a.reported_by || null,
       updatedAt: a.updated_at || a.created_at || null,
+      // when the absence was first reported (an upsert keeps it): Laskutus sorts late cancellations by it
+      reportedAt: a.created_at || null,
     })),
   };
 }

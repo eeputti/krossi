@@ -7,8 +7,15 @@ import { APP_NAME } from './lib/constants.js';
 import { PlayerRoot } from './player/PlayerRoot.jsx';
 import { capturePendingCheckIn } from './player/checkin.js';
 import { CANON, HOME, ROUTES } from './player/routes.js';
+import { invoiceTokenFromPath, mountInvoicePage } from './shared/billing/PublicInvoice.jsx';
 
 installBackend(backend);
-capturePendingCheckIn(); // the after-session e-mail's ?fiilis= / ?toive=, before sign-in can redirect
-mountApp({ canon: CANON, home: HOME, routes: ROUTES, appName: APP_NAME.player, Root: PlayerRoot });
-startUsageTracking('pelaaja');
+// koutsi.krossi.app/lasku/<token>: an invoice for whoever has the link, no sign-in (PublicInvoice.jsx)
+const invoiceToken = invoiceTokenFromPath(window.location.pathname);
+if (invoiceToken) {
+  mountInvoicePage(invoiceToken);
+} else {
+  capturePendingCheckIn(); // the after-session e-mail's ?fiilis= / ?toive=, before sign-in can redirect
+  mountApp({ canon: CANON, home: HOME, routes: ROUTES, appName: APP_NAME.player, Root: PlayerRoot });
+  startUsageTracking('pelaaja');
+}

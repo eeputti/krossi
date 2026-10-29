@@ -347,7 +347,7 @@ export function seed() {
   const absent = (t, studentId, by = studentId) => {
     if (!t) return;
     const updatedAt = by === studentId ? isoOn(koutsiAddDays(t.date, -1), '20:40') : isoOn(t.date, plusMinutes(t.time, 5));
-    t.absences.push({ studentId, reason: 'poissa', note: '', reportedBy: by, updatedAt });
+    t.absences.push({ studentId, reason: 'poissa', note: '', reportedBy: by, updatedAt, reportedAt: updatedAt });
   };
   const mood = (studentId, t, score, note = '') => {
     if (!t) return;

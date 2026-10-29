@@ -18,7 +18,7 @@ export const TABS = [
 ];
 // On a phone the fourth place is "Lisää": a drawer with Harjoitepankki, Suunnittele, Ryhmät,
 // Ilmoitukset, Tiedote and Profiili. It lights up on any of those pages (`ids`).
-export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['harjoitteet', 'lahetetyt', 'suunnittele', 'ryhmalista', 'profiili'] }];
+export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['harjoitteet', 'lahetetyt', 'suunnittele', 'ryhmalista', 'profiili', 'laskutus'] }];
 // A computer's side nav also has Suunnittele (themes for many weeks, absences ahead, the season)
 // after Viikkohallinta and the Ryhmät list under Pelaajat. Phones get them later.
 export const DESKTOP_TABS = [
@@ -47,6 +47,8 @@ export const ROUTES = [
   { name: 'exercise', pattern: '/valmentaja/harjoite/:id', tab: 'harjoitteet', type: 'page' },
   // Lähetetyt: everything sent to players (?laji= a kind, ?ryhma= one group's); a phone reaches it from Lisää
   { name: 'sent', pattern: '/valmentaja/lahetetyt', tab: 'lahetetyt', type: 'tab' },
+  // Laskutus (only while it is on for the coach): invoices from attendance; ?lasku=<id> opens one
+  { name: 'billing', pattern: '/valmentaja/laskutus', tab: 'laskutus', type: 'tab' },
   { name: 'profile', pattern: '/valmentaja/profiili', tab: 'profiili', type: 'tab' },
   { name: 'profileEdit', pattern: '/valmentaja/profiili/muokkaa', tab: 'profiili', type: 'page' },
   { name: 'admin', pattern: '/valmentaja/yllapito', tab: 'profiili', type: 'page' },

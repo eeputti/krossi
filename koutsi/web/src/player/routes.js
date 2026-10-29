@@ -15,7 +15,7 @@ export const TABS = [
   { id: 'treenit', label: 'Viikko', icon: 'calendar', path: '/pelaaja/treenit' },
   { id: 'kehitys', label: 'Kehitys', icon: 'flame', path: '/pelaaja/kehitys' },
 ];
-export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['ryhma', 'harjoitteet', 'profiili'] }];
+export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['ryhma', 'harjoitteet', 'profiili', 'laskut'] }];
 
 export const ROUTES = [
   { name: 'home', pattern: '/pelaaja/koti', tab: 'koti', type: 'tab' },
@@ -25,4 +25,7 @@ export const ROUTES = [
   { name: 'exercises', pattern: '/pelaaja/harjoitteet', tab: 'harjoitteet', type: 'tab' },
   { name: 'profile', pattern: '/pelaaja/profiili', tab: 'profiili', type: 'tab' },
   { name: 'profileEdit', pattern: '/pelaaja/profiili/muokkaa', tab: 'profiili', type: 'page' },
+  // Laskut: the player's invoices (only when a coach has sent one); the notification opens one
+  { name: 'invoices', pattern: '/pelaaja/laskut', tab: 'laskut', type: 'page' },
+  { name: 'invoice', pattern: '/pelaaja/laskut/:id', tab: 'laskut', type: 'page' },
 ];

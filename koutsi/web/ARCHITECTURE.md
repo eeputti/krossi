@@ -195,6 +195,27 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   PGlite) — **EI AJETTU**; ilman sitä `sendsReady: false`, ja Lähetetyt, Videot-välilehti ja "Omista videoista"
   pysyvät piilossa, kaikki lähettäminen toimii kuten ennen. Demossa kaikki on päällä.
 
+- Laskutus (`domain/billing.js`, `shared/billing/`, `coach/BillingScreen.jsx`, `coach/BillingSheets.jsx`,
+  `player/InvoicesScreen.jsx`, tyylit `styles/billing.css`): yksityisvalmentajan laskut läsnäoloista. Valmentaja
+  asettaa kerran laskuttajan (nimi, IBAN, Y-tunnus, ALV, maksuaika), hinnat (ryhmä per kerta / kausimaksu / ei
+  laskuteta, yksityistunnin tuntihinta) ja peruutusrajan. **Laskuta** näyttää jakson (kausi, tämä kuu, edellinen kuu)
+  laskutettavat pelaajittain: päättyneet treenit, myöhäiset peruutukset ja poissaolot ilman ilmoitusta; jokaisen rivin
+  voi kytkeä pois, sitten Lähetä tai Luonnoksiksi. Poissaolon laji tulee siitä, milloin se ilmoitettiin ensimmäisen
+  kerran (`koutsi_training_absences.created_at` = `reportedAt`; upsert säilyttää sen): ajoissa = ei veloitusta,
+  myöhässä tai valmentajan merkitsemä alun jälkeen = veloitetaan asetusten mukaan. Ryhmän jäsen laskutetaan
+  liittymisestä lähtien (ensimmäinen kokoonpano kauden alusta) ja lähtemiseen asti. Sama treeni laskutetaan
+  pelaajalta vain kerran (myös luonnoksilla); mitätöinti vapauttaa sen. Lähetys antaa juoksevan numeron, viitenumeron
+  (7-3-1), eräpäivän ja kopion laskuttajan tiedoista, eikä lähetetty lasku muutu enää (vain maksettu / mitätöity).
+  Tunnuksellinen pelaaja saa ilmoituksen (`kind 'invoice'`, kello + sähköpostijono, ei sähköpostikategoriaa);
+  muille valmentaja jakaa linkin `koutsi.krossi.app/lasku/<token>` (ei kirjautumista, worker antaa
+  `X-Robots-Tag: noindex`, myös vanhan Koutsin valinneille). Lasku tulostuu PDF:ksi selaimen tulostuksella. Pelaaja
+  näkee laskunsa (Lisää → Laskut, `/pelaaja/laskut/:id`) ja "En pääse" kertoo, jos peruutus on myöhäinen.
+  Tila on oma `BillingProvider` (kuten Viestit), ei osa tilannekuvaa. Tietokanta: ehdotettu migraatio
+  `koutsi/web/sql/20261110120000_koutsi_billing.sql` — **EI AJETTU**; PGlite-testi samassa kansiossa. Ilman sitä
+  `ready: false` ja kaikki pysyy piilossa. Ominaisuus näkyy vain ylläpitäjille ja `koutsi_billing_coaches`-listan
+  valmentajille (käsin; Alpo ei ole listalla). Demo: Annan kausi, hinnat ja neljä lähetettyä laskua (`api/demo/billingSeed.js`).
+  Maksu sovelluksessa (Stripe Connect) on seuraava vaihe.
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)
@@ -212,6 +233,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/valmentaja/harjoitteet` (`?nakyma=videot`), `/valmentaja/harjoite/:id` | exercises (Harjoitteet · Videot), exercise | page |
 | `/valmentaja/lahetetyt` (`?laji=video\|laksy\|huomio\|tiedote`, `?ryhma=<id>`) | sent — Lähetetyt (puhelimessa Lisää-valikosta) | tab |
 | `/valmentaja/profiili`, `/valmentaja/yllapito` | profile, admin | tab / page |
+| `/valmentaja/laskutus` (`?lasku=<id>`) | billing — Laskutus (vain kun käytössä; puhelimessa Lisää-valikosta) | tab |
 | `/valmentaja/oppilaat`, `/treenit`, `/kalenteri` | vanhat osoitteet | ohjaus uusiin (`/kalenteri?vko=` säilyttää viikon) |
 
 **Pelaaja** (`/pelaaja`, puhelimessa: Koti · Viikko · [Merkitse] · Kehitys · Lisää — Lisää-laatikossa Ryhmäsi, Harjoitteet ja videot, Ilmoitukset, Profiili, Anna palautetta; tietokoneella samat sivupalkissa, Profiili alhaalla)
@@ -224,6 +246,8 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/pelaaja/ryhma` (`?ryhma=<id>`) | group — Lisää → Ryhmäsi tai treenin "Ryhmä": viikon teema → ryhmäläiset → seuraavat treenit |
 | `/pelaaja/harjoitteet` | exercises |
 | `/pelaaja/profiili` | profile |
+| `/pelaaja/laskut`, `/pelaaja/laskut/:id` | invoices, invoice — Laskut (Lisää; kun valmentaja on lähettänyt laskun) |
+| `/lasku/<token>` | laskun oma sivu linkillä, ilman kirjautumista (pelaajan kuori, `shared/billing/PublicInvoice.jsx`) |
 
 Vanhat osoitteet (`/pelaaja/koti` jne.) ovat samat; `link_path` `/pelaaja` → koti.
 
