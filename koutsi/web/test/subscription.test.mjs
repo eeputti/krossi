@@ -81,7 +81,7 @@ test('demo: Anna is on the free trial; paying is for the real app', async () => 
   assert.equal(s.ready, true);
   assert.equal(s.plan, 'trial');
   assert.equal(daysLeft(s.trialEndsAt), 76);
-  assert.equal(await demo.subscription.price(), null);
+  assert.deepEqual(await demo.subscription.price(), { cents: 2900, interval: 'month', offer: null });
   await assert.rejects(async () => demo.subscription.checkout(), /demossa/);
   await assert.rejects(async () => demo.subscription.portal(), /demossa/);
   assert.deepEqual(await demo.coach.fetchRow('demo-coach'), { id: 'demo-coach' }, 'the trial gate is a dev-only preview');
