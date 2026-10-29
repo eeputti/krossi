@@ -18,6 +18,7 @@ import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { useRecord } from './merkitse.jsx';
 import { SessionPlan } from './SessionPlan.jsx';
 import { saveAttendance } from './attendance.jsx';
+import { FreedLessonCard } from './openSlots.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -85,6 +86,9 @@ export function SessionScreen({ params }) {
           <p className="k-group-when">klo {koutsiTimeRangeLabel(training.time, training.durationMinutes || group?.durationMinutes)} · {training.type}</p>
           {group && <Link to={groupPath(group.id)} className="k-group-pill"><span className="t-num">{group.day} {group.time}</span><span className="truncate">{group.name}</span></Link>}
         </header>
+
+        {/* Vapaat ajat: the player of a private lesson cannot come → offer the time to the others */}
+        <FreedLessonCard training={training} />
 
         {/* Every "Läsnäolo" button lands here, so the list comes first: nothing to scroll past. */}
         <Block eyebrow="Läsnäolo" title={roster.length ? `${present}/${roster.length} paikalla` : 'Ei pelaajia'}>

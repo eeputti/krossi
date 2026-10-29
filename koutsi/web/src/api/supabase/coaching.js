@@ -13,6 +13,7 @@ import {
   KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX,
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
+import { withOpenSlots } from './openSlots.js';
 
 const from = (table) => db().from(table);
 
@@ -50,7 +51,7 @@ export const coach = {
   async fetchRow(uid) {
     return must(await from('koutsi_coaches').select('id').eq('id', uid).maybeSingle());
   },
-  load: loadCoachState,
+  load: (coachId) => withOpenSlots('coach', coachId, loadCoachState(coachId)),
   async redeemKey(key) {
     return must(await db().rpc('redeem_koutsi_coach_key', { key_input: key }));
   },
@@ -100,7 +101,7 @@ export const player = {
   async fetchRow(uid) {
     return must(await from('koutsi_students').select('id').eq('id', uid).maybeSingle());
   },
-  load: loadPlayerState,
+  load: (studentId) => withOpenSlots('player', studentId, loadPlayerState(studentId)),
   subscribe(studentId, cb) { return subscribeTables(`koutsi-player-${studentId}`, cb); },
   async markWelcomeSeen(studentId) {
     must(await from('koutsi_students').update({ welcome_seen_at: new Date().toISOString() }).eq('id', studentId));

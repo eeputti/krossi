@@ -99,7 +99,10 @@
 }
 .auth-back-link:hover { background: rgba(0, 0, 0, 0.06); }
 
-.auth-modes { margin-bottom: 16px; }
+/* breathing room between the key note, the mode switch and the age check */
+.auth-form-wrap > .k-note { margin-bottom: 20px; }
+.auth-modes { margin-bottom: 20px; }
+.auth-form-wrap > .k-check { margin-bottom: 20px; }
 .auth-oauth { display: grid; gap: 10px; }
 .auth-oauth-btn { gap: 10px; font-weight: 700; }
 .auth-oauth-btn:hover:not(:disabled) { border-color: var(--ink); }

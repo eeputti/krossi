@@ -9,6 +9,8 @@ export const EMAIL_CHOICES = {
     { id: 'treenit', label: 'Treenien muutokset', hint: 'Uudet, siirretyt ja perutut treenit' },
     { id: 'muistutus', label: 'Muistutus treenipäivän aamuna', hint: 'Aika, teema ja paikka' },
     { id: 'mitenmeni', label: 'Miten meni? treenin jälkeen', hint: 'Fiilis yhdellä napautuksella ja toive valmentajalle' },
+    // Vapaat ajat: shown only to a player whose coach has published free times for them (`only`)
+    { id: 'vapaat', label: 'Vapaat ajat', hint: 'Kun valmentajasi julkaisee vapaita aikoja', only: 'openSlots' },
   ],
   coach: [
     { id: 'poissaolot', label: 'Pelaajien poissaolot', hint: 'Kun pelaaja ilmoittaa, ettei pääse treeniin' },

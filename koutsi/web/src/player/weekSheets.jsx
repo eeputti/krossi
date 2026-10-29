@@ -14,6 +14,7 @@ import { ownEntry } from '../domain/ownWeek.js';
 import { moodAnswers } from '../domain/playerNow.js';
 import { ActivityIcon } from './ActivityIcon.jsx';
 import { usePlayerActions } from './PlayerApp.jsx';
+import { bookedSlotOf } from '../domain/openSlots.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_LONG = ['sunnuntai', 'maanantai', 'tiistai', 'keskiviikko', 'torstai', 'perjantai', 'lauantai'];
@@ -55,6 +56,7 @@ export function CoachSessionSheet({ open, item, onClose }) {
         <div className="wb-facts">
           <span className="wb-fact">{live.type}</span>
           {coach && <span className="wb-fact">Valmentaja: {coach.name}</span>}
+          {bookedSlotOf(state.openSlots, live.id)?.place && <span className="wb-fact">Paikka: {bookedSlotOf(state.openSlots, live.id).place}</span>}
         </div>
         {theme && (
           <div className="pw-theme">

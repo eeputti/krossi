@@ -1,0 +1,10 @@
+/* open-slots.css — Vapaat ajat in the week grids (coach/BoardScreen, player/TrainingsScreen): a free
+   time is the empty twin of a booked lesson — white with a dashed lime edge where the booked one is
+   filled lime — so free and taken read apart at a glance. The coach removes one with a tap, a player
+   books it. On a phone's day strip a day with only free times gets a hollow lime dot. */
+.wb-block.is-open { background: var(--surface); border: 2px dashed var(--lime); }
+.wb-block.is-open::before { display: none; }
+.wb-block.is-open:hover { border-style: solid; }
+.wb-block.is-open .wb-b-time { color: var(--ink-2); }
+.wb-block.is-open .wb-b-line { color: var(--ink); font-weight: 750; }
+.wb-strip-dot.has-open { background: transparent; box-shadow: inset 0 0 0 1.5px var(--lime); }
