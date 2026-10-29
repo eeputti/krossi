@@ -182,8 +182,16 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   Tilin poisto (oma ja ylläpitäjän) päättää valmentajan Stripe-tilauksen ensin (`_shared/koutsiCancel.ts`). Hinta on
   Stripessä, ei koodissa: `node scripts/koutsi-stripe-setup.mjs --hinta X [--alku Y --alku-kpl N --alku-kk M]`
   (omistaja ajaa). Ehdot: `koutsi-tilausehdot.html` (`/tilausehdot`) ja `koutsi-kasittelysopimus.html`
-  (`/kasittelysopimus`, valmentaja = rekisterinpitäjä, Roisku Media = käsittelijä), LUONNOKSIA. Mitä kokeilun jälkeen
-  lukitaan, on päättämättä — mitään ei lukita. Tietokanta: ehdotettu migraatio
+  (`/kasittelysopimus`, valmentaja = rekisterinpitäjä, Roisku Media = käsittelijä), LUONNOKSIA. Kokeilun jälkeen
+  ilman tilausta (`ended`, käyttäjän päätös 29.10.2026): valmentaja näkee kaiken ja suunnittelee kuten ennen (kalenteri,
+  teemat, läsnäolot, pelaajat), mutta uuden lähettäminen pelaajille vaatii tilauksen — huomio, kotiläksy, video,
+  tiedote, viesti ja lasku. Lukko on tietokannassa (`koutsi_plan_send_guard` ennen inserttiä kuuteen tauluun,
+  `koutsi_invoice_plan_guard` luonnos → lähetetty), joten vanha Koutsi ei ohita sitä; pelaajan omat rivit menevät aina
+  läpi. Sovelluksessa Merkitse näyttää yhden rivin "Kokeilu päättyi · … Ota tilaus" (`PlanNotice`, tila
+  `coach/subscriptionStore.js`), ja estetty lähetys kertoo syyn. Laskutus (`koutsi_billing_coach_enabled`) aukeaa
+  kokeilussa ja tilauksella oleville; kokeilun jälkeen vain jo laskuttaneelle (vanhat laskut, maksetuksi merkintä).
+  Muistutus 7 pv ennen kokeilun loppua (`koutsi_trial_reminders`, cron `koutsi-trial-reminders`, ilmoituslaji
+  `trial_ending`). Tietokanta: ehdotettu migraatio
   `koutsi/web/sql/20261029190000_koutsi_coach_plans.sql` (PGlite-testi samassa kansiossa) — **EI AJETTU**; ilman sitä
   `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta voi
   pysäyttää vaihtamalla `koutsi_self_serve_open()` → `select false`. Demo: Anna on kokeilussa; kehityksessä
