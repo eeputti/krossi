@@ -240,6 +240,25 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   verkkomaksu pysyy piilossa. Funktio julkaistaan verify_jwt pois
   (`supabase functions deploy koutsi-pay --no-verify-jwt`); salaisuutena sama STRIPE_SECRET_KEY kuin krossi-funktioilla.
   Demo: verkkomaksu päällä, "Maksa" merkitsee laskun maksetuksi heti ilman Stripeä.
+  **Vaihe 3** (ehdotus `koutsi/web/sql/20261110140000_koutsi_billing_mail.sql`, EI ajettu; PGlite-testi samassa
+  kansiossa). Laskulista on kortteja: pelaajan kuva ja nimi, ryhmä, summa ja **minne lasku menee** (`deliveryOf`:
+  maksajan sähköposti / pelaajan Koutsi / varoitus "Ei sähköpostia"); Lähetä kaikki kertoo saman yhteenvetona.
+  Luonnosta muokataan itse laskuna (maksaja, viesti `note`, rivit, Lisää rivi), napissa "Lähetä lasku". Laskuttajalla
+  voi olla logo (julkinen bucket `koutsi-logos`, `<valmentajan id>/…`, PNG/JPEG ≤ 1 Mt, `logo_path`), joka kopioituu
+  lähetettyyn laskuun. Oikea PDF tulee edge functionista `supabase/functions/koutsi-invoice` (`?pdf=<token>`,
+  pdf-lib; puhtaat osat `_shared/invoiceDoc.ts` = billing.js:n TS-kopio ja `_shared/invoicePdf.ts`, testi
+  `test/invoicePdf.test.mjs`, joka ajaa piirron vain kun `PDFLIB` on annettu). Sama funktio lähettää laskun
+  sähköpostiin PDF-liitteenä Resendillä (`mail`) ja muistutuksen (`remind`, kerran päivässä,
+  `koutsi_remind_invoice`); lähettäjä "<laskuttaja> (Krossi Koutsi)", vastaus laskuttajan sähköpostiin.
+  "En tarvitse laskutusta vielä" (`koutsi_billing_prefs.hidden`) piilottaa Laskutuksen sivupalkista; Profiili tuo sen
+  takaisin. Verkkomaksu on nyt **kevyt Stripe Express -tili** kuten halleilla (valmentaja antaa Stripen lomakkeelle
+  tiedot ja IBANin kerran, rahat viikoittain tilille): maksu on destination charge Krossin tilillä, valmentaja on
+  myyjä (`on_behalf_of`), ja Krossi pidättää vain Stripen arvioidun kulun (`paymentCost`: kortti, Apple/Google Pay ja
+  MobilePay 1,75 % + 0,36 €; Klarna 3,24 % + 0,40 €; ei katetta). Klarnalla on oma nappi ja oma Checkout-sivu, jotta
+  valmentaja maksaa vain pelaajan valitseman tavan kulun; `koutsi_billers.stripe_methods` (funktio kirjoittaa) kertoo,
+  ottaako tili MobilePayn ja Klarnan. Verkkomaksut-ikkuna näyttää kulun 100 €:n esimerkkinä (`PAY_COSTS` = koutsiPay.ts,
+  testi vertaa). Käyttöönotto: aja migraatio, julkaise `koutsi-invoice` ja `koutsi-pay` (`--no-verify-jwt`).
+  Sähköpostit tarvitsevat salaisuudet RESEND_API_KEY ja KOUTSI_MAIL_FROM (samat kuin koutsi-notifylla).
 
 ## 5. Reitit
 

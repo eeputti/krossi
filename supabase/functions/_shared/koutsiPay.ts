@@ -1,6 +1,8 @@
-// _shared/koutsiPay.ts — the pure parts of koutsi-pay (Laskutus, vaihe 2): where the payer comes
-// back to, what the Stripe Checkout page says, and when a Checkout session counts as paid. No
-// Deno or npm imports, so koutsi/web/test/koutsiPay.test.mjs runs it in Node as it is.
+// _shared/koutsiPay.ts — the pure parts of koutsi-pay (Laskutus): where the payer comes back to, what
+// the Stripe Checkout page says, what the coach's payment costs, and when a Checkout session counts as
+// paid. No Deno or npm imports (fees.ts imports only a type), so koutsi/web/test/koutsiPay.test.mjs runs
+// it in Node as it is.
+import { STRIPE_COST } from './fees.ts';
 
 export const KOUTSI_APP = 'https://koutsi.krossi.app';
 export const KOUTSI_ORIGINS = ['https://koutsi.krossi.app', 'https://demo.koutsi.krossi.app'];
@@ -25,6 +27,39 @@ export function periodLabel(start: string | null | undefined, end: string | null
   return start && end ? `${fi(start)}–${fi(end)}` : '';
 }
 
+/**
+ * The two ways to pay an invoice, each on its own Checkout page so the coach pays the fee of the way
+ * the player chose: 'card' = MobilePay, Apple Pay, Google Pay and cards (one price class), 'klarna' =
+ * Klarna (pay now, in 30 days or in parts; its fee is about twice a card's).
+ */
+export type PayMethod = 'card' | 'klarna';
+export const payMethodOf = (value: unknown): PayMethod => (value === 'klarna' ? 'klarna' : 'card');
+
+/**
+ * Klarna's estimated cost: 2,99 % + 0,40 € in Finland (stripe.com/en-fi/pricing/local-payment-methods)
+ * and Connect's 0,25 % of the payout. Cards and MobilePay use STRIPE_COST (fees.ts: 1,5 % + 0,36 €,
+ * MobilePay's price, and the same 0,25 %). Kept equal to PAY_COSTS in koutsi/web/src/domain/billing.js,
+ * which shows them to the coach (test/koutsiPay.test.mjs compares them).
+ */
+export const KLARNA_COST = { bps: 324, fixedCents: 40 } as const;
+
+/**
+ * What Stripe keeps of a coach's online payment: its estimated cost for the way the player pays.
+ * Krossi adds no margin; the player pays exactly the invoice.
+ */
+export function paymentCost(totalCents: number, method: PayMethod = 'card'): number {
+  const cost = method === 'klarna' ? KLARNA_COST : STRIPE_COST;
+  const fee = Math.ceil((totalCents * cost.bps) / 10_000) + cost.fixedCents;
+  return Math.max(0, Math.min(totalCents, fee));
+}
+
+/** The ways an account can take, from its capabilities: ['card', 'mobilepay'?, 'klarna'?] once cards work. */
+export function accountMethods(capabilities: Record<string, string | undefined> | null | undefined): string[] {
+  const caps = capabilities || {};
+  if (caps.card_payments !== 'active') return [];
+  return ['card', ...(caps.mobilepay_payments === 'active' ? ['mobilepay'] : []), ...(caps.klarna_payments === 'active' ? ['klarna'] : [])];
+}
+
 export interface CheckoutInput {
   invoiceId: string;
   number: number;
@@ -34,18 +69,29 @@ export interface CheckoutInput {
   payerEmail: string | null;
   token: string;
   base: string;
+  /** the coach's connected Express account */
+  destination: string;
+  /** 'card' (MobilePay, Apple Pay, Google Pay, cards) or 'klarna' */
+  method?: PayMethod;
+  /** the account takes MobilePay (accountMethods) */
+  mobilepay?: boolean;
 }
 
 /**
- * The Checkout session for one invoice, on the coach's own account: one line, the invoice's total
- * in euros, the payment methods the coach has on in Stripe (card, Apple / Google Pay, MobilePay,
- * Klarna …), back to the invoice's own page. {CHECKOUT_SESSION_ID} is filled in by Stripe.
+ * The Checkout session for one invoice, on Krossi's account as a destination charge: the coach is
+ * the seller on the payer's statement (on_behalf_of) and gets the money (transfer_data) less Stripe's
+ * estimated cost (application_fee_amount). One line, the invoice's total in euros, back to the
+ * invoice's own page; {CHECKOUT_SESSION_ID} is filled in by Stripe.
  */
 export function checkoutParams(input: CheckoutInput) {
   const page = `${input.base}/lasku/${input.token}`;
-  const description = [input.sellerName, input.period].filter(Boolean).join(' · ');
+  const description = [input.sellerName, input.period].filter(Boolean).join(', ');
+  const method = input.method === 'klarna' ? 'klarna' : 'card';
+  const metadata = { koutsi_invoice_id: input.invoiceId, koutsi_invoice_number: String(input.number), koutsi_method: method };
   return {
     mode: 'payment' as const,
+    // Apple Pay and Google Pay come with 'card' on Stripe's page
+    payment_method_types: method === 'klarna' ? ['klarna'] : ['card', ...(input.mobilepay ? ['mobilepay'] : [])],
     line_items: [{
       quantity: 1,
       price_data: {
@@ -59,10 +105,13 @@ export function checkoutParams(input: CheckoutInput) {
     locale: 'fi' as const,
     client_reference_id: input.invoiceId,
     ...(input.payerEmail ? { customer_email: input.payerEmail } : {}),
-    metadata: { koutsi_invoice_id: input.invoiceId, koutsi_invoice_number: String(input.number) },
+    metadata,
     payment_intent_data: {
-      description: `Lasku ${input.number} · ${input.sellerName}`,
-      metadata: { koutsi_invoice_id: input.invoiceId, koutsi_invoice_number: String(input.number) },
+      description: `Lasku ${input.number}, ${input.sellerName}`,
+      on_behalf_of: input.destination,
+      transfer_data: { destination: input.destination },
+      application_fee_amount: paymentCost(input.totalCents, method),
+      metadata,
     },
   };
 }

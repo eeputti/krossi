@@ -3,9 +3,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  absenceKind, billablePlayers, billedKeys, lateCancelNote, billerMissing, centsToInput, countsLine, draftsFrom, euros, formatIban,
-  formatReference, invoiceDoc, invoiceState, lineCounts, membershipWindows, parseEuros, periodPresets, referenceCheckDigit,
-  referenceFor, termsText, totalOf, validBusinessId, validIban, validReference, vatBreakdown, virtualBarcode, NO_VAT_NOTE,
+  absenceKind, billablePlayers, billedKeys, lateCancelNote, billerMissing, canPayKlarna, canPayOnline, centsToInput, countsLine, deliveryOf,
+  draftsFrom, euros, formatIban, formatReference, invoiceDoc, invoiceGroups, invoiceState, lineCounts, membershipWindows, parseEuros,
+  payCost, payCostRate, periodPresets, referenceCheckDigit, referenceFor, termsText, totalOf, validBusinessId, validIban, validReference,
+  vatBreakdown, virtualBarcode, NO_VAT_NOTE,
 } from '../src/domain/billing.js';
 
 const NBSP = ' ';
@@ -139,7 +140,7 @@ test('billablePlayers: sessions held, late cancellations, no-shows, private less
   // Bea: late on t1 (charged), in time on t2 (not), present on t3
   assert.deepEqual(by.s2.lines.map((l) => [l.trainingId, l.kind, l.charged]), [['t1', 'late', true], ['t2', 'cancelled', false], ['t3', 'session', true]]);
   assert.equal(by.s2.totalCents, 6000);
-  assert.equal(countsLine(by.s2.counts), '1 kerta · 1 myöhäinen peruutus · 1 peruttu ajoissa');
+  assert.equal(countsLine(by.s2.counts), '1 kerta, 1 myöhäinen peruutus, 1 peruttu ajoissa');
 
   // Cecilia: the junior group's season fee, once
   assert.deepEqual(by.s3.lines.map((l) => [l.kind, l.description, l.amountCents]), [['season', 'Kausimaksu: Juniorit', 28000]]);
@@ -278,4 +279,43 @@ test('the demo season: four invoices already sent, the rest still to bill, nothi
   const { players } = billablePlayers({ trainings: s.trainings, groups: s.groups, students: s.students, memberships: [], biller, from: s.seasons[0].startsOn, to, billed });
   assert.ok(players.length > 20, 'most players still to bill');
   for (const p of players) for (const l of p.lines) assert.ok(!billed.has(l.key), `${l.key} billed twice`);
+});
+
+test('deliveryOf: where an invoice goes, before it is sent', () => {
+  const player = { id: 's1', name: 'Aatu Laine', isPlaceholder: false };
+  const nameOnly = { id: 's2', name: 'Eetu J.', isPlaceholder: true };
+  assert.deepEqual(deliveryOf({ payerName: 'Aatu Laine', payerEmail: 'aatu@example.test' }, player), { kind: 'email', payer: '', email: 'aatu@example.test' });
+  assert.deepEqual(deliveryOf({ payerName: 'Sari J.', payerEmail: 'sari@example.test' }, nameOnly), { kind: 'email', payer: 'Sari J.', email: 'sari@example.test' }, 'a guardian pays');
+  assert.deepEqual(deliveryOf({ payerName: 'Aatu Laine', payerEmail: '' }, player), { kind: 'account', payer: '', email: '' }, 'the e-mail of the player\'s own account');
+  assert.deepEqual(deliveryOf({ payerName: 'Sari L.', payerEmail: '' }, player), { kind: 'account', payer: 'Sari L.', email: '' });
+  assert.equal(deliveryOf({ payerName: 'Aatu Laine', mailedAt: '2026-10-29T10:00:00Z', mailTo: null }, player).kind, 'account', 'sent to the account: the address stays hidden');
+  assert.deepEqual(deliveryOf({ payerName: 'Eetu J.', payerEmail: null }, nameOnly), { kind: 'none', payer: '', email: '' }, 'reaches no one');
+  assert.equal(deliveryOf({ payerName: 'Aatu Laine', payerEmail: 'uusi@example.test', mailedAt: '2026-10-29T10:00:00Z', mailTo: 'vanha@example.test' }, player).email, 'vanha@example.test', 'a sent one: where it went');
+  assert.equal(deliveryOf({ payerName: 'X', payerEmail: '' }, null).kind, 'none');
+});
+
+test('invoiceGroups: the groups on the invoice, private lessons, or the player\'s groups', () => {
+  const groups = [{ id: 'g1', name: 'Juniorit vihreä', memberIds: ['s1'] }, { id: 'g2', name: 'Aikuiset', memberIds: ['s1', 's2'] }, { id: 'g3', name: 'Aikuiset', memberIds: [] }];
+  assert.equal(invoiceGroups({ studentId: 's1', lines: [{ groupId: 'g1' }, { groupId: 'g1' }] }, groups), 'Juniorit vihreä');
+  assert.equal(invoiceGroups({ studentId: 's2', lines: [{ groupId: 'g2' }, { groupId: 'g3' }] }, groups), 'Aikuiset', 'same name once');
+  assert.equal(invoiceGroups({ studentId: 's2', lines: [{ trainingId: 't1', groupId: null }] }, groups), 'Yksityistunnit');
+  assert.equal(invoiceGroups({ studentId: 's1', lines: [{ kind: 'manual' }] }, groups), 'Juniorit vihreä, Aikuiset');
+  assert.equal(invoiceGroups({ studentId: 's9', lines: [] }, groups), '');
+});
+
+test('payCost / payCostRate: what the coach is told an online payment costs', () => {
+  assert.equal(payCost(10000), 211, '1,75 % + 0,36 €');
+  assert.equal(payCost(10000, 'klarna'), 364, '3,24 % + 0,40 €');
+  assert.equal(payCost(10), 10, 'never more than the payment');
+  assert.equal(payCostRate(), `1,75${NBSP}% + 0,36${NBSP}€`);
+  assert.equal(payCostRate('klarna'), `3,24${NBSP}% + 0,40${NBSP}€`);
+});
+
+test('canPayKlarna: online payment on, and the coach\'s account takes Klarna', () => {
+  const inv = { status: 'sent', totalCents: 24000, coachId: 'c1' };
+  assert.equal(canPayKlarna(inv, [{ coachId: 'c1', payOnline: true, klarna: true }]), true);
+  assert.equal(canPayKlarna(inv, [{ coachId: 'c1', payOnline: true, klarna: false }]), false);
+  assert.equal(canPayKlarna(inv, [{ coachId: 'c1', payOnline: false, klarna: true }]), false);
+  assert.equal(canPayKlarna({ ...inv, status: 'paid' }, [{ coachId: 'c1', payOnline: true, klarna: true }]), false);
+  assert.equal(canPayOnline(inv, [{ coachId: 'c1', payOnline: true }]), true);
 });

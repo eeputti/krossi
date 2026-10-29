@@ -1,27 +1,33 @@
-// koutsi-pay — Laskutus, vaihe 2: a Koutsi invoice paid online, straight to the coach's own Stripe account.
+// koutsi-pay — Laskutus: a Koutsi invoice paid online, the money to the coach's bank account.
 //
-//   { action: 'connect', coachId? }        -> { url }      coach: Stripe's onboarding for the coach's own account
+//   { action: 'connect', coachId? }        -> { url }      coach: Stripe's onboarding (once: details + IBAN)
 //   { action: 'status', coachId? }         -> PayStatus    coach: the account read from Stripe, stored on koutsi_billers
+//   { action: 'dashboard', coachId? }      -> { url }      coach: a one-time login to their Stripe Express payouts page
 //   { action: 'sync', coachId? }           -> { updated }  coach: confirms the payments of the coach's open invoices
-//   { action: 'checkout', token }          -> { url } | { paid: true }   anyone with the invoice's link: Stripe Checkout
+//   { action: 'checkout', token, method? } -> { url } | { paid: true }   anyone with the invoice's link: Stripe Checkout
+//                                                    (method 'klarna', else MobilePay / Apple Pay / Google Pay / cards)
 //   { action: 'verify', token, session }   -> { paid }     anyone with the link, back from Checkout
 //
 // PayStatus = { state: 'none' | 'pending' | 'ready', chargesEnabled, detailsSubmitted, payOnline, dueCount }
 // (../_shared/koutsiPay.ts). coachId defaults to the signed-in user (an admin acting as a coach passes it).
 //
-// The coach's account is a standard Stripe account: the coach is the seller, Stripe takes its fee from
-// each payment on the coach's side, refunds and disputes are the coach's in their own Stripe dashboard,
-// and Krossi takes nothing and pays no Connect fees. Payments are direct charges (Stripe-Account header),
-// so their events stay on the coach's account: a payment is confirmed when the payer returns to the
-// invoice page (verify) and whenever the coach opens Laskutus (sync); koutsi_invoice_paid_online marks
-// it once and tells the coach. (A Connect webhook can be added later for the rare payer who closes the
-// page before returning.)
+// The coach gets a light Stripe Express account, like the halls (krossi-connect): Stripe's own form asks
+// once for the details it must verify and the IBAN, and pays the money out to it weekly; the coach needs no
+// Stripe account of their own (bank transfer with the reference stays the default — this is optional).
+// A payment is a destination charge on Krossi's Stripe account: on_behalf_of the coach (their name on the
+// payer's statement), the money transferred to them less Stripe's estimated cost (paymentCost, the halls'
+// estimate in ../_shared/fees.ts); Krossi adds no margin and the payer pays exactly the invoice. With
+// destination charges Krossi pays Stripe's fees and Connect's (2 € per active account a month, 0,10 € per
+// payout) and answers disputes. A payment is confirmed when the payer returns to the invoice page (verify)
+// and whenever the coach opens Laskutus (sync); koutsi_invoice_paid_online marks it once and tells the coach.
 //
 // Deploy with verify_jwt off (checkout and verify have no signed-in user); the coach actions check the
 // caller's JWT here. Secrets: STRIPE_SECRET_KEY (the platform's, as the krossi-* functions).
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
-import { SESSION_RE, UUID_RE, appBase, checkoutParams, isAllowedOrigin, paidFromSession, payStatus, periodLabel, KOUTSI_APP } from '../_shared/koutsiPay.ts';
+import {
+  SESSION_RE, UUID_RE, accountMethods, appBase, checkoutParams, isAllowedOrigin, paidFromSession, payMethodOf, payStatus, periodLabel, KOUTSI_APP,
+} from '../_shared/koutsiPay.ts';
 
 const NOT_FOUND = 'Laskua ei löytynyt.';
 const NOT_COACH = 'Vain valmentaja voi tehdä tämän.';
@@ -30,6 +36,8 @@ const NOT_ON = 'Laskutus ei ole käytössä.';
 const ALREADY_PAID = 'Lasku on jo maksettu.';
 const NOT_PAYABLE = 'Tätä laskua ei voi maksaa verkossa. Maksa tilisiirrolla laskun tiedoilla.';
 const NO_CONNECT = 'Verkkomaksuja ei saatu käyttöön. Yritä hetken päästä uudelleen.';
+const NO_KLARNA = 'Klarna ei ole käytössä tälle laskulle. Maksa MobilePaylla, Apple Paylla, Google Paylla tai kortilla.';
+const PAYING = 'Edellinen maksu on vielä kesken. Yritä hetken päästä uudelleen.';
 const MISSING = 'Stripe-tiliä ei löytynyt Stripestä.';
 const STRIPE_DOWN = 'Maksupalvelu ei nyt vastaa. Yritä hetken päästä uudelleen.';
 const DB_FAILED = 'Käsittely epäonnistui. Yritä hetken päästä uudelleen.';
@@ -60,6 +68,7 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   httpClient: Stripe.createFetchHttpClient(),
 });
 
+const NOT_SUBMITTED = 'Stripen käyttöönotto on kesken. Jatka sitä ensin.';
 const isStripeError = (err: unknown) => /^Stripe/.test(String((err as { type?: unknown })?.type ?? ''));
 const isMissing = (err: unknown) => (err as { code?: string })?.code === 'resource_missing';
 
@@ -72,8 +81,9 @@ interface Biller {
   stripe_charges_enabled: boolean;
   stripe_details_submitted: boolean;
   pay_online: boolean;
+  stripe_methods: string[] | null;
 }
-const BILLER_COLUMNS = 'id, coach_id, name, email, stripe_account_id, stripe_charges_enabled, stripe_details_submitted, pay_online';
+const BILLER_COLUMNS = 'id, coach_id, name, email, stripe_account_id, stripe_charges_enabled, stripe_details_submitted, pay_online, stripe_methods';
 
 interface Invoice {
   id: string;
@@ -122,14 +132,17 @@ async function settle(admin: SupabaseClient, inv: Invoice, session: Stripe.Check
   return true;
 }
 
-async function retrieveSession(id: string, account: string) {
+async function retrieveSession(id: string) {
   try {
-    return await stripe.checkout.sessions.retrieve(id, {}, { stripeAccount: account });
+    return await stripe.checkout.sessions.retrieve(id);
   } catch (err) {
     if (isMissing(err)) return null;
     throw err;
   }
 }
+
+/** The account can take payments: Stripe lets it charge and receive transfers (as the halls', _shared/connect.ts). */
+const takesPayments = (account: Stripe.Account) => Boolean(account.charges_enabled) && account.capabilities?.transfers === 'active';
 
 /** The coach's account read from Stripe and stored; the status for the app. */
 async function refresh(admin: SupabaseClient, biller: Biller) {
@@ -142,8 +155,9 @@ async function refresh(admin: SupabaseClient, biller: Biller) {
     throw err;
   }
   const stored = {
-    stripe_charges_enabled: Boolean(account.charges_enabled),
+    stripe_charges_enabled: takesPayments(account),
     stripe_details_submitted: Boolean(account.details_submitted),
+    stripe_methods: accountMethods(account.capabilities as Record<string, string>),
     stripe_checked_at: new Date().toISOString(),
   };
   const { error } = await admin.from('koutsi_billers').update(stored).eq('id', biller.id).eq('stripe_account_id', biller.stripe_account_id);
@@ -153,25 +167,34 @@ async function refresh(admin: SupabaseClient, biller: Biller) {
   return payStatus({ ...biller, ...stored }, dueCount);
 }
 
-/** The coach's account: the stored one, or a new standard account stored at once. */
+/** The coach's account: the stored one, or a new Express account stored at once. */
 async function ensureAccount(admin: SupabaseClient, biller: Biller, email: string | null) {
   if (biller.stripe_account_id) return biller.stripe_account_id;
   let account: Stripe.Account;
   try {
     account = await stripe.accounts.create({
-      type: 'standard',
+      type: 'express',
       country: 'FI',
+      default_currency: 'eur',
       ...(biller.email || email ? { email: biller.email || email || undefined } : {}),
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+        mobilepay_payments: { requested: true },
+        klarna_payments: { requested: true },
+      },
       business_profile: { name: biller.name, product_description: 'Tennisvalmennus. Laskut Krossi Koutsista (koutsi.krossi.app).' },
+      // weekly, like the halls: every payout costs Krossi 0,10 €
+      settings: { payouts: { schedule: { interval: 'weekly', weekly_anchor: 'monday' } } },
       metadata: { koutsi_coach_id: biller.coach_id, koutsi_biller_id: biller.id },
-    }, { idempotencyKey: `koutsi-pay-account-${biller.id}` });
+    }, { idempotencyKey: `koutsi-pay-express-${biller.id}` });
   } catch (err) {
     // e.g. Connect not yet on for the platform account
     console.error('koutsi-pay: account create failed', (err as Error).message);
     throw new Reply(502, NO_CONNECT);
   }
   const { data, error } = await admin.from('koutsi_billers')
-    .update({ stripe_account_id: account.id, stripe_charges_enabled: Boolean(account.charges_enabled), stripe_details_submitted: Boolean(account.details_submitted) })
+    .update({ stripe_account_id: account.id, stripe_charges_enabled: takesPayments(account), stripe_details_submitted: Boolean(account.details_submitted) })
     .eq('id', biller.id).is('stripe_account_id', null).select('stripe_account_id');
   if (error) throw new Error(`storing the account failed: ${error.message}`);
   if (data?.length) return account.id;
@@ -184,6 +207,7 @@ interface Body {
   coachId?: unknown;
   token?: unknown;
   session?: unknown;
+  method?: unknown;
 }
 
 Deno.serve(async (req: Request) => {
@@ -205,16 +229,33 @@ Deno.serve(async (req: Request) => {
       const biller = await billerById(admin, inv.biller_id);
       const account = biller.stripe_account_id;
       if (!account || !biller.stripe_charges_enabled || !biller.pay_online || !(inv.total_cents > 0)) throw new Reply(409, NOT_PAYABLE);
-      // the page opened again: continue the same Checkout page while it is open (or notice it was paid)
+      const method = payMethodOf(body.method);
+      // what the account takes right now (Stripe may turn MobilePay or Klarna on after the cards)
+      const methods = accountMethods((await stripe.accounts.retrieve(account)).capabilities as Record<string, string>);
+      if (!methods.includes('card')) throw new Reply(409, NOT_PAYABLE);
+      if (method === 'klarna' && !methods.includes('klarna')) throw new Reply(409, NO_KLARNA);
+      // the page opened again: continue the same Checkout page while it is open (or notice it was paid);
+      // an open page of the other way to pay is closed first, so only one of them can ever be paid
       if (inv.checkout_session_id) {
-        const open = await retrieveSession(inv.checkout_session_id, account);
+        const open = await retrieveSession(inv.checkout_session_id);
         if (open && await settle(admin, inv, open)) return json(req, { paid: true });
-        if (open?.status === 'open' && open.url && open.amount_total === inv.total_cents) return json(req, { url: open.url });
+        if (open?.status === 'open') {
+          const same = payMethodOf(open.metadata?.koutsi_method) === method && open.amount_total === inv.total_cents;
+          if (same && open.url) return json(req, { url: open.url });
+          try {
+            await stripe.checkout.sessions.expire(open.id);
+          } catch {
+            const again = await retrieveSession(open.id);
+            if (again && await settle(admin, inv, again)) return json(req, { paid: true });
+            if (again?.status === 'open') throw new Reply(409, PAYING);
+          }
+        }
       }
       const session = await stripe.checkout.sessions.create(checkoutParams({
         invoiceId: inv.id, number: inv.number, totalCents: inv.total_cents, sellerName: biller.name,
         period: periodLabel(inv.period_start, inv.period_end), payerEmail: inv.payer_email, token: inv.public_token, base,
-      }) as Stripe.Checkout.SessionCreateParams, { stripeAccount: account });
+        destination: account, method, mobilepay: methods.includes('mobilepay'),
+      }) as Stripe.Checkout.SessionCreateParams);
       const { error } = await admin.from('koutsi_invoices').update({ checkout_session_id: session.id }).eq('id', inv.id).eq('status', 'sent');
       if (error) throw new Error(`storing the session failed: ${error.message}`);
       return json(req, { url: session.url });
@@ -224,14 +265,12 @@ Deno.serve(async (req: Request) => {
       const inv = await invoiceByToken(admin, body.token);
       if (inv.status === 'paid') return json(req, { paid: true });
       if (typeof body.session !== 'string' || !SESSION_RE.test(body.session)) throw new Reply(400, NOT_FOUND);
-      const biller = await billerById(admin, inv.biller_id);
-      if (!biller.stripe_account_id) return json(req, { paid: false });
-      const session = await retrieveSession(body.session, biller.stripe_account_id);
+      const session = await retrieveSession(body.session);
       return json(req, { paid: Boolean(session && await settle(admin, inv, session)) });
     }
 
     // ── the coach (signed in) ──
-    if (!['connect', 'status', 'sync'].includes(body.action ?? '')) throw new Reply(400, 'Tuntematon toiminto.');
+    if (!['connect', 'status', 'dashboard', 'sync'].includes(body.action ?? '')) throw new Reply(400, 'Tuntematon toiminto.');
     const asUser = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
       auth: { persistSession: false },
@@ -259,6 +298,14 @@ Deno.serve(async (req: Request) => {
       return json(req, { url: link.url });
     }
 
+    if (body.action === 'dashboard') {
+      if (!biller.stripe_account_id) throw new Reply(409, NOT_SUBMITTED);
+      const status = await refresh(admin, biller);
+      if (!status.detailsSubmitted) throw new Reply(409, NOT_SUBMITTED);
+      const link = await stripe.accounts.createLoginLink(biller.stripe_account_id);
+      return json(req, { url: link.url });
+    }
+
     // sync: the coach's open invoices that have a Checkout page, newest first
     if (!biller.stripe_account_id) return json(req, { updated: 0 });
     const { data: open, error: openError } = await admin.from('koutsi_invoices').select(INVOICE_COLUMNS)
@@ -267,7 +314,7 @@ Deno.serve(async (req: Request) => {
     if (openError) throw new Error(`open invoices failed: ${openError.message}`);
     let updated = 0;
     for (const inv of (open ?? []) as Invoice[]) {
-      const session = await retrieveSession(inv.checkout_session_id as string, biller.stripe_account_id);
+      const session = await retrieveSession(inv.checkout_session_id as string);
       if (session && await settle(admin, inv, session)) updated += 1;
     }
     return json(req, { updated });

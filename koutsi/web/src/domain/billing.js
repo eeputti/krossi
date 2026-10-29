@@ -243,6 +243,32 @@ export function payerFor(biller, student) {
   };
 }
 
+/**
+ * Where an invoice goes, for the coach to check before sending: { kind, payer, email }.
+ *   'email':   to the e-mail the coach wrote for the payer (a guardian, a company), the PDF attached
+ *   'account': to the e-mail the player's Koutsi account was made with (koutsi-invoice looks it up;
+ *              the coach never sees it), and into their Laskut
+ *   'none':    a player added by name only and no e-mail: the coach shares the link
+ * `payer` is set when someone else pays. A sent invoice that went to a written address shows it.
+ */
+export function deliveryOf(inv, student) {
+  const email = String((inv?.mailedAt && inv?.mailTo) || inv?.payerEmail || '').trim();
+  const name = String(inv?.payerName || '').trim();
+  const payer = name && student?.name && name !== student.name ? name : '';
+  const kind = email ? 'email' : student && !student.isPlaceholder ? 'account' : 'none';
+  return { kind, payer, email };
+}
+
+/** The groups an invoice is for ("Juniorit vihreä, Kilpa"), else "Yksityistunnit", else the player's groups. */
+export function invoiceGroups(inv, groups) {
+  const byId = new Map((groups || []).map((g) => [g.id, g]));
+  const lines = inv?.lines || [];
+  const names = [...new Set(lines.map((l) => byId.get(l.groupId)?.name).filter(Boolean))];
+  if (names.length) return names.join(', ');
+  if (lines.some((l) => l.trainingId && !l.groupId)) return 'Yksityistunnit';
+  return (groups || []).filter((g) => (g.memberIds || []).includes(inv?.studentId)).map((g) => g.name).join(', ');
+}
+
 // ── what is owed ────────────────────────────────────────────────────────────
 
 /** Sorts one absence: 'cancelled' (in time), 'late' or 'no_show'. */
@@ -390,7 +416,7 @@ export function totalOf(lines) {
   return (lines || []).reduce((sum, l) => sum + (l.charged ? Math.round(Number(l.amountCents) || 0) : 0), 0);
 }
 
-/** "8 kertaa · 1 myöhäinen peruutus · 2 peruttu ajoissa" */
+/** "8 kertaa, 1 myöhäinen peruutus, 2 peruttu ajoissa" */
 export function countsLine(counts) {
   const parts = [];
   if (counts.session) parts.push(`${counts.session} ${counts.session === 1 ? 'kerta' : 'kertaa'}`);
@@ -399,7 +425,7 @@ export function countsLine(counts) {
   if (counts.no_show) parts.push(`${counts.no_show} poissa ilmoittamatta`);
   if (counts.cancelled) parts.push(`${counts.cancelled} peruttu ajoissa`);
   if (counts.manual) parts.push(`${counts.manual} muu rivi${counts.manual === 1 ? '' : 'ä'}`);
-  return parts.join(' · ');
+  return parts.join(', ');
 }
 
 export function lineCounts(lines) {
@@ -474,6 +500,7 @@ export function invoiceDoc(inv) {
     bic: seller.bic || '',
     barcode: inv.reference ? virtualBarcode({ iban: seller.iban, cents: total, reference: inv.reference, dueDate: inv.dueDate }) : null,
     terms: seller.terms || '',
+    note: String(inv.note || '').trim(),
   };
 }
 
@@ -481,6 +508,31 @@ export function invoiceDoc(inv) {
 export function canPayOnline(inv, terms) {
   if (!inv || inv.status !== 'sent' || !(inv.totalCents > 0)) return false;
   return Boolean((terms || []).find((t) => t.coachId === inv.coachId)?.payOnline);
+}
+
+/**
+ * What an online payment costs the coach: Stripe's fee, taken from the payment before it reaches
+ * the coach (the player pays the invoice's sum, nothing more). MobilePay, Apple Pay, Google Pay and
+ * cards ('card'): 1,5 % + 0,36 € (MobilePay's price; a standard EEA card is 1,5 % + 0,25 €);
+ * Klarna: 2,99 % + 0,40 € (Finland); both + Connect's 0,25 % of the payout. Kept equal to
+ * supabase/functions/_shared/koutsiPay.ts (test/koutsiPay.test.mjs compares them).
+ */
+export const PAY_COSTS = { card: { bps: 175, fixedCents: 36 }, klarna: { bps: 324, fixedCents: 40 } };
+
+export function payCost(totalCents, method = 'card') {
+  const c = PAY_COSTS[method] || PAY_COSTS.card;
+  return Math.max(0, Math.min(totalCents, Math.ceil((totalCents * c.bps) / 10000) + c.fixedCents));
+}
+
+/** "1,75 % + 0,36 €" (no-break spaces, so the unit never wraps alone). */
+export function payCostRate(method = 'card') {
+  const c = PAY_COSTS[method] || PAY_COSTS.card;
+  return `${String(c.bps / 100).replace('.', ',')} % + ${euros(c.fixedCents)}`;
+}
+
+/** Klarna too: the coach's account takes it (the terms' `klarna`). */
+export function canPayKlarna(inv, terms) {
+  return canPayOnline(inv, terms) && Boolean((terms || []).find((t) => t.coachId === inv.coachId)?.klarna);
 }
 
 /** The coach's online payments in a few words (settings rows). */

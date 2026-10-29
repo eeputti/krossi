@@ -6,6 +6,9 @@
 import { callFunction, callPublicFunction, db, isMissingFunction, isMissingTable, must, requireSession, selectIn } from './client.js';
 import { ApiError } from '../errors.js';
 import { normalizeIban } from '../../domain/billing.js';
+import { SUPABASE_URL } from '../../lib/constants.js';
+
+const LOGO_BUCKET = 'koutsi-logos';
 
 const from = (table) => db().from(table);
 const missing = (error) => isMissingFunction(error) || isMissingTable(error);
@@ -26,6 +29,8 @@ export function mapBiller(r) {
     // online payment (vaihe 2): only once the database has its columns (payReady)
     payReady: 'pay_online' in r, payOnline: r.pay_online !== false, stripeAccountId: r.stripe_account_id || null,
     stripeChargesEnabled: r.stripe_charges_enabled === true, stripeDetailsSubmitted: r.stripe_details_submitted === true,
+    // vaihe 3 (logo, the message, e-mail): once the database has its columns (mailReady)
+    mailReady: 'logo_path' in r, logoPath: r.logo_path || null,
   };
 }
 
@@ -46,6 +51,7 @@ export function mapInvoice(r, lines = []) {
     seller: r.seller || null, vatMode: r.vat_mode || 'none', totalCents: r.total_cents || 0, publicToken: r.public_token,
     sentAt: r.sent_at || null, paidAt: r.paid_at || null, voidedAt: r.voided_at || null, createdAt: r.created_at,
     coachId: r.coach_id || null, checkoutSessionId: r.checkout_session_id || null, paidVia: r.paid_via || null,
+    note: r.note || '', mailedAt: r.mailed_at || null, mailTo: r.mail_to || '', remindedAt: r.reminded_at || null,
     lines: lines.map(mapLine).sort((a, b) => a.sortOrder - b.sortOrder),
   };
 }
@@ -81,6 +87,7 @@ function billerRow(coachId, f) {
     prices: f.prices || {},
     payers: f.payers || {},
     ...(f.payReady ? { pay_online: f.payOnline !== false } : {}),
+    ...(f.mailReady ? { logo_path: f.logoPath || null } : {}),
   };
 }
 
@@ -99,9 +106,13 @@ export const billing = {
       db().rpc('koutsi_billing_memberships', { p_coach: coachId }),
     ]);
     const invoices = await withLines(must(invoiceRows) || []);
+    // "En tarvitse laskutusta vielä" (vaihe 3); without the table nothing is hidden
+    const prefs = await from('koutsi_billing_prefs').select('hidden').eq('coach_id', coachId).maybeSingle();
     return {
       ready: true,
       enabled: true,
+      hidden: !prefs.error && prefs.data?.hidden === true,
+      prefsReady: !prefs.error,
       biller: mapBiller(must(billerRow_)),
       invoices,
       memberships: (must(memberRows) || []).map((m) => ({
@@ -118,12 +129,27 @@ export const billing = {
     if (!drafts?.length) throw new ApiError('Valitse ainakin yksi pelaaja.');
     return must(await db().rpc('koutsi_create_invoice_drafts', { p_coach: coachId, p_drafts: drafts })) || [];
   },
-  async updateDraft(invoiceId, { payerName, payerEmail }) {
-    const name = String(payerName || '').trim();
-    if (!name) throw new ApiError('Kirjoita maksajan nimi.');
-    const rows = must(await from('koutsi_invoices').update({ payer_name: name, payer_email: text(payerEmail) })
-      .eq('id', invoiceId).eq('status', 'draft').select('id'));
+  async updateDraft(invoiceId, { payerName, payerEmail, note }) {
+    const patch = {};
+    if (payerName !== undefined) {
+      const name = String(payerName || '').trim();
+      if (!name) throw new ApiError('Kirjoita maksajan nimi.');
+      patch.payer_name = name;
+      patch.payer_email = text(payerEmail);
+    }
+    if (note !== undefined) {
+      const msg = String(note || '').trim();
+      if (msg.length > 500) throw new ApiError('Viesti on liian pitkä (enintään 500 merkkiä).');
+      patch.note = msg || null;
+    }
+    const rows = must(await from('koutsi_invoices').update(patch).eq('id', invoiceId).eq('status', 'draft').select('id'));
     if (!rows?.length) throw new ApiError('Lasku on jo lähetetty tai poistettu. Päivitä näkymä.');
+  },
+  async updateLine(lineId, { description, amountCents }) {
+    const desc = String(description || '').trim();
+    if (!desc) throw new ApiError('Kirjoita rivin selite.');
+    if (!(amountCents >= 0) || amountCents > 10000000) throw new ApiError('Tarkista summa.');
+    must(await from('koutsi_invoice_lines').update({ description: desc, unit_cents: amountCents, amount_cents: amountCents, quantity: 1 }).eq('id', lineId));
   },
   async setLineCharged(lineId, charged) {
     must(await from('koutsi_invoice_lines').update({ charged: Boolean(charged) }).eq('id', lineId));
@@ -171,6 +197,7 @@ export const billing = {
       terms: (terms.error ? [] : terms.data || []).map((t) => ({
         coachId: t.coach_id, sellerName: t.seller_name, cancelHours: t.cancel_hours, chargeLate: t.charge_late,
         chargeNoShow: t.charge_no_show, terms: t.terms || '', paymentDays: t.payment_days, payOnline: t.pay_online === true,
+        klarna: t.klarna === true,
       })),
     };
   },
@@ -183,7 +210,7 @@ export const billing = {
     }
     const d = res.data;
     if (!d) return null;
-    return { ...d, payable: d.payable === true, lines: (d.lines || []).map((l) => ({ ...l, quantity: Number(l.quantity) || 1 })) };
+    return { ...d, payable: d.payable === true, klarna: d.klarna === true, lines: (d.lines || []).map((l) => ({ ...l, quantity: Number(l.quantity) || 1 })) };
   },
   // ── online payment: the koutsi-pay edge function ──
   async connectPayments(coachId) {
@@ -195,10 +222,45 @@ export const billing = {
   async syncPayments(coachId) {
     return callFunction('koutsi-pay', { action: 'sync', coachId });
   },
-  async payInvoice(token) {
-    return callPublicFunction('koutsi-pay', { action: 'checkout', token });
+  /** method: 'card' (MobilePay, Apple Pay, Google Pay, cards) or 'klarna'. */
+  async payInvoice(token, method = 'card') {
+    return callPublicFunction('koutsi-pay', { action: 'checkout', token, ...(method === 'klarna' ? { method } : {}) });
   },
   async confirmPayment(token, sessionId) {
     return callPublicFunction('koutsi-pay', { action: 'verify', token, session: sessionId });
+  },
+  async paymentsDashboard(coachId) {
+    return callFunction('koutsi-pay', { action: 'dashboard', coachId });
+  },
+  // ── vaihe 3: hidden, logo, PDF, e-mail ──
+  async setHidden(coachId, hidden) {
+    must(await from('koutsi_billing_prefs').upsert({ coach_id: coachId, hidden: Boolean(hidden), updated_at: new Date().toISOString() }, { onConflict: 'coach_id' }));
+  },
+  async uploadLogo(coachId, blob) {
+    const type = blob?.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+    const path = `${coachId}/logo-${Date.now()}.${type === 'image/jpeg' ? 'jpg' : 'png'}`;
+    must(await db().storage.from(LOGO_BUCKET).upload(path, blob, { contentType: type, upsert: false }));
+    const before = must(await from('koutsi_billers').select('logo_path').eq('coach_id', coachId).maybeSingle())?.logo_path || null;
+    must(await from('koutsi_billers').update({ logo_path: path }).eq('coach_id', coachId));
+    if (before && before !== path) await db().storage.from(LOGO_BUCKET).remove([before]).catch(() => {});
+    return path;
+  },
+  async removeLogo(coachId) {
+    const before = must(await from('koutsi_billers').select('logo_path').eq('coach_id', coachId).maybeSingle())?.logo_path || null;
+    must(await from('koutsi_billers').update({ logo_path: null }).eq('coach_id', coachId));
+    if (before) await db().storage.from(LOGO_BUCKET).remove([before]).catch(() => {});
+  },
+  logoUrl(path) {
+    return path ? `${SUPABASE_URL}/storage/v1/object/public/${LOGO_BUCKET}/${path}` : null;
+  },
+  pdfUrl(token) {
+    return token ? `${SUPABASE_URL}/functions/v1/koutsi-invoice?pdf=${encodeURIComponent(token)}` : null;
+  },
+  async mailInvoices(ids, { to = null } = {}) {
+    if (!ids?.length) return { sent: [], skipped: [] };
+    return callFunction('koutsi-invoice', { action: 'mail', invoiceIds: ids, ...(to ? { to } : {}) });
+  },
+  async remindInvoice(invoiceId) {
+    return callFunction('koutsi-invoice', { action: 'remind', invoiceId });
   },
 };

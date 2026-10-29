@@ -7,9 +7,9 @@ import { api } from '../api/index.js';
 import { navigate } from '../app/router.js';
 import { Button, Chip, EmptyState, Page, Sheet, SkeletonList, TopBar, useToast } from '../ui/index.js';
 import { koutsiTodayStr } from '../domain/core.js';
-import { INVOICE_STATES, canPayOnline, euros, fiDate, invoiceState } from '../domain/billing.js';
+import { INVOICE_STATES, canPayKlarna, canPayOnline, euros, fiDate, invoiceState } from '../domain/billing.js';
 import { useBilling } from '../shared/billing/BillingProvider.jsx';
-import { InvoiceView, useInvoicePrint } from '../shared/billing/InvoiceView.jsx';
+import { InvoiceView, PayButtons, downloadPdf, useInvoicePrint } from '../shared/billing/InvoiceView.jsx';
 
 export const invoicesPath = '/pelaaja/laskut';
 const invoicePath = (id) => `/pelaaja/laskut/${encodeURIComponent(id)}`;
@@ -24,11 +24,11 @@ export function InvoicesScreen({ params = {} }) {
   const open = params.id ? list.find((x) => x.id === params.id) || null : null;
   const payable = canPayOnline(open, billing.terms);
   // "Maksa": Stripe's page, back to the invoice's own page (which confirms the payment)
-  const pay = async () => {
+  const pay = async (method) => {
     if (!open || paying) return;
-    setPaying(true);
+    setPaying(method);
     try {
-      const r = await api.billing.payInvoice(open.publicToken);
+      const r = await api.billing.payInvoice(open.publicToken, method);
       if (r?.url) { window.location.assign(r.url); return; }
       if (r?.paid) { await billing.reload(); toast('Maksettu.'); }
     } catch (err) {
@@ -48,7 +48,7 @@ export function InvoicesScreen({ params = {} }) {
             <button key={inv.id} type="button" className="k-row bill-row" onClick={() => navigate(invoicePath(inv.id))}>
               <span className="k-row-main">
                 <span className="k-row-title truncate">{inv.seller?.name || 'Lasku'}</span>
-                <span className="k-row-sub truncate">Nro {inv.number} · {st === 'maksettu' ? 'maksettu' : `eräpäivä ${fiDate(inv.dueDate)}`}</span>
+                <span className="k-row-sub truncate">Nro {inv.number}, {st === 'maksettu' ? 'maksettu' : `eräpäivä ${fiDate(inv.dueDate)}`}</span>
               </span>
               <span className="bill-row-end">
                 <span className="bill-amount t-num">{euros(inv.totalCents)}</span>
@@ -66,13 +66,15 @@ export function InvoicesScreen({ params = {} }) {
       <Page className="k-page-pad">{content}</Page>
       <Sheet open={Boolean(open)} onClose={() => navigate(invoicesPath, { replace: true })} size="lg"
         title={open ? `Lasku ${open.number}` : ''} subtitle={open ? euros(open.totalCents) : ''}
-        footer={open ? (payable ? (
-          <div className="sheet-actions">
-            <Button variant="soft" size="lg" icon="download" onClick={() => print(open)}>PDF</Button>
-            <Button variant="dark" size="lg" loading={paying} onClick={pay}>Maksa {euros(open.totalCents)}</Button>
-          </div>
-        ) : <Button variant="outline" size="lg" block icon="download" onClick={() => print(open)}>Tulosta / PDF</Button>) : null}>
+        footer={open ? (payable
+          ? <PayButtons cents={open.totalCents} klarna={canPayKlarna(open, billing.terms)} paying={paying} onPay={pay} variant="dark" />
+          : <Button variant="outline" size="lg" block icon="download" onClick={() => downloadPdf(open, print)}>Lataa PDF</Button>) : null}>
         {open && <InvoiceView invoice={open} />}
+        {open && payable && (
+          <div className="inv-public-actions">
+            <Button variant="outline" size="md" icon="download" onClick={() => downloadPdf(open, print)}>Lataa PDF</Button>
+          </div>
+        )}
       </Sheet>
       {portal}
     </>

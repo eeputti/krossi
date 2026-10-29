@@ -4,10 +4,36 @@
 // printInvoice(invoice) prints just this document (a portal on <body>; everything else is hidden).
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { api } from '../../api/index.js';
 import { euros, invoiceDoc } from '../../domain/billing.js';
+import { Button } from '../../ui/index.js';
 import { CopyButton } from '../bits.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
+
+/**
+ * "Maksa": MobilePay, Apple Pay, Google Pay or a card on Stripe's page. With `klarna` a second
+ * button for Klarna (pay now, in 30 days or in parts): its own page, as Klarna's fee is bigger and
+ * the coach pays the fee of the way the player chose. `paying` = the method being opened.
+ */
+export function PayButtons({ cents, klarna, paying, onPay, variant = 'lime' }) {
+  return (
+    <div className="inv-pay">
+      <Button variant={variant} size="lg" block loading={paying === 'card'} disabled={Boolean(paying)} onClick={() => onPay('card')}>
+        Maksa {euros(cents)}
+      </Button>
+      <span className="inv-pay-hint">MobilePay, Apple Pay, Google Pay tai kortti</span>
+      {klarna && (
+        <>
+          <Button variant="outline" size="lg" block loading={paying === 'klarna'} disabled={Boolean(paying)} onClick={() => onPay('klarna')}>
+            Maksa Klarnalla
+          </Button>
+          <span className="inv-pay-hint">Maksa nyt, 30 päivän päästä tai erissä</span>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function InvoiceView({ invoice, className }) {
   const doc = invoiceDoc(invoice);
@@ -17,6 +43,7 @@ export function InvoiceView({ invoice, className }) {
     <article className={cx('inv-doc', className)}>
       <header className="inv-head">
         <div className="inv-from">
+          {doc.seller.logoPath && api.billing.logoUrl(doc.seller.logoPath) && <img className="inv-logo" src={api.billing.logoUrl(doc.seller.logoPath)} alt="" />}
           <div className="inv-seller">{doc.seller.name}</div>
           {address(doc.seller.address).map((l) => <div key={l} className="inv-muted">{l}</div>)}
           {doc.seller.businessId && <div className="inv-muted">Y-tunnus {doc.seller.businessId}</div>}
@@ -41,6 +68,8 @@ export function InvoiceView({ invoice, className }) {
           {doc.period && <><dt>Jakso</dt><dd className="t-num">{doc.period}</dd></>}
         </dl>
       </div>
+
+      {doc.note && <p className="inv-note-text">{doc.note}</p>}
 
       <table className="inv-lines">
         <tbody>
@@ -95,6 +124,25 @@ function PayRow({ label, value, copy }) {
       {copy ? <CopyButton text={copy} label="Kopioi" size="sm" variant="ghost" className="inv-noprint" /> : <span />}
     </div>
   );
+}
+
+/**
+ * "Lataa PDF": the real PDF file (koutsi-invoice) for a sent invoice; where there is none (the demo,
+ * a draft) the print dialog's "Tallenna PDF" of the same page.
+ */
+export function downloadPdf(invoice, print) {
+  const url = invoice?.publicToken && invoice.status !== 'draft' ? api.billing.pdfUrl(invoice.publicToken) : null;
+  if (url) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.rel = 'noopener';
+    a.download = `lasku-${invoice.number || ''}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return;
+  }
+  print(invoice);
 }
 
 /** Prints one invoice: renders it alone on <body>, opens the print dialog, cleans up after. */

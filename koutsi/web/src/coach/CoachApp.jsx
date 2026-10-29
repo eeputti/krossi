@@ -135,7 +135,8 @@ function CoachShell() {
   const phoneBadge = notes.unread + (messagesOn ? msgs.unread : 0);
   // Laskutus, while it is on for this coach: a side-nav link and a row in the phone's Lisää
   const billing = useBilling();
-  const billingOn = billing.ready && billing.enabled && !acting;
+  // "En tarvitse laskutusta vielä" (billing.hidden) keeps it out of sight; Profiili brings it back
+  const billingOn = billing.ready && billing.enabled && !billing.hidden && !acting;
   const billingInfo = billingOn ? {
     open: (billing.invoices || []).filter((x) => x.status === 'sent').length,
     overdue: (billing.invoices || []).filter((x) => invoiceState(x, koutsiTodayStr()) === 'myohassa').length,

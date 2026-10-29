@@ -66,6 +66,52 @@
   font-size: 14px; font-weight: 650; color: var(--ink);
 }
 
+/* ── vaihe 3: the start view, the logo, the draft editor ── */
+.bill-start-actions { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.bill-logo-pick { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.bill-logo-preview { max-width: 140px; max-height: 56px; object-fit: contain; }
+.bill-logo-empty {
+  display: inline-flex; align-items: center; min-height: 44px; max-width: 160px; padding: 0 12px; border-radius: var(--r-md);
+  background: var(--surface-2); font-weight: 800; font-size: 14px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.bill-logo-actions { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bill-logo-actions .btn.is-loading { opacity: 0.6; pointer-events: none; }
+.inv-logo { display: block; max-width: 150px; max-height: 56px; object-fit: contain; margin-bottom: 8px; }
+.inv-note-text { margin: 0; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); white-space: pre-line; font-size: 14px; line-height: 1.5; }
+.inv-doc.is-draft { border-style: dashed; }
+.inv-stamp.is-draft { background: var(--surface-2); color: var(--muted); }
+.inv-edit-block {
+  position: relative; display: grid; gap: 2px; width: 100%; padding: 10px 40px 10px 12px; text-align: left;
+  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface);
+}
+.inv-edit-block:hover { border-color: var(--line-strong); }
+.inv-edit-icon { position: absolute; top: 12px; right: 12px; color: var(--muted); }
+.inv-note-input { font-size: 14px; }
+.bill-line.is-editable { padding: 0; }
+.bill-line-edit { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 0; text-align: left; }
+.bill-line-edit:hover .bill-line-text span:last-child { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── an invoice in the list: who (photo, name, group), how much, and where it goes ── */
+.bill-card { flex-direction: column; align-items: stretch; gap: 10px; }
+.bill-card-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.bill-card-amount { flex-shrink: 0; font-weight: 800; font-size: 17px; color: var(--ink); white-space: nowrap; }
+.bill-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.bill-to {
+  display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 10px; border-radius: var(--r-md);
+  background: var(--surface-2); font-size: 13.5px; font-weight: 650; color: var(--ink-2); line-height: 1.4;
+}
+.bill-to > svg { flex-shrink: 0; color: var(--muted); }
+.bill-to.is-none { background: var(--warn-bg); color: var(--warn); }
+.bill-to.is-none > svg { color: var(--warn); }
+.bill-to.is-long { align-items: flex-start; margin-top: 6px; }
+.bill-to.is-long > svg { margin-top: 2px; }
+.bill-sent-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ── Verkkomaksut: the cost as an example ── */
+.bill-example { display: grid; gap: 6px; padding: 12px 14px; border-radius: var(--r-lg); background: var(--surface-2); }
+.bill-example-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--ink-2); }
+.bill-example-row.is-total { padding-top: 6px; border-top: 1px solid var(--line); font-weight: 800; color: var(--ink); }
+
 /* ── the invoice document ────────────────────────────────── */
 .inv-doc {
   display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px; border: 1px solid var(--line);
@@ -133,3 +179,8 @@
   .bill-price-ctrl { width: 100%; }
   .bill-price-ctrl .select-wrap { flex: 1; width: auto; }
 }
+
+/* ── "Maksa" (and Klarna) ── */
+.inv-pay { display: grid; gap: 6px; }
+.inv-pay-hint { text-align: center; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.inv-pay-hint + .btn { margin-top: 8px; }

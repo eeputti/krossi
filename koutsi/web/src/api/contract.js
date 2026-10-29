@@ -112,13 +112,21 @@ export const API_CONTRACT = {
   // setPaid(id, paid); voidInvoice(id). Player: mine() → { ready, invoices (sent / paid, own), terms:
   // [{ coachId, sellerName, cancelHours, chargeLate, chargeNoShow, terms, paymentDays }] }.
   // byToken(token) → the invoice behind a link (no sign-in) or null (with `payable`: it can be paid online now).
-  // Online payment (vaihe 2, edge function koutsi-pay, the coach's own Stripe account):
+  // Online payment (edge function koutsi-pay; the coach's light Stripe Express account, money to their IBAN):
   // connectPayments(coachId) → { url } (Stripe's onboarding; the demo answers { ready: true });
   // paymentStatus(coachId) → { state: 'none' | 'pending' | 'ready', chargesEnabled, detailsSubmitted, payOnline, dueCount };
-  // syncPayments(coachId) → { updated } (confirms payments of open invoices); payInvoice(token) → { url } |
-  // { paid: true } (Stripe Checkout; no sign-in); confirmPayment(token, sessionId) → { paid }.
+  // paymentsDashboard(coachId) → { url } (the coach's Stripe payouts page); syncPayments(coachId) → { updated }
+  // (confirms payments of open invoices); payInvoice(token) → { url } | { paid: true } (Stripe Checkout; no sign-in);
+  // confirmPayment(token, sessionId) → { paid }.
+  // Vaihe 3: updateDraft(id, { payerName, payerEmail, note }); updateLine(lineId, { description, amountCents });
+  // setHidden(coachId, hidden) — "En tarvitse laskutusta vielä" (overview carries `hidden` and `prefsReady`);
+  // uploadLogo(coachId, blob) → logoPath; removeLogo(coachId); logoUrl(path) / pdfUrl(token) → string | null
+  // (sync; the demo has no PDF service: null means print); mailInvoices(ids, { to? }) → { sent: [{ id, to }], skipped }
+  // (to: another address for one invoice, this time);
+  // remindInvoice(id) → { notified, mailed, to, tooSoon? }.
   billing: ['overview', 'saveBiller', 'createDrafts', 'updateDraft', 'setLineCharged', 'addLine', 'removeLine', 'removeDrafts',
-    'send', 'setPaid', 'voidInvoice', 'mine', 'byToken', 'connectPayments', 'paymentStatus', 'syncPayments', 'payInvoice', 'confirmPayment'],
+    'send', 'setPaid', 'voidInvoice', 'mine', 'byToken', 'connectPayments', 'paymentStatus', 'syncPayments', 'payInvoice', 'confirmPayment',
+    'paymentsDashboard', 'updateLine', 'setHidden', 'uploadLogo', 'removeLogo', 'logoUrl', 'pdfUrl', 'mailInvoices', 'remindInvoice'],
 
   // share(...) — a player's own video, or a coach's before Lähetetyt; the coach's own videos:
   // save({ coachId, id?, title, tags, file | externalUrl, onProgress, signal }) → id,
@@ -147,4 +155,5 @@ export const API_CONTRACT = {
 
 // Functions that return synchronously-usable values (subscriptions) — not wrapped in
 // error conversion because they return an unsubscribe function, not a promise.
-export const SYNC_FUNCTIONS = new Set(['auth.onChange', 'coach.subscribe', 'player.subscribe', 'notifications.subscribe', 'messages.subscribe']);
+export const SYNC_FUNCTIONS = new Set(['auth.onChange', 'coach.subscribe', 'player.subscribe', 'notifications.subscribe', 'messages.subscribe',
+  'billing.logoUrl', 'billing.pdfUrl']);

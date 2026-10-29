@@ -6,8 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { api } from '../../api/index.js';
 import { Button, EmptyState, ErrorState, SkeletonList, ToastProvider, useToast } from '../../ui/index.js';
-import { euros } from '../../domain/billing.js';
-import { InvoiceView } from './InvoiceView.jsx';
+import { InvoiceView, PayButtons, downloadPdf } from './InvoiceView.jsx';
 
 const INVOICE_PATH = /^(?:\/demo)?\/lasku\/([0-9a-f-]{36})\/?$/i;
 
@@ -46,11 +45,11 @@ function PublicInvoicePage({ token }) {
     }
   }, [token]);
   useEffect(() => { load(takeSessionFromAddress()); }, [load]);
-  const pay = async () => {
+  const pay = async (method) => {
     if (paying) return;
-    setPaying(true);
+    setPaying(method);
     try {
-      const r = await api.billing.payInvoice(token);
+      const r = await api.billing.payInvoice(token, method);
       if (r?.url) { window.location.assign(r.url); return; }
       if (r?.paid) { setThanks(true); await load(); }
     } catch (err) {
@@ -60,7 +59,7 @@ function PublicInvoicePage({ token }) {
   };
   const inv = view.invoice;
   useEffect(() => {
-    if (inv) document.title = `Lasku ${inv.number} · ${inv.seller?.name || 'Krossi Koutsi'}`;
+    if (inv) document.title = `Lasku ${inv.number} – ${inv.seller?.name || 'Krossi Koutsi'}`;
   }, [inv]);
   let content;
   if (view.loading) content = <SkeletonList count={3} />;
@@ -73,12 +72,12 @@ function PublicInvoicePage({ token }) {
         {thanks && inv.status === 'paid' && <p className="inv-public-note is-thanks inv-noprint">Kiitos! Maksu on vastaanotettu.</p>}
         {inv.payable && (
           <div className="inv-public-pay inv-noprint">
-            <Button variant="lime" size="lg" block loading={paying} onClick={pay}>Maksa {euros(inv.totalCents)}</Button>
+            <PayButtons cents={inv.totalCents} klarna={inv.klarna} paying={paying} onPay={pay} />
           </div>
         )}
         <InvoiceView invoice={inv} />
         <div className="inv-public-actions inv-noprint">
-          <Button variant="outline" size="lg" icon="download" onClick={() => window.print()}>Tulosta / PDF</Button>
+          <Button variant="outline" size="lg" icon="download" onClick={() => downloadPdf(inv, () => window.print())}>Lataa PDF</Button>
         </div>
       </>
     );
