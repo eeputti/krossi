@@ -8,6 +8,14 @@
 
 import { koutsiAddDays, koutsiAddMinutesToTime, koutsiFmtShortDate, koutsiPad, koutsiTimeRangeLabel } from './core.js';
 
+// Vapaat ajat waits for its release (the owner, 29.10.2026: "julkaistaan vasta myöhemmin"). While this
+// is off, neither app asks the database for slots or shows anything of them, and the demo has none
+// either (its world stays as it was). Releasing = run koutsi/web/sql/20261029180000_koutsi_open_slots.sql
+// and turn this on.
+export let OPEN_SLOTS_ON = false;
+/** The tests turn it on (and so could a release toggle later). */
+export function setOpenSlotsOn(on) { OPEN_SLOTS_ON = Boolean(on); }
+
 export const SLOT_MIN_MINUTES = 15;
 export const SLOT_MAX_MINUTES = 240;
 export const SLOT_DAYS_AHEAD = 183;

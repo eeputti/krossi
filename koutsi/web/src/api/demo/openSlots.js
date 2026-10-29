@@ -9,7 +9,7 @@
 
 import { ApiError } from '../errors.js';
 import { koutsiAddDays, koutsiNextWeekday, koutsiTodayStr } from '../../domain/core.js';
-import { draftProblem, hasStarted, isMinor, isPrivateLesson, listLine, slotStartLabel } from '../../domain/openSlots.js';
+import { OPEN_SLOTS_ON, draftProblem, hasStarted, isMinor, isPrivateLesson, listLine, slotStartLabel } from '../../domain/openSlots.js';
 import { COACH, PLAYER, newId } from './seed.js';
 
 const KEY = 'koutsi-demo-vapaat-v1';
@@ -137,6 +137,8 @@ function prepare(state, role) {
 
 /** The snapshot's Vapaat ajat for the coach (all of theirs from today on) or a player (open ones and their own). */
 export function openSlotsView(state, role, studentId = PLAYER) {
+  // not released yet: no slots, and the demo world (Leo, Jussi, the bells) stays as it was
+  if (!OPEN_SLOTS_ON) return { openSlots: [], openSlotsReady: false };
   prepare(state, role);
   const today = koutsiTodayStr();
   const list = state.openSlots.filter((s) => s.date >= today
@@ -145,6 +147,7 @@ export function openSlotsView(state, role, studentId = PLAYER) {
 }
 
 export function addOpenSlots(state, slots) {
+  if (!OPEN_SLOTS_ON) throw new ApiError('Vapaat ajat eivät ole vielä käytössä.');
   prepare(state, 'coach');
   const rows = (slots || []).map((s) => ({
     date: s.date, time: s.time, durationMinutes: s.durationMinutes || 60, place: (s.place || '').trim(),
@@ -170,6 +173,7 @@ export function addOpenSlots(state, slots) {
 }
 
 export function removeOpenSlot(state, slotId) {
+  if (!OPEN_SLOTS_ON) throw new ApiError('Vapaat ajat eivät ole vielä käytössä.');
   prepare(state, 'coach');
   const s = state.openSlots.find((x) => x.id === slotId);
   if (!s || s.bookedBy) throw new ApiError('Aika on jo varattu tai poistettu. Päivitä näkymä.', { code: 'not_found' });
@@ -178,6 +182,7 @@ export function removeOpenSlot(state, slotId) {
 }
 
 export function bookOpenSlot(state, slotId, studentId = PLAYER) {
+  if (!OPEN_SLOTS_ON) throw new ApiError('Vapaat ajat eivät ole vielä käytössä.');
   prepare(state, 'player');
   const s = state.openSlots.find((x) => x.id === slotId);
   if (!s) throw new ApiError('Aikaa ei löytynyt. Se on ehkä poistettu.', { code: 'not_found' });

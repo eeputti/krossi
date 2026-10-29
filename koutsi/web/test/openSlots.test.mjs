@@ -8,9 +8,14 @@ import { weekDates } from '../src/domain/week.js';
 import { weekBoard } from '../src/domain/board.js';
 import { playerWeek } from '../src/domain/ownWeek.js';
 import {
-  draftProblem, draftSlots, firstDraftRow, hasComingBooking, hasStarted, isMinor, isPrivateLesson, listLine, nextDraftRow, offerOf,
-  openToBook, slotFromLesson, slotStartLabel, slotWhen, soonSlots,
+  OPEN_SLOTS_ON, draftProblem, draftSlots, firstDraftRow, hasComingBooking, hasStarted, isMinor, isPrivateLesson, listLine, nextDraftRow, offerOf,
+  openToBook, setOpenSlotsOn, slotFromLesson, slotStartLabel, slotWhen, soonSlots,
 } from '../src/domain/openSlots.js';
+
+// Vapaat ajat is off until its release (OPEN_SLOTS_ON); these tests check how it works when on, and
+// the last one that nothing of it shows while it is off.
+assert.equal(OPEN_SLOTS_ON, false, 'not released yet');
+setOpenSlotsOn(true);
 
 const NOW = new Date(2026, 9, 29, 15, 40); // Thu 29.10.2026 15:40
 const S = (id, date, time, extra = {}) => ({ id, coachId: 'c', date, time, durationMinutes: 60, place: '', sourceTrainingId: null, bookedBy: null, bookedAt: null, trainingId: null, ...extra });
@@ -281,4 +286,33 @@ test('the real app keeps Vapaat ajat hidden until the database has it; then the 
   await assert.rejects(() => openSlots.remove('o1'), /varattu tai poistettu/, 'nothing removed = booked or gone');
   await assert.rejects(() => openSlots.add('c', []), /vähintään yksi/);
   setClientForTests(null);
+});
+
+test('while Vapaat ajat waits for its release nothing of it shows: no request, no slots, the demo as it was', async () => {
+  setOpenSlotsOn(false);
+  try {
+    const { setClientForTests } = await import('../src/api/supabase/client.js');
+    const { withOpenSlots } = await import('../src/api/supabase/openSlots.js');
+    const calls = [];
+    setClientForTests(fakeClient({ 'koutsi_open_slots:select': { data: [], error: null }, koutsi_open_slots_enabled: { data: true, error: null } }, calls));
+    assert.deepEqual(await withOpenSlots('coach', 'c', Promise.resolve({ x: 1 })), { x: 1, openSlots: [], openSlotsReady: false });
+    assert.deepEqual(calls, [], 'the real app asks nothing');
+    setClientForTests(null);
+
+    const { backend, configureDemo } = await import('../src/api/demo/index.js');
+    const { COACH, PLAYER } = await import('../src/api/demo/seed.js');
+    configureDemo({ role: 'coach', latency: 0 });
+    const coach = await backend.coach.load(COACH);
+    assert.equal(coach.openSlotsReady, false);
+    assert.deepEqual(coach.openSlots, []);
+    assert.equal(coach.trainings.find((t) => t.id === 'tr-private-leo').absences.length, 0, "the demo world is untouched: Leo's lesson as it was");
+    assert.equal(coach.trainings.some((t) => t.id === 'tr-slot-jussi'), false, "no booked free time of Jussi's");
+    await assert.rejects(() => backend.openSlots.add(COACH, [{ date: '2030-01-01', time: '12:00', durationMinutes: 60 }]), /ei.*käytössä/);
+    configureDemo({ role: 'player', latency: 0 });
+    const me = await backend.player.load(PLAYER);
+    assert.equal(me.openSlotsReady, false);
+    assert.ok(!(await backend.notifications.list(PLAYER)).some((n) => n.kind === 'open_slots'), 'no free-time notice in the bell');
+  } finally {
+    setOpenSlotsOn(true);
+  }
 });

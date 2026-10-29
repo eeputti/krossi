@@ -7,6 +7,7 @@
 import { db, isMissingFunction, isMissingTable, must } from './client.js';
 import { ApiError } from '../errors.js';
 import { koutsiTodayStr } from '../../domain/core.js';
+import { OPEN_SLOTS_ON } from '../../domain/openSlots.js';
 
 const COLUMNS = 'id, coach_id, date, time, duration_minutes, place, audience, source_training_id, booked_by, booked_at, training_id, created_at';
 
@@ -23,6 +24,8 @@ export function mapOpenSlot(r) {
 // The gate is asked only once the database has the table: before the migration this is one quiet miss
 // (it runs beside the whole snapshot, so the second step adds no waiting).
 async function loadOpenSlots(role, ownerId) {
+  // not released yet (domain/openSlots.js OPEN_SLOTS_ON): no request at all
+  if (!OPEN_SLOTS_ON) return { openSlots: [], openSlotsReady: false };
   let query = db().from('koutsi_open_slots').select(COLUMNS).gte('date', koutsiTodayStr()).order('date').order('time');
   if (role === 'coach') query = query.eq('coach_id', ownerId);
   const rows = await query;
