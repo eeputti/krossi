@@ -190,6 +190,7 @@ test('the real app keeps Vapaat ajat hidden until the database has it; then the 
   setClientForTests(fakeClient({ 'koutsi_open_slots:select': missingTable, koutsi_open_slots_enabled: missingFn }, calls));
   assert.deepEqual(await withOpenSlots('coach', 'c', Promise.resolve({ x: 1 })), { x: 1, openSlots: [], openSlotsReady: false });
   assert.deepEqual(await withOpenSlots('player', 's', Promise.resolve({ x: 1 })), { x: 1, openSlots: [], openSlotsReady: false });
+  assert.ok(!calls.some((c) => c.rpc), 'before the migration: one quiet miss, no gate asked');
 
   setClientForTests(fakeClient({ 'koutsi_open_slots:select': { data: [row], error: null }, koutsi_open_slots_enabled: { data: false, error: null } }, calls));
   assert.deepEqual(await withOpenSlots('coach', 'c', Promise.resolve({})), { openSlots: [], openSlotsReady: false }, 'a coach without the feature (Alpo) sees nothing');

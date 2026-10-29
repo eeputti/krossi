@@ -20,20 +20,21 @@ export function mapOpenSlot(r) {
 
 // The coach: their own slots from today on, and only when the feature is on for them
 // (koutsi_open_slots_enabled — the owner's list and admins). A player: what row security lets them see.
+// The gate is asked only once the database has the table: before the migration this is one quiet miss
+// (it runs beside the whole snapshot, so the second step adds no waiting).
 async function loadOpenSlots(role, ownerId) {
   let query = db().from('koutsi_open_slots').select(COLUMNS).gte('date', koutsiTodayStr()).order('date').order('time');
   if (role === 'coach') query = query.eq('coach_id', ownerId);
-  const [rows, gate] = await Promise.all([query, role === 'coach' ? db().rpc('koutsi_open_slots_enabled') : null]);
+  const rows = await query;
   if (rows.error) {
     if (!isMissingTable(rows.error)) console.warn('open slots unavailable:', rows.error.message || rows.error);
     return { openSlots: [], openSlotsReady: false };
   }
-  if (role === 'coach') {
-    if (gate.error && !isMissingFunction(gate.error)) console.warn('open slots gate unavailable:', gate.error.message || gate.error);
-    const on = !gate.error && gate.data === true;
-    return { openSlots: on ? (rows.data || []).map(mapOpenSlot) : [], openSlotsReady: on };
-  }
-  return { openSlots: (rows.data || []).map(mapOpenSlot), openSlotsReady: true };
+  if (role !== 'coach') return { openSlots: (rows.data || []).map(mapOpenSlot), openSlotsReady: true };
+  const gate = await db().rpc('koutsi_open_slots_enabled');
+  if (gate.error && !isMissingFunction(gate.error)) console.warn('open slots gate unavailable:', gate.error.message || gate.error);
+  const on = !gate.error && gate.data === true;
+  return { openSlots: on ? (rows.data || []).map(mapOpenSlot) : [], openSlotsReady: on };
 }
 
 /** A role's snapshot with its Vapaat ajat, read side by side with it. */
