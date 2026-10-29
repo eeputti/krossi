@@ -121,5 +121,7 @@ test('the price a coach sees, with a founding-customer offer while it lasts', ()
   assert.equal(priceInfo(price, { ...coupon, times_redeemed: 10 }).offer, null, 'all taken');
   assert.equal(priceInfo(price, { ...coupon, valid: false }).offer, null);
   assert.equal(priceInfo(price, { ...coupon, duration: 'forever' }).offer, null);
+  // the setup script stretches the coupon over the free trial and keeps the promised paid months in metadata
+  assert.deepEqual(priceInfo(price, { ...coupon, duration_in_months: 15, metadata: { koutsi_kk: '12' } }).offer, { cents: 1900, months: 12 });
   assert.equal(priceInfo(null), null);
 });

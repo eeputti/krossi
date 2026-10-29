@@ -104,7 +104,10 @@ export function priceInfo(price, coupon = null) {
   if (coupon?.valid && left > 0 && coupon.duration === 'repeating' && coupon.duration_in_months > 0) {
     const off = Number.isFinite(coupon.amount_off) ? coupon.amount_off
       : Number.isFinite(coupon.percent_off) ? Math.round(cents * coupon.percent_off / 100) : 0;
-    if (off > 0 && off < cents) offer = { cents: cents - off, months: coupon.duration_in_months };
+    // koutsi_kk = the paid months promised (scripts/koutsi-stripe-setup.mjs adds the trial's months
+    // to the coupon itself, since Stripe counts them from the day the subscription is made)
+    const months = Number(coupon.metadata?.koutsi_kk) || coupon.duration_in_months;
+    if (off > 0 && off < cents) offer = { cents: cents - off, months };
   }
   return { cents, interval: price.recurring?.interval || 'month', offer };
 }

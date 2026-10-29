@@ -33,6 +33,7 @@ const PROJECT_REF = 'hhybjpgrvlbazbqiaaao';
 const WEBHOOK_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/koutsi-stripe-webhook`;
 const WEBHOOK_EVENTS = ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'];
 const PRODUCT_ID = 'krossi_koutsi_valmentaja';
+const TRIAL_MONTHS = 3; // koutsi_start_trial: now() + interval '3 months'
 const APP = 'https://koutsi.krossi.app';
 
 const ok = (msg) => console.log(`  ✅ ${msg}`);
@@ -132,14 +133,19 @@ async function main() {
   if (!offer) ok('Ei aloitustarjousta (KOUTSI_FOUNDER_COUPON poistetaan)');
   else {
     const off = PRICE_CENTS - OFFER_CENTS;
+    // Stripe counts a coupon's months from the day the subscription is made, also inside the free
+    // trial (the first charge comes at its end). The coupon lasts the trial's 3 months longer, so
+    // every coach gets at least --alku-kk paid months at the offer price; the app shows --alku-kk
+    // (metadata koutsi_kk).
+    const months = OFFER_MONTHS + TRIAL_MONTHS;
     coupon = `KOUTSI_ALKU_${off}_${OFFER_MONTHS}KK_${OFFER_COUNT}`;
     const found = await stripe(secret, 'GET', `coupons/${coupon}`).catch(() => null);
     if (found) ok(`Kuponki löytyi (${coupon}, käytetty ${found.times_redeemed}/${found.max_redemptions})`);
     else {
       await stripe(secret, 'POST', 'coupons', [
         ['id', coupon], ['name', 'Koutsi aloitustarjous'], ['currency', 'eur'], ['amount_off', String(off)],
-        ['duration', 'repeating'], ['duration_in_months', String(OFFER_MONTHS)], ['max_redemptions', String(OFFER_COUNT)],
-        ['applies_to[products][]', PRODUCT_ID],
+        ['duration', 'repeating'], ['duration_in_months', String(months)], ['max_redemptions', String(OFFER_COUNT)],
+        ['applies_to[products][]', PRODUCT_ID], ['metadata[koutsi_kk]', String(OFFER_MONTHS)],
       ]);
       ok(`Luotiin aloitustarjous: ${OFFER_CENTS / 100} €/kk ${OFFER_MONTHS} kk, ${OFFER_COUNT} ensimmäiselle (${coupon})`);
     }
