@@ -183,7 +183,7 @@ function CoachShell() {
 }
 
 export function CoachApp() {
-  const { coachId } = useCoach();
+  const { coachId, acting } = useCoach();
   const session = { signOut: () => api.auth.signOut() };
   return (
     <DataProvider
