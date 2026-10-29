@@ -158,6 +158,18 @@ const db = new PGlite();
 await db.exec(STUB);
 await db.exec(SEED);
 await db.exec(MIGRATION);
+// It ships with sign-ups without a key closed; opening them is a separate one-line replace.
+const OPEN = `create or replace function public.koutsi_self_serve_open() returns boolean language sql stable set search_path = '' as $$ select true $$`;
+const closedAtFirst = (await db.query('select public.koutsi_self_serve_open() as o')).rows[0].o === false;
+const startClosed = await (async () => {
+  await db.exec('begin');
+  try {
+    await db.exec(`set local role authenticated; select set_config('request.jwt.claim.sub', '${NEW}', true);`);
+    await db.query(`select public.koutsi_start_trial('2026-10-29')`);
+    return null;
+  } catch (error) { return error; } finally { await db.exec('rollback'); }
+})();
+await db.exec(OPEN);
 
 /** Runs `sql` as `uid` (role authenticated; anon when uid is null) in a transaction. */
 async function as(uid, sql, { keep = true } = {}) {
@@ -191,6 +203,13 @@ const planOf = async (uid) => (await one(`select public.koutsi_coach_plan('${uid
 const status = async (uid) => (await as(uid, 'select public.koutsi_plan_status() as s')).rows[0]?.s;
 const apply = (coach, sub, st, extra = {}) => asService(`select public.koutsi_plan_apply_stripe('${coach}', ${extra.customer === null ? 'null' : `'${extra.customer || 'cus_1'}'`}, '${sub}', '${st}',
   ${extra.periodEnd ? `'${extra.periodEnd}'` : `now() + interval '30 days'`}, ${extra.cancel ? 'true' : 'false'}) as p`);
+
+test('sign-ups without a key ship closed; running the migration again never closes them', async () => {
+  assert.equal(closedAtFirst, true);
+  assert.match(String(startClosed?.message), /Kokeilua ei voi juuri nyt aloittaa/);
+  await db.exec(MIGRATION);
+  assert.equal((await db.query('select public.koutsi_self_serve_open() as o')).rows[0].o, true, 'still open after a re-run');
+});
 
 test('the migration can run again and changes nothing the second time', async () => {
   await db.exec(MIGRATION);
@@ -297,7 +316,7 @@ test('the coach key keeps working and makes a free coach', async () => {
 });
 
 test('pausing sign-ups stops new trials but not the coach key', async () => {
-  await db.exec(`create or replace function public.koutsi_self_serve_open() returns boolean language sql stable set search_path = '' as $$ select false $$`);
+  await db.exec(OPEN.replace('select true', 'select false'));
   try {
     assert.equal((await as(null, 'select public.koutsi_plan_status() as s')).rows[0].s.self_serve, false);
     const r = await as(LATE, `select public.koutsi_start_trial('2026-10-29') as s`);
@@ -306,7 +325,7 @@ test('pausing sign-ups stops new trials but not the coach key', async () => {
     // an existing coach is unaffected
     assert.equal((await as(NEW, `select public.koutsi_start_trial('2026-10-29') as s`)).rows[0].s.plan, 'trial');
   } finally {
-    await db.exec(`create or replace function public.koutsi_self_serve_open() returns boolean language sql stable set search_path = '' as $$ select true $$`);
+    await db.exec(OPEN);
   }
 });
 

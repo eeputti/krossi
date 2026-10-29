@@ -195,8 +195,9 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   Muistutus 7 pv ennen kokeilun loppua (`koutsi_trial_reminders`, cron `koutsi-trial-reminders`, ilmoituslaji
   `trial_ending`). Tietokanta: ehdotettu migraatio
   `koutsi/web/sql/20261029190000_koutsi_coach_plans.sql` (PGlite-testi samassa kansiossa) — **EI AJETTU**; ilman sitä
-  `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta voi
-  pysäyttää vaihtamalla `koutsi_self_serve_open()` → `select false`. Demo: Anna on kokeilussa; kehityksessä
+  `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta: migraatio
+  luo `koutsi_self_serve_open()`:n kiinni (`select false`, sovellus näyttää avainsivun kuten ennen); avaaminen on yhden
+  rivin korvaus (`select true`), eikä migraation uudelleenajo sulje sitä. Demo: Anna on kokeilussa; kehityksessä
   `?esikatsele=kokeilu | avain | tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free`.
 
 - Kaudet ja "Uusi kausi" (`domain/season.js`, `coach/SeasonSheet.jsx`, migraatio

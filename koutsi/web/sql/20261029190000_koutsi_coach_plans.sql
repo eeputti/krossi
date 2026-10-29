@@ -23,8 +23,9 @@
 --     koutsi-subscription and koutsi-stripe-webhook). It never changes a 'free' coach's plan, and a
 --     late event of an old subscription never ends a newer live one.
 --   * The coach reads their own row; nobody writes it from the app.
---   * New coaches without a key: koutsi_self_serve_open() — pausing sign-ups is a one-line replace
---     of that function (select false); the coach key keeps working either way.
+--   * New coaches without a key: koutsi_self_serve_open(). It is created CLOSED (select false) and
+--     opened separately once the subscription terms are final — a one-line replace (select true);
+--     running this migration again never closes it. The coach key keeps working either way.
 --   * koutsi_coach_plan(coach) is the one answer for other features: 'free' | 'trial' | 'active' |
 --     'past_due' | 'ended', or null for someone who is not a coach.
 --   * After the trial without a subscription ('ended', the user's decision of 29.10.2026): the coach
@@ -80,15 +81,16 @@ on conflict (coach_id) do nothing;
 
 -- ── the answer ──────────────────────────────────────────────────────────────
 
--- New coaches without a key. Pause with `select false`; the coach key keeps working.
-create or replace function public.koutsi_self_serve_open()
-returns boolean
-language sql
-stable
-set search_path = ''
-as $function$
-  select true;
-$function$;
+-- New coaches without a key. Created closed; opened with
+--   create or replace function public.koutsi_self_serve_open() returns boolean language sql stable
+--     set search_path = '' as $$ select true $$;
+-- (and paused again with select false). The coach key keeps working either way.
+do $$
+begin
+  if to_regprocedure('public.koutsi_self_serve_open()') is null then
+    execute $f$create function public.koutsi_self_serve_open() returns boolean language sql stable set search_path = '' as 'select false'$f$;
+  end if;
+end $$;
 
 -- The coach's plan right now: 'free' | 'trial' | 'active' | 'past_due' | 'ended'; null = not a coach.
 create or replace function public.koutsi_coach_plan(p_coach uuid)
