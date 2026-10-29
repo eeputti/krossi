@@ -278,6 +278,9 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   (`supabase functions deploy koutsi-pay --no-verify-jwt`); salaisuutena sama STRIPE_SECRET_KEY kuin krossi-funktioilla.
   Demo: verkkomaksu päällä, "Maksa" merkitsee laskun maksetuksi heti ilman Stripeä.
 
+- **Vapaat ajat odottaa julkaisua (omistaja 29.10.2026: "julkaistaan vasta myöhemmin"): pääkytkin `OPEN_SLOTS_ON = false`
+  (`domain/openSlots.js`) — kumpikaan sovellus ei kysy aikoja eikä näytä niistä mitään, eikä demokaan (sen maailma pysyy
+  ennallaan). Julkaisu = migraatio alla + kytkin päälle.**
 - Vapaat ajat (Calendlyn tilalle; `domain/openSlots.js`, `coach/openSlots.jsx`, `player/OpenSlots.jsx`,
   `api/supabase/openSlots.js`, `api/demo/openSlots.js`, tyylit `styles/open-slots.css`): valmentaja julkaisee yksittäisiä
   vapaita aikoja (päivä, alkaa, kesto, paikka; monta kerralla, ei toistuvia sääntöjä), ja omat pelaajat varaavat ne.

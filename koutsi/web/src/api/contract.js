@@ -27,8 +27,11 @@ export const API_CONTRACT = {
   // The shared Krossi profile row and account-level actions. saveAbout(uid, { bio, area }) writes the
   // profile's own words and home town (profiles.bio / area, shared with Krossi); removeAvatar(uid) clears the photo. trackEvent(name) counts one tap
   // (an event name, no content) for Ylläpito → Käyttö; it never throws.
+  // getWaitingProfile(uid) → { bio, tennis } and saveWaitingProfile(uid, { bio, tennis }): a player with no
+  // group yet fills in the profile while waiting for a code; the tennis card waits on the account
+  // (domain/tennisProfile.js TENNIS_DRAFT_KEY) until player.applyTennisDraft(uid) moves it onto the row.
   account: ['getProfile', 'getPilotAcknowledgement', 'acceptPilot', 'createProfile', 'saveDisplayName',
-    'uploadAvatar', 'removeAvatar', 'saveAbout', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
+    'uploadAvatar', 'removeAvatar', 'saveAbout', 'getWaitingProfile', 'saveWaitingProfile', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
 
   // Coach role: fetchRow(uid) → { id } | null; load(coachId) → CoachState; subscribe(coachId, cb) → unsubscribe.
   // saveWeekNote(coachId, { year, week, score, note }) — the coach's private weekly diary.
@@ -43,7 +46,7 @@ export const API_CONTRACT = {
   player: ['fetchRow', 'load', 'subscribe', 'markWelcomeSeen', 'saveGoal', 'saveNote', 'saveWish', 'saveAge', 'saveTennis',
     'addMood', 'updateMood', 'setMoodHidden', 'deleteMood', 'addMatchNote', 'updateMatchNote', 'deleteMatchNote',
     'addSelfTraining', 'updateSelfTraining', 'deleteSelfTraining', 'saveAim', 'addEntry', 'updateEntry', 'deleteEntry',
-    'archiveItem', 'unarchiveItem', 'forgetArchived', 'deleteHistory'],
+    'archiveItem', 'unarchiveItem', 'forgetArchived', 'deleteHistory', 'applyTennisDraft'],
 
   // A coach's roster.
   students: ['create', 'bulkSetup', 'setLevel', 'updatePlaceholder', 'endCoaching', 'merge', 'deletePlaceholder',

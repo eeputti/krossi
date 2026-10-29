@@ -19,6 +19,7 @@ import { seedMessages } from './messagesSeed.js';
 import { seedBilling } from './billingSeed.js';
 import { addDaysStr, billedKeys, normalizeIban, referenceFor, totalOf } from '../../domain/billing.js';
 import { MESSAGE_MAX } from '../../domain/messages.js';
+import { mergeTennisDraft, tennisDraftOf } from '../../domain/tennisProfile.js';
 import { addOpenSlots, bookOpenSlot, openSlotsView, removeOpenSlot } from './openSlots.js';
 
 let role = 'coach';
@@ -215,6 +216,13 @@ export const backend = {
       const st = findStudent(id);
       if (st) Object.assign(st, patch);
     },
+    // a player before the first group: the bio and the tennis card waiting for the row
+    async getWaitingProfile(id) { return { bio: S().waitingBio?.[id] || '', tennis: tennisDraftOf(S().tennisDraft?.[id]) }; },
+    async saveWaitingProfile(id, { bio, tennis }) {
+      await wait();
+      S().waitingBio = { ...(S().waitingBio || {}), [id]: (bio || '').trim() };
+      S().tennisDraft = { ...(S().tennisDraft || {}), [id]: tennisDraftOf(tennis) };
+    },
     async recordAppOpen() {},
     async trackEvent() {},
     async isAdmin() { return false; },
@@ -257,6 +265,14 @@ export const backend = {
     async saveTennis(id, { playsHand, favouriteShot, playingSince, tennisStory }) {
       await wait();
       Object.assign(findStudent(id), { playsHand: playsHand || '', favouriteShot: favouriteShot || '', playingSince: playingSince ?? null, tennisStory: tennisStory || '' });
+    },
+    async applyTennisDraft(id) {
+      const draft = tennisDraftOf(S().tennisDraft?.[id]);
+      const st = findStudent(id);
+      if (!draft || !st) return false;
+      Object.assign(st, mergeTennisDraft(st, draft));
+      S().tennisDraft[id] = null;
+      return true;
     },
     async saveAge(id, age) {
       await wait();
