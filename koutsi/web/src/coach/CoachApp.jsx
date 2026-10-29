@@ -7,7 +7,7 @@ import { navigate, useRoute } from '../app/router.js';
 import { useIsDesktop } from '../app/hooks.js';
 import { GateError, Splash } from '../shared/gates.jsx';
 import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
-import { koutsiCurrentIsoWeek } from '../domain/core.js';
+import { koutsiCurrentIsoWeek, koutsiTodayStr } from '../domain/core.js';
 import { recapWeekDue } from '../domain/week.js';
 import { markRecapSeen, previewRecap, recapSeen, WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
@@ -39,6 +39,9 @@ import { MessagesProvider, useMessages } from '../shared/messages/MessagesProvid
 import { MessagesScreen } from './MessagesScreen.jsx';
 import { ThreadScreen } from './ThreadScreen.jsx';
 import { namesLine, unanswered } from '../domain/messages.js';
+import { BillingProvider, useBilling } from '../shared/billing/BillingProvider.jsx';
+import { BillingScreen } from './BillingScreen.jsx';
+import { invoiceState } from '../domain/billing.js';
 
 function LegacyRedirect({ route, query }) {
   const to = route.keepWeek && query.vko ? `${route.redirect}?vko=${encodeURIComponent(query.vko)}` : route.redirect;
@@ -59,7 +62,7 @@ const SCREENS = {
   week: WeekScreen, planner: PlannerSheet, groups: BoardScreen, group: GroupScreen, plan: PlanScreen, groupList: GroupListScreen,
   players: PlayersScreen, player: PlayerScreen, invites: InvitesSheet, season: SeasonSheet,
   session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen, sent: SentScreen,
-  profile: ProfileScreen, profileEdit: ProfileEditScreen, admin: AdminScreen, messages: MessagesScreen, thread: ThreadScreen,
+  profile: ProfileScreen, profileEdit: ProfileEditScreen, admin: AdminScreen, messages: MessagesScreen, thread: ThreadScreen, billing: BillingScreen,
   legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect, legacyCalendar: LegacyRedirect,
 };
 
@@ -130,6 +133,13 @@ function CoachShell() {
     waiting: waitingNames.length ? `${namesLine(waitingNames)} ${waitingNames.length === 1 ? 'odottaa' : 'odottavat'} vastausta` : '',
   } : null;
   const phoneBadge = notes.unread + (messagesOn ? msgs.unread : 0);
+  // Laskutus, while it is on for this coach: a side-nav link and a row in the phone's Lisää
+  const billing = useBilling();
+  const billingOn = billing.ready && billing.enabled && !acting;
+  const billingInfo = billingOn ? {
+    open: (billing.invoices || []).filter((x) => x.status === 'sent').length,
+    overdue: (billing.invoices || []).filter((x) => invoiceState(x, koutsiTodayStr()) === 'myohassa').length,
+  } : null;
   const badges = isDesktop ? (messagesOn && msgs.unread ? { viestit: msgs.unread } : undefined) : (phoneBadge ? { lisaa: phoneBadge } : undefined);
   // What opens by itself, at most one thing, decided once: the welcome for a new account > the
   // renewed-look note > "Viikko paketissa" after the week's last session (never while acting).
@@ -153,6 +163,7 @@ function CoachShell() {
   const extraLinks = [
     { to: '/valmentaja/harjoitteet', label: state.sendsReady ? 'Harjoitteet ja videot' : 'Harjoitepankki', icon: 'book', pages: ['exercises', 'exercise'] },
     ...(state.sendsReady ? [{ to: '/valmentaja/lahetetyt', label: 'Lähetetyt', icon: 'send', pages: ['sent'] }] : []),
+    ...(billingOn ? [{ to: '/valmentaja/laskutus', label: 'Laskutus', icon: 'euro', pages: ['billing'] }] : []),
     ...(isAdmin ? [{ to: '/valmentaja/yllapito', label: 'Ylläpito', icon: 'shield', pages: ['admin'] }] : []),
   ];
   return (
@@ -178,7 +189,7 @@ function CoachShell() {
       <RenewedIntro role="coach" eligible={startup?.kind === 'renewed'} />
       <WeekRecapSheet open={Boolean(recapWeek)} week={recapWeek} onClose={closeRecap} />
       {!isDesktop && (
-        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} isAdmin={isAdmin} acting={acting} messages={messageInfo}
+        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} isAdmin={isAdmin} acting={acting} messages={messageInfo} billing={billingInfo}
           onNotifications={openNotifs}
           onNotice={() => openMerkinta({ kind: 'tiedote' })}
           onFeedback={() => setFeedbackOpen(true)} onCodes={openCodes} />
@@ -203,7 +214,9 @@ export function CoachApp() {
     >
       <RecordProvider>
         <MessagesProvider role="coach" ownerId={coachId} off={acting}>
-          <CoachShell />
+          <BillingProvider role="coach" ownerId={coachId} off={acting}>
+            <CoachShell />
+          </BillingProvider>
         </MessagesProvider>
       </RecordProvider>
     </DataProvider>

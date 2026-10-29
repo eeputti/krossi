@@ -15,7 +15,7 @@ export const TABS = [
   { id: 'treenit', label: 'Viikko', icon: 'calendar', path: '/pelaaja/treenit' },
   { id: 'kehitys', label: 'Kehitys', icon: 'flame', path: '/pelaaja/kehitys' },
 ];
-export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['ryhma', 'harjoitteet', 'profiili'] }];
+export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['ryhma', 'harjoitteet', 'profiili', 'laskut'] }];
 
 export const ROUTES = [
   { name: 'home', pattern: '/pelaaja/koti', tab: 'koti', type: 'tab' },
@@ -28,6 +28,9 @@ export const ROUTES = [
   // Viestit: the conversations with one's coaches (Koti's chat icon, Lisää), one conversation full screen
   { name: 'messages', pattern: '/pelaaja/viestit', tab: 'koti', type: 'page' },
   { name: 'thread', pattern: '/pelaaja/viestit/:id', tab: 'koti', type: 'full' },
+  // Laskut: the player's invoices (only when a coach has sent one); the notification opens one
+  { name: 'invoices', pattern: '/pelaaja/laskut', tab: 'laskut', type: 'page' },
+  { name: 'invoice', pattern: '/pelaaja/laskut/:id', tab: 'laskut', type: 'page' },
   // Vapaat ajat (the notice's link): straight to Viikko on the day of the soonest free time
   { name: 'openSlots', pattern: '/pelaaja/vapaat', tab: 'treenit', type: 'tab' },
 ];
