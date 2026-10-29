@@ -496,3 +496,16 @@ begin
   perform cron.schedule('koutsi-message-emails', '*/10 * * * *', 'select public.koutsi_queue_message_emails()');
   perform cron.schedule('koutsi-messages-prune', '37 3 * * *', 'select public.koutsi_prune_messages()');
 end $$;
+
+-- Tilaus (koutsi/web/sql/20261029190000_koutsi_coach_plans.sql): when it is already in the database, a
+-- coach whose free trial ended without a subscription cannot send messages either (players always can).
+-- Applied before Viestit, that migration attached its guard to the tables it found; this covers the order
+-- the other way round. Nothing happens without it.
+do $$
+begin
+  if to_regprocedure('public.koutsi_plan_send_guard()') is not null then
+    drop trigger if exists koutsi_plan_send_guard on public.koutsi_messages;
+    create trigger koutsi_plan_send_guard before insert on public.koutsi_messages
+      for each row execute function public.koutsi_plan_send_guard();
+  end if;
+end $$;
