@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/index.js';
 import { useSession } from '../app/session.jsx';
 import { AuthScreen, GateError, KoutsiWordmark, OnboardingScreen, PilotGate, SetPasswordScreen, Splash } from '../shared/gates.jsx';
+import { ShareTextButton } from '../shared/bits.jsx';
 import { Button, Field, Icon, Input } from '../ui/index.js';
 import { PlayerApp } from './PlayerApp.jsx';
 
@@ -105,6 +106,9 @@ export function JoinCodeForm({ onJoined, autoFocus, inline = false, initialCode 
   );
 }
 
+// The message the player sends from their own phone (share sheet) or pastes (desktop).
+const ASK_CODE_MESSAGE = 'Hei! Tein tilin Koutsiin (koutsi.krossi.app). Lähetätkö minulle liittymislinkin, niin pääsen mukaan ryhmään?';
+
 function InviteCodeScreen({ onJoined }) {
   const { signOut } = useSession();
   return (
@@ -114,10 +118,12 @@ function InviteCodeScreen({ onJoined }) {
         <h1 className="k-gate-title">Liity valmentajasi ryhmään</h1>
         <p className="k-gate-lead">Syötä valmentajaltasi saamasi liittymiskoodi — tai avaa hänen lähettämänsä linkki, niin koodi täyttyy itsestään.</p>
         <JoinCodeForm onJoined={onJoined} autoFocus />
-        <div className="k-gate-note">
-          <strong>Etkö tiedä koodia?</strong>
-          <p>Koutsiin pääsee valmentajan kutsulla. Jos olet alle 18-vuotias, pyydä valmentajalta juuri sinulle tehty henkilökohtainen linkki. Alle 13-vuotias tarvitsee lisäksi huoltajan hyväksynnän.</p>
+        <div className="k-gate-note k-gate-note-ask">
+          <strong>Eikö sinulla ole vielä koodia?</strong>
+          <p>Ei hätää — tilisi on valmis. Voit sulkea sivun. Kun saat valmentajalta linkin, avaa se, niin koodi täyttyy itsestään ja pääset mukaan.</p>
+          <ShareTextButton text={ASK_CODE_MESSAGE} title="Koutsin liittymislinkki" label="Pyydä koodi valmentajalta" variant="outline" size="md" icon="send" block />
         </div>
+        <p className="k-fine">Alle 18-vuotiaana pyydä valmentajalta juuri sinulle tehty henkilökohtainen linkki. Alle 13-vuotias tarvitsee lisäksi huoltajan hyväksynnän.</p>
         <Button variant="ghost" block onClick={signOut}>Kirjaudu ulos</Button>
       </div>
     </div>
