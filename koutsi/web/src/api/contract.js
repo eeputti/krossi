@@ -119,6 +119,17 @@ export const API_CONTRACT = {
   // subscribe(uid, cb) → unsubscribe
   notifications: ['list', 'markRead', 'getEmailPrefs', 'setEmailPrefs', 'subscribe'],
 
+  // Tilaus (koutsi_coach_plans, domain/subscription.js): a new coach's 3-month free trial without a
+  // card, then a monthly subscription through Stripe. status() → { ready, selfServe, plan, trialEndsAt,
+  // stripeStatus, periodEnd, cancelAtPeriodEnd, hasCustomer } — also before signing in; ready is false
+  // while the database doesn't have it (all of it stays hidden, the coach key works as before), plan is
+  // null for someone who is not a coach and 'free' for today's coaches (nothing shows). startTrial() →
+  // status: makes the signed-in person a coach with a trial and the accepted subscription terms.
+  // price() → { cents, interval, offer: { cents, months } | null } | null (never throws).
+  // checkout() / portal() → { url } of Stripe Checkout / the customer portal; sync() → status, read
+  // from Stripe right after the coach comes back.
+  subscription: ['status', 'startTrial', 'price', 'checkout', 'portal', 'sync'],
+
   // Ylläpito — every RPC behind these re-checks koutsi_is_admin() server-side.
   // usage(days | null) → [{ event, clicks, users, adminClicks, lastAt }] (admins' own taps apart).
   // usageOverview(days, includeTest) → the anonymous page/tap/error statistics of both Koutsi apps

@@ -1,5 +1,6 @@
 // CoachRoot.jsx — the coach's gates (same order as the old KoutsiValmentajaRoot):
-// auth → recovery → pilot acknowledgement → profile → coach row → coach key → acting check → app.
+// auth → recovery → pilot acknowledgement → profile → coach row → coach key (or, once the database
+// has koutsi_coach_plans, the free trial without a key: TrialStart) → acting check → app.
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { api } from '../api/index.js';
@@ -9,6 +10,7 @@ import { AuthScreen, GateError, OnboardingScreen, PilotGate, SetPasswordScreen, 
 import { Button, Field, Input } from '../ui/index.js';
 import { SUPPORT_EMAIL } from '../lib/constants.js';
 import { CoachApp } from './CoachApp.jsx';
+import { TrialStart } from './TrialStart.jsx';
 
 const ACTING_KEY = 'koutsiActingCoach'; // same key as the old app: a hint only, re-checked server-side
 
@@ -25,25 +27,42 @@ function CoachKeyGate({ onRedeemed }) {
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Without a key (koutsi_coach_plans, once the database has it and sign-ups are open): the free
+  // trial first, the key one tap away. Until then this page is exactly the key page.
+  const [selfServe, setSelfServe] = useState(undefined);
+  const [withKey, setWithKey] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api.subscription.status()
+      .then((s) => { if (alive) setSelfServe(Boolean(s.ready && s.selfServe)); })
+      .catch(() => { if (alive) setSelfServe(false); });
+    return () => { alive = false; };
+  }, []);
   const submit = async (e) => {
     e.preventDefault();
     if (!key.trim() || busy) return;
     setError(''); setBusy(true);
     try { await api.coach.redeemKey(key.trim()); await onRedeemed(); } catch (err) { setError(err.userMessage); } finally { setBusy(false); }
   };
+  if (selfServe === undefined) return <Splash />;
+  if (selfServe && !withKey) return <TrialStart onStarted={onRedeemed} onUseKey={() => setWithKey(true)} />;
   return (
     <div className="k-center-page">
       <div className="k-gate-card">
         <KoutsiWordmark size="sm" />
         <h1 className="k-gate-title">Tiliäsi ei ole vielä liitetty valmentajaksi</h1>
-        <p className="k-gate-lead">Jos olet valmentaja, syötä Krossilta saamasi valmentaja-avain. Jos sinulla ei vielä ole avainta, <a href={`mailto:${SUPPORT_EMAIL}?subject=Valmentaja-avain%20Koutsiin`}>pyydä se sähköpostilla</a>.</p>
+        {selfServe
+          ? <p className="k-gate-lead">Syötä Krossilta saamasi valmentaja-avain.</p>
+          : <p className="k-gate-lead">Jos olet valmentaja, syötä Krossilta saamasi valmentaja-avain. Jos sinulla ei vielä ole avainta, <a href={`mailto:${SUPPORT_EMAIL}?subject=Valmentaja-avain%20Koutsiin`}>pyydä se sähköpostilla</a>.</p>}
         <form className="auth-form" onSubmit={submit}>
           <Field label="Valmentaja-avain" htmlFor="coach-key" error={error || null}>
             <Input id="coach-key" size="lg" type="password" value={key} onChange={(e) => setKey(e.target.value)} autoFocus autoComplete="off" />
           </Field>
           <Button type="submit" variant="dark" size="lg" block missing={!key.trim() ? 'Kirjoita valmentaja-avain.' : null} loading={busy}>Vahvista</Button>
         </form>
-        <Button variant="ghost" block onClick={signOut}>Kirjaudu ulos</Button>
+        {selfServe
+          ? <Button variant="ghost" block onClick={() => { setWithKey(false); setError(''); }}>Takaisin</Button>
+          : <Button variant="ghost" block onClick={signOut}>Kirjaudu ulos</Button>}
       </div>
     </div>
   );

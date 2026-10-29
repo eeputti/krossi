@@ -14,6 +14,7 @@ import { bankSummary } from './ExercisesScreen.jsx';
 import { openSeason } from './nav.js';
 import { SeasonEditSheet } from './SeasonSheet.jsx';
 import { JoinCodesSheet } from './JoinCodesSheet.jsx';
+import { SubscriptionCard } from './SubscriptionCard.jsx';
 import { joinedTotals } from '../domain/groupLinks.js';
 import { currentSeason, followingSeason, seasonWord } from '../domain/season.js';
 import { koutsiFmtShortDate, koutsiIsoWeekOfDateStr } from '../domain/core.js';
@@ -75,6 +76,7 @@ export function ProfileScreen() {
               {(c.specialties || []).length > 0 && <span className="row wrap k-profile-chips">{c.specialties.map((s) => <span key={s} className="chip chip-sm chip-neutral">{s}</span>)}</span>}
             </>
           ) : null} />
+        <SubscriptionCard />
         <section className="stack-2">
           <div className="eyebrow">Ilmoitukset</div>
           <Card><EmailPrefs uid={uid} role="coach" /></Card>

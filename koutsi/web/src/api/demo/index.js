@@ -46,6 +46,28 @@ function addPutki(s) {
   return s;
 }
 const S = () => { if (!state) state = seedMessages(previewPutki ? addPutki(seed()) : seed(), role); return state; };
+
+// Tilaus: Anna is on the free trial, 76 days left (Profiili → Tilaus). `npm run dev:koutsi` →
+// /demo/valmentaja?esikatsele=kokeilu opens the "Aloita 3 kk ilmainen kokeilu" gate first;
+// ?esikatsele=tilaus-active | tilaus-past_due | tilaus-ended show the card's other states.
+const previewPlan = process.env.NODE_ENV !== 'production' && typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search).get('esikatsele') || '' : '';
+let trialGate = previewPlan === 'kokeilu';
+function demoSubscription() {
+  const day = 86400000;
+  const now = Date.now();
+  const iso = (ms) => new Date(ms).toISOString();
+  const plan = /^tilaus-(active|past_due|ended)$/.exec(previewPlan)?.[1] || 'trial';
+  const paying = plan === 'active' || plan === 'past_due';
+  return {
+    ready: true, selfServe: true, plan,
+    trialEndsAt: iso(plan === 'ended' ? now - 3 * day : now + 76 * day),
+    stripeStatus: paying ? plan : null,
+    periodEnd: paying ? iso(now + 21 * day) : null,
+    cancelAtPeriodEnd: false,
+    hasCustomer: paying,
+  };
+}
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const wait = () => new Promise((r) => setTimeout(r, latencyMs));
 const nowIso = () => new Date().toISOString();
@@ -193,7 +215,7 @@ export const backend = {
   },
 
   coach: {
-    async fetchRow(id) { return id === COACH ? { id } : null; },
+    async fetchRow(id) { return id === COACH && !trialGate ? { id } : null; },
     async load() { await wait(); return coachViewOfArchives(hideHiddenMoods(coachState())); },
     async redeemKey() { return { ok: true }; },
     async markWelcomeSeen() { S().coach.welcomeSeenAt = nowIso(); },
@@ -921,5 +943,15 @@ export const backend = {
     users: notAllowed, feedback: notAllowed, deleteFeedback: notAllowed, deleteUser: notAllowed, actAs: notAllowed,
     groups: notAllowed, bulkInviteCodes: notAllowed, pendingPlans: notAllowed, publishPlan: notAllowed,
     handleSubmission: notAllowed, uploadPlan: notAllowed, usage: notAllowed, usageOverview: notAllowed,
+  },
+
+  // Tilaus: the trial and the card show; paying happens only in the real app.
+  subscription: {
+    async status() { return demoSubscription(); },
+    async startTrial() { await wait(); trialGate = false; return demoSubscription(); },
+    async price() { return null; },
+    checkout: notAllowed,
+    portal: notAllowed,
+    async sync() { return demoSubscription(); },
   },
 };
