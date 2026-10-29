@@ -7,7 +7,8 @@
 //   ready = the database has it; selfServe = a new coach may start without a key; plan null = not a coach.
 //   'free' (today's coaches, coach keys) never shows anything.
 // Price (api.subscription.price()), from Stripe; null while it is not set up:
-//   { cents, interval: 'month', offer: { cents, months } | null }
+//   { cents, interval: 'month', offer: { cents, months } | null, vat: number | null }
+//   vat = VAT added on top (once Roisku Media is VAT-liable); null = the price is the whole sum.
 
 // The subscription terms a new coach accepts (koutsi-tilausehdot.html): change together with the
 // terms' "Voimassa" date. Not the pilot acknowledgement (PILOT_TERMS_VERSION stays as it is).
@@ -57,15 +58,16 @@ export function fmtEuros(cents) {
   return rest ? `${whole},${String(rest).padStart(2, '0')} €` : `${whole} €`;
 }
 
-/** "29 €/kk" or "19 €/kk 12 kk, sitten 29 €/kk"; '' without a price. */
+/** "29 €/kk", "19 €/kk 12 kk, sitten 29 €/kk", with VAT "… + alv"; '' without a price. */
 export function priceLine(price) {
   if (!price || !Number.isFinite(price.cents)) return '';
   const base = `${fmtEuros(price.cents)}/kk`;
+  const vat = price.vat ? ' + alv' : '';
   const offer = price.offer;
   if (offer && Number.isFinite(offer.cents) && offer.cents < price.cents && offer.months > 0) {
-    return `${fmtEuros(offer.cents)}/kk ${offer.months} kk, sitten ${base}`;
+    return `${fmtEuros(offer.cents)}/kk ${offer.months} kk, sitten ${base}${vat}`;
   }
-  return base;
+  return `${base}${vat}`;
 }
 
 /**

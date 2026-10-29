@@ -33,6 +33,9 @@ test('days, dates and euros', () => {
   assert.equal(priceLine(null), '');
   assert.equal(priceLine({ cents: 2900, interval: 'month', offer: null }), '29 €/kk');
   assert.equal(priceLine({ cents: 2900, interval: 'month', offer: { cents: 1900, months: 12 } }), '19 €/kk 12 kk, sitten 29 €/kk');
+  // once Roisku Media is VAT-liable (tilausehdot §3): VAT on top
+  assert.equal(priceLine({ cents: 2900, interval: 'month', offer: null, vat: 25.5 }), '29 €/kk + alv');
+  assert.equal(priceLine({ cents: 2900, interval: 'month', offer: { cents: 1900, months: 12 }, vat: 25.5 }), '19 €/kk 12 kk, sitten 29 €/kk + alv');
 });
 
 test('nothing shows before the database has it, for a free coach or for someone who is not a coach', () => {
@@ -81,7 +84,7 @@ test('demo: Anna is on the free trial; paying is for the real app', async () => 
   assert.equal(s.ready, true);
   assert.equal(s.plan, 'trial');
   assert.equal(daysLeft(s.trialEndsAt), 76);
-  assert.deepEqual(await demo.subscription.price(), { cents: 2900, interval: 'month', offer: null });
+  assert.deepEqual(await demo.subscription.price(), { cents: 2900, interval: 'month', offer: null, vat: null });
   await assert.rejects(async () => demo.subscription.checkout(), /demossa/);
   await assert.rejects(async () => demo.subscription.portal(), /demossa/);
   assert.deepEqual(await demo.coach.fetchRow('demo-coach'), { id: 'demo-coach' }, 'the trial gate is a dev-only preview');

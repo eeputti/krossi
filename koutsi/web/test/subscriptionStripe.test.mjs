@@ -28,6 +28,11 @@ test('Checkout: a monthly subscription for this coach, back to Profiili', () => 
   assert.equal(p.locale, 'fi');
   assert.equal('discounts' in p, false);
   assert.deepEqual(params({ coupon: 'KOUTSI_ALKU' }).discounts, [{ coupon: 'KOUTSI_ALKU' }]);
+  // VAT on top once Roisku Media is VAT-liable (KOUTSI_TAX_RATE), together with the free trial
+  const taxed = params({ taxRate: 'txr_1', trialEndsAt: '2027-01-29T12:00:00Z' });
+  assert.deepEqual(taxed.subscription_data.default_tax_rates, ['txr_1']);
+  assert.equal(taxed.subscription_data.trial_end, Date.parse('2027-01-29T12:00:00Z') / 1000);
+  assert.equal('default_tax_rates' in params().subscription_data, false);
 });
 
 test('Checkout inside the free trial: the first charge comes when the trial ends', () => {
@@ -114,9 +119,14 @@ test("the customer's subscription that counts: the newest live one, else the new
 
 test('the price a coach sees, with a founding-customer offer while it lasts', () => {
   const price = { unit_amount: 2900, recurring: { interval: 'month' } };
-  assert.deepEqual(priceInfo(price), { cents: 2900, interval: 'month', offer: null });
+  assert.deepEqual(priceInfo(price), { cents: 2900, interval: 'month', offer: null, vat: null });
   const coupon = { valid: true, duration: 'repeating', duration_in_months: 12, amount_off: 1000, max_redemptions: 10, times_redeemed: 3 };
-  assert.deepEqual(priceInfo(price, coupon), { cents: 2900, interval: 'month', offer: { cents: 1900, months: 12 } });
+  assert.deepEqual(priceInfo(price, coupon), { cents: 2900, interval: 'month', offer: { cents: 1900, months: 12 }, vat: null });
+  // VAT: only an active rate added on top
+  const rate = { active: true, inclusive: false, percentage: 25.5 };
+  assert.equal(priceInfo(price, null, rate).vat, 25.5);
+  assert.equal(priceInfo(price, null, { ...rate, active: false }).vat, null);
+  assert.equal(priceInfo(price, null, { ...rate, inclusive: true }).vat, null);
   assert.deepEqual(priceInfo(price, { ...coupon, amount_off: undefined, percent_off: 50 }).offer, { cents: 1450, months: 12 });
   assert.equal(priceInfo(price, { ...coupon, times_redeemed: 10 }).offer, null, 'all taken');
   assert.equal(priceInfo(price, { ...coupon, valid: false }).offer, null);

@@ -181,7 +181,9 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   kassa kanna kenttiä (`client_reference_id`, `metadata.supabase_user_id`), joista se avaisi Krossin maksumuurin.
   Tilin poisto (oma ja ylläpitäjän) päättää valmentajan Stripe-tilauksen ensin (`_shared/koutsiCancel.ts`). Hinta on
   Stripessä, ei koodissa: `node scripts/koutsi-stripe-setup.mjs --hinta X [--alku Y --alku-kpl N --alku-kk M]`
-  (omistaja ajaa). Ehdot: `koutsi-tilausehdot.html` (`/tilausehdot`) ja `koutsi-kasittelysopimus.html`
+  (omistaja ajaa). Hinta on arvonlisäveroton (Roisku Media ei ole alv-velvollinen); kun on, `--alv 25.5` lisää alv:n
+  hinnan päälle: Stripen alv-kanta uusiin tilauksiin (`KOUTSI_TAX_RATE`, Checkoutin `default_tax_rates`) ja
+  vahvistuksen jälkeen nykyisiin seuraavasta veloituksesta, ja sovellus näyttää "29 €/kk + alv" (tilausehdot §3). Ehdot: `koutsi-tilausehdot.html` (`/tilausehdot`) ja `koutsi-kasittelysopimus.html`
   (`/kasittelysopimus`, valmentaja = rekisterinpitäjä, Roisku Media = käsittelijä), LUONNOKSIA. Kokeilun jälkeen
   ilman tilausta (`ended`, käyttäjän päätös 29.10.2026): valmentaja näkee kaiken ja suunnittelee kuten ennen (kalenteri,
   teemat, läsnäolot, pelaajat), mutta uuden lähettäminen pelaajille vaatii tilauksen — huomio, kotiläksy, video,

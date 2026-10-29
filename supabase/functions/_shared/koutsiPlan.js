@@ -33,14 +33,16 @@ export function koutsiCoachOf(obj) {
 /**
  * The Checkout session for "Ota tilaus". Inside the free trial (more than ~2 days left) the
  * subscription starts with a Stripe trial up to the same day, so the first charge comes when the
- * trial would have ended. `coupon` = the founding-customer discount, when there is one.
- * @param {{ customer: string, coachId: string, priceId: string, trialEndsAt?: string | null, coupon?: string | null, base: string, now?: number }} opts
+ * trial would have ended. `coupon` = the founding-customer discount, when there is one. `taxRate` =
+ * the VAT rate once Roisku Media is VAT-liable (KOUTSI_TAX_RATE): added on top of the price.
+ * @param {{ customer: string, coachId: string, priceId: string, trialEndsAt?: string | null, coupon?: string | null, taxRate?: string | null, base: string, now?: number }} opts
  */
-export function checkoutParams({ customer, coachId, priceId, trialEndsAt = null, coupon = null, base, now = Date.now() }) {
+export function checkoutParams({ customer, coachId, priceId, trialEndsAt = null, coupon = null, taxRate = null, base, now = Date.now() }) {
   const meta = { product: KOUTSI_PRODUCT, koutsi_coach_id: coachId };
   const trialEnd = trialEndsAt ? Date.parse(trialEndsAt) : NaN;
   const subscriptionData = { metadata: meta };
   if (Number.isFinite(trialEnd) && trialEnd - now > MIN_TRIAL_MS) subscriptionData.trial_end = Math.floor(trialEnd / 1000);
+  if (taxRate) subscriptionData.default_tax_rates = [taxRate];
   return {
     mode: 'subscription',
     customer,
@@ -92,11 +94,13 @@ export function subscriptionIdOf(event) {
 }
 
 /**
- * The price a coach sees before subscribing: { cents, interval, offer: { cents, months } | null }.
+ * The price a coach sees before subscribing: { cents, interval, offer: { cents, months } | null, vat }.
+ * vat = the VAT percentage added on top (null while Roisku Media is not VAT-liable).
  * @param {any} price  a Stripe price
  * @param {any} [coupon]  a Stripe coupon (the founding offer), if any
+ * @param {any} [taxRate]  a Stripe tax rate (KOUTSI_TAX_RATE), if any
  */
-export function priceInfo(price, coupon = null) {
+export function priceInfo(price, coupon = null, taxRate = null) {
   if (!price || !Number.isFinite(price.unit_amount)) return null;
   const cents = price.unit_amount;
   let offer = null;
@@ -109,5 +113,6 @@ export function priceInfo(price, coupon = null) {
     const months = Number(coupon.metadata?.koutsi_kk) || coupon.duration_in_months;
     if (off > 0 && off < cents) offer = { cents: cents - off, months };
   }
-  return { cents, interval: price.recurring?.interval || 'month', offer };
+  const vat = taxRate?.active && !taxRate.inclusive && Number(taxRate.percentage) > 0 ? Number(taxRate.percentage) : null;
+  return { cents, interval: price.recurring?.interval || 'month', offer, vat };
 }

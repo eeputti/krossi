@@ -1127,7 +1127,7 @@ export const backend = {
     async status() { return demoSubscription(); },
     async startTrial() { await wait(); trialGate = false; return demoSubscription(); },
     // the list price (the founding offer lives in Stripe only)
-    async price() { return { cents: 2900, interval: 'month', offer: null }; },
+    async price() { return { cents: 2900, interval: 'month', offer: null, vat: null }; },
     checkout: notAllowed,
     portal: notAllowed,
     async sync() { return demoSubscription(); },

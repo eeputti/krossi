@@ -5,12 +5,17 @@
 //   node scripts/koutsi-stripe-setup.mjs --hinta 29
 //   node scripts/koutsi-stripe-setup.mjs --hinta 29 --alku 19 --alku-kpl 10 --alku-kk 12
 //   node scripts/koutsi-stripe-setup.mjs --hinta 29 --file .env.stripe-test     (Stripe's test mode first)
+//   node scripts/koutsi-stripe-setup.mjs --alv 25.5     (only VAT, once Roisku Media is VAT-liable; --alv 0 = off)
 //
 //   --hinta     monthly price in euros, what the coach pays (e.g. 29 or 29,90)
 //   --alku …    optional founding offer: price during the first --alku-kk months for the first
 //               --alku-kpl coaches (a Stripe coupon; Stripe counts the uses)
 //   --file      env file with the secret key (default .env.stripe, gitignored): KOUTSI_STRIPE_SECRET_KEY,
 //               else STRIPE_SECRET_KEY (Krossi's — same Stripe account, Roisku Media)
+//   --alv       VAT in percent added on top of the price (tilausehdot §3): a Stripe tax rate for new
+//               subscriptions (KOUTSI_TAX_RATE), and — after a yes, once the coaches have had 30 days'
+//               notice — for the current ones from their next charge. --alv 0 takes it off. Alone it
+//               touches nothing else; without --alv nothing about VAT changes.
 //
 // What it does, in the mode of the key (test or live). Running it again is safe: what exists is reused.
 //   1. checks the key with Stripe
@@ -28,6 +33,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import readline from 'node:readline';
 
 const PROJECT_REF = 'hhybjpgrvlbazbqiaaao';
 const WEBHOOK_URL = `https://${PROJECT_REF}.supabase.co/functions/v1/koutsi-stripe-webhook`;
@@ -58,6 +64,11 @@ const PRICE_CENTS = euros(arg('hinta'), 'hinta');
 const OFFER_CENTS = euros(arg('alku'), 'alku');
 const OFFER_COUNT = arg('alku-kpl') === undefined ? null : Number(arg('alku-kpl'));
 const OFFER_MONTHS = arg('alku-kk') === undefined ? null : Number(arg('alku-kk'));
+const VAT = arg('alv') === undefined ? undefined : Number(String(arg('alv')).replace(',', '.'));
+if (VAT !== undefined && !(VAT >= 0 && VAT < 50)) {
+  console.log('\n  ❌ --alv pitää olla prosentti, esim. 25.5 (tai 0 = pois).\n');
+  process.exit(1);
+}
 
 function readEnv(path) {
   const env = {};
@@ -90,6 +101,59 @@ async function stripe(key, method, path, params = []) {
 }
 const modeOf = (key) => /^[sr]k_(test|live)_[A-Za-z0-9]{20,}$/.exec(key || '')?.[1] || null;
 
+function confirm(question) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    rl.question(question, (answer) => { rl.close(); resolve(/^(kyllä|kylla|k|yes|y)$/i.test(answer.trim())); });
+  });
+}
+
+// The coaches' live Koutsi subscriptions (all of them: Stripe pages by 100).
+async function liveKoutsiSubscriptions(key) {
+  const out = [];
+  for (const status of ['active', 'trialing', 'past_due']) {
+    let after = null;
+    for (;;) {
+      const page = await stripe(key, 'GET', 'subscriptions', [['status', status], ['limit', '100'], ...(after ? [['starting_after', after]] : [])]);
+      out.push(...page.data.filter((sub) => sub.metadata?.product === 'koutsi_subscription'));
+      if (!page.has_more || !page.data.length) break;
+      after = page.data[page.data.length - 1].id;
+    }
+  }
+  return out;
+}
+
+// VAT on top of the price (tilausehdot §3) or off again. → the KOUTSI_TAX_RATE id, or '' when off.
+async function vatStep(key) {
+  if (VAT > 0) {
+    let rate = (await stripe(key, 'GET', 'tax_rates', [['active', 'true'], ['inclusive', 'false'], ['limit', '100']])).data
+      .find((r) => r.metadata?.koutsi === '1' && Number(r.percentage) === VAT);
+    if (rate) ok(`Alv-kanta löytyi (${VAT} %, ${rate.id})`);
+    else {
+      rate = await stripe(key, 'POST', 'tax_rates', [
+        ['display_name', 'ALV'], ['percentage', String(VAT)], ['inclusive', 'false'], ['country', 'FI'],
+        ['jurisdiction', 'Suomi'], ['description', 'Koutsi-tilauksen arvonlisävero'], ['metadata[koutsi]', '1'],
+      ]);
+      ok(`Luotiin alv-kanta ${VAT} % (${rate.id}): uudet tilaukset saavat sen heti`);
+    }
+    const todo = (await liveKoutsiSubscriptions(key)).filter((sub) => !(sub.default_tax_rates || []).some((r) => r.id === rate.id));
+    if (!todo.length) ok('Nykyisissä tilauksissa ei ole lisättävää');
+    else if (await confirm(`     Lisätäänkö alv myös ${todo.length} nykyiseen tilaukseen seuraavasta veloituksesta alkaen?\n     Valmentajille pitää ilmoittaa vähintään 30 päivää etukäteen (tilausehdot §3). Kirjoita "kyllä": `)) {
+      for (const sub of todo) await stripe(key, 'POST', `subscriptions/${sub.id}`, [['default_tax_rates[]', rate.id], ['proration_behavior', 'none']]);
+      ok(`Alv lisätty ${todo.length} tilaukseen`);
+    } else warn(`Nykyiset ${todo.length} tilausta jatkavat ilman alv:a. Aja komento uudelleen, kun ilmoitusaika on kulunut.`);
+    warn('Stripessä käsin: Settings → Business → Tax details: ALV-tunnus FI34134066 laskuille, ja poista laskupohjan alatunniste "Ei arvonlisäverovelvollinen (AVL 3 §)".');
+    return rate.id;
+  }
+  const taxed = (await liveKoutsiSubscriptions(key)).filter((sub) => (sub.default_tax_rates || []).length);
+  if (taxed.length && await confirm(`     Poistetaanko alv myös ${taxed.length} nykyisestä tilauksesta? Kirjoita "kyllä": `)) {
+    for (const sub of taxed) await stripe(key, 'POST', `subscriptions/${sub.id}`, [['default_tax_rates', ''], ['proration_behavior', 'none']]);
+    ok(`Alv poistettu ${taxed.length} tilauksesta`);
+  }
+  ok('Uudet tilaukset ilman alv:a (KOUTSI_TAX_RATE poistetaan)');
+  return '';
+}
+
 function supabaseSecrets(args) {
   const res = spawnSync('supabase', [...args, '--project-ref', PROJECT_REF], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
   if (res.status !== 0) fail(`Supabase-tallennus epäonnistui:\n${res.stderr || res.stdout}`);
@@ -97,7 +161,8 @@ function supabaseSecrets(args) {
 
 async function main() {
   console.log('\nKrossi Koutsi × Stripe — valmentajan tilaus\n');
-  if (!PRICE_CENTS) fail('Anna kuukausihinta: --hinta 29');
+  const vatOnly = !PRICE_CENTS && VAT !== undefined;
+  if (!PRICE_CENTS && !vatOnly) fail('Anna kuukausihinta: --hinta 29 (tai pelkkä alv: --alv 25.5)');
   const offer = OFFER_CENTS !== null;
   if (offer && (OFFER_CENTS >= PRICE_CENTS || !(OFFER_COUNT > 0) || !(OFFER_MONTHS > 0))) {
     fail('Aloitustarjous tarvitsee --alku (pienempi kuin --hinta), --alku-kpl ja --alku-kk, esim. --alku 19 --alku-kpl 10 --alku-kk 12.');
@@ -110,6 +175,17 @@ async function main() {
   const mode = modeOf(secret);
   const account = await stripe(secret, 'GET', 'account').catch((err) => fail(`Stripe ei hyväksynyt avainta: ${err.message}`));
   ok(`Avain toimii (${mask(secret)}, ${mode === 'live' ? 'LIVE — oikeat maksut' : 'testitila'}) · ${account.settings?.dashboard?.display_name || account.business_profile?.name || account.id}`);
+
+  if (vatOnly) {
+    step('Arvonlisävero');
+    const rateId = await vatStep(secret);
+    if (rateId) supabaseSecrets(['secrets', 'set', `KOUTSI_TAX_RATE=${rateId}`]);
+    else spawnSync('supabase', ['secrets', 'unset', 'KOUTSI_TAX_RATE', '--project-ref', PROJECT_REF], { stdio: 'ignore' });
+    writeEnv(ENV_FILE, { KOUTSI_TAX_RATE: rateId });
+    ok(rateId ? 'KOUTSI_TAX_RATE tallennettu Supabaseen: Koutsi näyttää hinnan muodossa "29 €/kk + alv"' : 'Tallennettu');
+    console.log('\n🎾 Valmis.\n');
+    return;
+  }
 
   step('2/6  Tuote ja kuukausihinta');
   let product = await stripe(secret, 'GET', `products/${PRODUCT_ID}`).catch(() => null);
@@ -193,6 +269,13 @@ async function main() {
     ok(`Portaali luotiin (${portal.id})`);
   }
 
+  let taxRate;
+  if (VAT !== undefined) {
+    step('Arvonlisävero');
+    taxRate = await vatStep(secret);
+    if (!taxRate) spawnSync('supabase', ['secrets', 'unset', 'KOUTSI_TAX_RATE', '--project-ref', PROJECT_REF], { stdio: 'ignore' });
+  }
+
   step('6/6  Tallennus Supabaseen');
   const values = {
     KOUTSI_STRIPE_SECRET_KEY: secret,
@@ -200,6 +283,7 @@ async function main() {
     KOUTSI_STRIPE_WEBHOOK_SECRET: webhookSecret,
     KOUTSI_PORTAL_CONFIG: portal.id,
     ...(coupon ? { KOUTSI_FOUNDER_COUPON: coupon } : {}),
+    ...(taxRate ? { KOUTSI_TAX_RATE: taxRate } : {}),
   };
   const dir = mkdtempSync(join(tmpdir(), 'koutsi-stripe-'));
   const tmp = join(dir, 'secrets.env');
