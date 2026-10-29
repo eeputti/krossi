@@ -96,9 +96,9 @@ export function listLine(labels) {
 
 // ── the coach's "Lisää vapaita aikoja" form ─────────────────────────────────
 
-/** The first row: tomorrow, no time yet. */
+/** The first row: today (like Uusi treeni), no time yet — nothing guessed. */
 export function firstDraftRow(now = new Date()) {
-  return { date: koutsiAddDays(dateOf(now), 1), time: '' };
+  return { date: dateOf(now), time: '' };
 }
 
 /** "+ Lisää aika": right after the previous time on the same day, or the same time the next day. */

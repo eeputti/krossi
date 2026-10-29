@@ -206,6 +206,24 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   luvalla; PGlite-testi `koutsi/web/sql/20261026084331_…check.mjs`). Tietokannassa ilman tauluja `sendsReady: false`,
   ja Lähetetyt, Videot-välilehti ja "Omista videoista" pysyvät piilossa, kaikki lähettäminen toimii kuten ennen.
 
+- Vapaat ajat (Calendlyn tilalle; `domain/openSlots.js`, `coach/OpenSlotsScreen.jsx`, `player/OpenSlots.jsx`,
+  `api/supabase/openSlots.js`, `api/demo/openSlots.js`): valmentaja julkaisee yksittäisiä vapaita aikoja (päivä, alkaa,
+  kesto, paikka; monta kerralla, ei toistuvia sääntöjä), ja omat pelaajat varaavat ne Kodista (`/pelaaja/vapaat` = kaikki).
+  Varaus on yksi RPC (`koutsi_book_open_slot`, ensimmäinen voittaa) ja synnyttää tavallisen yksityistunnin
+  (`koutsi_trainings`: `logged_by 'coach'`, `student_id` = pelaaja, Yksityistunti, ajan kesto), joten viikkonäkymät,
+  läsnäolo, "En pääse" ja laskutus näkevät sen kuten muutkin. Pelaaja ei saa "Uusi treeni" -ilmoitusta omasta
+  varauksestaan; valmentaja saa "<nimi> varasi ajan". Julkaisu = yksi ilmoitus pelaajaa kohden (uusi julkaisu 10 min
+  sisällä päivittää saman lukemattoman). Vapautunut aika: kun pelaaja ei pääse yksityistunnille, valmentaja tarjoaa ajan
+  muille yhdellä napautuksella (Vapaat ajat → Vapautuneet tai tunnin sivu, `source_training_id`); peruttu tunti jää
+  kalenteriin (myöhäiset peruutukset), ja "Pääsen sittenkin" poistaa vielä varaamattoman tarjouksen. Paikka on ajan
+  rivillä ja näkyy pelaajan tunnin tiedoissa. Molemmat tilannekuvat kantavat `openSlots` ja `openSlotsReady`.
+  Tietokanta: ehdotettu migraatio `koutsi/web/sql/20261029180000_koutsi_open_slots.sql` — **EI AJETTU** (PGlite-testi
+  `…_koutsi_open_slots.check.mjs`); ilman sitä `openSlotsReady: false` ja kaikki pysyy piilossa. Ominaisuus on pois
+  päältä: valmentaja näkee sen, kun hänen sähköpostinsa on taulussa `koutsi_open_slot_coaches`, ja ylläpitäjät (ei
+  koskaan "toimi valmentajana" -tilassa); muiden pelaajat eivät saa aikoja eivätkä ilmoituksia. Demo: Annalla päällä
+  (avoimia aikoja, Jussin varaus, Leon vapautunut tunti); valmentajan ja pelaajan demo jakavat ajat selaimen
+  localStoragessa (`koutsi-demo-vapaat-v1`, 6 h), joten valmentajan lisäämän ajan voi varata pelaajan demossa.
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)
@@ -224,6 +242,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/valmentaja/lahetetyt` (`?laji=video\|laksy\|huomio\|tiedote`, `?ryhma=<id>`) | sent — Lähetetyt (puhelimessa Lisää-valikosta) | tab |
 | `/valmentaja/profiili`, `/valmentaja/yllapito` | profile, admin | tab / page |
 | `/valmentaja/viestit`, `/valmentaja/viestit/:pelaajaId` | messages, thread — Viestit (puhelimessa Lisää-valikosta, keskustelu koko näytöllä) | page / full |
+| `/valmentaja/vapaat` | openSlots — Vapaat ajat (kun päällä; puhelimessa Lisää-valikosta, tietokoneella sivupalkista) | tab |
 | `/valmentaja/oppilaat`, `/treenit`, `/kalenteri` | vanhat osoitteet | ohjaus uusiin (`/kalenteri?vko=` säilyttää viikon) |
 
 **Pelaaja** (`/pelaaja`, puhelimessa: Koti · Viikko · [Merkitse] · Kehitys · Lisää — Lisää-laatikossa Ryhmäsi, Harjoitteet ja videot, Ilmoitukset, Profiili, Anna palautetta; tietokoneella samat sivupalkissa, Profiili alhaalla)
@@ -237,6 +256,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/pelaaja/harjoitteet` | exercises |
 | `/pelaaja/profiili` | profile |
 | `/pelaaja/viestit`, `/pelaaja/viestit/:valmentajaId` | messages, thread — Viestit (Kodin kuvake kellon vieressä; yhden valmentajan pelaaja menee suoraan keskusteluun) |
+| `/pelaaja/vapaat` | openSlots — kaikki vapaat ajat Kodin päällä (ilmoituksen linkki, Kodin "Kaikki vapaat ajat"); Koti näyttää lähimmät, kun niitä on |
 
 Vanhat osoitteet (`/pelaaja/koti` jne.) ovat samat; `link_path` `/pelaaja` → koti.
 

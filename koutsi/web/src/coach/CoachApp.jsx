@@ -39,6 +39,7 @@ import { MessagesProvider, useMessages } from '../shared/messages/MessagesProvid
 import { MessagesScreen } from './MessagesScreen.jsx';
 import { ThreadScreen } from './ThreadScreen.jsx';
 import { namesLine, unanswered } from '../domain/messages.js';
+import { OpenSlotsScreen, useOpenSlotsOn } from './OpenSlotsScreen.jsx';
 
 function LegacyRedirect({ route, query }) {
   const to = route.keepWeek && query.vko ? `${route.redirect}?vko=${encodeURIComponent(query.vko)}` : route.redirect;
@@ -61,6 +62,7 @@ const SCREENS = {
   session: SessionScreen, exercises: ExercisesScreen, exercise: ExerciseScreen, sent: SentScreen,
   profile: ProfileScreen, profileEdit: ProfileEditScreen, admin: AdminScreen, messages: MessagesScreen, thread: ThreadScreen,
   legacyWeek: LegacyRedirect, legacyStudents: LegacyRedirect, legacyTrainings: LegacyRedirect, legacyCalendar: LegacyRedirect,
+  openSlots: OpenSlotsScreen,
 };
 
 function ActingBanner({ name, onExit }) {
@@ -150,7 +152,10 @@ function CoachShell() {
     if (acting && (route.name === 'profile' || route.name === 'profileEdit')) navigate('/valmentaja/koti', { replace: true });
   }, [route.name, isAdmin, adminChecked, acting]);
 
+  // Vapaat ajat (the feature is on for the coach; never while acting): first of the extra links
+  const openSlotsOn = useOpenSlotsOn();
   const extraLinks = [
+    ...(openSlotsOn ? [{ to: '/valmentaja/vapaat', label: 'Vapaat ajat', icon: 'calendar-plus', pages: ['openSlots'] }] : []),
     { to: '/valmentaja/harjoitteet', label: state.sendsReady ? 'Harjoitteet ja videot' : 'Harjoitepankki', icon: 'book', pages: ['exercises', 'exercise'] },
     ...(state.sendsReady ? [{ to: '/valmentaja/lahetetyt', label: 'Lähetetyt', icon: 'send', pages: ['sent'] }] : []),
     ...(isAdmin ? [{ to: '/valmentaja/yllapito', label: 'Ylläpito', icon: 'shield', pages: ['admin'] }] : []),

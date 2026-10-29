@@ -33,6 +33,7 @@ import { PlanSheet } from '../shared/drills/plan.jsx';
 import { MessagesProvider, useMessages } from '../shared/messages/MessagesProvider.jsx';
 import { MessagesScreen, ThreadScreen, visibleThreads } from './MessagesScreen.jsx';
 import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } from './checkin.js';
+import { OpenSlotsSheet } from './OpenSlots.jsx';
 
 const ActionsContext = createContext(null);
 /** openMerkitse(), openSelfTraining(date?, { time?, editing?, activity?, homeworkId?, locked? }?), openMood(score?),
@@ -49,6 +50,7 @@ function NotFound() {
 }
 
 const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen, profileEdit: ProfileEditScreen, messages: MessagesScreen, thread: ThreadScreen };
+SCREENS.openSlots = OpenSlotsSheet; // Vapaat ajat
 
 /** First visit: what Koutsi is for (players took the old app for a video box). */
 function WelcomeSheet({ student }) {

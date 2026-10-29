@@ -57,7 +57,7 @@ test('a freed lesson: a coming private lesson its player cannot come to, not yet
 });
 
 test('the add form: the next row follows the last one, and what still blocks publishing', () => {
-  assert.deepEqual(firstDraftRow(NOW), { date: '2026-10-30', time: '' });
+  assert.deepEqual(firstDraftRow(NOW), { date: '2026-10-29', time: '' }, 'today, no time: nothing guessed');
   assert.deepEqual(nextDraftRow({ date: '2026-10-30', time: '17:00' }, 60, NOW), { date: '2026-10-30', time: '18:00' });
   assert.deepEqual(nextDraftRow({ date: '2026-10-30', time: '20:30' }, 90, NOW), { date: '2026-10-31', time: '20:30' }, 'not past 21:00');
   assert.deepEqual(nextDraftRow({ date: '2026-10-30', time: '' }, 60, NOW), { date: '2026-10-30', time: '' });

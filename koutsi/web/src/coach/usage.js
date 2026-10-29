@@ -109,6 +109,7 @@ export const USAGE_SECTIONS = [
       ['lisaa.ryhmat', 'Ryhmät'],
       ['lisaa.ilmoitukset', 'Ilmoitukset'],
       ['lisaa.viestit', 'Viestit'],
+      ['lisaa.vapaat', 'Vapaat ajat'],
       ['lisaa.tiedote', 'Tiedote pelaajille'],
       ['lisaa.profiili', 'Profiili'],
       ['lisaa.palaute', 'Anna palautetta'],
