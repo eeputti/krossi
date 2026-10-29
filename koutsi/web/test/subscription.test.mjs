@@ -70,9 +70,9 @@ test('a failed payment asks for a new card; an ended trial or subscription offer
   const late = planCard({ ...base, plan: 'past_due', stripeStatus: 'past_due', hasCustomer: true }, null, NOW);
   assert.deepEqual([late.tone, late.title, late.action, late.label], ['warn', 'Maksu ei mennyt läpi', 'portal', 'Päivitä maksutapa']);
   const trialOver = planCard({ ...base, plan: 'ended', trialEndsAt: '2026-10-20T12:00:00Z' }, { cents: 2900 }, NOW);
-  assert.deepEqual([trialOver.title, trialOver.text, trialOver.action], ['Kokeilu päättyi', 'Päättyi 20.10.2026. Tilaus 29 €/kk.', 'checkout']);
+  assert.deepEqual([trialOver.title, trialOver.text, trialOver.action], ['Kokeilu päättyi', 'Päättyi 20.10.2026. Pelaajille lähettäminen vaatii tilauksen (29 €/kk).', 'checkout']);
   const subOver = planCard({ ...base, plan: 'ended', stripeStatus: 'canceled', periodEnd: '2026-10-25T12:00:00Z', trialEndsAt: '2026-08-01T12:00:00Z' }, null, NOW);
-  assert.deepEqual([subOver.title, subOver.text], ['Tilaus päättyi', 'Päättyi 25.10.2026.']);
+  assert.deepEqual([subOver.title, subOver.text], ['Tilaus päättyi', 'Päättyi 25.10.2026. Pelaajille lähettäminen vaatii tilauksen.']);
 });
 
 test('demo: Anna is on the free trial; paying is for the real app', async () => {

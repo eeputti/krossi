@@ -103,7 +103,7 @@ export function planCard(status, price = null, now = new Date()) {
     const day = fmtDay(subscribed ? status.periodEnd : status.trialEndsAt);
     return {
       tone: 'warn', icon: 'clock', title: subscribed ? 'Tilaus päättyi' : 'Kokeilu päättyi',
-      text: [day ? `Päättyi ${day}.` : '', cost ? `Tilaus ${cost}.` : ''].filter(Boolean).join(' '),
+      text: [day ? `Päättyi ${day}.` : '', `Pelaajille lähettäminen vaatii tilauksen${cost ? ` (${cost})` : ''}.`].filter(Boolean).join(' '),
       action: 'checkout', label: 'Ota tilaus',
     };
   }

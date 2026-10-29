@@ -2,16 +2,36 @@
 // and one button (Stripe Checkout or Stripe's customer portal). Nothing at all for a free coach
 // (today's coaches, coach keys) or before the database has it. Back from Stripe (?tilaus=valmis /
 // ?tilaus=palasit) it reads the subscription straight from Stripe instead of waiting for the webhook.
+// PlanNotice — the one line Merkitse shows when the trial ended without a subscription (sending to
+// players is locked in the database then; planning goes on).
 import { useEffect, useState } from 'react';
 import { api } from '../api/index.js';
-import { dropQueryParam, useRoute } from '../app/router.js';
+import { dropQueryParam, navigate, useRoute } from '../app/router.js';
 import { Button, Card, Icon, useToast } from '../ui/index.js';
 import { NO_SUBSCRIPTION, planCard } from '../domain/subscription.js';
+import { useCoach } from './CoachRoot.jsx';
+import { loadPlanStatus, setPlanStatus, usePlanStatus } from './subscriptionStore.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
+export function PlanNotice({ onGo }) {
+  const { uid } = useCoach();
+  const status = usePlanStatus(uid);
+  if (status.plan !== 'ended') return null;
+  return (
+    // one child: .vs-situation is a wrapping flex row, the sentence should flow as text
+    <p className="vs-situation">
+      <span>
+        <strong>Kokeilu päättyi</strong> · Pelaajille lähettäminen vaatii tilauksen.{' '}
+        <button type="button" className="k-textlink" onClick={() => { onGo?.(); navigate('/valmentaja/profiili'); }}>Ota tilaus</button>
+      </span>
+    </p>
+  );
+}
+
 export function SubscriptionCard() {
   const toast = useToast();
+  const { uid } = useCoach();
   const { query } = useRoute();
   const [back] = useState(() => query?.tilaus || '');
   const [status, setStatus] = useState(NO_SUBSCRIPTION);
@@ -23,10 +43,11 @@ export function SubscriptionCard() {
     const show = (s) => {
       if (!alive) return;
       setStatus(s);
+      setPlanStatus(uid, s);
       if (s.plan === 'trial' || s.plan === 'ended') api.subscription.price().then((p) => { if (alive) setPrice(p); });
     };
     (async () => {
-      let s = await api.subscription.status().catch(() => NO_SUBSCRIPTION);
+      let s = await loadPlanStatus(uid);
       if (back && s.ready) {
         dropQueryParam('tilaus');
         s = await api.subscription.sync().catch(() => s);
@@ -40,7 +61,7 @@ export function SubscriptionCard() {
       show(s);
     })();
     return () => { alive = false; };
-  }, [back, toast]);
+  }, [back, toast, uid]);
 
   const card = planCard(status, price);
   if (!card) return null;
