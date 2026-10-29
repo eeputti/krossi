@@ -3,7 +3,7 @@
 // mine() answer { ready: false } and both apps keep Laskutus hidden. Row security decides who reads
 // and writes; numbering, sending, paid and void are the database's functions.
 
-import { db, isMissingFunction, isMissingTable, must, requireSession, selectIn } from './client.js';
+import { callFunction, callPublicFunction, db, isMissingFunction, isMissingTable, must, requireSession, selectIn } from './client.js';
 import { ApiError } from '../errors.js';
 import { normalizeIban } from '../../domain/billing.js';
 
@@ -23,6 +23,9 @@ export function mapBiller(r) {
     paymentDays: r.payment_days ?? 14, cancelHours: r.cancel_hours ?? 24, chargeLate: r.charge_late !== false,
     chargeNoShow: r.charge_no_show !== false, terms: r.terms || '', nextNumber: r.next_number || 1,
     prices: { groups: {}, privateHourCents: null, ...(r.prices || {}) }, payers: r.payers || {},
+    // online payment (vaihe 2): only once the database has its columns (payReady)
+    payReady: 'pay_online' in r, payOnline: r.pay_online !== false, stripeAccountId: r.stripe_account_id || null,
+    stripeChargesEnabled: r.stripe_charges_enabled === true, stripeDetailsSubmitted: r.stripe_details_submitted === true,
   };
 }
 
@@ -42,6 +45,7 @@ export function mapInvoice(r, lines = []) {
     payerName: r.payer_name || '', payerEmail: r.payer_email || '', payerAddress: r.payer_address || '',
     seller: r.seller || null, vatMode: r.vat_mode || 'none', totalCents: r.total_cents || 0, publicToken: r.public_token,
     sentAt: r.sent_at || null, paidAt: r.paid_at || null, voidedAt: r.voided_at || null, createdAt: r.created_at,
+    coachId: r.coach_id || null, checkoutSessionId: r.checkout_session_id || null, paidVia: r.paid_via || null,
     lines: lines.map(mapLine).sort((a, b) => a.sortOrder - b.sortOrder),
   };
 }
@@ -76,6 +80,7 @@ function billerRow(coachId, f) {
     next_number: Math.max(1, Math.round(Number(f.nextNumber) || 1)),
     prices: f.prices || {},
     payers: f.payers || {},
+    ...(f.payReady ? { pay_online: f.payOnline !== false } : {}),
   };
 }
 
@@ -165,7 +170,7 @@ export const billing = {
       invoices: await withLines(rows.data || []),
       terms: (terms.error ? [] : terms.data || []).map((t) => ({
         coachId: t.coach_id, sellerName: t.seller_name, cancelHours: t.cancel_hours, chargeLate: t.charge_late,
-        chargeNoShow: t.charge_no_show, terms: t.terms || '', paymentDays: t.payment_days,
+        chargeNoShow: t.charge_no_show, terms: t.terms || '', paymentDays: t.payment_days, payOnline: t.pay_online === true,
       })),
     };
   },
@@ -178,6 +183,22 @@ export const billing = {
     }
     const d = res.data;
     if (!d) return null;
-    return { ...d, lines: (d.lines || []).map((l) => ({ ...l, quantity: Number(l.quantity) || 1 })) };
+    return { ...d, payable: d.payable === true, lines: (d.lines || []).map((l) => ({ ...l, quantity: Number(l.quantity) || 1 })) };
+  },
+  // ── online payment: the koutsi-pay edge function ──
+  async connectPayments(coachId) {
+    return callFunction('koutsi-pay', { action: 'connect', coachId });
+  },
+  async paymentStatus(coachId) {
+    return callFunction('koutsi-pay', { action: 'status', coachId });
+  },
+  async syncPayments(coachId) {
+    return callFunction('koutsi-pay', { action: 'sync', coachId });
+  },
+  async payInvoice(token) {
+    return callPublicFunction('koutsi-pay', { action: 'checkout', token });
+  },
+  async confirmPayment(token, sessionId) {
+    return callPublicFunction('koutsi-pay', { action: 'verify', token, session: sessionId });
   },
 };

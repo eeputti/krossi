@@ -102,6 +102,20 @@ export async function selectAll(buildQuery) {
   }
 }
 
+/** Calls an edge function without a signed-in user (an invoice's own page): the same answers as callFunction. */
+export async function callPublicFunction(name, body) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_ANON_KEY, 'content-type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}));
+    throw new ApiError(payload.error || 'Toiminto epäonnistui. Yritä hetken päästä uudelleen.');
+  }
+  return res.json().catch(() => ({}));
+}
+
 /** Calls an edge function with the user's JWT; our functions answer `{ error: "<suomeksi>" }`. */
 export async function callFunction(name, body) {
   const session = await requireSession();

@@ -226,7 +226,19 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   `koutsi/web/sql/20261029162350_koutsi_billing.check.mjs`). Ilman sitä `ready: false` ja kaikki pysyy piilossa.
   Ominaisuus näkyy vain ylläpitäjille ja `koutsi_billing_coaches`-listan
   valmentajille (käsin; Alpo ei ole listalla). Demo: Annan kausi, hinnat ja neljä lähetettyä laskua (`api/demo/billingSeed.js`).
-  Maksu sovelluksessa (Stripe Connect) on seuraava vaihe.
+  Maksu verkossa (vaihe 2, edge function `supabase/functions/koutsi-pay`, puhtaat apurit `_shared/koutsiPay.ts` +
+  `test/koutsiPay.test.mjs`): valmentaja liittää oman Stripe-tilinsä (standard-tili: valmentaja on myyjä, Stripe
+  vähentää kulunsa valmentajan puolelta, palautukset ja riidat valmentajan omassa Stripessä, Krossi ei ota mitään eikä
+  maksa Connect-kuluja). Laskutus → Asetukset → Verkkomaksut: Ota käyttöön → Stripen käyttöönotto → takaisin
+  `?tili=valmis` (tila luetaan Stripestä) tai `?tili=uusi` (uusi linkki). Laskun sivulla ja pelaajan Laskuissa "Maksa"
+  avaa Stripe Checkoutin valmentajan tilillä (kortti, Apple/Google Pay, MobilePay ja Klarna kun valmentaja on ne
+  ottanut käyttöön); paluu `lasku/<token>?maksu=<session>` vahvistaa maksun, ja Laskutus-sivu tarkistaa kerran
+  käynnillä kesken jääneet (sync). `koutsi_invoice_paid_online` merkitsee laskun maksetuksi kerran (paid_via 'stripe')
+  ja ilmoittaa valmentajalle (kind 'invoice_paid'). Stripe-sarakkeita kirjoittaa vain funktio (sarakeoikeudet).
+  Tietokanta: ehdotus `koutsi/web/sql/20261110130000_koutsi_billing_pay.sql` — **EI AJETTU** (PGlite-testi samassa
+  kansiossa); ilman sitä `biller.payReady` on false ja verkkomaksu pysyy piilossa. Funktio julkaistaan verify_jwt pois
+  (`supabase functions deploy koutsi-pay --no-verify-jwt`); salaisuutena sama STRIPE_SECRET_KEY kuin krossi-funktioilla.
+  Demo: verkkomaksu päällä, "Maksa" merkitsee laskun maksetuksi heti ilman Stripeä.
 
 ## 5. Reitit
 

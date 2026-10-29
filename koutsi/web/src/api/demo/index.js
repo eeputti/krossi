@@ -59,6 +59,8 @@ const notAllowed = () => { throw new ApiError('Tätä ei voi tehdä demossa.', {
 const messageListeners = new Set();
 const emitMessages = (threadId) => { setTimeout(() => messageListeners.forEach((cb) => cb({ threadId })), 0); };
 
+const demoPayable = (b0) => Boolean(b0 && b0.payOnline !== false && b0.stripeChargesEnabled && b0.stripeAccountId);
+
 // Sub-records live inside their student; edits look them up by id across all of them.
 function eachList(key, fn) { S().students.forEach((s) => { s[key] = fn(s[key] || [], s); }); }
 const removeById = (key, id) => eachList(key, (list) => list.filter((x) => x.id !== id));
@@ -897,7 +899,7 @@ export const backend = {
         return {
           id, studentId: d.studentId, status: 'draft', number: null, reference: '', issueDate: null, dueDate: null,
           periodStart: d.periodStart || null, periodEnd: d.periodEnd || null, payerName: d.payerName, payerEmail: d.payerEmail || '',
-          payerAddress: '', seller: null, vatMode: b.biller.vatMode, totalCents: totalOf(lines),
+          payerAddress: '', seller: null, vatMode: b.biller.vatMode, totalCents: totalOf(lines), coachId: COACH, checkoutSessionId: null, paidVia: null,
           publicToken: `00000000-0000-4000-8000-${String(b.tokenSeq).padStart(12, '0')}`, sentAt: null, paidAt: null, voidedAt: null,
           createdAt: nowIso(), lines,
         };
@@ -966,8 +968,10 @@ export const backend = {
       await wait();
       const inv = S().billing.invoices.find((x) => x.id === invoiceId);
       if (!inv || !['sent', 'paid'].includes(inv.status)) throw new ApiError('Vain lähetetyn laskun voi merkitä maksetuksi.');
+      if (!paid && inv.paidVia === 'stripe') throw new ApiError('Lasku on maksettu verkossa. Palauta maksu Stripessä, jos se pitää perua.');
       inv.status = paid ? 'paid' : 'sent';
       inv.paidAt = paid ? inv.paidAt || nowIso() : null;
+      inv.paidVia = paid ? inv.paidVia || 'manual' : null;
     },
     async voidInvoice(invoiceId) {
       await wait();
@@ -985,7 +989,7 @@ export const backend = {
         ready: true,
         invoices: clone(b.invoices.filter((x) => x.studentId === PLAYER && (x.status === 'sent' || x.status === 'paid'))),
         terms: b.enabled && b0 ? [{ coachId: COACH, sellerName: b0.name, cancelHours: b0.cancelHours, chargeLate: b0.chargeLate,
-          chargeNoShow: b0.chargeNoShow, terms: b0.terms || '', paymentDays: b0.paymentDays }] : [],
+          chargeNoShow: b0.chargeNoShow, terms: b0.terms || '', paymentDays: b0.paymentDays, payOnline: demoPayable(b0) }] : [],
       };
     },
     async byToken(token) {
@@ -993,7 +997,37 @@ export const backend = {
       const inv = S().billing.invoices.find((x) => x.publicToken === token && ['sent', 'paid', 'void'].includes(x.status));
       if (!inv) return null;
       const { id: _id, studentId: _s, payerEmail: _e, ...rest } = clone(inv);
-      return { ...rest, lines: rest.lines.map(({ studentId: _x, invoiceId: _y, ...l }) => l) };
+      const payable = inv.status === 'sent' && inv.totalCents > 0 && demoPayable(S().billing.biller);
+      return { ...rest, payable, lines: rest.lines.map(({ studentId: _x, invoiceId: _y, ...l }) => l) };
+    },
+    // Online payment without Stripe: connecting is instant, and "Maksa" marks the invoice paid at once.
+    async connectPayments() {
+      await wait();
+      Object.assign(S().billing.biller, { payReady: true, stripeAccountId: 'acct_demo', stripeChargesEnabled: true, stripeDetailsSubmitted: true });
+      return { ready: true };
+    },
+    async paymentStatus() {
+      await wait();
+      const b0 = S().billing.biller || {};
+      return {
+        state: !b0.stripeAccountId ? 'none' : b0.stripeChargesEnabled ? 'ready' : 'pending',
+        chargesEnabled: Boolean(b0.stripeChargesEnabled), detailsSubmitted: Boolean(b0.stripeDetailsSubmitted), payOnline: b0.payOnline !== false, dueCount: 0,
+      };
+    },
+    async syncPayments() { await wait(); return { updated: 0 }; },
+    async payInvoice(token) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.publicToken === token);
+      if (!inv || !['sent', 'paid'].includes(inv.status)) throw new ApiError('Laskua ei löytynyt.');
+      if (inv.status === 'paid') return { paid: true };
+      if (!demoPayable(S().billing.biller)) throw new ApiError('Tätä laskua ei voi maksaa verkossa. Maksa tilisiirrolla laskun tiedoilla.');
+      Object.assign(inv, { status: 'paid', paidAt: nowIso(), paidVia: 'stripe', checkoutSessionId: 'cs_demo' });
+      return { paid: true };
+    },
+    async confirmPayment(token) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.publicToken === token);
+      return { paid: inv?.status === 'paid' };
     },
   },
 
