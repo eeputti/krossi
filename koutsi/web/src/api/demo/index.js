@@ -16,6 +16,7 @@ import { coachViewOfArchives } from '../../domain/archive.js';
 import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/season.js';
 import { seedMessages } from './messagesSeed.js';
 import { MESSAGE_MAX } from '../../domain/messages.js';
+import { NO_SUBSCRIPTION } from '../../domain/subscription.js';
 
 let role = 'coach';
 let state = null;
@@ -49,19 +50,22 @@ const S = () => { if (!state) state = seedMessages(previewPutki ? addPutki(seed(
 
 // Tilaus: Anna is on the free trial, 76 days left (Profiili → Tilaus). `npm run dev:koutsi` →
 // /demo/valmentaja?esikatsele=kokeilu opens the "Aloita 3 kk ilmainen kokeilu" gate first;
-// ?esikatsele=tilaus-active | tilaus-past_due | tilaus-ended show the card's other states.
+// ?esikatsele=tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free show the card's other
+// states (free = today's coaches: no card); ?esikatsele=avain = the database before the
+// migration: the coach-key page exactly as it was.
 const previewPlan = process.env.NODE_ENV !== 'production' && typeof window !== 'undefined'
   ? new URLSearchParams(window.location.search).get('esikatsele') || '' : '';
-let trialGate = previewPlan === 'kokeilu';
+let trialGate = previewPlan === 'kokeilu' || previewPlan === 'avain';
 function demoSubscription() {
+  if (previewPlan === 'avain') return { ...NO_SUBSCRIPTION };
   const day = 86400000;
   const now = Date.now();
   const iso = (ms) => new Date(ms).toISOString();
-  const plan = /^tilaus-(active|past_due|ended)$/.exec(previewPlan)?.[1] || 'trial';
+  const plan = /^tilaus-(active|past_due|ended|free)$/.exec(previewPlan)?.[1] || 'trial';
   const paying = plan === 'active' || plan === 'past_due';
   return {
     ready: true, selfServe: true, plan,
-    trialEndsAt: iso(plan === 'ended' ? now - 3 * day : now + 76 * day),
+    trialEndsAt: plan === 'free' ? null : iso(plan === 'ended' ? now - 3 * day : now + 76 * day),
     stripeStatus: paying ? plan : null,
     periodEnd: paying ? iso(now + 21 * day) : null,
     cancelAtPeriodEnd: false,
@@ -217,7 +221,7 @@ export const backend = {
   coach: {
     async fetchRow(id) { return id === COACH && !trialGate ? { id } : null; },
     async load() { await wait(); return coachViewOfArchives(hideHiddenMoods(coachState())); },
-    async redeemKey() { return { ok: true }; },
+    async redeemKey() { trialGate = false; return { ok: true }; },
     async markWelcomeSeen() { S().coach.welcomeSeenAt = nowIso(); },
     async saveProfile(coachId, patch) { await wait(); Object.assign(S().coach, patch); },
     async saveWeekNote(coachId, { year, week, score, note }) {
