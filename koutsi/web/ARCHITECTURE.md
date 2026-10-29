@@ -164,6 +164,31 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   Migraatio `supabase/migrations/20261021085606_koutsi_timeline_archive.sql` (ajettu 21.10.2026 käyttäjän
   luvalla); tietokannassa ilman taulua `archiveReady: false` ja Muokkaa/Arkisto pysyvät piilossa.
 
+- Tilaus (`domain/subscription.js`, `coach/TrialStart.jsx`, `coach/SubscriptionCard.jsx`, `api/supabase/subscription.js`):
+  uusi yksityisvalmentaja aloittaa ilman valmentaja-avainta 3 kk ilmaisella kokeilulla (ei korttia, ei muutu
+  maksulliseksi itsestään) ja voi sen jälkeen ottaa kuukausitilauksen Stripen kautta (maksu Roisku Medialle).
+  Tila: taulu `koutsi_coach_plans` (`free | trial | active | past_due | ended`) ja `koutsi_coach_plan(uuid)`
+  (myös Laskutuksen porttia varten); kokeilu päättyy itsestään (`trial_ends_at`, ei cronia). Kaikki nykyiset
+  valmentajat ja avaimella tulleet ovat `free`: ei kokeilulaskuria, ei maksupyyntöä, ei mitään uutta. Avainsivu →
+  "Aloita 3 kk ilmainen kokeilu" (`koutsi_start_trial`: valmentajarivi, kokeilu ja tilausehtojen hyväksyntä
+  samalla, versio `SUBSCRIPTION_TERMS_VERSION`; pilotin `PILOT_*_VERSION` ennallaan), avain yhden napautuksen
+  päässä; kirjautumissivun valmentajahuomautus kertoo kokeilusta. Profiili → Tilaus (olemassa oleva `k-alert`-kortti):
+  kokeilua jäljellä / tilaus voimassa / maksu ei mennyt läpi / päättyi + yksi nappi (Stripe Checkout tai asiakasportaali).
+  Kokeilun aikana otettu tilaus veloitetaan vasta kokeilun lopussa (`subscription_data.trial_end`). Stripe on omissa
+  funktioissaan: `supabase/functions/koutsi-subscription` (price / checkout / portal / sync) ja `koutsi-stripe-webhook`
+  (oma endpoint ja salaisuus, vain `metadata.product = 'koutsi_subscription'`); yhteinen logiikka
+  `_shared/koutsiPlan.js` (testit `test/subscriptionStripe.test.mjs`). Krossin `stripe-webhook` ei muutu, eikä Koutsin
+  kassa kanna kenttiä (`client_reference_id`, `metadata.supabase_user_id`), joista se avaisi Krossin maksumuurin.
+  Tilin poisto (oma ja ylläpitäjän) päättää valmentajan Stripe-tilauksen ensin (`_shared/koutsiCancel.ts`). Hinta on
+  Stripessä, ei koodissa: `node scripts/koutsi-stripe-setup.mjs --hinta X [--alku Y --alku-kpl N --alku-kk M]`
+  (omistaja ajaa). Ehdot: `koutsi-tilausehdot.html` (`/tilausehdot`) ja `koutsi-kasittelysopimus.html`
+  (`/kasittelysopimus`, valmentaja = rekisterinpitäjä, Roisku Media = käsittelijä), LUONNOKSIA. Mitä kokeilun jälkeen
+  lukitaan, on päättämättä — mitään ei lukita. Tietokanta: ehdotettu migraatio
+  `koutsi/web/sql/20261029190000_koutsi_coach_plans.sql` (PGlite-testi samassa kansiossa) — **EI AJETTU**; ilman sitä
+  `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta voi
+  pysäyttää vaihtamalla `koutsi_self_serve_open()` → `select false`. Demo: Anna on kokeilussa; kehityksessä
+  `?esikatsele=kokeilu | avain | tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free`.
+
 - Kaudet ja "Uusi kausi" (`domain/season.js`, `coach/SeasonSheet.jsx`, migraatio
   `supabase/migrations/20261025181126_koutsi_seasons.sql`, ajettu 25.10.2026 käyttäjän luvalla; uusien
   SECURITY DEFINER -funktioiden oikeudet `20261025181234_koutsi_seasons_function_grants.sql`):
@@ -192,31 +217,6 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   `koutsi/web/sql/20261109120000_koutsi_messages.sql` — **EI AJETTU**; ilman sitä `ready: false` ja kaikki pysyy
   piilossa (ominaisuuskytkin `koutsi_messages_coach_enabled`: beta + ylläpitäjät ensin). Demo: Annan aikuisten
   ryhmillä viestit päällä (`api/demo/messagesSeed.js`).
-
-- Tilaus (`domain/subscription.js`, `coach/TrialStart.jsx`, `coach/SubscriptionCard.jsx`, `api/supabase/subscription.js`):
-  uusi yksityisvalmentaja aloittaa ilman valmentaja-avainta 3 kk ilmaisella kokeilulla (ei korttia, ei muutu
-  maksulliseksi itsestään) ja voi sen jälkeen ottaa kuukausitilauksen Stripen kautta (maksu Roisku Medialle).
-  Tila: taulu `koutsi_coach_plans` (`free | trial | active | past_due | ended`) ja `koutsi_coach_plan(uuid)`
-  (myös Laskutuksen porttia varten); kokeilu päättyy itsestään (`trial_ends_at`, ei cronia). Kaikki nykyiset
-  valmentajat ja avaimella tulleet ovat `free`: ei kokeilulaskuria, ei maksupyyntöä, ei mitään uutta. Avainsivu →
-  "Aloita 3 kk ilmainen kokeilu" (`koutsi_start_trial`: valmentajarivi, kokeilu ja tilausehtojen hyväksyntä
-  samalla, versio `SUBSCRIPTION_TERMS_VERSION`; pilotin `PILOT_*_VERSION` ennallaan), avain yhden napautuksen
-  päässä; kirjautumissivun valmentajahuomautus kertoo kokeilusta. Profiili → Tilaus (olemassa oleva `k-alert`-kortti):
-  kokeilua jäljellä / tilaus voimassa / maksu ei mennyt läpi / päättyi + yksi nappi (Stripe Checkout tai asiakasportaali).
-  Kokeilun aikana otettu tilaus veloitetaan vasta kokeilun lopussa (`subscription_data.trial_end`). Stripe on omissa
-  funktioissaan: `supabase/functions/koutsi-subscription` (price / checkout / portal / sync) ja `koutsi-stripe-webhook`
-  (oma endpoint ja salaisuus, vain `metadata.product = 'koutsi_subscription'`); yhteinen logiikka
-  `_shared/koutsiPlan.js` (testit `test/subscriptionStripe.test.mjs`). Krossin `stripe-webhook` ei muutu, eikä Koutsin
-  kassa kanna kenttiä (`client_reference_id`, `metadata.supabase_user_id`), joista se avaisi Krossin maksumuurin.
-  Tilin poisto (oma ja ylläpitäjän) päättää valmentajan Stripe-tilauksen ensin (`_shared/koutsiCancel.ts`). Hinta on
-  Stripessä, ei koodissa: `node scripts/koutsi-stripe-setup.mjs --hinta X [--alku Y --alku-kpl N --alku-kk M]`
-  (omistaja ajaa). Ehdot: `koutsi-tilausehdot.html` (`/tilausehdot`) ja `koutsi-kasittelysopimus.html`
-  (`/kasittelysopimus`, valmentaja = rekisterinpitäjä, Roisku Media = käsittelijä), LUONNOKSIA. Mitä kokeilun jälkeen
-  lukitaan, on päättämättä — mitään ei lukita. Tietokanta: ehdotettu migraatio
-  `koutsi/web/sql/20261029190000_koutsi_coach_plans.sql` (PGlite-testi samassa kansiossa) — **EI AJETTU**; ilman sitä
-  `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta voi
-  pysäyttää vaihtamalla `koutsi_self_serve_open()` → `select false`. Demo: Anna on kokeilussa; kehityksessä
-  `?esikatsele=kokeilu | avain | tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free`.
 
 - Lähetetyt ja valmentajan videot (`domain/sends.js`, `coach/SentScreen.jsx`, `coach/sent.jsx`, `coach/VideosTab.jsx`,
   tyylit `styles/sent.css`): kaikki, mitä valmentaja on lähettänyt pelaajille — videot, kotiläksyt, huomiot ja

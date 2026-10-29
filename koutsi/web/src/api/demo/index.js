@@ -13,12 +13,12 @@ import {
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
+import { NO_SUBSCRIPTION } from '../../domain/subscription.js';
 import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/season.js';
 import { seedMessages } from './messagesSeed.js';
 import { seedBilling } from './billingSeed.js';
 import { addDaysStr, billedKeys, normalizeIban, referenceFor, totalOf } from '../../domain/billing.js';
 import { MESSAGE_MAX } from '../../domain/messages.js';
-import { NO_SUBSCRIPTION } from '../../domain/subscription.js';
 
 let role = 'coach';
 let state = null;
