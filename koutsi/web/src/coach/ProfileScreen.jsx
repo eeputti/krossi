@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { navigate } from '../app/router.js';
-import { Button, Card, Icon, ListRow, Page, PageHeader, Sheet, useToast } from '../ui/index.js';
+import { Button, Card, Icon, ListRow, Page, PageHeader, Sheet, Toggle, useToast } from '../ui/index.js';
+import { useBilling } from '../shared/billing/BillingProvider.jsx';
 import { AccountSection, EmailPrefs } from '../shared/account.jsx';
 import { ProfileCard } from '../shared/profileCard.jsx';
 import { useCoach } from './CoachRoot.jsx';
@@ -54,6 +55,25 @@ function SharedPlanSheet({ open, onClose }) {
   );
 }
 
+// Laskutus in Profiili: always reachable here, and "Laskutus sivupalkissa" brings it back after
+// "En tarvitse laskutusta vielä" (or takes it away).
+function BillingRows() {
+  const { ownerId } = useData();
+  const { acting } = useCoach();
+  const billing = useBilling();
+  if (acting || !billing.ready || !billing.enabled) return null;
+  const toggle = (on) => billing.run(() => api.billing.setHidden(ownerId, !on), on ? 'Laskutus palasi sivupalkkiin.' : 'Laskutus piilotettu sivupalkista.');
+  return (
+    <section className="stack-2">
+      <div className="eyebrow">Laskutus</div>
+      <div className="list-group">
+        <ListRow icon="euro" title="Laskutus" subtitle="Laskut läsnäoloista" onClick={() => navigate('/valmentaja/laskutus')} />
+        {billing.prefsReady && <Toggle label="Laskutus sivupalkissa" checked={!billing.hidden} onChange={toggle} />}
+      </div>
+    </section>
+  );
+}
+
 export function ProfileScreen() {
   const { state } = useData();
   const { uid, isAdmin } = useCoach();
@@ -68,7 +88,7 @@ export function ProfileScreen() {
       <PageHeader title="Profiili" />
       <div className="stack-6">
         <ProfileCard person={c} uid={uid} editPath="/valmentaja/profiili/muokkaa"
-          lines={[[c.tagline || 'Valmentaja', (c.tagline || '').includes(c.area) ? null : c.area].filter(Boolean).join(' · '), `${state.students.length} pelaajaa · ${state.groups.length} ryhmää`]}
+          lines={[[c.tagline || 'Valmentaja', (c.tagline || '').includes(c.area) ? null : c.area].filter(Boolean).join(', '), `${state.students.length} pelaajaa, ${state.groups.length} ryhmää`]}
           bio={c.bio} addBio="Lisää esittely pelaajillesi"
           extra={(c.experience || (c.specialties || []).length > 0) ? (
             <>
@@ -86,16 +106,16 @@ export function ProfileScreen() {
           <div className="list-group">
             {season && (
               <ListRow icon="calendar-plus" title={next ? next.name : 'Uusi kausi'}
-                subtitle={next ? `Julkaistu · alkaa ${koutsiFmtShortDate(next.startsOn)}` : draft ? `${draft.name} · luonnos` : `Pohjana ${season.name}`}
+                subtitle={next ? `Julkaistu, alkaa ${koutsiFmtShortDate(next.startsOn)}` : draft ? `${draft.name}, luonnos` : `Pohjana ${season.name}`}
                 onClick={next ? () => navigate(`/valmentaja/ryhmat?vko=${weekParam(koutsiIsoWeekOfDateStr(next.startsOn))}`) : openSeason} />
             )}
             {season && (
-              <ListRow icon="repeat" title={season.name} subtitle={`${koutsiFmtShortDate(season.startsOn)}–${koutsiFmtShortDate(season.endsOn)} · muuta ${seasonWord(season.startsOn, 'gen')} loppua`}
+              <ListRow icon="repeat" title={season.name} subtitle={`${koutsiFmtShortDate(season.startsOn)}–${koutsiFmtShortDate(season.endsOn)}, muuta ${seasonWord(season.startsOn, 'gen')} loppua`}
                 onClick={() => setSheet('season')} />
             )}
             <ListRow icon="link" title="Liittymiskoodini" subtitle={state.groups.length ? (() => {
               const t = joinedTotals(state, state.groups);
-              return `${t.joined}/${t.total} pelaajaa liittynyt · ryhmien koodit ja oma koodi`;
+              return `${t.joined}/${t.total} pelaajaa liittynyt, ryhmien koodit ja oma koodi`;
             })() : 'Oma koodisi pelaajille'} onClick={() => setSheet('codes')} />
             <ListRow icon="book" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => navigate('/valmentaja/harjoitteet')} />
             <ListRow icon="list" title="Lisää monta kerralla" subtitle="Ryhmät ja pelaajat listasta" onClick={() => setSheet('bulk')} />
@@ -103,6 +123,7 @@ export function ProfileScreen() {
             {isAdmin && <ListRow icon="shield" title="Ylläpito" subtitle="Käyttäjät, palaute, vuosisuunnitelmat" onClick={() => navigate('/valmentaja/yllapito')} />}
           </div>
         </section>
+        <BillingRows />
         <AccountSection role="coach" uid={uid} profileName={c.name} />
       </div>
       <BulkSetupSheet open={sheet === 'bulk'} onClose={() => setSheet(null)} />

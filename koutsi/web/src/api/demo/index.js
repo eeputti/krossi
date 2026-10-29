@@ -47,7 +47,15 @@ function addPutki(s) {
   }));
   return s;
 }
-const S = () => { if (!state) state = seedBilling(previewPutki ? addPutki(seed()) : seed()); return state; };
+// `npm run dev:koutsi` → /demo/valmentaja/laskutus?esikatsele=laskutus: Laskutus before the first setup
+// (the start view with "Aloita" and "En tarvitse laskutusta vielä").
+const previewBillingStart = process.env.NODE_ENV !== 'production'
+  && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('esikatsele') === 'laskutus';
+function withoutBiller(s) {
+  if (previewBillingStart) Object.assign(s.billing, { biller: null, invoices: [] });
+  return s;
+}
+const S = () => { if (!state) state = withoutBiller(seedBilling(previewPutki ? addPutki(seed()) : seed())); return state; };
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const wait = () => new Promise((r) => setTimeout(r, latencyMs));
 const nowIso = () => new Date().toISOString();
@@ -58,6 +66,7 @@ const demoCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ
 const notAllowed = () => { throw new ApiError('Tätä ei voi tehdä demossa.', { code: 'demo' }); };
 
 const demoPayable = (b0) => Boolean(b0 && b0.payOnline !== false && b0.stripeChargesEnabled && b0.stripeAccountId);
+const demoLogos = new Map();
 
 // Sub-records live inside their student; edits look them up by id across all of them.
 function eachList(key, fn) { S().students.forEach((s) => { s[key] = fn(s[key] || [], s); }); }
@@ -826,14 +835,17 @@ export const backend = {
     async overview() {
       await wait();
       const b = S().billing;
-      return { ready: true, enabled: Boolean(b.enabled), biller: clone(b.biller), invoices: clone(b.invoices), memberships: [] };
+      return { ready: true, enabled: Boolean(b.enabled), hidden: Boolean(b.hidden), prefsReady: true, biller: clone(b.biller), invoices: clone(b.invoices), memberships: [] };
     },
     async saveBiller(coachId, fields) {
       await wait();
       const name = String(fields.name || '').trim();
       if (!name) throw new ApiError('Kirjoita laskuttajan nimi.');
       const b = S().billing;
-      b.biller = { ...(b.biller || {}), ...clone(fields), name, iban: normalizeIban(fields.iban), coachId: COACH, id: b.biller?.id || 'demo-biller' };
+      b.biller = {
+        payReady: true, mailReady: true, payOnline: true, stripeAccountId: null, stripeChargesEnabled: false, stripeDetailsSubmitted: false,
+        ...(b.biller || {}), ...clone(fields), name, iban: normalizeIban(fields.iban), coachId: COACH, id: b.biller?.id || 'demo-biller',
+      };
       return clone(b.biller);
     },
     async createDrafts(coachId, drafts) {
@@ -857,6 +869,7 @@ export const backend = {
           id, studentId: d.studentId, status: 'draft', number: null, reference: '', issueDate: null, dueDate: null,
           periodStart: d.periodStart || null, periodEnd: d.periodEnd || null, payerName: d.payerName, payerEmail: d.payerEmail || '',
           payerAddress: '', seller: null, vatMode: b.biller.vatMode, totalCents: totalOf(lines), coachId: COACH, checkoutSessionId: null, paidVia: null,
+          note: '', mailedAt: null, mailTo: '', remindedAt: null,
           publicToken: `00000000-0000-4000-8000-${String(b.tokenSeq).padStart(12, '0')}`, sentAt: null, paidAt: null, voidedAt: null,
           createdAt: nowIso(), lines,
         };
@@ -864,13 +877,30 @@ export const backend = {
       b.invoices = [...made, ...b.invoices];
       return made.map((x) => x.id);
     },
-    async updateDraft(invoiceId, { payerName, payerEmail }) {
+    async updateDraft(invoiceId, { payerName, payerEmail, note }) {
       await wait();
       const inv = S().billing.invoices.find((x) => x.id === invoiceId && x.status === 'draft');
       if (!inv) throw new ApiError('Lasku on jo lähetetty tai poistettu. Päivitä näkymä.');
-      const name = String(payerName || '').trim();
-      if (!name) throw new ApiError('Kirjoita maksajan nimi.');
-      Object.assign(inv, { payerName: name, payerEmail: String(payerEmail || '').trim() });
+      if (payerName !== undefined) {
+        const name = String(payerName || '').trim();
+        if (!name) throw new ApiError('Kirjoita maksajan nimi.');
+        Object.assign(inv, { payerName: name, payerEmail: String(payerEmail || '').trim() });
+      }
+      if (note !== undefined) {
+        const msg = String(note || '').trim();
+        if (msg.length > 500) throw new ApiError('Viesti on liian pitkä (enintään 500 merkkiä).');
+        inv.note = msg;
+      }
+    },
+    async updateLine(lineId, { description, amountCents }) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.lines.some((l) => l.id === lineId));
+      if (!inv || inv.status !== 'draft') throw new ApiError('Lähetetyn laskun rivejä ei voi muuttaa.');
+      const desc = String(description || '').trim();
+      if (!desc) throw new ApiError('Kirjoita rivin selite.');
+      if (!(amountCents >= 0)) throw new ApiError('Tarkista summa.');
+      inv.lines = inv.lines.map((l) => (l.id === lineId ? { ...l, description: desc, unitCents: amountCents, amountCents, quantity: 1 } : l));
+      inv.totalCents = totalOf(inv.lines);
     },
     async setLineCharged(lineId, charged) {
       await wait();
@@ -909,14 +939,14 @@ export const backend = {
       if (list.some((inv) => !inv || inv.status !== 'draft')) throw new ApiError('Lasku on jo lähetetty.');
       if (list.some((inv) => totalOf(inv.lines) <= 0)) throw new ApiError('Laskulla ei ole mitään veloitettavaa.');
       const today = koutsiTodayStr();
-      const { name, businessId, address, email, phone, iban, bic } = b.biller;
+      const { name, businessId, address, email, phone, iban, bic, logoPath } = b.biller;
       return list.map((inv) => {
         let number = b.biller.nextNumber || 1;
         while (b.invoices.some((x) => x.number === number)) number += 1;
         b.biller.nextNumber = number + 1;
         Object.assign(inv, {
           status: 'sent', number, reference: referenceFor(number), issueDate: today, dueDate: addDaysStr(today, b.biller.paymentDays || 0),
-          seller: { name, businessId, address, email, phone, iban, bic }, vatMode: b.biller.vatMode, totalCents: totalOf(inv.lines), sentAt: nowIso(),
+          seller: { name, businessId, address, email, phone, iban, bic, logoPath }, vatMode: b.biller.vatMode, totalCents: totalOf(inv.lines), sentAt: nowIso(),
         });
         return { id: inv.id, number, reference: inv.reference, dueDate: inv.dueDate };
       });
@@ -946,7 +976,7 @@ export const backend = {
         ready: true,
         invoices: clone(b.invoices.filter((x) => x.studentId === PLAYER && (x.status === 'sent' || x.status === 'paid'))),
         terms: b.enabled && b0 ? [{ coachId: COACH, sellerName: b0.name, cancelHours: b0.cancelHours, chargeLate: b0.chargeLate,
-          chargeNoShow: b0.chargeNoShow, terms: b0.terms || '', paymentDays: b0.paymentDays, payOnline: demoPayable(b0) }] : [],
+          chargeNoShow: b0.chargeNoShow, terms: b0.terms || '', paymentDays: b0.paymentDays, payOnline: demoPayable(b0), klarna: demoPayable(b0) }] : [],
       };
     },
     async byToken(token) {
@@ -955,7 +985,7 @@ export const backend = {
       if (!inv) return null;
       const { id: _id, studentId: _s, payerEmail: _e, ...rest } = clone(inv);
       const payable = inv.status === 'sent' && inv.totalCents > 0 && demoPayable(S().billing.biller);
-      return { ...rest, payable, lines: rest.lines.map(({ studentId: _x, invoiceId: _y, ...l }) => l) };
+      return { ...rest, payable, klarna: payable, lines: rest.lines.map(({ studentId: _x, invoiceId: _y, ...l }) => l) };
     },
     // Online payment without Stripe: connecting is instant, and "Maksa" marks the invoice paid at once.
     async connectPayments() {
@@ -985,6 +1015,44 @@ export const backend = {
       await wait();
       const inv = S().billing.invoices.find((x) => x.publicToken === token);
       return { paid: inv?.status === 'paid' };
+    },
+    async paymentsDashboard() { await wait(); throw new ApiError('Demossa ei ole Stripe-tiliä.'); },
+    // vaihe 3 without servers: the logo lives in this page's memory, "Lataa PDF" prints, e-mails are only marked
+    async setHidden(coachId, hidden) { await wait(); S().billing.hidden = Boolean(hidden); },
+    async uploadLogo(coachId, blob) {
+      await wait();
+      const path = `demo/logo-${demoLogos.size + 1}`;
+      demoLogos.set(path, typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(blob) : '');
+      S().billing.biller.logoPath = path;
+      return path;
+    },
+    async removeLogo() { await wait(); S().billing.biller.logoPath = null; },
+    logoUrl(path) { return (path && demoLogos.get(path)) || null; },
+    pdfUrl() { return null; },
+    async mailInvoices(ids, { to = null } = {}) {
+      await wait();
+      const sent = [];
+      const skipped = [];
+      // like koutsi-invoice: the address given, the payer's, else the player's own (not shown: to null)
+      const hasAccount = (inv) => Boolean(S().students.find((st) => st.id === inv.studentId && !st.isPlaceholder));
+      for (const id of ids || []) {
+        const inv = S().billing.invoices.find((x) => x.id === id);
+        if (!inv || inv.status !== 'sent') { skipped.push({ id, reason: 'not_open' }); continue; }
+        const address = (ids.length === 1 && to) || inv.payerEmail || null;
+        if (!address && !hasAccount(inv)) { skipped.push({ id, reason: 'no_email' }); continue; }
+        Object.assign(inv, { mailedAt: nowIso(), mailTo: address });
+        sent.push({ id, to: address });
+      }
+      return { sent, skipped };
+    },
+    async remindInvoice(id) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.id === id);
+      if (!inv || inv.status !== 'sent') throw new ApiError('Muistutuksen voi lähettää vain avoimesta laskusta.');
+      if (inv.remindedAt && Date.now() - Date.parse(inv.remindedAt) < 20 * 3600 * 1000) return { notified: false, mailed: false, tooSoon: true };
+      inv.remindedAt = nowIso();
+      const own = Boolean(S().students.find((st) => st.id === inv.studentId && !st.isPlaceholder));
+      return { notified: true, mailed: Boolean(inv.payerEmail) || own, to: inv.payerEmail || null };
     },
   },
 

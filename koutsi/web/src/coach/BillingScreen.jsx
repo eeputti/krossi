@@ -1,34 +1,51 @@
 // BillingScreen — Laskutus (/valmentaja/laskutus): one button to bill ("Laskuta"), then the
 // invoices: drafts (Lähetä kaikki), open ones (overdue first) and paid ones. The gear opens the
-// settings. Before the first invoice: "Aloita" walks through Laskuttaja → Hinnat.
+// settings. Before the first invoice: "Aloita" walks through Laskuttaja → Hinnat, and "En tarvitse
+// laskutusta vielä" takes Laskutus out of the side nav (Profiili brings it back).
 // Shown only while Laskutus is on for the coach (useBilling().enabled); ?lasku=<id> opens one invoice.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { dropQueryParam, useRoute } from '../app/router.js';
-import { Button, Chip, EmptyState, IconButton, Page, PageHeader, Section, SkeletonList, useConfirm, useToast } from '../ui/index.js';
+import { dropQueryParam, navigate, useRoute } from '../app/router.js';
+import { Avatar, Button, Chip, EmptyState, IconButton, Page, PageHeader, Section, SkeletonList, useConfirm, useToast } from '../ui/index.js';
 import { koutsiTodayStr } from '../domain/core.js';
-import { INVOICE_STATES, countsLine, euros, fiDate, invoiceState, lineCounts, totalOf } from '../domain/billing.js';
+import { INVOICE_STATES, countsLine, euros, fiDate, invoiceGroups, invoiceState, lineCounts, totalOf } from '../domain/billing.js';
 import { useBilling } from '../shared/billing/BillingProvider.jsx';
-import { BillerSheet, InvoiceSheet, NewBillingSheet, PaymentsSheet, PricesSheet, SettingsSheet, TermsSheet } from './BillingSheets.jsx';
+import {
+  BillerSheet, DeliveryLine, InvoiceSheet, NewBillingSheet, PaymentsSheet, PricesSheet, SettingsSheet, TermsSheet, deliverySummary,
+  mailReadyOf, sendAndMail, sentLine,
+} from './BillingSheets.jsx';
 import { track } from './usage.js';
 
 const PAID_SHOWN = 10;
 
-function InvoiceRow({ inv, name, today, onOpen }) {
+/**
+ * One invoice as a card: who it is for (photo, name, group), the sum, where it goes (e-mail, the
+ * player's Koutsi, or a warning) and what is billed or its number and due date. Big sums, so all of
+ * it shows before anything is sent.
+ */
+function InvoiceCard({ inv, student, groups, today, onOpen }) {
   const st = invoiceState(inv, today);
   const draft = inv.status === 'draft';
-  const sub = draft
-    ? countsLine(lineCounts(inv.lines.filter((l) => l.charged)))
-    : `Nro ${inv.number} · ${st === 'maksettu' ? (inv.paidVia === 'stripe' ? 'maksettu verkossa' : 'maksettu') : `eräpäivä ${fiDate(inv.dueDate)}`}`;
+  const name = student?.name || inv.payerName;
+  const counts = countsLine(lineCounts(inv.lines.filter((l) => l.charged)));
+  const what = draft
+    ? counts.charAt(0).toUpperCase() + counts.slice(1)
+    : st === 'maksettu' ? `Nro ${inv.number}, maksettu${inv.paidVia === 'stripe' ? ' verkossa' : ''}`
+      : `Nro ${inv.number}, eräpäivä ${fiDate(inv.dueDate)}`;
   return (
-    <button type="button" className="k-row bill-row" onClick={() => onOpen(inv.id)}>
-      <span className="k-row-main">
-        <span className="k-row-title truncate">{name}</span>
-        <span className="k-row-sub truncate">{sub}</span>
+    <button type="button" className="k-row bill-card" onClick={() => onOpen(inv.id)}>
+      <span className="bill-card-head">
+        <Avatar person={student} name={name} src={student?.avatarUrl} size={42} />
+        <span className="k-row-main">
+          <span className="k-row-title truncate">{name}</span>
+          {groups && <span className="k-row-sub truncate">{groups}</span>}
+        </span>
+        <span className="bill-card-amount t-num">{euros(draft ? totalOf(inv.lines) : inv.totalCents)}</span>
       </span>
-      <span className="bill-row-end">
-        <span className="bill-amount t-num">{euros(draft ? totalOf(inv.lines) : inv.totalCents)}</span>
+      {st !== 'maksettu' && <DeliveryLine inv={inv} student={student} />}
+      <span className="bill-card-foot">
+        <span className="truncate">{what}</span>
         {(st === 'myohassa' || st === 'avoin') && <Chip size="sm" tone={INVOICE_STATES[st].tone}>{INVOICE_STATES[st].label}</Chip>}
       </span>
     </button>
@@ -92,16 +109,31 @@ export function BillingScreen() {
     }).catch(() => {});
   }, [billing.ready, billing.invoices, billing.biller]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const nameOf = (inv) => state.students.find((s) => s.id === inv.studentId)?.name || inv.payerName;
+  const studentOf = (inv) => state.students.find((s) => s.id === inv.studentId) || null;
+  const card = (x) => (
+    <InvoiceCard key={x.id} inv={x} student={studentOf(x)} groups={invoiceGroups(x, state.groups)} today={today} onOpen={openInvoice} />
+  );
   const openInvoice = (id) => { track('laskutus.avaa'); setOpenId(id); };
   const closeInvoice = () => { setOpenId(null); if (route.query.lasku) dropQueryParam('lasku'); };
   const sendAll = async () => {
     const n = lists.drafts.length;
     const sum = lists.drafts.reduce((s, x) => s + totalOf(x.lines), 0);
-    if (sending || !(await confirm({ title: `Lähetetäänkö ${n} ${n === 1 ? 'lasku' : 'laskua'}?`, message: `Yhteensä ${euros(sum)}.`, confirmLabel: 'Lähetä' }))) return;
+    const message = `Yhteensä ${euros(sum)}. ${deliverySummary(lists.drafts, studentOf)}`.trim();
+    if (sending || !(await confirm({ title: `Lähetetäänkö ${n} ${n === 1 ? 'lasku' : 'laskua'}?`, message, confirmLabel: 'Lähetä' }))) return;
     setSending(true);
-    await billing.run(() => api.billing.send(lists.drafts.map((x) => x.id)), `${n} ${n === 1 ? 'lasku' : 'laskua'} lähetetty.`);
+    const ids = lists.drafts.map((x) => x.id);
+    const res = await billing.run(() => sendAndMail(ids, mailReadyOf(billing)));
     setSending(false);
+    if (!res.ok) return;
+    if (res.result?.mailError) toast(`Laskut lähetetty, mutta sähköposti ei lähtenyt: ${res.result.mailError.userMessage || res.result.mailError.message}`, { tone: 'info', duration: 6000 });
+    else toast(sentLine(n, res.result?.mailed));
+  };
+  // "En tarvitse laskutusta vielä": out of the side nav and Lisää, back from Profiili
+  const notYet = async () => {
+    const res = await billing.run(() => api.billing.setHidden(ownerId, true));
+    if (!res.ok) return;
+    toast('Laskutus piilotettu. Saat sen takaisin Profiilista.');
+    navigate('/valmentaja/koti');
   };
 
   const sheets = (
@@ -126,8 +158,15 @@ export function BillingScreen() {
     return (
       <Page className="stack-5">
         <PageHeader title="Laskutus" />
-        <EmptyState art="court" title="Laskut suoraan läsnäoloista"
-          action={<Button variant="lime" size="lg" onClick={() => { track('laskutus.aloita'); setSheet('laskuttaja'); }}>Aloita</Button>} />
+        <EmptyState art="money" title="Laskut suoraan läsnäoloista"
+          action={(
+            <div className="bill-start-actions">
+              <Button variant="lime" size="lg" onClick={() => { track('laskutus.aloita'); setSheet('laskuttaja'); }}>Aloita</Button>
+              {billing.prefsReady && !billing.hidden && (
+                <button type="button" className="k-textlink" onClick={() => { track('laskutus.ei-viela'); notYet(); }}>En tarvitse laskutusta vielä</button>
+              )}
+            </div>
+          )} />
         {sheets}
       </Page>
     );
@@ -151,17 +190,17 @@ export function BillingScreen() {
 
       {lists.drafts.length > 0 && (
         <Section title="Luonnokset" action={{ label: sending ? 'Lähetetään…' : 'Lähetä kaikki', onClick: sendAll }}>
-          <div className="k-list">{lists.drafts.map((x) => <InvoiceRow key={x.id} inv={x} name={nameOf(x)} today={today} onOpen={openInvoice} />)}</div>
+          <div className="k-list">{lists.drafts.map(card)}</div>
         </Section>
       )}
       {lists.open.length > 0 && (
         <Section title="Avoimet">
-          <div className="k-list">{lists.open.map((x) => <InvoiceRow key={x.id} inv={x} name={nameOf(x)} today={today} onOpen={openInvoice} />)}</div>
+          <div className="k-list">{lists.open.map(card)}</div>
         </Section>
       )}
       {lists.paid.length > 0 && (
         <Section title="Maksetut">
-          <div className="k-list">{paidShown.map((x) => <InvoiceRow key={x.id} inv={x} name={nameOf(x)} today={today} onOpen={openInvoice} />)}</div>
+          <div className="k-list">{paidShown.map(card)}</div>
           {lists.paid.length > PAID_SHOWN && !showAllPaid && (
             <button type="button" className="k-textlink bill-more" onClick={() => setShowAllPaid(true)}>Näytä kaikki ({lists.paid.length})</button>
           )}

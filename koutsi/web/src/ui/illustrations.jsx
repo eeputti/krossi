@@ -248,8 +248,30 @@ function Wave() {
   );
 }
 
+// Laskutus: a tennis ball minted as a euro coin, flying in past a stack of coins.
+function MoneyArt() {
+  const cx = 118;
+  const cy = 70;
+  const r = 28;
+  const e = 12; // the € sign's radius
+  const a = round(e * 0.707);
+  return (
+    <>
+      <rect x="48" y="98" width="44" height="11" rx="5.5" fill={INK} />
+      <rect x="53" y="87" width="44" height="11" rx="5.5" fill={INK} />
+      <rect x="48" y="76" width="44" height="11" rx="5.5" fill={INK} />
+      <path d="M57 81.5h26M62 92.5h26M57 103.5h26" stroke={ON_INK} strokeWidth="2" />
+      <path d="M62 50h16M56 60h14M66 40h10" stroke={INK} strokeWidth="4" />
+      <circle cx={cx} cy={cy} r={r} fill={LIME} />
+      <path d={`M${round(cx + 3 + a)} ${round(cy - a)}A${e} ${e} 0 1 0 ${round(cx + 3 + a)} ${round(cy + a)}`} stroke={ON_LIME} strokeWidth="4.5" />
+      <path d={`M${cx - 13} ${cy - 4}h15M${cx - 13} ${cy + 4}h15`} stroke={ON_LIME} strokeWidth="3.5" />
+    </>
+  );
+}
+
 const ART = {
   court: Court,
+  money: MoneyArt,
   ball: BallArt,
   chat: Chat,
   players: Players,
@@ -302,6 +324,7 @@ export function Illustration({ name, size = 168, className }) {
 // What each piece is meant for — shown only in the QA gallery below.
 const USAGE = {
   court: 'Ei vielä pelejä',
+  money: 'Laskutus',
   ball: 'Lataus / yleinen',
   chat: 'Ei viestejä',
   players: 'Ei pelaajia',

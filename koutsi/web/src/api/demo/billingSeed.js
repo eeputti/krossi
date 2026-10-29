@@ -12,6 +12,7 @@ export const DEMO_BILLER = {
   cancelHours: 24, chargeLate: true, chargeNoShow: true, terms: '', nextNumber: 1,
   // online payment is on in the demo: "Maksa" marks the invoice paid at once (no Stripe)
   payReady: true, payOnline: true, stripeAccountId: 'acct_demo', stripeChargesEnabled: true, stripeDetailsSubmitted: true,
+  mailReady: true, logoPath: null,
   prices: {
     groups: {
       'demo-g-ma-jun': { mode: 'kausi', cents: 24000 },
@@ -58,10 +59,11 @@ export function seedBilling(s) {
       payerName: d.payerName, payerEmail: d.payerEmail || '', payerAddress: '', seller, vatMode: biller.vatMode,
       totalCents: totalOf(lines), publicToken: token(number), sentAt: `${issued}T09:00:00.000Z`,
       coachId: COACH, checkoutSessionId: null, paidVia: paid ? (d.studentId === 'demo-s-aleksi' ? 'stripe' : 'manual') : null,
+      note: '', mailedAt: d.payerEmail ? `${issued}T09:00:30.000Z` : null, mailTo: d.payerEmail || '', remindedAt: null,
       paidAt: paid ? `${addDaysStr(issued, 3)}T12:00:00.000Z` : null, voidedAt: null, createdAt: `${issued}T08:55:00.000Z`, lines,
     };
   }).reverse();
   biller.nextNumber = drafts.length + 1;
-  s.billing = { enabled: true, biller, invoices, tokenSeq: 100 };
+  s.billing = { enabled: true, hidden: false, biller, invoices, tokenSeq: 100 };
   return s;
 }
