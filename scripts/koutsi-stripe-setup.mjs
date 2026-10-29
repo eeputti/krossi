@@ -220,7 +220,8 @@ Seuraavaksi (vain jos et ole jo tehnyt):
   supabase functions deploy koutsi-subscription --project-ref ${PROJECT_REF}
   supabase functions deploy koutsi-stripe-webhook --no-verify-jwt --project-ref ${PROJECT_REF}
 Stripessä käsin (Settings): Customer emails → kuitit ja laskut päälle; Billing → Subscriptions →
-epäonnistuneiden maksujen uusintayritykset ja niiden jälkeen "cancel subscription".
+epäonnistuneiden maksujen uusintayritykset ja niiden jälkeen "cancel subscription"; Billing → Invoice
+template → alatunniste "Ei arvonlisäverovelvollinen (AVL 3 §)" niin kauan kuin Roisku Media ei ole alv-rekisterissä.
 
 🎾 Valmis${mode === 'live' ? ' — Koutsin tilaus on nyt oikeasti maksettavissa' : ' (testitila: kortti 4242 4242 4242 4242)'}.
 `);
