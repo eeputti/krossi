@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { FAVOURITE_SHOTS, PLAYS_HAND, parseStartYear, tennisFacts } from '../src/domain/tennisProfile.js';
+import { FAVOURITE_SHOTS, PLAYS_HAND, TENNIS_STORY_MAX, mergeTennisDraft, parseStartYear, tennisDraftOf, tennisFacts } from '../src/domain/tennisProfile.js';
 
 test('facts: hand, shot and start year in that order, empty ones skipped', () => {
   assert.deepEqual(tennisFacts({ playsHand: 'vasen', favouriteShot: 'rysty', playingSince: 2012 }),
@@ -27,4 +27,21 @@ test('the values are exactly the ones the migration allows', async () => {
   for (const { value } of [...PLAYS_HAND, ...FAVOURITE_SHOTS]) assert.ok(sql.includes(`'${value}'`), value);
   const shots = sql.match(/favourite_shot in\s*\(([^)]*)\)/)[1].match(/'[^']+'/g);
   assert.equal(shots.length, FAVOURITE_SHOTS.length);
+});
+
+test('waiting draft: keeps only known, non-empty values', () => {
+  assert.equal(tennisDraftOf(null), null);
+  assert.equal(tennisDraftOf({ playsHand: '', favouriteShot: '', playingSince: null, tennisStory: '  ' }), null);
+  assert.deepEqual(tennisDraftOf({ playsHand: 'vasen', favouriteShot: 'smash', playingSince: 2015, tennisStory: ' Junnuna seurassa. ' }),
+    { playsHand: 'vasen', favouriteShot: 'smash', playingSince: 2015, tennisStory: 'Junnuna seurassa.' });
+  assert.deepEqual(tennisDraftOf({ playsHand: 'molemmat', favouriteShot: 'kaikki', playingSince: NaN, tennisStory: 'x'.repeat(400) }),
+    { tennisStory: 'x'.repeat(TENNIS_STORY_MAX) });
+});
+
+test('waiting draft onto the row: the draft wins, its empty fields keep the row', () => {
+  const row = { playsHand: 'oikea', favouriteShot: 'forehand', playingSince: 2010, tennisStory: 'Vanha' };
+  assert.deepEqual(mergeTennisDraft(row, { favouriteShot: 'rysty' }),
+    { playsHand: 'oikea', favouriteShot: 'rysty', playingSince: 2010, tennisStory: 'Vanha' });
+  assert.deepEqual(mergeTennisDraft(null, { playsHand: 'vasen', tennisStory: 'Uusi' }),
+    { playsHand: 'vasen', favouriteShot: '', playingSince: null, tennisStory: 'Uusi' });
 });

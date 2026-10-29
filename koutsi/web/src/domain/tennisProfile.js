@@ -40,3 +40,30 @@ export function tennisFacts(student) {
     student.playingSince ? `Pelannut vuodesta ${student.playingSince}` : null,
   ].filter(Boolean);
 }
+
+// Before the first group there is no player row for the tennis card, so the card filled in while
+// waiting stays on the account (auth user metadata, this key) and moves onto the row on joining.
+export const TENNIS_DRAFT_KEY = 'koutsi_tennis_draft';
+
+/** The tennis card as a clean draft: only known, non-empty values; null when nothing is set. */
+export function tennisDraftOf(x) {
+  if (!x || typeof x !== 'object') return null;
+  const d = {};
+  if (PLAYS_HAND.some((h) => h.value === x.playsHand)) d.playsHand = x.playsHand;
+  if (FAVOURITE_SHOTS.some((s) => s.value === x.favouriteShot)) d.favouriteShot = x.favouriteShot;
+  if (Number.isInteger(x.playingSince) && x.playingSince >= FIRST_YEAR) d.playingSince = x.playingSince;
+  const story = String(x.tennisStory || '').trim().slice(0, TENNIS_STORY_MAX);
+  if (story) d.tennisStory = story;
+  return Object.keys(d).length ? d : null;
+}
+
+/** The row's card with the draft laid over it: what the player wrote while waiting wins, an empty draft field keeps the row's value. */
+export function mergeTennisDraft(row, draft) {
+  const d = tennisDraftOf(draft) || {};
+  return {
+    playsHand: d.playsHand || row?.playsHand || '',
+    favouriteShot: d.favouriteShot || row?.favouriteShot || '',
+    playingSince: d.playingSince ?? row?.playingSince ?? null,
+    tennisStory: d.tennisStory || row?.tennisStory || '',
+  };
+}

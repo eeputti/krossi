@@ -5,10 +5,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/index.js';
 import { useSession } from '../app/session.jsx';
-import { AuthScreen, GateError, KoutsiWordmark, OnboardingScreen, PilotGate, SetPasswordScreen, Splash } from '../shared/gates.jsx';
+import { AuthScreen, GateError, KoutsiWordmark, PilotGate, SetPasswordScreen, Splash } from '../shared/gates.jsx';
 import { ShareTextButton } from '../shared/bits.jsx';
+import { TENNIS_DRAFT_KEY } from '../domain/tennisProfile.js';
 import { Button, Field, Icon, Input } from '../ui/index.js';
 import { PlayerApp } from './PlayerApp.jsx';
+import { PlayerOnboarding } from './PlayerOnboarding.jsx';
+import { WaitingProfileSheet } from './WaitingProfileSheet.jsx';
 
 /**
  * Redeems a coach's code. A personal link (?oppilas=) claims that exact placeholder. A shared
@@ -110,7 +113,10 @@ export function JoinCodeForm({ onJoined, autoFocus, inline = false, initialCode 
 const ASK_CODE_MESSAGE = 'Hei! Tein tilin Koutsiin (koutsi.krossi.app). Lähetätkö minulle liittymislinkin, niin pääsen mukaan ryhmään?';
 
 function InviteCodeScreen({ onJoined }) {
-  const { signOut } = useSession();
+  const { signOut, user } = useSession();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const filled = saved || Boolean(user?.user_metadata?.[TENNIS_DRAFT_KEY]);
   return (
     <div className="k-center-page">
       <div className="k-gate-card">
@@ -120,12 +126,17 @@ function InviteCodeScreen({ onJoined }) {
         <JoinCodeForm onJoined={onJoined} autoFocus />
         <div className="k-gate-note k-gate-note-ask">
           <strong>Eikö sinulla ole vielä koodia?</strong>
-          <p>Ei hätää — tilisi on valmis. Voit sulkea sivun. Kun saat valmentajalta linkin, avaa se, niin koodi täyttyy itsestään ja pääset mukaan.</p>
-          <ShareTextButton text={ASK_CODE_MESSAGE} title="Koutsin liittymislinkki" label="Pyydä koodi valmentajalta" variant="outline" size="md" icon="send" block />
+          <p>Ei hätää — tilisi on valmis. Voit täydentää profiiliasi odottaessa tai sulkea sivun. Kun saat valmentajalta linkin, avaa se, niin koodi täyttyy itsestään ja pääset mukaan.</p>
+          {saved && <p className="k-gate-saved" role="status"><Icon name="check-circle" size={16} />Profiili tallennettu. Valmentajasi näkee sen, kun liityt ryhmään.</p>}
+          <div className="k-gate-note-actions">
+            <ShareTextButton text={ASK_CODE_MESSAGE} title="Koutsin liittymislinkki" label="Pyydä koodi valmentajalta" variant="outline" size="md" icon="send" block />
+            <Button variant="outline" size="md" icon="user" block onClick={() => setProfileOpen(true)}>{filled ? 'Muokkaa profiiliasi' : 'Täydennä profiiliasi'}</Button>
+          </div>
         </div>
         <p className="k-fine">Alle 18-vuotiaana pyydä valmentajalta juuri sinulle tehty henkilökohtainen linkki. Alle 13-vuotias tarvitsee lisäksi huoltajan hyväksynnän.</p>
         <Button variant="ghost" block onClick={signOut}>Kirjaudu ulos</Button>
       </div>
+      <WaitingProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} onSaved={(filled) => { setSaved(filled); setProfileOpen(false); }} />
     </div>
   );
 }
@@ -152,7 +163,13 @@ export function PlayerRoot() {
   const check = useCallback(async () => {
     if (!uid) return;
     setRowError(null);
-    try { setRow((await api.player.fetchRow(uid)) || null); } catch (err) { setRowError(err); }
+    try {
+      const found = (await api.player.fetchRow(uid)) || null;
+      // the tennis card filled in while waiting for a code moves onto the new row before the app
+      // loads; a failure leaves it on the account for the next start
+      if (found) await api.player.applyTennisDraft(uid).catch(() => {});
+      setRow(found);
+    } catch (err) { setRowError(err); }
   }, [uid]);
 
   useEffect(() => {
@@ -180,7 +197,7 @@ export function PlayerRoot() {
   if (session.recoveryMode && session.session) return <SetPasswordScreen />;
   if (!session.session) return <AuthScreen role="player" />;
   if (session.profileError) return <GateError message="Profiilitietojasi ei saatu haettua. Tarkista verkkoyhteys ja yritä uudelleen." onRetry={session.retryProfile} onSignOut={session.signOut} />;
-  if (session.needsOnboarding) return <OnboardingScreen role="player" />;
+  if (session.needsOnboarding) return <PlayerOnboarding />;
   if (rowError) return <GateError error={rowError} onRetry={check} onSignOut={session.signOut} />;
   if (row === undefined) return <Splash />;
   if (!row) return <InviteCodeScreen onJoined={check} />;

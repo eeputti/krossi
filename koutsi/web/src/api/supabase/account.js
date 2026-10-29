@@ -4,6 +4,7 @@
 import { db, must, requireSession, callFunction } from './client.js';
 import { avatarUrl } from './map.js';
 import { PILOT_TERMS_VERSION, PILOT_PRIVACY_VERSION } from '../../lib/constants.js';
+import { TENNIS_DRAFT_KEY, tennisDraftOf } from '../../domain/tennisProfile.js';
 
 export const auth = {
   async getSession() {
@@ -110,6 +111,20 @@ export const account = {
     if ('bio' in fields) patch.bio = fields.bio || null;
     if ('area' in fields && fields.area) patch.area = fields.area;
     if (Object.keys(patch).length) must(await db().from('profiles').update(patch).eq('id', uid));
+  },
+  /**
+   * A player with no group yet (no koutsi_students row): the profile's own words and the tennis
+   * card filled in while waiting. The card waits in the account's own metadata until joining
+   * moves it onto the row (player.applyTennisDraft). Nobody else can read it before that.
+   */
+  async getWaitingProfile(uid) {
+    const row = must(await db().from('profiles').select('bio').eq('id', uid).maybeSingle());
+    const { user } = must(await db().auth.getUser());
+    return { bio: row?.bio || '', tennis: tennisDraftOf(user?.user_metadata?.[TENNIS_DRAFT_KEY]) };
+  },
+  async saveWaitingProfile(uid, { bio, tennis }) {
+    must(await db().from('profiles').update({ bio: (bio || '').trim() || null }).eq('id', uid));
+    must(await db().auth.updateUser({ data: { [TENNIS_DRAFT_KEY]: tennisDraftOf(tennis) } }));
   },
   /** Counts one real app open; never allowed to fail anything. */
   async recordAppOpen(appName) {
