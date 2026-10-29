@@ -14,7 +14,7 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 /** "Ti 17:00–18:30 · Keskitaso" — enough to tell four "tiistai aikuiset" apart. */
 export function groupWhen(group) {
   if (!group) return '';
-  return [group.day ? `${group.day} ${koutsiTimeRangeLabel(group.time, group.durationMinutes)}` : '', group.level].filter(Boolean).join(' · ');
+  return [group.day ? `${group.day} ${koutsiTimeRangeLabel(group.time, group.durationMinutes)}` : '', group.level].filter(Boolean).join(', ');
 }
 
 /** A session in a list: time, who, the week's theme, and how attendance stands. */
@@ -35,7 +35,7 @@ export function SessionRow({ item, showDate, now }) {
       <span className="k-session-main">
         <span className="k-session-title truncate">{title}</span>
         <span className="k-session-sub truncate">
-          {group && kind ? `${kind} · ` : ''}
+          {group && kind ? `${kind}, ` : ''}
           {theme ? <><Icon name="sparkles" size={13} /> {theme.title}</> : group ? <span className="k-faint">Ei teemaa</span> : student ? (kind || 'Yksityistunti') : ''}
         </span>
       </span>
@@ -58,7 +58,7 @@ export function GroupRow({ group, week, linkState }) {
       <span className="k-row-main">
         <span className="k-row-title truncate">{group.name}</span>
         <span className="k-row-sub truncate">
-          {[koutsiTimeRangeLabel(group.time, group.durationMinutes), group.level, `${group.memberIds.length} pel.`].filter(Boolean).join(' · ')}
+          {[koutsiTimeRangeLabel(group.time, group.durationMinutes), group.level, `${group.memberIds.length}\u00a0pel.`].filter(Boolean).join(', ')}
         </span>
         <span className={cx('k-theme-line', theme ? 'has-theme' : 'no-theme')}>
           {theme ? <><Icon name="sparkles" size={13} />{theme.title}</> : 'Ei teemaa tällä viikolla'}
@@ -90,7 +90,7 @@ const ACTIVITY_ICON = { mood: 'heart', self: 'bolt', entry: 'check', wish: 'chat
 function selfLogLine(training) {
   const { activity, title, text } = ownEntry(training);
   if (activity === 'turnaus') return `Turnaus — ${title}`;
-  const minutes = training.durationMinutes ? ` · ${training.durationMinutes} min` : '';
+  const minutes = training.durationMinutes ? `, ${training.durationMinutes}\u00a0min` : '';
   return `${title}${minutes}${text ? ` — ${text}` : ''}`;
 }
 

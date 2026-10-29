@@ -203,7 +203,7 @@ function PlanPickerSheet({ picker, group, training, drills, loading, failed, onR
   const groups = group ? [group] : [];
   return (
     <Sheet open={Boolean(picker)} onClose={onClose} size="lg"
-      title={preview ? preview.name : part?.add} subtitle={preview ? `${part?.label} · ${preview.minutes ? `${preview.minutes} min` : 'kesto vapaa'}` : null}
+      title={preview ? preview.name : part?.add} subtitle={preview ? `${part?.label}, ${preview.minutes ? `${preview.minutes}\u00a0min` : 'kesto vapaa'}` : null}
       footer={preview ? (
         <div className="sheet-actions">
           <Button variant="soft" size="lg" onClick={() => setPreview(null)}>Takaisin</Button>

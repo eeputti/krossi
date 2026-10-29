@@ -387,7 +387,7 @@ function koutsiNextWeekday(fromDate, dayCode) {
 function koutsiGroupScheduleLabel(group) {
   if (!group) return '';
   const when = group.day ? `${group.day} klo ${koutsiTimeRangeLabel(group.time, group.durationMinutes)}` : '';
-  return [when, group.name, group.level].filter(Boolean).join(' · ');
+  return [when, group.name, group.level].filter(Boolean).join(', ');
 }
 // The order a coaching week runs in: Monday first, then start time.
 function koutsiSortGroupsBySchedule(groups) {

@@ -62,7 +62,7 @@ export function QrCode({ text, size = 168 }) {
 export function ThemeCard({ theme, week, eyebrow, note, groups, compact, className, children }) {
   return (
     <div className={cx('k-theme-card', compact && 'is-compact', className)}>
-      <div className="eyebrow">{eyebrow || `Viikon teema · vko ${week?.week ?? theme?.week}`}</div>
+      <div className="eyebrow">{eyebrow || `Viikon teema, vko ${week?.week ?? theme?.week}`}</div>
       <div className="k-theme-title">{theme.title}</div>
       {theme.lead && <p className="k-theme-lead">{theme.lead}</p>}
       {groups && <div className="k-theme-groups">{groups}</div>}

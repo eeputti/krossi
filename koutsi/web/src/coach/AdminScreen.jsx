@@ -89,9 +89,9 @@ function UserCard({ user, onActAs, onImport, onDelete }) {
           </div>
         </div>
         <div className="admin-stats">
-          <span><strong className="t-num">{user.appOpenCount}×</strong> avattu · {fmtWhen(user.lastAppOpenAt)}</span>
-          {user.isCoach && <span><strong className="t-num">{user.studentCount}</strong> pelaajaa{user.pendingStudents.length ? ` (${user.pendingStudents.length} ei tiliä)` : ''} · <strong className="t-num">{user.groupCount}</strong> ryhmää · <strong className="t-num">{user.trainingCount}</strong> treeniä</span>}
-          <span className="k-faint">Kirjautunut {fmtWhen(user.lastSignInAt)} · {fmtBytes(user.storageBytes)}</span>
+          <span><strong className="t-num">{user.appOpenCount}×</strong> avattu, {fmtWhen(user.lastAppOpenAt)}</span>
+          {user.isCoach && <span><strong className="t-num">{user.studentCount}</strong> pelaajaa{user.pendingStudents.length ? ` (${user.pendingStudents.length} ei tiliä)` : ''}, <strong className="t-num">{user.groupCount}</strong> ryhmää, <strong className="t-num">{user.trainingCount}</strong> treeniä</span>}
+          <span className="k-faint">Kirjautunut {fmtWhen(user.lastSignInAt)}, {fmtBytes(user.storageBytes)}</span>
         </div>
       </div>
       {user.pendingPlans > 0 && <p className="k-warn-text">{user.pendingPlans} vuosisuunnitelmaa odottaa käsittelyä</p>}
@@ -163,7 +163,7 @@ function Feedback() {
       {data.map((f) => (
         <Card key={f.id} className="stack-2">
           <div className="row-between">
-            <span className="k-row-title">{f.senderName} <span className="k-faint">· {f.isCoach ? 'valmentaja' : f.isPlayer ? 'pelaaja' : 'käyttäjä'} · {fmtWhen(f.createdAt)}</span></span>
+            <span className="k-row-title">{f.senderName}<span className="k-faint">, {f.isCoach ? 'valmentaja' : f.isPlayer ? 'pelaaja' : 'käyttäjä'}, {fmtWhen(f.createdAt)}</span></span>
             <Button variant="ghost" size="sm" icon="trash" onClick={() => remove(f)}>Poista</Button>
           </div>
           <span className="chip chip-sm chip-neutral">{f.category}</span>
@@ -192,15 +192,15 @@ function Plans() {
     <div className="stack-3">
       {data.pending.map((p) => (
         <Card key={p.groupId} className="stack-2">
-          <div className="k-row-title">{p.groupName} <span className="k-faint">· {p.coachName}</span></div>
-          <div className="k-faint">{p.filename} · {fmtWhen(p.uploadedAt)}</div>
+          <div className="k-row-title">{p.groupName}<span className="k-faint">, {p.coachName}</span></div>
+          <div className="k-faint">{p.filename}, {fmtWhen(p.uploadedAt)}</div>
           <div className="row wrap"><Button variant="outline" size="sm" icon="external" onClick={() => open(p.storagePath)}>Avaa</Button><Button variant="dark" size="sm" onClick={() => publish(p)}>Merkitse käyttöön</Button></div>
         </Card>
       ))}
       {data.shared.map((s) => (
         <Card key={s.id} className="stack-2">
-          <div className="k-row-title">Yhteinen Excel <span className="k-faint">· {fmtWhen(s.uploadedAt)}</span></div>
-          <div className="k-faint">{s.filename} · {fmtBytes(s.sizeBytes)}</div>
+          <div className="k-row-title">Yhteinen Excel<span className="k-faint">, {fmtWhen(s.uploadedAt)}</span></div>
+          <div className="k-faint">{s.filename}, {fmtBytes(s.sizeBytes)}</div>
           <div className="row wrap"><Button variant="outline" size="sm" icon="external" onClick={() => open(s.storagePath)}>Avaa</Button><Button variant="dark" size="sm" onClick={() => handled(s)}>Merkitse käsitellyksi</Button></div>
         </Card>
       ))}

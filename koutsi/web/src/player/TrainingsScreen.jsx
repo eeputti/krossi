@@ -137,7 +137,7 @@ function Block({ item, grid, onOpen }) {
 /** A tournament, a match or a club event over its days. Club events are only shown. */
 function Bar({ bar, onOpen, style }) {
   const own = bar.kind !== 'event';
-  const sub = own ? (bar.kind === 'tournament' ? `Turnaus · ${eventRangeLabel(bar)}` : bar.sub) : `${kindLabel(bar.event.kind)} · ${eventRangeLabel(bar)}`;
+  const sub = own ? (bar.kind === 'tournament' ? `Turnaus, ${eventRangeLabel(bar)}` : bar.sub) : `${kindLabel(bar.event.kind)}, ${eventRangeLabel(bar)}`;
   const inner = (
     <>
       <span className="wb-event-icon">
@@ -150,9 +150,9 @@ function Bar({ bar, onOpen, style }) {
     </>
   );
   const cls = cx('wb-event', !own && 'pw-bar-club', bar.before && 'is-before', bar.after && 'is-after');
-  if (!own) return <div className={cls} style={style} title={`${bar.title} · ${sub}`}>{inner}</div>;
+  if (!own) return <div className={cls} style={style} title={`${bar.title}, ${sub}`}>{inner}</div>;
   return (
-    <button type="button" className={cls} style={style} onClick={() => onOpen(bar)} aria-label={`${bar.title} · ${sub}`} title={`${bar.title} · ${sub}`}>
+    <button type="button" className={cls} style={style} onClick={() => onOpen(bar)} aria-label={`${bar.title}, ${sub}`} title={`${bar.title}, ${sub}`}>
       {inner}<Icon name="chevron-right" size={16} className="wb-event-go" />
     </button>
   );
@@ -252,17 +252,17 @@ export function TrainingsScreen({ query }) {
     summary.coach ? plural(summary.coach, 'valmennus', 'valmennusta') : '',
     summary.own ? `${plural(summary.own, 'oma treeni', 'omaa treeniä')}${summary.ownMinutes ? ` (${minutesLabel(summary.ownMinutes)})` : ''}` : '',
     summary.matches ? plural(summary.matches, 'ottelu', 'ottelua') : '',
-  ].filter(Boolean).join(' · ') || 'Ei vielä merkintöjä';
+  ].filter(Boolean).join(', ') || 'Ei vielä merkintöjä';
   const dayCount = (d) => {
     const own = d.items.filter((it) => it.kind === 'own').length;
     const coach = d.items.length - own;
-    return [coach ? plural(coach, 'valmennus', 'valmennusta') : '', own ? plural(own, 'oma', 'omaa') : ''].filter(Boolean).join(' · ') || 'Ei merkintöjä';
+    return [coach ? plural(coach, 'valmennus', 'valmennusta') : '', own ? plural(own, 'oma', 'omaa') : ''].filter(Boolean).join(', ') || 'Ei merkintöjä';
   };
 
   return (
     <Page width="full" className="wb-page pw-page">
       <header className="wb-head">
-        <div className="eyebrow wb-eyebrow">Treenit{relative ? ` · ${relative}` : ''}</div>
+        <div className="eyebrow wb-eyebrow">Treenit{relative ? `, ${relative}` : ''}</div>
         <div className="wb-head-row">
           <div className="wb-week">
             <IconButton icon="chevron-left" label="Edellinen viikko" variant="soft" onClick={() => setWeek(koutsiAddIsoWeeks(week, -1))} />

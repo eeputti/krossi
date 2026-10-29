@@ -68,7 +68,7 @@ export function WeekRecapSheet({ open, week, onClose }) {
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} size="md"
       // mid-week (from Merkitse → Oma viikkomuistio) the week isn't "paketissa" yet
-      title={koutsiCompareIsoWeeks(week, koutsiCurrentIsoWeek()) < 0 || new Date().getDay() === 0 ? `Viikko ${week.week} paketissa` : `Oma viikkomuistio · viikko ${week.week}`}
+      title={koutsiCompareIsoWeeks(week, koutsiCurrentIsoWeek()) < 0 || new Date().getDay() === 0 ? `Viikko ${week.week} paketissa` : `Oma viikkomuistio, viikko ${week.week}`}
       subtitle={koutsiIsoWeekRangeLabel(week.year, week.week)}
       confirmClose={note.trim() !== (existing?.note || '').trim()}
       footer={score || note.trim()
@@ -94,7 +94,7 @@ export function WeekRecapSheet({ open, week, onClose }) {
         )}
 
         <section className="k-recap-next stack-2">
-          <div className="eyebrow">Ensi viikko · vko {next.week}</div>
+          <div className="eyebrow">Ensi viikko, vko {next.week}</div>
           <p className="k-body-text">
             {nextStatus.pool.length === 0 ? 'Ensi viikolle ei ole treenejä kalenterissa.'
               : missing === 0 ? `Kaikilla ${nextStatus.pool.length} ryhmällä on jo teema.`
@@ -110,7 +110,7 @@ export function WeekRecapSheet({ open, week, onClose }) {
 
         <section className="stack-3">
           <div>
-            <div className="eyebrow">Oma viikkomuistio · vain sinulle</div>
+            <div className="eyebrow">Oma viikkomuistio, vain sinulle</div>
             <h3 className="k-block-title">Miten treeniviikko sujui?</h3>
           </div>
           <MoodPicker value={score} onChange={setScore} size="sm" />

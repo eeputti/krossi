@@ -306,7 +306,7 @@ export function GroupInviteSheet({ open, onClose, group }) {
   const message = current ? koutsiInviteMessage(current.code, state.coach.name, group.name) : '';
   const count = joinedCount(state, group);
   return (
-    <Sheet open={open} onClose={onClose} title="Kutsu ryhmään" subtitle={`${group.name} · ${count.joined}/${count.total} liittynyt`} size="md">
+    <Sheet open={open} onClose={onClose} title="Kutsu ryhmään" subtitle={`${group.name}, ${count.joined}/${count.total} liittynyt`} size="md">
       <div className="stack-5">
         {current ? (
           <div className="k-invite stack-4">
@@ -345,7 +345,7 @@ export function GroupInviteSheet({ open, onClose, group }) {
           {others.length === 0 ? <p className="k-faint">Ei muita voimassa olevia linkkejä.</p> : others.map((c) => (
             <div key={c.code} className="k-code-row">
               <span className="k-code-small">{c.code}</span>
-              <span className="k-faint grow">{c.useCount}/{c.maxUses ?? '∞'} käytetty{c.expiresAt ? ` · ${koutsiFmtShortDate(c.expiresAt.slice(0, 10))} asti` : ''}</span>
+              <span className="k-faint grow">{c.useCount}/{c.maxUses ?? '∞'} käytetty{c.expiresAt ? `, ${koutsiFmtShortDate(c.expiresAt.slice(0, 10))} asti` : ''}</span>
               <Button variant="ghost" size="sm" onClick={() => setShown({ code: c.code, expiresAt: c.expiresAt })}>Näytä</Button>
               <Button variant="ghost" size="sm" onClick={() => revoke(c.code)}>Poista</Button>
             </div>
@@ -438,7 +438,7 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
                 <label key={g.id} className={cx('k-pick', chosen.includes(g.id) && 'is-on')}>
                   <input type="checkbox" checked={chosen.includes(g.id)} onChange={() => setChosen((p) => (p.includes(g.id) ? p.filter((x) => x !== g.id) : [...p, g.id]))} />
                   <span className="grow">
-                    <span className="k-pick-title">{g.day} {g.time} · {g.name}</span>
+                    <span className="k-pick-title">{g.day} {g.time}, {g.name}</span>
                     <span className="k-faint">{last ? `Kalenterissa ${koutsiFmtShortDate(last)} asti` : 'Ei treenejä kalenterissa'}</span>
                   </span>
                 </label>

@@ -108,7 +108,7 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
                 {(allGroups ? groups : groups.filter((g) => g.id === groupId)).map((g) => (
                   <label key={g.id} className={cx('k-pick', groupId === g.id && 'is-on')}>
                     <input type="radio" name="tr-group" checked={groupId === g.id} onChange={() => setGroupId(g.id)} />
-                    <span className="grow"><span className="k-pick-title">{g.day} {g.time} · {g.name}</span><span className="k-faint">{[g.level, `${g.memberIds.length} pel.`].filter(Boolean).join(' · ')}</span></span>
+                    <span className="grow"><span className="k-pick-title">{g.day} {g.time}, {g.name}</span><span className="k-faint">{[g.level, `${g.memberIds.length}\u00a0pel.`].filter(Boolean).join(', ')}</span></span>
                   </label>
                 ))}
                 {!allGroups && <button type="button" className="k-textlink" onClick={() => setAllGroups(true)}>Valitse toinen ryhmä</button>}

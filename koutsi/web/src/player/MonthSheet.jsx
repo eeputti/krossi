@@ -39,7 +39,7 @@ export function WeekCard({ hidden, onOpen }) {
     <button type="button" className="mc-week" onClick={onOpen}>
       <span className="mc-week-head">
         <span className="mc-week-title">Tämä viikko</span>
-        <span className="mc-week-sub">{[doneWord, streakWord].filter(Boolean).join(' · ')}</span>
+        <span className="mc-week-sub">{[doneWord, streakWord].filter(Boolean).join(', ')}</span>
         <span className="mc-week-open">Kalenteri <Icon name="chevron-right" size={15} /></span>
       </span>
       <span className="mc-week-days">

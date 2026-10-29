@@ -159,7 +159,7 @@ export function playerWeek(state, student, week, now = new Date()) {
     if (n.date < dates[0] || n.date > dates[6]) continue;
     summary.matches += 1;
     const result = n.result === 'voitto' ? 'Voitto' : n.result === 'tappio' ? 'Tappio' : '';
-    allDay.push({ key: `m-${n.id}`, kind: 'match', title: `Ottelu vs. ${n.opponentName}`, sub: [result, n.score].filter(Boolean).join(' · ') || 'Ottelu', date: n.date, endDate: null, note: n });
+    allDay.push({ key: `m-${n.id}`, kind: 'match', title: `Ottelu vs. ${n.opponentName}`, sub: [result, n.score].filter(Boolean).join(', ') || 'Ottelu', date: n.date, endDate: null, note: n });
   }
   for (const e of state.clubEvents || []) {
     allDay.push({ key: `e-${e.id}`, kind: 'event', title: e.title, sub: null, date: e.date, endDate: e.endDate || null, event: e });

@@ -434,15 +434,15 @@ test('game share card says who, when, where and how many spots are left', () => 
   };
   assert.deepEqual(gameShareMeta(preview), {
     title: 'Alex hakee pelikaveria — pe 3.10. klo 18',
-    description: 'Kaksinpeli · Kispi Areena, Lahti · 1 paikka vapaana. Liity Krossissa.',
+    description: 'Kaksinpeli, Kispi Areena, Lahti. 1 paikka vapaana. Liity Krossissa.',
   });
   assert.deepEqual(gameShareMeta({ ...preview, match_type: 'nelinpeli', spots_left: 3, location: 'Avoin', location_type: 'ulkotennis' }), {
     title: 'Alex hakee pelikavereita — pe 3.10. klo 18',
-    description: 'Nelinpeli · Ulkokenttä, Lahti · 3 paikkaa vapaana. Liity Krossissa.',
+    description: 'Nelinpeli, Ulkokenttä, Lahti. 3 paikkaa vapaana. Liity Krossissa.',
   });
   assert.deepEqual(gameShareMeta({ ...preview, status: 'filled', spots_left: 0, scheduled_at: null }), {
     title: 'Alex on sopinut pelin',
-    description: 'Kaksinpeli · Kispi Areena, Lahti · Peli on täynnä. Katso Krossissa.',
+    description: 'Kaksinpeli, Kispi Areena, Lahti. Peli on täynnä. Katso Krossissa.',
   });
   assert.equal(gameShareMeta({ ...preview, kind: 'event', title: 'Friday Afternoon Club' }).title, 'Friday Afternoon Club — pe 3.10. klo 18');
   assert.equal(gameShareMeta({ ...preview, creator_name: null }).title, 'Pelaaja hakee pelikaveria — pe 3.10. klo 18');
@@ -557,8 +557,8 @@ test('shared game links get a game-specific title and Open Graph card', async ()
   // First name only, and user-provided text is escaped.
   assert.match(html, /<title>Alex hakee pelikaveria — pe 3\.10\. klo 18<\/title>/);
   assert.match(html, /<meta property="og:title" content="Alex hakee pelikaveria — pe 3\.10\. klo 18" \/>/);
-  assert.match(html, /<meta property="og:description" content="Kaksinpeli · Kispi &quot;Areena&quot;, Lahti · 1 paikka vapaana\. Liity Krossissa\." \/>/);
-  assert.match(html, /<meta name="description" content="Kaksinpeli · Kispi &quot;Areena&quot;, Lahti/);
+  assert.match(html, /<meta property="og:description" content="Kaksinpeli, Kispi &quot;Areena&quot;, Lahti\. 1 paikka vapaana\. Liity Krossissa\." \/>/);
+  assert.match(html, /<meta name="description" content="Kaksinpeli, Kispi &quot;Areena&quot;, Lahti/);
   assert.doesNotMatch(html, /Krossi — Löydä pelikavereita tennikseen/);
   assert.match(html, /<div id="root"><\/div>/);
 });

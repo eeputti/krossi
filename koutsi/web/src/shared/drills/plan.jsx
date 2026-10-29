@@ -26,7 +26,7 @@ export function PlanThumb({ entry, drill, size = 'md' }) {
 
 /** One planned drill. */
 export function PlanRow({ entry, drill, onClick, size = 'md', label }) {
-  const meta = [`${entry.minutes} min`, drill ? `${playersLabel(drill.players)} pel.` : null].filter(Boolean).join(' · ');
+  const meta = [`${entry.minutes}\u00a0min`, drill ? `${playersLabel(drill.players)}\u00a0pel.` : null].filter(Boolean).join(', ');
   return (
     <button type="button" className={cx('tp-row', `is-${size}`)} onClick={onClick} aria-label={label}>
       <PlanThumb entry={entry} drill={drill} size={size} />
@@ -98,7 +98,7 @@ export function PlanSheet({ open, training, group, onClose, onPlayVideo }) {
   const when = `${relativeDay(training.date)} klo ${koutsiTimeRangeLabel(training.time, training.durationMinutes || group?.durationMinutes)}`;
   return (
     <Sheet open={open} onClose={close} onBack={() => { if (!picked) return false; setPicked(null); return true; }} size="lg" title={picked ? picked.name : 'Treenin runko'}
-      subtitle={picked ? `${picked.minutes} min tässä treenissä` : `${when} · ${planSummary(plan)}`} onClosed={() => setPicked(null)}>
+      subtitle={picked ? `${picked.minutes}\u00a0min tässä treenissä` : `${when}, ${planSummary(plan)}`} onClosed={() => setPicked(null)}>
       {picked ? (
         <div className="stack-4" ref={box}>
           <Button variant="ghost" size="sm" icon="arrow-left" className="tp-back" onClick={() => setPicked(null)}>Takaisin runkoon</Button>

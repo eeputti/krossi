@@ -60,7 +60,7 @@ export function SessionScreen({ params }) {
   const one = recipients.length === 1;
   const scope = {
     name: group ? group.name : state.students.find((s) => s.id === training.studentId)?.name || training.type, icon: group ? 'users' : 'user',
-    text: `${koutsiFmtShortDate(training.date)} klo ${training.time} · ${status === 'upcoming' ? (one ? '1 pelaaja' : `${recipients.length} pelaajaa`) : status === 'now' ? `${recipients.length} paikalla` : (one ? '1 paikalla ollut' : `${recipients.length} paikalla ollutta`)}`,
+    text: `${koutsiFmtShortDate(training.date)} klo ${training.time}, ${status === 'upcoming' ? (one ? '1 pelaaja' : `${recipients.length} pelaajaa`) : status === 'now' ? `${recipients.length} paikalla` : (one ? '1 paikalla ollut' : `${recipients.length} paikalla ollutta`)}`,
   };
 
   // optimistic: the tap shows at once; saved in order, one reload after the last (attendance.jsx)
@@ -82,7 +82,7 @@ export function SessionScreen({ params }) {
         <header className="k-session-head">
           <div className="eyebrow">{status === 'now' ? 'Käynnissä nyt' : status === 'past' ? 'Pidetty' : 'Tulossa'}</div>
           <h1 className="t-title">{koutsiFmtLongDate(training.date).replace(/^./, (c) => c.toUpperCase())}</h1>
-          <p className="k-group-when">klo {koutsiTimeRangeLabel(training.time, training.durationMinutes || group?.durationMinutes)} · {training.type}</p>
+          <p className="k-group-when">klo {koutsiTimeRangeLabel(training.time, training.durationMinutes || group?.durationMinutes)}, {training.type}</p>
           {group && <Link to={groupPath(group.id)} className="k-group-pill"><span className="t-num">{group.day} {group.time}</span><span className="truncate">{group.name}</span></Link>}
         </header>
 
@@ -132,7 +132,7 @@ export function SessionScreen({ params }) {
         {training.loggedBy !== 'player' && <SessionPlan training={training} group={group} />}
 
         {group && (theme ? (
-          <ThemeCard theme={theme} week={week} eyebrow={`Teema · vko ${week.week}`}>
+          <ThemeCard theme={theme} week={week} eyebrow={`Teema, vko ${week.week}`}>
             <Button variant="outline" size="sm" icon="edit" className="k-theme-edit" onClick={() => setThemeOpen(true)}>Vaihda teema</Button>
           </ThemeCard>
         ) : (

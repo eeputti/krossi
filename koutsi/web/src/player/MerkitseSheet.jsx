@@ -151,7 +151,7 @@ export function AfterSessions({ ended, onSkip, onDone, className }) {
   const first = ended[0].training;
   const dayWord = relativeDay(first.date);
   const head = many
-    ? `${dayWord === 'Tänään' ? 'Tänään' : dayWord === 'Eilen' ? 'Eilen' : shortDay(first.date)} ${ended.length} treeniä · ${spanLabel(ended)}`
+    ? `${dayWord === 'Tänään' ? 'Tänään' : dayWord === 'Eilen' ? 'Eilen' : shortDay(first.date)} ${ended.length} treeniä klo ${spanLabel(ended)}`
     : null;
 
   return (
@@ -170,9 +170,9 @@ export function AfterSessions({ ended, onSkip, onDone, className }) {
           const when = day === 'Tänään' ? `Päättyi klo ${item.end}` : `${day === 'Eilen' ? 'Eilen' : shortDay(item.training.date)} klo ${item.training.time}`;
           return (
             <article key={item.training.id} className={cx('pn-slide', mood && 'is-done')} aria-label={`${name} ${item.training.time}`}>
-              <div className="eyebrow pn-when">{many ? `Klo ${item.training.time}–${item.end}` : `Treeni ohi · ${when}`}</div>
+              <div className="eyebrow pn-when">{many ? `Klo ${item.training.time}–${item.end}` : `Treeni ohi, ${when}`}</div>
               <h3 className="pn-title" aria-live="polite">{mood ? `Kiitos! ${MOOD_LABELS[mood.score]}` : 'Miten meni?'}</h3>
-              <p className="pn-sub">{name}{theme ? ` · ${theme.title}` : ''}</p>
+              <p className="pn-sub">{name}{theme ? `, ${theme.title}` : ''}</p>
               <MoodPicker value={mood?.score ?? null} onChange={(score) => rate(item, i, score)} size="sm" />
               <button type="button" className="pn-link" onClick={() => actions.openCheckIn(item.training, { mood: mood?.id ? mood : null })}>
                 <Icon name="edit" size={15} /><span>{mood?.note ? 'Muokkaa mitä kirjoitit' : 'Kirjoita mitä opit treenissä'}</span>
@@ -205,7 +205,7 @@ function NextUp({ next, then }) {
     <section className={cx('pn-next', absent && 'is-absent')} aria-label="Seuraava treeni">
       <div className="eyebrow pn-next-eyebrow">{day === 'Tänään' ? 'Tänään' : 'Seuraava treeni'}</div>
       <div className="pn-next-when"><span>{day}</span> <span className="t-num">klo {koutsiTimeRangeLabel(next.time, next.durationMinutes || group?.durationMinutes)}</span></div>
-      <p className="pn-next-what">{name}{theme ? ` · ${theme.title}` : ''}</p>
+      <p className="pn-next-what">{name}{theme ? `, ${theme.title}` : ''}</p>
       <div className="row wrap">
         {absent
           ? <><span className="chip chip-md chip-warn">Ilmoitit poissaolon</span><Button variant="lime" size="sm" onClick={() => actions.openAbsence(next)}>Pääsenkin</Button></>
@@ -213,7 +213,7 @@ function NextUp({ next, then }) {
         {plan.items.length > 0 && <Button variant="outline" size="sm" icon="list" className="pn-next-plan" onClick={() => actions.openPlan(next)}>Treenin runko</Button>}
       </div>
       {plan.items.length > 0 && <p className="pn-next-then">{planSummary(plan)}</p>}
-      {then && <p className="pn-next-then">Sitten {shortDay(then.date)} klo {then.time} · {sessionLine(state, then).name}</p>}
+      {then && <p className="pn-next-then">Sitten {shortDay(then.date)} klo {then.time}, {sessionLine(state, then).name}</p>}
     </section>
   );
 }
@@ -280,7 +280,7 @@ export function MerkitseSheet({ open, onClose }) {
     else actions.openSelfTraining(undefined, { activity: a.id, homeworkId: a.homework ? openHomework[0]?.id : null, locked: true });
   };
   const ambition = ambitionById(student.ambition);
-  const goalSub = [student.goal, ambition && (student.longGoal || ambition.label)].filter(Boolean).join(' · ') || 'Mitä haluat oppia? Mihin tähtäät?';
+  const goalSub = [student.goal, ambition && (student.longGoal || ambition.label)].filter(Boolean).join(', ') || 'Mitä haluat oppia? Mihin tähtäät?';
   const hasAfter = lead.ended.length > 0;
   return (
     <Sheet open={open} onClose={onClose} title="Merkitse" size="md" className="pn-sheet">
@@ -289,7 +289,7 @@ export function MerkitseSheet({ open, onClose }) {
           ? <AfterSessions ended={lead.ended} onSkip={skip} onDone={actions.closeMerkitse} />
           : lead.next && <NextUp next={lead.next} then={lead.then} />}
         {hasAfter && lead.next && (
-          <p className="pn-later"><Icon name="calendar" size={14} /> Seuraava: {relativeDay(lead.next.date) === 'Tänään' ? 'tänään' : shortDay(lead.next.date)} klo {lead.next.time} · {sessionLine(state, lead.next).name}</p>
+          <p className="pn-later"><Icon name="calendar" size={14} /> Seuraava: {relativeDay(lead.next.date) === 'Tänään' ? 'tänään' : shortDay(lead.next.date)} klo {lead.next.time}, {sessionLine(state, lead.next).name}</p>
         )}
         <section className="stack-2" aria-label="Mitä teit?">
           <h3 className="pn-h">Mitä teit?</h3>

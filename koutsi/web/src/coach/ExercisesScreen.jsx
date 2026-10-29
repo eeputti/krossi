@@ -116,7 +116,7 @@ export function ExercisesScreen() {
         {tab === 'videos' ? (
           <p className="dl-sub">Jokainen jakamasi video tallentuu tänne. Jaa sama video myöhemmin muillekin lataamatta sitä uudelleen.</p>
         ) : (
-          <p className="dl-sub"><span className="t-num">{library?.length || DRILL_COUNT}</span> valmista harjoitetta Krossin kirjastossa · <span className="t-num">{own}</span> omaa. Pelaajasi näkevät molemmat.</p>
+          <p className="dl-sub"><span className="t-num">{library?.length || DRILL_COUNT}</span> valmista harjoitetta Krossin kirjastossa, <span className="t-num">{own}</span> omaa. Pelaajasi näkevät molemmat.</p>
         )}
         {videosOn && (
           <Segmented ariaLabel="Näytä" value={tab} onChange={pickTab} className="dl-tabs"
@@ -234,4 +234,4 @@ export function ExerciseScreen({ params }) {
 }
 
 /** For Profiili: "25 omaa · 196 kirjastossa". */
-export const bankSummary = (ownCount) => `${plural(ownCount, 'oma', 'omaa')} · ${DRILL_COUNT} kirjastossa`;
+export const bankSummary = (ownCount) => `${plural(ownCount, 'oma', 'omaa')}, ${DRILL_COUNT} kirjastossa`;

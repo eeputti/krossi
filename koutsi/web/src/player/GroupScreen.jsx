@@ -52,10 +52,10 @@ function GroupCard({ state, group, me }) {
         <div className="eyebrow">{DAY_NAMES[group.day] || ''} klo {koutsiTimeRangeLabel(group.time, group.durationMinutes)}</div>
         <h2 className="t-h2">{group.name}</h2>
         {group.place && <p className="k-group-place"><Icon name="pin" size={14} />{group.place}</p>}
-        <p className="k-faint">{[group.level, coach ? `Valmentaja ${coach.name}` : '', (group.slots || []).length ? `myös ${group.slots.map((s) => `${s.day} ${s.time}`).join(', ')}` : ''].filter(Boolean).join(' · ')}</p>
+        <p className="k-faint">{[group.level, coach ? `Valmentaja ${coach.name}` : '', (group.slots || []).length ? `myös ${group.slots.map((s) => `${s.day} ${s.time}`).join(', ')}` : ''].filter(Boolean).join(', ')}</p>
       </header>
       {current ? <ThemeCard theme={current} week={now} />
-        : latest ? <ThemeCard theme={latest} eyebrow={`Viimeisin teema · ${themeWeekShort(latest)}`} note="Tämän viikon teema puuttuu vielä." />
+        : latest ? <ThemeCard theme={latest} eyebrow={`Viimeisin teema, ${themeWeekShort(latest)}`} note="Tämän viikon teema puuttuu vielä." />
           : <p className="k-quiet">Viikon teema ilmestyy tähän, kun valmentaja asettaa sen.</p>}
       {next && <p className="k-next-theme"><Icon name="arrow-right" size={14} /> Ensi viikko: <strong>{next.title}</strong></p>}
       <Mates state={state} group={group} me={me} />
@@ -69,10 +69,10 @@ function GroupCard({ state, group, me }) {
               <div key={t.id} className={cx('p-session', absent && 'is-absent')}>
                 <span className="grow">
                   <span className="k-row-title">{t.date === koutsiTodayStr() ? 'Tänään' : shortDay(t.date)}</span>
-                  <span className="k-faint">klo {koutsiTimeRangeLabel(t.time, t.durationMinutes || group.durationMinutes)}{started ? ' · käynnissä' : ''}</span>
+                  <span className="k-faint">klo {koutsiTimeRangeLabel(t.time, t.durationMinutes || group.durationMinutes)}{started ? ', käynnissä' : ''}</span>
                 </span>
                 {started ? null : absent
-                  ? <Button variant="ghost" size="sm" onClick={() => actions.openAbsence(t)}>Poissa · muuta</Button>
+                  ? <Button variant="ghost" size="sm" onClick={() => actions.openAbsence(t)}>Muuta poissaoloa</Button>
                   : <Button variant="outline" size="sm" onClick={() => actions.openAbsence(t)}>En pääse</Button>}
               </div>
             );

@@ -161,7 +161,7 @@ export function PlannerSheet({ query }) {
       const names = conflicts.slice(0, 3).map((r) => `${r.group.day} ${r.group.time} ${r.group.name}: ${r.theme.title}${sameTitle(r) ? ' (eri tarkennus)' : ''}`);
       const choice = await confirm({
         title: `${conflicts.length === 1 ? '1 ryhmällä' : `${conflicts.length} ryhmällä`} on jo oma teema viikolla ${week.week}`,
-        message: `${names.join(' · ')}${conflicts.length > 3 ? ` · ja ${conflicts.length - 3} muuta` : ''}`,
+        message: `${names.join(', ')}${conflicts.length > 3 ? ` ja ${conflicts.length - 3} muuta` : ''}`,
         confirmLabel: 'Korvaa nekin', secondaryLabel: 'Tallenna vain muille', secondaryValue: 'skip', cancelLabel: 'Peruuta',
       });
       if (!choice) return;
@@ -258,7 +258,7 @@ export function PlannerSheet({ query }) {
         onPrev={() => changeWeek(koutsiAddIsoWeeks(week, -1))}
         onNext={() => changeWeek(koutsiAddIsoWeeks(week, 1))}
         onToday={() => changeWeek(now)}
-        sub={<span className={cx(covered === pool.length && pool.length > 0 && 'is-full')}>{covered}/{pool.length} ryhmällä on teema{pool.length < rows.length ? ` · ${rows.length - pool.length} ilman treeniä` : ''}</span>}
+        sub={<span className={cx(covered === pool.length && pool.length > 0 && 'is-full')}>{covered}/{pool.length} ryhmällä on teema{pool.length < rows.length ? `, ${rows.length - pool.length} ilman treeniä` : ''}</span>}
       />
       {!isPast && <Steps step={step} />}
 
@@ -324,7 +324,7 @@ export function PlannerSheet({ query }) {
                       <div key={c.key} className="planner-history-row">
                         <div className="grow">
                           <div className="planner-history-title">{c.title}</div>
-                          <div className="planner-history-sub truncate">{c.groups.length === 1 ? '1 ryhmä' : `${c.groups.length} ryhmää`}{c.lead ? ` · ${c.lead}` : ''}</div>
+                          <div className="planner-history-sub truncate">{c.groups.length === 1 ? '1 ryhmä' : `${c.groups.length} ryhmää`}{c.lead ? `, ${c.lead}` : ''}</div>
                         </div>
                         <Button variant="outline" size="sm" onClick={() => { setTitle(c.title); setLead(c.lead); }}>Käytä</Button>
                       </div>
@@ -364,7 +364,7 @@ export function PlannerSheet({ query }) {
                     <label key={r.group.id} className={cx('planner-group', r.skips && 'is-off', selected.has(r.group.id) && 'is-on')}>
                       <input type="checkbox" checked={selected.has(r.group.id)} onChange={() => toggle(r.group.id)} />
                       <span className="grow">
-                        <span className="planner-group-name">{r.group.time} · {r.group.name}{r.group.level ? <span className="k-faint"> · {r.group.level}</span> : null}<span className="k-faint"> · {r.group.memberIds.length} pel.</span></span>
+                        <span className="planner-group-name">{r.group.time}, {r.group.name}{r.group.level ? <span className="k-faint">, {r.group.level}</span> : null}<span className="k-faint">, {r.group.memberIds.length}&nbsp;pel.</span></span>
                         <span className={cx('planner-group-theme', r.theme && (same ? 'is-same' : 'is-other'))}>
                           {r.theme ? `${same ? '✓ ' : 'Nyt: '}${r.theme.title}` : r.skips ? `Ei treeniä viikolla ${week.week}` : 'Ei teemaa'}
                         </span>

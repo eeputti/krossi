@@ -208,7 +208,7 @@ function GroupThemeBanner({ theme, label }) {
   return (
     <div className="k-card" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)' }}>
       <div className="eyebrow" style={{ marginBottom: 5 }}>
-        {label || 'Viikon teema'}{theme.week ? ` · vko ${theme.week}` : ''}
+        {label || 'Viikon teema'}{theme.week ? `, vko ${theme.week}` : ''}
       </div>
       <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{theme.title}</div>
       {theme.lead && <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5 }}>{theme.lead}</div>}
@@ -323,7 +323,7 @@ function StudentSuggestions({ matches, groups, onPick }) {
   return (
     <div className="k-card" style={{ padding: 5, marginTop: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
       {matches.map((s) => {
-        const detail = [playerAgeLabel(s), s.level, koutsiGroupNamesForStudent(groups, s.id).join(', ')].filter(Boolean).join(' · ');
+        const detail = [playerAgeLabel(s), s.level, koutsiGroupNamesForStudent(groups, s.id).join(', ')].filter(Boolean).join(', ');
         return (
           <button key={s.id} type="button" onClick={() => onPick(s)}
             style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 8px', border: 'none', borderRadius: 10, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}>
@@ -671,7 +671,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                     <div className="k-card" style={{ padding: '14px 16px', marginBottom: 18 }}>
                       <div style={{ ...labelStyle, marginBottom: 9 }}>Olemassa olevat ryhmät ({groups.length})</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                        {groups.map((g) => <span key={g.id} className="k-chip">{g.name} · {g.day} {window.koutsiTimeRangeLabel(g.time, g.durationMinutes)}</span>)}
+                        {groups.map((g) => <span key={g.id} className="k-chip">{g.name}, {g.day} {window.koutsiTimeRangeLabel(g.time, g.durationMinutes)}</span>)}
                       </div>
                     </div>
                   )}
@@ -788,7 +788,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                   <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 10 }}>
                     {existingPlayerPicks.length > 0
                       ? `${filledPlayers.length} uutta pelaajaa, ${existingPlayerPicks.length} jo listalla valmiina`
-                      : `${filledPlayers.length} pelaajaa valmiina`} · Tyhjä ikä tallennetaan tuntemattomana
+                      : `${filledPlayers.length} pelaajaa valmiina`}. Tyhjä ikä tallennetaan tuntemattomana.
                   </div>
                 </div>
               )}
@@ -827,7 +827,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                             {rows.map((r) => (
                               <div key={r.key} className="kv-bulk-theme-row" style={{ display: 'grid', gridTemplateColumns: '175px minmax(180px, 1fr) minmax(180px, 1.2fr) 34px', gap: 8, alignItems: 'center' }}>
                                 <select className="k-select" value={window.koutsiIsoWeekKey(r)} onChange={(e) => { const w = weekOptions.find((o) => window.koutsiIsoWeekKey(o) === e.target.value); if (w) updateTheme(r.key, { year: w.year, week: w.week }); }} style={inputStyle} aria-label="Teeman viikko">
-                                  {weekOptions.map((w) => <option key={window.koutsiIsoWeekKey(w)} value={window.koutsiIsoWeekKey(w)}>vko {w.week}/{w.year} · {window.koutsiIsoWeekRangeLabel(w.year, w.week)}{w.isNow ? ' (nyt)' : ''}</option>)}
+                                  {weekOptions.map((w) => <option key={window.koutsiIsoWeekKey(w)} value={window.koutsiIsoWeekKey(w)}>vko {w.week}/{w.year}, {window.koutsiIsoWeekRangeLabel(w.year, w.week)}{w.isNow ? ' (nyt)' : ''}</option>)}
                                 </select>
                                 <input value={r.title} onChange={(e) => updateTheme(r.key, { title: e.target.value })} placeholder="Viikon teema" style={inputStyle} aria-label="Viikon teema" />
                                 <input value={r.lead} onChange={(e) => updateTheme(r.key, { lead: e.target.value })} placeholder="Tarkennus (vapaaehtoinen)" style={inputStyle} aria-label="Teeman tarkennus" />
@@ -863,7 +863,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ fontSize: 14.5, fontWeight: 700, color: '#111' }}>{p.name}{p.age ? `, ${p.age}` : ''}</div>
                             <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>
-                              {assigned ? assigned.name : 'Ei ryhmää vielä'}{p.level ? ` · ${p.level}` : ''}
+                              {assigned ? assigned.name : 'Ei ryhmää vielä'}{p.level ? `, ${p.level}` : ''}
                             </div>
                           </div>
                           <PlayerAppStatus isPlaceholder compact />
@@ -878,7 +878,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                           <Avatar src={existingStudent?.avatarUrl} initial={p.name.charAt(0).toUpperCase()} hue={existingStudent?.hue ?? 200} size={36} />
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ fontSize: 14.5, fontWeight: 700, color: '#111' }}>{p.name}</div>
-                            <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{assigned ? assigned.name : 'Ei uutta ryhmää'} · jo oppilaslistalla</div>
+                            <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>{assigned ? assigned.name : 'Ei uutta ryhmää'}, jo oppilaslistalla</div>
                           </div>
                         </div>
                       );
@@ -888,7 +888,7 @@ function BulkSetupModal({ groups, students, coachId, onClose, onSave }) {
                     <div className="k-card" style={{ padding: '14px 16px', marginTop: 14 }}>
                       <div style={{ ...labelStyle, marginBottom: 9 }}>Tallennettavat viikkoteemat</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {payload.themes.map((t, i) => <div key={`${t.group_ref}-${t.year}-${t.week}-${i}`} style={{ fontSize: 13.5, color: '#3c382f' }}><b style={{ color: 'var(--green-deep)' }}>{groupOptionByKey.get(t.group_ref)?.name} · vko {t.week}</b> — {t.title}</div>)}
+                        {payload.themes.map((t, i) => <div key={`${t.group_ref}-${t.year}-${t.week}-${i}`} style={{ fontSize: 13.5, color: '#3c382f' }}><b style={{ color: 'var(--green-deep)' }}>{groupOptionByKey.get(t.group_ref)?.name}, vko {t.week}</b> — {t.title}</div>)}
                       </div>
                     </div>
                   )}
@@ -1169,7 +1169,7 @@ function PlayerActivityDayDetail({ state, student, selectedDate, onEditAttendanc
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 44, fontSize: 12.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}{isSelf ? ' · Oma merkintä' : ''}</div>
+                  <div style={{ fontSize: 13.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}{isSelf ? ', oma merkintä' : ''}</div>
                   {isSelf && t.durationMinutes && <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 1 }}>{window.koutsiFmtDuration(t.durationMinutes)}</div>}
                 </div>
                 {!isSelf && <window.KoutsiAttendanceBadge entry={entry} compact onClick={() => onEditAttendance(t, student.id)} />}
@@ -1222,12 +1222,12 @@ function PlayerActivityCard({ state, student, onEditAttendance }) {
           <div style={{ fontSize: 12.5, color: '#a8a297' }}>Ei merkintöjä tälle kuukaudelle.</div>
         ) : (
           <React.Fragment>
-            <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 10 }}>{summary.totalSessions} suoritusta{summary.totalMinutes ? ` · ${window.koutsiFmtDuration(summary.totalMinutes)}` : ''} — {window.KOUTSI_MONTHS[viewMonth]}</div>
+            <div style={{ fontSize: 12.5, color: '#8a857a', marginBottom: 10 }}>{summary.totalSessions} suoritusta{summary.totalMinutes ? `, ${window.koutsiFmtDuration(summary.totalMinutes)}` : ''} — {window.KOUTSI_MONTHS[viewMonth]}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               {active.map((c) => (
                 <div key={c.key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: '#3c382f' }}>
                   <span>{c.label}</span>
-                  <span style={{ fontWeight: 700, color: '#111' }}>{c.count}{c.minutes > 0 ? ` · ${window.koutsiFmtDuration(c.minutes)}` : ''}</span>
+                  <span style={{ fontWeight: 700, color: '#111' }}>{c.count}{c.minutes > 0 ? ` (${window.koutsiFmtDuration(c.minutes)})` : ''}</span>
                 </div>
               ))}
               {matches?.count > 0 && (
@@ -1273,7 +1273,7 @@ function StudentAttendanceEditor({ student, state, trainings, onEdit }) {
           return (
             <div key={t.id} className="k-card" style={{ padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, color: '#111', fontWeight: 700 }}>{window.koutsiFmtShortDate(t.date)} · {t.time}</div>
+                <div style={{ fontSize: 13.5, color: '#111', fontWeight: 700 }}>{window.koutsiFmtShortDate(t.date)} klo {t.time}</div>
                 <div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>{group ? group.name : t.type}</div>
                 {entry?.note && <div style={{ fontSize: 12, color: '#6b665c', lineHeight: 1.4, marginTop: 4 }}>{entry.note}</div>}
               </div>
@@ -1349,7 +1349,7 @@ function MoodTrend({ moods }) {
   return (
     <div className="k-card" style={{ padding: '14px 16px' }}>
       <div style={{ fontSize: 13, color: '#514c42', marginBottom: 11 }}>
-        Keskiarvo <b style={{ color: '#111' }}>{avg.toFixed(1)}</b> · {shared.length} merkintää
+        Keskiarvo <b style={{ color: '#111' }}>{avg.toFixed(1)}</b>, {shared.length} merkintää
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {shared.slice(0, 6).map((m) => (
@@ -1603,7 +1603,7 @@ function StudentDetail({ student, coach, state, trainings, groups, upcoming, att
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{g.name}</div>
                         <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>
-                          {times.map((t) => `${t.day} klo ${t.time}`).join(' · ')} viikoittain{gCoach ? ` · ${gCoach.name}` : ''}
+                          {times.map((t) => `${t.day} klo ${t.time}`).join(', ')} viikoittain{gCoach ? `, ${gCoach.name}` : ''}
                         </div>
                       </div>
                       <ChevronRight />
@@ -1683,7 +1683,7 @@ function StudentDetail({ student, coach, state, trainings, groups, upcoming, att
           {upcoming.length > 0 && (
             <Field label="Tulevat treenit">
               {upcoming.map((t) => (
-                <div key={t.id} style={{ fontSize: 14.5, color: '#3c382f', padding: '4px 0' }}>{window.koutsiFmtShortDate(t.date)} · {t.time} — {t.type}</div>
+                <div key={t.id} style={{ fontSize: 14.5, color: '#3c382f', padding: '4px 0' }}>{window.koutsiFmtShortDate(t.date)} klo {t.time} — {t.type}</div>
               ))}
             </Field>
           )}
@@ -2002,7 +2002,7 @@ function SharedAnnualPlanSubmissionCard({ coachId }) {
           <div key={submission.id} className="k-card" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 11, padding: '10px 12px', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 210px', minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.filename}</div>
-              <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 2 }}>{new Date(submission.uploadedAt).toLocaleDateString('fi-FI')} · {adminFormatBytes(submission.sizeBytes)}</div>
+              <div style={{ fontSize: 11.5, color: '#8a857a', marginTop: 2 }}>{new Date(submission.uploadedAt).toLocaleDateString('fi-FI')}, {adminFormatBytes(submission.sizeBytes)}</div>
             </div>
             <span style={{ borderRadius: 999, padding: '5px 9px', fontSize: 10.5, fontWeight: 800, color: pending ? '#7a4c1e' : '#0e5b42', background: pending ? 'rgba(199,123,46,0.12)' : 'rgba(47,125,84,0.11)', border: `1px solid ${pending ? 'rgba(199,123,46,0.3)' : 'rgba(47,125,84,0.25)'}` }}>
               {pending ? 'Odottaa ylläpitoa' : 'Käsitelty'}
@@ -2045,7 +2045,7 @@ function GroupsView({ groups, students, trainings, coachId, acting, onOpen, onCr
                   ? (
                     <div style={{ fontSize: 12.5, color: '#8a857a' }}>
                       <b style={{ color: '#8f5a1e' }}>Vko {nowWeek.week} ilman teemaa</b>
-                      {nextTheme ? ` · seuraava ${themeWeekShort(nextTheme, nowWeek)}: ${nextTheme.title}` : ` · edellinen ${themeWeekShort(lastTheme, nowWeek)}: ${lastTheme.title}`}
+                      {nextTheme ? `, seuraava ${themeWeekShort(nextTheme, nowWeek)}: ${nextTheme.title}` : `, edellinen ${themeWeekShort(lastTheme, nowWeek)}: ${lastTheme.title}`}
                     </div>
                   )
                   : <div style={{ fontSize: 12.5, color: '#a8a297' }}>Ei viikkoteemoja</div>}
@@ -2075,7 +2075,7 @@ function themeWeekLabel(w, now) {
   const note = same(w, now) ? ' (tämä viikko)'
     : same(w, window.koutsiAddIsoWeeks(now, 1)) ? ' (ensi viikko)'
       : same(w, window.koutsiAddIsoWeeks(now, -1)) ? ' (viime viikko)' : '';
-  return `${themeWeekShort(w, now)} · ${window.koutsiIsoWeekRangeLabel(w.year, w.week)}${note}`;
+  return `${themeWeekShort(w, now)}, ${window.koutsiIsoWeekRangeLabel(w.year, w.week)}${note}`;
 }
 
 function WeeklyThemeRow({ row, weekOptions, takenWeeks, nowWeek, onChange, onRemove }) {
@@ -2339,13 +2339,13 @@ function ThemeWeekNudge({ coachId, groups, trainings, onOpenPlanner, onSaveTheme
   return (
     <div className="k-card" style={{ padding: '15px 17px', marginBottom: 18, background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.04))', borderColor: 'rgba(14,59,44,0.16)' }}>
       <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>
-        {isNow ? `Viikko ${week.week}` : `Ensi viikko · vko ${week.week}`}
+        {isNow ? `Viikko ${week.week}` : `Ensi viikko, vko ${week.week}`}
       </div>
       <div style={{ fontSize: 16, fontWeight: 800, color: '#111', marginBottom: 4 }}>
         {status.covered}/{status.pool.length} ryhmällä on viikon teema
       </div>
       <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5, marginBottom: 12 }}>
-        {pendingIds.size === 1 ? '1 ryhmä treenaa' : `${pendingIds.size} ryhmää treenaa`} {isNow ? 'vielä ' : ''}ilman teemaa. {isNow ? 'Seuraava' : 'Ensimmäinen'}: {when} klo {next.time}{nextGroup ? ` · ${nextGroup.name}` : ''}.
+        {pendingIds.size === 1 ? '1 ryhmä treenaa' : `${pendingIds.size} ryhmää treenaa`} {isNow ? 'vielä ' : ''}ilman teemaa. {isNow ? 'Seuraava' : 'Ensimmäinen'}: {when} klo {next.time}{nextGroup ? `, ${nextGroup.name}` : ''}.
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {carry.length > 0 && (
@@ -2502,7 +2502,7 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete }) {
       const names = conflicts.slice(0, 3).map((r) => `${r.group.day} ${r.group.time} ${r.group.name}: ${r.theme.title}${sameTitle(r) ? ' (eri tarkennus)' : ''}`);
       const choice = await confirm({
         title: `${conflicts.length === 1 ? '1 ryhmällä' : `${conflicts.length} ryhmällä`} on jo oma teema viikolla ${week.week}`,
-        body: `${names.join(' · ')}${conflicts.length > 3 ? ` · ja ${conflicts.length - 3} muuta` : ''}`,
+        body: `${names.join(', ')}${conflicts.length > 3 ? ` ja ${conflicts.length - 3} muuta` : ''}`,
         confirmLabel: 'Korvaa nekin', secondaryLabel: 'Tallenna vain muille', secondaryValue: 'skip', cancelLabel: 'Peruuta',
       });
       if (!choice) return;
@@ -2540,7 +2540,7 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete }) {
   });
   const playerCard = (t, l, w) => (
     <div className="k-card" style={{ padding: '12px 14px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', textAlign: 'left' }}>
-      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>Viikon teema · vko {w.week}</div>
+      <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>Viikon teema, vko {w.week}</div>
       <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{t}</div>
       {l && <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.5, marginTop: 3 }}>{l}</div>}
     </div>
@@ -2578,7 +2578,7 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete }) {
             <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{themeWeekLabel(week, now)}</div>
               <div style={{ fontSize: 12.5, color: covered === pool.length && pool.length > 0 ? '#2f7d54' : '#8a857a', marginTop: 3, fontWeight: 600 }}>
-                {covered}/{pool.length} ryhmällä on teema{pool.length < rows.length ? ` · ${rows.length - pool.length} ilman treeniä viikolla ${week.week}` : ''}
+                {covered}/{pool.length} ryhmällä on teema{pool.length < rows.length ? `, ${rows.length - pool.length} ilman treeniä viikolla ${week.week}` : ''}
               </div>
             </div>
             <button type="button" onClick={() => goWeek(1)} aria-label="Seuraava viikko" style={stepStyle}>›</button>
@@ -2637,7 +2637,7 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete }) {
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ fontSize: 13.5, fontWeight: 700, color: '#111' }}>{c.title}</div>
                                   <div style={{ fontSize: 12, color: '#8a857a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {c.groups.length === 1 ? '1 ryhmä' : `${c.groups.length} ryhmää`}{c.lead ? ` · ${c.lead}` : ''}
+                                    {c.groups.length === 1 ? '1 ryhmä' : `${c.groups.length} ryhmää`}{c.lead ? `, ${c.lead}` : ''}
                                   </div>
                                 </div>
                                 <button type="button" onClick={() => pickFromHistory(c)} className="btn-outline btn-sm" style={{ padding: '6px 11px', fontSize: 12, flexShrink: 0 }}>Käytä</button>
@@ -2719,8 +2719,8 @@ function WeekThemePlanner({ groups, trainings, onClose, onSave, onDelete }) {
                           <input type="checkbox" checked={selected.has(r.group.id)} onChange={() => toggle(r.group.id)} style={{ width: 18, height: 18, accentColor: 'var(--green-deep)', flexShrink: 0 }} />
                           <span style={{ minWidth: 0 }}>
                             <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: '#111' }}>
-                              {r.group.time} · {r.group.name}{r.group.level ? <span style={{ fontWeight: 500, color: '#8a857a' }}> · {r.group.level}</span> : null}
-                              <span style={{ fontWeight: 500, color: '#a8a297' }}> · {r.group.memberIds.length} pel.</span>
+                              {r.group.time}, {r.group.name}{r.group.level ? <span style={{ fontWeight: 500, color: '#8a857a' }}>, {r.group.level}</span> : null}
+                              <span style={{ fontWeight: 500, color: '#a8a297' }}>, {r.group.memberIds.length}&nbsp;pel.</span>
                             </span>
                             <span style={{ display: 'block', fontSize: 12.5, marginTop: 2, color: r.theme ? (same ? '#2f7d54' : '#514c42') : '#a8a297' }}>
                               {r.theme ? `${same ? '✓ ' : 'Nyt: '}${r.theme.title}` : counts(r) ? 'Ei teemaa' : `Ei treeniä viikolla ${week.week}`}
@@ -2894,7 +2894,7 @@ function InviteCodeBox({ coachId, coachName, groupId, groupName }) {
                     <span style={{ fontWeight: 800, letterSpacing: 1.5, fontSize: 13.5, color: '#111' }}>{c.code}</span>
                     <span style={{ fontSize: 11.5, color: '#8a857a', flex: 1 }}>
                       {c.useCount}/{c.maxUses ?? '∞'} käytetty
-                      {c.expiresAt ? ` · voimassa ${window.koutsiFmtShortDate(c.expiresAt.slice(0, 10))} asti` : ''}
+                      {c.expiresAt ? `, voimassa ${window.koutsiFmtShortDate(c.expiresAt.slice(0, 10))} asti` : ''}
                     </span>
                     <button onClick={() => setIssued({ code: c.code })} className="btn-outline btn-sm" style={{ padding: '5px 10px', fontSize: 11.5 }}>Näytä</button>
                     <button onClick={() => revoke(c.code)} className="btn-outline btn-sm" style={{ padding: '5px 10px', fontSize: 11.5, color: '#8f2f24', borderColor: '#e3c9c4' }}>Poista</button>
@@ -3311,7 +3311,7 @@ function AnnualPlanCard({ group, onUploadPlan, onRemovePlan }) {
         <button onClick={open} disabled={busy} style={{ minWidth: 0, flex: 1, background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 13.5, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plan.filename}</div>
           <div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>
-            {inReview ? 'Lähetetty ylläpidolle' : 'Päivitetty ryhmälle'} {window.koutsiFmtShortDate(plan.date)}{plan.sizeBytes ? ` · ${Math.max(1, Math.round(plan.sizeBytes / 1024))} kt` : ''}
+            {inReview ? 'Lähetetty ylläpidolle' : 'Päivitetty ryhmälle'} {window.koutsiFmtShortDate(plan.date)}{plan.sizeBytes ? `, ${Math.max(1, Math.round(plan.sizeBytes / 1024))}\u00a0kt` : ''}
           </div>
         </button>
         <span style={{
@@ -3394,7 +3394,7 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tulevat viikot</div>
                 {group.upcomingThemes.slice(0, 5).map((t) => (
                   <div key={t.id} style={{ fontSize: 13.5, color: '#3c382f' }}>
-                    <b style={{ color: 'var(--green-deep)' }}>{themeWeekShort(t, nowWeek)}</b> · {window.koutsiIsoWeekRangeLabel(t.year, t.week)} — {t.title}
+                    <b style={{ color: 'var(--green-deep)' }}>{themeWeekShort(t, nowWeek)}</b>, {window.koutsiIsoWeekRangeLabel(t.year, t.week)} — {t.title}
                   </div>
                 ))}
                 {group.upcomingThemes.length > 5 && <div style={{ fontSize: 12.5, color: '#a8a297' }}>+{group.upcomingThemes.length - 5} viikkoa lisää</div>}
@@ -3410,7 +3410,7 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
                   <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {pastThemes.map((t) => (
                       <div key={t.id} style={{ fontSize: 13.5, color: '#514c42' }}>
-                        <b style={{ color: '#3c382f' }}>{themeWeekShort(t, nowWeek)}</b> · {window.koutsiIsoWeekRangeLabel(t.year, t.week)} — {t.title}
+                        <b style={{ color: '#3c382f' }}>{themeWeekShort(t, nowWeek)}</b>, {window.koutsiIsoWeekRangeLabel(t.year, t.week)} — {t.title}
                       </div>
                     ))}
                   </div>
@@ -3429,7 +3429,7 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
                 return (
                   <button key={t.id} onClick={() => onOpenAttendance(t.id)} className="k-card" style={{ width: '100%', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', textAlign: 'left' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, color: '#111', fontWeight: 700 }}>{window.koutsiFmtShortDate(t.date)} · {t.time}</div>
+                      <div style={{ fontSize: 13.5, color: '#111', fontWeight: 700 }}>{window.koutsiFmtShortDate(t.date)} klo {t.time}</div>
                       <div style={{ fontSize: 12, color: missing ? '#8a5a12' : '#2f7d54', marginTop: 3 }}>{missing ? `${missing} poissa` : 'Kaikki merkitty paikalle'}</div>
                     </div>
                     <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-deep)' }}>Kirjaa →</span>
@@ -3461,7 +3461,7 @@ function GroupDetail({ group, members, trainings, upcoming, onClose, onOpenStude
             {upcoming.length === 0 && <div style={{ color: '#8a857a', fontSize: 14 }}>Ei tulevia treenejä.</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {upcoming.map((t) => (
-                <div key={t.id} style={{ fontSize: 14.5, color: '#3c382f', padding: '4px 0' }}>{window.koutsiFmtShortDate(t.date)} · {t.time}</div>
+                <div key={t.id} style={{ fontSize: 14.5, color: '#3c382f', padding: '4px 0' }}>{window.koutsiFmtShortDate(t.date)} klo {t.time}</div>
               ))}
             </div>
           </Field>
@@ -3614,7 +3614,7 @@ function CalendarView({ state, onAdd, onPreSession, onEditTraining, onDeleteTrai
                     {party.kind === 'group' && <AvatarStack members={party.members} size={38} />}
                     <div style={{ flex: 1, minWidth: 140 }}>
                       <div style={{ color: '#111', fontWeight: 700, fontSize: 15 }}>{party.kind === 'group' ? (party.group ? party.group.name : 'Ryhmä') : (party.student ? party.student.name : '—')}</div>
-                      <div style={{ color: '#8a857a', fontSize: 12.5 }}>{t.type}{party.kind === 'group' ? ` · ${party.members.length} pelaajaa` : ''}{trainingCoach ? ` · ${trainingCoach.name}` : ''}</div>
+                      <div style={{ color: '#8a857a', fontSize: 12.5 }}>{t.type}{party.kind === 'group' ? `, ${party.members.length} pelaajaa` : ''}{trainingCoach ? `, ${trainingCoach.name}` : ''}</div>
                     </div>
                     <span style={{ color: 'var(--green-deep)', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>Avaa →</span>
                     <window.KoutsiRowActions onEdit={() => onEditTraining(t)} onDelete={() => onDeleteTraining(t)} editLabel="Muokkaa treeniä" deleteLabel="Poista treeni" />
@@ -3645,9 +3645,9 @@ function PreSessionPanel({ training, state, onClose, onEditAttendance }) {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} className="k-card" style={{ width: 'min(560px, 100%)', maxHeight: '86vh', overflowY: 'auto', padding: '28px 28px 26px', animation: 'kFadeIn .2s ease' }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Treenin tiedot ja läsnäolot</div>
-        <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{window.koutsiFmtShortDate(training.date)} · {window.koutsiTimeRangeLabel(training.time, training.durationMinutes)}</h3>
+        <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{window.koutsiFmtShortDate(training.date)} klo {window.koutsiTimeRangeLabel(training.time, training.durationMinutes)}</h3>
         <div style={{ fontSize: 14, color: '#8a857a', fontWeight: 600, marginBottom: 20 }}>
-          {party.kind === 'group' && party.group ? party.group.name : ''}{party.kind === 'group' && party.group && trainingCoach ? ' · ' : ''}{trainingCoach ? trainingCoach.name : ''}
+          {party.kind === 'group' && party.group ? party.group.name : ''}{party.kind === 'group' && party.group && trainingCoach ? ', ' : ''}{trainingCoach ? trainingCoach.name : ''}
         </div>
         <Field label="Pelaajat">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -3901,7 +3901,7 @@ function ExercisesView({ exercises, onOpen, onAdd, onRestoreStarters }) {
                 </span>
               )}
             </div>
-            <div style={{ color: '#8a857a', fontSize: 13 }}>{ex.players} pelaajaa · {ex.duration} · {ex.level}</div>
+            <div style={{ color: '#8a857a', fontSize: 13 }}>{ex.players} pelaajaa, {ex.duration}, {ex.level}</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {ex.tags.map((t) => <span key={t} className="k-chip">{TAG_LABELS[t]}</span>)}
             </div>
@@ -4217,7 +4217,7 @@ function AnnualPlanReviewPanel() {
   const publish = async (plan) => {
     const ok = await confirm({
       title: 'Merkitse lisätyksi?',
-      body: `${plan.groupName} · ${plan.filename}. Valmentaja ${plan.coachName} saa ilmoituksen, ja suunnitelma näkyy sovelluksessa käytössä olevana.`,
+      body: `${plan.groupName}, ${plan.filename}. Valmentaja ${plan.coachName} saa ilmoituksen, ja suunnitelma näkyy sovelluksessa käytössä olevana.`,
       confirmLabel: 'Merkitse lisätyksi',
     });
     if (!ok) return;
@@ -4235,8 +4235,8 @@ function AnnualPlanReviewPanel() {
             <div style={{ minWidth: 140, flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{plan.groupName}</div>
               <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>
-                {plan.coachName} · {plan.filename}
-                {plan.uploadedAt ? ` · ${window.koutsiFmtShortDate(String(plan.uploadedAt).slice(0, 10))}` : ''}
+                {plan.coachName}, {plan.filename}
+                {plan.uploadedAt ? `, ${window.koutsiFmtShortDate(String(plan.uploadedAt).slice(0, 10))}` : ''}
               </div>
             </div>
             <button onClick={() => open(plan)} disabled={busyId === plan.groupId} className="btn-outline btn-sm">Avaa</button>
@@ -4538,7 +4538,7 @@ function AdminUserCard({ user, onOpenPlans, onOpenImport, onActAs, onDelete }) {
             <div key={c.code} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 11px', borderRadius: 10, background: '#f7f5ef', border: '1px solid var(--line)', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 800, letterSpacing: 1.5, fontSize: 13.5, color: '#111' }}>{c.code}</span>
               <span style={{ fontSize: 12, color: '#514c42', flex: 1, minWidth: 90 }}>
-                {c.label || c.group_name || 'Ei ryhmää'} · {c.used}/{c.max_uses ?? '∞'}
+                {c.label || c.group_name || 'Ei ryhmää'}, {c.used}/{c.max_uses ?? '∞'}
               </span>
               <window.KoutsiCopyButton text={window.koutsiInviteLink(c.code)} label="Kopioi linkki" style={{ padding: '5px 10px', fontSize: 11.5 }} />
             </div>
@@ -4747,7 +4747,7 @@ function AdminPlansModal({ coach, onClose, onChanged, onActAs }) {
               <div key={submission.id} className="k-card" style={{ padding: '13px 15px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', background: pending ? 'rgba(199,123,46,0.055)' : '#fff' }}>
                 <div style={{ flex: '1 1 220px', minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{submission.filename}</div>
-                  <div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>{new Date(submission.uploadedAt).toLocaleDateString('fi-FI')} · {adminFormatBytes(submission.sizeBytes)}</div>
+                  <div style={{ fontSize: 12, color: '#8a857a', marginTop: 2 }}>{new Date(submission.uploadedAt).toLocaleDateString('fi-FI')}, {adminFormatBytes(submission.sizeBytes)}</div>
                 </div>
                 <span style={{ borderRadius: 999, padding: '5px 9px', fontSize: 10.5, fontWeight: 800, color: pending ? '#7a4c1e' : '#0e5b42', background: pending ? 'rgba(199,123,46,0.12)' : 'rgba(47,125,84,0.11)', border: `1px solid ${pending ? 'rgba(199,123,46,0.3)' : 'rgba(47,125,84,0.25)'}` }}>
                   {pending ? 'Odottaa käsittelyä' : 'Käsitelty'}
@@ -4768,7 +4768,7 @@ function AdminPlansModal({ coach, onClose, onChanged, onActAs }) {
               <div style={{ flex: '1 1 150px', minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{g.name}</div>
                 <div style={{ fontSize: 12.5, color: '#8a857a', marginTop: 2 }}>
-                  {g.memberCount} pelaajaa · {g.planFilename ? `${g.planFilename} (${g.planStatus === 'review' ? 'odottaa' : 'käytössä'})` : 'ei suunnitelmaa'}
+                  {g.memberCount} pelaajaa, {g.planFilename ? `${g.planFilename} (${g.planStatus === 'review' ? 'odottaa' : 'käytössä'})` : 'ei suunnitelmaa'}
                 </div>
               </div>
               {g.planFilename && <button onClick={() => open(g)} disabled={busyId === g.id} className="btn-outline btn-sm">Avaa</button>}
@@ -4820,7 +4820,7 @@ function AdminFeedbackCard({ item, onDelete }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '4px 9px', fontSize: 11, fontWeight: 800, color: color.fg, background: color.bg, border: `1px solid ${color.border}` }}>{label}</span>
         <span style={{ fontSize: 12.5, fontWeight: 700, color: '#111' }}>{item.senderName}</span>
-        <span style={{ fontSize: 11.5, color: '#8a857a' }}>{item.isCoach ? 'Valmentaja' : item.isPlayer ? 'Pelaaja' : ''}{item.email ? ` · ${item.email}` : ''}</span>
+        <span style={{ fontSize: 11.5, color: '#8a857a' }}>{item.isCoach ? 'Valmentaja' : item.isPlayer ? 'Pelaaja' : ''}{item.email ? `, ${item.email}` : ''}</span>
         <span style={{ fontSize: 11.5, color: '#8a857a', marginLeft: 'auto' }}>{adminFormatRelativeDate(item.createdAt)}</span>
       </div>
       <div style={{ fontSize: 14, color: '#111', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{item.message}</div>
@@ -4957,7 +4957,7 @@ function AdminView({ onActAs }) {
 
   return (
     <div>
-      <PageHeader title="Ylläpito" sub={users ? `${users.length} käyttäjää · ${totals.coaches} valmentajaa · ${totals.players} pelaajaa · ${totals.active30d} aktiivista (30 pv) · ${adminFormatBytes(totals.storage)}` : 'Ladataan…'} />
+      <PageHeader title="Ylläpito" sub={users ? `${users.length} käyttäjää, ${totals.coaches} valmentajaa, ${totals.players} pelaajaa, ${totals.active30d} aktiivista (30\u00a0pv), ${adminFormatBytes(totals.storage)}` : 'Ladataan…'} />
       <div role="tablist" aria-label="Ylläpito" style={{ display: 'inline-flex', gap: 4, padding: 4, borderRadius: 999, background: '#efece3', marginBottom: 18 }}>
         {[{ id: 'users', label: 'Käyttäjät ja palaute' }, { id: 'usage', label: 'Käyttö' }].map((item) => {
           const active = section === item.id;

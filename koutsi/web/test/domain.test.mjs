@@ -76,7 +76,7 @@ test('week labels say which week it is relative to today', () => {
   assert.equal(themeWeekRelative(koutsiAddIsoWeeks(now, 1)), 'Ensi viikko');
   assert.equal(themeWeekRelative(koutsiAddIsoWeeks(now, -1)), 'Viime viikko');
   assert.equal(themeWeekRelative(koutsiAddIsoWeeks(now, 3)), '');
-  assert.match(themeWeekLabel(now), /^vko \d+ · .+ \(tämä viikko\)$/);
+  assert.match(themeWeekLabel(now), /^vko \d+, .+ \(tämä viikko\)$/);
 });
 
 test("the timeline speaks to its reader and shows what a player's own session was", () => {
@@ -84,7 +84,7 @@ test("the timeline speaks to its reader and shows what a player's own session wa
   const own = { id: 'o1', date: koutsiAddDays(today, -1), time: '12:00', type: 'Omatoiminen harjoitus', loggedBy: 'player', durationMinutes: 30, notes: 'Rystyn varjolyöntejä', studentId: 's1', absences: [] };
   const mine = koutsiBuildTimeline(s, [own], []);
   assert.equal(mine.find((e) => e.kind === 'start').title, 'Aloitit Krossi Koutsissa');
-  assert.equal(mine.find((e) => e.id === 'training-o1').body, '30 min · Rystyn varjolyöntejä');
+  assert.equal(mine.find((e) => e.id === 'training-o1').body, '30 min, Rystyn varjolyöntejä');
   const coachView = koutsiBuildTimeline(s, [own], [], { viewer: 'coach' });
   assert.equal(coachView.find((e) => e.kind === 'start').title, 'Aloitti Krossi Koutsissa');
   // a coach-run session never shows the coach's free-text notes as if the player wrote them

@@ -429,7 +429,7 @@ function spotsText(left: number): string {
 
 function gameDetails(game: GameRow, left: number): string[] {
   const kind = game.challenge_type === "event" && game.title?.trim()
-    ? `${game.title.trim()} · ${matchTypeLabel(game.match_type)}`
+    ? `${game.title.trim()}, ${matchTypeLabel(game.match_type).toLowerCase()}`
     : matchTypeLabel(game.match_type);
   return [
     `🗓 ${formatWhen(game.scheduled_at)}`,
@@ -493,12 +493,12 @@ function reminderContent(reminder: Reminder, nowParts: HelsinkiTime): EmailConte
 
   const kind = title || matchTypeLabel(game.match_type);
   const place = subjectPlace(game);
-  const subjectWhat = title || (place ? `${kind} · ${place}` : kind);
+  const subjectWhat = title || (place ? `${kind}, ${place}` : kind);
   const others = joinNames(reminder.others);
   const isCreator = reminder.userId === game.creator_id;
   return {
     subject: truncate(`${capitalize(day)} ${time}: ${subjectWhat}`, 120),
-    preheader: others ? `Mukana ${others}. Hyvää peliä!` : `${placeLabel(game)} · hyvää peliä!`,
+    preheader: others ? `Mukana ${others}. Hyvää peliä!` : `${placeLabel(game)}. Hyvää peliä!`,
     heading: `${title || "Peli"} ${day} ${time} 🎾`,
     paragraphs: [
       others ? `${capitalize(day)} pelataan! Mukana ${others}.` : `${capitalize(day)} pelataan!`,

@@ -363,7 +363,7 @@ async function planAreaBroadcast(
   const content: EmailContent = isEvent
     ? {
       subject: `Uusi tapahtuma: ${challenge.title?.trim() || area}`,
-      preheader: `${when} · ${placeLabel(challenge)}`,
+      preheader: `${when}, ${placeLabel(challenge)}`,
       heading: challenge.title?.trim() || `Uusi tennistapahtuma alueella ${area}`,
       paragraphs: [`${creator} julkaisi uuden tapahtuman Krossissa. Ilmoittaudu mukaan, ennen kuin paikat täyttyvät.`],
       details: gameDetails(challenge, left),
@@ -371,7 +371,7 @@ async function planAreaBroadcast(
     }
     : {
       subject: `${creator} hakee pelikaveria — ${when}`,
-      preheader: `${matchTypeLabel(challenge.match_type)} · ${placeLabel(challenge)}`,
+      preheader: `${matchTypeLabel(challenge.match_type)}, ${placeLabel(challenge)}`,
       heading: `Uusi peli alueella ${area}`,
       paragraphs: [`${creator} hakee pelikaveria. Liity mukaan, niin peli on sovittu.`],
       details: gameDetails(challenge, left),
@@ -440,7 +440,7 @@ async function planChallengeInvite(admin: Admin, event: Extract<NotifyEvent, { t
     logRefId: challenge.id,
     content: {
       subject: `${inviter} kutsuu sinut pelaamaan`,
-      preheader: `${formatWhen(challenge.scheduled_at)} · ${placeLabel(challenge)}`,
+      preheader: `${formatWhen(challenge.scheduled_at)}, ${placeLabel(challenge)}`,
       heading: `${inviter} kutsuu sinut peliin`,
       paragraphs: ["Pääsetkö mukaan? Vastaa kutsuun Krossissa."],
       details: gameDetails(challenge, left),
@@ -588,10 +588,10 @@ async function planBookingSlotFree(
     logRefId: watch.id as string,
     content: {
       subject: `Vuoro vapautui: ${start.label} — varaa ennen muita`,
-      preheader: `${sport} · ${place}. Nopein ehtii.`,
+      preheader: `${sport}, ${place}. Nopein ehtii.`,
       heading: "Odottamasi vuoro vapautui 🎾",
       paragraphs: ["Pyysit ilmoitusta, kun tämä aika vapautuu. Nyt kenttä on vapaana — varaa se heti, ennen kuin joku muu ehtii."],
-      details: [`🗓 ${start.label}–${end.time}`, `📍 ${place}`, `🎾 ${sport} · ${durationText(minutes)}`],
+      details: [`🗓 ${start.label}–${end.time}`, `📍 ${place}`, `🎾 ${sport}, ${durationText(minutes)}`],
       cta: { label: "Varaa vuoro", path: `/pelaa/varaa/${encodeURIComponent(venue.slug as string)}` },
     },
   };
@@ -688,7 +688,7 @@ async function planBookingSplitPaid(
     blockActor: null,
     content: {
       subject: toSaldo ? `${payer} maksoi osuutensa ${amount} — se lisättiin saldoosi` : `${payer} maksoi osuutensa ${amount} — se palautettiin sinulle`,
-      preheader: `${booking.when} · ${booking.place}`,
+      preheader: `${booking.when}, ${booking.place}`,
       heading: `${payer} maksoi osuutensa`,
       paragraphs: [
         toSaldo
@@ -749,7 +749,7 @@ async function planBookingResold(
     blockActor: null,
     content: {
       subject: own > 0 ? "Vuorosi myytiin — saat rahat takaisin" : "Vuorosi myytiin",
-      preheader: `${booking.when} · ${booking.place}`,
+      preheader: `${booking.when}, ${booking.place}`,
       heading: "Joku varasi myyntiin laittamasi vuoron",
       paragraphs: [
         ...(back.length ? back : ["Vuoro oli maksuton, joten palautettavaa ei ole."]),
@@ -1092,7 +1092,7 @@ function spotsText(left: number): string {
 
 function gameDetails(challenge: ChallengeRow, left: number | null): string[] {
   const kind = challenge.challenge_type === "event" && challenge.title?.trim()
-    ? `${challenge.title.trim()} · ${matchTypeLabel(challenge.match_type)}`
+    ? `${challenge.title.trim()}, ${matchTypeLabel(challenge.match_type).toLowerCase()}`
     : matchTypeLabel(challenge.match_type);
   const lines = [`🗓 ${formatWhen(challenge.scheduled_at)}`, `📍 ${placeLabel(challenge)}`, `🎾 ${kind}`];
   if (left !== null) lines.push(left === 0 ? "✅ Peli on täynnä" : `👋 ${spotsText(left)}`);

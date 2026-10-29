@@ -44,12 +44,12 @@ export function JoinGroupSheet({ open, onClose, initialCode = null }) {
                 const coach = koutsiCoachById(state, g.coachId);
                 return (
                   <ListRow key={g.id} icon="users" title={g.name}
-                    subtitle={[`${DAY_NAMES[g.day] || g.day || ''} klo ${g.time || ''}`.trim(), coach ? `Valmentaja ${coach.name}` : ''].filter(Boolean).join(' · ')}
+                    subtitle={[`${DAY_NAMES[g.day] || g.day || ''} klo ${g.time || ''}`.trim(), coach ? `Valmentaja ${coach.name}` : ''].filter(Boolean).join(', ')}
                     onClick={() => openGroup(g)} />
                 );
               })}
               {groupless.map((c) => (
-                <ListRow key={c.id} icon="user" title={`Valmentaja ${c.name}`} subtitle="Olet hänen pelaajansa · ryhmä tulee, kun valmentaja lisää sinut" />
+                <ListRow key={c.id} icon="user" title={`Valmentaja ${c.name}`} subtitle="Olet hänen pelaajansa. Ryhmä tulee, kun valmentaja lisää sinut." />
               ))}
             </div>
           )}

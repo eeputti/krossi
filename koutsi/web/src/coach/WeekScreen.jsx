@@ -56,8 +56,8 @@ function WeekHero({ state, glance, week }) {
   const openDay = (date) => { track('koti.paiva'); navigate(`/valmentaja/ryhmat?vko=${weekParam(week)}&pv=${date}`); };
   const missing = status.missing || [];
   const weekWord = isNow ? `Viikon ${themeWeek.week}` : `Ensi viikon (vko ${themeWeek.week})`;
-  const missingNames = missing.slice(0, 3).map((g) => `${g.day} ${g.time} ${g.name}`).join(' · ')
-    + (missing.length > 3 ? ` · +${missing.length - 3} muuta` : '');
+  const missingNames = missing.slice(0, 3).map((g) => `${g.day} ${g.time} ${g.name}`).join(', ')
+    + (missing.length > 3 ? ` ja ${missing.length - 3} muuta` : '');
   const themeRow = pool.length > 0 && (
     <div className={cx('wk-theme', 'wk-theme-top', all && 'is-ok')}>
       <button type="button" className="wk-theme-open" onClick={plan}>
@@ -78,7 +78,7 @@ function WeekHero({ state, glance, week }) {
   return (
     <section className="week-hero on-dark wk-hero rise">
       <div className="week-hero-top">
-        <span className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
+        <span className="eyebrow">Viikko {week.week}, {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
         {/* a computer has the bell and the profile on the card at the foot of the side nav */}
         {!acting && !isDesktop && (
           <span className="week-hero-tools">
@@ -180,7 +180,7 @@ function SeasonCard({ state, nudge }) {
         <span className="k-alert-icon is-lime"><Icon name="check" size={20} /></span>
         <div className="k-alert-body">
           <div className="k-alert-title">{next.name} on julkaistu</div>
-          <p className="k-alert-text">Alkaa {koutsiFmtShortDate(next.startsOn)} · {count} ryhmää. {season.name} jatkuu {koutsiFmtShortDate(season.endsOn)} asti.</p>
+          <p className="k-alert-text">Alkaa {koutsiFmtShortDate(next.startsOn)}, {count} ryhmää. {season.name} jatkuu {koutsiFmtShortDate(season.endsOn)} asti.</p>
           <div className="row wrap season-alert-actions">
             <Button variant="dark" size="sm" icon="share" onClick={() => setLinksOpen(true)}>Jaa ryhmälinkit</Button>
             <Button variant="outline" size="sm" icon="calendar" onClick={() => navigate(`/valmentaja/ryhmat?vko=${weekParam(koutsiIsoWeekOfDateStr(next.startsOn))}`)}>Ensimmäinen viikko</Button>
@@ -199,7 +199,7 @@ function SeasonCard({ state, nudge }) {
     <Card className="k-alert season-alert">
       <span className="k-alert-icon is-lime"><Icon name="repeat" size={19} /></span>
       <div className="k-alert-body">
-        <div className="k-alert-title">{kind === 'draft' ? `${draft.name} · luonnos` : `${season.name} loppuu ${koutsiFmtShortDate(season.endsOn)}`}</div>
+        <div className="k-alert-title">{kind === 'draft' ? `${draft.name}, luonnos` : `${season.name} loppuu ${koutsiFmtShortDate(season.endsOn)}`}</div>
         <p className="k-alert-text">
           {kind === 'draft'
             ? `${changes === 1 ? '1 muutos' : `${changes} muutosta`} tallessa. Pelaajat eivät näe luonnosta — julkaise, kun ryhmät ovat valmiit.`
@@ -304,7 +304,7 @@ function WeekDiary({ state }) {
             <button key={`${n.year}-${n.week}`} type="button" className="k-row" onClick={() => setOpenWeek({ year: n.year, week: n.week })}>
               <span className="k-diary-score t-num" data-score={n.score}>{n.score}</span>
               <span className="k-row-main">
-                <span className="k-row-title">Vko {n.week} · {MOOD_LABELS[n.score]}</span>
+                <span className="k-row-title">Vko {n.week}: {MOOD_LABELS[n.score]}</span>
                 {n.note && <span className="k-row-sub truncate">{n.note}</span>}
               </span>
             </button>

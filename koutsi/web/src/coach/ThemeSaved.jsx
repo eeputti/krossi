@@ -41,7 +41,7 @@ export function ThemeSaved({ state, week, items, skipped = [], onMissing }) {
         <span className="ts-check pop" aria-hidden="true"><Icon name="check" size={24} strokeWidth={3} /></span>
         <div className="ts-head-text">
           <h3 className="t-h2">{one ? 'Teema tallennettu' : 'Teemat tallennettu'}</h3>
-          <p className="ts-sub">Viikko {week.week} · {groupWord(done.length)}{players ? ` · ${players} pelaajaa` : ''}</p>
+          <p className="ts-sub">Viikko {week.week}, {groupWord(done.length)}{players ? `, ${players} pelaajaa` : ''}</p>
         </div>
       </div>
 
@@ -59,7 +59,7 @@ export function ThemeSaved({ state, week, items, skipped = [], onMissing }) {
                 {(!one || r.previous || r.already) && (
                   <span className="ts-meta">
                     {!one && <strong>{r.title}</strong>}
-                    {!one && (r.previous || r.already) && ' · '}
+                    {!one && (r.previous || r.already) && ', '}
                     {r.already ? 'oli jo tämä teema' : r.previous ? `vaihdettu, oli ${r.previous}` : ''}
                   </span>
                 )}
@@ -97,7 +97,7 @@ export function ThemeSaved({ state, week, items, skipped = [], onMissing }) {
           {!all && (
             <>
               <div className="ts-week-missing">
-                Puuttuu vielä: {missing.map((g) => `${g.day} ${g.time} ${g.name}`).join(' · ')}
+                Puuttuu vielä: {missing.map((g) => `${g.day} ${g.time} ${g.name}`).join(', ')}
               </div>
               {onMissing && (
                 <Button variant="dark" size="sm" icon="sparkles" onClick={() => onMissing(missing.map((g) => g.id))}>

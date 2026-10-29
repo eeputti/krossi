@@ -36,7 +36,7 @@ export function themeWeekRelative(w, now = koutsiCurrentIsoWeek()) {
 
 export function themeWeekLabel(w, now = koutsiCurrentIsoWeek()) {
   const note = themeWeekRelative(w, now);
-  return `${themeWeekShort(w, now)} · ${koutsiIsoWeekRangeLabel(w.year, w.week)}${note ? ` (${note.toLowerCase()})` : ''}`;
+  return `${themeWeekShort(w, now)}, ${koutsiIsoWeekRangeLabel(w.year, w.week)}${note ? ` (${note.toLowerCase()})` : ''}`;
 }
 
 export function weekParam(w) { return `${w.year}-${koutsiPad(w.week)}`; }

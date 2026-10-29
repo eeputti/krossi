@@ -292,7 +292,7 @@ export function AbsenceSheet({ open, onClose, training }) {
     if (res.ok) onClose();
   };
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={absentNow ? 'Pääsetkin paikalle?' : 'En pääse'} subtitle={`${koutsiFmtShortDate(training.date)} klo ${training.time} · ${training.type}`} size="sm"
+    <Sheet open={open} onClose={() => !busy && onClose()} title={absentNow ? 'Pääsetkin paikalle?' : 'En pääse'} subtitle={`${koutsiFmtShortDate(training.date)} klo ${training.time}, ${training.type}`} size="sm"
       footer={absentNow
         ? <Button variant="dark" size="lg" block loading={busy} onClick={() => save('paikalla')}>Pääsen sittenkin</Button>
         : <Button variant="dark" size="lg" block loading={busy} onClick={() => save('poissa')}>Ilmoita poissaolo</Button>}>

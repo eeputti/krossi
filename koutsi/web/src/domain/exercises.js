@@ -9,7 +9,7 @@ const words = (s) => lower(s).split(/[^a-z0-9åäö]+/).filter((w) => w.length >
 
 /** "1 pel. · 12 min · Keskitaso · Syöttö" — a drill's row in a list. */
 export function exerciseFacts(ex) {
-  return [ex.players && `${ex.players} pel.`, ex.duration, ex.level, ...(ex.tags || []).map((t) => KOUTSI_TAG_LABELS[t])].filter(Boolean).join(' · ');
+  return [ex.players && `${ex.players}\u00a0pel.`, ex.duration, ex.level, ...(ex.tags || []).map((t) => KOUTSI_TAG_LABELS[t])].filter(Boolean).join(', ');
 }
 
 /** "Kakkossyöttö + suunta: Kymmenen kakkossyöttöä…" — one line: both player apps show homework on one line. */

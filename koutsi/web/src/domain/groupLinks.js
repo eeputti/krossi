@@ -54,6 +54,6 @@ export function groupLinksMessage({ coachName, season, rows, today = koutsiToday
     ? (season.startsOn > today ? `${season.name} alkaa ${koutsiFmtShortDate(season.startsOn)} ` : `${season.name} on käynnissä. `)
     : '';
   const lead = `${who}${when}Liity Krossi Koutsiin oman ryhmäsi linkillä — näet treenien ajat, viikon teeman ja oman kehityksesi. Ikää ei tarvitse ilmoittaa, eikä Koutsiin kirjata terveystietoja.`;
-  const list = rows.filter((r) => r.code).map((r) => `${r.group.day} ${r.group.time} · ${r.group.name}\n${koutsiInviteLink(r.code)}`);
+  const list = rows.filter((r) => r.code).map((r) => `${r.group.day} ${r.group.time}, ${r.group.name}\n${koutsiInviteLink(r.code)}`);
   return [lead, ...list, 'Alaikäiset liittyvät valmentajan lähettämällä henkilökohtaisella linkillä.'].join('\n\n');
 }

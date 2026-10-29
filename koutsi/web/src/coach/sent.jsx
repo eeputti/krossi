@@ -50,7 +50,7 @@ export function SentRow({ item, onOpen, showWhen = 'clock' }) {
       <SentIcon kind={item.kind} />
       <span className="k-row-main">
         <span className="sent-row-title">{item.kind === 'video' ? item.title : item.title.replace(/\s+/g, ' ')}</span>
-        <span className="k-row-sub truncate">{look.label} · {recipientsLabel(state, item)}{when ? ` · ${when}` : ''}</span>
+        <span className="k-row-sub truncate">{look.label}, {recipientsLabel(state, item)}{when ? ` (${when})` : ''}</span>
       </span>
       {progress && (
         <span className={cx('sent-progress t-num', progress.done === progress.total && 'is-all')} title={`${progress.done}/${progress.total} tehnyt`}>
@@ -141,7 +141,7 @@ export function SentSheet({ itemKey, onClose }) {
   return (
     <>
       <Sheet open={Boolean(itemKey)} onClose={() => !busy && onClose()} title={look.label}
-        subtitle={`Lähetetty ${sentWhen(item.at)}${item.kind === 'notice' && item.until ? ` · näkyy ${koutsiFmtShortDate(item.until)} asti` : ''}`}
+        subtitle={`Lähetetty ${sentWhen(item.at)}${item.kind === 'notice' && item.until ? `, näkyy ${koutsiFmtShortDate(item.until)} asti` : ''}`}
         size="md" footer={footer} confirmClose={editing && text.trim() !== item.title}>
         <div className="stack-5">
           {editing ? (

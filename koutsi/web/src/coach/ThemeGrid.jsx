@@ -29,7 +29,7 @@ import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const summaryText = ({ groups, weeks }) => `${plural(groups, 'ryhmä', 'ryhmää')} · ${plural(weeks, 'viikko', 'viikkoa')}`;
+const summaryText = ({ groups, weeks }) => `${plural(groups, 'ryhmä', 'ryhmää')}, ${plural(weeks, 'viikko', 'viikkoa')}`;
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
 const MOD = isMac ? '⌘' : 'Ctrl';
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
@@ -88,7 +88,7 @@ function ThemeWriteSheet({ open, cells, onClose, onApply }) {
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} size="md"
       title={common ? 'Muokkaa teemaa' : 'Aseta teema'}
-      subtitle={`${summaryText(sum)} · ${plural(sum.cells, 'ruutu', 'ruutua')}`}
+      subtitle={`${summaryText(sum)}, ${plural(sum.cells, 'ruutu', 'ruutua')}`}
       footer={(
         <div className="sheet-actions">
           <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>
@@ -352,7 +352,7 @@ export function ThemeGrid() {
     if (!many && move) moveActive(ed, move === 'down' ? 1 : 0, move === 'right' ? 1 : move === 'left' ? -1 : 0);
     if (!many && title === (cell.theme?.title || '')) return;
     const changes = targets.map((c) => ({ cell: c, theme: title ? withLead(c, { title, lead: '' }) : null }));
-    await writeRef.current(changes, (n) => (title ? `”${title}” · ${plural(n, 'ruutu', 'ruutua')}.` : `Teema poistettu ${plural(n, 'ruudusta', 'ruudusta')}.`), 'suunnittele.kirjoitus');
+    await writeRef.current(changes, (n) => (title ? `”${title}”, ${plural(n, 'ruutu', 'ruutua')}.` : `Teema poistettu ${plural(n, 'ruudusta', 'ruudusta')}.`), 'suunnittele.kirjoitus');
   };
   const cancelEdit = () => { editRef.current = null; setEditing(null); focusGrid(); };
 
@@ -364,7 +364,7 @@ export function ThemeGrid() {
   const applyTheme = (theme, targets) => {
     if (!targets.length) { toast('Valitse ensin ruudut, tai vedä teema suoraan ruutuun.', { tone: 'info' }); return; }
     write(targets.map((cell) => ({ cell, theme: withLead(cell, theme) })).filter((x) => x.theme),
-      (n) => `”${theme.title}” · ${plural(n, 'ruutu', 'ruutua')}.`, 'suunnittele.teema-vedetty');
+      (n) => `”${theme.title}”, ${plural(n, 'ruutu', 'ruutua')}.`, 'suunnittele.teema-vedetty');
   };
 
   // ── keys ──
@@ -563,16 +563,16 @@ export function ThemeGrid() {
         <p className="tg-help"><strong>Vinkki:</strong> napauta ruutuja valitaksesi monta (viikon tai ryhmän nimi valitsee koko sarakkeen tai rivin), sitten Aseta teema. Vieritä taulukkoa sivuttain.</p>
       ) : (
         <p className="tg-help">
-          <strong>Vinkit:</strong> vedä hiirellä valitaksesi monta (uusi veto lisää valintaan) · klikkaus valitsee tai poistaa yhden ruudun ·
-          Esc tyhjentää valinnan · kirjoita suoraan (Enter tallentaa kaikkiin valittuihin) · vedä valinnan kulmasta kopioidaksesi ·
-          {MOD}+C / {MOD}+V kopioi ja liittää (myös Excelistä) · Delete poistaa · {MOD}+Z kumoaa
+          <strong>Vinkit:</strong> vedä hiirellä valitaksesi monta (uusi veto lisää valintaan). Klikkaus valitsee tai poistaa yhden ruudun.
+          Esc tyhjentää valinnan. Kirjoita suoraan (Enter tallentaa kaikkiin valittuihin). Vedä valinnan kulmasta kopioidaksesi.
+          {' '}{MOD}+C / {MOD}+V kopioi ja liittää (myös Excelistä). Delete poistaa. {MOD}+Z kumoaa.
         </p>
       )}
 
       {pickedCells.length > 0 && (
         <div className="tg-bar" role="region" aria-label="Valitut ruudut">
           <span className="tg-bar-info">
-            <span className="tg-bar-count"><strong>{plural(pickedCells.length, 'ruutu', 'ruutua')}</strong><span className="k-faint"> · {summaryText(sum)}</span></span>
+            <span className="tg-bar-count"><strong>{plural(pickedCells.length, 'ruutu', 'ruutua')}</strong><span className="k-faint">, {summaryText(sum)}</span></span>
             {common && <span className="tg-bar-theme truncate"><Icon name="sparkles" size={14} />{common.title}</span>}
           </span>
           <span className="tg-bar-actions">

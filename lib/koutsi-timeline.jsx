@@ -119,7 +119,7 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
       n.format === 'nelinpeli' ? 'Nelinpeli' : n.format === 'kaksinpeli' ? 'Kaksinpeli' : '',
       n.format === 'nelinpeli' && n.partnerName ? `Pari: ${n.partnerName}` : '',
       tournamentLabel ? `Turnaus: ${tournamentLabel}` : '',
-    ].filter(Boolean).join(' · ');
+    ].filter(Boolean).join(', ');
     push({
       id: `match-${n.id}`, kind: 'match', at: n.at || n.date, source: n,
       title: `Ottelu: ${opponents}${resultLabel ? ` — ${resultLabel}` : ''}`,
@@ -162,12 +162,12 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
     // itself answers "how did it go" without opening every linked match.
     const tournamentMatches = t.type === 'Turnaus' ? (student.matchNotes || []).filter((n) => n.tournamentId === t.id) : [];
     const tournamentSummary = tournamentMatches.length
-      ? `${tournamentMatches.length} ${tournamentMatches.length === 1 ? 'ottelu' : 'ottelua'} · ${tournamentMatches.filter((n) => n.result === 'voitto').length} voittoa, ${tournamentMatches.filter((n) => n.result === 'tappio').length} tappiota`
+      ? `${tournamentMatches.length} ${tournamentMatches.length === 1 ? 'ottelu' : 'ottelua'}, ${tournamentMatches.filter((n) => n.result === 'voitto').length} voittoa, ${tournamentMatches.filter((n) => n.result === 'tappio').length} tappiota`
       : '';
     push({
       id: `training-${t.id}`, kind: 'training', at: t.date,
       title: absence ? `${t.type} — ${reason}` : t.type,
-      body: [t.groupName || '', t.themeTitle ? `Teema: ${t.themeTitle}` : '', absence?.note || '', tournamentSummary].filter(Boolean).join(' · '),
+      body: [t.groupName || '', t.themeTitle ? `Teema: ${t.themeTitle}` : '', absence?.note || '', tournamentSummary].filter(Boolean).join(', '),
       time: t.time, absent: !!absence,
       search: `${t.type} ${t.groupName || ''} treeni ${reason} ${absence?.note || ''} ${t.themeTitle || ''}`,
     });
@@ -177,7 +177,7 @@ function koutsiBuildTimeline(student, trainings, clubEvents) {
   // they belong to the club rather than to one student.
   (clubEvents || []).filter((e) => (e.endDate || e.date) <= today).forEach((e) => push({
     id: `event-${e.id}`, kind: 'event', at: e.endDate || e.date,
-    title: e.title, body: [e.kind ? `Seuran ${e.kind}` : '', e.endDate && e.endDate !== e.date ? `${window.koutsiFmtShortDate(e.date)}–${window.koutsiFmtShortDate(e.endDate)}` : ''].filter(Boolean).join(' · '),
+    title: e.title, body: [e.kind ? `Seuran ${e.kind}` : '', e.endDate && e.endDate !== e.date ? `${window.koutsiFmtShortDate(e.date)}–${window.koutsiFmtShortDate(e.endDate)}` : ''].filter(Boolean).join(', '),
     search: `${e.title} ${e.kind || ''} tapahtuma seura`,
   }));
 

@@ -96,9 +96,9 @@ export function CheckInSheet({ open, training, all = null, initialScore = null, 
   const theme = group && training ? koutsiThemeForDate(group, training.date) : null;
   const when = training ? relativeDay(training.date) : '';
   const context = all?.length
-    ? `${relativeDay(all[0].date)} ${all.length} treeniä · ${all.map((t) => koutsiGroupById(state, t.groupId)?.name || t.type).filter((x, i, a) => a.indexOf(x) === i).join(', ')}`
+    ? `${relativeDay(all[0].date)} ${all.length} treeniä: ${all.map((t) => koutsiGroupById(state, t.groupId)?.name || t.type).filter((x, i, a) => a.indexOf(x) === i).join(', ')}`
     : training
-      ? [when, training.type, group?.name].filter(Boolean).join(' · ')
+      ? [when, training.type, group?.name].filter(Boolean).join(', ')
       : 'Viimeisin treenisi';
 
   // One sheet for both steps, so saving swaps the content instead of closing and reopening.

@@ -77,7 +77,7 @@ export function ProfileEditScreen() {
         <Field label="Nimi" htmlFor="ce-name" error={!f.name.trim() ? 'Kirjoita nimesi.' : null}>
           <Input id="ce-name" value={f.name} onChange={set('name')} maxLength={120} autoComplete="name" />
         </Field>
-        <Field label="Esittely" optional htmlFor="ce-tag" hint="Näkyy nimesi alla, esim. Tennisvalmentaja · Lahti">
+        <Field label="Esittely" optional htmlFor="ce-tag" hint="Näkyy nimesi alla, esim. Tennisvalmentaja, Lahti">
           <Input id="ce-tag" value={f.tagline} onChange={set('tagline')} maxLength={120} />
         </Field>
       </EditCard>
@@ -86,7 +86,7 @@ export function ProfileEditScreen() {
           <Textarea id="ce-bio" rows={4} value={f.bio} onChange={set('bio')} maxLength={BIO_MAX} />
           <Counter value={f.bio} max={BIO_MAX} />
         </Field>
-        <Field label="Kokemus" optional htmlFor="ce-exp" hint="Esim. 10 vuotta valmennusta · Tennisliiton koulutus">
+        <Field label="Kokemus" optional htmlFor="ce-exp" hint="Esim. 10 vuotta valmennusta, Tennisliiton koulutus">
           <Input id="ce-exp" value={f.experience} onChange={set('experience')} maxLength={160} />
         </Field>
         <SpecialtiesField value={f.specialties} onChange={setSpecialties} />

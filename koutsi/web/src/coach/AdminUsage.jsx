@@ -139,7 +139,7 @@ function Views({ rows }) {
           <Bar value={r.views} max={max} />
           <div className="ausage-meta">
             <Who row={r} />
-            <span className="k-faint">{plural(r.sessions, 'käyttökerta', 'käyttökertaa')}{r.seconds != null ? ` · keskim. ${fmtDuration(r.seconds)}` : ''}</span>
+            <span className="k-faint">{plural(r.sessions, 'käyttökerta', 'käyttökertaa')}{r.seconds != null ? `, keskim. ${fmtDuration(r.seconds)}` : ''}</span>
           </div>
         </li>
       ))}
@@ -175,7 +175,7 @@ function Clicks({ rows }) {
             <Bar value={r.clicks} max={max} />
             <div className="ausage-meta">
               <Who row={r} />
-              <span className="k-faint">{path ? '' : `${routeName(r.path)} · `}{plural(r.sessions, 'käyttökerta', 'käyttökertaa')}</span>
+              <span className="k-faint">{path ? '' : `${routeName(r.path)}, `}{plural(r.sessions, 'käyttökerta', 'käyttökertaa')}</span>
             </div>
           </li>
         ))}
@@ -203,7 +203,7 @@ function Errors({ rows }) {
               <span key={`${p.app}${p.role}${p.path}`} className="ausage-place"><Who row={p} /> <span className="k-faint">{routeName(p.path)}</span></span>
             ))}
           </div>
-          <span className="k-faint">viimeksi {fmtWhen(r.lastAt)}{r.count > 1 ? ` · ensimmäisen kerran ${fmtWhen(r.firstAt)}` : ''}</span>
+          <span className="k-faint">viimeksi {fmtWhen(r.lastAt)}{r.count > 1 ? `, ensimmäisen kerran ${fmtWhen(r.firstAt)}` : ''}</span>
         </li>
       ))}
     </ul>
@@ -224,7 +224,7 @@ function Sessions({ rows }) {
                 {s.errors > 0 && <Chip size="sm" tone="clay" icon="alert">{plural(s.errors, 'virhe', 'virhettä')}</Chip>}
               </span>
               <span className="ausage-session-sub">
-                {fmtWhen(s.start)} · {fmtDuration(s.seconds)} · {plural(s.views, 'sivu', 'sivua')} · {plural(s.clicks, 'painallus', 'painallusta')}
+                {fmtWhen(s.start)}, {fmtDuration(s.seconds)}, {plural(s.views, 'sivu', 'sivua')}, {plural(s.clicks, 'painallus', 'painallusta')}
               </span>
             </summary>
             <ol className="ausage-timeline">
@@ -298,7 +298,7 @@ export function AdminUsage() {
         </div>
         {devTotal > 0 && (
           <p className="k-faint">
-            Laitteet: puhelin {pct(sum.devices.puhelin, devTotal)} % · tietokone {pct(sum.devices.kone, devTotal)} % · tabletti {pct(sum.devices.tabletti, devTotal)} %
+            Laitteet: puhelin {pct(sum.devices.puhelin, devTotal)}&nbsp;%, tietokone {pct(sum.devices.kone, devTotal)}&nbsp;%, tabletti {pct(sum.devices.tabletti, devTotal)}&nbsp;%
           </p>
         )}
         <Card className="stack-4">

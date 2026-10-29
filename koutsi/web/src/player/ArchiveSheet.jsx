@@ -54,7 +54,7 @@ export function ArchiveSheet({ open, onClose, events, archive }) {
           {list.map((e) => (
             <li key={e.id} className="arc-row">
               <div className="arc-main">
-                <span className="arc-meta"><Icon name="archive" size={12} /> {KOUTSI_TL_KINDS[e.kind]?.short || ''} · {koutsiFmtEventDate(e.at)}</span>
+                <span className="arc-meta"><Icon name="archive" size={12} /> {KOUTSI_TL_KINDS[e.kind]?.short || ''}, {koutsiFmtEventDate(e.at)}</span>
                 <span className="arc-title">{e.title}</span>
                 {e.body && <span className="arc-body">{e.body}</span>}
               </div>

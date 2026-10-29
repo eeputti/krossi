@@ -168,7 +168,7 @@ export function pickerFilters(part, { group = null, training = null } = {}) {
 export function planSummary(plan) {
   const n = plan?.items?.length || 0;
   if (n === 0) return 'Ei vielä runkoa';
-  return `${n} ${n === 1 ? 'harjoite' : 'harjoitetta'} · ${planMinutes(plan)} min`;
+  return `${n} ${n === 1 ? 'harjoite' : 'harjoitetta'}, ${planMinutes(plan)}\u00a0min`;
 }
 
 /**

@@ -71,7 +71,7 @@ function AbsenceList({ plan }) {
       </div>
       {byWeek(candidates).map((bucket) => (
         <section key={bucket.key} className="ap-week">
-          <div className="ap-week-label">Viikko {bucket.week.week} <span className="k-faint t-num">· {koutsiIsoWeekRangeLabel(bucket.week.year, bucket.week.week)}</span></div>
+          <div className="ap-week-label">Viikko {bucket.week.week}<span className="k-faint t-num">, {koutsiIsoWeekRangeLabel(bucket.week.year, bucket.week.week)}</span></div>
           <div className="ap-list">
             {bucket.items.map((c) => {
               const on = picked.has(c.training.id);
@@ -99,7 +99,7 @@ export function AbsenceSheet({ open, onClose, student }) {
   const plan = useAbsencePlan(open ? student : null, 'pelaaja');
   const nothing = !plan.changes.away.length && !plan.changes.back.length;
   return (
-    <Sheet open={open} onClose={() => !plan.busy && onClose()} size="md" title="Poissaolot" subtitle={`${student?.name || ''} · tulevat treenit`}
+    <Sheet open={open} onClose={() => !plan.busy && onClose()} size="md" title="Poissaolot" subtitle={`${student?.name || ''}, tulevat treenit`}
       footer={(
         <div className="sheet-actions">
           <Button variant="soft" size="lg" onClick={onClose} disabled={plan.busy}>Peruuta</Button>
@@ -123,7 +123,7 @@ function PlayerPlanner({ student, onBack, compact = false }) {
         <Avatar person={student} size={44} />
         <div className="grow">
           <div className="ap-name">{student.name}</div>
-          <div className="k-faint truncate">{groups.map((g) => `${g.day} ${g.time} ${g.name}`).join(' · ') || 'Ei ryhmää'}</div>
+          <div className="k-faint truncate">{groups.map((g) => `${g.day} ${g.time} ${g.name}`).join(', ') || 'Ei ryhmää'}</div>
         </div>
         <Link to={playerPath(student.id)} className="k-textlink">Pelaajan sivu</Link>
       </div>

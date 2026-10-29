@@ -58,7 +58,7 @@ function PersonalInviteRow({ student, coachName, groups }) {
       <Avatar person={student} size={36} />
       <span className="grow">
         <span className="k-row-title truncate">{student.name}</span>
-        <span className="k-faint truncate">{groups.map((g) => `${g.day} ${g.time}`).join(', ') || 'Ei ryhmää'}{student.ageLabel ? ` · ${student.ageLabel}` : ''}</span>
+        <span className="k-faint truncate">{groups.map((g) => `${g.day} ${g.time}`).join(', ') || 'Ei ryhmää'}{student.ageLabel ? `, ${student.ageLabel}` : ''}</span>
       </span>
       <Button variant={state === 'sent' ? 'soft' : state === 'ready' ? 'lime' : 'dark'} size="sm" icon={state === 'sent' ? 'check' : 'send'} loading={state === 'busy'} onClick={send}>
         {state === 'sent' ? 'Lähetetty' : state === 'ready' ? 'Jaa nyt' : 'Lähetä'}
