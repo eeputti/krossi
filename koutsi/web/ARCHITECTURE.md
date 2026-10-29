@@ -224,8 +224,9 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   ottanut käyttöön); paluu `lasku/<token>?maksu=<session>` vahvistaa maksun, ja Laskutus-sivu tarkistaa kerran
   käynnillä kesken jääneet (sync). `koutsi_invoice_paid_online` merkitsee laskun maksetuksi kerran (paid_via 'stripe')
   ja ilmoittaa valmentajalle (kind 'invoice_paid'). Stripe-sarakkeita kirjoittaa vain funktio (sarakeoikeudet).
-  Tietokanta: ehdotus `koutsi/web/sql/20261110130000_koutsi_billing_pay.sql` — **EI AJETTU** (PGlite-testi samassa
-  kansiossa); ilman sitä `biller.payReady` on false ja verkkomaksu pysyy piilossa. Funktio julkaistaan verify_jwt pois
+  Tietokanta: `supabase/migrations/20261029185432_koutsi_billing_pay.sql` (ajettu 29.10.2026 käyttäjän luvalla;
+  PGlite-testi `koutsi/web/sql/20261029185432_koutsi_billing_pay.check.mjs`); ilman sitä `biller.payReady` on false ja
+  verkkomaksu pysyy piilossa. Funktio julkaistaan verify_jwt pois
   (`supabase functions deploy koutsi-pay --no-verify-jwt`); salaisuutena sama STRIPE_SECRET_KEY kuin krossi-funktioilla.
   Demo: verkkomaksu päällä, "Maksa" merkitsee laskun maksetuksi heti ilman Stripeä.
 

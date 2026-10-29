@@ -1,11 +1,11 @@
-// 20261110130000_koutsi_billing_pay.check.mjs — runs the phase-1 Laskutus migration
-// (supabase/migrations/20261029162350_koutsi_billing.sql) and then the proposed phase 2
-// (koutsi/web/sql/20261110130000_koutsi_billing_pay.sql, NOT applied) in PGlite against a small
+// 20261029185432_koutsi_billing_pay.check.mjs — runs the phase-1 Laskutus migration
+// (supabase/migrations/20261029162350_koutsi_billing.sql) and then phase 2
+// (supabase/migrations/20261029185432_koutsi_billing_pay.sql, applied 2026-10-29) in PGlite against a small
 // stub of production's Koutsi schema, and checks the payment columns' rights, the guard, paying
 // online once, paying by hand, and what the invoice link and the player see.
 // PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261110130000_koutsi_billing_pay.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261029185432_koutsi_billing_pay.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -16,7 +16,7 @@ const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PHASE1 = await readFile(join(here, '../../../supabase/migrations/20261029162350_koutsi_billing.sql'), 'utf8');
-const PHASE2 = await readFile(join(here, '20261110130000_koutsi_billing_pay.sql'), 'utf8');
+const PHASE2 = await readFile(join(here, '../../../supabase/migrations/20261029185432_koutsi_billing_pay.sql'), 'utf8');
 
 const ANNA = '00000000-0000-4000-8000-0000000000a1'; // coach, Laskutus on
 const JUHO = '00000000-0000-4000-8000-0000000000b1'; // coach, Laskutus off
