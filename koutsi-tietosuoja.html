@@ -43,7 +43,7 @@
 
   <main class="doc">
     <h1>Tietosuojaseloste</h1>
-    <p class="updated">Päivitetty 25.10.2026 · EU:n yleisen tietosuoja-asetuksen (GDPR) artiklojen 13 ja 14 mukainen seloste</p>
+    <p class="updated">Päivitetty 29.10.2026 · EU:n yleisen tietosuoja-asetuksen (GDPR) artiklojen 13 ja 14 mukainen seloste</p>
 
     <div class="note">
       <p><strong>Lyhyesti:</strong> Krossi Koutsin suljetussa beta-pilotissa valmentaja voi lisätä kaikenikäisiä pelaajia. 13–17-vuotias hyväksyy itse selkokielisen juniorin tietosuojanäkymän, ja alle 13-vuotiaan tilin aktivointi vaatii huoltajan hyväksynnän. Profiili ei ole julkinen. Palveluun ei saa tallentaa terveystietoja. Tietoja ei myydä eikä käytetä mainontaan.</p>
@@ -58,6 +58,7 @@
       Palvelu: koutsi.krossi.app
     </p>
     <p>Tietosuoja-asioissa voit ottaa yhteyttä yllä olevaan sähköpostiosoitteeseen. Vastaamme pyyntöihin viimeistään kuukauden kuluessa.</p>
+    <p>Kun valmentaja käyttää Koutsia kokeilulla tai tilauksella, hän on rekisterinpitäjä niiden valmennustietojen osalta, jotka hän kirjaa pelaajistaan, ja Roisku Media käsittelee niitä hänen puolestaan <a href="/kasittelysopimus">käsittelysopimuksen</a> mukaisesti. Roisku Media on rekisterinpitäjä käyttäjätileistä, pelaajan omasta sovelluksen käytöstä, valmentajan tilauksesta ja maksuista sekä käyttötilastoista ja lokeista.</p>
 
     <h2>2. Kenen tietoja käsittelemme</h2>
     <ul>
@@ -78,6 +79,11 @@
             <td>Tilitiedot</td>
             <td>Sähköpostiosoite, salasanan tiiviste, kirjautumistapa (Google/Apple/sähköposti)</td>
             <td>Sopimuksen täyttäminen (GDPR 6.1 b) — ilman tiliä palvelua ei voi käyttää</td>
+          </tr>
+          <tr>
+            <td>Valmentajan tilaus</td>
+            <td>Kokeilun alku ja loppu, tilauksen tila, hyväksyttyjen tilausehtojen versio sekä Stripen asiakas- ja tilaustunnus. Korttitiedot käsittelee vain Stripe.</td>
+            <td>Sopimuksen täyttäminen (GDPR 6.1 b) ja kirjanpitovelvollisuus (GDPR 6.1 c)</td>
           </tr>
           <tr>
             <td>Profiilitiedot</td>
@@ -154,6 +160,7 @@
           <tr><td>Supabase</td><td>Tietokanta, kirjautuminen, tiedostojen tallennus</td><td>Tietokantaprojekti EU:ssa (eu-west-1); tukipalveluja voidaan tuottaa kansainvälisesti</td></tr>
           <tr><td>Cloudflare</td><td>Staattisen sivuston ja sovellustiedostojen jakelu, DNS sekä tekniset lokit</td><td>USA ja maailmanlaajuinen jakeluverkko</td></tr>
           <tr><td>Resend</td><td>Ilmoitussähköpostien lähetys</td><td>USA ja kansainväliset alikäsittelijät</td></tr>
+          <tr><td>Stripe</td><td>Valmentajan tilausmaksut, kuitit ja tilauksen hallinta</td><td>EU (Irlanti) ja USA</td></tr>
           <tr><td>Google, Apple</td><td>Vapaaehtoinen kirjautumistapa</td><td>EU ja USA</td></tr>
         </tbody>
       </table>
@@ -197,6 +204,7 @@
 
     <h2>10. Muutokset</h2>
     <p>Ilmoitamme olennaisista muutoksista tähän selosteeseen sovelluksessa tai sähköpostitse ennen muutosten voimaantuloa.</p>
+    <p><strong>29.10.2026:</strong> lisätty valmentajan kokeilu ja kuukausitilaus (maksut Stripen kautta) sekä valmentajan rooli rekisterinpitäjänä pelaajistaan kirjaamiensa valmennustietojen osalta (käsittelysopimus).</p>
     <p><strong>25.10.2026:</strong> lisätty uudistuneen Koutsin tiedot: Kehitys-merkinnät, omat treenit, pitkän aikavälin tavoite, treenin jälkeinen Miten meni? -kysely, valmentajan viikkopäiväkirja sekä valmentajan tiedotteet. Lisäksi tarkennettu, että jos sinulla on useampi valmentaja, jokainen heistä näkee omat merkintäsi.</p>
 
     <div class="footer">

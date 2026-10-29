@@ -184,7 +184,8 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   (omistaja ajaa). Hinta on arvonlisäveroton (Roisku Media ei ole alv-velvollinen); kun on, `--alv 25.5` lisää alv:n
   hinnan päälle: Stripen alv-kanta uusiin tilauksiin (`KOUTSI_TAX_RATE`, Checkoutin `default_tax_rates`) ja
   vahvistuksen jälkeen nykyisiin seuraavasta veloituksesta, ja sovellus näyttää "29 €/kk + alv" (tilausehdot §3). Ehdot: `koutsi-tilausehdot.html` (`/tilausehdot`) ja `koutsi-kasittelysopimus.html`
-  (`/kasittelysopimus`, valmentaja = rekisterinpitäjä, Roisku Media = käsittelijä), LUONNOKSIA. Kokeilun jälkeen
+  (`/kasittelysopimus`, valmentaja = rekisterinpitäjä, Roisku Media = käsittelijä), voimassa 29.10.2026 (versio
+  `SUBSCRIPTION_TERMS_VERSION`; tietosuojaseloste päivitetty samalla: Stripe, rooli). Kokeilun jälkeen
   ilman tilausta (`ended`, käyttäjän päätös 29.10.2026): valmentaja näkee kaiken ja suunnittelee kuten ennen (kalenteri,
   teemat, läsnäolot, pelaajat), mutta uuden lähettäminen pelaajille vaatii tilauksen — huomio, kotiläksy, video,
   tiedote, viesti ja lasku. Lukko on tietokannassa (`koutsi_plan_send_guard` ennen inserttiä kuuteen tauluun,
