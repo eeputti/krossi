@@ -6,6 +6,7 @@
 // (verify_jwt), and the user id comes from that token — never from the request body — so
 // this can only ever delete the account that called it.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { cancelKoutsiSubscription } from '../_shared/koutsiCancel.ts';
 
 const CORS = {
   'access-control-allow-origin': '*',
@@ -38,16 +39,25 @@ Deno.serve(async (req: Request) => {
   }
   const uid = userData.user.id;
 
+  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+    auth: { persistSession: false },
+  });
+
+  // A coach's Koutsi subscription ends first, so the deleted account is never charged again.
+  const cancelErr = await cancelKoutsiSubscription(admin, uid);
+  if (cancelErr) {
+    console.error('koutsi subscription cancel failed', cancelErr);
+    return new Response(JSON.stringify({ error: 'Tilauksen päättäminen ei onnistunut. Yritä hetken päästä uudelleen.' }), {
+      status: 502, headers: { ...CORS, 'content-type': 'application/json' },
+    });
+  }
+
   const { error: dataErr } = await asUser.rpc('delete_my_koutsi_data');
   if (dataErr) {
     return new Response(JSON.stringify({ error: dataErr.message }), {
       status: 500, headers: { ...CORS, 'content-type': 'application/json' },
     });
   }
-
-  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
-    auth: { persistSession: false },
-  });
 
   // avatars live outside the tables delete_my_koutsi_data() clears
   const { data: avatarFiles } = await admin.storage.from('profile-avatars').list(uid);
