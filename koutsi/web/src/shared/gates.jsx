@@ -127,8 +127,9 @@ export function AuthScreen({ role }) {
   const [sentTo, setSentTo] = useState(null);
   const [canResend, setCanResend] = useState(false);
   const emailRef = useRef(null);
-  // A coach can start without a key once the database has it (koutsi_coach_plans): the note below
-  // then tells about the free trial instead of asking for a key. null = not known yet.
+  // A coach can start without a key only while koutsi_self_serve_open() says so (closed again
+  // 2026-10-29: a coach key is needed). The key note shows at once, also while this is not known yet
+  // (null), so the page doesn't change under the reader; the trial note replaces it only when open.
   const [selfServe, setSelfServe] = useState(isCoach ? null : false);
   useEffect(() => {
     if (!isCoach) return undefined;
@@ -245,7 +246,7 @@ export function AuthScreen({ role }) {
                 <p className="auth-context"><Icon name="users" size={16} /> Sinulla on valmentajan kutsulinkki — luo tili tai kirjaudu, niin liityt heti.</p>
               )}
             </header>
-            {isCoach && mode !== 'reset' && selfServe === false && (
+            {isCoach && mode !== 'reset' && selfServe !== true && (
               <div className="k-note k-note-lime">
                 <strong>Onko sinulla valmentaja-avain?</strong> Tarvitset sen kirjautumisen jälkeen.
                 {' '}Jos ei ole, <a href={`mailto:${SUPPORT_EMAIL}?subject=Valmentaja-avain%20Koutsiin`}>pyydä se täältä</a>.

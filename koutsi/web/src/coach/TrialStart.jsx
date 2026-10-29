@@ -5,18 +5,20 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/index.js';
 import { useSession } from '../app/session.jsx';
-import { KoutsiWordmark } from '../shared/gates.jsx';
+import { KoutsiWordmark, Splash } from '../shared/gates.jsx';
 import { Button, useToast } from '../ui/index.js';
 import { priceLine, TRIAL_MONTHS } from '../domain/subscription.js';
 
 export function TrialStart({ onStarted, onUseKey }) {
   const { signOut } = useSession();
   const toast = useToast();
-  const [price, setPrice] = useState(null);
+  // undefined = still reading the price from Stripe: the page waits, so the first line shows whole
+  // at once instead of growing when the price arrives.
+  const [price, setPrice] = useState(undefined);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let alive = true;
-    api.subscription.price().then((p) => { if (alive) setPrice(p); }).catch(() => {});
+    api.subscription.price().then((p) => { if (alive) setPrice(p); }).catch(() => { if (alive) setPrice(null); });
     return () => { alive = false; };
   }, []);
   const start = async () => {
@@ -27,6 +29,7 @@ export function TrialStart({ onStarted, onUseKey }) {
       await onStarted();
     } catch (err) { toast(err); setBusy(false); }
   };
+  if (price === undefined) return <Splash />;
   const cost = priceLine(price);
   return (
     <div className="k-center-page">

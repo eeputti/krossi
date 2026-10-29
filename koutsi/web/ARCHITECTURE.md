@@ -195,8 +195,11 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   kokeilussa ja tilauksella oleville; kokeilun jälkeen vain jo laskuttaneelle (vanhat laskut, maksetuksi merkintä).
   Muistutus 7 pv ennen kokeilun loppua (`koutsi_trial_reminders`, cron `koutsi-trial-reminders`, ilmoituslaji
   `trial_ending`). Tietokanta: `supabase/migrations/20261029193756_koutsi_coach_plans.sql` (ajettu 29.10.2026 käyttäjän
-  luvalla; PGlite-testi `koutsi/web/sql/20261029193756_…check.mjs`) ja kokeilu ilman avainta AVATTU samana iltana
-  (`20261029195741_koutsi_open_self_serve.sql`, Stripe-asetukset tehty); ilman niitä
+  luvalla; PGlite-testi `koutsi/web/sql/20261029193756_…check.mjs`) ja kokeilu ilman avainta avattiin samana iltana
+  (`20261029195741_koutsi_open_self_serve.sql`) ja SULJETTIIN taas käyttäjän pyynnöstä
+  (`20261029200422_koutsi_close_self_serve.sql`: uusi valmentaja tarvitsee valmentaja-avaimen; jo alkanut kokeilu
+  jatkuu). Kirjautumissivun avainhuomautus näkyy heti eikä vaihdu latautuessa; Tilaus-kortti ja kokeilusivu odottavat
+  Stripen hinnan (luetaan kerran sivun latauksessa), jotta lause ei pitene silmien edessä. Ilman migraatioita
   `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta: migraatio
   luo `koutsi_self_serve_open()`:n kiinni (`select false`, sovellus näyttää avainsivun kuten ennen); avaaminen on yhden
   rivin korvaus (`select true`), eikä migraation uudelleenajo sulje sitä. Demo: Anna on kokeilussa; kehityksessä
