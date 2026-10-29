@@ -127,6 +127,17 @@ export function AuthScreen({ role }) {
   const [sentTo, setSentTo] = useState(null);
   const [canResend, setCanResend] = useState(false);
   const emailRef = useRef(null);
+  // A coach can start without a key once the database has it (koutsi_coach_plans): the note below
+  // then tells about the free trial instead of asking for a key. null = not known yet.
+  const [selfServe, setSelfServe] = useState(isCoach ? null : false);
+  useEffect(() => {
+    if (!isCoach) return undefined;
+    let alive = true;
+    api.subscription.status()
+      .then((s) => { if (alive) setSelfServe(Boolean(s.ready && s.selfServe)); })
+      .catch(() => { if (alive) setSelfServe(false); });
+    return () => { alive = false; };
+  }, [isCoach]);
 
   const params = new URLSearchParams(window.location.search);
   const inviteCode = params.get('koodi');
@@ -234,10 +245,15 @@ export function AuthScreen({ role }) {
                 <p className="auth-context"><Icon name="users" size={16} /> Sinulla on valmentajan kutsulinkki — luo tili tai kirjaudu, niin liityt heti.</p>
               )}
             </header>
-            {isCoach && mode !== 'reset' && (
+            {isCoach && mode !== 'reset' && selfServe === false && (
               <div className="k-note k-note-lime">
                 <strong>Onko sinulla valmentaja-avain?</strong> Tarvitset sen kirjautumisen jälkeen.
                 {' '}Jos ei ole, <a href={`mailto:${SUPPORT_EMAIL}?subject=Valmentaja-avain%20Koutsiin`}>pyydä se täältä</a>.
+              </div>
+            )}
+            {isCoach && mode === 'register' && selfServe === true && (
+              <div className="k-note k-note-lime">
+                <strong>3 kk ilmainen kokeilu.</strong> Ei korttia — aloitat heti, kun olet luonut tilin.
               </div>
             )}
             {mode !== 'reset' && (

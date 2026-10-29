@@ -20,6 +20,8 @@ const publicFiles = [
   'koutsi-pelaaja-demo.html',
   'koutsi-tietosuoja.html',
   'koutsi-kayttoehdot.html',
+  'koutsi-tilausehdot.html',
+  'koutsi-kasittelysopimus.html',
   'koutsi.webmanifest',
   'lib/koutsi-shared.css',
   'lib/cookie-consent.js',
