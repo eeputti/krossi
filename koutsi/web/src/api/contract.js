@@ -102,6 +102,19 @@ export const API_CONTRACT = {
   // on any change the signed-in user can see.
   messages: ['overview', 'list', 'send', 'remove', 'markRead', 'setEnabled', 'subscribe'],
 
+  // Laskutus (koutsi_billers / koutsi_invoices / koutsi_invoice_lines, domain/billing.js). Kept out of the
+  // coach's snapshot like Viestit. overview(coachId) → { ready, enabled, biller, invoices: Invoice[] (newest
+  // first, with lines), memberships: [{ groupId, studentId, joinedAt, endedAt, groupCreatedAt }] } — ready is
+  // false while the tables are missing, enabled is the per-coach gate (admins + koutsi_billing_coaches).
+  // saveBiller(coachId, fields) → biller; createDrafts(coachId, drafts from domain draftsFrom()) → the new ids;
+  // updateDraft(id, { payerName, payerEmail }); setLineCharged(lineId, charged); addLine(invoiceId,
+  // { description, amountCents, date }); removeLine(lineId); removeDrafts(ids); send(ids) → [{ id, number }];
+  // setPaid(id, paid); voidInvoice(id). Player: mine() → { ready, invoices (sent / paid, own), terms:
+  // [{ coachId, sellerName, cancelHours, chargeLate, chargeNoShow, terms, paymentDays }] }.
+  // byToken(token) → the invoice behind a link (no sign-in) or null.
+  billing: ['overview', 'saveBiller', 'createDrafts', 'updateDraft', 'setLineCharged', 'addLine', 'removeLine', 'removeDrafts',
+    'send', 'setPaid', 'voidInvoice', 'mine', 'byToken'],
+
   // share(...) — a player's own video, or a coach's before Lähetetyt; the coach's own videos:
   // save({ coachId, id?, title, tags, file | externalUrl, onProgress, signal }) → id,
   // shareSaved({ coachId, videoId, studentIds, groupIds, date? }) → { sendId, added } (only those without it),

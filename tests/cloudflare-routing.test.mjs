@@ -243,6 +243,26 @@ test('without a choice or with koutsi_uusi=1, every app address opens the renewe
   }
 });
 
+test('an invoice link opens the new player shell for everyone, never the old app, and is not indexed', async () => {
+  const token = '00000000-0000-4000-8000-000000000001';
+  for (const cookie of ['koutsi_uusi=0', 'koutsi_uusi=1', undefined]) {
+    for (const [url, shell] of [
+      [`https://koutsi.krossi.app/lasku/${token}`, '/koutsi-uusi-pelaaja.html'],
+      [`https://demo.koutsi.krossi.app/lasku/${token}`, '/koutsi-uusi-pelaaja-demo.html'],
+    ]) {
+      const response = await worker.fetch(koutsiRequest(url, cookie), echoAsset);
+      assert.equal(await response.text(), shell, `${url} ${cookie}`);
+      assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow', url);
+      assert.equal(response.headers.get('cache-control'), 'private, no-cache', url);
+    }
+  }
+  // only a real token is an invoice page; the app pages get no noindex
+  const junk = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/lasku/abc'), echoAsset);
+  assert.notEqual(await junk.text(), '/koutsi-uusi-pelaaja.html');
+  const app = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/pelaaja/koti'), echoAsset);
+  assert.equal(app.headers.get('x-robots-tag'), null);
+});
+
 test('?uusi=0 returns to the old Koutsi and remembers it was left (the old app then offers the way back)', async () => {
   const response = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/valmentaja?uusi=0', 'koutsi_uusi=1'), echoAsset);
   assert.equal(await response.text(), '/koutsi-valmentaja.html');

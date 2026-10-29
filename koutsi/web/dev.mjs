@@ -36,6 +36,9 @@ const TYPES = {
 const deep = (base) => new RegExp(`^${base}(?:/[^/]+){0,3}/?$`);
 
 export function resolveDevPath(pathname) {
+  // an invoice link (koutsi.krossi.app/lasku/<token>) opens in the player shell, no sign-in
+  if (/^\/demo\/lasku\/[0-9a-f-]{36}\/?$/i.test(pathname)) return join(dist, 'koutsi-uusi-pelaaja-demo.html');
+  if (/^\/lasku\/[0-9a-f-]{36}\/?$/i.test(pathname)) return join(dist, 'koutsi-uusi-pelaaja.html');
   if (deep('/demo/valmentaja').test(pathname)) return join(dist, 'koutsi-uusi-valmentaja-demo.html');
   if (deep('/demo/pelaaja').test(pathname)) return join(dist, 'koutsi-uusi-pelaaja-demo.html');
   if (deep('/valmentaja').test(pathname)) return join(dist, 'koutsi-uusi-valmentaja.html');

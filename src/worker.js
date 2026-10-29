@@ -130,11 +130,16 @@ const NEW_KOUTSI_SHELLS = {
   [DEMO_HOST]: { valmentaja: '/koutsi-uusi-valmentaja-demo.html', pelaaja: '/koutsi-uusi-pelaaja-demo.html' },
 };
 
+// An invoice's own page (Laskutus): /lasku/<token> opens in the new player shell without signing in,
+// whichever app the browser chose (the old app has no such page), and is kept out of search engines.
+const INVOICE_PATH = /^\/lasku\/[0-9a-f-]{36}\/?$/i;
+
 // The new app's deepest pages are two segments below its root (/valmentaja/ryhma/<id>).
 export function resolveNewKoutsiPath(input) {
   const url = input instanceof URL ? input : new URL(input.url || input);
   const shells = NEW_KOUTSI_SHELLS[url.hostname];
   if (!shells) return null;
+  if (INVOICE_PATH.test(url.pathname)) return shells.pelaaja;
   if (matchesPath(url.pathname, '/valmentaja', 3)) return shells.valmentaja;
   if (matchesPath(url.pathname, '/pelaaja', 3)) return shells.pelaaja;
   return null;
@@ -153,7 +158,8 @@ async function serveNewKoutsiSwitch(request, env) {
   const newPath = resolveNewKoutsiPath(url);
   if (!newPath && !optIn && !optOut) return null;
 
-  const old = optOut || (!optIn && choseOldKoutsi(request));
+  const invoice = INVOICE_PATH.test(url.pathname) && Boolean(newPath);
+  const old = !invoice && (optOut || (!optIn && choseOldKoutsi(request)));
   const assetPath = (!old && newPath) || resolveAssetPath(url);
   const response = await env.ASSETS.fetch(assetPath ? rewriteRequest(request, assetPath) : request);
 
@@ -165,6 +171,7 @@ async function serveNewKoutsiSwitch(request, env) {
   headers.set('cache-control', 'private, no-cache');
   headers.append('vary', 'Cookie');
   headers.delete('etag');
+  if (invoice) headers.set('x-robots-tag', 'noindex, nofollow');
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 

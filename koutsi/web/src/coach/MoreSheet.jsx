@@ -1,7 +1,7 @@
 // MoreSheet — the phone tab bar's "Lisää" drawer: the places that have no tab of their own on a
 // phone. Viestit first when it is on (who waits for an answer, the unread count; Tiedote then lives
 // inside Viestit and in Merkitse), Liittymiskoodini (JoinCodesSheet), Lähetetyt and Harjoitteet ja videot
-// (Harjoitepankki until the database has Lähetetyt), Suunnittele, Ryhmät, Ilmoitukset (with the unread
+// (Harjoitepankki until the database has Lähetetyt), Laskutus (while it is on), Suunnittele, Ryhmät, Ilmoitukset (with the unread
 // count), Tiedote pelaajille (while Viestit is off), Profiili, Anna palautetta, and Ylläpito for admins.
 // (A computer has these in the side nav; the bell sits on the profile card at its foot.)
 import { useData } from '../app/data.jsx';
@@ -10,7 +10,7 @@ import { Avatar, ListRow, Sheet } from '../ui/index.js';
 import { bankSummary } from './ExercisesScreen.jsx';
 import { track } from './usage.js';
 
-export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, onFeedback, onCodes, isAdmin, acting, messages = null }) {
+export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, onFeedback, onCodes, isAdmin, acting, messages = null, billing = null }) {
   const { state } = useData();
   const go = (to, event) => { track(`lisaa.${event}`); onClose(); navigate(to); };
   const noticesReady = state.announcementsReady !== false;
@@ -22,6 +22,11 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, on
             subtitle={messages.waiting || (messages.on ? (messages.unread ? `${messages.unread} uutta` : 'Ei uusia viestejä') : 'Ota käyttöön aikuisille pelaajille')}
             right={messages.unread ? <span className="more-badge t-num">{messages.unread > 9 ? '9+' : messages.unread}</span> : undefined}
             onClick={() => go(messages.on ? '/valmentaja/viestit' : '/valmentaja/viestit?kayttoon=1', 'viestit')} />
+        )}
+        {billing && (
+          <ListRow icon="euro" title="Laskutus"
+            subtitle={billing.overdue ? `${billing.overdue} erääntynyt` : billing.open ? `${billing.open} avoinna` : 'Laskut läsnäoloista'}
+            onClick={() => go('/valmentaja/laskutus', 'laskutus')} />
         )}
         {!acting && (
           <ListRow icon="link" title="Liittymiskoodini" subtitle="Ryhmien koodit ja oma koodisi pelaajille"

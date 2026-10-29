@@ -12,6 +12,8 @@ import {
 import { MOOD_LABELS } from '../lib/constants.js';
 import { ACTIVITIES, activityById, defaultLogTime, ownEntry, ownNotes } from '../domain/ownWeek.js';
 import { ActivityIcon } from './ActivityIcon.jsx';
+import { useBilling } from '../shared/billing/BillingProvider.jsx';
+import { lateCancelNote } from '../domain/billing.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 export const HEALTH_NOTE = 'Älä kirjoita vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.';
@@ -271,6 +273,7 @@ export function PlayerTextSheet({ open, onClose, kind, initial }) {
 /** "En pääse": absent from this and optionally the next few sessions. No reason is asked. */
 export function AbsenceSheet({ open, onClose, training }) {
   const { state, run, ownerId } = useData();
+  const billing = useBilling();
   const [count, setCount] = useState(1);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (open) setCount(1); }, [open]);
@@ -280,6 +283,7 @@ export function AbsenceSheet({ open, onClose, training }) {
     .filter((t) => t.loggedBy !== 'player' && `${t.date}T${t.time || '00:00'}` >= key)
     .slice(0, 4);
   const absentNow = (training.absences || []).some((a) => a.studentId === ownerId);
+  const lateNote = lateCancelNote(billing.terms, training);
   const save = async (status) => {
     setBusy(true);
     const ids = status === 'paikalla' ? [training.id] : candidates.slice(0, count).map((t) => t.id);
@@ -297,6 +301,7 @@ export function AbsenceSheet({ open, onClose, training }) {
           <ChipSelect size="sm" options={candidates.map((t, i) => ({ value: String(i + 1), label: i === 0 ? 'Vain tähän' : `${i + 1} treeniin (${koutsiFmtShortDate(t.date)} asti)` }))} value={String(count)} onChange={(v) => v && setCount(Number(v))} ariaLabel="Montako treeniä" />
         </Field>
       )}
+      {!absentNow && lateNote && <p className="bill-late-note">{lateNote}</p>}
       <p className="field-msg">{absentNow ? 'Valmentajasi saa heti tiedon, että tuletkin paikalle.' : 'Valmentajasi saa poissaolosta heti tiedon. Syytä ei kysytä eikä tallenneta.'}</p>
     </Sheet>
   );

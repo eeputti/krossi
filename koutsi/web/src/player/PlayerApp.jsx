@@ -33,6 +33,8 @@ import { PlanSheet } from '../shared/drills/plan.jsx';
 import { MessagesProvider, useMessages } from '../shared/messages/MessagesProvider.jsx';
 import { MessagesScreen, ThreadScreen, visibleThreads } from './MessagesScreen.jsx';
 import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } from './checkin.js';
+import { BillingProvider, useBilling } from '../shared/billing/BillingProvider.jsx';
+import { InvoicesScreen } from './InvoicesScreen.jsx';
 
 const ActionsContext = createContext(null);
 /** openMerkitse(), openSelfTraining(date?, { time?, editing?, activity?, homeworkId?, locked? }?), openMood(score?),
@@ -48,7 +50,7 @@ function NotFound() {
   );
 }
 
-const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen, profileEdit: ProfileEditScreen, messages: MessagesScreen, thread: ThreadScreen };
+const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen, profileEdit: ProfileEditScreen, messages: MessagesScreen, thread: ThreadScreen, invoices: InvoicesScreen, invoice: InvoicesScreen };
 
 /** First visit: what Koutsi is for (players took the old app for a video box). */
 function WelcomeSheet({ student }) {
@@ -164,6 +166,11 @@ function PlayerShell({ banner, joinCode = null }) {
   const messageLinks = msgs.ready && visibleThreads(msgs.threads).length
     ? [{ to: '/pelaaja/viestit', label: 'Viestit', icon: 'chat', pages: ['messages', 'thread'], badge: msgs.unread }]
     : [];
+  // Laskut: once a coach has sent the player an invoice (side nav on a computer, Lisää on a phone)
+  const billing = useBilling();
+  const invoices = billing.ready ? billing.invoices || [] : [];
+  const unpaid = invoices.filter((x) => x.status === 'sent').length;
+  const invoiceLinks = invoices.length ? [{ to: '/pelaaja/laskut', label: 'Laskut', icon: 'euro', pages: ['invoices', 'invoice'], badge: unpaid }] : [];
   const checkInTraining = checkIn?.trainingId ? state.trainings.find((t) => t.id === checkIn.trainingId) || null : null;
   const planTraining = sheet?.kind === 'plan' ? state.trainings.find((t) => t.id === sheet.trainingId) || null : null;
   const textInitial = sheet?.kind === 'text' ? { goal: student.goal, wish: student.playerWish, note: student.playerNote }[sheet.textKind] : '';
@@ -177,7 +184,7 @@ function PlayerShell({ banner, joinCode = null }) {
         roleLabel="Pelaaja"
         cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => actions.openMerkitse()}>Merkitse</Button>}
         center={{ label: 'Merkitse', icon: 'plus', onClick: () => actions.openMerkitse() }}
-        extraLinks={[...messageLinks, ...extraLinks]}
+        extraLinks={[...messageLinks, ...invoiceLinks, ...extraLinks]}
         me={{ person: student, sub: student.level || 'Pelaaja', to: '/pelaaja/profiili', notifications: { unread: notes.unread, onOpen: openNotifs } }}
         feedback={{ label: 'Anna palautetta', icon: 'mail', onClick: () => setFeedbackOpen(true) }}
         banner={banner}
@@ -186,6 +193,7 @@ function PlayerShell({ banner, joinCode = null }) {
       />
       {!isDesktop && (
         <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} messages={messageLinks.length ? { unread: msgs.unread } : null}
+          invoices={invoices.length ? { unpaid } : null}
           onNotifications={openNotifs} onFeedback={() => setFeedbackOpen(true)} onJoin={() => setJoin({ code: null })} />
       )}
       <NotificationsSheet open={notifsOpen} onClose={() => setNotifsOpen(false)} items={notes.items} home="/pelaaja/koti" />
@@ -222,7 +230,9 @@ export function PlayerApp({ studentId, banner, joinCode = null }) {
       renderError={(error, retry) => <GateError message="Tietojasi ei saatu ladattua. Tarkista verkkoyhteys ja yritä uudelleen." error={error} onRetry={retry} onSignOut={() => api.auth.signOut()} />}
     >
       <MessagesProvider role="player" ownerId={studentId}>
-        <PlayerShell banner={banner} joinCode={joinCode} />
+        <BillingProvider role="player" ownerId={studentId}>
+          <PlayerShell banner={banner} joinCode={joinCode} />
+        </BillingProvider>
       </MessagesProvider>
     </DataProvider>
   );

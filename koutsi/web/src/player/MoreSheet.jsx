@@ -1,5 +1,5 @@
 // MoreSheet (player) — the phone tab bar's "Lisää" drawer, built like the coach's: the places
-// that have no tab of their own. Viestit (when a coach has opened a conversation), Ryhmäsi (the group
+// that have no tab of their own. Viestit (when a coach has opened a conversation), Laskut (once a coach has sent one), Ryhmäsi (the group
 // mates and the week's theme), Liity ryhmään (JoinGroupSheet: one more group with a code), Harjoitteet ja videot, Ilmoitukset (with the unread count), Profiili and
 // Anna palautetta. A computer has these in the side nav, the bell on the profile card at its foot.
 import { useData } from '../app/data.jsx';
@@ -15,7 +15,7 @@ export function groupsSubtitle(groups) {
   return groups.length === 1 ? names[0] : `${groups.length} ryhmää · ${names.join(', ')}`;
 }
 
-export function MoreSheet({ open, onClose, unread, onNotifications, onFeedback, onJoin, messages = null }) {
+export function MoreSheet({ open, onClose, unread, onNotifications, onFeedback, onJoin, messages = null, invoices = null }) {
   const { state } = useData();
   const me = state.students[0];
   const groups = koutsiGroupsForStudent(state, me.id);
@@ -27,6 +27,11 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onFeedback, 
           <ListRow icon="chat" title="Viestit" subtitle={messages.unread ? `${messages.unread} ${messages.unread === 1 ? 'uusi viesti' : 'uutta viestiä'}` : 'Keskustelut valmentajan kanssa'}
             right={messages.unread ? <span className="more-badge t-num">{messages.unread > 9 ? '9+' : messages.unread}</span> : undefined}
             onClick={() => go('/pelaaja/viestit')} />
+        )}
+        {invoices && (
+          <ListRow icon="euro" title="Laskut" subtitle={invoices.unpaid ? `${invoices.unpaid} maksamatta` : 'Kaikki maksettu'}
+            right={invoices.unpaid ? <span className="more-badge t-num">{invoices.unpaid}</span> : undefined}
+            onClick={() => go('/pelaaja/laskut')} />
         )}
         <ListRow icon="users" title="Ryhmäsi" subtitle={groupsSubtitle(groups)} onClick={() => go('/pelaaja/ryhma')} />
         <ListRow icon="plus" title="Liity ryhmään" subtitle={groups.length ? 'Liittymiskoodilla uuteen ryhmään' : 'Valmentajan antamalla liittymiskoodilla'} onClick={() => { onClose(); onJoin(); }} />
