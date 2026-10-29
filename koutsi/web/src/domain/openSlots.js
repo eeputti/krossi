@@ -39,17 +39,6 @@ export function openToBook(slots, now = new Date()) {
   return (slots || []).filter((s) => !s.bookedBy && !hasStarted(s, now)).sort(byStart);
 }
 
-/** The coach's list: everything from now on (open and booked), soonest first, by day. */
-export function slotsByDay(slots, now = new Date()) {
-  const out = [];
-  (slots || []).filter((s) => !hasStarted(s, now)).sort(byStart).forEach((s) => {
-    const last = out[out.length - 1];
-    if (last && last.date === s.date) last.slots.push(s);
-    else out.push({ date: s.date, slots: [s] });
-  });
-  return out;
-}
-
 /** A coach's private lesson (one player, no group, not a player's own log). */
 export function isPrivateLesson(t) {
   return Boolean(t && t.studentId && !t.groupId && t.loggedBy !== 'player');
@@ -65,19 +54,7 @@ export function bookedSlotOf(slots, trainingId) {
   return (slots || []).find((s) => s.trainingId === trainingId) || null;
 }
 
-/**
- * Vapautuneet ajat: coming private lessons whose player said "En pääse" and that are not offered to
- * the others yet — each one tap away from being an open slot again.
- */
-export function freedLessons(trainings, slots, now = new Date()) {
-  return (trainings || [])
-    .filter((t) => isPrivateLesson(t) && !hasStarted(t, now)
-      && (t.absences || []).some((a) => a.studentId === t.studentId)
-      && !offerOf(slots, t.id))
-    .sort(byStart);
-}
-
-/** A freed lesson as a new slot: same day, start, length and place. */
+/** A freed lesson (its player said "En pääse") as a new slot: same day, start, length and place. */
 export function slotFromLesson(t, slots) {
   return {
     date: t.date, time: t.time, durationMinutes: t.durationMinutes || 60,

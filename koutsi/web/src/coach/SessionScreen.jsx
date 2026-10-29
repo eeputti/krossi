@@ -18,7 +18,7 @@ import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { useRecord } from './merkitse.jsx';
 import { SessionPlan } from './SessionPlan.jsx';
 import { saveAttendance } from './attendance.jsx';
-import { FreedLessonCard } from './OpenSlotsScreen.jsx';
+import { FreedLessonCard } from './openSlots.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 

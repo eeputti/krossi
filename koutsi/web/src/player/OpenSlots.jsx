@@ -1,27 +1,22 @@
-// OpenSlots.jsx (player) — Vapaat ajat: the free times the player's coaches have published. Koti shows
-// the soonest ones while there are any (OpenSlotsBlock); /pelaaja/vapaat (the notice's link, "Kaikki")
-// lists them all over Koti (OpenSlotsSheet). A tap asks "Varaa aika?" once and books it; the first one
-// wins, and the booking is an ordinary private lesson that shows in Treenit at once. Cancelling it is
-// the usual "En pääse". Nothing shows while the database has no slots (state.openSlotsReady).
-import { useState } from 'react';
+// OpenSlots.jsx (player) — Vapaat ajat: the free times the player's coaches have published live in
+// Viikko's calendar as dashed "Vapaa aika" blocks (TrainingsScreen); a tap asks "Varaa aika?" once and
+// books it. The first one wins, and the booking is an ordinary private lesson that fills the block at
+// once. Cancelling it is the usual "En pääse". Koti shows one line while there are free times (how
+// many, the soonest) that opens the week of the soonest; /pelaaja/vapaat (the notice's link) goes there
+// too. Nothing shows while the database has no slots (state.openSlotsReady).
+import { useEffect, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { goBack, navigate } from '../app/router.js';
-import { EmptyState, Icon, Sheet, useConfirm, useToast } from '../ui/index.js';
-import { Block } from '../shared/bits.jsx';
-import { koutsiCoachById } from '../domain/core.js';
-import { minutesLabel, relativeDay, shortDay } from '../domain/week.js';
-import { openToBook, slotsByDay, slotStartLabel, slotWhen } from '../domain/openSlots.js';
+import { navigate } from '../app/router.js';
+import { Button, useConfirm, useToast } from '../ui/index.js';
+import { koutsiCoachById, koutsiIsoWeekOfDateStr } from '../domain/core.js';
+import { weekParam } from '../domain/week.js';
+import { openToBook, slotStartLabel, slotWhen } from '../domain/openSlots.js';
 
-const HOME_ROWS = 3;
+/** Viikko on the day of a free time. */
+const weekPathOf = (date) => `/pelaaja/treenit?vko=${weekParam(koutsiIsoWeekOfDateStr(date))}&pv=${date}`;
 
-/** A coach's name on a slot only when the player has more than one coach. */
-function coachLabel(state, slot) {
-  if ((state.coaches || []).length < 2) return '';
-  return koutsiCoachById(state, slot.coachId)?.name || '';
-}
-
-/** "Varaa aika?" → book → "Varattu". A time someone else took first refreshes the list. */
+/** "Varaa aika?" → book → "Varattu". A time someone else took first refreshes the week. */
 export function useBookSlot() {
   const { state, run, reload } = useData();
   const confirm = useConfirm();
@@ -45,66 +40,30 @@ export function useBookSlot() {
   return { book, busy };
 }
 
-/** One free time; under a day's heading only the time (`showDate` on Koti). */
-function SlotRow({ slot, state, onBook, busy, showDate = false }) {
-  const sub = [coachLabel(state, slot), slot.place].filter(Boolean).join(' · ');
-  return (
-    <button type="button" className="k-row" onClick={() => onBook(slot)} aria-busy={busy || undefined}>
-      {showDate
-        ? <span className="k-session-time"><span className="k-session-date">{relativeDay(slot.date)}</span><span className="t-num">{slot.time}</span></span>
-        : <span className="k-group-time t-num">{slot.time}</span>}
-      <span className="k-row-main">
-        <span className="k-row-title truncate">Yksityistunti · {minutesLabel(slot.durationMinutes)}</span>
-        {sub && <span className="k-row-sub truncate">{sub}</span>}
-      </span>
-      <Icon name="chevron-right" size={18} className="k-chevron" />
-    </button>
-  );
-}
-
-/** Koti: the soonest free times, while there are any. */
-export function OpenSlotsBlock() {
+/** Koti: one line while there are free times — how many, the soonest — and the way to the week. */
+export function OpenSlotsCard() {
   const { state } = useData();
-  const { book, busy } = useBookSlot();
   if (!state.openSlotsReady) return null;
   const open = openToBook(state.openSlots);
   if (!open.length) return null;
+  const first = open[0];
+  const coach = (state.coaches || []).length > 1 ? koutsiCoachById(state, first.coachId)?.name : '';
   return (
-    <Block title="Vapaat ajat">
-      <div className="k-list">
-        {open.slice(0, HOME_ROWS).map((s) => <SlotRow key={s.id} slot={s} state={state} onBook={book} busy={busy === s.id} showDate />)}
-        {open.length > HOME_ROWS && (
-          <button type="button" className="k-textlink" onClick={() => navigate('/pelaaja/vapaat', { overlay: true })}>
-            Kaikki vapaat ajat ({open.length})<Icon name="chevron-right" size={14} />
-          </button>
-        )}
+    <div className="k-banner-card">
+      <div className="grow">
+        <div className="k-banner-title">{open.length === 1 ? '1 vapaa aika' : `${open.length} vapaata aikaa`}</div>
+        <div className="k-banner-sub">Lähin {slotStartLabel(first)}{coach ? ` · ${coach}` : ''}</div>
       </div>
-    </Block>
+      <Button variant="dark" size="sm" onClick={() => navigate(weekPathOf(first.date))}>Valitse aika</Button>
+    </div>
   );
 }
 
-/** /pelaaja/vapaat — every free time, by day, over Koti. */
-export function OpenSlotsSheet() {
+/** /pelaaja/vapaat (the notice's link): the week of the soonest free time, else this week. */
+export function OpenSlotsRedirect() {
   const { state } = useData();
-  const { book, busy } = useBookSlot();
-  const open = state.openSlotsReady ? openToBook(state.openSlots) : [];
-  const close = () => goBack('/pelaaja/koti');
-  return (
-    <Sheet open onClose={close} title="Vapaat ajat" subtitle={open.length ? 'Napauta aikaa varataksesi sen.' : null} size="md">
-      {open.length === 0 ? (
-        <EmptyState art="calendar" title="Ei vapaita aikoja" text="Valmentajasi uudet vapaat ajat näkyvät täällä ja Kodissa." />
-      ) : (
-        <div className="stack-5">
-          {slotsByDay(open).map((d) => (
-            <section key={d.date} className="k-day-section">
-              <h2 className="k-day-title">{relativeDay(d.date) === shortDay(d.date) ? shortDay(d.date) : `${relativeDay(d.date)} · ${shortDay(d.date)}`}</h2>
-              <div className="k-list">
-                {d.slots.map((s) => <SlotRow key={s.id} slot={s} state={state} onBook={book} busy={busy === s.id} />)}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
-    </Sheet>
-  );
+  const first = state.openSlotsReady ? openToBook(state.openSlots)[0] : null;
+  const to = first ? weekPathOf(first.date) : '/pelaaja/treenit';
+  useEffect(() => { navigate(to, { replace: true }); }, [to]);
+  return null;
 }

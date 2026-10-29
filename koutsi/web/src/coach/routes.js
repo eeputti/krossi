@@ -18,7 +18,7 @@ export const TABS = [
 ];
 // On a phone the fourth place is "Lisää": a drawer with Harjoitepankki, Suunnittele, Ryhmät,
 // Ilmoitukset, Tiedote and Profiili. It lights up on any of those pages (`ids`).
-export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['harjoitteet', 'lahetetyt', 'suunnittele', 'ryhmalista', 'profiili', 'viestit', 'vapaat'] }];
+export const PHONE_TABS = [...TABS, { id: 'lisaa', label: 'Lisää', icon: 'more', ids: ['harjoitteet', 'lahetetyt', 'suunnittele', 'ryhmalista', 'profiili', 'viestit'] }];
 // Viestit (when the database has it and the coach has the feature): a computer's side nav gets it after
 // Pelaajat with the unread count, a phone reaches it from Lisää (CoachApp adds the tab).
 export const MESSAGES_TAB = { id: 'viestit', label: 'Viestit', icon: 'chat', path: '/valmentaja/viestit' };
@@ -54,8 +54,6 @@ export const ROUTES = [
   { name: 'exercise', pattern: '/valmentaja/harjoite/:id', tab: 'harjoitteet', type: 'page' },
   // Lähetetyt: everything sent to players (?laji= a kind, ?ryhma= one group's); a phone reaches it from Lisää
   { name: 'sent', pattern: '/valmentaja/lahetetyt', tab: 'lahetetyt', type: 'tab' },
-  // Vapaat ajat (when the feature is on): free times the coach's own players book; a phone reaches it from Lisää
-  { name: 'openSlots', pattern: '/valmentaja/vapaat', tab: 'vapaat', type: 'tab' },
   { name: 'profile', pattern: '/valmentaja/profiili', tab: 'profiili', type: 'tab' },
   { name: 'profileEdit', pattern: '/valmentaja/profiili/muokkaa', tab: 'profiili', type: 'page' },
   { name: 'admin', pattern: '/valmentaja/yllapito', tab: 'profiili', type: 'page' },

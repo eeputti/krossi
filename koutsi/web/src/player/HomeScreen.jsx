@@ -33,7 +33,7 @@ import { MOOD_LABELS } from '../lib/constants.js';
 import { usePlayerActions } from './PlayerApp.jsx';
 import { AfterSessions, useLead } from './MerkitseSheet.jsx';
 import { CoachSessionSheet } from './weekSheets.jsx';
-import { OpenSlotsBlock } from './OpenSlots.jsx';
+import { OpenSlotsCard } from './OpenSlots.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_LONG = ['Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai', 'Lauantai', 'Sunnuntai'];
@@ -442,7 +442,7 @@ export function HomeScreen() {
           <Notices state={state} />
           <CoachNote state={state} student={student} unread={unread} />
           {line}
-          <OpenSlotsBlock />
+          <OpenSlotsCard />
         </div>
         <div className="stack-5">
           <News state={state} student={student} unread={unread} />

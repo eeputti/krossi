@@ -9,7 +9,6 @@ import { navigate } from '../app/router.js';
 import { Avatar, ListRow, Sheet } from '../ui/index.js';
 import { bankSummary } from './ExercisesScreen.jsx';
 import { track } from './usage.js';
-import { openSlotsSummary } from './OpenSlotsScreen.jsx';
 
 export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, onFeedback, onCodes, isAdmin, acting, messages = null }) {
   const { state } = useData();
@@ -23,9 +22,6 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, on
             subtitle={messages.waiting || (messages.on ? (messages.unread ? `${messages.unread} uutta` : 'Ei uusia viestejä') : 'Ota käyttöön aikuisille pelaajille')}
             right={messages.unread ? <span className="more-badge t-num">{messages.unread > 9 ? '9+' : messages.unread}</span> : undefined}
             onClick={() => go(messages.on ? '/valmentaja/viestit' : '/valmentaja/viestit?kayttoon=1', 'viestit')} />
-        )}
-        {state.openSlotsReady && !acting && (
-          <ListRow icon="calendar-plus" title="Vapaat ajat" subtitle={openSlotsSummary(state)} onClick={() => go('/valmentaja/vapaat', 'vapaat')} />
         )}
         {!acting && (
           <ListRow icon="link" title="Liittymiskoodini" subtitle="Ryhmien koodit ja oma koodisi pelaajille"

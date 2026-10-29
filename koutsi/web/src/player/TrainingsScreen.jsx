@@ -22,6 +22,7 @@ import { playerWeek, toHHMM } from '../domain/ownWeek.js';
 import { ActivityIcon } from './ActivityIcon.jsx';
 import { CoachSessionSheet, OwnEntrySheet, PlayerWeekPicker } from './weekSheets.jsx';
 import { usePlayerActions } from './PlayerApp.jsx';
+import { useBookSlot } from './OpenSlots.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_SHORT = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
@@ -105,8 +106,9 @@ function Block({ item, grid, onOpen }) {
   const time = koutsiTimeRangeLabel(item.time, item.durationMinutes);
   const [from, to] = time.split('–');
   const own = item.kind === 'own';
+  const open = item.kind === 'open'; // Vapaat ajat: a coach's free time, a tap books it
   const state = item.absent ? 'Poissa' : '';
-  const line = own ? (item.text || minutesLabel(item.durationMinutes)) : item.theme?.title || '';
+  const line = own ? (item.text || minutesLabel(item.durationMinutes)) : open ? (item.coach?.name || '') : item.theme?.title || '';
   const label = [item.title, time, own ? 'oma merkintä' : item.coach?.name, state, line].filter(Boolean).join(', ');
   return (
     <button type="button" className={cx('wb-block', `is-${item.tone}`, item.status === 'now' && 'is-now', item.lanes > 1 && 'is-shared')}
@@ -118,14 +120,17 @@ function Block({ item, grid, onOpen }) {
           {item.status === 'now' && <span className="k-ctx-live wb-b-live" aria-hidden="true" />}
         </span>
         <span className="wb-b-name">{item.title}</span>
-        {!own && (
+        {open ? (
+          // what to do first, so it shows on the shortest block too; the coach goes on the line under it
+          <span className="wb-b-meta"><span className="truncate">{['Varaa', item.slot.place].filter(Boolean).join(' · ')}</span></span>
+        ) : !own && (
           <span className="wb-b-meta">
-            {item.absent ? <span className="pw-b-absent">Poissa</span> : <span className="wb-b-level">{item.coach?.name || item.training.type}</span>}
+            {item.absent ? <span className="pw-b-absent">Poissa</span> : <span className="wb-b-level">{item.coach?.name || item.training?.type}</span>}
           </span>
         )}
         {line && (
           <span className={cx('wb-b-line', !own && 'is-theme')}>
-            {!own && <Icon name="sparkles" size={12} />}
+            {!own && !open && <Icon name="sparkles" size={12} />}
             <span className="wb-b-theme">{line}</span>
           </span>
         )}
@@ -175,7 +180,9 @@ export function TrainingsScreen({ query }) {
   const today = koutsiTodayStr();
   const dates = weekDates(week);
   const picked = dates.includes(query.pv) ? query.pv : null;
-  const board = useMemo(() => playerWeek(state, student, week, now), [state, student, week.year, week.week, Math.floor(nowMs / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Vapaat ajat: the coaches' free times are blocks of their own; a tap books one
+  const board = useMemo(() => playerWeek(state, student, week, now, { openSlots: state.openSlotsReady ? state.openSlots || [] : [] }), [state, student, week.year, week.week, Math.floor(nowMs / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { book } = useBookSlot();
   const { grid, summary } = board;
   const relative = themeWeekRelative(week);
 
@@ -184,7 +191,10 @@ export function TrainingsScreen({ query }) {
   const last = useRef({});
   if (sheet?.kind === 'coach') last.current.coach = sheet.item;
   if (sheet?.kind === 'own') last.current.own = sheet.training;
-  const openItem = (item) => setSheet(item.kind === 'own' ? { kind: 'own', training: item.training } : { kind: 'coach', item });
+  const openItem = (item) => {
+    if (item.kind === 'open') { book(item.slot); return; }
+    setSheet(item.kind === 'own' ? { kind: 'own', training: item.training } : { kind: 'coach', item });
+  };
   const openBar = (bar) => {
     if (bar.kind === 'tournament') setSheet({ kind: 'own', training: bar.training });
     else if (bar.kind === 'match') actions.openMatch({ editing: bar.note });
@@ -209,6 +219,16 @@ export function TrainingsScreen({ query }) {
   };
   useLayoutEffect(() => {
     if (!isDesktop) scrollToDay(startDay, false);
+    if (!query.pv) return undefined;
+    // a day opened from Koti or a notice (Vapaat ajat): down to its first free time, else its first block
+    const raf = requestAnimationFrame(() => {
+      const col = daysRef.current?.children[startDay];
+      const target = col?.querySelector('.wb-block.is-open') || col?.querySelector('.wb-block');
+      if (!target) return;
+      const top = target.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.3;
+      if (top > window.scrollY) window.scrollTo({ top, behavior: 'auto' });
+    });
+    return () => cancelAnimationFrame(raf);
   }, [isDesktop, week.year, week.week, query.pv]); // eslint-disable-line react-hooks/exhaustive-deps
   const frame = useRef(0);
   const onScroll = () => {
@@ -248,15 +268,18 @@ export function TrainingsScreen({ query }) {
   const bars = board.allDay.bars;
   const phoneBars = bars.filter((b) => b.from <= active && b.to >= active);
   const activeDay = board.days[active];
+  const openCount = board.days.reduce((n, d) => n + d.items.filter((it) => it.kind === 'open').length, 0);
   const counts = [
     summary.coach ? plural(summary.coach, 'valmennus', 'valmennusta') : '',
     summary.own ? `${plural(summary.own, 'oma treeni', 'omaa treeniä')}${summary.ownMinutes ? ` (${minutesLabel(summary.ownMinutes)})` : ''}` : '',
     summary.matches ? plural(summary.matches, 'ottelu', 'ottelua') : '',
+    openCount ? plural(openCount, 'vapaa aika', 'vapaata aikaa') : '',
   ].filter(Boolean).join(' · ') || 'Ei vielä merkintöjä';
   const dayCount = (d) => {
     const own = d.items.filter((it) => it.kind === 'own').length;
-    const coach = d.items.length - own;
-    return [coach ? plural(coach, 'valmennus', 'valmennusta') : '', own ? plural(own, 'oma', 'omaa') : ''].filter(Boolean).join(' · ') || 'Ei merkintöjä';
+    const open = d.items.filter((it) => it.kind === 'open').length;
+    const coach = d.items.length - own - open;
+    return [coach ? plural(coach, 'valmennus', 'valmennusta') : '', own ? plural(own, 'oma', 'omaa') : '', open ? plural(open, 'vapaa aika', 'vapaata aikaa') : ''].filter(Boolean).join(' · ') || 'Ei merkintöjä';
   };
 
   return (
@@ -292,7 +315,7 @@ export function TrainingsScreen({ query }) {
             className={cx('wb-strip-day', i === active && 'is-active', d.date === today && 'is-today')} onClick={() => scrollToDay(i, true)}>
             <span className="wb-strip-dow">{DAY_SHORT[i]}</span>
             <span className="wb-strip-num t-num">{Number(d.date.slice(8))}</span>
-            <span className={cx('wb-strip-dot', d.items.some((it) => it.kind === 'own') ? 'has-own' : d.items.length > 0 && 'has-sessions')} aria-hidden="true" />
+            <span className={cx('wb-strip-dot', d.items.some((it) => it.kind === 'own') ? 'has-own' : d.items.some((it) => it.kind !== 'open') ? 'has-sessions' : d.items.length > 0 && 'has-open')} aria-hidden="true" />
           </button>
         ))}
         {bars.map((b) => (

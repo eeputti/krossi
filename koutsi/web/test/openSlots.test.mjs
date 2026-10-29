@@ -3,10 +3,13 @@
 // the real backend on a fake client (hidden until the database has it; then the coach's gate decides).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { koutsiAddDays, koutsiTodayStr } from '../src/domain/core.js';
+import { koutsiAddDays, koutsiAddIsoWeeks, koutsiIsoWeekOfDateStr, koutsiTodayStr } from '../src/domain/core.js';
+import { weekDates } from '../src/domain/week.js';
+import { weekBoard } from '../src/domain/board.js';
+import { playerWeek } from '../src/domain/ownWeek.js';
 import {
-  draftProblem, draftSlots, firstDraftRow, freedLessons, hasStarted, listLine, nextDraftRow, offerOf, openToBook,
-  slotFromLesson, slotsByDay, slotStartLabel, slotWhen,
+  draftProblem, draftSlots, firstDraftRow, hasStarted, isPrivateLesson, listLine, nextDraftRow, offerOf, openToBook,
+  slotFromLesson, slotStartLabel, slotWhen,
 } from '../src/domain/openSlots.js';
 
 const NOW = new Date(2026, 9, 29, 15, 40); // Thu 29.10.2026 15:40
@@ -25,7 +28,7 @@ test('times read like the rest of Koutsi', () => {
   assert.equal(listLine(['a', 'b', 'c', 'd', 'e']), 'a, b, c ja 2 muuta');
 });
 
-test('a player books only open times still to come; the coach sees theirs by day', () => {
+test('a player books only open times still to come, soonest first', () => {
   const slots = [
     S('later', '2026-11-02', '14:00'),
     S('soon', '2026-10-30', '09:00'),
@@ -34,26 +37,54 @@ test('a player books only open times still to come; the coach sees theirs by day
     S('same-day', '2026-10-30', '08:00'),
   ];
   assert.deepEqual(openToBook(slots, NOW).map((s) => s.id), ['same-day', 'soon', 'later']);
-  assert.deepEqual(slotsByDay(slots, NOW).map((d) => [d.date, d.slots.map((s) => s.id)]), [
-    ['2026-10-30', ['same-day', 'soon', 'taken']],
-    ['2026-11-02', ['later']],
-  ]);
 });
 
-test('a freed lesson: a coming private lesson its player cannot come to, not yet offered', () => {
-  const absent = [{ studentId: 's1', reason: 'poissa' }];
-  const trainings = [
-    lesson('free', '2026-10-31', '10:00', { absences: absent }),
-    lesson('offered', '2026-11-01', '10:00', { absences: absent }),
-    lesson('coming', '2026-11-01', '12:00'),
-    lesson('past', '2026-10-28', '10:00', { absences: absent }),
-    lesson('group', '2026-10-31', '12:00', { studentId: null, groupId: 'g1', absences: absent }),
-    lesson('own-log', '2026-10-31', '07:00', { loggedBy: 'player', absences: absent }),
+test('free times are blocks of their own in both weeks: not sessions, not past, not booked', () => {
+  // a week wholly ahead, so nothing in it has started
+  const week = koutsiAddIsoWeeks(koutsiIsoWeekOfDateStr(koutsiTodayStr()), 2);
+  const [, tue, wed] = weekDates(week);
+  const slots = [
+    S('free', tue, '15:00', { place: 'Kenttä 2', durationMinutes: 90 }),
+    S('taken', tue, '17:00', { bookedBy: 's1', trainingId: 't1' }),
+    S('other-week', koutsiAddDays(tue, 7), '15:00'),
   ];
+  const lesson1 = lesson('t1', tue, '17:00');
+  const coachState = { groups: [], students: [{ id: 's1', name: 'Maria K.' }], clubEvents: [], trainings: [lesson1] };
+  const board = weekBoard(coachState, week, new Date(), { openSlots: slots });
+  const tuesday = board.days[1].items;
+  assert.deepEqual(tuesday.map((it) => [it.kind, it.time]), [['open', '15:00'], ['private', '17:00']], 'the free time and the booked lesson');
+  const open = tuesday[0];
+  assert.equal(open.tone, 'open');
+  assert.equal(open.slot.place, 'Kenttä 2');
+  assert.equal(open.end - open.start, 90);
+  assert.equal(board.sessions, 1, 'a free time is not a session');
+  assert.equal(board.issues, 0);
+  assert.equal(board.grid.startH, 15, 'the grid makes room for it');
+  assert.equal(weekBoard(coachState, week).days[1].items.length, 1, 'without the feature nothing changes');
+  const past = weekBoard(coachState, koutsiIsoWeekOfDateStr(koutsiTodayStr()), new Date(), { openSlots: [S('gone', koutsiAddDays(koutsiTodayStr(), -1), '10:00')] });
+  assert.ok(past.days.every((d) => d.items.every((it) => it.kind !== 'open')), 'a free time that went by unbooked is gone');
+
+  const me = { id: 's1', name: 'Maria K.', matchNotes: [], homework: [] };
+  const playerState = { groups: [], students: [me], clubEvents: [], coaches: [{ id: 'c', name: 'Anna Koskinen' }], trainings: [lesson1] };
+  const w = playerWeek(playerState, me, week, new Date(), { openSlots: slots.filter((s) => !s.bookedBy) });
+  const items = w.days[1].items;
+  assert.deepEqual(items.map((it) => [it.kind, it.time]), [['open', '15:00'], ['coach', '17:00']]);
+  assert.equal(items[0].title, 'Vapaa aika');
+  assert.equal(items[0].coach.name, 'Anna Koskinen');
+  assert.equal(w.summary.coach, 1, 'the week counts only real sessions');
+  assert.equal(w.days[2].items.length, 0, wed);
+});
+
+test('a freed lesson: a private lesson becomes a free time with its day, start, length and place', () => {
+  const absent = [{ studentId: 's1', reason: 'poissa' }];
+  const free = lesson('free', '2026-10-31', '10:00', { absences: absent });
   const slots = [S('o1', '2026-11-01', '10:00', { sourceTrainingId: 'offered' }), S('b1', '2026-10-31', '10:00', { place: 'Kenttä 2', bookedBy: 's1', trainingId: 'free' })];
-  assert.deepEqual(freedLessons(trainings, slots, NOW).map((t) => t.id), ['free']);
+  assert.equal(isPrivateLesson(free), true);
+  assert.equal(isPrivateLesson(lesson('g', '2026-10-31', '12:00', { studentId: null, groupId: 'g1' })), false, 'not a group session');
+  assert.equal(isPrivateLesson(lesson('o', '2026-10-31', '07:00', { loggedBy: 'player' })), false, "not a player's own log");
   assert.equal(offerOf(slots, 'offered').id, 'o1');
-  assert.deepEqual(slotFromLesson(trainings[0], slots), { date: '2026-10-31', time: '10:00', durationMinutes: 60, place: 'Kenttä 2', sourceTrainingId: 'free' });
+  assert.equal(offerOf(slots, 'free'), null);
+  assert.deepEqual(slotFromLesson(free, slots), { date: '2026-10-31', time: '10:00', durationMinutes: 60, place: 'Kenttä 2', sourceTrainingId: 'free' });
 });
 
 test('the add form: the next row follows the last one, and what still blocks publishing', () => {
@@ -94,8 +125,9 @@ test('demo: the coach adds a time, the player books it, and the lesson is in bot
     assert.ok(coach.openSlots.some((s) => !s.bookedBy), 'with open times');
     const jussi = coach.openSlots.find((s) => s.bookedBy === 'demo-s-jussi');
     assert.ok(coach.trainings.some((t) => t.id === jussi.trainingId && t.type === 'Yksityistunti'), "Jussi's booking is a lesson in her week");
-    const [leo] = freedLessons(coach.trainings, coach.openSlots);
-    assert.equal(leo?.studentId, 'demo-s-leo', "Leo's lesson is free to offer");
+    const leo = coach.trainings.find((t) => t.id === 'tr-private-leo');
+    assert.ok(leo.absences.some((a) => a.studentId === 'demo-s-leo'), 'Leo cannot come to his lesson');
+    assert.equal(offerOf(coach.openSlots, leo.id), null, '…and it is not offered yet');
 
     assert.equal(await backend.openSlots.add(COACH, [{ date: day, time: '12:00', durationMinutes: 60, place: 'Kenttä 3' }, { date: day, time: '13:00', durationMinutes: 60, place: 'Kenttä 3' }]), 2);
     assert.equal(await backend.openSlots.add(COACH, [{ date: day, time: '12:00', durationMinutes: 60 }]), 0, 'a time that is open already is skipped');
@@ -108,7 +140,7 @@ test('demo: the coach adds a time, the player books it, and the lesson is in bot
     await assert.rejects(() => backend.openSlots.remove(jussi.id), /varattu/, 'a booked time goes only with its lesson');
     await assert.rejects(() => backend.openSlots.book(extra.id), /demossa/, 'the coach does not book');
     coach = await backend.coach.load(COACH);
-    assert.equal(freedLessons(coach.trainings, coach.openSlots).length, 0);
+    assert.ok(offerOf(coach.openSlots, leo.id), "Leo's time is open to the others");
 
     // the player page: its own memory, the shared browser
     configureDemo({ role: 'player', latency: 0 });

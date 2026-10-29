@@ -114,7 +114,7 @@ export function layBars(list, dates) {
  *     { key, kind: 'event' | 'tournament' | 'match', title, sub, date, endDate, event | training | note }
  *   grid: dayGrid(), summary: { coach, attended, absent, own, ownMinutes, matches }
  */
-export function playerWeek(state, student, week, now = new Date()) {
+export function playerWeek(state, student, week, now = new Date(), { openSlots = [] } = {}) {
   const dates = weekDates(week);
   const days = dates.map((date) => ({ date, items: [] }));
   const allDay = [];
@@ -152,6 +152,21 @@ export function playerWeek(state, student, week, now = new Date()) {
       tone: absent ? 'absent' : status === 'past' ? 'past' : 'ok',
       coach: koutsiCoachById(state, t.coachId), theme: group ? koutsiThemeForDate(group, t.date) : null,
       title: group ? group.name : t.type, text: group ? t.type : '',
+    });
+  }
+
+  // Vapaat ajat (only when the caller passes them): the coaches' free times still to come; a tap books one
+  for (const s of openSlots) {
+    if (s.bookedBy) continue;
+    const i = dates.indexOf(s.date);
+    if (i < 0) continue;
+    const durationMinutes = s.durationMinutes || 60;
+    const start = toMin(s.time);
+    if (sessionStatus({ date: s.date, time: s.time, durationMinutes }, null, now) !== 'upcoming') continue;
+    days[i].items.push({
+      key: `v-${s.id}`, kind: 'open', tone: 'open', slot: s, training: null, group: null, date: s.date, time: s.time, durationMinutes,
+      start, end: Math.min(24 * 60, start + durationMinutes), status: 'upcoming', absent: false, theme: null,
+      coach: koutsiCoachById(state, s.coachId), title: 'Vapaa aika', text: '',
     });
   }
 

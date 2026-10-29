@@ -76,6 +76,8 @@ export const USAGE_SECTIONS = [
       ['viikko.lisaa-tapahtuma', 'Lisää tapahtuma'],
       ['viikko.lisaa-teema', 'Lisää teema'],
       ['viikko.lisaa-monta', 'Monta ryhmää ja pelaajaa kerralla'],
+      ['viikko.lisaa-vapaat', 'Plus-nappi → Vapaat ajat'],
+      ['viikko.vapaa', 'Vapaa aika avattu viikkonäkymästä'],
     ],
   },
   {
@@ -109,7 +111,6 @@ export const USAGE_SECTIONS = [
       ['lisaa.ryhmat', 'Ryhmät'],
       ['lisaa.ilmoitukset', 'Ilmoitukset'],
       ['lisaa.viestit', 'Viestit'],
-      ['lisaa.vapaat', 'Vapaat ajat'],
       ['lisaa.tiedote', 'Tiedote pelaajille'],
       ['lisaa.profiili', 'Profiili'],
       ['lisaa.palaute', 'Anna palautetta'],

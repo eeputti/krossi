@@ -28,6 +28,6 @@ export const ROUTES = [
   // Viestit: the conversations with one's coaches (Koti's chat icon, Lisää), one conversation full screen
   { name: 'messages', pattern: '/pelaaja/viestit', tab: 'koti', type: 'page' },
   { name: 'thread', pattern: '/pelaaja/viestit/:id', tab: 'koti', type: 'full' },
-  // Vapaat ajat: every free time of the player's coaches, over Koti (the notice's link, Koti's "Kaikki")
-  { name: 'openSlots', pattern: '/pelaaja/vapaat', tab: 'koti', type: 'overlay' },
+  // Vapaat ajat (the notice's link): straight to Viikko on the day of the soonest free time
+  { name: 'openSlots', pattern: '/pelaaja/vapaat', tab: 'treenit', type: 'tab' },
 ];
