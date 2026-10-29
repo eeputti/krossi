@@ -2,15 +2,15 @@
 // invoices: drafts (Lähetä kaikki), open ones (overdue first) and paid ones. The gear opens the
 // settings. Before the first invoice: "Aloita" walks through Laskuttaja → Hinnat.
 // Shown only while Laskutus is on for the coach (useBilling().enabled); ?lasku=<id> opens one invoice.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { dropQueryParam, useRoute } from '../app/router.js';
-import { Button, Chip, EmptyState, IconButton, Page, PageHeader, Section, SkeletonList, useConfirm } from '../ui/index.js';
+import { Button, Chip, EmptyState, IconButton, Page, PageHeader, Section, SkeletonList, useConfirm, useToast } from '../ui/index.js';
 import { koutsiTodayStr } from '../domain/core.js';
 import { INVOICE_STATES, countsLine, euros, fiDate, invoiceState, lineCounts, totalOf } from '../domain/billing.js';
 import { useBilling } from '../shared/billing/BillingProvider.jsx';
-import { BillerSheet, InvoiceSheet, NewBillingSheet, PricesSheet, SettingsSheet, TermsSheet } from './BillingSheets.jsx';
+import { BillerSheet, InvoiceSheet, NewBillingSheet, PaymentsSheet, PricesSheet, SettingsSheet, TermsSheet } from './BillingSheets.jsx';
 import { track } from './usage.js';
 
 const PAID_SHOWN = 10;
@@ -20,7 +20,7 @@ function InvoiceRow({ inv, name, today, onOpen }) {
   const draft = inv.status === 'draft';
   const sub = draft
     ? countsLine(lineCounts(inv.lines.filter((l) => l.charged)))
-    : `Nro ${inv.number} · ${st === 'maksettu' ? 'maksettu' : `eräpäivä ${fiDate(inv.dueDate)}`}`;
+    : `Nro ${inv.number} · ${st === 'maksettu' ? (inv.paidVia === 'stripe' ? 'maksettu verkossa' : 'maksettu') : `eräpäivä ${fiDate(inv.dueDate)}`}`;
   return (
     <button type="button" className="k-row bill-row" onClick={() => onOpen(inv.id)}>
       <span className="k-row-main">
@@ -36,11 +36,12 @@ function InvoiceRow({ inv, name, today, onOpen }) {
 }
 
 export function BillingScreen() {
-  const { state } = useData();
+  const { state, ownerId } = useData();
   const billing = useBilling();
   const route = useRoute();
   const confirm = useConfirm();
-  const [sheet, setSheet] = useState(null); // asetukset | laskuttaja | hinnat | ehdot | laskuta
+  const toast = useToast();
+  const [sheet, setSheet] = useState(null); // asetukset | laskuttaja | hinnat | ehdot | maksut | laskuta
   const [openId, setOpenId] = useState(() => route.query.lasku || null);
   const [showAllPaid, setShowAllPaid] = useState(false);
   const [sending, setSending] = useState(false);
@@ -58,6 +59,38 @@ export function BillingScreen() {
       overdue: open.filter((x) => invoiceState(x, today) === 'myohassa').length,
     };
   }, [billing.invoices, today]);
+
+  // Back from Stripe's onboarding (?tili=valmis), or its link ran out (?tili=uusi: a new one at once).
+  const tili = route.query.tili;
+  useEffect(() => {
+    if (!tili || !billing.ready || !billing.enabled) return;
+    dropQueryParam('tili');
+    (async () => {
+      if (tili === 'uusi') {
+        const again = await billing.run(() => api.billing.connectPayments(ownerId));
+        if (again.ok && again.result?.url) window.location.assign(again.result.url);
+        return;
+      }
+      const res = await billing.run(() => api.billing.paymentStatus(ownerId));
+      if (res.ok) {
+        toast(res.result?.state === 'ready' ? 'Verkkomaksut käytössä.' : 'Stripe tarvitsee vielä tietoja. Jatka Asetuksista.', { tone: res.result?.state === 'ready' ? undefined : 'info' });
+      }
+    })();
+  }, [tili, billing.ready, billing.enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Payments made online but not confirmed yet (the payer closed Stripe's page): checked once per visit.
+  const synced = useRef(false);
+  useEffect(() => {
+    if (synced.current || !billing.ready || !billing.biller?.stripeAccountId) return;
+    if (!(billing.invoices || []).some((x) => x.status === 'sent' && x.checkoutSessionId)) return;
+    synced.current = true;
+    api.billing.syncPayments(ownerId).then((r) => {
+      if (r?.updated) {
+        billing.reload();
+        toast(`${r.updated} ${r.updated === 1 ? 'lasku maksettu' : 'laskua maksettu'} verkossa.`);
+      }
+    }).catch(() => {});
+  }, [billing.ready, billing.invoices, billing.biller]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const nameOf = (inv) => state.students.find((s) => s.id === inv.studentId)?.name || inv.payerName;
   const openInvoice = (id) => { track('laskutus.avaa'); setOpenId(id); };
@@ -77,6 +110,7 @@ export function BillingScreen() {
       <BillerSheet open={sheet === 'laskuttaja'} onClose={() => setSheet(null)} onSaved={() => { if (!billing.biller) setSheet('hinnat'); }} />
       <PricesSheet open={sheet === 'hinnat'} onClose={() => setSheet(null)} />
       <TermsSheet open={sheet === 'ehdot'} onClose={() => setSheet(null)} />
+      <PaymentsSheet open={sheet === 'maksut'} onClose={() => setSheet(null)} />
       <NewBillingSheet open={sheet === 'laskuta'} onClose={() => setSheet(null)} onPrices={() => setSheet('hinnat')} />
       <InvoiceSheet invoiceId={openId} onClose={closeInvoice} />
     </>

@@ -1,20 +1,21 @@
 // BillingSheets.jsx — Laskutus's sheets. Settings: Laskuttaja (name, IBAN, VAT, payment days),
 // Hinnat (per group: per session / season fee / not billed; private lessons per hour) and
-// Peruutukset (limit, late and no-show charged). "Laskuta": who owes what for a period, each line
+// Peruutukset (limit, late and no-show charged) and Verkkomaksut (the coach's own Stripe account).
+// "Laskuta": who owes what for a period, each line
 // can be switched off, then send (or keep as drafts). One invoice: a draft's lines and payer, or a
 // sent one as the document with Jaa, Tulosta, Merkitse maksetuksi and Mitätöi.
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import {
-  Button, ChipSelect, EmptyState, Field, Icon, Input, ListRow, Select, Sheet, Switch, Textarea, Toggle, useConfirm,
+  Button, ChipSelect, EmptyState, Field, Icon, Input, ListRow, Select, Sheet, Switch, Textarea, Toggle, useConfirm, useToast,
 } from '../ui/index.js';
 import { koutsiSortGroupsBySchedule, koutsiTodayStr } from '../domain/core.js';
 import { currentSeason } from '../domain/season.js';
 import {
   EMPTY_BILLER, INVOICE_STATES, PRICE_MODES, VAT_MODES, billablePlayers, billedKeys, centsToInput, countsLine, draftsFrom, euros,
-  formatIban, invoiceShareText, invoiceState, lineCounts, lineLabel, parseEuros, periodPresets, termsText, totalOf, validBusinessId,
-  validEmail, validIban,
+  formatIban, invoiceShareText, invoiceState, lineCounts, lineLabel, parseEuros, paymentsLine, periodPresets, termsText, totalOf,
+  validBusinessId, validEmail, validIban,
 } from '../domain/billing.js';
 import { invoiceLink, useBilling } from '../shared/billing/BillingProvider.jsx';
 import { InvoiceView, useInvoicePrint } from '../shared/billing/InvoiceView.jsx';
@@ -45,6 +46,7 @@ export function SettingsSheet({ open, onClose, onPick }) {
         <ListRow icon="user" title="Laskuttaja" subtitle={biller.name} onClick={() => pick('laskuttaja')} />
         <ListRow icon="euro" title="Hinnat" subtitle={[priced ? `${priced} ${priced === 1 ? 'ryhmä' : 'ryhmää'}` : 'Ei hintoja', hour ? `yksityistunti ${euros(hour)}/h` : ''].filter(Boolean).join(' · ')} onClick={() => pick('hinnat')} />
         <ListRow icon="clock" title="Peruutukset" subtitle={biller.cancelHours ? `Viimeistään ${biller.cancelHours} h ennen` : 'Ei rajaa'} onClick={() => pick('ehdot')} />
+        {biller.payReady && <ListRow icon="bolt" title="Verkkomaksut" subtitle={paymentsLine(biller)} onClick={() => pick('maksut')} />}
       </div>
     </Sheet>
   );
@@ -207,6 +209,46 @@ export function TermsSheet({ open, onClose }) {
           <p>{termsText({ ...billing.biller, terms: '', cancelHours: hours, chargeLate: f.chargeLate, chargeNoShow: f.chargeNoShow })}</p>
         </div>
       </div>
+    </Sheet>
+  );
+}
+
+// The coach's online payments: their own Stripe account (koutsi-pay). Connecting opens Stripe's onboarding;
+// once it takes payments, a switch turns "Maksa" on the invoices on or off.
+export function PaymentsSheet({ open, onClose }) {
+  const { ownerId } = useData();
+  const billing = useBilling();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const b = billing.biller;
+  if (!b) return null;
+  const state = !b.stripeAccountId ? 'none' : b.stripeChargesEnabled ? 'ready' : 'pending';
+  const connect = async () => {
+    if (busy) return;
+    setBusy(true);
+    const res = await billing.run(() => api.billing.connectPayments(ownerId));
+    setBusy(false);
+    if (res.ok && res.result?.url) window.location.assign(res.result.url);
+    else if (res.ok && res.result?.ready) toast('Verkkomaksut käytössä.');
+  };
+  const toggle = (on) => billing.run(() => api.billing.saveBiller(ownerId, { ...b, payOnline: on }), on ? 'Verkkomaksu päällä.' : 'Verkkomaksu pois päältä.');
+  return (
+    <Sheet open={open} onClose={() => !busy && onClose()} size="sm" title="Verkkomaksut"
+      footer={state === 'ready' ? null : (
+        <Button variant="dark" size="lg" block loading={busy} onClick={connect}>{state === 'none' ? 'Ota käyttöön' : 'Jatka käyttöönottoa'}</Button>
+      )}>
+      {state === 'ready' ? (
+        <div className="stack-4">
+          <div className="list-group">
+            <Toggle label="Pelaaja voi maksaa laskun verkossa" checked={b.payOnline !== false} onChange={toggle} />
+          </div>
+          <p className="k-fine">Raha tulee suoraan Stripe-tilillesi, ja Stripe vähentää siitä oman kulunsa. MobilePayn ja Klarnan voit ottaa käyttöön Stripen asetuksista.</p>
+        </div>
+      ) : (
+        <p className="k-body-text">{state === 'none'
+          ? 'Pelaaja maksaa laskun kortilla, Apple Paylla tai Google Paylla. Raha tulee suoraan omalle Stripe-tilillesi.'
+          : 'Stripe tarvitsee vielä tietoja ennen kuin maksut toimivat.'}</p>
+      )}
     </Sheet>
   );
 }
@@ -437,14 +479,14 @@ export function InvoiceSheet({ invoiceId, onClose }) {
         <Button variant="dark" size="lg" loading={busy === 'paid'} onClick={() => act('paid', () => api.billing.setPaid(inv.id, true), 'Merkitty maksetuksi.')}>Maksettu</Button>
       </div>
     );
-  } else if (inv.status === 'paid') {
+  } else if (inv.status === 'paid' && inv.paidVia !== 'stripe') {
     footer = <Button variant="soft" size="lg" block loading={busy === 'unpaid'} onClick={() => act('unpaid', () => api.billing.setPaid(inv.id, false), 'Merkitty maksamattomaksi.')}>Ei maksettu</Button>;
   }
 
   return (
     <>
       <Sheet open={open} onClose={onClose} size="lg" title={student?.name || inv.payerName}
-        subtitle={`${INVOICE_STATES[st].label} · ${euros(total)}`} footer={footer}>
+        subtitle={`${INVOICE_STATES[st].label}${inv.paidVia === 'stripe' && st === 'maksettu' ? ' verkossa' : ''} · ${euros(total)}`} footer={footer}>
         {inv.status === 'draft' ? (
           <div className="stack-4">
             <div className="list-group">
