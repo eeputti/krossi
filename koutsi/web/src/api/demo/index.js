@@ -47,31 +47,6 @@ function addPutki(s) {
   return s;
 }
 const S = () => { if (!state) state = seedMessages(previewPutki ? addPutki(seed()) : seed(), role); return state; };
-
-// Tilaus: Anna is on the free trial, 76 days left (Profiili → Tilaus). `npm run dev:koutsi` →
-// /demo/valmentaja?esikatsele=kokeilu opens the "Aloita 3 kk ilmainen kokeilu" gate first;
-// ?esikatsele=tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free show the card's other
-// states (free = today's coaches: no card); ?esikatsele=avain = the database before the
-// migration: the coach-key page exactly as it was.
-const previewPlan = process.env.NODE_ENV !== 'production' && typeof window !== 'undefined'
-  ? new URLSearchParams(window.location.search).get('esikatsele') || '' : '';
-let trialGate = previewPlan === 'kokeilu' || previewPlan === 'avain';
-function demoSubscription() {
-  if (previewPlan === 'avain') return { ...NO_SUBSCRIPTION };
-  const day = 86400000;
-  const now = Date.now();
-  const iso = (ms) => new Date(ms).toISOString();
-  const plan = /^tilaus-(active|past_due|ended|free)$/.exec(previewPlan)?.[1] || 'trial';
-  const paying = plan === 'active' || plan === 'past_due';
-  return {
-    ready: true, selfServe: true, plan,
-    trialEndsAt: plan === 'free' ? null : iso(plan === 'ended' ? now - 3 * day : now + 76 * day),
-    stripeStatus: paying ? plan : null,
-    periodEnd: paying ? iso(now + 21 * day) : null,
-    cancelAtPeriodEnd: false,
-    hasCustomer: paying,
-  };
-}
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const wait = () => new Promise((r) => setTimeout(r, latencyMs));
 const nowIso = () => new Date().toISOString();
@@ -160,6 +135,31 @@ function logSend(kind, text, ids, log, at) {
 }
 
 const SIGNUP = () => (role === 'player' ? 'https://koutsi.krossi.app/pelaaja' : 'https://koutsi.krossi.app/valmentaja');
+
+// Tilaus: Anna is on the free trial, 76 days left (Profiili → Tilaus). `npm run dev:koutsi` →
+// /demo/valmentaja?esikatsele=kokeilu opens the "Aloita 3 kk ilmainen kokeilu" gate first;
+// ?esikatsele=tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free show the card's other
+// states (free = today's coaches: no card); ?esikatsele=avain = the database before the
+// migration: the coach-key page exactly as it was.
+const previewPlan = process.env.NODE_ENV !== 'production' && typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search).get('esikatsele') || '' : '';
+let trialGate = previewPlan === 'kokeilu' || previewPlan === 'avain';
+function demoSubscription() {
+  if (previewPlan === 'avain') return { ...NO_SUBSCRIPTION };
+  const day = 86400000;
+  const now = Date.now();
+  const iso = (ms) => new Date(ms).toISOString();
+  const plan = /^tilaus-(active|past_due|ended|free)$/.exec(previewPlan)?.[1] || 'trial';
+  const paying = plan === 'active' || plan === 'past_due';
+  return {
+    ready: true, selfServe: true, plan,
+    trialEndsAt: plan === 'free' ? null : iso(plan === 'ended' ? now - 3 * day : now + 76 * day),
+    stripeStatus: paying ? plan : null,
+    periodEnd: paying ? iso(now + 21 * day) : null,
+    cancelAtPeriodEnd: false,
+    hasCustomer: paying,
+  };
+}
 
 export const backend = {
   auth: {

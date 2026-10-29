@@ -4,11 +4,11 @@ import { coach, player, students, groups, themes, trainings, attendance, notes, 
 import { videos, exercises, plans } from './media.js';
 import { invites, notifications, admin } from './people.js';
 import { seasons } from './seasons.js';
-import { messages } from './messages.js';
 import { subscription } from './subscription.js';
+import { messages } from './messages.js';
 
 export const backend = {
+  subscription,
   auth, account, coach, player, students, groups, seasons, themes, trainings, attendance, notes, homework, sends, announcements,
   messages, videos, exercises, events, invites, plans, notifications, admin,
-  subscription,
 };

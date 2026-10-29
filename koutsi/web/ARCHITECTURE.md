@@ -193,19 +193,6 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   piilossa (ominaisuuskytkin `koutsi_messages_coach_enabled`: beta + ylläpitäjät ensin). Demo: Annan aikuisten
   ryhmillä viestit päällä (`api/demo/messagesSeed.js`).
 
-- Lähetetyt ja valmentajan videot (`domain/sends.js`, `coach/SentScreen.jsx`, `coach/sent.jsx`, `coach/VideosTab.jsx`,
-  tyylit `styles/sent.css`): kaikki, mitä valmentaja on lähettänyt pelaajille — videot, kotiläksyt, huomiot ja
-  tiedotteet — päivittäin uusin ensin: kenelle (kokonaiset ryhmät nimellä, muut etunimellä), milloin ja kotiläksystä
-  "3/8 tehty". Avattuna: kuka on tehnyt, Muokkaa (kaikki kopiot kerralla), Poista kaikilta ja "Lähetä myös muille"
-  (jo saaneet näkyvät "Saanut" eikä heitä voi valita). Ryhmän sivulla "Ryhmälle lähetetty" (3 uusinta →
-  `/valmentaja/lahetetyt?ryhma=`). Jokainen jaettu video tallentuu valmentajan omiin videoihin (Harjoitteet ja videot
-  → Videot), ja Merkitse → Video → "Omista videoista" jakaa saman videon uudelleen lataamatta sitä. Tietokanta:
-  `koutsi_sends` (yksi rivi per lähetys, vain valmentaja lukee), `koutsi_coach_videos` (id = pelaajarivien `share_id`,
-  tiedosto kerran valmentajan kansiossa) ja `koutsi_homework.coach_id/send_id`, `koutsi_diary_entries.send_id`.
-  Migraatio `supabase/migrations/20261026084331_koutsi_sends_and_video_library.sql` (ajettu 26.10.2026 käyttäjän
-  luvalla; PGlite-testi `koutsi/web/sql/20261026084331_…check.mjs`). Tietokannassa ilman tauluja `sendsReady: false`,
-  ja Lähetetyt, Videot-välilehti ja "Omista videoista" pysyvät piilossa, kaikki lähettäminen toimii kuten ennen.
-
 - Tilaus (`domain/subscription.js`, `coach/TrialStart.jsx`, `coach/SubscriptionCard.jsx`, `api/supabase/subscription.js`):
   uusi yksityisvalmentaja aloittaa ilman valmentaja-avainta 3 kk ilmaisella kokeilulla (ei korttia, ei muutu
   maksulliseksi itsestään) ja voi sen jälkeen ottaa kuukausitilauksen Stripen kautta (maksu Roisku Medialle).
@@ -230,6 +217,19 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta voi
   pysäyttää vaihtamalla `koutsi_self_serve_open()` → `select false`. Demo: Anna on kokeilussa; kehityksessä
   `?esikatsele=kokeilu | avain | tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free`.
+
+- Lähetetyt ja valmentajan videot (`domain/sends.js`, `coach/SentScreen.jsx`, `coach/sent.jsx`, `coach/VideosTab.jsx`,
+  tyylit `styles/sent.css`): kaikki, mitä valmentaja on lähettänyt pelaajille — videot, kotiläksyt, huomiot ja
+  tiedotteet — päivittäin uusin ensin: kenelle (kokonaiset ryhmät nimellä, muut etunimellä), milloin ja kotiläksystä
+  "3/8 tehty". Avattuna: kuka on tehnyt, Muokkaa (kaikki kopiot kerralla), Poista kaikilta ja "Lähetä myös muille"
+  (jo saaneet näkyvät "Saanut" eikä heitä voi valita). Ryhmän sivulla "Ryhmälle lähetetty" (3 uusinta →
+  `/valmentaja/lahetetyt?ryhma=`). Jokainen jaettu video tallentuu valmentajan omiin videoihin (Harjoitteet ja videot
+  → Videot), ja Merkitse → Video → "Omista videoista" jakaa saman videon uudelleen lataamatta sitä. Tietokanta:
+  `koutsi_sends` (yksi rivi per lähetys, vain valmentaja lukee), `koutsi_coach_videos` (id = pelaajarivien `share_id`,
+  tiedosto kerran valmentajan kansiossa) ja `koutsi_homework.coach_id/send_id`, `koutsi_diary_entries.send_id`.
+  Migraatio `supabase/migrations/20261026084331_koutsi_sends_and_video_library.sql` (ajettu 26.10.2026 käyttäjän
+  luvalla; PGlite-testi `koutsi/web/sql/20261026084331_…check.mjs`). Tietokannassa ilman tauluja `sendsReady: false`,
+  ja Lähetetyt, Videot-välilehti ja "Omista videoista" pysyvät piilossa, kaikki lähettäminen toimii kuten ennen.
 
 ## 5. Reitit
 
