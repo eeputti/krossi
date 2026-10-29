@@ -219,9 +219,9 @@ export const backend = {
   },
 
   coach: {
-    async fetchRow(id) { return id === COACH && !trialGate ? { id } : null; },
+    async fetchRow(id) { return id === COACH ? { id } : null; },
     async load() { await wait(); return coachViewOfArchives(hideHiddenMoods(coachState())); },
-    async redeemKey() { trialGate = false; return { ok: true }; },
+    async redeemKey() { return { ok: true }; },
     async markWelcomeSeen() { S().coach.welcomeSeenAt = nowIso(); },
     async saveProfile(coachId, patch) { await wait(); Object.assign(S().coach, patch); },
     async saveWeekNote(coachId, { year, week, score, note }) {
@@ -959,3 +959,11 @@ export const backend = {
     async sync() { return demoSubscription(); },
   },
 };
+
+// Dev-only previews of the coach-key step (?esikatsele=kokeilu | avain): the coach row appears only
+// after the trial is started or a key is used.
+if (trialGate) {
+  const { fetchRow, redeemKey } = backend.coach;
+  backend.coach.fetchRow = async (id) => (trialGate ? null : fetchRow(id));
+  backend.coach.redeemKey = async (key) => { trialGate = false; return redeemKey(key); };
+}
