@@ -343,7 +343,7 @@ begin
     raise exception 'Joku ehti varata tämän ajan.';
   end if;
   if v_slot.date + v_slot.time <= (now() at time zone 'Europe/Helsinki') then
-    raise exception 'Aika on jo mennyt.';
+    raise exception 'Tämä aika on jo mennyt.';
   end if;
 
   -- The player booked it themself: no "Uusi treeni kalenterissasi" for them.

@@ -16,6 +16,7 @@ import { coachViewOfArchives } from '../../domain/archive.js';
 import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/season.js';
 import { seedMessages } from './messagesSeed.js';
 import { MESSAGE_MAX } from '../../domain/messages.js';
+import { addOpenSlots, bookOpenSlot, openSlotsView, removeOpenSlot } from './openSlots.js';
 
 let role = 'coach';
 let state = null;
@@ -194,7 +195,8 @@ export const backend = {
 
   coach: {
     async fetchRow(id) { return id === COACH ? { id } : null; },
-    async load() { await wait(); return coachViewOfArchives(hideHiddenMoods(coachState())); },
+    // Vapaat ajat first: what the player demo booked becomes a lesson before the snapshot is taken
+    async load() { await wait(); const slots = openSlotsView(S(), 'coach'); return { ...coachViewOfArchives(hideHiddenMoods(coachState())), ...slots }; },
     async redeemKey() { return { ok: true }; },
     async markWelcomeSeen() { S().coach.welcomeSeenAt = nowIso(); },
     async saveProfile(coachId, patch) { await wait(); Object.assign(S().coach, patch); },
@@ -210,7 +212,7 @@ export const backend = {
 
   player: {
     async fetchRow(id) { return findStudent(id) ? { id } : null; },
-    async load(studentId) { await wait(); return playerState(studentId); },
+    async load(studentId) { await wait(); const slots = openSlotsView(S(), 'player', studentId); return { ...playerState(studentId), ...slots }; },
     subscribe() { return () => {}; },
     async markWelcomeSeen(id) { const st = findStudent(id); if (st) st.welcomeSeenAt = nowIso(); },
     async saveGoal(id, v) { await wait(); addHistory(findStudent(id), 'goal', v); },
@@ -607,6 +609,13 @@ export const backend = {
         t.absences = rest;
       });
     },
+  },
+
+  // Vapaat ajat (./openSlots.js): Anna has it on; the two demo pages share the slots in the browser.
+  openSlots: {
+    async add(coachId, slots) { await wait(); if (role === 'player') notAllowed(); return addOpenSlots(S(), slots); },
+    async remove(slotId) { await wait(); if (role === 'player') notAllowed(); removeOpenSlot(S(), slotId); },
+    async book(slotId) { await wait(); if (role !== 'player') notAllowed(); return bookOpenSlot(S(), slotId, PLAYER); },
   },
 
   notes: {
