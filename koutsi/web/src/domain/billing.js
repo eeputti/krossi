@@ -477,6 +477,19 @@ export function invoiceDoc(inv) {
   };
 }
 
+/** The player's own invoice: can it be paid online now? terms: useBilling().terms (the coach's payOnline). */
+export function canPayOnline(inv, terms) {
+  if (!inv || inv.status !== 'sent' || !(inv.totalCents > 0)) return false;
+  return Boolean((terms || []).find((t) => t.coachId === inv.coachId)?.payOnline);
+}
+
+/** The coach's online payments in a few words (settings rows). */
+export function paymentsLine(biller) {
+  if (!biller?.stripeAccountId) return 'Ei käytössä';
+  if (!biller.stripeChargesEnabled) return 'Käyttöönotto kesken';
+  return biller.payOnline === false ? 'Pois päältä' : 'Käytössä';
+}
+
 /** The share text for an invoice link (WhatsApp, e-mail). */
 export function invoiceShareText(inv, url) {
   const name = inv.seller?.name || 'Valmentajasi';
