@@ -8,8 +8,8 @@ import { weekDates } from '../src/domain/week.js';
 import { weekBoard } from '../src/domain/board.js';
 import { playerWeek } from '../src/domain/ownWeek.js';
 import {
-  draftProblem, draftSlots, firstDraftRow, hasStarted, isPrivateLesson, listLine, nextDraftRow, offerOf, openToBook,
-  slotFromLesson, slotStartLabel, slotWhen,
+  draftProblem, draftSlots, firstDraftRow, hasComingBooking, hasStarted, isMinor, isPrivateLesson, listLine, nextDraftRow, offerOf,
+  openToBook, slotFromLesson, slotStartLabel, slotWhen, soonSlots,
 } from '../src/domain/openSlots.js';
 
 const NOW = new Date(2026, 9, 29, 15, 40); // Thu 29.10.2026 15:40
@@ -37,6 +37,22 @@ test('a player books only open times still to come, soonest first', () => {
     S('same-day', '2026-10-30', '08:00'),
   ];
   assert.deepEqual(openToBook(slots, NOW).map((s) => s.id), ['same-day', 'soon', 'later']);
+});
+
+test('suggestions stay quiet: near times only, none after a booking, none for a known minor', () => {
+  const slots = [
+    S('a', '2026-10-30', '09:00'),
+    S('b', '2026-11-10', '09:00', { coachId: 'other' }),
+    S('far', '2026-11-20', '09:00'),
+    S('mine', '2026-11-02', '10:00', { bookedBy: 's1', trainingId: 't1' }),
+  ];
+  assert.deepEqual(soonSlots(slots, { now: NOW }).map((s) => s.id), ['a', 'b'], 'two weeks ahead');
+  assert.deepEqual(soonSlots(slots, { coachId: 'c', now: NOW }).map((s) => s.id), ['a'], "the cancelled lesson's coach");
+  assert.equal(hasComingBooking(slots, 's1', NOW), true);
+  assert.equal(hasComingBooking(slots, 's2', NOW), false);
+  assert.equal(isMinor({ age: 15 }), true);
+  assert.equal(isMinor({ age: 18 }), false);
+  assert.equal(isMinor({ age: null }), false, 'an unknown age is not a minor');
 });
 
 test('free times are blocks of their own in both weeks: not sessions, not past, not booked', () => {
@@ -84,7 +100,9 @@ test('a freed lesson: a private lesson becomes a free time with its day, start, 
   assert.equal(isPrivateLesson(lesson('o', '2026-10-31', '07:00', { loggedBy: 'player' })), false, "not a player's own log");
   assert.equal(offerOf(slots, 'offered').id, 'o1');
   assert.equal(offerOf(slots, 'free'), null);
-  assert.deepEqual(slotFromLesson(free, slots), { date: '2026-10-31', time: '10:00', durationMinutes: 60, place: 'Kenttä 2', sourceTrainingId: 'free' });
+  assert.deepEqual(slotFromLesson(free, slots), { date: '2026-10-31', time: '10:00', durationMinutes: 60, place: 'Kenttä 2', audience: 'all', sourceTrainingId: 'free' });
+  const fromPrivate = [{ ...slots[1], audience: 'private' }];
+  assert.equal(slotFromLesson(free, fromPrivate).audience, 'private', 'an offer is for whom the booked time was for');
 });
 
 test('the add form: the next row follows the last one, and what still blocks publishing', () => {
@@ -102,7 +120,8 @@ test('the add form: the next row follows the last one, and what still blocks pub
   assert.equal(draftProblem([{ date: '2026-10-30', time: '17:00' }], { durationMinutes: 300 }, NOW), 'Keston pitää olla 15–240 minuuttia.');
   assert.match(draftProblem([{ date: '2026-10-30', time: '17:00' }], { durationMinutes: 60, place: 'x'.repeat(121) }, NOW), /liian pitkä/);
   assert.deepEqual(draftSlots([{ date: '2026-10-30', time: '17:00' }], { durationMinutes: 90, place: ' Kenttä 2 ' }),
-    [{ date: '2026-10-30', time: '17:00', durationMinutes: 90, place: 'Kenttä 2' }]);
+    [{ date: '2026-10-30', time: '17:00', durationMinutes: 90, place: 'Kenttä 2', audience: 'all' }]);
+  assert.equal(draftSlots([{ date: '2026-10-30', time: '17:00' }], { durationMinutes: 60, audience: 'private' })[0].audience, 'private');
 });
 
 // A browser's localStorage for the demo pages to share (node has none).
@@ -182,6 +201,17 @@ test('demo: the coach adds a time, the player books it, and the lesson is in bot
   }
 });
 
+test('demo: who a time is for — private-lesson players for a private one, never a known minor', async () => {
+  const { backend, configureDemo } = await import('../src/api/demo/index.js');
+  const { COACH, PLAYER } = await import('../src/api/demo/seed.js');
+  configureDemo({ role: 'coach', latency: 0 });
+  const coach = await backend.coach.load(COACH);
+  assert.equal(coach.openSlots.find((s) => s.id === 'demo-slot-4').audience, 'private', "Saturday's time is for private-lesson players");
+  configureDemo({ role: 'player', latency: 0 });
+  const me = await backend.player.load(PLAYER);
+  assert.ok(me.openSlots.some((s) => s.id === 'demo-slot-4'), 'Maria has private lessons with Anna: she sees it');
+});
+
 test('demo without browser storage still works on its own page', async () => {
   const { backend, configureDemo } = await import('../src/api/demo/index.js');
   const { PLAYER } = await import('../src/api/demo/seed.js');
@@ -231,7 +261,7 @@ test('the real app keeps Vapaat ajat hidden until the database has it; then the 
   setClientForTests(fakeClient({ 'koutsi_open_slots:select': { data: [row], error: null }, koutsi_open_slots_enabled: { data: true, error: null } }, calls));
   const coach = await withOpenSlots('coach', 'c', Promise.resolve({}));
   assert.equal(coach.openSlotsReady, true);
-  assert.deepEqual(coach.openSlots, [{ id: 'o1', coachId: 'c', date: '2026-11-03', time: '17:00', durationMinutes: 90, place: 'Kenttä 2', sourceTrainingId: null, bookedBy: null, bookedAt: null, trainingId: null, at: '2026-10-29T10:00:00Z' }]);
+  assert.deepEqual(coach.openSlots, [{ id: 'o1', coachId: 'c', date: '2026-11-03', time: '17:00', durationMinutes: 90, place: 'Kenttä 2', audience: 'all', sourceTrainingId: null, bookedBy: null, bookedAt: null, trainingId: null, at: '2026-10-29T10:00:00Z' }]);
   assert.ok(calls.some((c) => c.table === 'koutsi_open_slots' && c.ops.some((o) => o[0] === 'eq' && o[1] === 'coach_id' && o[2] === 'c')), "only the coach's own");
 
   calls.length = 0;
@@ -242,10 +272,10 @@ test('the real app keeps Vapaat ajat hidden until the database has it; then the 
 
   calls.length = 0;
   setClientForTests(fakeClient({ koutsi_add_open_slots: { data: 2, error: null }, koutsi_book_open_slot: { data: 't1', error: null }, 'koutsi_open_slots:delete': { data: [], error: null } }, calls));
-  assert.equal(await openSlots.add('c', [{ date: '2026-11-03', time: '17:00', durationMinutes: 90, place: ' ' }, { date: '2026-11-04', time: '18:00', durationMinutes: 60, place: 'Kenttä 1', sourceTrainingId: 't0' }]), 2);
+  assert.equal(await openSlots.add('c', [{ date: '2026-11-03', time: '17:00', durationMinutes: 90, place: ' ' }, { date: '2026-11-04', time: '18:00', durationMinutes: 60, place: 'Kenttä 1', audience: 'private', sourceTrainingId: 't0' }]), 2);
   assert.deepEqual(calls[0], { rpc: 'koutsi_add_open_slots', params: { p_slots: [
-    { date: '2026-11-03', time: '17:00', duration: 90, place: null, source: null },
-    { date: '2026-11-04', time: '18:00', duration: 60, place: 'Kenttä 1', source: 't0' },
+    { date: '2026-11-03', time: '17:00', duration: 90, place: null, audience: 'all', source: null },
+    { date: '2026-11-04', time: '18:00', duration: 60, place: 'Kenttä 1', audience: 'private', source: 't0' },
   ] } });
   assert.deepEqual(await openSlots.book('o1'), { trainingId: 't1' });
   await assert.rejects(() => openSlots.remove('o1'), /varattu tai poistettu/, 'nothing removed = booked or gone');

@@ -109,7 +109,9 @@ function Block({ item, grid, onOpen }) {
   const open = item.kind === 'open'; // Vapaat ajat: a coach's free time, a tap books it
   const state = item.absent ? 'Poissa' : '';
   const line = own ? (item.text || minutesLabel(item.durationMinutes)) : open ? (item.coach?.name || '') : item.theme?.title || '';
-  const label = [item.title, time, own ? 'oma merkintä' : item.coach?.name, state, line].filter(Boolean).join(', ');
+  const label = open
+    ? [item.title, time, item.coach?.name, 'varaa', item.slot.place].filter(Boolean).join(', ')
+    : [item.title, time, own ? 'oma merkintä' : item.coach?.name, state, line].filter(Boolean).join(', ');
   return (
     <button type="button" className={cx('wb-block', `is-${item.tone}`, item.status === 'now' && 'is-now', item.lanes > 1 && 'is-shared')}
       style={style} onClick={() => onOpen(item)} aria-label={label} title={label}>

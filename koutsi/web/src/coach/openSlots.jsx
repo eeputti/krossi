@@ -8,11 +8,11 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { navigate } from '../app/router.js';
-import { Button, Field, IconButton, Input, Sheet, useConfirm, useToast } from '../ui/index.js';
+import { Button, Field, IconButton, Input, Segmented, Sheet, useConfirm, useToast } from '../ui/index.js';
 import { DurationStepper, TimeSelect } from '../shared/fields.jsx';
 import { koutsiTodayStr } from '../domain/core.js';
 import {
-  SLOTS_PER_PUBLISH, draftProblem, draftSlots, firstDraftRow, hasStarted, isPrivateLesson, nextDraftRow, offerOf, slotFromLesson, slotWhen,
+  AUDIENCES, SLOTS_PER_PUBLISH, draftProblem, draftSlots, firstDraftRow, hasStarted, isPrivateLesson, nextDraftRow, offerOf, slotFromLesson, slotWhen,
 } from '../domain/openSlots.js';
 import { sessionPath } from './nav.js';
 import { useCoach } from './CoachRoot.jsx';
@@ -45,7 +45,7 @@ export function useOpenSlotTap() {
   return async (slot) => {
     const remove = await confirm({
       title: 'Vapaa aika',
-      message: `${[slotWhen(slot), slot.place].filter(Boolean).join(' · ')}. Pelaajasi voivat varata sen.`,
+      message: `${[slotWhen(slot), slot.place].filter(Boolean).join(' · ')}. ${slot.audience === 'private' ? 'Yksityistuntilaisesi' : 'Pelaajasi'} voivat varata sen.`,
       confirmLabel: 'Poista vapaa aika', cancelLabel: 'Sulje', danger: true,
     });
     if (remove) await run(() => api.openSlots.remove(slot.id), 'Vapaa aika poistettu.');
@@ -77,7 +77,7 @@ export function FreedLessonCard({ training }) {
   );
 }
 
-/** "Lisää vapaita aikoja": a row per time (day + start), one length and place for all. */
+/** "Lisää vapaita aikoja": a row per time (day + start), one length, place and audience for all. */
 export function AddOpenSlotsSheet({ open, onClose, defaultDate = null }) {
   const { run } = useData();
   const { coachId } = useCoach();
@@ -85,16 +85,18 @@ export function AddOpenSlotsSheet({ open, onClose, defaultDate = null }) {
   const [rows, setRows] = useState([]);
   const [duration, setDuration] = useState(60);
   const [place, setPlace] = useState('');
+  const [audience, setAudience] = useState('all');
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false); // a double tap must not publish twice
   const keys = useRef(0);
-  // nothing guessed: the day in view (today on this week), no time, an hour, no place
+  // nothing guessed: the day in view (today on this week), no time, an hour, no place, every player
   useEffect(() => {
     if (!open) return;
     const first = firstDraftRow();
     setRows([{ ...first, date: defaultDate && defaultDate > first.date ? defaultDate : first.date, key: keys.current++ }]);
     setDuration(60);
     setPlace('');
+    setAudience('all');
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const problem = draftProblem(rows, { durationMinutes: duration, place });
   const setRow = (key, patch) => setRows((list) => list.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -103,7 +105,7 @@ export function AddOpenSlotsSheet({ open, onClose, defaultDate = null }) {
   const save = async () => {
     if (problem || busyRef.current) return;
     busyRef.current = true; setBusy(true);
-    const res = await run(() => api.openSlots.add(coachId, draftSlots(rows, { durationMinutes: duration, place })), null);
+    const res = await run(() => api.openSlots.add(coachId, draftSlots(rows, { durationMinutes: duration, place, audience })), null);
     busyRef.current = false; setBusy(false);
     if (!res.ok) return;
     toast(res.result === 0 ? 'Nämä ajat ovat jo vapaana.' : res.result === 1 ? 'Vapaa aika julkaistu.' : `${res.result} vapaata aikaa julkaistu.`);
@@ -137,6 +139,9 @@ export function AddOpenSlotsSheet({ open, onClose, defaultDate = null }) {
         <Field label="Kesto"><DurationStepper value={duration} onChange={setDuration} /></Field>
         <Field label="Paikka" optional htmlFor="os-place">
           <Input id="os-place" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Esim. Kenttä 2" maxLength={120} />
+        </Field>
+        <Field label="Kenelle" hint={audience === 'private' ? 'Pelaajat, joilla on ollut yksityistunti kanssasi.' : null}>
+          <Segmented ariaLabel="Kenelle" value={audience} onChange={setAudience} options={AUDIENCES} />
         </Field>
       </div>
     </Sheet>

@@ -250,6 +250,16 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   koskaan "toimi valmentajana" -tilassa); muiden pelaajat eivät saa aikoja eivätkä ilmoituksia. Demo: Annalla päällä
   (avoimia aikoja, Jussin varaus, Leon vapautunut tunti); valmentajan ja pelaajan demo jakavat ajat selaimen
   localStoragessa (`koutsi-demo-vapaat-v1`, 6 h), joten valmentajan lisäämän ajan voi varata pelaajan demossa.
+  Hillitty lisämyynti (omistajan toive: ei tyrkyttämistä): valmentaja valitsee julkaisuun "Kenelle" — kaikille pelaajille
+  tai yksityistuntilaisille (`audience 'private'`: ollut yksityistunti valmentajan kanssa); tarjottu peruttu tunti perii
+  alkuperäisen ajan valinnan. Pelaaja, jonka ikä on tiedossa ja alle 18, ei näe aikoja eikä saa ilmoituksia ennen
+  huoltajavirtaa (`koutsi_open_slot_minor`). "En pääse" näyttää "Korvaava aika?" — 1–3 saman valmentajan aikaa kahden
+  viikon sisältä; valinta varaa ajan ja ilmoittaa poissaolon kerralla (`player/OpenSlots.jsx` ReplacementSlots, Laskutuksen
+  myöhäisen peruutuksen rivin alla). Kodin rivi näkyy vain, kun aika on kahden viikon sisällä eikä pelaajalla ole jo
+  varattua tulossa; × (Ei kiitos) lepuuttaa sitä 14 päivää (localStorage). Ilmoitus menee vain niille, joille aika näkyy,
+  ja luettelee vain heidän aikansa; sähköpostin voi kytkeä pois (Profiili → Sähköpostit → Vapaat ajat, luokka `vapaat`,
+  näkyy vain pelaajalle, jolla on vapaita aikoja). Ei ponnahdusikkunoita eikä merkkejä; varatessa ei makseta (tunti
+  laskutetaan seuraavalla laskulla). Mittaus: `vapaat.*`-tapahtumat (Ylläpito → Käyttö → Vapaat ajat (pelaaja)).
 
 ## 5. Reitit
 

@@ -119,6 +119,18 @@ export const USAGE_SECTIONS = [
     ],
   },
   {
+    // the player's side of Vapaat ajat (player/OpenSlots.jsx): do the quiet suggestions help?
+    title: 'Vapaat ajat (pelaaja)',
+    events: [
+      ['vapaat.koti-nakyi', 'Koti: vapaat ajat -rivi näkyi'],
+      ['vapaat.koti-valitse', 'Koti → Valitse aika'],
+      ['vapaat.koti-ei-kiitos', 'Koti → Ei kiitos (14 pv)'],
+      ['vapaat.korvaava-nakyi', 'En pääse: Korvaava aika? näkyi'],
+      ['vapaat.korvaava-varattu', 'En pääse → korvaava aika varattu'],
+      ['vapaat.varattu', 'Viikko → vapaa aika varattu'],
+    ],
+  },
+  {
     title: 'Harjoitepankki',
     events: [
       ['pankki.avaa-kirjasto', 'Kirjaston harjoite avattu'],

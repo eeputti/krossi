@@ -32,7 +32,7 @@ export function ProfileScreen() {
         </Card>
         <section className="stack-2">
           <div className="eyebrow">Ilmoitukset</div>
-          <Card><EmailPrefs uid={ownerId} role="player" /></Card>
+          <Card><EmailPrefs uid={ownerId} role="player" has={state.openSlotsReady && (state.openSlots || []).length ? ['openSlots'] : []} /></Card>
         </section>
         <AccountSection role="player" uid={ownerId} profileName={me.name} />
       </div>

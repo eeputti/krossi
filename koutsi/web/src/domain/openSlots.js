@@ -3,8 +3,8 @@
 // views, attendance, "En pääse" and billing see it like any other. Pure helpers for both apps and the
 // demo backend; the rules mirror koutsi/web/sql/20261029180000_koutsi_open_slots.sql.
 //
-//   Slot { id, coachId, date: 'YYYY-MM-DD', time: 'HH:MM', durationMinutes, place, sourceTrainingId,
-//          bookedBy, bookedAt, trainingId, at }
+//   Slot { id, coachId, date: 'YYYY-MM-DD', time: 'HH:MM', durationMinutes, place, audience: 'all' | 'private',
+//          sourceTrainingId, bookedBy, bookedAt, trainingId, at }
 
 import { koutsiAddDays, koutsiAddMinutesToTime, koutsiFmtShortDate, koutsiPad, koutsiTimeRangeLabel } from './core.js';
 
@@ -13,6 +13,15 @@ export const SLOT_MAX_MINUTES = 240;
 export const SLOT_DAYS_AHEAD = 183;
 export const SLOT_PLACE_MAX = 120;
 export const SLOTS_PER_PUBLISH = 50;
+// Who a slot is for (the database's audience): every current player, or those who have had a
+// private lesson with the coach. Known minors never see slots (koutsi_open_slot_for).
+export const AUDIENCES = [
+  { value: 'all', label: 'Kaikille pelaajille' },
+  { value: 'private', label: 'Yksityistuntilaisille' },
+];
+// Suggestions (Koti, "Korvaava aika?") look this far ahead, and Koti's "Ei kiitos" lasts this long.
+export const SUGGEST_DAYS = 14;
+export const SUGGEST_REST_DAYS = 14;
 
 const dateOf = (now) => `${now.getFullYear()}-${koutsiPad(now.getMonth() + 1)}-${koutsiPad(now.getDate())}`;
 const stampOf = (now) => `${dateOf(now)}T${koutsiPad(now.getHours())}:${koutsiPad(now.getMinutes())}`;
@@ -39,6 +48,22 @@ export function openToBook(slots, now = new Date()) {
   return (slots || []).filter((s) => !s.bookedBy && !hasStarted(s, now)).sort(byStart);
 }
 
+/** A player known to be under 18: no slots, no suggestions until there is a guardian flow. */
+export function isMinor(student) {
+  return Number.isFinite(student?.age) && student.age < 18;
+}
+
+/** The free times worth suggesting: open, within the next SUGGEST_DAYS days (of one coach, if given). */
+export function soonSlots(slots, { coachId = null, now = new Date(), days = SUGGEST_DAYS } = {}) {
+  const until = koutsiAddDays(dateOf(now), days);
+  return openToBook(slots, now).filter((s) => s.date <= until && (!coachId || s.coachId === coachId));
+}
+
+/** Has the player a booked free time still to come? (Then Koti doesn't suggest another.) */
+export function hasComingBooking(slots, studentId, now = new Date()) {
+  return (slots || []).some((s) => s.bookedBy === studentId && !hasStarted(s, now));
+}
+
 /** A coach's private lesson (one player, no group, not a player's own log). */
 export function isPrivateLesson(t) {
   return Boolean(t && t.studentId && !t.groupId && t.loggedBy !== 'player');
@@ -54,11 +79,12 @@ export function bookedSlotOf(slots, trainingId) {
   return (slots || []).find((s) => s.trainingId === trainingId) || null;
 }
 
-/** A freed lesson (its player said "En pääse") as a new slot: same day, start, length and place. */
+/** A freed lesson (its player said "En pääse") as a new slot: same day, start, length, place and audience. */
 export function slotFromLesson(t, slots) {
+  const booked = bookedSlotOf(slots, t.id);
   return {
     date: t.date, time: t.time, durationMinutes: t.durationMinutes || 60,
-    place: bookedSlotOf(slots, t.id)?.place || '', sourceTrainingId: t.id,
+    place: booked?.place || '', audience: booked?.audience || 'all', sourceTrainingId: t.id,
   };
 }
 
@@ -104,6 +130,6 @@ export function draftProblem(rows, { durationMinutes, place = '' } = {}, now = n
 }
 
 /** The rows as slots for api.openSlots.add. */
-export function draftSlots(rows, { durationMinutes, place = '' } = {}) {
-  return (rows || []).map((r) => ({ date: r.date, time: r.time, durationMinutes, place: (place || '').trim() }));
+export function draftSlots(rows, { durationMinutes, place = '', audience = 'all' } = {}) {
+  return (rows || []).map((r) => ({ date: r.date, time: r.time, durationMinutes, place: (place || '').trim(), audience }));
 }

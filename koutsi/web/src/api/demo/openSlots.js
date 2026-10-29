@@ -9,7 +9,7 @@
 
 import { ApiError } from '../errors.js';
 import { koutsiAddDays, koutsiNextWeekday, koutsiTodayStr } from '../../domain/core.js';
-import { draftProblem, hasStarted, isPrivateLesson, listLine, slotStartLabel } from '../../domain/openSlots.js';
+import { draftProblem, hasStarted, isMinor, isPrivateLesson, listLine, slotStartLabel } from '../../domain/openSlots.js';
 import { COACH, PLAYER, newId } from './seed.js';
 
 const KEY = 'koutsi-demo-vapaat-v1';
@@ -42,8 +42,17 @@ function writeShared(change) {
 
 // ── the demo world's slots ──────────────────────────────────────────────────
 const slot = (id, date, time, durationMinutes = 60, place = '', extra = {}) => ({
-  id, coachId: COACH, date, time, durationMinutes, place, sourceTrainingId: null, bookedBy: null, bookedAt: null, trainingId: null, at: hoursAgo(20), ...extra,
+  id, coachId: COACH, date, time, durationMinutes, place, audience: 'all', sourceTrainingId: null, bookedBy: null, bookedAt: null, trainingId: null, at: hoursAgo(20), ...extra,
 });
+
+/** The database's koutsi_open_slot_for: a current player, not a known minor, and for 'private' someone
+ *  who has had a private lesson with the coach. */
+function slotFor(state, s, studentId) {
+  const me = state.students.find((x) => x.id === studentId);
+  if (!me || isMinor(me)) return false;
+  return s.audience !== 'private'
+    || state.trainings.some((t) => t.coachId === s.coachId && t.studentId === studentId && isPrivateLesson(t));
+}
 const lessonFor = (s, studentId, trainingId) => ({
   id: trainingId, date: s.date, time: s.time, type: 'Yksityistunti', durationMinutes: s.durationMinutes, loggedBy: 'coach', notes: '', endDate: null,
   studentId, groupId: null, coachId: s.coachId, seriesId: null, absences: [],
@@ -55,7 +64,7 @@ function seedSlots(state) {
     slot('demo-slot-1', next('Ma'), '14:00', 60, 'Kenttä 2'),
     slot('demo-slot-2', next('Ke'), '14:30'),
     slot('demo-slot-3', next('Ke'), '15:30'),
-    slot('demo-slot-4', next('La'), '10:30', 90, 'Kenttä 1'),
+    slot('demo-slot-4', next('La'), '10:30', 90, 'Kenttä 1', { audience: 'private' }),
   ];
   // Jussi booked Friday's time: an ordinary private lesson in both calendars
   const jussi = slot('demo-slot-5', next('Pe'), '14:00', 60, 'Kenttä 2', { bookedBy: 'demo-s-jussi', bookedAt: hoursAgo(6), trainingId: 'tr-slot-jussi' });
@@ -72,7 +81,7 @@ function seedSlots(state) {
     ...(state.notifications || []),
   ].sort(newestFirst);
   state.playerNotifications = [
-    { id: 'demo-pn-slots', kind: 'open_slots', title: 'Uusia vapaita aikoja', body: `${COACH_NAME}: ${listLine(state.openSlots.filter((s) => !s.bookedBy).map(slotStartLabel))}`, linkPath: '/pelaaja/vapaat', createdAt: hoursAgo(20), read: false },
+    { id: 'demo-pn-slots', kind: 'open_slots', title: 'Uusia vapaita aikoja', body: `${COACH_NAME}: ${listLine(state.openSlots.filter((s) => !s.bookedBy && slotFor(state, s, PLAYER)).map(slotStartLabel))}`, linkPath: '/pelaaja/vapaat', createdAt: hoursAgo(20), read: false },
     ...(state.playerNotifications || []),
   ].sort(newestFirst);
 }
@@ -100,9 +109,10 @@ function syncShared(state, role) {
         body: `${slotStartLabel(s)}${s.place ? ` · ${s.place}` : ''}`, linkPath: `/valmentaja/treeni/${b.trainingId}`, createdAt: b.at, read: false });
     }
   });
-  if (role === 'player' && fresh.some((s) => !s.bookedBy)) {
+  const mine = role === 'player' ? fresh.filter((s) => !s.bookedBy && slotFor(state, s, PLAYER)) : [];
+  if (mine.length) {
     state.playerNotifications.unshift({ id: newId('pn'), kind: 'open_slots', title: 'Uusia vapaita aikoja',
-      body: `${COACH_NAME}: ${listLine(fresh.filter((s) => !s.bookedBy).map(slotStartLabel))}`, linkPath: '/pelaaja/vapaat', createdAt: nowIso(), read: false });
+      body: `${COACH_NAME}: ${listLine(mine.map(slotStartLabel))}`, linkPath: '/pelaaja/vapaat', createdAt: nowIso(), read: false });
   }
 }
 
@@ -130,14 +140,15 @@ export function openSlotsView(state, role, studentId = PLAYER) {
   prepare(state, role);
   const today = koutsiTodayStr();
   const list = state.openSlots.filter((s) => s.date >= today
-    && (role === 'coach' || s.bookedBy === studentId || (!s.bookedBy && s.coachId === COACH)));
+    && (role === 'coach' || s.bookedBy === studentId || (!s.bookedBy && slotFor(state, s, studentId))));
   return { openSlots: clone(list), openSlotsReady: true };
 }
 
 export function addOpenSlots(state, slots) {
   prepare(state, 'coach');
   const rows = (slots || []).map((s) => ({
-    date: s.date, time: s.time, durationMinutes: s.durationMinutes || 60, place: (s.place || '').trim(), sourceTrainingId: s.sourceTrainingId || null,
+    date: s.date, time: s.time, durationMinutes: s.durationMinutes || 60, place: (s.place || '').trim(),
+    audience: s.audience === 'private' ? 'private' : 'all', sourceTrainingId: s.sourceTrainingId || null,
   }));
   rows.forEach((r) => {
     const problem = draftProblem([r], r);
@@ -151,7 +162,7 @@ export function addOpenSlots(state, slots) {
     const taken = state.openSlots.some((x) => (!x.bookedBy && x.date === r.date && x.time === r.time)
       || (r.sourceTrainingId && x.sourceTrainingId === r.sourceTrainingId));
     if (taken || fresh.some((x) => x.date === r.date && x.time === r.time)) return;
-    fresh.push(slot(newId('slot'), r.date, r.time, r.durationMinutes, r.place, { sourceTrainingId: r.sourceTrainingId, at: nowIso() }));
+    fresh.push(slot(newId('slot'), r.date, r.time, r.durationMinutes, r.place, { audience: r.audience, sourceTrainingId: r.sourceTrainingId, at: nowIso() }));
   });
   state.openSlots.push(...fresh);
   if (fresh.length) writeShared((d) => { d.added.push(...clone(fresh)); });
@@ -171,6 +182,7 @@ export function bookOpenSlot(state, slotId, studentId = PLAYER) {
   const s = state.openSlots.find((x) => x.id === slotId);
   if (!s) throw new ApiError('Aikaa ei löytynyt. Se on ehkä poistettu.', { code: 'not_found' });
   if (s.bookedBy === studentId) return { trainingId: s.trainingId };
+  if (!slotFor(state, s, studentId)) throw new ApiError('Aikaa ei löytynyt. Se on ehkä poistettu.', { code: 'not_found' });
   if (s.bookedBy) throw new ApiError('Joku ehti varata tämän ajan.', { code: 'taken' });
   if (hasStarted(s)) throw new ApiError('Tämä aika on jo mennyt.');
   const booking = { slotId, studentId, trainingId: newId('tr'), at: nowIso() };

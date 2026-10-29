@@ -4,7 +4,8 @@
 // and absence triggers and koutsi_session_when are read from supabase/migrations (koutsi_email_round and
 // koutsi_move_and_absence_notices), so the checks see exactly what players and coaches would be told.
 // Checks: the gate, adding, who sees what, booking (first one wins), notices, removing, a freed lesson
-// offered to others, and the cascades.
+// offered to others, who a slot is for (everyone / private-lesson players, never known minors), the
+// e-mail category, and the cascades.
 // PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. Before
 // "aja migraatio":
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
@@ -40,6 +41,8 @@ const JUSSI = '00000000-0000-4000-8000-000000000002'; // Anna's player
 const OTTO = '00000000-0000-4000-8000-000000000003'; // was Anna's player (coaching ended)
 const PH = '00000000-0000-4000-8000-000000000004'; // Anna's player added by name, no account
 const PEKKA = '00000000-0000-4000-8000-000000000005'; // Juho's player only
+const SANNI = '00000000-0000-4000-8000-000000000006'; // Anna's adult player, group sessions only
+const NEA = '00000000-0000-4000-8000-000000000007'; // Anna's player, 15 years old
 
 const STUB = `
 create schema if not exists auth;
@@ -54,7 +57,7 @@ grant execute on function auth.uid() to authenticated, anon, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
 
-create table public.profiles (id uuid primary key, name text not null);
+create table public.profiles (id uuid primary key, name text not null, age text);
 create table public.koutsi_admins (user_id uuid primary key);
 create table public.koutsi_coaches (id uuid primary key);
 create table public.koutsi_students (id uuid primary key, display_name text);
@@ -110,14 +113,18 @@ create trigger koutsi_training_cancel_notify after delete on public.koutsi_train
 
 const SEED = `
 insert into auth.users (id, email) values ('${ANNA}', 'anna@example.test'), ('${JUHO}', 'juho@example.test'), ('${ADMIN}', 'admin@example.test'),
-  ('${MARIA}', 'maria@example.test'), ('${JUSSI}', 'jussi@example.test'), ('${OTTO}', 'otto@example.test'), ('${PEKKA}', 'pekka@example.test');
-insert into profiles (id, name) values ('${ANNA}', 'Anna Virtanen'), ('${JUHO}', 'Juho Aalto'), ('${ADMIN}', 'Ylläpitäjä'),
-  ('${MARIA}', 'Maria Kallio'), ('${JUSSI}', 'Jussi Toivonen'), ('${OTTO}', 'Otto Ranta'), ('${PEKKA}', 'Pekka P.');
+  ('${MARIA}', 'maria@example.test'), ('${JUSSI}', 'jussi@example.test'), ('${OTTO}', 'otto@example.test'), ('${PEKKA}', 'pekka@example.test'),
+  ('${SANNI}', 'sanni@example.test'), ('${NEA}', 'nea@example.test');
+insert into profiles (id, name, age) values ('${ANNA}', 'Anna Virtanen', null), ('${JUHO}', 'Juho Aalto', null), ('${ADMIN}', 'Ylläpitäjä', null),
+  ('${MARIA}', 'Maria Kallio', '26'), ('${JUSSI}', 'Jussi Toivonen', null), ('${OTTO}', 'Otto Ranta', null), ('${PEKKA}', 'Pekka P.', null),
+  ('${SANNI}', 'Sanni S.', '34'), ('${NEA}', 'Nea N.', '15');
 insert into koutsi_admins (user_id) values ('${ADMIN}');
 insert into koutsi_coaches (id) values ('${ANNA}'), ('${JUHO}'), ('${ADMIN}');
-insert into koutsi_students (id, display_name) values ('${MARIA}', 'Maria K.'), ('${JUSSI}', 'Jussi T.'), ('${OTTO}', 'Otto R.'), ('${PH}', 'Pirjo S.'), ('${PEKKA}', 'Pekka P.');
+insert into koutsi_students (id, display_name) values ('${MARIA}', 'Maria K.'), ('${JUSSI}', 'Jussi T.'), ('${OTTO}', 'Otto R.'), ('${PH}', 'Pirjo S.'), ('${PEKKA}', 'Pekka P.'),
+  ('${SANNI}', 'Sanni S.'), ('${NEA}', 'Nea N.');
 insert into koutsi_coach_students (coach_id, student_id, ended_at) values ('${ANNA}', '${MARIA}', null), ('${ANNA}', '${JUSSI}', null),
-  ('${ANNA}', '${OTTO}', now() - interval '3 days'), ('${ANNA}', '${PH}', null), ('${JUHO}', '${PEKKA}', null), ('${JUHO}', '${MARIA}', null);
+  ('${ANNA}', '${OTTO}', now() - interval '3 days'), ('${ANNA}', '${PH}', null), ('${JUHO}', '${PEKKA}', null), ('${JUHO}', '${MARIA}', null),
+  ('${ANNA}', '${SANNI}', null), ('${ANNA}', '${NEA}', null);
 `;
 
 const db = new PGlite();
@@ -217,7 +224,7 @@ test('one notice per publish to each current player with an account; a second pu
       kind: 'open_slots', title: 'Uusia vapaita aikoja', body: `Anna Virtanen: ${list3}`, link_path: '/pelaaja/vapaat', actor_id: ANNA, burst_count: 1,
     }], who);
   }
-  for (const who of [OTTO, PEKKA, ANNA, JUHO]) assert.deepEqual(await notices(who, 'open_slots'), [], `${who} hears nothing`);
+  for (const who of [OTTO, PEKKA, ANNA, JUHO, NEA]) assert.deepEqual(await notices(who, 'open_slots'), [], `${who} hears nothing`);
   assert.equal((await one(`select count(*)::int n from koutsi_notifications where recipient_id = '${PH}'`)).n, 0, 'no notice for a player without an account');
   assert.deepEqual(await notices(MARIA, 'training_added'), [], 'adding slots is not a new session');
 
@@ -374,6 +381,39 @@ test('a freed lesson: offered to the others with one tap, its own player hears n
   await as(MARIA, `delete from koutsi_training_absences where training_id = '${lessonId}' and student_id = '${MARIA}'`);
   const kept = await one(`select booked_by, training_id from koutsi_open_slots where id = '${again.id}'`);
   assert.deepEqual(kept, { booked_by: JUSSI, training_id: jussiLesson });
+  await db.exec(`delete from koutsi_notifications`);
+});
+
+test('who a slot is for: everyone or private-lesson players — never a known minor', async () => {
+  await db.exec(`delete from koutsi_notifications`);
+  const d6 = await day(6);
+  let r = await add(ANNA, [{ date: d6, time: '09:00', audience: 'all' }, { date: d6, time: '10:00', audience: 'private' }]);
+  assert.equal(r.error, null, r.error?.message);
+  assert.equal(r.rows[0].n, 2);
+  r = await add(ANNA, [{ date: d6, time: '11:00', audience: 'kaikki' }]);
+  assert.match(String(r.error?.message), /kenelle/, 'an unknown audience is refused');
+  const seen = async (who) => (await as(who, `select to_char(time, 'HH24:MI') t from koutsi_open_slots where date = '${d6}' order by time`)).rows.map((x) => x.t);
+  assert.deepEqual(await seen(MARIA), ['09:00', '10:00'], 'Maria has had a private lesson with Anna: both');
+  assert.deepEqual(await seen(SANNI), ['09:00'], 'Sanni only comes to groups: the one for everyone');
+  assert.deepEqual(await seen(NEA), [], 'a 15-year-old sees none');
+
+  const [maria] = await notices(MARIA, 'open_slots');
+  assert.equal(maria.body, `Anna Virtanen: ${await when(d6, '09:00')} ja ${await when(d6, '10:00')}`);
+  const [sanni] = await notices(SANNI, 'open_slots');
+  assert.equal(sanni.body, `Anna Virtanen: ${await when(d6, '09:00')}`, "Sanni's notice lists only hers");
+  assert.deepEqual(await notices(NEA), [], 'no notice for a minor');
+
+  const privateSlot = await slotAt(d6, '10:00');
+  r = await book(SANNI, privateSlot.id);
+  assert.match(String(r.error?.message), /ei löytynyt/, 'Sanni cannot book a private-lesson time');
+  r = await book(NEA, (await slotAt(d6, '09:00')).id);
+  assert.match(String(r.error?.message), /ei löytynyt/, 'nor can a minor book');
+  r = await book(SANNI, (await slotAt(d6, '09:00')).id);
+  assert.equal(r.error, null, r.error?.message);
+  assert.deepEqual(await seen(SANNI), ['09:00', '10:00'], 'after her first private lesson the private-lesson times are hers to see too');
+
+  const cat = await one(`select koutsi_email_category('open_slots') c, koutsi_email_category('slot_booked') b, koutsi_email_category('player_absence') p`);
+  assert.deepEqual(cat, { c: 'vapaat', b: null, p: 'poissaolot' }, 'players can turn the free-time mails off; the rest as before');
   await db.exec(`delete from koutsi_notifications`);
 });
 

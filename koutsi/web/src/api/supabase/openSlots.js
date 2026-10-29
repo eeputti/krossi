@@ -8,12 +8,12 @@ import { db, isMissingFunction, isMissingTable, must } from './client.js';
 import { ApiError } from '../errors.js';
 import { koutsiTodayStr } from '../../domain/core.js';
 
-const COLUMNS = 'id, coach_id, date, time, duration_minutes, place, source_training_id, booked_by, booked_at, training_id, created_at';
+const COLUMNS = 'id, coach_id, date, time, duration_minutes, place, audience, source_training_id, booked_by, booked_at, training_id, created_at';
 
 export function mapOpenSlot(r) {
   return {
     id: r.id, coachId: r.coach_id, date: r.date, time: String(r.time || '').slice(0, 5), durationMinutes: r.duration_minutes || 60,
-    place: r.place || '', sourceTrainingId: r.source_training_id || null, bookedBy: r.booked_by || null, bookedAt: r.booked_at || null,
+    place: r.place || '', audience: r.audience || 'all', sourceTrainingId: r.source_training_id || null, bookedBy: r.booked_by || null, bookedAt: r.booked_at || null,
     trainingId: r.training_id || null, at: r.created_at,
   };
 }
@@ -44,11 +44,12 @@ export async function withOpenSlots(role, ownerId, snapshot) {
 }
 
 export const openSlots = {
-  // slots: [{ date, time, durationMinutes, place, sourceTrainingId? }] → how many were added (a time
-  // that is already open is skipped); each player gets one notice per publish (the RPC sends it).
+  // slots: [{ date, time, durationMinutes, place, audience: 'all' | 'private', sourceTrainingId? }] → how many
+  // were added (a time that is already open is skipped); each player it is for gets one notice per publish.
   async add(coachId, slots) {
     const list = (slots || []).map((s) => ({
-      date: s.date, time: s.time, duration: s.durationMinutes || 60, place: (s.place || '').trim() || null, source: s.sourceTrainingId || null,
+      date: s.date, time: s.time, duration: s.durationMinutes || 60, place: (s.place || '').trim() || null,
+      audience: s.audience === 'private' ? 'private' : 'all', source: s.sourceTrainingId || null,
     }));
     if (!list.length) throw new ApiError('Lisää vähintään yksi aika.');
     return must(await db().rpc('koutsi_add_open_slots', { p_slots: list })) || 0;

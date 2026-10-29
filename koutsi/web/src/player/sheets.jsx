@@ -14,6 +14,7 @@ import { ACTIVITIES, activityById, defaultLogTime, ownEntry, ownNotes } from '..
 import { ActivityIcon } from './ActivityIcon.jsx';
 import { useBilling } from '../shared/billing/BillingProvider.jsx';
 import { lateCancelNote } from '../domain/billing.js';
+import { ReplacementSlots } from './OpenSlots.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 export const HEALTH_NOTE = 'Älä kirjoita vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.';
@@ -302,6 +303,8 @@ export function AbsenceSheet({ open, onClose, training }) {
         </Field>
       )}
       {!absentNow && lateNote && <p className="bill-late-note">{lateNote}</p>}
+      {/* Vapaat ajat: the same coach's free times near, booked with the absence in one go */}
+      {!absentNow && <ReplacementSlots training={training} absentIds={candidates.slice(0, count).map((t) => t.id)} onDone={onClose} />}
       <p className="field-msg">{absentNow ? 'Valmentajasi saa heti tiedon, että tuletkin paikalle.' : 'Valmentajasi saa poissaolosta heti tiedon. Syytä ei kysytä eikä tallenneta.'}</p>
     </Sheet>
   );

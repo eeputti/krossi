@@ -74,8 +74,9 @@ export const API_CONTRACT = {
   // both. CoachState / PlayerState carry `openSlots: Slot[]` (the coach: theirs from today on; a player:
   // the open ones of their coaches and their own bookings) and `openSlotsReady` (coach: the table is there
   // and the feature is on for them — off by default; player: the table is there).
-  // add(coachId, [{ date, time, durationMinutes, place, sourceTrainingId? }]) → how many were added (each
-  // player gets one notice per publish); remove(slotId) — an open one; book(slotId) → { trainingId }.
+  // add(coachId, [{ date, time, durationMinutes, place, audience: 'all' | 'private', sourceTrainingId? }]) → how
+  // many were added (each player it is for gets one notice per publish; known minors none); remove(slotId) — an
+  // open one; book(slotId) → { trainingId }.
   openSlots: ['add', 'remove', 'book'],
 
   // Coach's notes to a player (koutsi_diary_entries) and homework. addMany writes one row per
