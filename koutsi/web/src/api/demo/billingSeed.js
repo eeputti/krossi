@@ -10,6 +10,8 @@ export const DEMO_BILLER = {
   id: 'demo-biller', coachId: COACH, name: 'Anna Koskinen Tennis', businessId: '1234567-1', address: 'Kisapuistontie 1\n15110 Lahti',
   email: 'anna@esimerkki.fi', phone: '', iban: 'FI2112345600000785', bic: '', vatMode: 'none', paymentDays: 14,
   cancelHours: 24, chargeLate: true, chargeNoShow: true, terms: '', nextNumber: 1,
+  // online payment is on in the demo: "Maksa" marks the invoice paid at once (no Stripe)
+  payReady: true, payOnline: true, stripeAccountId: 'acct_demo', stripeChargesEnabled: true, stripeDetailsSubmitted: true,
   prices: {
     groups: {
       'demo-g-ma-jun': { mode: 'kausi', cents: 24000 },
@@ -55,6 +57,7 @@ export function seedBilling(s) {
       issueDate: issued, dueDate: addDaysStr(issued, biller.paymentDays), periodStart: from, periodEnd: to,
       payerName: d.payerName, payerEmail: d.payerEmail || '', payerAddress: '', seller, vatMode: biller.vatMode,
       totalCents: totalOf(lines), publicToken: token(number), sentAt: `${issued}T09:00:00.000Z`,
+      coachId: COACH, checkoutSessionId: null, paidVia: paid ? (d.studentId === 'demo-s-aleksi' ? 'stripe' : 'manual') : null,
       paidAt: paid ? `${addDaysStr(issued, 3)}T12:00:00.000Z` : null, voidedAt: null, createdAt: `${issued}T08:55:00.000Z`, lines,
     };
   }).reverse();

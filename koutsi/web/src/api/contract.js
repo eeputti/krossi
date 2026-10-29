@@ -121,9 +121,14 @@ export const API_CONTRACT = {
   // { description, amountCents, date }); removeLine(lineId); removeDrafts(ids); send(ids) → [{ id, number }];
   // setPaid(id, paid); voidInvoice(id). Player: mine() → { ready, invoices (sent / paid, own), terms:
   // [{ coachId, sellerName, cancelHours, chargeLate, chargeNoShow, terms, paymentDays }] }.
-  // byToken(token) → the invoice behind a link (no sign-in) or null.
+  // byToken(token) → the invoice behind a link (no sign-in) or null (with `payable`: it can be paid online now).
+  // Online payment (vaihe 2, edge function koutsi-pay, the coach's own Stripe account):
+  // connectPayments(coachId) → { url } (Stripe's onboarding; the demo answers { ready: true });
+  // paymentStatus(coachId) → { state: 'none' | 'pending' | 'ready', chargesEnabled, detailsSubmitted, payOnline, dueCount };
+  // syncPayments(coachId) → { updated } (confirms payments of open invoices); payInvoice(token) → { url } |
+  // { paid: true } (Stripe Checkout; no sign-in); confirmPayment(token, sessionId) → { paid }.
   billing: ['overview', 'saveBiller', 'createDrafts', 'updateDraft', 'setLineCharged', 'addLine', 'removeLine', 'removeDrafts',
-    'send', 'setPaid', 'voidInvoice', 'mine', 'byToken'],
+    'send', 'setPaid', 'voidInvoice', 'mine', 'byToken', 'connectPayments', 'paymentStatus', 'syncPayments', 'payInvoice', 'confirmPayment'],
 
   // share(...) — a player's own video, or a coach's before Lähetetyt; the coach's own videos:
   // save({ coachId, id?, title, tags, file | externalUrl, onProgress, signal }) → id,

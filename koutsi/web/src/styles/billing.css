@@ -109,6 +109,8 @@
 .inv-public { max-width: 720px; margin: 0 auto; padding: 24px 16px 40px; display: grid; gap: 16px; }
 .inv-public-note { margin: 0; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); font-weight: 650; }
 .inv-public-actions { display: flex; justify-content: center; }
+.inv-public-pay { display: grid; }
+.inv-public-note.is-thanks { background: var(--success-bg); color: var(--success); }
 .inv-public-foot { margin: 8px 0 0; text-align: center; font-size: 12px; font-weight: 700; color: var(--faint); }
 
 /* ── printing: only the invoice ──────────────────────────── */
