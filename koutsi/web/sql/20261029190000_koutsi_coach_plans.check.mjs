@@ -1,9 +1,11 @@
 // 20261029190000_koutsi_coach_plans.check.mjs — runs the proposed coach-plan migration
 // (koutsi/web/sql/20261029190000_koutsi_coach_plans.sql, NOT applied) in PGlite against a small stub
 // of production's Koutsi schema (the tables and functions it leans on, the coach key function copied
-// from supabase/migrations/20260911211833_…), then checks: today's coaches stay free, the key path
-// still makes free coaches, who can start a trial and when, the trial ending by itself, what Stripe
-// may change, and that nobody writes a plan from the app.
+// from supabase/migrations/20260911211833_…, Laskutus' gate from 20261029162350_koutsi_billing), then
+// checks: today's coaches stay free, the key path still makes free coaches, who can start a trial and
+// when, the trial ending by itself, what Stripe may change, that nobody writes a plan from the app, what
+// an ended trial locks (sending to players, sending invoices — never a player), Laskutus' gate, and the
+// 7-day reminder.
 // PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. Before
 // "aja migraatio":
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
@@ -27,6 +29,9 @@ const NOPROF = '00000000-0000-4000-8000-0000000000c3'; // confirmed e-mail, no p
 const KEYED = '00000000-0000-4000-8000-0000000000c4'; // gets a coach key after the migration
 const LATE = '00000000-0000-4000-8000-0000000000c5'; // tries after sign-ups are paused
 const PLAYER = '00000000-0000-4000-8000-000000000001'; // a player, no coach row
+const ENDED = '00000000-0000-4000-8000-0000000000d1'; // trial over, no subscription
+const TRIAL = '00000000-0000-4000-8000-0000000000d2'; // on the trial (reminders, Laskutus)
+const LISTED = '00000000-0000-4000-8000-0000000000d3'; // a key coach on Laskutus' own list
 
 const STUB = `
 create schema if not exists auth;
@@ -69,6 +74,42 @@ begin
   return v_count;
 end; $$;
 
+create table public.koutsi_students (id uuid primary key, name text);
+create table public.koutsi_coach_students (coach_id uuid not null references public.koutsi_coaches(id) on delete cascade,
+  student_id uuid not null references public.koutsi_students(id) on delete cascade, ended_at timestamptz, primary key (coach_id, student_id));
+-- what a coach sends through (columns the guard and these tests use)
+create table public.koutsi_diary_entries (id uuid primary key default gen_random_uuid(), student_id uuid not null, coach_id uuid, text text not null);
+create table public.koutsi_homework (id uuid primary key default gen_random_uuid(), student_id uuid not null, coach_id uuid, text text not null);
+create table public.koutsi_videos (id uuid primary key default gen_random_uuid(), student_id uuid not null, added_by_id uuid, title text);
+create table public.koutsi_announcements (id uuid primary key default gen_random_uuid(), coach_id uuid not null, body text not null,
+  group_ids uuid[] not null default '{}', student_ids uuid[] not null default '{}', until date not null default current_date);
+create table public.koutsi_sends (id uuid primary key default gen_random_uuid(), coach_id uuid not null, kind text not null, ref_id uuid not null, title text not null);
+create table public.koutsi_threads (id uuid primary key default gen_random_uuid(), coach_id uuid not null, student_id uuid not null);
+create table public.koutsi_messages (id uuid primary key default gen_random_uuid(), thread_id uuid not null references public.koutsi_threads(id), body text not null);
+create table public.koutsi_trainings (id uuid primary key default gen_random_uuid(), coach_id uuid not null, date date not null);
+create table public.koutsi_notifications (id uuid primary key default gen_random_uuid(), recipient_id uuid not null, actor_id uuid,
+  kind text not null, title text not null, body text, link_path text, created_at timestamptz not null default now());
+create function public.koutsi_notify(p_recipient uuid, p_actor uuid, p_kind text, p_title text, p_body text, p_link text) returns void
+language plpgsql security definer set search_path to 'public' as $$
+begin
+  if p_recipient is null or p_recipient = p_actor then return; end if;
+  if not exists (select 1 from auth.users u where u.id = p_recipient) then return; end if;
+  insert into koutsi_notifications (recipient_id, actor_id, kind, title, body, link_path) values (p_recipient, p_actor, p_kind, p_title, p_body, p_link);
+end; $$;
+
+-- Laskutus as applied 29.10.2026 (20261029162350_koutsi_billing): the gate, the seller, the invoice.
+create table public.koutsi_billing_coaches (coach_id uuid primary key references public.koutsi_coaches(id) on delete cascade);
+create table public.koutsi_billers (id uuid primary key default gen_random_uuid(), coach_id uuid not null references public.koutsi_coaches(id) on delete cascade);
+create table public.koutsi_invoices (id uuid primary key default gen_random_uuid(), biller_id uuid not null references public.koutsi_billers(id) on delete cascade,
+  coach_id uuid not null references public.koutsi_coaches(id) on delete cascade, status text not null default 'draft');
+create function public.koutsi_billing_coach_enabled(p_coach uuid) returns boolean language sql stable security definer set search_path = '' as $function$
+  select p_coach is not null and (
+    exists (select 1 from public.koutsi_admins a where a.user_id = p_coach)
+    or exists (select 1 from public.koutsi_billing_coaches b where b.coach_id = p_coach)
+  );
+$function$;
+revoke all on function public.koutsi_billing_coach_enabled(uuid) from public, anon, authenticated;
+
 -- Production's coach key, unchanged (20260911211833).
 create function public.redeem_koutsi_coach_key(key_input text) returns jsonb
 language plpgsql security definer set search_path to 'public' as $function$
@@ -102,12 +143,15 @@ const SEED = `
 insert into auth.users (id, email, email_confirmed_at) values
   ('${ALPO}', 'alpo@example.test', now()), ('${ADMIN}', 'admin@example.test', now()), ('${NEW}', 'uusi@example.test', now()),
   ('${NOMAIL}', 'eivahv@example.test', null), ('${NOPROF}', 'eiprof@example.test', now()), ('${KEYED}', 'avain@example.test', now()),
-  ('${LATE}', 'myoh@example.test', now()), ('${PLAYER}', 'pelaaja@example.test', now());
+  ('${LATE}', 'myoh@example.test', now()), ('${PLAYER}', 'pelaaja@example.test', now()),
+  ('${ENDED}', 'loppui@example.test', now()), ('${TRIAL}', 'kokeilu@example.test', now()), ('${LISTED}', 'listalla@example.test', now());
 insert into profiles (id, name) values ('${ALPO}', 'Alpo'), ('${ADMIN}', 'Ylläpitäjä'), ('${NEW}', 'Uusi Valmentaja'),
-  ('${NOMAIL}', 'Ei Vahvistettu'), ('${KEYED}', 'Avain Valmentaja'), ('${LATE}', 'Myöhäinen'), ('${PLAYER}', 'Pelaaja');
+  ('${NOMAIL}', 'Ei Vahvistettu'), ('${KEYED}', 'Avain Valmentaja'), ('${LATE}', 'Myöhäinen'), ('${PLAYER}', 'Pelaaja'),
+  ('${ENDED}', 'Kokeilu Loppui'), ('${TRIAL}', 'Kokeilu Käynnissä'), ('${LISTED}', 'Listalla');
 insert into koutsi_admins (user_id) values ('${ADMIN}');
 insert into koutsi_coaches (id) values ('${ALPO}'), ('${ADMIN}');
 insert into koutsi_coach_invite_codes (code) values ('AVAIN1');
+insert into koutsi_students (id, name) values ('${PLAYER}', 'Pelaaja'), ('${ENDED}', 'Kokeilu Loppui');
 `;
 
 const db = new PGlite();
@@ -326,6 +370,100 @@ test('Stripe never changes a free coach, and a gone coach is skipped', async () 
   assert.equal((await one(`select count(*) as n from koutsi_coach_plans where coach_id = '${PLAYER}'`)).n, 0);
   await asService(`select public.koutsi_plan_set_customer('${PLAYER}', 'cus_p2')`);
   assert.equal((await one(`select count(*) as n from koutsi_coach_plans where coach_id = '${PLAYER}'`)).n, 0);
+});
+
+test('an ended trial stops sending to players — and nothing else, and never a player', async () => {
+  // ENDED: a trial that ran out; TRIAL: on the trial; PLAYER is ENDED's player and also writes himself
+  for (const uid of [ENDED, TRIAL]) assert.equal((await as(uid, `select public.koutsi_start_trial('2026-10-29') as s`)).error, null);
+  await db.exec(`update koutsi_coach_plans set trial_ends_at = now() - interval '1 day' where coach_id = '${ENDED}'`);
+  assert.equal(await planOf(ENDED), 'ended');
+  await db.exec(`insert into koutsi_coach_students (coach_id, student_id) values ('${ENDED}', '${PLAYER}');
+    insert into koutsi_threads (id, coach_id, student_id) values ('00000000-0000-4000-8000-00000000f001', '${ENDED}', '${PLAYER}')`);
+  const THREAD = '00000000-0000-4000-8000-00000000f001';
+  const sends = (coach) => [
+    `insert into koutsi_diary_entries (student_id, coach_id, text) values ('${PLAYER}', '${coach}', 'Hyvä treeni')`,
+    `insert into koutsi_homework (student_id, coach_id, text) values ('${PLAYER}', '${coach}', 'Syötöt 50 kpl')`,
+    `insert into koutsi_videos (student_id, added_by_id, title) values ('${PLAYER}', '${coach}', 'Syöttö')`,
+    `insert into koutsi_announcements (coach_id, body, student_ids) values ('${coach}', 'Huomenna kenttä 3', array['${PLAYER}']::uuid[])`,
+    `insert into koutsi_sends (coach_id, kind, ref_id, title) values ('${coach}', 'homework', gen_random_uuid(), 'Syötöt')`,
+  ];
+  for (const sql of [...sends(ENDED), `insert into koutsi_messages (thread_id, body) values ('${THREAD}', 'Moi!')`]) {
+    const r = await as(ENDED, sql);
+    assert.match(String(r.error?.message), /Kokeilusi on päättynyt\. Ota tilaus/, sql);
+  }
+  assert.equal(Number((await one('select count(*) as n from koutsi_homework')).n), 0, 'nothing was written');
+  // planning goes on
+  assert.equal((await as(ENDED, `insert into koutsi_trainings (coach_id, date) values ('${ENDED}', current_date)`)).error, null);
+  // a player is never stopped: own homework and video, a message to the coach
+  for (const sql of [
+    `insert into koutsi_homework (student_id, text) values ('${PLAYER}', 'Oma läksy')`,
+    `insert into koutsi_videos (student_id, added_by_id, title) values ('${PLAYER}', '${PLAYER}', 'Oma video')`,
+    `insert into koutsi_messages (thread_id, body) values ('${THREAD}', 'Moi valmentaja')`,
+  ]) assert.equal((await as(PLAYER, sql)).error, null, sql);
+  // the ended coach as somebody's player: their own rows go through
+  for (const sql of [
+    `insert into koutsi_homework (student_id, text) values ('${ENDED}', 'Oma läksy')`,
+    `insert into koutsi_videos (student_id, added_by_id, title) values ('${ENDED}', '${ENDED}', 'Oma video')`,
+  ]) assert.equal((await as(ENDED, sql)).error, null, sql);
+  // on the trial, free (today's coaches), an admin acting, the service role: all send
+  for (const coach of [TRIAL, ALPO, ADMIN]) {
+    for (const sql of sends(coach)) assert.equal((await as(coach, sql)).error, null, `${coach}: ${sql}`);
+  }
+  assert.equal((await asService(sends(ENDED)[0])).error, null, 'no signed-in coach: not stopped');
+  // after subscribing, ENDED sends again
+  assert.equal((await apply(ENDED, 'sub_e', 'active', { customer: 'cus_e' })).rows[0].p, 'active');
+  for (const sql of sends(ENDED)) assert.equal((await as(ENDED, sql)).error, null, sql);
+  assert.equal((await apply(ENDED, 'sub_e', 'canceled', { customer: 'cus_e' })).rows[0].p, 'ended');
+});
+
+test("Laskutus: open on the trial and with a subscription; after the trial old invoices stay, sending doesn't", async () => {
+  await db.exec(`insert into koutsi_coaches (id) values ('${LISTED}'); insert into koutsi_billing_coaches (coach_id) values ('${LISTED}')`);
+  const gate = async (uid) => (await one(`select public.koutsi_billing_coach_enabled('${uid}') as g`)).g;
+  assert.equal(await gate(ALPO), false, 'free coach: as before, nothing');
+  assert.equal(await gate(KEYED), false);
+  assert.equal(await gate(LISTED), true, "Laskutus' own list as before");
+  assert.equal(await gate(ADMIN), true);
+  assert.equal(await gate(TRIAL), true, 'on the trial');
+  assert.equal(await gate(ENDED), false, 'trial over, never used Laskutus');
+  assert.equal(await gate(PLAYER), false);
+  const r = await as(ALPO, `select public.koutsi_billing_coach_enabled('${ALPO}')`);
+  assert.match(String(r.error?.message), /permission denied/, 'rights kept');
+
+  // ENDED had set up Laskutus during the trial: still sees it, can mark paid, cannot send
+  await db.exec(`insert into koutsi_billers (id, coach_id) values ('00000000-0000-4000-8000-00000000b001', '${ENDED}');
+    insert into koutsi_invoices (id, biller_id, coach_id, status) values
+      ('00000000-0000-4000-8000-00000000a001', '00000000-0000-4000-8000-00000000b001', '${ENDED}', 'draft'),
+      ('00000000-0000-4000-8000-00000000a002', '00000000-0000-4000-8000-00000000b001', '${ENDED}', 'sent')`);
+  assert.equal(await gate(ENDED), true);
+  await assert.rejects(db.query(`update koutsi_invoices set status = 'sent' where id = '00000000-0000-4000-8000-00000000a001'`), /Kokeilusi on päättynyt\. Ota tilaus .* laskuja/);
+  await db.query(`update koutsi_invoices set status = 'paid' where id = '00000000-0000-4000-8000-00000000a002'`);
+  await db.query(`update koutsi_invoices set status = 'void' where id = '00000000-0000-4000-8000-00000000a002'`);
+  // on the trial an invoice goes
+  await db.exec(`insert into koutsi_billers (id, coach_id) values ('00000000-0000-4000-8000-00000000b002', '${TRIAL}');
+    insert into koutsi_invoices (id, biller_id, coach_id) values ('00000000-0000-4000-8000-00000000a003', '00000000-0000-4000-8000-00000000b002', '${TRIAL}')`);
+  await db.query(`update koutsi_invoices set status = 'sent' where id = '00000000-0000-4000-8000-00000000a003'`);
+});
+
+test('one reminder 7 days before the trial ends, only to a coach who has not subscribed', async () => {
+  await db.exec(`update koutsi_coach_plans set trial_ends_at = now() + interval '5 days 2 hours' where coach_id = '${TRIAL}'`);
+  await db.exec(`update koutsi_coach_plans set trial_ends_at = now() + interval '3 days' where coach_id = '${ENDED}'`); // subscribed once: stored 'ended'
+  const run = async () => (await asService('select public.koutsi_trial_reminders() as n')).rows[0].n;
+  assert.equal(await run(), 1);
+  const n = await one(`select kind, title, body, link_path, actor_id from koutsi_notifications where recipient_id = '${TRIAL}' and kind = 'trial_ending'`);
+  assert.deepEqual({ ...n }, {
+    kind: 'trial_ending', title: 'Koutsi-kokeilusi päättyy 6 päivän päästä',
+    body: 'Sen jälkeen pelaajille lähettäminen vaatii tilauksen. Ota tilaus kohdasta Profiili → Tilaus.',
+    link_path: '/valmentaja/profiili', actor_id: null,
+  });
+  assert.equal(await run(), 0, 'once per trial');
+  // further away: not yet; a coach with a subscription: never
+  await db.exec(`update koutsi_coach_plans set trial_reminded_at = null, trial_ends_at = now() + interval '20 days' where coach_id = '${TRIAL}'`);
+  assert.equal(await run(), 0);
+  await db.exec(`update koutsi_coach_plans set trial_ends_at = now() + interval '20 hours' where coach_id = '${TRIAL}'`);
+  assert.equal(await run(), 1);
+  assert.equal((await one(`select title from koutsi_notifications where recipient_id = '${TRIAL}' order by created_at desc limit 1`)).title, 'Koutsi-kokeilusi päättyy huomenna');
+  const r = await as(TRIAL, 'select public.koutsi_trial_reminders()');
+  assert.match(String(r.error?.message), /permission denied/, 'not for the app');
 });
 
 test('deleting the coach removes the plan', async () => {
