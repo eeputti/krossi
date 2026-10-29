@@ -20,7 +20,7 @@ export function visibleThreads(threads) {
 
 function coachLine(state, coachId) {
   const names = [...new Set(koutsiGroupsForStudent(state, state.students[0].id).filter((g) => g.coachId === coachId).map((g) => g.name))];
-  return ['Valmentajasi', ...names].join(' · ');
+  return ['Valmentajasi', ...names].join(', ');
 }
 
 export function MessagesScreen() {

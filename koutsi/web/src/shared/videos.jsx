@@ -157,7 +157,7 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
         {error && <p ref={errorRef} className="field-msg field-msg-error" role="alert">{error}</p>}
         {!saved && (<>
         <Field label="Otsikko" optional htmlFor="v-title"><Input id="v-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={file || link ? defaultVideoTitle(file, link) : 'Esim. Syöttöanalyysi'} maxLength={120} /></Field>
-        <Disclosure title="Lisätiedot" summary={`${date === koutsiTodayStr() ? 'Tänään' : koutsiFmtShortDate(date)}${tags.length ? ` · ${tags.map((t) => KOUTSI_TAG_LABELS[t]).join(', ')}` : ''}`} icon="sliders">
+        <Disclosure title="Lisätiedot" summary={`${date === koutsiTodayStr() ? 'Tänään' : koutsiFmtShortDate(date)}${tags.length ? `, ${tags.map((t) => KOUTSI_TAG_LABELS[t]).join(', ')}` : ''}`} icon="sliders">
           <div className="stack-4">
             <Field label="Päivä" htmlFor="v-date"><Input id="v-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
             <Field label="Aiheet" optional>

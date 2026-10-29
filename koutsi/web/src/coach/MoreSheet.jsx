@@ -35,7 +35,7 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, on
         {state.sendsReady ? (
           <>
             <ListRow icon="send" title="Lähetetyt" subtitle="Videot, kotiläksyt, huomiot ja tiedotteet: kenelle ja milloin" onClick={() => go('/valmentaja/lahetetyt', 'lahetetyt')} />
-            <ListRow icon="list" title="Harjoitteet ja videot" subtitle={`${bankSummary(state.exercises.length)} · ${(state.videoLibrary || []).length} videota`} onClick={() => go('/valmentaja/harjoitteet', 'harjoitteet')} />
+            <ListRow icon="list" title="Harjoitteet ja videot" subtitle={`${bankSummary(state.exercises.length)}, ${(state.videoLibrary || []).length} videota`} onClick={() => go('/valmentaja/harjoitteet', 'harjoitteet')} />
           </>
         ) : (
           <ListRow icon="list" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => go('/valmentaja/harjoitteet', 'harjoitteet')} />

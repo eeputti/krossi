@@ -398,7 +398,7 @@ function KoutsiAuthScreen() {
             <React.Fragment>
               <span style={{ color: '#8a857a' }}>Eikö sinulla ole vielä tiliä?</span>{' '}
               <button onClick={() => { setMode('register'); setError(''); setInfo(''); setCanResend(false); }} style={{ background: 'none', border: 'none', color: 'var(--green-deep)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Luo tili</button>
-              <span style={{ color: '#c5c0b5', margin: '0 8px' }}>·</span>
+              <span style={{ margin: '0 8px' }} />
               <button onClick={() => { setMode('reset'); setError(''); setInfo(''); setCanResend(false); }} style={{ background: 'none', border: 'none', color: '#8a857a', cursor: 'pointer', fontFamily: 'inherit' }}>Unohditko salasanan?</button>
             </React.Fragment>
           ) : (

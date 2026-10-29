@@ -44,7 +44,7 @@ function SeasonPanel() {
           <div className="pl-card">
             <div className="eyebrow">Nyt menossa</div>
             <div className="pl-card-title">{season.name}</div>
-            <p className="pl-card-text t-num">{koutsiFmtShortDate(season.startsOn)}–{koutsiFmtShortDate(season.endsOn)} · {groupsOfSeason(state, season).length} ryhmää{weeksLeft > 0 ? ` · ${weeksLeft} viikkoa jäljellä` : ''}</p>
+            <p className="pl-card-text t-num">{koutsiFmtShortDate(season.startsOn)}–{koutsiFmtShortDate(season.endsOn)}, {groupsOfSeason(state, season).length} ryhmää{weeksLeft > 0 ? `, ${weeksLeft} viikkoa jäljellä` : ''}</p>
             <div className="row wrap">
               <Button variant="outline" size="sm" icon="calendar" onClick={() => setEditOpen(true)}>Muuta {seasonWord(season.startsOn, 'gen')} loppua</Button>
             </div>
@@ -54,12 +54,12 @@ function SeasonPanel() {
             {next ? (
               <>
                 <div className="pl-card-title"><Icon name="check" size={18} /> {next.name} on julkaistu</div>
-                <p className="pl-card-text">Alkaa {koutsiFmtShortDate(next.startsOn)} · {groupsOfSeason(state, next).length} ryhmää.</p>
+                <p className="pl-card-text">Alkaa {koutsiFmtShortDate(next.startsOn)}, {groupsOfSeason(state, next).length} ryhmää.</p>
                 <Button variant="outline" size="sm" icon="calendar" onClick={() => navigate(`/valmentaja/ryhmat?vko=${weekParam(koutsiIsoWeekOfDateStr(next.startsOn))}`)}>Kauden ensimmäinen viikko</Button>
               </>
             ) : (
               <>
-                <div className="pl-card-title">{draft ? `${draft.name} · luonnos` : `${preset.name || 'Uusi kausi'}`}</div>
+                <div className="pl-card-title">{draft ? `${draft.name}, luonnos` : `${preset.name || 'Uusi kausi'}`}</div>
                 <p className="pl-card-text">
                   {draft
                     ? `${changes === 1 ? '1 muutos' : `${changes} muutosta`} tallessa. Pelaajat eivät näe luonnosta ennen kuin julkaiset.`

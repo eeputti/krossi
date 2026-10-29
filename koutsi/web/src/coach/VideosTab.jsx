@@ -57,7 +57,7 @@ export function VideosTab() {
                 <span className="k-video-thumb" style={{ '--h': 150 }} aria-hidden="true"><Icon name="play" size={14} /></span>
                 <span className="k-row-main">
                   <span className="k-row-title truncate">{e.video.title || e.name}</span>
-                  <span className="k-row-sub truncate">Harjoite: {e.name} · pelaajasi näkevät sen pankissa</span>
+                  <span className="k-row-sub truncate">Harjoite: {e.name}, pelaajasi näkevät sen pankissa</span>
                 </span>
               </button>
             ))}

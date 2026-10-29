@@ -247,10 +247,10 @@ export function gameShareMeta(preview) {
   else headline = `${creator} hakee ${spotsLeft > 1 ? 'pelikavereita' : 'pelikaveria'}`;
 
   const when = preview.scheduled_at ? formatShareTime(preview.scheduled_at) : null;
-  const facts = [MATCH_TYPE_LABELS[preview.match_type] ?? 'Tennis', placeLabel(preview), spotsLabel(spotsLeft)].filter(Boolean);
+  const facts = [MATCH_TYPE_LABELS[preview.match_type] ?? 'Tennis', placeLabel(preview)].filter(Boolean);
   return {
     title: when ? `${headline} — ${when}` : headline,
-    description: `${facts.join(' · ')}. ${spotsLeft > 0 ? 'Liity Krossissa.' : 'Katso Krossissa.'}`,
+    description: `${facts.join(', ')}. ${spotsLabel(spotsLeft)}. ${spotsLeft > 0 ? 'Liity Krossissa.' : 'Katso Krossissa.'}`,
   };
 }
 

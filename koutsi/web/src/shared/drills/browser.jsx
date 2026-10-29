@@ -63,7 +63,7 @@ export function DrillBrowser({ items, role = 'coach', groups = [], onOpen, track
     ? [{ value: 'all', label: 'Kaikki' }, { value: 'own', label: 'Omat', badge: ownCount || null }, { value: 'library', label: 'Krossin kirjasto' }]
     : [{ value: 'all', label: 'Kaikki' }, { value: 'own', label: 'Valmentajalta', badge: ownCount || null }, { value: 'library', label: 'Krossin kirjasto' }];
 
-  const playersValue = group ? `${group.memberIds.length} · ${group.name}` : PLAYER_FILTERS.find((p) => p.value === f.players)?.label;
+  const playersValue = group ? `${group.memberIds.length}, ${group.name}` : PLAYER_FILTERS.find((p) => p.value === f.players)?.label;
   const moreCount = Number(f.solo) + Number(f.video);
   const active = Boolean(f.query || f.cat || f.players || f.group || f.level || f.duration || f.solo || f.video || f.source !== 'all');
   const grouped = !f.cat && !f.query.trim();
@@ -88,7 +88,7 @@ export function DrillBrowser({ items, role = 'coach', groups = [], onOpen, track
       </div>
 
       <div className="dl-count">
-        <span><b className="t-num">{list.length}</b> {list.length === 1 ? 'harjoite' : 'harjoitetta'}{f.cat ? ` · ${CATEGORY[f.cat].label}` : ''}</span>
+        <span><b className="t-num">{list.length}</b> {list.length === 1 ? 'harjoite' : 'harjoitetta'}{f.cat ? `, ${CATEGORY[f.cat].label}` : ''}</span>
         {active && <button type="button" className="dl-clear" onClick={() => setF({ ...EMPTY })}>Tyhjennä</button>}
       </div>
 
@@ -192,7 +192,7 @@ export function DrillRow({ item, role, onOpen }) {
       </span>
       <span className="dl-row-main">
         <span className="dl-row-title">{item.name}</span>
-        <span className="dl-row-meta">{meta.join(' · ')}</span>
+        <span className="dl-row-meta">{meta.join(', ')}</span>
       </span>
       {item.saved && <span className="dl-row-own">{role === 'coach' ? 'Oma' : 'Valmentajalta'}</span>}
       <Icon name="chevron-right" size={18} className="dl-row-chev" />
@@ -236,7 +236,7 @@ function PlayersSheet({ open, onClose, f, set, groups, count }) {
                     <span className="dl-group-size t-num">{size}</span>
                     <span className="dl-group-main">
                       <span className="dl-group-name">{g.name}</span>
-                      <span className="dl-group-sub">{plural(size, 'pelaaja', 'pelaajaa')}{g.level ? ` · ${g.level}` : ''}</span>
+                      <span className="dl-group-sub">{plural(size, 'pelaaja', 'pelaajaa')}{g.level ? `, ${g.level}` : ''}</span>
                     </span>
                     {on ? <Icon name="check" size={18} strokeWidth={2.6} /> : <span className="dl-group-hits">{count({ players: [size, size], group: '', level: LEVELS.includes(g.level) ? g.level : f.level })}</span>}
                   </button>

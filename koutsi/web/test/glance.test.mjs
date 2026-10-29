@@ -87,6 +87,6 @@ test('the coach\'s calendar shows the missed session, and who told about it', ()
   const byDate = new Map(cal.weeks.flat().filter((d) => d.inMonth).map((d) => [d.date, d.items]));
   assert.deepEqual(byDate.get(day(3)).map((x) => x.kind), ['coach']);
   assert.deepEqual(byDate.get(day(5)).map((x) => x.kind), ['own']);
-  assert.deepEqual(byDate.get(day(17)).map((x) => [x.kind, x.sub]), [['absent', 'Poissa · ilmoitti itse']]);
+  assert.deepEqual(byDate.get(day(17)).map((x) => [x.kind, x.sub]), [['absent', 'Poissa, ilmoitti itse']]);
   assert.equal(cal.missed, 1);
 });

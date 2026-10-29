@@ -61,8 +61,8 @@ export function MerkitseUsage() {
                       <div className="admin-usage-bar" aria-hidden="true"><span style={{ width: `${(r.clicks / max) * 100}%` }} /></div>
                       <div className="k-faint admin-usage-meta">
                         {r.users ? `${r.users} ${r.users === 1 ? 'käyttäjä' : 'käyttäjää'}` : 'ei vielä käyttäjiä'}
-                        {r.adminClicks ? ` · ylläpito ${r.adminClicks}` : ''}
-                        {r.lastAt ? ` · viimeksi ${koutsiFmtEventDate(r.lastAt)}` : ''}
+                        {r.adminClicks ? `, ylläpito ${r.adminClicks}` : ''}
+                        {r.lastAt ? `, viimeksi ${koutsiFmtEventDate(r.lastAt)}` : ''}
                       </div>
                     </li>
                   ))}

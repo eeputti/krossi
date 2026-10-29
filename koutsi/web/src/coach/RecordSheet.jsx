@@ -139,7 +139,7 @@ export function RecordSheet({ open, kind, initialIds = [], initialText = '', sco
           {suggested && (
             <div className="stack-2">
               <div className="k-hw-suggest-head">
-                <span className="field-label">{suggested.theme ? `Harjoitepankista · teemaan ${suggested.theme}` : 'Harjoitepankista'}</span>
+                <span className="field-label">{suggested.theme ? `Harjoitepankista, teemaan ${suggested.theme}` : 'Harjoitepankista'}</span>
                 <button type="button" className="k-textlink" onClick={() => setBankOpen(true)}>Kaikki harjoitteet</button>
               </div>
               <div className="k-hw-suggest" role="group" aria-label="Ehdotetut harjoitteet">

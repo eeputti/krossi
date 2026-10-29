@@ -27,7 +27,7 @@ function Facts({ state, student, onQuoteWish }) {
   return (
     <div className="msg-context" aria-label="Pelaajan tiedot">
       {student.isPlaceholder && <Chip tone="warn" size="md" icon="info"><span>Ei vielä liittynyt</span></Chip>}
-      {facts.held > 0 && <Chip size="md" icon="check-circle"><span>Läsnä {facts.present}/{facts.held} · {facts.rate} %</span></Chip>}
+      {facts.held > 0 && <Chip size="md" icon="check-circle"><span>Läsnä {facts.present}/{facts.held}, {facts.rate}&nbsp;%</span></Chip>}
       {next && <Chip size="md" icon="calendar"><span>Seuraava {relativeDay(next.date).toLowerCase()} {next.time}</span></Chip>}
       {facts.moodAverage != null && <Chip size="md" icon="heart"><span>Fiilis {dec(facts.moodAverage)}</span></Chip>}
       {student.playerWish && wish && (

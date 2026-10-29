@@ -462,7 +462,7 @@ async function payCharge(admin: SupabaseClient, user: { id: string; email?: stri
     currency: 'eur',
     customer,
     automatic_payment_methods: { enabled: true },
-    description: `Kausivuoro ${holderName}, ${charge.month} · ${venue.name}`,
+    description: `Kausivuoro ${holderName}, ${charge.month}, ${venue.name}`,
     receipt_email: user.email || undefined,
     metadata: {
       product: SEASON_PRODUCT, mode: 'on_session', charge_id: charge.id, season_slot_id: charge.season_slot_id,
@@ -575,7 +575,7 @@ async function orderIntent(admin: SupabaseClient, user: { id: string; email?: st
     currency: 'eur',
     customer,
     automatic_payment_methods: { enabled: true },
-    description: `${order.label} · ${venue.name}`,
+    description: `${order.label}, ${venue.name}`,
     receipt_email: user.email || undefined,
     metadata: { product: PRODUCTS[order.kind], order_id: order.id, venue_id: order.venueId, supabase_user_id: user.id },
     ...connectParams(venue, order.amount),
@@ -646,8 +646,8 @@ async function sendInvoice(admin: SupabaseClient, asUser: SupabaseClient, invoic
   const s = invoice.seller;
   const barcode = virtualBarcode(s.iban, invoice.amountCents, invoice.reference, invoice.dueOn);
   const lines = [
-    `Lasku ${invoice.number} · ${s.name}`,
-    `Päiväys ${fiDate(invoice.issuedOn)} · Eräpäivä ${fiDate(invoice.dueOn)}`,
+    `Lasku ${invoice.number}, ${s.name}`,
+    `Päiväys ${fiDate(invoice.issuedOn)}, eräpäivä ${fiDate(invoice.dueOn)}`,
     '',
     `Vastaanottaja: ${invoice.recipient.name}`,
     ...(invoice.recipient.address ? [invoice.recipient.address] : []),
@@ -656,12 +656,13 @@ async function sendInvoice(admin: SupabaseClient, asUser: SupabaseClient, invoic
     `Yhteensä ${euros(invoice.amountCents)} (sis. ALV ${String(invoice.vatPercent).replace('.', ',')} % ${euros(invoice.vatCents)})`,
     '',
     `Saaja: ${s.name}${s.businessId ? ` (Y-tunnus ${s.businessId})` : ''}`,
-    `Tilinumero: ${String(s.iban || '').replace(/(.{4})(?=.)/g, '$1 ')}${s.bic ? ` · BIC ${s.bic}` : ''}`,
+    `Tilinumero: ${String(s.iban || '').replace(/(.{4})(?=.)/g, '$1 ')}${s.bic ? `, BIC ${s.bic}` : ''}`,
     `Viitenumero: ${invoice.reference}`,
-    `Summa: ${euros(invoice.amountCents)} · Eräpäivä: ${fiDate(invoice.dueOn)}`,
+    `Summa: ${euros(invoice.amountCents)}`,
+    `Eräpäivä: ${fiDate(invoice.dueOn)}`,
     ...(barcode ? [`Virtuaaliviivakoodi: ${barcode}`] : []),
     '',
-    [s.address, s.email, s.phone].filter(Boolean).join(' · '),
+    [s.address, s.email, s.phone].filter(Boolean).join(', '),
   ];
   const sent = await sendMail(to, `Lasku ${invoice.number} — ${s.name}`, lines, { replyTo: s.email });
   if (!sent) throw new Reply(502, 'Laskun lähetys epäonnistui. Yritä hetken päästä uudelleen.');
@@ -719,7 +720,7 @@ function decisionMail(d: DecidedSlot) {
       lines: [
         `${d.venueName} ei valitettavasti voinut myöntää hakemaasi kausivuoroa.`,
         '',
-        `${time}${place ? ` · ${place}` : ''}`,
+        `${time}${place ? `, ${place}` : ''}`,
         d.seasonName,
         ...(d.declineReason ? ['', `Hallin viesti: ”${d.declineReason}”`] : []),
         '',
@@ -743,7 +744,7 @@ function decisionMail(d: DecidedSlot) {
     lines: [
       `${d.venueName} hyväksyi kausivuorohakemuksesi. Vuoro on nyt sinun koko kauden.`,
       '',
-      `${time} · ${place}`,
+      `${time}, ${place}`,
       `${d.seasonName}: ${d.weeks} kertaa, ensimmäinen ${WEEKDAY_SHORT[d.weekday - 1]} ${fiDate(d.startsOn)}`,
       ...(skipped.length ? [`Ei vuoroa: ${skipped.slice(0, 10).map(dayMonth).join(', ')}${skipped.length > 10 ? ' …' : ''}`] : []),
       `Kausihinta ${euros(d.priceCents)}`,

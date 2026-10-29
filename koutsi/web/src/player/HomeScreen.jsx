@@ -48,7 +48,7 @@ function Head({ student, days, onDay }) {
   return (
     <section className="week-hero on-dark court-lines home-hero ph-hero">
       <div className="week-hero-top">
-        <span className="eyebrow">Viikko {week.week} · {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
+        <span className="eyebrow">Viikko {week.week}, {koutsiIsoWeekRangeLabel(week.year, week.week)}</span>
         {/* a computer has the bell on the profile card at the foot of the side nav */}
         {hasMessages ? (
           <span className="home-hero-icons">
@@ -116,7 +116,7 @@ function PastItem({ it, student, onOpen }) {
         <span className="tt-main">
           <span className="ph-label">Edellinen</span>
           <span className="tt-name">{nameOf(it)}</span>
-          <span className="tt-state">{pastWhen(it)}{mood ? ` · Fiilis: ${MOOD_LABELS[mood.score]}` : ''}</span>
+          <span className="tt-state">{pastWhen(it)}{mood ? `, fiilis: ${MOOD_LABELS[mood.score]}` : ''}</span>
           <ThemeLine theme={it.theme} />
         </span>
         <Icon name="chevron-right" size={16} className="k-chevron" />
@@ -135,13 +135,13 @@ function NowItem({ it, onOpen }) {
         <button type="button" className="tt-main" onClick={() => onOpen(it)}>
           <span className="ph-label is-live"><span className="k-ctx-live" aria-hidden="true" />Nyt käynnissä</span>
           <span className="tt-name">{nameOf(it)}</span>
-          <span className="tt-state"><span className="t-num">{it.training.time}–{it.end}</span> · {minutesLabel(it.minutesLeft)} jäljellä{it.absent ? ' · ilmoitit poissaolon' : ''}</span>
+          <span className="tt-state"><span className="t-num">{it.training.time}–{it.end},</span> {minutesLabel(it.minutesLeft)} jäljellä{it.absent ? ', ilmoitit poissaolon' : ''}</span>
           <ThemeLine theme={it.theme} />
           <span className="tt-progress" aria-hidden="true"><span style={{ width: `${Math.round(it.progress * 100)}%` }} /></span>
         </button>
         {plan.items.length > 0 && (
           <button type="button" className="tp-link" onClick={() => actions.openPlan(it.training)}>
-            <Icon name="list" size={16} /><span className="grow"><strong>Treenin runko</strong> · {planSummary(plan)}</span><Icon name="chevron-right" size={16} />
+            <Icon name="list" size={16} /><span className="grow"><strong>Treenin runko</strong>: {planSummary(plan)}</span><Icon name="chevron-right" size={16} />
           </button>
         )}
       </div>
@@ -165,7 +165,7 @@ function NextItem({ it }) {
           <span className="t-num">klo {koutsiTimeRangeLabel(it.training.time, it.training.durationMinutes || it.group?.durationMinutes)}</span>
           {soon && <span className="ph-next-soon">{soon}</span>}
         </div>
-        <div className="ph-next-what">{[nameOf(it), it.group ? it.training.type : '', it.coach?.name].filter(Boolean).join(' · ')}</div>
+        <div className="ph-next-what">{[nameOf(it), it.group ? it.training.type : '', it.coach?.name].filter(Boolean).join(', ')}</div>
         {it.theme ? (
           <div className="ph-next-theme">
             <div className="eyebrow"><Icon name="sparkles" size={13} /> Treenin teema</div>
@@ -175,7 +175,7 @@ function NextItem({ it }) {
         ) : it.group && <p className="ph-next-notheme">Valmentaja ei ole vielä asettanut teemaa.</p>}
         {plan.items.length > 0 && (
           <button type="button" className="tp-link" onClick={() => actions.openPlan(it.training)}>
-            <Icon name="list" size={16} /><span className="grow"><strong>Treenin runko</strong> · {planSummary(plan)}</span><Icon name="chevron-right" size={16} />
+            <Icon name="list" size={16} /><span className="grow"><strong>Treenin runko</strong>: {planSummary(plan)}</span><Icon name="chevron-right" size={16} />
           </button>
         )}
         <div className="row wrap">
@@ -199,7 +199,7 @@ function LaterItem({ it, onOpen }) {
       <button type="button" className="tt-card ph-card" onClick={() => onOpen(it)}>
         <span className="tt-main">
           <span className="tt-time t-num">{cap(relativeDay(it.training.date))} {it.training.time}–{it.end}</span>
-          <span className="tt-name">{nameOf(it)}{it.absent ? <span className="ph-absent"> · poissa</span> : null}</span>
+          <span className="tt-name">{nameOf(it)}{it.absent ? <span className="ph-absent">, poissa</span> : null}</span>
           <ThemeLine theme={it.theme} empty={it.group ? 'Teema tulossa' : ''} />
         </span>
         <Icon name="chevron-right" size={16} className="k-chevron" />
@@ -275,7 +275,7 @@ function newsRows(state, student, unread, threads = []) {
     .slice(0, 2)
     .forEach((e) => rows.push({
       id: `e-${e.id}`, icon: eventIcon(e.kind), title: e.title,
-      meta: `${kindLabel(e.kind)} · ${koutsiFmtShortDate(e.date)}${e.endDate && e.endDate !== e.date ? `–${koutsiFmtShortDate(e.endDate)}` : ''}`,
+      meta: `${kindLabel(e.kind)}, ${koutsiFmtShortDate(e.date)}${e.endDate && e.endDate !== e.date ? `–${koutsiFmtShortDate(e.endDate)}` : ''}`,
       to: `/pelaaja/treenit?vko=${weekParam(koutsiIsoWeekOfDateStr(e.date < today ? today : e.date))}&pv=${e.date < today ? today : e.date}`,
     }));
   return rows;
@@ -317,7 +317,7 @@ function HomeworkList({ open }) {
   };
   return (
     <div className="ph-hw">
-      <div className="ph-hw-head"><Icon name="book" size={16} /> Kotiläksyt · {open.length} tekemättä</div>
+      <div className="ph-hw-head"><Icon name="book" size={16} /> Kotiläksyt, {open.length} tekemättä</div>
       <div className="k-list">
         {open.map((h) => (
           <button key={h.id} type="button" className={`k-hw${pending.includes(h.id) ? ' is-done' : ''}`} aria-busy={pending.includes(h.id) || undefined} onClick={() => markDone(h)}>
@@ -360,7 +360,7 @@ function CoachNote({ state, student, unread }) {
       <span className="cn-icon"><Icon name="chat" size={18} /></span>
       <div className="cn-body">
         <div className="cn-eyebrow">
-          <span className="truncate">Valmentajalta{who ? ` · ${who}` : ''}</span>
+          <span className="truncate">Valmentajalta{who ? `, ${who}` : ''}</span>
           {isNew && <span className="cn-new">Uusi</span>}
         </div>
         <p className="cn-text">{note.text}</p>
@@ -393,9 +393,9 @@ function Notices({ state }) {
           <article key={a.id} className="an-card">
             <span className="an-icon"><Icon name="info" size={18} /></span>
             <div className="an-body">
-              <div className="an-eyebrow">Tiedote · {coach?.name || 'Valmentaja'}</div>
+              <div className="an-eyebrow">Tiedote, {coach?.name || 'Valmentaja'}</div>
               <p className="an-text">{a.text}</p>
-              <div className="an-foot">{[groups.join(', '), `${koutsiFmtEventDate(a.at)}`, `näkyy ${koutsiFmtShortDate(a.until)} asti`].filter(Boolean).join(' · ')}</div>
+              <div className="an-foot">{[groups.join(', '), `${koutsiFmtEventDate(a.at)}`, `näkyy ${koutsiFmtShortDate(a.until)} asti`].filter(Boolean).join(', ')}</div>
               {msgs.ready && msgs.byCoach(a.coachId)?.enabled && (
                 <button type="button" className="k-textlink an-reply" onClick={() => navigate(playerThreadPath(a.coachId, { kind: 'announcement', id: a.id }))}>
                   <Icon name="chat" size={15} />Vastaa valmentajalle

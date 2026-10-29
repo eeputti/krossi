@@ -144,7 +144,7 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
       n.format === 'nelinpeli' ? 'Nelinpeli' : n.format === 'kaksinpeli' ? 'Kaksinpeli' : '',
       n.format === 'nelinpeli' && n.partnerName ? `Pari: ${n.partnerName}` : '',
       tournamentLabel ? `Turnaus: ${tournamentLabel}` : '',
-    ].filter(Boolean).join(' · ');
+    ].filter(Boolean).join(', ');
     push({
       id: `match-${n.id}`, kind: 'match', at: n.at || n.date, source: n,
       title: `Ottelu: ${opponents}${resultLabel ? ` — ${resultLabel}` : ''}`,
@@ -194,7 +194,7 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
     const wins = tournamentMatches.filter((n) => n.result === 'voitto').length;
     const losses = tournamentMatches.filter((n) => n.result === 'tappio').length;
     const tournamentSummary = tournamentMatches.length
-      ? `${count(tournamentMatches.length, 'ottelu', 'ottelua')} · ${count(wins, 'voitto', 'voittoa')}, ${count(losses, 'tappio', 'tappiota')}`
+      ? `${count(tournamentMatches.length, 'ottelu', 'ottelua')}, ${count(wins, 'voitto', 'voittoa')}, ${count(losses, 'tappio', 'tappiota')}`
       : '';
     // A player's own session says what was done: "Lenkki" rather than its category "Fysiikka"
     // when the renewed app's log named it (domain/ownWeek.js), the length and their own words.
@@ -205,7 +205,7 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
       title: absence ? `${t.type} — ${reason}` : named ? own.title : t.type,
       theme: t.themeTitle || '',
       body: [t.groupName || '', own && t.durationMinutes ? `${t.durationMinutes} min` : '',
-        own ? (named ? own.text : (t.notes || '').trim()) : '', absence?.note || '', tournamentSummary].filter(Boolean).join(' · '),
+        own ? (named ? own.text : (t.notes || '').trim()) : '', absence?.note || '', tournamentSummary].filter(Boolean).join(', '),
       time: t.time, absent: !!absence, own: t.loggedBy === 'player', trainingId: t.id,
       search: `${t.type} ${t.groupName || ''} treeni ${reason} ${absence?.note || ''} ${t.themeTitle || ''} ${t.loggedBy === 'player' ? t.notes || '' : ''}`,
     });
@@ -215,7 +215,7 @@ function koutsiBuildTimeline(student, trainings, clubEvents, { viewer = 'player'
   // they belong to the club rather than to one student.
   (clubEvents || []).filter((e) => (e.endDate || e.date) <= today).forEach((e) => push({
     id: `event-${e.id}`, kind: 'event', at: e.endDate || e.date,
-    title: e.title, body: [e.kind ? `Seuran ${e.kind}` : '', e.endDate && e.endDate !== e.date ? `${koutsiFmtShortDate(e.date)}–${koutsiFmtShortDate(e.endDate)}` : ''].filter(Boolean).join(' · '),
+    title: e.title, body: [e.kind ? `Seuran ${e.kind}` : '', e.endDate && e.endDate !== e.date ? `${koutsiFmtShortDate(e.date)}–${koutsiFmtShortDate(e.endDate)}` : ''].filter(Boolean).join(', '),
     search: `${e.title} ${e.kind || ''} tapahtuma seura`,
   }));
 

@@ -101,7 +101,7 @@ function IdentityBlock({ student, groups }) {
       <div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>{student.name}</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
         <LevelChip level={student.level || 'Ei asetettu'} />
-        {(groups || []).map((g) => <span key={g.id} className="k-chip">Ryhmä: {g.name} · {g.day} {g.time}</span>)}
+        {(groups || []).map((g) => <span key={g.id} className="k-chip">Ryhmä: {g.name}, {g.day} {g.time}</span>)}
       </div>
     </div>
   );
@@ -293,7 +293,7 @@ function NextTrainingCard({ state, student, todayStr }) {
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: '#8a857a', padding: '3px 0' }}>
                 <span style={{ minWidth: 70, fontWeight: 700, color: '#6b665c' }}>{window.koutsiFmtShortDate(t.date)}</span>
                 <span>klo {t.time}</span>
-                <span>· {t.type}{gn ? ` — ${gn}` : ''}</span>
+                <span>{t.type}{gn ? ` — ${gn}` : ''}</span>
               </div>
             );
           })}
@@ -408,7 +408,7 @@ function HomeThemeCard({ card }) {
   return (
     <div className="k-card" style={{ padding: '17px 20px', background: 'linear-gradient(135deg, rgba(207,228,20,0.16), rgba(14,59,44,0.05))', borderColor: 'rgba(14,59,44,0.14)', marginBottom: 22 }}>
       <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--green-deep)', textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 5 }}>
-        {card.current ? 'Viikon teema' : 'Viimeisin teema'} · {playerWeekShort(card.theme)} — {names}
+        {card.current ? 'Viikon teema' : 'Viimeisin teema'}, {playerWeekShort(card.theme)} — {names}
       </div>
       <div style={{ fontSize: 16.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{card.theme.title}</div>
       {card.theme.lead && <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5 }}>{card.theme.lead}</div>}
@@ -502,7 +502,7 @@ function GroupThemeHistory({ themes }) {
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column' }}>
           {shown.map((t, i) => (
             <div key={t.id} style={{ padding: '8px 0', borderTop: i ? '1px solid rgba(216,212,202,0.6)' : 'none' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#8a857a' }}>{playerWeekShort(t)} · {window.koutsiIsoWeekRangeLabel(t.year, t.week)}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#8a857a' }}>{playerWeekShort(t)}, {window.koutsiIsoWeekRangeLabel(t.year, t.week)}</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#111', marginTop: 2 }}>{t.title}</div>
               {t.lead && <div style={{ fontSize: 13, color: '#514c42', lineHeight: 1.45, marginTop: 2 }}>{t.lead}</div>}
             </div>
@@ -545,7 +545,7 @@ function GroupCard({ group, state, student, onEditAttendance }) {
         <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--line)' }}>
           {group.theme ? (
             <React.Fragment>
-              <GroupCardLabel>Viikon teema · vko {group.theme.week}</GroupCardLabel>
+              <GroupCardLabel>Viikon teema, vko {group.theme.week}</GroupCardLabel>
               <div style={{ fontSize: 15.5, fontWeight: 800, color: '#111', marginBottom: 4 }}>{group.theme.title}</div>
               {group.theme.lead && <div style={{ fontSize: 13.5, color: '#514c42', lineHeight: 1.5 }}>{group.theme.lead}</div>}
             </React.Fragment>
@@ -563,7 +563,7 @@ function GroupCard({ group, state, student, onEditAttendance }) {
               <div style={{ fontSize: 11, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Tulossa</div>
               {group.upcomingThemes.slice(0, 3).map((t) => (
                 <div key={t.id} style={{ fontSize: 13, color: '#514c42', padding: '2px 0' }}>
-                  <b style={{ color: 'var(--green-deep)' }}>{playerWeekShort(t)}</b> · {t.title}
+                  <b style={{ color: 'var(--green-deep)' }}>{playerWeekShort(t)}</b>, {t.title}
                 </div>
               ))}
             </div>
@@ -584,7 +584,7 @@ function GroupCard({ group, state, student, onEditAttendance }) {
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 14 }}>
                 <span style={{ minWidth: 74, fontWeight: 700, color: 'var(--green-deep)' }}>{window.koutsiFmtShortDate(t.date)}</span>
                 <span style={{ color: '#111' }}>klo {t.time}</span>
-                <span style={{ color: '#8a857a', flex: 1 }}>· {t.type}</span>
+                <span style={{ color: '#8a857a', flex: 1 }}>{t.type}</span>
                 <window.KoutsiAttendanceBadge entry={entry} compact onClick={() => onEditAttendance(t.id)} />
                 {entry?.note && <div style={{ width: '100%', paddingLeft: 84, color: '#6b665c', fontSize: 12.5, lineHeight: 1.4 }}>{entry.note}</div>}
               </div>
@@ -864,7 +864,7 @@ function MonthSummaryCard({ summary, monthLabel }) {
     <div className="k-card" style={{ padding: '18px 20px', marginBottom: 20 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: '#111' }}>{monthLabel}</div>
-        <div style={{ fontSize: 12.5, color: '#8a857a' }}>{summary.totalSessions} suoritusta{summary.totalMinutes ? ` · ${window.koutsiFmtDuration(summary.totalMinutes)}` : ''}</div>
+        <div style={{ fontSize: 12.5, color: '#8a857a' }}>{summary.totalSessions} suoritusta{summary.totalMinutes ? `, ${window.koutsiFmtDuration(summary.totalMinutes)}` : ''}</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
         {active.map((c) => (
@@ -976,7 +976,7 @@ function TrainingsView({ student, state, hasCoach, note, setNote, noteSaved, onS
                   <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '14px 18px', borderBottom: i === trainingsOnSelected.length - 1 ? 'none' : '1px solid var(--line)' }}>
                     <div style={{ width: 52, fontSize: 13.5, fontWeight: 800, color: 'var(--green-deep)', flexShrink: 0 }}>{t.time}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}{isSelf ? ' · Oma merkintä' : ''}</div>
+                      <div style={{ fontSize: 14.5, color: '#111' }}>{t.type}{party.kind === 'group' ? ` — ${label}` : ''}{isSelf ? ', oma merkintä' : ''}</div>
                       {coach && !isSelf && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{coach.name}</div>}
                       {isSelf && t.durationMinutes && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{window.koutsiFmtDuration(t.durationMinutes)}</div>}
                       {isSelf && t.endDate && t.endDate !== t.date && <div style={{ fontSize: 12, color: '#8a857a', marginTop: 1 }}>{window.koutsiFmtShortDate(t.date)}–{window.koutsiFmtShortDate(t.endDate)}</div>}
@@ -1073,7 +1073,7 @@ function MyVideoBank({ student, onAddVideo, onOpenVideo, onDeleteVideo }) {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ color: '#111', fontWeight: 700, fontSize: 14.5 }}>{v.title}</div>
                     <div style={{ color: '#8a857a', fontSize: 12, marginTop: 2 }}>
-                      {window.koutsiFmtShortDate(v.date)}{(v.tags || []).length > 0 ? ` · ${v.tags.map((t) => window.KOUTSI_TAG_LABELS[t] || t).join(', ')}` : ''}
+                      {window.koutsiFmtShortDate(v.date)}{(v.tags || []).length > 0 ? `, ${v.tags.map((t) => window.KOUTSI_TAG_LABELS[t] || t).join(', ')}` : ''}
                     </div>
                   </div>
                 </button>
@@ -1121,7 +1121,7 @@ function ExercisesView({ exercises, hasCoach, onOpen, student, onAddVideo, onDel
             {filtered.map((ex) => (
               <button key={ex.id} onClick={() => onOpen(ex.id)} className="k-card" style={{ textAlign: 'left', cursor: 'pointer', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ color: '#111', fontWeight: 700, fontSize: 15.5 }}>{ex.name}</div>
-                <div style={{ color: '#8a857a', fontSize: 13 }}>{ex.players} pelaajaa · {ex.duration} · {ex.level}</div>
+                <div style={{ color: '#8a857a', fontSize: 13 }}>{ex.players} pelaajaa, {ex.duration}, {ex.level}</div>
               </button>
             ))}
             {filtered.length === 0 && <div style={{ color: '#8a857a', fontSize: 14.5 }}>Ei harjoitteita tällä suodattimella.</div>}
@@ -1469,7 +1469,7 @@ function ProfileView({ student, groups, state, onSignOut, onReload }) {
         <ProfileRow label="Nimi" value={student.name} />
         <ProfileRow label="Ikä" value={playerAgeLabel(student)} hint="Ei asetettu" />
         <ProfileRow label="Taso" value={student.level} hint="Valmentaja asettaa" />
-        <ProfileRow label="Ryhmä" value={(groups && groups.length) ? groups.map((g) => `${g.name} · ${g.day} klo ${g.time}`).join(' · ') : ''} hint="Ei ryhmää" />
+        <ProfileRow label="Ryhmä" value={(groups && groups.length) ? groups.map((g) => `${g.name} (${g.day} klo ${g.time})`).join(', ') : ''} hint="Ei ryhmää" />
         <ProfileRow label="Valmentaja" value={coaches.map((c) => c.name).join(', ')} hint="Ei valmentajaa" />
         <div style={{ paddingTop: 12, color: '#8a857a', fontSize: 12.5, lineHeight: 1.5 }}>
           Beta-pilotissa terveystietoja ei tallenneta Koutsiin.

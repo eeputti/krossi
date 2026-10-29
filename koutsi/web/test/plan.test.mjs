@@ -47,7 +47,7 @@ test('an entry starts at the drill\'s own minutes and remembers its library twin
   assert.equal(warm.ref, 'k-lam-11');
   assert.equal(warm.lib, 'lam-11');
   assert.equal(planMinutes(p), ['lam-11', 'syo-08', 'syo-09', 'pis-03', 'fys-03'].reduce((s, id) => s + lib(id).minutes, 0));
-  assert.match(planSummary(p), /^5 harjoitetta · \d+ min$/);
+  assert.match(planSummary(p), /^5 harjoitetta, \d+\u00a0min$/);
   assert.equal(planSummary(empty), 'Ei vielä runkoa');
 });
 

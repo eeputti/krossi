@@ -156,7 +156,7 @@ function AdminUsageBody({ sum, R }) {
         {tile('Painalluksia', sum.totals.clicks)}
         {tile('Virheitä', sum.totals.errors, null, sum.totals.errors > 0)}
       </div>
-      {devTotal > 0 && <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18 }}>Laitteet: puhelin {pct(sum.devices.puhelin)} % · tietokone {pct(sum.devices.kone)} % · tabletti {pct(sum.devices.tabletti)} %</p>}
+      {devTotal > 0 && <p style={{ fontSize: 13, color: '#8a857a', marginBottom: 18 }}>Laitteet: puhelin {pct(sum.devices.puhelin)}&nbsp;%, tietokone {pct(sum.devices.kone)}&nbsp;%, tabletti {pct(sum.devices.tabletti)}&nbsp;%</p>}
 
       <div className="k-card" style={adminUsageCard}>
         <h2 style={adminUsageH2}>Milloin Koutsia käytetään</h2>
@@ -196,7 +196,7 @@ function AdminUsageBody({ sum, R }) {
         <div style={{ display: 'grid', gap: 6 }}>
           {views.map((r) => (
             <AdminUsageRow key={`${r.app}${r.role}${r.path}`} title={R.routeName(r.path)} value={r.views} max={sum.views[0].views}
-              meta={<><AdminUsageWho row={r} R={R} /><span>{adminUsagePlural(r.sessions, 'käyttökerta', 'käyttökertaa')}{r.seconds != null ? ` · keskim. ${R.fmtDuration(r.seconds)}` : ''}</span></>} />
+              meta={<><AdminUsageWho row={r} R={R} /><span>{adminUsagePlural(r.sessions, 'käyttökerta', 'käyttökertaa')}{r.seconds != null ? `, keskim. ${R.fmtDuration(r.seconds)}` : ''}</span></>} />
           ))}
           {sum.views.length > 12 && linkButton(allViews ? 'Näytä vähemmän' : `Näytä kaikki ${sum.views.length}`, () => setAllViews(!allViews))}
         </div>
@@ -213,7 +213,7 @@ function AdminUsageBody({ sum, R }) {
         <div style={{ display: 'grid', gap: 6 }}>
           {clickList.map((r) => (
             <AdminUsageRow key={`${r.app}${r.role}${r.path}${r.label}${r.target}`} title={R.clickName(r)} muted={!r.label} value={r.clicks} max={clicks[0]?.clicks || 1}
-              meta={<><AdminUsageWho row={r} R={R} /><span>{clickPath ? '' : `${R.routeName(r.path)} · `}{adminUsagePlural(r.sessions, 'käyttökerta', 'käyttökertaa')}</span></>} />
+              meta={<><AdminUsageWho row={r} R={R} /><span>{clickPath ? '' : `${R.routeName(r.path)}, `}{adminUsagePlural(r.sessions, 'käyttökerta', 'käyttökertaa')}</span></>} />
           ))}
           {!clicks.length && <span style={{ fontSize: 13.5, color: '#8a857a' }}>Ei vielä painalluksia.</span>}
           {clicks.length > 15 && linkButton(allClicks ? 'Näytä vähemmän' : `Näytä kaikki ${clicks.length}`, () => setAllClicks(!allClicks))}
@@ -232,7 +232,7 @@ function AdminUsageBody({ sum, R }) {
                 {r.places.map((p) => (
                   <span key={`${p.app}${p.role}${p.path}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginRight: 6 }}><AdminUsageWho row={p} R={R} />{R.routeName(p.path)}</span>
                 ))}
-                <span style={{ flexBasis: '100%' }}>viimeksi {R.fmtWhen(r.lastAt)}{r.count > 1 ? ` · ensimmäisen kerran ${R.fmtWhen(r.firstAt)}` : ''}</span>
+                <span style={{ flexBasis: '100%' }}>viimeksi {R.fmtWhen(r.lastAt)}{r.count > 1 ? `, ensimmäisen kerran ${R.fmtWhen(r.firstAt)}` : ''}</span>
               </>} />
           ))}
         </div>
@@ -251,7 +251,7 @@ function AdminUsageBody({ sum, R }) {
                   {s.errors > 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(199,123,46,0.15)', color: '#7a4c1e' }}>{adminUsagePlural(s.errors, 'virhe', 'virhettä')}</span>}
                 </span>
                 <span style={{ fontSize: 13, color: '#514c42' }}>
-                  {R.fmtWhen(s.start)} · {R.fmtDuration(s.seconds)} · {adminUsagePlural(s.views, 'sivu', 'sivua')} · {adminUsagePlural(s.clicks, 'painallus', 'painallusta')}
+                  {R.fmtWhen(s.start)}, {R.fmtDuration(s.seconds)}, {adminUsagePlural(s.views, 'sivu', 'sivua')}, {adminUsagePlural(s.clicks, 'painallus', 'painallusta')}
                 </span>
               </summary>
               <ol style={{ listStyle: 'none', margin: 0, padding: '8px 12px 12px', display: 'grid', gap: 4, borderTop: '1px solid #ebe7dd' }}>

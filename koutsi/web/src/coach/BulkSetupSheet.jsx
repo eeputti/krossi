@@ -130,7 +130,7 @@ export function BulkSetupSheet({ open, onClose }) {
   }
 
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Lisää monta kerralla" subtitle={`${done ? 4 : step}/4 · ${STEPS[(done ? 4 : step) - 1]}`} size="lg" dismissible={!busy} confirmClose={!done && rows.some((g) => g.name.trim() || g.level.trim() || g.time || g.names.trim() || g.theme.trim()) ? { title: 'Hylätäänkö täytetyt ryhmät?', message: 'Mitään ei ole vielä tallennettu.' } : false} footer={footer}>
+    <Sheet open={open} onClose={() => !busy && onClose()} title="Lisää monta kerralla" subtitle={`Vaihe ${done ? 4 : step}/4: ${STEPS[(done ? 4 : step) - 1]}`} size="lg" dismissible={!busy} confirmClose={!done && rows.some((g) => g.name.trim() || g.level.trim() || g.time || g.names.trim() || g.theme.trim()) ? { title: 'Hylätäänkö täytetyt ryhmät?', message: 'Mitään ei ole vielä tallennettu.' } : false} footer={footer}>
       <ol className="bs-steps" aria-label="Vaiheet">
         {STEPS.map((label, i) => (
           <li key={label} className={`bs-step${(done ? 4 : step) === i + 1 ? ' is-on' : ''}${(done ? 5 : step) > i + 1 ? ' is-done' : ''}`}>
@@ -143,7 +143,7 @@ export function BulkSetupSheet({ open, onClose }) {
         <div className="bs-done stack-3">
           <span className="bs-done-check"><Icon name="check" size={26} strokeWidth={3} /></span>
           <h3 className="t-h2">Valmis</h3>
-          <p className="k-quiet-text">{[plural(done.groups, 'ryhmä', 'ryhmää'), plural(done.players, 'pelaaja', 'pelaajaa'), done.themes ? plural(done.themes, 'teema', 'teemaa') : null].filter(Boolean).join(' · ')}. Treenit ovat kalenterissa {weeks} viikon ajan.</p>
+          <p className="k-quiet-text">{[plural(done.groups, 'ryhmä', 'ryhmää'), plural(done.players, 'pelaaja', 'pelaajaa'), done.themes ? plural(done.themes, 'teema', 'teemaa') : null].filter(Boolean).join(', ')}. Treenit ovat kalenterissa {weeks} viikon ajan.</p>
           <p className="field-msg">Pelaajat liittyvät omalla linkillään. Lähetä kutsut nyt, tai myöhemmin Pelaajat-sivulta.</p>
           <Button variant="outline" size="sm" icon="calendar" onClick={() => { onClose(); navigate('/valmentaja/ryhmat'); }}>Avaa Viikkohallinta</Button>
         </div>
@@ -181,9 +181,9 @@ export function BulkSetupSheet({ open, onClose }) {
             const onRoster = list.filter((n) => exactNameMatch(state.students, n)).length;
             return (
               <div key={g.key} className="k-subcard stack-2">
-                <label className="k-subcard-title" htmlFor={`bs-names-${g.key}`}>{g.day} {g.time} · {g.name.trim()}</label>
+                <label className="k-subcard-title" htmlFor={`bs-names-${g.key}`}>{g.day} {g.time}, {g.name.trim()}</label>
                 <Textarea id={`bs-names-${g.key}`} rows={4} value={g.names} onChange={(e) => setRow(g.key, { names: e.target.value })} placeholder={'Onni Virtanen\nAada Korhonen\n…'} />
-                {list.length > 0 && <span className="k-faint">{plural(list.length, 'nimi', 'nimeä')}{onRoster ? ` · ${onRoster} on jo listallasi — liitetään ryhmään` : ''}</span>}
+                {list.length > 0 && <span className="k-faint">{plural(list.length, 'nimi', 'nimeä')}{onRoster ? `, ${onRoster} on jo listallasi — liitetään ryhmään` : ''}</span>}
               </div>
             );
           })}
@@ -196,7 +196,7 @@ export function BulkSetupSheet({ open, onClose }) {
             <Button variant="outline" size="md" disabled={!sameTheme.trim()} onClick={fillSame}>Täytä tyhjät</Button>
           </div>
           {groups.map((g) => (
-            <Field key={g.key} label={`${g.day} ${g.time} · ${g.name.trim()} — vko ${firstWeek(g.day).week}`} htmlFor={`bs-theme-${g.key}`}>
+            <Field key={g.key} label={`${g.day} ${g.time}, ${g.name.trim()} — vko ${firstWeek(g.day).week}`} htmlFor={`bs-theme-${g.key}`}>
               <Input id={`bs-theme-${g.key}`} value={g.theme} onChange={(e) => setRow(g.key, { theme: e.target.value })} maxLength={KOUTSI_THEME_TITLE_MAX} placeholder="Ei teemaa" />
             </Field>
           ))}
@@ -210,14 +210,14 @@ export function BulkSetupSheet({ open, onClose }) {
               return (
                 <div key={g.key} className="bs-review-row">
                   <span className="t-num bs-review-when">{g.day} {g.time}</span>
-                  <span className="grow"><strong>{g.name.trim()}</strong><span className="k-faint">{` · ${plural(n, 'pelaaja', 'pelaajaa')}${g.theme.trim() ? ` · ${g.theme.trim()}` : ''}`}</span></span>
+                  <span className="grow"><strong>{g.name.trim()}</strong><span className="k-faint">{`, ${plural(n, 'pelaaja', 'pelaajaa')}${g.theme.trim() ? `, ${g.theme.trim()}` : ''}`}</span></span>
                 </div>
               );
             })}
           </div>
           <p className="field-msg">
-            {plural(groups.length, 'uusi ryhmä', 'uutta ryhmää')} · {plural(fresh.length, 'uusi pelaaja', 'uutta pelaajaa')}
-            {known.length ? ` · ${known.length} jo listallasi olevaa liitetään` : ''} · treenit {weeks} viikoksi{themed.length ? ` · ${plural(themed.length, 'teema', 'teemaa')}` : ''}.
+            {plural(groups.length, 'uusi ryhmä', 'uutta ryhmää')}, {plural(fresh.length, 'uusi pelaaja', 'uutta pelaajaa')}
+            {known.length ? `, ${known.length} jo listallasi olevaa liitetään` : ''}, treenit {weeks} viikoksi{themed.length ? `, ${plural(themed.length, 'teema', 'teemaa')}` : ''}.
           </p>
         </div>
       )}

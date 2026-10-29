@@ -33,7 +33,7 @@ function ThemeSection({ group }) {
   const past = group.pastThemes || [];
   const [shown, more] = useShowMore(past, 6);
   return (
-    <Block eyebrow="Viikon teema" title={week.week === now.week ? `Tämä viikko · vko ${week.week}` : `Ensi viikko · vko ${week.week}`}
+    <Block eyebrow="Viikon teema" title={week.week === now.week ? `Tämä viikko, vko ${week.week}` : `Ensi viikko, vko ${week.week}`}
       action={<Button variant="outline" size="sm" icon={current ? 'edit' : 'sparkles'} onClick={() => setThemeWeek(week)}>{current ? 'Vaihda' : 'Aseta'}</Button>}>
       {current ? (
         <div className="stack-3">
@@ -42,7 +42,7 @@ function ThemeSection({ group }) {
         </div>
       ) : (
         <Card className="k-empty-theme">
-          <p className="k-quiet-text">Tälle viikolle ei ole vielä teemaa{past[0] ? <> · edellinen: <strong>{themeWeekShort(past[0])} — {past[0].title}</strong></> : ''}.</p>
+          <p className="k-quiet-text">Tälle viikolle ei ole vielä teemaa{past[0] ? <>. Edellinen: <strong>{themeWeekShort(past[0])} — {past[0].title}</strong></> : ''}.</p>
           <Button variant="dark" size="sm" icon="sparkles" onClick={() => setThemeWeek(week)}>Aseta teema</Button>
         </Card>
       )}
@@ -97,7 +97,7 @@ function Members({ state, group, onAdd, onInvite }) {
     await run(() => api.groups.removeMember(group.id, m.id), 'Pelaaja poistettu ryhmästä.');
   };
   return (
-    <Block eyebrow="Pelaajat" title={`${members.length} pelaajaa${unjoined ? ` · ${unjoined} ei liittynyt` : ''}`}
+    <Block eyebrow="Pelaajat" title={`${members.length} pelaajaa${unjoined ? `, ${unjoined} ei liittynyt` : ''}`}
       action={<div className="row"><Button variant="outline" size="sm" icon="link" onClick={onInvite}>Kutsu</Button><Button variant="dark" size="sm" icon="plus" onClick={onAdd}>Lisää</Button></div>}>
       {members.length === 0 ? <Quiet icon="users">Ryhmässä ei ole vielä pelaajia.</Quiet> : (
         <div className="k-list">
@@ -134,7 +134,7 @@ export function GroupScreen({ params }) {
     );
   }
   const memberIds = group.memberIds.filter((id) => state.students.some((s) => s.id === id));
-  const scope = { name: group.name, text: memberIds.length === 1 ? 'Koko ryhmä · 1 pelaaja' : `Koko ryhmä · ${memberIds.length} pelaajaa` };
+  const scope = { name: group.name, text: memberIds.length === 1 ? 'Koko ryhmä, 1 pelaaja' : `Koko ryhmä, ${memberIds.length} pelaajaa` };
   const last = lastSessionDate(state, group.id);
   const endsSoon = !last || last <= koutsiAddDays(koutsiTodayStr(), 42);
   const removeSlot = async (slot) => {

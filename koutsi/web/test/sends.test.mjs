@@ -92,7 +92,7 @@ test('libraryItems: who has each video now and where it went; a saved one nobody
   assert.equal(libraryLine(state, fresh), 'Ei vielä jaettu');
   assert.deepEqual(kick.holderIds.sort(), ['aleksi', 'maria']);
   assert.equal(kick.sends.length, 1);
-  assert.match(libraryLine(state, kick), /^Aikuiset · /);
+  assert.match(libraryLine(state, kick), /^Aikuiset \(/);
 });
 
 test('sendLogFor: nothing before the database has Lähetetyt; the covered groups after', () => {

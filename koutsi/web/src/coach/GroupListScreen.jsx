@@ -38,7 +38,7 @@ export function GroupListScreen() {
     <Page width="wide">
       <PageHeader
         title="Ryhmät"
-        subtitle={state.groups.length ? `${state.groups.length} ryhmää · ${players} pelaajaa · teema ${status.covered}/${status.pool.length} ryhmällä vko ${week.week}` : 'Ei vielä ryhmiä'}
+        subtitle={state.groups.length ? `${state.groups.length} ryhmää, ${players} pelaajaa, teema ${status.covered}/${status.pool.length} ryhmällä vko ${week.week}` : 'Ei vielä ryhmiä'}
         actions={state.groups.length > 0 && (
           <>
             <Button variant="outline" size="sm" icon="list" onClick={() => setBulkOpen(true)}>Monta kerralla</Button>

@@ -25,7 +25,7 @@ export function groupLine(state, studentId) {
   if (!groups.length) return 'Yksityistunnit';
   const names = [...new Set(groups.map((g) => g.name))];
   const times = groups.slice(0, 2).map((g) => `${g.day} ${g.time}`).join(' ja ');
-  return `${names.join(', ')} · ${times}${groups.length > 2 ? ' …' : ''}`;
+  return `${names.join(', ')} (${times}${groups.length > 2 ? ' …' : ''})`;
 }
 
 function ThreadRow({ thread, student, state }) {
@@ -104,7 +104,7 @@ export function MessagingSheet({ open, onClose }) {
           ].filter(Boolean).join(', ');
           return (
             <div key={g.id} className="toggle-row">
-              <span className="toggle-row-text"><span className="toggle-row-label">{g.name}</span><span className="toggle-row-hint">{`${g.day} ${g.time} · ${hint}`}</span></span>
+              <span className="toggle-row-text"><span className="toggle-row-label">{g.name}</span><span className="toggle-row-hint">{`${g.day} ${g.time}, ${hint}`}</span></span>
               <Switch checked={st === 'on'} label={`Viestit: ${g.name} ${g.day} ${g.time}`} onChange={(v) => setDraft((d) => ({ ...d, [g.id]: v }))} />
             </div>
           );

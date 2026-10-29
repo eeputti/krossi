@@ -12,7 +12,7 @@ export function groupsSubtitle(groups) {
   if (!groups.length) return 'Liity ryhmään valmentajan koodilla';
   const names = [...new Set(groups.map((g) => g.name))];
   // two groups may share a name (Ti and To); the count is the groups, the names are said once
-  return groups.length === 1 ? names[0] : `${groups.length} ryhmää · ${names.join(', ')}`;
+  return groups.length === 1 ? names[0] : `${groups.length} ryhmää: ${names.join(', ')}`;
 }
 
 export function MoreSheet({ open, onClose, unread, onNotifications, onFeedback, onJoin, messages = null, invoices = null }) {

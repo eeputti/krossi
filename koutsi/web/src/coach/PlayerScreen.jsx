@@ -91,7 +91,7 @@ function Notes({ student, onEditNote, onEditHomework, onOpenVideo, onAudience })
             {student.videos.map((v) => (
               <div key={v.id} className="k-note-row">
                 <button type="button" className="k-video-thumb" style={{ '--h': v.hue }} onClick={() => onOpenVideo(v)} aria-label={`Katso ${v.title}`}><Icon name="play" size={14} /></button>
-                <div className="grow"><p className="k-note-text">{v.title}</p><span className="k-faint">{v.addedBy === 'player' ? 'Pelaajan oma' : `Jaettu ${v.recipientIds.length} pelaajalle`} · {koutsiFmtShortDate(v.date)}</span></div>
+                <div className="grow"><p className="k-note-text">{v.title}</p><span className="k-faint">{v.addedBy === 'player' ? 'Pelaajan oma' : `Jaettu ${v.recipientIds.length} pelaajalle`}, {koutsiFmtShortDate(v.date)}</span></div>
                 {v.addedBy !== 'player' && <IconButton icon="users" label="Kuka näkee" size="sm" onClick={() => onAudience(v)} />}
                 {v.addedBy !== 'player' && <IconButton icon="trash" label="Poista" size="sm" onClick={() => removeVideo(v)} />}
               </div>
@@ -112,7 +112,7 @@ function PlayerGoal({ student }) {
   const foot = [
     history[0] ? `Asetettu ${koutsiFmtEventDate(history[0].at)}` : '',
     earlier === 1 ? '1 aiempi tavoite aikajanalla' : earlier > 1 ? `${earlier} aiempaa tavoitetta aikajanalla` : '',
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(', ');
   return (
     <Card className="goal-card">
       <div className="eyebrow"><Icon name="target" size={13} /> Pelaajan tavoite</div>

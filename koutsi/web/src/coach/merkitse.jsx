@@ -112,7 +112,7 @@ const TITLES = {
 function recordTarget(state, today, pickedIds, week) {
   if (week) {
     const ids = groupMemberIds(state, week.groups);
-    return { ids, titles: TITLES.week, sub: `${groupsLabel(week.groups.length)} · ${playersLabel(ids.length)}`, picked: [], groups: [] };
+    return { ids, titles: TITLES.week, sub: `${groupsLabel(week.groups.length)}, ${playersLabel(ids.length)}`, picked: [], groups: [] };
   }
   const picked = today.filter((it) => pickedIds.includes(it.training.id));
   if (!picked.length) return { ids: [], titles: TITLES.any, sub: 'Yhdelle pelaajalle tai ryhmälle', picked, groups: [] };
@@ -125,7 +125,7 @@ function recordTarget(state, today, pickedIds, week) {
     return { ids, titles: one.group ? TITLES.group : TITLES.player, sub: one.group ? playersLabel(ids.length) : sessionName(one), picked, groups };
   }
   const count = privates.size ? `${picked.length} treeniä` : groupsLabel(groups.length);
-  return { ids, titles: groups.length ? TITLES.groups : TITLES.players, sub: `${count} · ${playersLabel(ids.length)}`, picked, groups };
+  return { ids, titles: groups.length ? TITLES.groups : TITLES.players, sub: `${count}, ${playersLabel(ids.length)}`, picked, groups };
 }
 
 /** Which session's Läsnäolo to open, when the picked ones leave a choice. */
@@ -138,7 +138,7 @@ function AttendancePicker({ open, items, onPick, onClose }) {
             <span className="ms-row-icon"><Icon name="user-check" size={16} /></span>
             <span className="ms-row-main">
               <span className="ms-row-title">{sessionName(it)}</span>
-              <span className="ms-row-sub">{it.training.time}–{it.end} · {STRIP_STATE[it.status]}</span>
+              <span className="ms-row-sub">{it.training.time}–{it.end}, {STRIP_STATE[it.status]}</span>
             </span>
             <Icon name="chevron-right" size={16} className="k-chevron" />
           </button>
@@ -155,12 +155,12 @@ function summaryRow(state, ctx, now, onPick) {
     const today = koutsiTodayStr();
     const recap = dayRecap(state, today, now);
     const parts = [recap.expected ? `Läsnä ${recap.present}/${recap.expected}` : '', recap.moodAverage != null ? `fiilis ${average(recap.moodAverage)} (${recap.moodCount})` : 'ei fiiliksiä vielä'].filter(Boolean);
-    return { id: 'paiva', icon: 'check-circle', title: 'Päivän yhteenveto', sub: parts.join(' · '), run: () => onPick({ kind: 'day', date: today }) };
+    return { id: 'paiva', icon: 'check-circle', title: 'Päivän yhteenveto', sub: parts.join(', '), run: () => onPick({ kind: 'day', date: today }) };
   }
   const week = koutsiCurrentIsoWeek();
   const recap = weekRecap(state, week, now);
   const sub = recap.sessions
-    ? [`${recap.held}/${recap.sessions} treeniä`, recap.attendance != null ? `läsnä ${percent(recap.attendance)}` : '', recap.moodAverage != null ? `fiilis ${average(recap.moodAverage)}` : ''].filter(Boolean).join(' · ')
+    ? [`${recap.held}/${recap.sessions} treeniä`, recap.attendance != null ? `läsnä ${percent(recap.attendance)}` : '', recap.moodAverage != null ? `fiilis ${average(recap.moodAverage)}` : ''].filter(Boolean).join(', ')
     : 'Ei treenejä tällä viikolla';
   return { id: 'viikko', icon: 'trophy', title: `Viikko ${week.week} paketissa`, sub, run: () => onPick({ kind: 'week', week }) };
 }
@@ -186,10 +186,10 @@ function MerkitseSheet({ open, onClose, onPick, pickedIds, week: weekOn, focusId
   const themes = koutsiWeekThemeStatus(state.groups, state.trainings, themeWeek);
   const attendNow = attend && sessionStatus(attend.training, attend.group, now) === 'now';
   const attendSub = attendChoices.length > 1 ? 'Valitse treeni'
-    : attendChoices.length === 1 ? `klo ${attendChoices[0].training.time} · ${sessionName(attendChoices[0])}`
+    : attendChoices.length === 1 ? `klo ${attendChoices[0].training.time}, ${sessionName(attendChoices[0])}`
       : !attend ? 'Ei treeniä tänään'
         : picked.length ? (attendNow ? 'Nyt käynnissä' : `klo ${attend.training.time}`)
-          : `${attendNow ? 'Nyt' : `klo ${attend.training.time}`} · ${sessionName(attend)}`;
+          : `${attendNow ? 'Nyt' : `klo ${attend.training.time}`}, ${sessionName(attend)}`;
   const openAttendance = (it) => { onClose(); navigate(it ? sessionPath(it.training.id) : '/valmentaja/ryhmat'); };
   const preset = target.ids;
   const tiles = [
@@ -202,7 +202,7 @@ function MerkitseSheet({ open, onClose, onPick, pickedIds, week: weekOn, focusId
   const others = [
     summaryRow(state, ctx, now, onPick),
     { id: 'teemat', icon: 'sparkles', title: 'Viikon teemat',
-      sub: themes.pool.length ? `${themes.covered}/${themes.pool.length} ryhmällä · vko ${themeWeek.week}` : 'Usealle ryhmälle kerralla',
+      sub: themes.pool.length ? `${themes.covered}/${themes.pool.length} ryhmällä, vko ${themeWeek.week}` : 'Usealle ryhmälle kerralla',
       run: () => { onClose(); openPlanner({ week: themeWeek }); } },
     { id: 'paivakirja', icon: 'book', title: 'Oma viikkomuistio', sub: 'Vain sinulle', run: () => onPick({ kind: 'week', week: koutsiCurrentIsoWeek() }) },
   ].filter(Boolean);
@@ -216,7 +216,7 @@ function MerkitseSheet({ open, onClose, onPick, pickedIds, week: weekOn, focusId
             {today.length > 0 && (
               <>
                 <div className="ms-today-head">
-                  <span className="eyebrow">Tänään · {koutsiFmtShortDate(koutsiTodayStr())}</span>
+                  <span className="eyebrow">Tänään, {koutsiFmtShortDate(koutsiTodayStr())}</span>
                   <span className="ms-today-count">{picked.length > 1 ? `${picked.length} valittu` : today.length === 1 ? '1 treeni' : `${today.length} treeniä`}</span>
                 </div>
                 <SessionStrip items={today} pickedIds={week ? [] : pickedIds} focusId={focusId}
@@ -233,7 +233,7 @@ function MerkitseSheet({ open, onClose, onPick, pickedIds, week: weekOn, focusId
                 <span className="ms-week-icon"><Icon name="calendar" size={18} /></span>
                 <span className="ms-row-main">
                   <span className="ms-row-title">Koko viikon ryhmät</span>
-                  <span className="ms-row-sub">Vko {thisWeek.week} · {groupsLabel(groupsThisWeek.length)} · {playersLabel(weekPlayers)}</span>
+                  <span className="ms-row-sub">Vko {thisWeek.week}, {groupsLabel(groupsThisWeek.length)}, {playersLabel(weekPlayers)}</span>
                 </span>
                 <span className="ms-week-check" aria-hidden="true">{week && <Icon name="check" size={14} />}</span>
               </button>
@@ -257,7 +257,7 @@ function MerkitseSheet({ open, onClose, onPick, pickedIds, week: weekOn, focusId
                 <span className="ms-open-group-icon"><Icon name="users" size={18} /></span>
                 <span className="ms-row-main">
                   <span className="ms-row-title">{target.groups.length === 1 ? 'Avaa koko ryhmä' : 'Avaa ryhmä'}</span>
-                  <span className="ms-row-sub">{target.groups.length === 1 ? it.group.name : `${it.training.time} · ${it.group.name}`}</span>
+                  <span className="ms-row-sub">{target.groups.length === 1 ? it.group.name : `${it.training.time}, ${it.group.name}`}</span>
                 </span>
                 <Icon name="chevron-right" size={18} className="k-chevron" />
               </button>

@@ -53,7 +53,7 @@ export function ContinueThemesSheet({ open, week, onClose }) {
   const themeForMissing = (ids) => { track('teemat.puuttuville'); onClose(); openPlanner({ week, groupIds: ids }); };
 
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} size="md" title={`Viikon teemat · vko ${week.week}`} dismissible={!busy}
+    <Sheet open={open} onClose={() => !busy && onClose()} size="md" title={`Viikon teemat, vko ${week.week}`} dismissible={!busy}
       confirmClose={!saved && rows.some((r) => r.title.trim() !== r.from.title)}
       subtitle={saved ? null : 'Jatka edellisillä: jokainen ryhmä saa oman edellisen teemansa. Voit muuttaa yksittäistä teemaa tai jättää ryhmän pois ennen tallennusta.'}
       footer={saved ? <Button variant="dark" size="lg" block onClick={onClose}>Valmis</Button> : (
@@ -84,8 +84,8 @@ export function ContinueThemesSheet({ open, week, onClose }) {
                     onChange={(e) => setRow(i, { title: e.target.value })} />
                   <div className="ct-from">
                     {changed
-                      ? <>Muutettu · edellinen vko {r.from.week}: {r.from.title} <button type="button" className="k-textlink" onClick={() => setRow(i, { title: r.from.title })}>Palauta</button></>
-                      : `Edellinen teema, vko ${r.from.week}${r.from.lead ? ' · tarkennus tulee mukana' : ''}`}
+                      ? <>Muutettu, edellinen vko {r.from.week}: {r.from.title} <button type="button" className="k-textlink" onClick={() => setRow(i, { title: r.from.title })}>Palauta</button></>
+                      : `Edellinen teema, vko ${r.from.week}${r.from.lead ? ', tarkennus tulee mukana' : ''}`}
                   </div>
                 </div>
               </div>

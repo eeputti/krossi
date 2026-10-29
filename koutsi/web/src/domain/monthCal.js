@@ -26,7 +26,7 @@ export function doneByDay(state, student, from, to, { hidden = new Set(), today 
         for (let d = t.date; d <= (t.endDate || t.date); d = koutsiAddDays(d, 1)) add(d, { key, kind: 'tournament', activity: 'turnaus', title: e.title, sub: 'Turnaus', time: '' });
         continue;
       }
-      add(t.date, { key, kind: 'own', activity: e.activity, title: e.title, sub: [t.durationMinutes ? `${t.durationMinutes} min` : '', e.text].filter(Boolean).join(' · '), time: t.time || '', minutes: t.durationMinutes || 0 });
+      add(t.date, { key, kind: 'own', activity: e.activity, title: e.title, sub: [t.durationMinutes ? `${t.durationMinutes}\u00a0min` : '', e.text].filter(Boolean).join(', '), time: t.time || '', minutes: t.durationMinutes || 0 });
       continue;
     }
     if ((t.absences || []).some((a) => a.studentId === student.id)) continue;
@@ -35,7 +35,7 @@ export function doneByDay(state, student, from, to, { hidden = new Set(), today 
   }
   for (const n of student.matchNotes || []) {
     const result = n.result === 'voitto' ? 'Voitto' : n.result === 'tappio' ? 'Tappio' : '';
-    add(n.date, { key: `match-${n.id}`, kind: 'match', activity: 'ottelu', title: `Ottelu vs. ${n.opponentName}`, sub: [result, n.score].filter(Boolean).join(' · '), time: '', minutes: n.durationMinutes || 0 });
+    add(n.date, { key: `match-${n.id}`, kind: 'match', activity: 'ottelu', title: `Ottelu vs. ${n.opponentName}`, sub: [result, n.score].filter(Boolean).join(', '), time: '', minutes: n.durationMinutes || 0 });
   }
   for (const e of student.entries || []) {
     add(e.date, { key: `entry-${e.id}`, kind: 'entry', activity: 'merkinta', title: 'Oma merkintä', sub: e.text, time: '' });

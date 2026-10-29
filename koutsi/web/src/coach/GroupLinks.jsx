@@ -73,7 +73,7 @@ export function GroupLinksSheet({ open, onClose, season }) {
   return (
     <>
       <Sheet open={open} onClose={onClose} size="lg" title="Jaa ryhmälinkit"
-        subtitle={`${season ? `${season.name} · ` : ''}${joined}/${total} pelaajaa liittynyt`}
+        subtitle={`${season ? `${season.name}, ` : ''}${joined}/${total} pelaajaa liittynyt`}
         footer={<div className="sheet-actions">
           <CopyButton text={message} label="Kopioi" size="lg" variant="soft" missing={ready ? null : chosen.length ? 'Linkkejä luodaan vielä — hetki.' : 'Valitse ainakin yksi ryhmä.'} />
           <ShareTextButton text={message} title="Liity Koutsiin" label={busy ? 'Luodaan linkkejä…' : 'Jaa viesti'} size="lg" variant="lime" missing={ready ? null : chosen.length ? 'Linkkejä luodaan vielä — hetki.' : 'Valitse ainakin yksi ryhmä.'} />
@@ -119,12 +119,12 @@ export function GroupQrSheet({ open, onClose, group, code, expiresAt }) {
   if (!group || !code) return null;
   const link = koutsiInviteLink(code);
   return (
-    <Sheet open={open} onClose={onClose} size="md" title={group.name} subtitle={`${group.day} ${group.time} · liity ryhmään`}>
+    <Sheet open={open} onClose={onClose} size="md" title={group.name} subtitle={`${group.day} ${group.time}, liity ryhmään`}>
       <div className="gl-qr">
         <QrCode text={link} size={260} />
         <p className="gl-qr-help">Skannaa puhelimen kameralla, luo tunnus ja olet ryhmässä.</p>
         <div className="k-code">{code}</div>
-        <p className="k-faint">koutsi.krossi.app/pelaaja · syötä koodi{expiresAt ? ` · voimassa ${koutsiFmtShortDate(String(expiresAt).slice(0, 10))} asti` : ''}</p>
+        <p className="k-faint">koutsi.krossi.app/pelaaja, syötä koodi{expiresAt ? `, voimassa ${koutsiFmtShortDate(String(expiresAt).slice(0, 10))} asti` : ''}</p>
         <CopyButton text={link} label="Kopioi linkki" />
       </div>
     </Sheet>

@@ -36,8 +36,8 @@ test('joined counts and one message for every group', () => {
     today: '2026-12-01',
   });
   assert.match(msg, /^Anna täällä! Kevät 2027 alkaa ma 11\.1\. Liity Krossi Koutsiin/);
-  assert.match(msg, /Ti 17:00 · Aikuiset edistyneet\nhttps:\/\/koutsi\.krossi\.app\/pelaaja\?koodi=ABC234/);
-  assert.ok(!msg.includes('· X'), 'a group without a link is left out');
+  assert.match(msg, /Ti 17:00, Aikuiset edistyneet\nhttps:\/\/koutsi\.krossi\.app\/pelaaja\?koodi=ABC234/);
+  assert.ok(!msg.includes(', X'), 'a group without a link is left out');
   assert.match(msg, /Alaikäiset liittyvät/);
 });
 

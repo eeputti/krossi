@@ -69,7 +69,7 @@ export function GroupThemeSheet({ open, group, week, onClose }) {
     <Sheet open={open} onClose={() => !busy && onClose()} size="md" dismissible={!busy}
       confirmClose={cleanTitle !== (current?.title || '') || cleanLead !== (current?.lead || '')}
       title={current ? 'Vaihda teema' : 'Aseta teema'}
-      subtitle={`${group.day} ${group.time} · ${group.name} · ${themeWeekLabel(week)}`}
+      subtitle={<>{`${group.day} ${group.time}, ${group.name}`}<br />{themeWeekLabel(week)}</>}
       footer={(
         <div className="sheet-actions">
           <Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button>

@@ -20,9 +20,9 @@ export function ProfileScreen() {
       <div className="stack-6">
         <ProfileCard person={me} uid={ownerId} editPath="/pelaaja/profiili/muokkaa"
           lines={[
-            [me.ageLabel, me.level, me.area].filter(Boolean).join(' · ') || 'Pelaaja',
-            groups.length > 0 ? groups.map((g) => `${g.day} ${g.time} ${g.name}`).join(' · ') : null,
-            tennisFacts(me).join(' · ') || null,
+            [me.ageLabel, me.level, me.area].filter(Boolean).join(', ') || 'Pelaaja',
+            groups.length > 0 ? groups.map((g) => `${g.day} ${g.time} ${g.name}`).join(', ') : null,
+            tennisFacts(me).join(', ') || null,
           ]}
           bio={me.bio} addBio="Lisää esittely itsestäsi" />
         <Card interactive onClick={() => actions.openText('note')} className="goal-card">

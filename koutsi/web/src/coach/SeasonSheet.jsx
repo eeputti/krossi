@@ -107,7 +107,7 @@ export function SeasonSheet() {
   return (
     <Sheet open={open} onClose={close} onClosed={() => goBack('/valmentaja/koti')} size="lg" dismissible={!busy}
       confirmClose={JSON.stringify(draft) !== startDraft.current ? { title: 'Hylätäänkö kauden muutokset?', message: 'Tallenna luonnos, niin voit jatkaa myöhemmin.' } : false}
-      title={step === 1 ? 'Uusi kausi' : draft.name} subtitle={`${step}/4 · ${STEPS[step - 1]}`} footer={footer} className="season-sheet">
+      title={step === 1 ? 'Uusi kausi' : draft.name} subtitle={`Vaihe ${step}/4: ${STEPS[step - 1]}`} footer={footer} className="season-sheet">
       <ol ref={top} className="season-steps" aria-hidden="true">
         {STEPS.map((label, i) => <li key={label} className={cx(i + 1 === step && 'is-on', i + 1 < step && 'is-done')} />)}
       </ol>
@@ -157,7 +157,7 @@ function StepSeason({ draft, setDraft, current }) {
           </div>
         </Field>
       )}
-      {weeks > 0 && <p className="k-faint">{weeks} viikkoa · {fmt(draft.startsOn)}–{fmt(draft.endsOn)}</p>}
+      {weeks > 0 && <p className="k-faint">{weeks} viikkoa, {fmt(draft.startsOn)}–{fmt(draft.endsOn)}</p>}
     </div>
   );
 }
@@ -180,7 +180,7 @@ function StepGroups({ draft, setDraft, summary }) {
     g.changed.length && `${g.changed.length} muuttuu`,
     g.ended.length && `${g.ended.length} loppuu`,
     g.added.length && `${g.added.length} uusi`,
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(', ');
   const rows = koutsiSortGroupsBySchedule(draft.groups);
   return (
     <div className="stack-4">
@@ -197,7 +197,7 @@ function StepGroups({ draft, setDraft, summary }) {
               <span className="k-row-main">
                 <span className="k-row-title truncate">{dg.name}</span>
                 <span className="k-row-sub truncate">
-                  {dg.status === 'loppuu' ? `Ei jatku ${seasonWord(draft.startsOn, 'ade')}` : moved ? `Ennen ${when(from)}` : `${count} pelaajaa · ${dg.durationMinutes} min`}
+                  {dg.status === 'loppuu' ? `Ei jatku ${seasonWord(draft.startsOn, 'ade')}` : moved ? `Ennen ${when(from)}` : `${count} pelaajaa, ${dg.durationMinutes}\u00a0min`}
                 </span>
               </span>
               <Chip tone={STATUS[dg.status].tone} size="sm">{STATUS[dg.status].label}</Chip>
@@ -252,7 +252,7 @@ function DraftGroupSheet({ draft, groupKey, onClose, onSave }) {
   );
   return (
     <Sheet open={Boolean(groupKey)} onClose={onClose} size="md"
-      title={isNew ? 'Uusi ryhmä' : dg?.name} subtitle={isNew ? `${draft.name} · pelaajat lisäät seuraavassa vaiheessa` : `${when(from || dg)} · ${count} pelaajaa`}
+      title={isNew ? 'Uusi ryhmä' : dg?.name} subtitle={isNew ? `${draft.name}, pelaajat lisäät seuraavassa vaiheessa` : `${when(from || dg)}, ${count} pelaajaa`}
       footer={<div className="sheet-actions">
         {dg?.status === 'uusi' ? <Button variant="ghost" size="lg" icon="trash" onClick={remove}>Poista</Button> : <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>}
         <Button variant="dark" size="lg" missing={valid ? null : !form.name.trim() ? 'Anna ryhmälle nimi.' : 'Valitse kellonaika.'} onClick={save}>{isNew ? 'Lisää ryhmä' : 'Valmis'}</Button>
@@ -298,7 +298,7 @@ function StepPlayers({ draft, setDraft, summary }) {
     p.moved.length && `${p.moved.length} siirtyy`,
     p.newPlayers.length && `${p.newPlayers.length} uutta`,
     p.leaving.length && `${p.leaving.length} ei jatka`,
-  ].filter(Boolean).join(' · ');
+  ].filter(Boolean).join(', ');
   const chip = (ref, dg) => {
     const isNew = draft.newPlayers.some((x) => x.key === ref);
     const before = isNew ? [] : groupsBefore(ref);
@@ -379,7 +379,7 @@ function PlaceSheet({ draft, playerRef, name, before, onClose, onSave }) {
             <label key={dg.key} className={cx('k-pick', picked.includes(dg.key) && 'is-on')}>
               <input type="checkbox" checked={picked.includes(dg.key)} onChange={() => setPicked((p) => (p.includes(dg.key) ? p.filter((x) => x !== dg.key) : [...p, dg.key]))} />
               <span className="grow">
-                <span className="k-pick-title">{when(dg)} · {dg.name}</span>
+                <span className="k-pick-title">{when(dg)}, {dg.name}</span>
                 {dg.fromId && beforeIds.has(dg.fromId) && <span className="k-faint">Pelaa tässä nyt</span>}
                 {dg.status === 'uusi' && <span className="k-faint">Uusi ryhmä</span>}
               </span>
@@ -404,7 +404,7 @@ function SignupsSheet({ open, draft, onClose, onSave }) {
   const ready = rows.filter((r) => r.groupKey);
   const reset = () => { setPaste(''); setAssign({}); };
   return (
-    <Sheet open={open} onClose={() => { reset(); onClose(); }} size="md" title="Lisää ilmoittautuneet" subtitle={`${draft.name} · esim. seuran ilmoittautumislistalta`}
+    <Sheet open={open} onClose={() => { reset(); onClose(); }} size="md" title="Lisää ilmoittautuneet" subtitle={`${draft.name}, esim. seuran ilmoittautumislistalta`}
       footer={<div className="sheet-actions">
         <Button variant="soft" size="lg" onClick={() => { reset(); onClose(); }}>Peruuta</Button>
         <Button variant="dark" size="lg" missing={!ready.length ? 'Liitä nimet ja valitse kullekin ryhmä.' : null} onClick={() => { onSave(ready); reset(); }}>{ready.length ? `Lisää ${ready.length}` : 'Lisää'}</Button>
@@ -422,7 +422,7 @@ function SignupsSheet({ open, draft, onClose, onSave }) {
                   <span className="k-faint">{r.existingId ? 'On jo listallasi — tunnus ja kehitys jatkuvat' : 'Uusi pelaaja — saa kutsulinkin'}</span>
                 </span>
                 <Select aria-label={`Ryhmä: ${r.name}`} value={r.groupKey} placeholder="Valitse ryhmä"
-                  options={groups.map((dg) => ({ value: dg.key, label: `${when(dg)} · ${dg.name}` }))}
+                  options={groups.map((dg) => ({ value: dg.key, label: `${when(dg)}, ${dg.name}` }))}
                   onChange={(e) => setAssign((a) => ({ ...a, [r.name]: e.target.value }))} />
               </div>
             ))}
@@ -465,7 +465,7 @@ function StepReview({ draft, summary, current }) {
       <section className="season-hero on-dark">
         <span className="eyebrow">Uusi kausi</span>
         <h3 className="season-hero-title">{draft.name}</h3>
-        <span className="season-hero-sub">{fmt(draft.startsOn)}–{fmt(draft.endsOn)} · {summary.weeks} viikkoa</span>
+        <span className="season-hero-sub">{fmt(draft.startsOn)}–{fmt(draft.endsOn)}, {summary.weeks} viikkoa</span>
         <div className="season-stats">
           <span><b className="t-num">{g.active.length}</b>ryhmää</span>
           <span><b className="t-num">{summary.sessions}</b>treeniä</span>

@@ -227,7 +227,7 @@ function KoutsiAttendanceBadge({ entry, onClick, compact = false }) {
       cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0,
     }}>
       <span style={{ width: 7, height: 7, borderRadius: '50%', background: tone.fg }} />
-      {label} · Muokkaa
+      {label} (muokkaa)
     </button>
   );
 }
@@ -262,7 +262,7 @@ function KoutsiAttendanceModal({ studentName, training, eligibleTrainings, entry
     <div onClick={onClose} role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(10,15,10,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Läsnäolo — ${studentName}`} className="k-card" style={{ width: 'min(500px, 100%)', maxHeight: '90vh', overflowY: 'auto', padding: '26px 26px 22px', animation: 'kFadeIn .2s ease' }}>
         <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 5 }}>Läsnäolo — {studentName}</h3>
-        <div style={{ fontSize: 13.5, color: '#8a857a', marginBottom: 20 }}>{window.koutsiFmtShortDate(training.date)} · klo {training.time} · {training.type}</div>
+        <div style={{ fontSize: 13.5, color: '#8a857a', marginBottom: 20 }}>{window.koutsiFmtShortDate(training.date)} klo {training.time}, {training.type}</div>
 
         <div style={{ fontSize: 11.5, fontWeight: 800, color: '#8a857a', textTransform: 'uppercase', letterSpacing: 0.55, marginBottom: 9 }}>Tila</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 18 }}>

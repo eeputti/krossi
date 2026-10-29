@@ -320,14 +320,14 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     if (!ctx || (ctx.kind !== 'day' && ctx.kind !== 'week')) return null;
     if (ctx.kind === 'day') {
       const r = dayRecap(state, today, now);
-      const sub = [r.expected ? `Läsnä ${r.present}/${r.expected}` : '', r.moodAverage != null ? `fiilis ${fmtAvg(r.moodAverage)}` : 'ei fiiliksiä vielä'].filter(Boolean).join(' · ');
+      const sub = [r.expected ? `Läsnä ${r.present}/${r.expected}` : '', r.moodAverage != null ? `fiilis ${fmtAvg(r.moodAverage)}` : 'ei fiiliksiä vielä'].filter(Boolean).join(', ');
       return { id: 'paiva', icon: 'check-circle', title: 'Päivän yhteenveto', sub, run: () => { track('merkitse.paiva'); onDay?.(today); } };
     }
     const r = weekRecap(state, week, now);
     const sub = r.sessions
-      ? [`${r.held}/${r.sessions} treeniä`, r.attendance != null ? `läsnä ${Math.round(r.attendance * 100)} %` : '', r.moodAverage != null ? `fiilis ${fmtAvg(r.moodAverage)}` : ''].filter(Boolean).join(' · ')
+      ? [`${r.held}/${r.sessions} treeniä`, r.attendance != null ? `läsnä ${Math.round(r.attendance * 100)}\u00a0%` : '', r.moodAverage != null ? `fiilis ${fmtAvg(r.moodAverage)}` : ''].filter(Boolean).join(', ')
       : 'Ei treenejä tällä viikolla';
-    return { id: 'viikko', icon: 'trophy', title: `Viikko ${week.week} paketissa · oma muistio`, sub, run: () => { track('merkitse.viikko'); onWeek?.(week); } };
+    return { id: 'viikko', icon: 'trophy', title: `Viikko ${week.week} paketissa, oma muistio`, sub, run: () => { track('merkitse.viikko'); onWeek?.(week); } };
   })();
   const others = [
     ...(summary ? [summary] : []),
@@ -357,7 +357,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
       {choosing ? (
         <div className="vs-choose stack-4">
           {situation && (
-            <p className="vs-situation">{situation.live && <span className="k-ctx-live" aria-hidden="true" />}<strong>{situation.label}</strong> · {situation.text}</p>
+            <p className="vs-situation">{situation.live && <span className="k-ctx-live" aria-hidden="true" />}<strong>{situation.label}</strong> {situation.text}</p>
           )}
           {/* the same tiles and rows as a session's sheet in Viikkohallinta (tiles.jsx) */}
           <ChoiceGrid label="Mitä merkitset?" tiles={tiles} />
@@ -377,7 +377,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
 
         <>
         <section className="vs-to" aria-label={attendance ? 'Mikä treeni' : 'Kenelle'}>
-          <div className="vs-label">{attendance ? 'Mikä treeni · tänään' : 'Mille ryhmille'}</div>
+          <div className="vs-label">{attendance ? 'Mikä treeni tänään' : 'Mille ryhmille'}</div>
           {attendance ? (
             shownChips.length === 0 ? (
               <div className="vs-empty">
@@ -438,7 +438,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
           {!attendance && ids.length > 0 && (
             <div className="vs-summary">
               <span className="vs-summary-avatars" aria-hidden="true">{shown.slice(0, 4).map((s) => <Avatar key={s.id} person={s} size={26} />)}</span>
-              <span className="vs-summary-text"><strong>{ids.length === 1 ? '1 pelaaja' : `${ids.length} pelaajaa`}</strong> · {recipientSummary(state.students, ids)}</span>
+              <span className="vs-summary-text"><strong>{ids.length === 1 ? '1 pelaaja' : `${ids.length} pelaajaa`}</strong>: {recipientSummary(state.students, ids)}</span>
             </div>
           )}
           {!attendance && pickerOpen && (
@@ -475,7 +475,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
                         <li key={a.id} className="vs-sent-row">
                           <span className="vs-sent-main">
                             <span className="vs-sent-text">{a.text}</span>
-                            <span className="vs-sent-sub">{[noticeAudience(a), `${koutsiFmtShortDate(a.until)} asti`].filter(Boolean).join(' · ')}</span>
+                            <span className="vs-sent-sub">{[noticeAudience(a), `${koutsiFmtShortDate(a.until)} asti`].filter(Boolean).join(', ')}</span>
                           </span>
                           <IconButton icon="trash" label="Poista tiedote" size="sm" onClick={() => removeNotice(a)} />
                         </li>

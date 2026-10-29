@@ -92,7 +92,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
   // The forms opened from here say on top which group (or player) and session they are for.
   const scope = {
     name, icon: group ? 'users' : 'user',
-    text: `${weekdayOf(item.date).slice(0, 2)} ${dayMonth(item.date)} klo ${item.time} · ${whoCount(item.status, ids.length)}`,
+    text: `${weekdayOf(item.date).slice(0, 2)} ${dayMonth(item.date)} klo ${item.time}, ${whoCount(item.status, ids.length)}`,
   };
   const recordFor = (kind) => then(() => record.open(kind, { ids, source: 'viikko', scope }));
   const noticesReady = state.announcementsReady !== false;
@@ -124,7 +124,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
     status = (
       <div className="wb-status is-past">
         <Icon name="check-circle" size={18} className="wb-status-icon" />
-        <span className="grow"><strong>Pidetty</strong><span className="wb-status-text">{roster.length ? `${roster.length - absent}/${roster.length} paikalla` : 'Ei pelaajia'}{theme ? ` · teema ${theme.title}` : ''}</span></span>
+        <span className="grow"><strong>Pidetty</strong><span className="wb-status-text">{roster.length ? `${roster.length - absent}/${roster.length} paikalla` : 'Ei pelaajia'}{theme ? `, teema ${theme.title}` : ''}</span></span>
       </div>
     );
   } else {
@@ -176,7 +176,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
 
   return (
     <>
-      <Sheet open={open} onClose={onClose} title={name} subtitle={`${weekdayOf(item.date)} ${dayMonth(item.date)} · ${time}`} size="md">
+      <Sheet open={open} onClose={onClose} title={name} subtitle={`${weekdayOf(item.date)} ${dayMonth(item.date)} klo ${time}`} size="md">
         <div className="stack-4">
           {status}
           {facts.length > 0 && <div className="wb-facts">{facts.map((f) => <span key={f} className="wb-fact">{f}</span>)}</div>}

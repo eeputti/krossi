@@ -32,9 +32,9 @@ const toMinutes = (hhmm) => { const [h, m] = String(hhmm || '00:00').split(':').
 
 /** "Ohi · läsnä 5/6", "Käynnissä · 25 min jäljellä", "4 pelaajaa · alkaa 1 h päästä". */
 export function sessionStateText(it) {
-  if (it.status === 'past') return it.roster ? `Ohi · läsnä ${it.present}/${it.roster}` : 'Ohi';
-  if (it.status === 'now') return `Käynnissä · ${minutesLabel(it.minutesLeft)} jäljellä${it.absent ? ` · ${it.absent} poissa` : ''}`;
-  return [players(it.roster), it.minutesUntil != null && it.minutesUntil <= 180 ? `alkaa ${minutesLabel(it.minutesUntil)} päästä` : '', it.absent ? `${it.absent} ei pääse` : ''].filter(Boolean).join(' · ');
+  if (it.status === 'past') return it.roster ? `Ohi, läsnä ${it.present}/${it.roster}` : 'Ohi';
+  if (it.status === 'now') return `Käynnissä, ${minutesLabel(it.minutesLeft)} jäljellä${it.absent ? `, ${it.absent} poissa` : ''}`;
+  return [players(it.roster), it.minutesUntil != null && it.minutesUntil <= 180 ? `alkaa ${minutesLabel(it.minutesUntil)} päästä` : '', it.absent ? `${it.absent} ei pääse` : ''].filter(Boolean).join(', ');
 }
 
 function TimelineItem({ it, open, now }) {
@@ -81,7 +81,7 @@ function TimelineItem({ it, open, now }) {
 function DaySummary({ items }) {
   if (!items.length) return null;
   return (
-    <span className="tt-summary">{items.length === 1 ? '1 treeni' : `${items.length} treeniä`} · <span className="t-num">{items[0].training.time}–{items[items.length - 1].end}</span></span>
+    <span className="tt-summary">{items.length === 1 ? '1 treeni' : `${items.length} treeniä`} klo <span className="t-num">{items[0].training.time}–{items[items.length - 1].end}</span></span>
   );
 }
 

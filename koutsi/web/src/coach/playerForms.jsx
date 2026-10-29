@@ -54,7 +54,7 @@ export function AddPlayerSheet({ open, onClose }) {
       if (id) navigate(playerPath(id));
     }
   };
-  const groupOptions = state.groups.map((g) => ({ value: g.id, label: `${g.day} ${g.time} · ${g.name}` }));
+  const groupOptions = state.groups.map((g) => ({ value: g.id, label: `${g.day} ${g.time}, ${g.name}` }));
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Lisää pelaaja" subtitle="Nimi riittää. Pelaaja voi liittyä myöhemmin omalla linkillään." size="md" dismissible={!busy} confirmClose={Boolean(name.trim())}
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!name.trim() ? 'Kirjoita pelaajan nimi.' : !valid ? 'Iän pitää olla 1–119 vuotta.' : exact ? `Sinulla on jo pelaaja nimeltä ${exact.name}. Erota nimet toisistaan.` : null} loading={busy} onClick={submit}>Lisää</Button></div>}>

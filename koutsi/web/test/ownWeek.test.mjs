@@ -108,6 +108,6 @@ test("a coach's timeline names the player's run, not its category", async () => 
   const run = { id: 'r1', date: '2026-10-01', time: '07:00', type: 'Fysiikka', loggedBy: 'player', durationMinutes: 30, notes: ownNotes('lenkki', '5 km'), studentId: 's1', absences: [] };
   const old = { ...run, id: 'r2', notes: 'Juoksu' };
   const tl = koutsiBuildTimeline(s, [run, old], [], { viewer: 'coach' });
-  assert.deepEqual([tl.find((e) => e.id === 'training-r1').title, tl.find((e) => e.id === 'training-r1').body], ['Lenkki', '30 min · 5 km']);
-  assert.deepEqual([tl.find((e) => e.id === 'training-r2').title, tl.find((e) => e.id === 'training-r2').body], ['Fysiikka', '30 min · Juoksu']);
+  assert.deepEqual([tl.find((e) => e.id === 'training-r1').title, tl.find((e) => e.id === 'training-r1').body], ['Lenkki', '30 min, 5 km']);
+  assert.deepEqual([tl.find((e) => e.id === 'training-r2').title, tl.find((e) => e.id === 'training-r2').body], ['Fysiikka', '30 min, Juoksu']);
 });

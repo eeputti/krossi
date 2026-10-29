@@ -510,9 +510,9 @@ export function seed() {
   const sends = demoSends(students, groups, videoLibrary);
 
   const coach = person(COACH, 'Anna Koskinen', {
-    tagline: 'Tennisvalmentaja · Lahti',
+    tagline: 'Tennisvalmentaja, Lahti',
     bio: 'Valmennan junioreita ja aikuisia Lahden sisähallissa. Jokaisella viikolla on yksi selkeä teema, ja pelaaja näkee sen jo ennen treeniä.',
-    experience: '12 vuotta valmennuskokemusta · Tennisliiton tason 2 valmentajakoulutus',
+    experience: '12 vuotta valmennuskokemusta, Tennisliiton tason 2 valmentajakoulutus',
     specialties: ['Juniorit', 'Aikuisryhmät', 'Kilpavalmennus', 'Syöttö ja palautus'], area: 'Lahti',
     welcomeSeenAt: isoAt(-80),
   });
@@ -523,7 +523,7 @@ export function seed() {
   const leiri = koutsiNextWeekday(day(33), 'Pe');
   return {
     coach,
-    coaches: [coach, person(COACH2, 'Juho Aalto', { tagline: 'Fysiikkavalmentaja · kilparyhmät', bio: '', experience: '', specialties: [], welcomeSeenAt: null })],
+    coaches: [coach, person(COACH2, 'Juho Aalto', { tagline: 'Fysiikkavalmentaja, kilparyhmät', bio: '', experience: '', specialties: [], welcomeSeenAt: null })],
     students,
     groups,
     trainings,
@@ -542,7 +542,7 @@ export function seed() {
       { id: 'demo-nt-2', kind: 'player_feedback', title: 'Jussi T. lähetti toiveen', body: 'Enemmän pistepelejä loppuun?', linkPath: '/valmentaja/pelaaja/demo-s-jussi', createdAt: isoAt(-1, 21, 5), read: false },
       { id: 'demo-nt-3', kind: 'homework_done', title: 'Aleksi R. merkitsi kotiläksyn tehdyksi', body: 'Rystyn varjolyönnit 3×15 askelkuvion kanssa', linkPath: '/valmentaja/pelaaja/demo-s-aleksi', createdAt: isoAt(-2, 7, 45), read: false },
       { id: 'demo-nt-4', kind: 'player_feedback', title: 'Pirjo S. lähetti toiveen', body: 'Voisiko loppuun pelata enemmän nelinpeliä?', linkPath: '/valmentaja/pelaaja/demo-s-pirjo', createdAt: isoAt(-2, 13, 10), read: true },
-      ...(tommiNext ? [{ id: 'demo-nt-6', kind: 'player_absence', title: 'Tommi H. ei pääse', body: `Aikuiset edistyneet · ${koutsiFmtShortDate(tommiNext.date).toLowerCase()} klo ${tommiNext.time}`, linkPath: `/valmentaja/treeni/${tommiNext.id}`, createdAt: isoAt(-1, 21, 40), read: false }] : []),
+      ...(tommiNext ? [{ id: 'demo-nt-6', kind: 'player_absence', title: 'Tommi H. ei pääse', body: `Aikuiset edistyneet, ${koutsiFmtShortDate(tommiNext.date).toLowerCase()} klo ${tommiNext.time}`, linkPath: `/valmentaja/treeni/${tommiNext.id}`, createdAt: isoAt(-1, 21, 40), read: false }] : []),
       { id: 'demo-nt-5', kind: 'match_note', title: 'Uusi ottelumuistiinpano', body: 'Maria K. — vastustaja Sofia L.', linkPath: '/valmentaja/pelaaja/demo-s-maria', createdAt: isoAt(-4, 21), read: true },
     ].sort(desc('createdAt')),
     playerNotifications: [

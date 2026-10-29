@@ -29,7 +29,7 @@ function sectionWhen(sec, today) {
   if (sec.status === 'now') return 'Nyt käynnissä';
   if (sec.status === 'past') return sec.minutesAgo <= JUST_ENDED_MINUTES ? 'Juuri päättynyt' : sec.training.date === today ? 'Aiemmin tänään' : 'Eilen';
   const day = relativeDay(sec.training.date, today);
-  const soon = sec.minutesUntil <= 180 ? ` · alkaa ${minutesLabel(sec.minutesUntil)} päästä` : '';
+  const soon = sec.minutesUntil <= 180 ? `, alkaa ${minutesLabel(sec.minutesUntil)} päästä` : '';
   return day.charAt(0).toUpperCase() + day.slice(1) + soon;
 }
 
@@ -37,7 +37,7 @@ function sectionWhen(sec, today) {
 function SessionHead({ sec, state, when }) {
   const roster = sessionRoster(state, sec.training).length;
   const away = (sec.training.absences || []).length;
-  const name = sec.group ? sec.group.name : [sec.training.type, sec.student?.name].filter(Boolean).join(' · ');
+  const name = sec.group ? sec.group.name : [sec.training.type, sec.student?.name].filter(Boolean).join(', ');
   const meta = sec.status === 'past' ? `läsnä ${Math.max(0, roster - away)}/${roster}` : away ? `${away} poissa` : '';
   const just = sec.status === 'now' || (sec.status === 'past' && sec.minutesAgo <= JUST_ENDED_MINUTES);
   return (
@@ -97,7 +97,7 @@ export function PlayersScreen() {
     <Page>
       <PageHeader
         title="Pelaajat"
-        subtitle={state.students.length ? `${state.students.length} pelaajaa${unjoined ? ` · ${unjoined} ei vielä liittynyt` : ''}` : 'Ei vielä pelaajia'}
+        subtitle={state.students.length ? `${state.students.length} pelaajaa${unjoined ? `, ${unjoined} ei vielä liittynyt` : ''}` : 'Ei vielä pelaajia'}
         actions={state.students.length > 0 && (
           <>
             <Button variant="outline" size="sm" icon="send" onClick={openInvites}>Kutsu</Button>
@@ -132,7 +132,7 @@ export function PlayersScreen() {
                   <div key={r.s.id} style={{ '--i': i }}>
                     <PlayerRow
                       student={r.s}
-                      sub={r.groups.length ? r.groups.map((g) => `${g.day} ${g.time}`).join(', ') + (r.s.level ? ` · ${r.s.level}` : '') : (r.s.level || 'Ei ryhmää')}
+                      sub={r.groups.length ? r.groups.map((g) => `${g.day} ${g.time}`).join(', ') + (r.s.level ? `, ${r.s.level}` : '') : (r.s.level || 'Ei ryhmää')}
                       right={rowChip(r.s, r.days, false)}
                     />
                   </div>
@@ -170,7 +170,7 @@ export function PlayersScreen() {
                       <PlayerRow
                         key={student.id}
                         student={student}
-                        sub={next ? `Seuraava ${sessionWhen(next, today)}` : groupTimes(student.id) + (student.level ? ` · ${student.level}` : '')}
+                        sub={next ? `Seuraava ${sessionWhen(next, today)}` : groupTimes(student.id) + (student.level ? `, ${student.level}` : '')}
                         right={rowChip(student, daysOf(student.id), false)}
                       />
                     ))}

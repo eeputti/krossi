@@ -197,7 +197,7 @@ export function Chat({ thread, viewer, title, sub, person, onBack, onWho, headAc
               </div>
             </div>
             <div className={cx('chat-meta t-num', !it.mine && 'has-av')}>
-              {it.bubbles.some((m) => m.local) ? 'Lähetetään…' : `${it.time}${it.mine && it.key === lastMineKey && isSeen ? ' · Nähty' : ''}`}
+              {it.bubbles.some((m) => m.local) ? 'Lähetetään…' : `${it.time}${it.mine && it.key === lastMineKey && isSeen ? ', nähty' : ''}`}
             </div>
           </div>
         )))}

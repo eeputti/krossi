@@ -141,7 +141,7 @@ export async function mailGuestConfirmed(admin: SupabaseClient, bookingId: strin
     const until = slot(f.cancellableUntil, tz).label;
     const sent = await send(f.email, f.name, {
       subject: `Kenttä varattu: ${when(f)}`,
-      preheader: `${place(f)} · ${euros(f.priceCents)} maksettu`,
+      preheader: `${place(f)}, ${euros(f.priceCents)} maksettu`,
       heading: 'Kenttävarauksesi on vahvistettu',
       paragraphs: [
         `Maksu ${euros(f.priceCents)} on vastaanotettu, ja kenttä on varattu sinulle. Kuitti tulee erikseen.`,

@@ -72,7 +72,7 @@ function BoardBlock({ item, grid, onOpen }) {
         {!missing && (
           <span className="wb-b-meta">
             {group ? (
-              <><Icon name="users" size={12} /><span className="t-num">{item.members}</span>{group.level && <span className="wb-b-level">· {group.level}</span>}</>
+              <><Icon name="users" size={12} /><span className="t-num">{item.members}</span>{group.level && <span className="wb-b-level">{group.level}</span>}</>
             ) : <span className="wb-b-level">{training?.type || 'Yksityistunti'}</span>}
             {item.absent > 0 && <span className="wb-b-absent">{item.absent} poissa</span>}
           </span>
@@ -80,7 +80,7 @@ function BoardBlock({ item, grid, onOpen }) {
         {missing ? (
           <span className="wb-b-line">{issues.length ? issues[0].label : MISSING[item.why]}</span>
         ) : issues.length > 0 ? (
-          <span className="wb-b-line is-issue"><span className="wb-b-issue">{issues.map((i) => i.label).join(' · ')}</span></span>
+          <span className="wb-b-line is-issue"><span className="wb-b-issue">{issues.map((i) => i.label).join(', ')}</span></span>
         ) : theme ? (
           <span className="wb-b-line is-theme"><Icon name="sparkles" size={12} /><span className="wb-b-theme">{theme.title}</span></span>
         ) : null}
@@ -92,14 +92,14 @@ function BoardBlock({ item, grid, onOpen }) {
 /** A club event: its kind's icon, its name, and its kind and days under it. */
 function EventBar({ bar, onOpen, style }) {
   const { event } = bar;
-  const label = `${event.title} · ${kindLabel(event.kind)} · ${eventRangeLabel(event)}`;
+  const label = `${event.title}, ${kindLabel(event.kind)}, ${eventRangeLabel(event)}`;
   return (
     <button type="button" className={cx('wb-event', bar.before && 'is-before', bar.after && 'is-after')} style={style}
       onClick={() => onOpen(event)} aria-label={`${label} — muokkaa`} title={label}>
       <span className="wb-event-icon"><Icon name={EVENT_ICON[event.kind] || 'flag'} size={14} strokeWidth={2.2} /></span>
       <span className="wb-event-text">
         <span className="wb-event-title">{event.title}</span>
-        <span className="wb-event-sub">{kindLabel(event.kind)}<span className="wb-event-range"> · <span className="t-num">{eventRangeLabel(event)}</span></span></span>
+        <span className="wb-event-sub">{kindLabel(event.kind)}<span className="wb-event-range">, <span className="t-num">{eventRangeLabel(event)}</span></span></span>
       </span>
       <Icon name="chevron-right" size={16} className="wb-event-go" />
     </button>
@@ -231,7 +231,7 @@ export function BoardScreen({ query }) {
   return (
     <Page width="full" className="wb-page">
       <header className="wb-head">
-        <div className="eyebrow wb-eyebrow">Viikkohallinta{relative ? ` · ${relative}` : ''}</div>
+        <div className="eyebrow wb-eyebrow">Viikkohallinta{relative ? `, ${relative}` : ''}</div>
         <div className="wb-head-row">
           <div className="wb-week">
             <IconButton icon="chevron-left" label="Edellinen viikko" variant="soft" onClick={() => setWeek(koutsiAddIsoWeeks(week, -1))} />
@@ -242,7 +242,7 @@ export function BoardScreen({ query }) {
             <button type="button" className="wb-range" onClick={() => setSheet({ kind: 'pick' })} aria-label={`${weekRangeLabel(week)} — valitse viikko`}>
               <span className="t-num">{weekRangeLabel(week)}</span><Icon name="chevron-down" size={14} />
             </button>
-            <span className="wb-counts">{plural(state.groups.length, 'ryhmä', 'ryhmää')} · {plural(board.sessions, 'treeni', 'treeniä')}</span>
+            <span className="wb-counts">{plural(state.groups.length, 'ryhmä', 'ryhmää')}, {plural(board.sessions, 'treeni', 'treeniä')}</span>
           </div>
           {!isCurrent && <button type="button" className="wb-today-btn" onClick={() => setWeek(current)}>Tämä viikko</button>}
           <span className="wb-add-slot">{addButton}</span>
@@ -301,7 +301,7 @@ export function BoardScreen({ query }) {
           <div className="wb-axis" aria-hidden="true">
             {hourLines.map((h) => <span key={h} className="wb-axis-label t-num" style={{ top: y(grid.at(h * 60)) }}>{String(h).padStart(2, '0')}:00</span>)}
             {grid.rows.filter((r) => r.type === 'fold').map((r) => (
-              <span key={`f${r.from}`} className="wb-axis-fold" style={{ top: y(grid.at(r.from * 60)) }}>···</span>
+              <span key={`f${r.from}`} className="wb-axis-fold" style={{ top: y(grid.at(r.from * 60)) }}>…</span>
             ))}
           </div>
           <div className="wb-area">

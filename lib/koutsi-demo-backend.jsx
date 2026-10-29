@@ -70,13 +70,13 @@
     const twoWeeksAgo = window.koutsiAddIsoWeeks(now, -2);
     const s = {
       coach: person(COACH, 'Anna Koskinen', {
-        tagline: 'Tennisvalmentaja · Lahti',
+        tagline: 'Tennisvalmentaja, Lahti',
         bio: 'Valmennan aikuispelaajia. Erikoisalana lyöntitekniikka ja kilpapelaajien fysiikka.',
-        experience: '12 vuotta valmennuskokemusta · Suomen Tennisliiton tason 2 valmentajakoulutus',
+        experience: '12 vuotta valmennuskokemusta, Suomen Tennisliiton tason 2 valmentajakoulutus',
         specialties: ['Yksityistunnit', 'Ryhmätreenit', 'Aikuispelaajat', 'Kilpavalmennus'],
       }),
       coaches: [
-        person(COACH, 'Anna Koskinen', { tagline: 'Tennisvalmentaja · Lahti', bio: '', experience: '', specialties: [] }),
+        person(COACH, 'Anna Koskinen', { tagline: 'Tennisvalmentaja, Lahti', bio: '', experience: '', specialties: [] }),
         person(COACH2, 'Juho Aalto', { tagline: 'Fysiikkavalmentaja', bio: '', experience: '', specialties: [] }),
       ],
       students: [

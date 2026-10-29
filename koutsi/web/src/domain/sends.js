@@ -213,7 +213,7 @@ export function libraryLine(state, video, now = new Date()) {
   if (!video.holderIds.length) return video.sends.length ? 'Ei kenelläkään nyt' : 'Ei vielä jaettu';
   const groupIds = groupsCovering(state.groups, video.holderIds);
   const who = recipientsLabel(state, { groupIds, studentIds: video.holderIds });
-  return video.lastSentAt ? `${who} · ${sentWhen(video.lastSentAt, now)}` : who;
+  return video.lastSentAt ? `${who} (${sentWhen(video.lastSentAt, now)})` : who;
 }
 
 /**
