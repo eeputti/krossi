@@ -497,7 +497,7 @@ begin
   perform cron.schedule('koutsi-messages-prune', '37 3 * * *', 'select public.koutsi_prune_messages()');
 end $$;
 
--- Tilaus (koutsi/web/sql/20261029190000_koutsi_coach_plans.sql): when it is already in the database, a
+-- Tilaus (supabase/migrations/20261029193756_koutsi_coach_plans.sql): when it is already in the database, a
 -- coach whose free trial ended without a subscription cannot send messages either (players always can).
 -- Applied before Viestit, that migration attached its guard to the tables it found; this covers the order
 -- the other way round. Nothing happens without it.

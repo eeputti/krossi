@@ -1,6 +1,6 @@
 // koutsiCancel.ts — a deleted account is never charged again: before a coach's account is deleted
 // (koutsi-delete-account, koutsi-admin-delete-user), every live Koutsi subscription of the coach's
-// Stripe customer is cancelled at once. Without the table (migration 20261029190000 not run) or
+// Stripe customer is cancelled at once. Without the table (before migration 20261029193756) or
 // without a customer this does nothing. Returns an error message, or null when it is safe to delete.
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';

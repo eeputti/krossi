@@ -1,15 +1,14 @@
-// 20261029190000_koutsi_coach_plans.check.mjs — runs the proposed coach-plan migration
-// (koutsi/web/sql/20261029190000_koutsi_coach_plans.sql, NOT applied) in PGlite against a small stub
+// 20261029193756_koutsi_coach_plans.check.mjs — runs the coach-plan migration
+// (supabase/migrations/20261029193756_koutsi_coach_plans.sql, applied 29.10.2026) in PGlite against a small stub
 // of production's Koutsi schema (the tables and functions it leans on, the coach key function copied
 // from supabase/migrations/20260911211833_…, Laskutus' gate from 20261029162350_koutsi_billing), then
 // checks: today's coaches stay free, the key path still makes free coaches, who can start a trial and
 // when, the trial ending by itself, what Stripe may change, that nobody writes a plan from the app, what
 // an ended trial locks (sending to players, sending invoices — never a player), Laskutus' gate, and the
 // 7-day reminder.
-// PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. Before
-// "aja migraatio":
+// PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261029190000_koutsi_coach_plans.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261029193756_koutsi_coach_plans.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -19,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = await readFile(join(here, '20261029190000_koutsi_coach_plans.sql'), 'utf8');
+const MIGRATION = await readFile(join(here, '../../../supabase/migrations/20261029193756_koutsi_coach_plans.sql'), 'utf8');
 
 const ALPO = '00000000-0000-4000-8000-0000000000a1'; // a coach today (club, contract customer)
 const ADMIN = '00000000-0000-4000-8000-0000000000e1'; // admin, a coach today

@@ -1,10 +1,13 @@
--- 20261029190000_koutsi_coach_plans.sql — Koutsi for private coaches: a coach can start without a
+-- 20261029193756_koutsi_coach_plans.sql — Koutsi for private coaches: a coach can start without a
 -- coach key (a 3-month free trial, no card), then take a monthly subscription through Stripe
 -- (paid to Roisku Media).
 --
--- NOT APPLIED — a proposal. Apply only on the user's "aja migraatio" (apply_migration with this
--- name), then move the file to supabase/migrations. Tested in PGlite against a stub of the
--- production schema: koutsi/web/sql/20261029190000_koutsi_coach_plans.check.mjs
+-- Applied to production 2026-10-29 (apply_migration koutsi_coach_plans) on the user's "etkö sä voi tehä
+-- näitä", with sign-ups without a key CLOSED (koutsi_self_serve_open = false) until the subscription
+-- terms are final. Verified after: 5 coaches → 5 'free' rows, send guards on koutsi_announcements,
+-- koutsi_diary_entries, koutsi_homework, koutsi_sends, koutsi_videos (+ koutsi_invoices), cron
+-- koutsi-trial-reminders. Tested in PGlite against a stub of the production schema:
+-- koutsi/web/sql/20261029193756_koutsi_coach_plans.check.mjs
 -- Additive: one table, eleven functions, send guards (triggers) on six existing tables, one cron job.
 -- The one replaced function is koutsi_billing_coach_enabled (Laskutus' gate): same rule plus the plan.
 -- Rollback: drop the triggers koutsi_plan_send_guard / koutsi_invoices_plan_guard, the cron job

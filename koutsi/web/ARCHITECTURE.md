@@ -193,8 +193,8 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   `coach/subscriptionStore.js`), ja estetty lähetys kertoo syyn. Laskutus (`koutsi_billing_coach_enabled`) aukeaa
   kokeilussa ja tilauksella oleville; kokeilun jälkeen vain jo laskuttaneelle (vanhat laskut, maksetuksi merkintä).
   Muistutus 7 pv ennen kokeilun loppua (`koutsi_trial_reminders`, cron `koutsi-trial-reminders`, ilmoituslaji
-  `trial_ending`). Tietokanta: ehdotettu migraatio
-  `koutsi/web/sql/20261029190000_koutsi_coach_plans.sql` (PGlite-testi samassa kansiossa) — **EI AJETTU**; ilman sitä
+  `trial_ending`). Tietokanta: `supabase/migrations/20261029193756_koutsi_coach_plans.sql` (ajettu 29.10.2026 käyttäjän
+  luvalla, kokeilu ilman avainta KIINNI; PGlite-testi `koutsi/web/sql/20261029193756_…check.mjs`); ilman sitä
   `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta: migraatio
   luo `koutsi_self_serve_open()`:n kiinni (`select false`, sovellus näyttää avainsivun kuten ennen); avaaminen on yhden
   rivin korvaus (`select true`), eikä migraation uudelleenajo sulje sitä. Demo: Anna on kokeilussa; kehityksessä

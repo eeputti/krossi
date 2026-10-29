@@ -1,5 +1,5 @@
 // subscription.js — the coach's Koutsi subscription in words: a 3-month free trial without a card,
-// then a monthly subscription through Stripe (koutsi/web/sql/20261029190000_koutsi_coach_plans.sql).
+// then a monthly subscription through Stripe (supabase/migrations/20261029193756_koutsi_coach_plans.sql).
 //
 // Status (api.subscription.status()):
 //   { ready, selfServe, plan: 'free' | 'trial' | 'active' | 'past_due' | 'ended' | null, trialEndsAt,

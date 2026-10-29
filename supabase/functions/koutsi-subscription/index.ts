@@ -12,7 +12,7 @@
 //   KOUTSI_STRIPE_SECRET_KEY (falls back to STRIPE_SECRET_KEY), KOUTSI_PRICE_ID,
 //   KOUTSI_FOUNDER_COUPON (optional), KOUTSI_PORTAL_CONFIG (optional),
 //   KOUTSI_TAX_RATE (optional: VAT added on top, once Roisku Media is VAT-liable — `--alv 25.5`).
-// Deploy with JWT verification on (the default). Needs the migration 20261029190000_koutsi_coach_plans.
+// Deploy with JWT verification on (the default). Needs the migration 20261029193756_koutsi_coach_plans (applied 29.10.2026).
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
 import { applyArgs, checkoutParams, koutsiCoachOf, pickSubscription, priceInfo, returnBase, KOUTSI_ORIGINS } from '../_shared/koutsiPlan.js';

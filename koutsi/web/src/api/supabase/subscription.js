@@ -1,6 +1,6 @@
 // subscription.js — the coach's Koutsi subscription (domain/subscription.js). The state is one RPC
 // (koutsi_plan_status, also before signing in); Stripe is behind the edge function
-// koutsi-subscription. Before the migration 20261029190000_koutsi_coach_plans status() answers
+// koutsi-subscription. Without the migration 20261029193756_koutsi_coach_plans status() answers
 // { ready: false } and everything about it stays hidden; the coach key works as before.
 import { ApiError } from '../errors.js';
 import { db, isMissingFunction, isMissingTable, requireSession, SUPABASE_ANON_KEY, SUPABASE_URL } from './client.js';
