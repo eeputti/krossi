@@ -7,6 +7,7 @@ import { db, isMissingFunction, isMissingTable, requireSession, SUPABASE_ANON_KE
 import { mapStatus, NO_SUBSCRIPTION, SUBSCRIPTION_TERMS_VERSION } from '../../domain/subscription.js';
 
 const notYet = () => new ApiError('Tilaus otetaan käyttöön pian.', { code: 'not_deployed' });
+let priceOnce = null;
 
 // The edge function: our answers carry { error: "<suomeksi>" }; a function that isn't deployed yet
 // answers 404 without one.
@@ -40,14 +41,16 @@ export const subscription = {
     if (error) throw error;
     return mapStatus(data);
   },
-  // Never throws: without a price the screens just leave it out.
-  async price() {
-    try {
-      const { price } = await call('price');
-      return price && Number.isFinite(price.cents) ? price : null;
-    } catch {
-      return null;
+  // Never throws: without a price the screens just leave it out. The same for every coach, so it is
+  // read once per page load (a failed read is tried again next time).
+  price() {
+    if (!priceOnce) {
+      priceOnce = call('price')
+        .then(({ price }) => (price && Number.isFinite(price.cents) ? price : null))
+        .catch(() => null);
+      priceOnce.then((p) => { if (!p) priceOnce = null; });
     }
+    return priceOnce;
   },
   async checkout() {
     const { url } = await call('checkout');

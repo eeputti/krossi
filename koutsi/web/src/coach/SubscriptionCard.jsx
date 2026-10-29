@@ -40,11 +40,15 @@ export function SubscriptionCard() {
 
   useEffect(() => {
     let alive = true;
-    const show = (s) => {
+    // The card waits for the price (from Stripe), so its sentence shows whole at once and
+    // does not grow when the price arrives.
+    const show = async (s) => {
       if (!alive) return;
-      setStatus(s);
       setPlanStatus(uid, s);
-      if (s.plan === 'trial' || s.plan === 'ended') api.subscription.price().then((p) => { if (alive) setPrice(p); });
+      const p = s.plan === 'trial' || s.plan === 'ended' ? await api.subscription.price() : null;
+      if (!alive) return;
+      setPrice(p);
+      setStatus(s);
     };
     (async () => {
       let s = await loadPlanStatus(uid);
@@ -58,7 +62,7 @@ export function SubscriptionCard() {
         }
         if (back === 'valmis' && alive) toast(s.plan === 'active' ? 'Kiitos! Tilaus on voimassa.' : 'Kiitos! Tilaus vahvistuu hetken kuluttua.');
       }
-      show(s);
+      await show(s);
     })();
     return () => { alive = false; };
   }, [back, toast, uid]);
