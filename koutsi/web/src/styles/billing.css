@@ -1,0 +1,133 @@
+/* billing.css — Laskutus: the coach's page and sheets (coach/BillingScreen, coach/BillingSheets), the
+   player's Laskut (player/InvoicesScreen), the invoice document (shared/billing/InvoiceView) and its
+   own page (shared/billing/PublicInvoice, /lasku/<token>). Prefixes bill- (app) and inv- (document). */
+
+/* ── the page ────────────────────────────────────────────── */
+.bill-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.bill-open { display: inline-flex; align-items: baseline; gap: 8px; }
+.bill-open-label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.bill-open-sum { font-size: 20px; font-weight: 800; color: var(--ink); }
+.bill-open .chip { align-self: center; }
+.bill-row { align-items: center; }
+.bill-row-end { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.bill-amount { font-weight: 800; font-size: 15px; color: var(--ink); white-space: nowrap; }
+.bill-more { margin-top: 10px; }
+
+/* ── settings ────────────────────────────────────────────── */
+.bill-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.bill-two > .field { margin: 0; }
+.bill-prices { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.bill-price {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--line); min-width: 0;
+}
+.bill-price:last-child { border-bottom: 0; }
+.bill-price-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.bill-price-ctrl { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.bill-price-ctrl .select-wrap { width: 138px; }
+.bill-euro { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--muted); }
+.bill-euro .input { width: 82px; text-align: right; }
+.bill-terms { padding: 12px 14px; border-radius: var(--r-lg); background: var(--surface-2); display: grid; gap: 4px; }
+.bill-terms p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+
+/* ── "Laskuta" ───────────────────────────────────────────── */
+.bill-sumline { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.bill-sumline strong { font-size: 18px; font-weight: 800; color: var(--ink); }
+.bill-picks { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.bill-pick { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); transition: border-color var(--dur-2), background-color var(--dur-2); }
+.bill-pick.is-on { border-color: var(--green-700); background: var(--green-100); }
+.bill-pick-head { display: flex; align-items: center; min-width: 0; }
+.bill-pick-main { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 4px 10px 12px; cursor: pointer; }
+.bill-pick-main input { width: 18px; height: 18px; accent-color: var(--green-800); flex-shrink: 0; }
+.bill-pick-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.bill-pick-more {
+  flex-shrink: 0; width: 44px; height: 44px; display: grid; place-items: center; color: var(--muted);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.bill-pick-more.is-open { transform: rotate(180deg); }
+.bill-lines { display: grid; grid-template-columns: minmax(0, 1fr); padding: 0 12px 6px; }
+.bill-lines.is-card { padding: 4px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); }
+.bill-line { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.bill-lines.is-card .bill-line:first-child { border-top: 0; }
+.bill-line-text { flex: 1; min-width: 0; display: flex; gap: 8px; flex-wrap: wrap; color: var(--ink); }
+.bill-line-text .t-num { color: var(--muted); font-weight: 650; }
+.bill-line-sum { flex-shrink: 0; font-weight: 750; color: var(--ink); }
+.bill-line.is-off .bill-line-text, .bill-line.is-off .bill-line-sum { color: var(--faint); text-decoration: line-through; }
+.bill-line-x { flex-shrink: 0; width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--r-pill); color: var(--muted); }
+.bill-line-x:hover { background: var(--surface-2); color: var(--ink); }
+.bill-add {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; border-top: 1px solid var(--line);
+  font-size: 14px; font-weight: 750; color: var(--green-800);
+}
+.bill-remove { justify-self: start; align-self: flex-start; min-height: 44px; }
+.bill-doc-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.bill-late-note {
+  margin: 0 0 8px; padding: 10px 12px; border-radius: var(--r-md); background: var(--clay-100);
+  font-size: 14px; font-weight: 650; color: var(--ink);
+}
+
+/* ── the invoice document ────────────────────────────────── */
+.inv-doc {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px; border: 1px solid var(--line);
+  border-radius: var(--r-lg); background: var(--surface); color: var(--ink); font-size: 14px; line-height: 1.45;
+}
+.inv-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.inv-from { min-width: 0; display: grid; gap: 1px; }
+.inv-seller { font-size: 16px; font-weight: 800; }
+.inv-muted { color: var(--muted); font-size: 13px; }
+.inv-title { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-size: 20px; font-weight: 800; white-space: nowrap; }
+.inv-stamp {
+  display: inline-block; padding: 3px 10px; border-radius: var(--r-pill); font-size: 12px; font-weight: 800;
+  letter-spacing: 0.04em; text-transform: uppercase; background: var(--success-bg); color: var(--success);
+}
+.inv-stamp.is-void { background: var(--surface-2); color: var(--muted); }
+.inv-parties { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+.inv-label { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.inv-strong { font-weight: 750; }
+.inv-meta { margin: 0; display: grid; grid-template-columns: auto auto; gap: 3px 14px; font-size: 13px; }
+.inv-meta dt { color: var(--muted); font-weight: 650; }
+.inv-meta dd { margin: 0; text-align: right; font-weight: 700; }
+.inv-lines { width: 100%; border-collapse: collapse; }
+.inv-lines td { padding: 7px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.inv-lines tr:first-child td { border-top: 0; }
+.inv-when { width: 1%; padding-right: 12px !important; white-space: nowrap; color: var(--muted); font-weight: 650; }
+.inv-what { overflow-wrap: anywhere; }
+.inv-sum { width: 1%; padding-left: 12px !important; white-space: nowrap; text-align: right; font-weight: 700; }
+.inv-free { margin: -10px 0 0; }
+.inv-totals { display: grid; gap: 4px; padding-top: 10px; border-top: 2px solid var(--ink); }
+.inv-total-row { display: flex; justify-content: space-between; gap: 12px; }
+.inv-grand { font-size: 17px; font-weight: 800; }
+.inv-note { margin: 4px 0 0; }
+.inv-pay { display: grid; gap: 2px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); }
+.inv-pay-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 36px; }
+.inv-pay-value { font-weight: 700; overflow-wrap: anywhere; }
+.inv-barcode { display: grid; gap: 6px; padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--line); }
+.inv-barcode code { font-size: 12px; font-family: var(--font-num); overflow-wrap: anywhere; color: var(--ink-2); }
+.inv-barcode .btn { justify-self: start; }
+
+/* ── the invoice's own page (/lasku/<token>) ─────────────── */
+.inv-public { max-width: 720px; margin: 0 auto; padding: 24px 16px 40px; display: grid; gap: 16px; }
+.inv-public-note { margin: 0; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); font-weight: 650; }
+.inv-public-actions { display: flex; justify-content: center; }
+.inv-public-foot { margin: 8px 0 0; text-align: center; font-size: 12px; font-weight: 700; color: var(--faint); }
+
+/* ── printing: only the invoice ──────────────────────────── */
+.inv-print { display: none; }
+@media print {
+  html.inv-printing body > *:not(.inv-print) { display: none !important; }
+  html.inv-printing .inv-print { display: block; }
+  .inv-noprint { display: none !important; }
+  .inv-doc { border: 0; padding: 0; border-radius: 0; }
+  .inv-public { padding: 0; max-width: none; }
+  .inv-pay { background: transparent; border: 1px solid #999; }
+}
+
+@media (max-width: 420px) {
+  .bill-two { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .bill-two > .field + .field { margin-top: var(--s4); }
+  .inv-parties { grid-template-columns: minmax(0, 1fr); }
+  .inv-meta dd { text-align: left; }
+  .bill-price { flex-wrap: wrap; }
+  .bill-price-ctrl { width: 100%; }
+  .bill-price-ctrl .select-wrap { flex: 1; width: auto; }
+}

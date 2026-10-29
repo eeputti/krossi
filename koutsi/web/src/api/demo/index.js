@@ -15,6 +15,8 @@ import { writePlan } from '../../domain/plan.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
 import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/season.js';
 import { seedMessages } from './messagesSeed.js';
+import { seedBilling } from './billingSeed.js';
+import { addDaysStr, billedKeys, normalizeIban, referenceFor, totalOf } from '../../domain/billing.js';
 import { MESSAGE_MAX } from '../../domain/messages.js';
 
 let role = 'coach';
@@ -45,7 +47,7 @@ function addPutki(s) {
   }));
   return s;
 }
-const S = () => { if (!state) state = seedMessages(previewPutki ? addPutki(seed()) : seed(), role); return state; };
+const S = () => { if (!state) state = seedBilling(seedMessages(previewPutki ? addPutki(seed()) : seed(), role)); return state; };
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const wait = () => new Promise((r) => setTimeout(r, latencyMs));
 const nowIso = () => new Date().toISOString();
@@ -602,8 +604,10 @@ export const backend = {
       const ids = new Set(trainingIds || []);
       S().trainings.forEach((t) => {
         if (!ids.has(t.id)) return;
+        const before = (t.absences || []).find((a) => a.studentId === studentId);
         const rest = (t.absences || []).filter((a) => a.studentId !== studentId);
-        if (status === 'poissa') rest.push({ studentId, reason: 'poissa', note: '', reportedBy: uid(), updatedAt: nowIso() });
+        // like the database's upsert: marking again keeps the first report's time
+        if (status === 'poissa') rest.push({ studentId, reason: 'poissa', note: '', reportedBy: uid(), updatedAt: nowIso(), reportedAt: before?.reportedAt || nowIso() });
         t.absences = rest;
       });
     },
@@ -855,6 +859,141 @@ export const backend = {
     subscribe(cb) {
       messageListeners.add(cb);
       return () => { messageListeners.delete(cb); };
+    },
+  },
+
+  // Laskutus: Anna's seller, prices and the season's first invoices (billingSeed.js); same rules as the database.
+  billing: {
+    async overview() {
+      await wait();
+      const b = S().billing;
+      return { ready: true, enabled: Boolean(b.enabled), biller: clone(b.biller), invoices: clone(b.invoices), memberships: [] };
+    },
+    async saveBiller(coachId, fields) {
+      await wait();
+      const name = String(fields.name || '').trim();
+      if (!name) throw new ApiError('Kirjoita laskuttajan nimi.');
+      const b = S().billing;
+      b.biller = { ...(b.biller || {}), ...clone(fields), name, iban: normalizeIban(fields.iban), coachId: COACH, id: b.biller?.id || 'demo-biller' };
+      return clone(b.biller);
+    },
+    async createDrafts(coachId, drafts) {
+      await wait();
+      const b = S().billing;
+      if (!b.biller) throw new ApiError('Täytä ensin laskuttajan tiedot.');
+      if (!drafts?.length) throw new ApiError('Valitse ainakin yksi pelaaja.');
+      const billed = billedKeys(b.invoices);
+      for (const d of drafts) {
+        for (const l of d.lines || []) {
+          if ((l.trainingId && billed.has(`${l.trainingId}:${d.studentId}`)) || (l.kind === 'season' && billed.has(`season:${l.groupId}:${d.studentId}`))) {
+            throw new ApiError('Osa treeneistä on jo laskulla. Päivitä näkymä ja yritä uudelleen.');
+          }
+        }
+      }
+      const made = drafts.map((d) => {
+        const id = newId('inv');
+        const lines = (d.lines || []).map((l, i) => ({ ...clone(l), id: newId('il'), invoiceId: id, studentId: d.studentId, sortOrder: l.sortOrder ?? i }));
+        b.tokenSeq += 1;
+        return {
+          id, studentId: d.studentId, status: 'draft', number: null, reference: '', issueDate: null, dueDate: null,
+          periodStart: d.periodStart || null, periodEnd: d.periodEnd || null, payerName: d.payerName, payerEmail: d.payerEmail || '',
+          payerAddress: '', seller: null, vatMode: b.biller.vatMode, totalCents: totalOf(lines),
+          publicToken: `00000000-0000-4000-8000-${String(b.tokenSeq).padStart(12, '0')}`, sentAt: null, paidAt: null, voidedAt: null,
+          createdAt: nowIso(), lines,
+        };
+      });
+      b.invoices = [...made, ...b.invoices];
+      return made.map((x) => x.id);
+    },
+    async updateDraft(invoiceId, { payerName, payerEmail }) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.id === invoiceId && x.status === 'draft');
+      if (!inv) throw new ApiError('Lasku on jo lähetetty tai poistettu. Päivitä näkymä.');
+      const name = String(payerName || '').trim();
+      if (!name) throw new ApiError('Kirjoita maksajan nimi.');
+      Object.assign(inv, { payerName: name, payerEmail: String(payerEmail || '').trim() });
+    },
+    async setLineCharged(lineId, charged) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.lines.some((l) => l.id === lineId));
+      if (!inv || inv.status !== 'draft') throw new ApiError('Lähetetyn laskun rivejä ei voi muuttaa.');
+      inv.lines = inv.lines.map((l) => (l.id === lineId ? { ...l, charged: Boolean(charged) } : l));
+      inv.totalCents = totalOf(inv.lines);
+    },
+    async addLine(invoiceId, { description, amountCents, date = null }) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.id === invoiceId);
+      if (!inv || inv.status !== 'draft') throw new ApiError('Lähetetyn laskun rivejä ei voi muuttaa.');
+      const desc = String(description || '').trim();
+      if (!desc) throw new ApiError('Kirjoita rivin selite.');
+      if (!(amountCents > 0)) throw new ApiError('Kirjoita summa.');
+      inv.lines.push({ id: newId('il'), invoiceId, studentId: inv.studentId, sortOrder: 10000, kind: 'manual', trainingId: null, groupId: null,
+        date, time: '', description: desc, quantity: 1, unitCents: amountCents, amountCents, charged: true });
+      inv.totalCents = totalOf(inv.lines);
+    },
+    async removeLine(lineId) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.lines.some((l) => l.id === lineId));
+      if (!inv || inv.status !== 'draft') throw new ApiError('Lähetetyn laskun rivejä ei voi muuttaa.');
+      inv.lines = inv.lines.filter((l) => l.id !== lineId);
+      inv.totalCents = totalOf(inv.lines);
+    },
+    async removeDrafts(ids) {
+      await wait();
+      const drop = new Set(ids || []);
+      S().billing.invoices = S().billing.invoices.filter((x) => !(drop.has(x.id) && x.status === 'draft'));
+    },
+    async send(ids) {
+      await wait();
+      const b = S().billing;
+      const list = (ids || []).map((id) => b.invoices.find((x) => x.id === id));
+      if (list.some((inv) => !inv || inv.status !== 'draft')) throw new ApiError('Lasku on jo lähetetty.');
+      if (list.some((inv) => totalOf(inv.lines) <= 0)) throw new ApiError('Laskulla ei ole mitään veloitettavaa.');
+      const today = koutsiTodayStr();
+      const { name, businessId, address, email, phone, iban, bic } = b.biller;
+      return list.map((inv) => {
+        let number = b.biller.nextNumber || 1;
+        while (b.invoices.some((x) => x.number === number)) number += 1;
+        b.biller.nextNumber = number + 1;
+        Object.assign(inv, {
+          status: 'sent', number, reference: referenceFor(number), issueDate: today, dueDate: addDaysStr(today, b.biller.paymentDays || 0),
+          seller: { name, businessId, address, email, phone, iban, bic }, vatMode: b.biller.vatMode, totalCents: totalOf(inv.lines), sentAt: nowIso(),
+        });
+        return { id: inv.id, number, reference: inv.reference, dueDate: inv.dueDate };
+      });
+    },
+    async setPaid(invoiceId, paid) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.id === invoiceId);
+      if (!inv || !['sent', 'paid'].includes(inv.status)) throw new ApiError('Vain lähetetyn laskun voi merkitä maksetuksi.');
+      inv.status = paid ? 'paid' : 'sent';
+      inv.paidAt = paid ? inv.paidAt || nowIso() : null;
+    },
+    async voidInvoice(invoiceId) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.id === invoiceId);
+      if (!inv || !['sent', 'paid'].includes(inv.status)) throw new ApiError('Vain lähetetyn laskun voi mitätöidä.');
+      inv.status = 'void';
+      inv.voidedAt = nowIso();
+      inv.lines = inv.lines.map((l) => ({ ...l, voided: true }));
+    },
+    async mine() {
+      await wait();
+      const b = S().billing;
+      const b0 = b.biller;
+      return {
+        ready: true,
+        invoices: clone(b.invoices.filter((x) => x.studentId === PLAYER && (x.status === 'sent' || x.status === 'paid'))),
+        terms: b.enabled && b0 ? [{ coachId: COACH, sellerName: b0.name, cancelHours: b0.cancelHours, chargeLate: b0.chargeLate,
+          chargeNoShow: b0.chargeNoShow, terms: b0.terms || '', paymentDays: b0.paymentDays }] : [],
+      };
+    },
+    async byToken(token) {
+      await wait();
+      const inv = S().billing.invoices.find((x) => x.publicToken === token && ['sent', 'paid', 'void'].includes(x.status));
+      if (!inv) return null;
+      const { id: _id, studentId: _s, payerEmail: _e, ...rest } = clone(inv);
+      return { ...rest, lines: rest.lines.map(({ studentId: _x, invoiceId: _y, ...l }) => l) };
     },
   },
 
