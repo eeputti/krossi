@@ -12,7 +12,7 @@ import {
   koutsiAddDays, koutsiIsoWeekOfDateStr, koutsiDateFromStr,
 } from '../domain/core.js';
 import {
-  BREAK_MESSAGE_MAX, BREAK_NAME, BREAK_NAME_MAX, MAX_DAYS_AHEAD, breakDays, breakNotice, breakProblem, fmtDay, nextTermEnd, noticeDay, planContinue,
+  BREAK_MESSAGE_MAX, BREAK_NAME, BREAK_NAME_MAX, MAX_DAYS_AHEAD, breakDays, breakNotice, breakProblem, fmtDay, nextTermEnd, noticeWhen, planContinue, restartNotices,
 } from '../domain/continueGroups.js';
 import { exactNameMatch, matchStudents } from '../domain/roster.js';
 import { useCoach } from './CoachRoot.jsx';
@@ -535,27 +535,50 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
           </div>
         )}
         {picked.length > 0 && !problem && plan.breaks.map((b) => {
-          const notice = breakNotice({ name: b.name, from: b.from, to: b.to, next: b.example, message: b.message });
-          const when = noticeDay(b.from, today);
+          // the letter and the reminders as the example player gets them (koutsi_send_break_notices)
+          const when = noticeWhen(b.from);
+          const coach = (state.coach?.name || '').trim().split(/\s+/)[0].slice(0, 20);
+          const notice = breakNotice({ name: b.name, from: b.from, to: b.to, next: b.example, message: b.message, coach, sendDay: when.day });
+          const later = restartNotices({ from: b.from, to: b.to, next: b.example, theme: b.example ? themeOfWeek(b.example.group, b.example.date) : '' });
           return (
             <div key={`n-${b.key}`} className="k-notice-preview">
               <div className="k-notice-when">
-                {when > today ? `Pelaajat saavat tämän ilmoituksen ${day(when)} aamulla` : 'Pelaajat saavat tämän ilmoituksen pian'}
+                Pelaajat saavat tämän sähköpostin {when.label}
                 {picked.length > 1 && b.example && <span className="k-faint">{` (esimerkkinä ryhmän ${b.example.group.name} pelaaja)`}</span>}
               </div>
               <div className="k-notice-card">
-                <span className="k-notice-icon"><Icon name="bell" size={16} /></span>
+                <span className="k-notice-icon"><Icon name="mail" size={16} /></span>
                 <div className="grow">
                   <div className="k-notice-title">{notice.title}</div>
-                  <p className="k-notice-body">{notice.body}</p>
+                  <MailBody text={notice.body} />
                 </div>
               </div>
+              {later.length > 0 && (
+                <div className="k-notice-later">
+                  <div className="k-notice-when">Ennen kuin treenit alkavat taas, pelaajat saavat muistutukset:</div>
+                  <ul>{later.map((r) => <li key={r.day}><strong>{fmtDay(r.day, today)} aamulla:</strong> {r.title}</li>)}</ul>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
     </Sheet>
   );
+}
+
+/** A mail's text as it looks in the mail: paragraphs, the first line of each in bold. */
+function MailBody({ text }) {
+  return text.split('\n\n').map((block, i) => {
+    const [first, ...rest] = block.split('\n');
+    return <p key={i} className="k-notice-body"><strong>{first}</strong>{rest.map((line, j) => <span key={j}><br />{line}</span>)}</p>;
+  });
+}
+
+/** The group's theme for the week of `date`, or ''. */
+function themeOfWeek(group, date) {
+  const w = koutsiIsoWeekOfDateStr(date);
+  return (group?.themes || []).find((t) => t.year === w.year && t.week === w.week)?.title || '';
 }
 
 /** The group's annual plan file: send for review, open, replace or remove. */

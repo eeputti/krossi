@@ -10,7 +10,7 @@ const MAX_WEEKS = 60; // per weekly time, like the server
 export const MAX_DAYS_AHEAD = 400; // the server refuses a later day
 export const BREAK_NAME = 'Treenitauko'; // a break without a name
 export const BREAK_NAME_MAX = 60;
-export const BREAK_MESSAGE_MAX = 300; // koutsi_coach_events_message_length
+export const BREAK_MESSAGE_MAX = 200; // koutsi_coach_events_message_length: the letter fits one notification
 
 /** A day for the summary: "to 7.1.", with the year when it isn't this year's ("to 7.1.2027"). */
 export function fmtDay(date, today = koutsiTodayStr()) {
@@ -117,19 +117,55 @@ export function planContinue({ groups, trainings, until, breaks, today = koutsiT
 function bySession(a, b) { return a.date.localeCompare(b.date) || String(a.time).localeCompare(String(b.time)); }
 
 /**
- * The notification a player gets about a break, word for word as koutsi_break_notice_body
- * (supabase/migrations …_koutsi_breaks.sql) writes it; `next` is that player's next session after it.
+ * The holiday letter a player gets the morning before a break, word for word as koutsi_break_notice_title /
+ * koutsi_break_notice_body (supabase/migrations …_koutsi_break_mails.sql) write it. `next` is that player's
+ * first session after the break, `coach` the coach's first name, `sendDay` the day it goes. In the mail the
+ * first line of each paragraph is bold.
  */
-export function breakNotice({ name, from, to, next, message }) {
+export function breakNotice({ name, from, to, next, message, coach, sendDay }) {
+  const title = (name || '').trim() || BREAK_NAME;
   const days = to && to > from ? `${koutsiFmtShortDate(from)}–${koutsiFmtShortDate(to)}` : koutsiFmtShortDate(from);
-  const parts = [`Ei treenejä ${days}`];
-  if (next?.date) parts.push(`Seuraava treenisi on ${koutsiFmtShortDate(next.date)} klo ${next.time}.`);
-  if ((message || '').trim()) parts.push(message.trim());
-  return { title: (name || '').trim() || BREAK_NAME, body: parts.join(' ') };
+  const first = [`Treenit ovat tauolla ${days}`];
+  if (next?.date) first.push(`Treenisi jatkuvat ${koutsiFmtShortDate(next.date)} klo ${next.time}.`);
+  const blocks = [first.join('\n')];
+  if ((message || '').trim()) blocks.push(['Valmentajan terveiset', message.trim(), ...((coach || '').trim() ? [`– ${coach.trim()}`] : [])].join('\n'));
+  blocks.push('Koutsi on käytössä myös tauon aikana.\nTreenaa omatoimisesti ja merkitse treenit kuten ennenkin. Vain yhteiset treenit ovat tauolla.');
+  return { title: sendDay && sendDay < from ? `${title} alkaa huomenna` : title, body: blocks.join('\n\n') };
+}
+
+/**
+ * The reminders before the sessions start again (koutsi_send_break_notices, part 2): after a break of a
+ * week or more, three days and one day before the player's own first session. [{ day, title, body }]
+ */
+export function restartNotices({ from, to, next, theme }) {
+  if (!next?.date || !to || koutsiAddDays(from, 6) > to) return [];
+  const topic = (theme || '').trim().replace(/\.+$/, '');
+  const body = (tomorrow) => [
+    [`Ensimmäinen treenisi tauon jälkeen on ${tomorrow ? 'huomenna ' : ''}${koutsiFmtShortDate(next.date)} klo ${next.time}.`, ...(topic ? [`Viikon teema: ${topic}.`] : [])].join('\n'),
+    'Avaa Koutsi ja katso, miten treenit alkavat.',
+  ].join('\n\n');
+  return [
+    { day: koutsiAddDays(next.date, -3), title: `Treenit alkavat taas ${koutsiFmtShortDate(next.date)}`, body: body(false) },
+    { day: koutsiAddDays(next.date, -1), title: 'Treenit alkavat taas huomenna', body: body(true) },
+  ].filter((r) => r.day >= from);
 }
 
 /** The day the players are told: the morning before the break starts, or at once when that has passed. */
 export function noticeDay(from, today = koutsiTodayStr()) {
   const before = koutsiAddDays(from, -1);
   return before > today ? before : today;
+}
+
+/**
+ * When the letter goes, in the coach's words. The job runs at :35 from 07:35 to 20:35 (Helsinki), so a
+ * morning's letters are out before 8. → { day, label }
+ */
+export function noticeWhen(from, now = new Date()) {
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const day = noticeDay(from, today);
+  if (day > today) return { day, label: `${fmtDay(day, today)} aamulla klo 8 mennessä` };
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  if (minutes < 7 * 60 + 30) return { day, label: 'tänään aamulla klo 8 mennessä' };
+  if (minutes < 20 * 60 + 35) return { day, label: 'tunnin sisällä tallennuksesta' };
+  return { day: koutsiAddDays(today, 1), label: 'huomenna aamulla klo 8 mennessä' };
 }
