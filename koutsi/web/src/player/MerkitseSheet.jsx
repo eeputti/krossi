@@ -14,7 +14,7 @@ import { useNow } from '../app/hooks.js';
 import { Button, Icon, Sheet, useToast } from '../ui/index.js';
 import { koutsiGroupById, koutsiThemeForDate, koutsiTimeRangeLabel } from '../domain/core.js';
 import { relativeDay, shortDay } from '../domain/week.js';
-import { firstOpenSlide, merkitseLead, spanLabel, ambitionById } from '../domain/playerNow.js';
+import { firstOpenSlide, merkitseLead, moodFor, spanLabel, ambitionById } from '../domain/playerNow.js';
 import { ACTIVITIES } from '../domain/ownWeek.js';
 import { planSummary, readPlan } from '../domain/plan.js';
 import { MOOD_LABELS } from '../lib/constants.js';
@@ -27,6 +27,19 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 
 // "Ohita" on Koti or in Merkitse hides the same sessions in both at once.
 const skipListeners = new Set();
+const notifyLead = () => skipListeners.forEach((fn) => fn());
+
+// After the last open session gets its number, the slides stay a moment ("Kiitos! Hyvä") so the
+// tap is seen; then Merkitse closes (CLOSE_AFTER_MS) and the card goes (HOLD_MS, a little later,
+// so nothing jumps while the sheet slides down). Before this the card vanished the instant the
+// data came back and "Fiilis nyt" took its place, as if the tap had not counted.
+const CLOSE_AFTER_MS = 700;
+const HOLD_MS = 1100;
+let held = null; // { studentId, ended, until }
+function holdLead(studentId, ended) {
+  held = { studentId, ended, until: Date.now() + HOLD_MS };
+  setTimeout(() => { if (held && Date.now() >= held.until) { held = null; notifyLead(); } }, HOLD_MS + 20);
+}
 
 /** The lead for this player now; skipped sessions are kept in localStorage (checkin.js). */
 export function useLead() {
@@ -40,10 +53,13 @@ export function useLead() {
     return () => { skipListeners.delete(listener); };
   }, []);
   const skipped = readSkipped(student.id);
-  const lead = merkitseLead(state, student, { now: new Date(nowMs), skipped, perSession: Boolean(state.moodSessionsReady) });
+  let lead = merkitseLead(state, student, { now: new Date(nowMs), skipped, perSession: Boolean(state.moodSessionsReady) });
+  if (!lead.ended.length && held && held.studentId === student.id && Date.now() < held.until) {
+    lead = { ...lead, ended: held.ended.map((x) => ({ ...x, mood: moodFor(student, x.training) || x.mood })) };
+  }
   const skip = (ids) => {
     ids.forEach((id) => markSkipped(student.id, id));
-    skipListeners.forEach((fn) => fn());
+    notifyLead();
   };
   return { lead, skip };
 }
@@ -57,10 +73,12 @@ function sessionLine(state, training) {
 /**
  * The sessions that just ended, one slide each: one tap on a number saves how it went for that
  * session; "Kirjoita mitä opit" opens the words. With several, the player swipes from one to the
- * next (the next open one comes into view by itself) or answers all at once.
+ * next (the next open one comes into view by itself) or answers all at once. The tapped number
+ * turns dark at once, before the save is back; `onDone` runs a moment after the last one is
+ * answered (Merkitse closes itself).
  */
-export function AfterSessions({ ended, onSkip, className }) {
-  const { state, run } = useData();
+export function AfterSessions({ ended, onSkip, onDone, className }) {
+  const { state, run, reload } = useData();
   const actions = usePlayerActions();
   const toast = useToast();
   const student = state.students[0];
@@ -68,8 +86,26 @@ export function AfterSessions({ ended, onSkip, className }) {
   const track = useRef(null);
   const [index, setIndex] = useState(() => firstOpenSlide(ended));
   const [busy, setBusy] = useState(null);
+  // trainingId → { id, score }: the number just tapped, shown until the data has caught up
+  const [picked, setPicked] = useState({});
+  const moodOf = (item) => {
+    const p = picked[item.training.id];
+    if (!p) return item.mood;
+    return { ...(item.mood || {}), id: p.id || item.mood?.id || null, score: p.score };
+  };
+  const unpick = (id) => setPicked((p) => { const next = { ...p }; delete next[id]; return next; });
+  // once the reloaded data says the same, the data is the truth again
+  useEffect(() => {
+    setPicked((p) => {
+      const caughtUp = ended.filter((x) => p[x.training.id] && x.mood && x.mood.id === p[x.training.id].id && x.mood.score === p[x.training.id].score);
+      if (!caughtUp.length) return p;
+      const next = { ...p };
+      caughtUp.forEach((x) => { delete next[x.training.id]; });
+      return next;
+    });
+  }, [ended]);
   const many = ended.length > 1;
-  const allDone = ended.every((x) => x.mood);
+  const allDone = ended.every((x) => moodOf(x));
 
   const scrollTo = (i, smooth = true) => {
     const box = track.current;
@@ -85,18 +121,33 @@ export function AfterSessions({ ended, onSkip, className }) {
   };
 
   const rate = async (item, i, score) => {
-    if (busy) return;
-    if (item.mood) {
-      if (score !== item.mood.score) await run(() => api.player.updateMood(item.mood.id, { score }));
+    const id = item.training.id;
+    if (busy === id) return;
+    const current = moodOf(item);
+    if (current?.id) {
+      if (score === current.score) return;
+      setPicked((p) => ({ ...p, [id]: { id: current.id, score } }));
+      const res = await run(() => api.player.updateMood(current.id, { score }), undefined, { refresh: false });
+      if (res.ok) reload().catch(() => {});
+      else unpick(id);
       return;
     }
-    setBusy(item.training.id);
-    const res = await run(() => api.player.addMood(student.id, { score, note: '', hiddenFromCoach: false, trainingId: perSession ? item.training.id : null }));
+    setBusy(id);
+    setPicked((p) => ({ ...p, [id]: { id: null, score } }));
+    const res = await run(() => api.player.addMood(student.id, { score, note: '', hiddenFromCoach: false, trainingId: perSession ? id : null }), undefined, { refresh: false });
     setBusy(null);
-    if (!res.ok) return;
-    const nextOpen = ended.findIndex((x, j) => j > i && !x.mood);
-    toast(`Fiilis tallennettu: ${MOOD_LABELS[score]}.`, { action: { label: 'Lisää sanoja', onClick: () => actions.openCheckIn(item.training) }, duration: 5000 });
-    if (nextOpen >= 0) setTimeout(() => scrollTo(nextOpen), 250);
+    if (!res.ok) { unpick(id); return; }
+    const mood = { id: res.result?.id || null, score };
+    setPicked((p) => ({ ...p, [id]: mood }));
+    const answered = ended.map((x) => (x.training.id === id ? { ...x, mood: { ...mood, note: '' } } : { ...x, mood: moodOf(x) }));
+    // the next open slide after this one, else one before it; none = all answered
+    const after = answered.findIndex((x, j) => j > i && !x.mood);
+    const nextOpen = after >= 0 ? after : answered.findIndex((x) => !x.mood);
+    if (nextOpen < 0) holdLead(student.id, answered);
+    reload().catch(() => {});
+    toast(`Fiilis tallennettu: ${MOOD_LABELS[score]}.`, { action: { label: 'Lisää sanoja', onClick: () => actions.openCheckIn(item.training, { mood }) }, duration: 5000 });
+    if (nextOpen >= 0) setTimeout(() => scrollTo(nextOpen), 350);
+    else if (onDone) setTimeout(onDone, CLOSE_AFTER_MS);
   };
 
   const first = ended[0].training;
@@ -115,28 +166,29 @@ export function AfterSessions({ ended, onSkip, className }) {
       )}
       <div className={cx('pn-slides', many && 'is-many')} ref={track} onScroll={many ? onScroll : undefined}>
         {ended.map((item, i) => {
+          const mood = moodOf(item);
           const { theme, name } = sessionLine(state, item.training);
           const day = relativeDay(item.training.date);
           const when = day === 'Tänään' ? `Päättyi klo ${item.end}` : `${day === 'Eilen' ? 'Eilen' : shortDay(item.training.date)} klo ${item.training.time}`;
           return (
-            <article key={item.training.id} className={cx('pn-slide', item.mood && 'is-done')} aria-label={`${name} ${item.training.time}`}>
+            <article key={item.training.id} className={cx('pn-slide', mood && 'is-done')} aria-label={`${name} ${item.training.time}`}>
               <div className="eyebrow pn-when">{many ? `Klo ${item.training.time}–${item.end}` : `Treeni ohi · ${when}`}</div>
-              <h3 className="pn-title">{item.mood ? `Kiitos! ${MOOD_LABELS[item.mood.score]}` : 'Miten meni?'}</h3>
+              <h3 className="pn-title" aria-live="polite">{mood ? `Kiitos! ${MOOD_LABELS[mood.score]}` : 'Miten meni?'}</h3>
               <p className="pn-sub">{name}{theme ? ` · ${theme.title}` : ''}</p>
-              <MoodPicker value={item.mood?.score ?? null} onChange={(score) => rate(item, i, score)} size="sm" />
-              <button type="button" className="pn-link" onClick={() => actions.openCheckIn(item.training)}>
-                <Icon name="edit" size={15} /><span>{item.mood?.note ? 'Muokkaa mitä kirjoitit' : 'Kirjoita mitä opit treenissä'}</span>
+              <MoodPicker value={mood?.score ?? null} onChange={(score) => rate(item, i, score)} size="sm" />
+              <button type="button" className="pn-link" onClick={() => actions.openCheckIn(item.training, { mood: mood?.id ? mood : null })}>
+                <Icon name="edit" size={15} /><span>{mood?.note ? 'Muokkaa mitä kirjoitit' : 'Kirjoita mitä opit treenissä'}</span>
               </button>
             </article>
           );
         })}
       </div>
       <div className="pn-after-foot">
-        {many && <div className="pn-dots" aria-hidden="true">{ended.map((x, i) => <span key={x.training.id} className={cx('pn-dot', i === index && 'is-on', x.mood && 'is-done')} />)}</div>}
+        {many && <div className="pn-dots" aria-hidden="true">{ended.map((x, i) => <span key={x.training.id} className={cx('pn-dot', i === index && 'is-on', moodOf(x) && 'is-done')} />)}</div>}
         <span className="grow" />
-        {many && !allDone && perSession && <Button variant="ghost" size="sm" onClick={() => actions.openCheckIn(null, { all: ended.filter((x) => !x.mood).map((x) => x.training) })}>Kaikista kerralla</Button>}
+        {many && !allDone && perSession && <Button variant="ghost" size="sm" onClick={() => actions.openCheckIn(null, { all: ended.filter((x) => !moodOf(x)).map((x) => x.training) })}>Kaikista kerralla</Button>}
         {!allDone && onSkip && (
-          <button type="button" className="pn-skip" onClick={() => onSkip(ended.filter((x) => !x.mood).map((x) => x.training.id))}>Ohita</button>
+          <button type="button" className="pn-skip" onClick={() => onSkip(ended.filter((x) => !moodOf(x)).map((x) => x.training.id))}>Ohita</button>
         )}
       </div>
     </section>
@@ -168,29 +220,44 @@ function NextUp({ next, then }) {
   );
 }
 
-/** One tap on a number saves how the player feels right now (no session). */
-function FeelingRow() {
+/**
+ * One tap on a number saves how the player feels right now (no session). The number stays lit with
+ * "Tallennettu" under the title, another tap changes it, and `onDone` (Merkitse closes) follows a
+ * moment later.
+ */
+function FeelingRow({ onDone }) {
   const { state, run, reload } = useData();
   const toast = useToast();
   const student = state.students[0];
-  const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState(null); // { id, score }; id is null while the save is on its way
   const pick = async (score) => {
-    if (busy) return;
-    setBusy(true);
-    const res = await run(() => api.player.addMood(student.id, { score, note: '', hiddenFromCoach: false, trainingId: null }));
-    setBusy(false);
-    if (!res.ok) return;
-    const fresh = await reload().catch(() => null);
-    const mood = fresh?.students?.[0]?.moods?.[0];
-    toast(`Fiilis tallennettu: ${MOOD_LABELS[score]}.`, mood ? { action: { label: 'Vain minulle', onClick: () => run(() => api.player.setMoodHidden(mood.id, true), 'Fiilis näkyy vain sinulle.') }, duration: 6000 } : {});
+    if (picked) {
+      if (!picked.id || score === picked.score) return;
+      const before = picked;
+      setPicked({ ...picked, score });
+      const res = await run(() => api.player.updateMood(before.id, { score }), undefined, { refresh: false });
+      if (!res.ok) setPicked(before);
+      return;
+    }
+    setPicked({ id: null, score });
+    const res = await run(() => api.player.addMood(student.id, { score, note: '', hiddenFromCoach: false, trainingId: null }), undefined, { refresh: false });
+    if (!res.ok) { setPicked(null); return; }
+    const id = res.result?.id || null;
+    setPicked({ id, score });
+    toast(`Fiilis tallennettu: ${MOOD_LABELS[score]}.`, id ? { action: { label: 'Vain minulle', onClick: () => run(() => api.player.setMoodHidden(id, true), 'Fiilis näkyy vain sinulle.') }, duration: 6000 } : {});
+    setTimeout(() => { onDone?.(); reload().catch(() => {}); }, CLOSE_AFTER_MS);
   };
   return (
-    <div className="ms-row pn-feel">
-      <span className="ms-row-icon"><Icon name="heart" size={16} /></span>
-      <span className="ms-row-main"><span className="ms-row-title">Fiilis nyt</span><span className="ms-row-sub">Miltä tuntuu?</span></span>
+    <div className={cx('ms-row pn-feel', picked && 'is-done')}>
+      <span className="ms-row-icon"><Icon name={picked ? 'check' : 'heart'} size={16} /></span>
+      <span className="ms-row-main">
+        <span className="ms-row-title">Fiilis nyt</span>
+        <span className="ms-row-sub" aria-live="polite">{picked ? `Tallennettu: ${MOOD_LABELS[picked.score]}` : 'Miltä tuntuu?'}</span>
+      </span>
       <span className="pn-feel-nums" role="radiogroup" aria-label="Fiilis nyt">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} type="button" role="radio" aria-checked={false} aria-label={`${n} ${MOOD_LABELS[n]}`} className="pn-feel-num t-num" data-score={n} disabled={busy} onClick={() => pick(n)}>{n}</button>
+          <button key={n} type="button" role="radio" aria-checked={picked?.score === n} aria-label={`${n} ${MOOD_LABELS[n]}`}
+            className={cx('pn-feel-num t-num', picked?.score === n && 'is-on')} data-score={n} onClick={() => pick(n)}>{n}</button>
         ))}
       </span>
     </div>
@@ -223,7 +290,7 @@ export function MerkitseSheet({ open, onClose }) {
     <Sheet open={open} onClose={onClose} title="Merkitse" size="md" className="pn-sheet">
       <div className="stack-4">
         {hasAfter
-          ? <AfterSessions ended={lead.ended} onSkip={skip} />
+          ? <AfterSessions ended={lead.ended} onSkip={skip} onDone={actions.closeMerkitse} />
           : lead.next && <NextUp next={lead.next} then={lead.then} />}
         {hasAfter && lead.next && (
           <p className="pn-later"><Icon name="calendar" size={14} /> Seuraava: {relativeDay(lead.next.date) === 'Tänään' ? 'tänään' : shortDay(lead.next.date)} klo {lead.next.time} · {sessionLine(state, lead.next).name}</p>
@@ -240,7 +307,7 @@ export function MerkitseSheet({ open, onClose }) {
           </div>
         </section>
         <div className="ms-others-list">
-          {!hasAfter && <FeelingRow />}
+          {!hasAfter && <FeelingRow onDone={actions.closeMerkitse} />}
           <button type="button" className="ms-row" onClick={() => actions.openGoals()}>
             <span className="ms-row-icon"><Icon name="target" size={16} /></span>
             <span className="ms-row-main"><span className="ms-row-title">Tavoitteet</span><span className="ms-row-sub">{goalSub}</span></span>
