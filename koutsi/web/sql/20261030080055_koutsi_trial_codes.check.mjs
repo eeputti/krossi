@@ -19,6 +19,7 @@ const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 const here = dirname(fileURLToPath(import.meta.url));
 const PLANS = await readFile(join(here, '../../../supabase/migrations/20261029193756_koutsi_coach_plans.sql'), 'utf8');
 const MIGRATION = await readFile(join(here, '../../../supabase/migrations/20261030080055_koutsi_trial_codes.sql'), 'utf8');
+const PLUS = await readFile(join(here, '../../../supabase/migrations/20261030082914_koutsi_trial_codes_plus.sql'), 'utf8');
 
 const ADMIN = '00000000-0000-4000-8000-0000000000e1';
 const ALPO = '00000000-0000-4000-8000-0000000000a1'; // free (contract) coach
@@ -113,6 +114,12 @@ await db.exec(SEED);
 await db.exec(PLANS);
 await db.exec(MIGRATION);
 await db.exec(MIGRATION); // must be re-runnable
+// a key made before the "+" counted, already used once
+await db.exec(`insert into koutsi_trial_codes (code, shown, months, max_uses, use_count) values ('LEGACY6', 'Legacy6+', 6, 5, 1);
+  insert into koutsi_trial_code_uses (code, coach_id) values ('LEGACY6', '${ALPO}');
+  update koutsi_coach_plans set trial_code = 'LEGACY6' where coach_id = '${ALPO}';`);
+await db.exec(PLUS);
+await db.exec(PLUS); // must be re-runnable
 
 async function as(uid, sql) {
   await db.exec('begin');
@@ -134,7 +141,13 @@ const daysLeft = async (uid) => Math.round(Number((await one(`select extract(epo
 const make = async (months, uses = 1, extra = {}) => (await as(ADMIN, `select public.koutsi_admin_create_trial_code(${months ?? 'null'}, ${uses},
   ${extra.expires ? `'${extra.expires}'` : 'null'}, ${extra.note ? `'${extra.note}'` : 'null'}, ${extra.code ? `'${extra.code}'` : 'null'}) as c`)).rows[0]?.c;
 const use = (uid, code) => as(uid, `select public.koutsi_use_code('${code}', '2026-10-29') as s`);
-const norm = (shown) => shown.toUpperCase().replace(/[^A-Z0-9]/g, ''); // the stored key
+const norm = (shown) => shown.toUpperCase().replace(/[^A-Z0-9+]/g, ''); // the stored key
+async function newPerson(n) {
+  const id = `00000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`;
+  await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${id}', 'p${n}@example.test', now());
+    insert into profiles (id, name) values ('${id}', 'Henkilö ${n}');`);
+  return id;
+}
 
 test('only admins make, list and revoke codes; nobody reads the tables directly', async () => {
   const code = await make(12, 1, { note: 'Mikkelin valmentaja' });
@@ -157,7 +170,7 @@ test('only admins make, list and revoke codes; nobody reads the tables directly'
   assert.equal(await make(6, 2, { code: 'kesa 26' }), 'Kesa-26');
   assert.equal(await uses(), before + 2);
   const list = (await as(ADMIN, 'select * from public.koutsi_admin_trial_codes()')).rows;
-  assert.deepEqual(list.map((r) => r.shown).sort(), [code, 'Kesa-26'].sort());
+  assert.deepEqual(list.map((r) => r.shown).sort(), [code, 'Kesa-26', 'Legacy6+'].sort());
   assert.equal(list.find((r) => r.code === 'KESA26').shown, 'Kesa-26');
   const mine = list.find((r) => r.shown === code);
   assert.equal(mine.code, norm(code));
@@ -177,7 +190,7 @@ test('a new person becomes a coach with 12 free months, even while the default t
   assert.deepEqual({ ...row }, { terms_version: '2026-10-29', accepted: true, trial_code: norm(code) });
   assert.equal(Number((await one(`select count(*) as n from koutsi_exercises where coach_id = '${NEW1}'`)).n), 1, 'starter drills');
   // its uses are gone: the next person is told so, and stays no coach
-  await db.exec(`update koutsi_trial_codes set max_uses = use_count where code = 'SYKSY12'`);
+  await db.exec(`update koutsi_trial_codes set max_uses = use_count where code = 'SYKSY12+'`);
   assert.match(String((await use(NEW2, code)).error?.message), /jo käytetty/);
   assert.equal(await plan(NEW2), null);
   // a new coach needs a confirmed e-mail like the default trial
@@ -232,19 +245,45 @@ test('a free-use code makes a contract customer: no trial, no payment', async ()
   assert.equal((await one(`select trial_ends_at from koutsi_coach_plans where coach_id = '${TRIAL}'`)).trial_ends_at, null);
 });
 
-test('a trial key named like an old free-use coach key wins: it gives the trial', async () => {
-  const KEY123 = '00000000-0000-4000-8000-0000000000c9';
-  await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${KEY123}', 'c9@example.test', now());
-    insert into profiles (id, name) values ('${KEY123}', 'Henkilö 0c9');`);
+test('a key made before the "+" counted gets it in its code; its uses and plans follow', async () => {
+  assert.equal((await one(`select count(*) as n from koutsi_trial_codes where code = 'LEGACY6+'`)).n, 1);
+  assert.equal((await one(`select count(*) as n from koutsi_trial_code_uses where code = 'LEGACY6+'`)).n, 1);
+  assert.equal((await one(`select trial_code from koutsi_coach_plans where coach_id = '${ALPO}'`)).trial_code, 'LEGACY6+');
+});
+
+test('a "+" is part of a key: the same name can be free use without it and a trial with it', async () => {
+  // an old free-use coach key and a trial key of the same name with "+"
   assert.equal(await make(3, 25, { code: 'Vanha3+' }), 'Vanha3+');
-  const r = await use(KEY123, 'vanha3');
+  const a = await newPerson(1);
+  const r = await use(a, 'vanha3 +');
   assert.equal(r.error, null);
   assert.equal(r.rows[0].s.kind, 'code');
   assert.equal(r.rows[0].s.months, 3);
-  assert.equal(await plan(KEY123), 'trial');
-  const left = await daysLeft(KEY123);
+  assert.equal(await plan(a), 'trial');
+  const left = await daysLeft(a);
   assert.ok(left >= 89 && left <= 93, `3 months: ${left}`);
-  assert.equal((await one(`select use_count from koutsi_coach_invite_codes where code = 'VANHA3'`)).use_count, 3, 'the old key was not used');
+  const b = await newPerson(2);
+  const k = await use(b, 'Vanha3');
+  assert.equal(k.error, null);
+  assert.equal(k.rows[0].s.kind, 'key', 'without the "+": the old coach key, free use as before');
+  assert.equal(await plan(b), 'free');
+
+  // two trial keys: free use without the "+", three months with it
+  assert.equal(await make(null, 5, { code: 'Ilmainen' }), 'Ilmainen');
+  assert.equal(await make(3, 5, { code: 'Ilmainen+' }), 'Ilmainen+');
+  const c = await newPerson(3);
+  assert.equal((await use(c, 'ilmainen')).error, null);
+  assert.equal(await plan(c), 'free');
+  const d = await newPerson(4);
+  assert.equal((await use(d, 'ILMAINEN+')).error, null);
+  assert.equal(await plan(d), 'trial');
+
+  // a "+" forgotten still finds the key; a "+" added to a key without one does not
+  const e = await newPerson(5);
+  assert.equal((await use(e, 'legacy6')).error, null);
+  assert.equal(await plan(e), 'trial');
+  assert.match(String((await use(await newPerson(6), 'Kesa-26+')).error?.message), /invalid coach key/);
+  assert.match(String((await use(await newPerson(7), ' + ')).error?.message), /Kirjoita valmentaja-avain/);
 });
 
 test('limits: last day, revoked, unknown; an old coach key still works through the same input', async () => {
