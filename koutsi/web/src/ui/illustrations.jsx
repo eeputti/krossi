@@ -248,23 +248,34 @@ function Wave() {
   );
 }
 
-// Laskutus: a tennis ball minted as a euro coin, flying in past a stack of coins.
+// Laskutus: an invoice whose rows are ticked attendances, with the lime euro coin as its total.
+const INVOICE_ROWS = [[62, 113], [76, 107], [90, 99]]; // [row centre y, line end x]
+
 function MoneyArt() {
-  const cx = 118;
-  const cy = 70;
-  const r = 28;
-  const e = 12; // the € sign's radius
-  const a = round(e * 0.707);
+  const cx = 121; // the coin
+  const cy = 105;
+  const r = 19;
+  const e = 8; // the € sign's radius; its centre sits right of the coin's so the whole glyph is centred
+  const ex = cx + 3;
+  const ax = round(ex + e * Math.cos(Math.PI / 4));
+  const ay = round(e * Math.sin(Math.PI / 4));
   return (
     <>
-      <rect x="48" y="98" width="44" height="11" rx="5.5" fill={INK} />
-      <rect x="53" y="87" width="44" height="11" rx="5.5" fill={INK} />
-      <rect x="48" y="76" width="44" height="11" rx="5.5" fill={INK} />
-      <path d="M57 81.5h26M62 92.5h26M57 103.5h26" stroke={ON_INK} strokeWidth="2" />
-      <path d="M62 50h16M56 60h14M66 40h10" stroke={INK} strokeWidth="4" />
+      <path d="M69 34h38l14 14v64a6 6 0 0 1-6 6H69a6 6 0 0 1-6-6V40a6 6 0 0 1 6-6z" fill={PAPER} />
+      <path d="M107 34v10a4 4 0 0 0 4 4h10z" fill={PAPER_2} />
+      <rect x="71" y="44" width="22" height="6" rx="3" fill={INK} />
+      {INVOICE_ROWS.map(([y, end]) => (
+        <g key={y}>
+          <rect x="71" y={y - 5} width="10" height="10" rx="3" fill={INK} />
+          <path d={`M73.4 ${y + 0.2}l2.2 2.2 3.9-4.4`} stroke={ON_INK} strokeWidth="2" />
+          <path d={`M87 ${y}H${end}`} stroke={MID} strokeWidth="3.5" />
+        </g>
+      ))}
+      <path d="M71 108h20" stroke={INK} strokeWidth="4" />
+      <circle cx={cx} cy={cy} r={r + 3.5} fill={STAGE} />
       <circle cx={cx} cy={cy} r={r} fill={LIME} />
-      <path d={`M${round(cx + 3 + a)} ${round(cy - a)}A${e} ${e} 0 1 0 ${round(cx + 3 + a)} ${round(cy + a)}`} stroke={ON_LIME} strokeWidth="4.5" />
-      <path d={`M${cx - 13} ${cy - 4}h15M${cx - 13} ${cy + 4}h15`} stroke={ON_LIME} strokeWidth="3.5" />
+      <path d={`M${ax} ${round(cy - ay)}A${e} ${e} 0 1 0 ${ax} ${round(cy + ay)}`} stroke={ON_LIME} strokeWidth="3.2" />
+      <path d={`M${ex - 11} ${round(cy - 2.6)}h11M${ex - 11} ${round(cy + 2.6)}h11`} stroke={ON_LIME} strokeWidth="2.4" />
     </>
   );
 }
