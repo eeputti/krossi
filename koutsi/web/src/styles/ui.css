@@ -287,9 +287,15 @@
 .disclosure-content { padding: 4px 14px 16px; }
 
 /* ── sheet ───────────────────────────────────────────────── */
-body.sheet-open { position: fixed; left: 0; right: 0; overflow: hidden; }
+/* The page under an open sheet stops scrolling and stays put (Sheet.jsx). The position: fixed rule is
+   the old lock, kept only for an older app bundle that may still load this file. */
+body.sheet-open:not(.sheet-lock) { position: fixed; left: 0; right: 0; overflow: hidden; }
+/* only html is clipped; body must not become a scroll container of its own, or the iPhone scrolls it to
+   show a field in the sheet and the page under the sheet is left a few pixels off when it closes */
+html.sheet-lock { overflow: hidden; overscroll-behavior: none; }
+body.sheet-lock { overflow: visible; }
 .sheet-root { position: fixed; inset: 0; z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
-.sheet-backdrop { position: absolute; inset: 0; background: var(--scrim); animation: k-fade-in var(--dur-3) var(--ease-out) both; }
+.sheet-backdrop { position: absolute; inset: 0; background: var(--scrim); animation: k-fade-in var(--dur-3) var(--ease-out) both; touch-action: none; }
 /* The blur is costly on phones while the sheet animates; desktop only. */
 @media (min-width: 900px) { .sheet-backdrop { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); } }
 .sheet {
@@ -298,6 +304,9 @@ body.sheet-open { position: fixed; left: 0; right: 0; overflow: hidden; }
   /* backwards, not both: after the entrance the finger's translateY (drag-down) must win */
   animation: k-sheet-up 420ms var(--ease-out) backwards; transition: transform var(--dur-3) var(--ease-out);
 }
+/* phones: the sheet's colour goes on below its bottom edge, so a moment when the phone's own bars and the
+   keyboard change size never shows a strip of the page under the sheet */
+@media (max-width: 899px) { .sheet::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 50vh; background: inherit; pointer-events: none; } }
 .sheet.is-dragging { transition: none; }
 .sheet:not(.is-dragging) { transition: transform 260ms var(--ease-out); }
 .sheet-full { height: calc(var(--dvh) - 12px - var(--safe-top)); }
@@ -309,8 +318,10 @@ body.sheet-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 .sheet-root.is-closing { pointer-events: none; }
 /* sliding up: the second tap of a double tap doesn't hit a row of the sheet */
 .sheet-root.is-opening .sheet { pointer-events: none; }
-/* the keyboard is up: the root is the visible area above it (Sheet.jsx useKeyboardInset) */
+/* a bigger sheet opened on top hides this one once it has slid up; it shows again at once when that closes */
+/* the keyboard is up while typing in the sheet: the root is the visible part of the screen (Sheet.jsx useKeyboardRoom) */
 .sheet-root.has-keyboard .sheet { max-height: calc(100% - 8px); }
+@media (max-width: 899px) { .sheet-root.is-covered { visibility: hidden; transition: visibility 0s linear 0.45s; } }
 .sheet-root.is-closing .sheet-backdrop { animation: k-fade-in 240ms reverse both; }
 .sheet-grab-zone { touch-action: none; flex-shrink: 0; min-height: 24px; }
 .sheet-grabber { display: block; width: 40px; height: 5px; border-radius: 999px; background: var(--line-strong); margin: 9px auto 0; }

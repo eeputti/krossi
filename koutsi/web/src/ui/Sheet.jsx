@@ -7,27 +7,65 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 const EXIT_MS = 240;
 const OPEN_GUARD_MS = 350;
 
+// ── the page under an open sheet ───────────────────────────────────────────
+// It just stops scrolling (overflow: hidden on html) and stays where it is. The old lock
+// pinned the body with position: fixed; with the keyboard up an iPhone then lost track of where
+// things were, and the taps after the keyboard landed beside what they were meant for.
 let openCount = 0;
 let lockedAt = null; // page the scroll position belongs to
+let lockedY = 0;
+const isTypingField = (el) => Boolean(el) && (el.tagName === 'TEXTAREA' || el.isContentEditable
+  || (el.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|range|file|color|image|hidden)$/.test(el.type)));
+const keyboardUp = () => {
+  const vv = window.visualViewport;
+  return Boolean(vv) && window.innerHeight - vv.height > 120;
+};
+// When the keyboard goes down an iPhone doesn't always move the page all the way back, and then a
+// tap hits a spot beside what is drawn under the finger. Put the page back where it was locked.
+let settleTimer = 0;
+function settleAfterKeyboard() {
+  clearTimeout(settleTimer);
+  settleTimer = setTimeout(() => {
+    // (not after a route change: the new page has its own place)
+    if (!openCount || window.location.href !== lockedAt || keyboardUp() || isTypingField(document.activeElement)) return;
+    const vv = window.visualViewport;
+    if (Math.abs(window.scrollY - lockedY) > 1 || (vv && Math.abs(vv.offsetTop) > 1)) window.scrollTo(0, lockedY);
+  }, 150);
+}
 function lockScroll() {
   if (openCount++ === 0) {
-    const y = window.scrollY;
+    lockedY = window.scrollY;
     lockedAt = window.location.href;
-    document.body.dataset.scrollY = String(y);
-    document.body.classList.add('sheet-open');
-    document.body.style.top = `-${y}px`;
+    document.body.dataset.scrollY = String(lockedY); // router.js keeps the page's place with it
+    document.documentElement.classList.add('sheet-lock');
+    document.body.classList.add('sheet-open', 'sheet-lock');
+    window.visualViewport?.addEventListener('resize', settleAfterKeyboard);
+    document.addEventListener('focusout', settleAfterKeyboard);
   }
 }
 function unlockScroll() {
   if (--openCount === 0) {
-    const y = Number(document.body.dataset.scrollY || 0);
-    document.body.classList.remove('sheet-open');
-    document.body.style.top = '';
+    clearTimeout(settleTimer);
+    window.visualViewport?.removeEventListener('resize', settleAfterKeyboard);
+    document.removeEventListener('focusout', settleAfterKeyboard);
+    if (document.body.scrollTop) document.body.scrollTop = 0; // never leave the body itself scrolled
+    document.documentElement.classList.remove('sheet-lock');
+    document.body.classList.remove('sheet-open', 'sheet-lock');
     delete document.body.dataset.scrollY;
-    // A route change closed the sheet: the new page owns its own scroll position.
-    if (window.location.href === lockedAt) window.scrollTo(0, y);
+    // The keyboard may have moved the page; a route change gives the new page its own position.
+    if (window.location.href === lockedAt && Math.abs(window.scrollY - lockedY) > 1) window.scrollTo(0, lockedY);
     lockedAt = null;
   }
+}
+
+// ── a sheet on top of a sheet ──────────────────────────────────────────────
+// The one underneath is hidden while a bigger one is open on top of it (a small question on top
+// keeps it showing): the phone draws one sheet instead of two, and nothing of the lower one can
+// catch a tap. It hides once the upper one has slid up and shows again as soon as that starts closing
+// (CSS, phones only: on a computer the dialogs stay as they were).
+const openRoots = []; // { el, small }, oldest first
+function syncCovered() {
+  openRoots.forEach((r, i) => r.el.classList.toggle('is-covered', openRoots.slice(i + 1).some((u) => !u.small)));
 }
 
 // Open sheets, oldest first: Escape and focus belong to the top-most one only.
@@ -97,28 +135,62 @@ if (typeof window !== 'undefined') {
   });
 }
 
-/** Keeps a sheet above the on-screen keyboard: the root follows the visual viewport. */
-function useKeyboardInset(rootRef, active) {
+/**
+ * Typing in a sheet on a phone: while the keyboard is up the sheet sits right above it — the root
+ * covers just the part of the screen the keyboard leaves (the iPhone may pan the page to show the
+ * field, so the root follows what is actually visible) and the field is scrolled into view inside
+ * the sheet. When the keyboard goes down the root is put back at once, and the page under it is
+ * returned to its place (settleAfterKeyboard), so the next tap lands where it is aimed.
+ */
+function useKeyboardRoom(rootRef, bodyRef, active) {
   useEffect(() => {
     const vv = window.visualViewport;
-    const root = rootRef.current;
-    if (!active || !vv || !root) return undefined;
-    const update = () => {
-      const bottom = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-      const keyboard = bottom > 80;
-      root.style.top = keyboard ? `${Math.round(vv.offsetTop)}px` : '';
-      root.style.bottom = keyboard ? `${bottom}px` : '';
-      root.classList.toggle('has-keyboard', keyboard);
-      const el = document.activeElement;
-      if (keyboard && el && root.contains(el) && typeof el.scrollIntoView === 'function') {
-        requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest' }));
+    if (!active || !vv) return undefined;
+    let raf = 0;
+    const reset = () => {
+      const root = rootRef.current;
+      if (root && root.classList.contains('has-keyboard')) {
+        root.style.top = '';
+        root.style.bottom = '';
+        root.classList.remove('has-keyboard');
       }
     };
-    update();
+    const update = () => {
+      const root = rootRef.current;
+      const body = bodyRef.current;
+      if (!root || !body) return;
+      const field = document.activeElement;
+      if (!keyboardUp() || !body.contains(field) || !isTypingField(field)) { cancelAnimationFrame(raf); reset(); return; }
+      root.style.top = `${Math.round(vv.offsetTop)}px`;
+      root.style.bottom = `${Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))}px`;
+      root.classList.add('has-keyboard');
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const f = field.getBoundingClientRect();
+        const box = body.getBoundingClientRect();
+        const room = box.bottom - 12;
+        const top = box.top + 8;
+        if (f.bottom > room) body.scrollTop += Math.min(f.bottom - room, Math.max(0, f.top - top));
+        else if (f.top < top) body.scrollTop -= top - f.top;
+      });
+    };
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);
-    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); };
-  }, [rootRef, active]);
+    // focus leaving a field: look again a moment later, when the next field (if any) has it
+    let later = 0;
+    const onFocusOut = () => { clearTimeout(later); later = setTimeout(update, 60); };
+    document.addEventListener('focusin', update);
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(later);
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      document.removeEventListener('focusin', update);
+      document.removeEventListener('focusout', onFocusOut);
+      reset();
+    };
+  }, [rootRef, bodyRef, active]);
 }
 
 const DRAG_CLOSE_PX = 110;
@@ -179,7 +251,7 @@ export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dis
     onCloseRef.current?.();
     return true;
   }, [confirm]);
-  useKeyboardInset(root, mounted && !closing);
+  useKeyboardRoom(root, body, mounted && !closing);
 
   useEffect(() => {
     if (open) {
@@ -203,6 +275,19 @@ export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dis
     const t = setTimeout(() => { if (!panel.current?.contains(document.activeElement)) panel.current?.focus({ preventScroll: true }); }, 30);
     return () => { clearTimeout(t); unlockScroll(); restoreFocus.current?.focus?.({ preventScroll: true }); };
   }, [mounted]);
+
+  useEffect(() => {
+    if (!open || !mounted || !root.current) return undefined;
+    const entry = { el: root.current, small: size === 'sm' };
+    openRoots.push(entry);
+    syncCovered();
+    return () => {
+      const i = openRoots.indexOf(entry);
+      if (i >= 0) openRoots.splice(i, 1);
+      entry.el.classList.remove('is-covered');
+      syncCovered();
+    };
+  }, [open, mounted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return undefined;
@@ -237,13 +322,13 @@ export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dis
     };
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Drag-to-dismiss on phones, like native sheets: pull down by the grabber/header, or by the
-  // content once it is scrolled to the top. Touch events (not pointer capture) so the content's
-  // own scrolling keeps working and nothing is left half-dragged.
+  // Drag-to-dismiss on phones, like native sheets: pull down by the grabber and the header only. The
+  // content has no touch listeners at all, so it scrolls at the phone's own speed and a tap in it is
+  // never taken for the start of a pull.
   useEffect(() => {
     if (!mounted || !dismissible) return undefined;
     const sheet = panel.current;
-    const zones = [grabZone.current, body.current].filter(Boolean);
+    const zones = [grabZone.current].filter(Boolean);
     let g = null; // active gesture
     const setY = (y) => { sheet.style.transform = y ? `translateY(${y}px)` : ''; };
     const end = () => {
@@ -264,16 +349,14 @@ export function Sheet({ open, onClose, title, subtitle, footer, size = 'md', dis
     };
     const onStart = (e) => {
       if (window.innerWidth >= 900 || e.touches.length !== 1) { g = null; return; }
-      const fromHandle = grabZone.current?.contains(e.target);
-      g = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, t0: performance.now(), dy: 0, active: false, fromHandle, atTop: (body.current?.scrollTop || 0) <= 0 };
+      g = { x0: e.touches[0].clientX, y0: e.touches[0].clientY, t0: performance.now(), dy: 0, active: false };
     };
     const onMove = (e) => {
       if (!g) return;
       const y = e.touches[0].clientY;
       const delta = y - g.y0;
       if (!g.active) {
-        const canPull = g.fromHandle || (g.atTop && (body.current?.scrollTop || 0) <= 0);
-        if (!canPull || delta < -4) { g = null; return; } // a normal scroll
+        if (delta < -4) { g = null; return; } // a push up is not a pull
         // a sideways swipe (the session slides, a strip of chips) is never a pull
         if (Math.abs(e.touches[0].clientX - g.x0) > Math.abs(delta)) { g = null; return; }
         if (delta < 6) return;                             // not decided yet
