@@ -7,7 +7,9 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  applyArgs, checkoutParams, koutsiCoachOf, KOUTSI_PRODUCT, pickSubscription, priceInfo, returnBase, subscriptionIdOf,
+  applyArgs, bestSubscription, checkoutParams, expireOpenCheckouts, foundingCoupon, foundingCouponFor, foundingLeft, foundingMonths,
+  isFoundingCoupon, koutsiCoachOf, KOUTSI_PRODUCT, offerMonths, pickSubscription, priceInfo, returnBase, stripeTrial, subscriptionIdOf,
+  wholeMonths,
 } from '../../../supabase/functions/_shared/koutsiPlan.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -38,10 +40,20 @@ test('Checkout: a monthly subscription for this coach, back to Profiili', () => 
 test('Checkout inside the free trial: the first charge comes when the trial ends', () => {
   const end = '2027-01-29T12:00:00Z';
   assert.equal(params({ trialEndsAt: end }).subscription_data.trial_end, Date.parse(end) / 1000);
-  // Stripe wants at least 48 h: with less left, the charge is now
-  assert.equal('trial_end' in params({ trialEndsAt: '2026-10-31T10:00:00Z' }).subscription_data, false);
-  assert.equal('trial_end' in params({ trialEndsAt: '2026-10-20T12:00:00Z' }).subscription_data, false, 'trial already over');
-  assert.equal('trial_end' in params({ trialEndsAt: null }).subscription_data, false);
+  // Stripe takes a trial_end only 48 h ahead: with less left, whole trial days instead, so the first
+  // charge still never comes before the trial ends (tilausehdot)
+  const short = params({ trialEndsAt: '2026-10-31T10:00:00Z' }).subscription_data; // 46 h left
+  assert.equal('trial_end' in short, false);
+  assert.equal(short.trial_period_days, 2);
+  assert.equal(params({ trialEndsAt: '2026-10-29T13:00:00Z' }).subscription_data.trial_period_days, 1, 'an hour left');
+  for (const over of ['2026-10-20T12:00:00Z', '2026-10-29T12:00:00Z', null]) {
+    const data = params({ trialEndsAt: over }).subscription_data;
+    assert.equal('trial_end' in data || 'trial_period_days' in data, false, `no trial left: ${over}`);
+  }
+  // Stripe's longest trial is 730 days: Checkout would fail, so the caller says so before
+  assert.deepEqual(stripeTrial('2028-11-05T12:00:00Z', NOW), { tooFar: true }, '738 days');
+  assert.throws(() => params({ trialEndsAt: '2028-11-05T12:00:00Z' }));
+  assert.equal(stripeTrial('2028-10-23T12:00:00Z', NOW).trialEnd, Date.parse('2028-10-23T12:00:00Z') / 1000, '725 days is fine');
 });
 
 test("a Koutsi checkout can never unlock Krossi: none of the fields Krossi's stripe-webhook reads", async () => {
@@ -139,4 +151,190 @@ test('the price a coach sees, with a founding-customer offer while it lasts', ()
   // the setup script stretches the coupon over the free trial and keeps the promised paid months in metadata
   assert.deepEqual(priceInfo(price, { ...coupon, duration_in_months: 15, metadata: { koutsi_kk: '12' } }).offer, { cents: 1900, months: 12 });
   assert.equal(priceInfo(null), null);
+});
+
+// ── the founding offer ─────────────────────────────────────────────────────
+
+const BASE = 'KOUTSI_ALKU_1000_12KK_10';
+const baseCoupon = (extra = {}) => ({
+  id: BASE, object: 'coupon', valid: true, name: 'Koutsi aloitustarjous', amount_off: 1000, currency: 'eur', percent_off: null,
+  duration: 'repeating', duration_in_months: 15, max_redemptions: 10, times_redeemed: 0, redeem_by: null,
+  applies_to: { products: ['krossi_koutsi_valmentaja'] }, metadata: { koutsi_kk: '12' }, ...extra,
+});
+
+/** Enough of Stripe for the founding coupon and open Checkout sessions. */
+function fakeStripe({ coupons = [], sessions = [] } = {}) {
+  const store = new Map(coupons.map((c) => [c.id, { ...c }]));
+  const calls = [];
+  const err = (code) => Object.assign(new Error(code), { code });
+  return {
+    calls, store,
+    coupons: {
+      async retrieve(id, opts) { calls.push(['retrieve', id, opts]); if (!store.has(id)) throw err('resource_missing'); return { ...store.get(id) }; },
+      async list({ limit, starting_after: after }) {
+        const all = [...store.values()];
+        const from = after ? all.findIndex((c) => c.id === after) + 1 : 0;
+        calls.push(['list', after || null]);
+        return { data: all.slice(from, from + limit), has_more: from + limit < all.length };
+      },
+      async create(params) {
+        calls.push(['create', params]);
+        if (store.has(params.id)) throw err('resource_already_exists');
+        const made = { object: 'coupon', valid: true, times_redeemed: 0, ...params };
+        store.set(params.id, made);
+        return made;
+      },
+    },
+    checkout: {
+      sessions: {
+        async list(q) { calls.push(['sessions.list', q]); return { data: sessions.filter((x) => x.customer === q.customer && x.status === q.status) }; },
+        async expire(id) {
+          calls.push(['expire', id]);
+          const x = sessions.find((y) => y.id === id);
+          if (x.completeNow) throw err('checkout_session_completed');
+          x.status = 'expired';
+          return x;
+        },
+      },
+    },
+  };
+}
+
+/** Calendar months like Stripe's billing: the anchor's day, or the month's last day when it is shorter. */
+function addMonths(ms, n) {
+  const d = new Date(ms);
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1, d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()));
+  t.setUTCDate(Math.min(d.getUTCDate(), new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate()));
+  return t.getTime();
+}
+
+test('whole calendar months between two moments', () => {
+  const at = (iso) => Date.parse(iso);
+  assert.equal(wholeMonths(at('2026-10-30T12:00:00Z'), at('2027-01-29T12:00:00Z')), 2);
+  assert.equal(wholeMonths(at('2026-10-30T12:00:00Z'), at('2027-01-30T12:00:00Z')), 3);
+  assert.equal(wholeMonths(at('2026-10-30T12:00:00Z'), at('2026-11-29T23:00:00Z')), 0);
+  assert.equal(wholeMonths(at('2027-01-31T08:00:00Z'), at('2027-02-28T08:00:00Z')), 1, 'a short month clamps');
+  assert.equal(wholeMonths(at('2026-10-30T12:00:00Z'), at('2026-10-29T12:00:00Z')), 0);
+});
+
+test('the founding coupon lasts so that exactly the promised paid months are discounted, whatever the trial', () => {
+  // Stripe: invoices at the trial's end and monthly after it; a repeating coupon counts its months from the
+  // day the subscription is made. Count the discounted invoices for many coaches.
+  const offer = 12;
+  const starts = ['2026-10-29T12:00:00Z', '2026-11-30T09:15:00Z', '2027-01-31T18:00:00Z', '2027-02-14T06:00:00Z'];
+  for (const start of starts) {
+    for (const trialMonths of [3, 6, 12]) {
+      const trialEndsAt = new Date(addMonths(Date.parse(start), trialMonths)).toISOString();
+      const end = Date.parse(trialEndsAt);
+      const moments = [0, 1, 17, 45, 89, 120, 200, 400].map((day) => Date.parse(start) + day * 86400000 + 3600000)
+        .concat([1, 30, 47, 50, 24 * 40].map((hoursLeft) => end - hoursLeft * 3600000)); // and just before its end
+      for (const now of moments) {
+        const dayOfTrial = Math.round((now - Date.parse(start)) / 86400000);
+        const trial = stripeTrial(trialEndsAt, now);
+        const months = foundingMonths(offer, trial, now);
+        const firstCharge = trial.trialEnd ? trial.trialEnd * 1000 : trial.trialDays ? now + trial.trialDays * 86400000 : now;
+        const discountEnds = addMonths(now, months);
+        let discounted = 0;
+        for (let k = 0; k < 40; k += 1) if (addMonths(firstCharge, k) < discountEnds) discounted += 1;
+        assert.equal(discounted, offer, `trial ${trialMonths} kk from ${start}, day ${dayOfTrial}: ${months} months`);
+      }
+    }
+  }
+  // the default trial taken on its first day: the configured coupon's own 15 months
+  const now = Date.parse('2026-10-29T12:00:00Z');
+  assert.equal(foundingMonths(12, stripeTrial('2027-01-29T12:30:00Z', now), now), 15);
+  assert.equal(foundingMonths(12, {}, now), 12, 'after the trial');
+  assert.equal(foundingMonths(0, {}, now), 0);
+});
+
+test('founding places are counted over the configured coupon and the copies made from it', async () => {
+  const others = Array.from({ length: 150 }, (_, i) => ({ id: `MUU_${i}`, times_redeemed: 50 }));
+  const stripe = fakeStripe({ coupons: [
+    ...others.slice(0, 70), baseCoupon({ times_redeemed: 3 }), ...others.slice(70),
+    { id: `${BASE}_14KK`, times_redeemed: 4 }, { id: `${BASE}_9KK`, times_redeemed: 2 },
+    { id: `${BASE}_X`, times_redeemed: 9 }, { id: 'KOUTSI_ALKU_1000_12KK_1', times_redeemed: 9 },
+  ] });
+  const base = await foundingCoupon(stripe, BASE);
+  assert.equal(base.times_redeemed, 9, '3 + 4 + 2, over two pages');
+  assert.equal(foundingLeft(base), 1);
+  assert.deepEqual(stripe.calls[0], ['retrieve', BASE, { expand: ['applies_to'] }]);
+  assert.equal(priceInfo({ unit_amount: 2900 }, base).offer.months, 12);
+  // the last place taken through a copy: no offer shown, no coupon at checkout
+  stripe.store.get(`${BASE}_9KK`).times_redeemed = 3;
+  const full = await foundingCoupon(stripe, BASE);
+  assert.equal(foundingLeft(full), 0);
+  assert.equal(priceInfo({ unit_amount: 2900 }, full).offer, null);
+  assert.equal(await foundingCouponFor(stripe, full, 14), null);
+  // no coupon configured, or Stripe doesn't have it
+  assert.equal(await foundingCoupon(stripe, ''), null);
+  assert.equal(await foundingCoupon(stripe, 'EI_OLE'), null);
+  assert.equal(isFoundingCoupon(`${BASE}_14KK`, BASE), true);
+  assert.equal(isFoundingCoupon(`${BASE}0_14KK`, BASE), false);
+  assert.equal(isFoundingCoupon('KOUTSI_ALKU_1000_12KK_1', BASE), false);
+});
+
+test('a checkout gets the configured coupon when its length fits, else a copy made once', async () => {
+  const stripe = fakeStripe({ coupons: [baseCoupon()] });
+  const base = await foundingCoupon(stripe, BASE);
+  assert.equal(offerMonths(base), 12);
+  assert.equal(await foundingCouponFor(stripe, base, 15), BASE);
+  assert.equal(stripe.calls.some(([c]) => c === 'create'), false);
+  assert.equal(await foundingCouponFor(stripe, base, 23), `${BASE}_23KK`);
+  const created = stripe.calls.find(([c]) => c === 'create')[1];
+  assert.deepEqual(created, {
+    id: `${BASE}_23KK`, name: 'Koutsi aloitustarjous', amount_off: 1000, currency: 'eur', duration: 'repeating', duration_in_months: 23,
+    max_redemptions: 10, applies_to: { products: ['krossi_koutsi_valmentaja'] }, metadata: { koutsi_kk: '12', koutsi_base: BASE },
+  });
+  // the next coach with the same trial left reuses it
+  assert.equal(await foundingCouponFor(stripe, base, 23), `${BASE}_23KK`);
+  assert.equal(stripe.calls.filter(([c]) => c === 'create').length, 1);
+  // a percentage coupon copies the percentage, no currency
+  const pct = fakeStripe({ coupons: [baseCoupon({ amount_off: null, currency: null, percent_off: 40, applies_to: null, name: null })] });
+  const pctBase = await foundingCoupon(pct, BASE);
+  assert.equal(await foundingCouponFor(pct, pctBase, 12), `${BASE}_12KK`);
+  const made = pct.calls.find(([c]) => c === 'create')[1];
+  assert.equal(made.percent_off, 40);
+  assert.equal('currency' in made || 'amount_off' in made || 'applies_to' in made || 'name' in made, false);
+  // two checkouts at once: the second create finds it made
+  const race = fakeStripe({ coupons: [baseCoupon()] });
+  const raceBase = await foundingCoupon(race, BASE);
+  const realRetrieve = race.coupons.retrieve;
+  race.coupons.retrieve = async (id, opts) => {
+    if (id === `${BASE}_18KK`) { race.store.set(id, { id, valid: true }); throw Object.assign(new Error('missing'), { code: 'resource_missing' }); }
+    return realRetrieve(id, opts);
+  };
+  assert.equal(await foundingCouponFor(race, raceBase, 18), `${BASE}_18KK`);
+  // an offer that is not on gives nothing
+  assert.equal(await foundingCouponFor(stripe, { ...base, valid: false }, 15), null);
+  assert.equal(await foundingCouponFor(stripe, null, 15), null);
+});
+
+test('the webhook writes the best of the coach\'s subscriptions, not the cancelled duplicate', () => {
+  const s = (id, status, created, m = meta) => ({ id, status, created, metadata: m, customer: 'cus_1' });
+  const live = s('sub_live', 'active', 1);
+  const dup = s('sub_dup', 'canceled', 2);
+  assert.deepEqual(bestSubscription(dup, [live, dup]), { sub: live, live: 1 });
+  assert.deepEqual(bestSubscription(live, [live, dup]), { sub: live, live: 1 });
+  // two live ones: the newest, and the count tells the coach pays twice
+  const second = s('sub_2', 'trialing', 3);
+  assert.deepEqual(bestSubscription(live, [live, second]), { sub: second, live: 2 });
+  // another coach's subscription on the same customer, or Krossi's, never counts
+  const other = s('sub_x', 'active', 9, { product: KOUTSI_PRODUCT, koutsi_coach_id: '00000000-0000-4000-8000-0000000000c9' });
+  assert.deepEqual(bestSubscription(dup, [dup, other, s('sub_k', 'active', 9, {})]), { sub: dup, live: 0 });
+  assert.equal(bestSubscription(s('sub_k', 'active', 1, {}), []), null);
+  assert.deepEqual(bestSubscription(dup, undefined), { sub: dup, live: 0 });
+});
+
+test('a new checkout expires the coach\'s Checkout sessions still open', async () => {
+  const sessions = [
+    { id: 'cs_1', customer: 'cus_1', status: 'open', mode: 'subscription', metadata: meta },
+    { id: 'cs_2', customer: 'cus_1', status: 'open', mode: 'subscription', metadata: meta, completeNow: true },
+    { id: 'cs_3', customer: 'cus_1', status: 'open', mode: 'payment', metadata: { product: 'krossi_unlock' } },
+    { id: 'cs_4', customer: 'cus_2', status: 'open', mode: 'subscription', metadata: meta },
+    { id: 'cs_5', customer: 'cus_1', status: 'complete', mode: 'subscription', metadata: meta },
+  ];
+  const stripe = fakeStripe({ sessions });
+  assert.equal(await expireOpenCheckouts(stripe, 'cus_1'), 1);
+  assert.deepEqual(stripe.calls.filter(([c]) => c === 'expire').map(([, id]) => id), ['cs_1', 'cs_2'], 'Koutsi\'s open ones only');
+  assert.deepEqual(sessions.map((x) => x.status), ['expired', 'open', 'open', 'open', 'complete']);
 });

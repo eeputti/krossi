@@ -35,6 +35,11 @@ const KNOWN = [
   [/Virheellinen kausi/i, 'Kauden tiedot olivat vajaat. Päivitä sivu ja yritä uudelleen.', null],
   [/Tätä profiilia ei voi lunastaa/i, 'Tätä profiilia ei voi lunastaa. Pyydä valmentajalta uusi koodi.', 'cannot_claim'],
   [/own coach code|koutsi_coach_students_check/i, 'Tämä on oma valmentajakoodisi. Anna se pelaajalle — sinun ei tarvitse liittyä itse.', 'own_code'],
+  // valmentaja-avaimet (koutsi_use_code, koutsi_admin_create_trial_code): our own sentences without ä/ö
+  [/Kirjoita valmentaja-avain/i, 'Kirjoita valmentaja-avain.', null],
+  [/Avaimessa saa olla 4–30 kirjainta/i, 'Avaimessa saa olla 4–30 kirjainta, numeroa tai plussaa.', null],
+  [/Koutsi on sinulle jo maksuton/i, 'Koutsi on sinulle jo maksuton, joten avainta ei tarvita.', null],
+  [/toimii vain uuden tilin luonnissa/i, 'Tämä avain toimii vain uuden tilin luonnissa.', null],
   [/invalid coach key/i, 'Väärä valmentaja-avain.', 'bad_key'],
   [/coach key has expired/i, 'Valmentaja-avain on vanhentunut.', 'key_expired'],
   [/coach key has been revoked/i, 'Valmentaja-avain on poistettu käytöstä.', 'key_revoked'],

@@ -2,6 +2,7 @@
 // The service-role client is created only after the caller's JWT and koutsi_admins row
 // have both been checked. The requested target id is never accepted as authority.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { cancelKoutsiSubscription } from '../_shared/koutsiCancel.ts';
 
 // This is an admin-only account-deletion endpoint — no reason for it to be callable from
 // an arbitrary origin. Echo back the origin only when it's the real app (or local dev).
@@ -78,6 +79,11 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
     auth: { persistSession: false },
   });
+
+  // A Koutsi coach's subscription ends first, so the deleted account is never charged again
+  // (the same as koutsi-admin-delete-user and koutsi-delete-account).
+  const cancelError = await cancelKoutsiSubscription(admin, targetUserId);
+  if (cancelError) return json(req, { error: `Tilauksen päättäminen epäonnistui: ${cancelError}` }, 502);
 
   const filesByBucket = new Map<string, string[]>();
   for (const file of manifest.files || []) {

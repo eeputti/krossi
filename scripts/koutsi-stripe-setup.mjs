@@ -9,8 +9,8 @@
 //   node scripts/koutsi-stripe-setup.mjs --vuosi 290    (only the yearly price, on top of an earlier setup)
 //
 //   --hinta     monthly price in euros, what the coach pays (e.g. 29 or 29,90)
-//   --alku …    optional founding offer: price during the first --alku-kk months for the first
-//               --alku-kpl coaches (a Stripe coupon; Stripe counts the uses; monthly price only)
+//   --alku …    optional founding offer: price during the first --alku-kk paid months for the first
+//               --alku-kpl coaches (a Stripe coupon; koutsi-subscription counts the uses; monthly price only)
 //   --vuosi     optional yearly price in euros (cheaper than 12 months, e.g. 290): KOUTSI_PRICE_YEAR_ID,
 //               and the customer portal lets a coach switch between month and year. Without --hinta it
 //               touches nothing else (the monthly price and portal come from the env file).
@@ -257,13 +257,21 @@ async function main() {
   else {
     const off = PRICE_CENTS - OFFER_CENTS;
     // Stripe counts a coupon's months from the day the subscription is made, also inside the free
-    // trial (the first charge comes at its end). The coupon lasts the trial's 3 months longer, so
-    // every coach gets at least --alku-kk paid months at the offer price; the app shows --alku-kk
-    // (metadata koutsi_kk).
+    // trial (the first charge comes at its end). This coupon lasts the default trial's 3 months longer;
+    // at checkout koutsi-subscription fits it to the coach's own trial left (a copy of it lasting
+    // --alku-kk + the whole months left, made on demand: _shared/koutsiPlan.js foundingCouponFor), so
+    // every coach gets exactly --alku-kk paid months at the offer price, and the --alku-kpl limit is
+    // counted over all of them. The app shows --alku-kk (metadata koutsi_kk).
     const months = OFFER_MONTHS + TRIAL_MONTHS;
     coupon = `KOUTSI_ALKU_${off}_${OFFER_MONTHS}KK_${OFFER_COUNT}`;
     const found = await stripe(secret, 'GET', `coupons/${coupon}`).catch(() => null);
-    if (found) ok(`Kuponki löytyi (${coupon}, käytetty ${found.times_redeemed}/${found.max_redemptions})`);
+    if (found) {
+      // its uses together with the copies made from it at checkout
+      const family = (await stripe(secret, 'GET', 'coupons', [['limit', '100']]).catch(() => ({ data: [found] }))).data
+        .filter((c) => c.id === coupon || /^\d+KK$/.test(c.id.startsWith(`${coupon}_`) ? c.id.slice(coupon.length + 1) : ''));
+      const used = Math.max(found.times_redeemed || 0, family.reduce((n, c) => n + (c.times_redeemed || 0), 0));
+      ok(`Kuponki löytyi (${coupon}, käytetty ${used}/${found.max_redemptions})`);
+    }
     else {
       await stripe(secret, 'POST', 'coupons', [
         ['id', coupon], ['name', 'Koutsi aloitustarjous'], ['currency', 'eur'], ['amount_off', String(off)],

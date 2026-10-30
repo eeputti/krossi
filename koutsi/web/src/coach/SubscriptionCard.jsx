@@ -71,10 +71,12 @@ export function SubscriptionCard() {
   }, [back, toast, uid]);
 
   const card = planCard(status, price);
-  if (!card) return null;
+  // A free-use key makes the coach free, and a free coach has no card: the key sheet stays (at the same
+  // place in the tree, so it keeps its state) until its "Koutsi on sinulle maksuton!" is closed.
+  if (!card && sheet !== 'code') return null;
   const choices = checkoutChoices(price);
   const go = async (interval = 'month') => {
-    if (busy) return;
+    if (busy || !card) return;
     setBusy(true);
     try {
       const { url } = card.action === 'portal' ? await api.subscription.portal() : await api.subscription.checkout(interval);
@@ -82,30 +84,34 @@ export function SubscriptionCard() {
     } catch (err) { toast(err); setBusy(false); }
   };
   // "Ota tilaus" asks month or year only when there is a yearly price
-  const primary = card.action === 'checkout' && choices.length > 1 ? () => setSheet('choose') : () => go('month');
+  const primary = card?.action === 'checkout' && choices.length > 1 ? () => setSheet('choose') : () => go('month');
   const codeUsed = (s) => { setStatus(s); setPlanStatus(uid, s); };
   return (
     <section className="stack-2">
-      <div className="eyebrow">Tilaus</div>
-      <Card className={cx('k-alert', card.tone === 'warn' && 'k-alert-warn')}>
-        <span className={cx('k-alert-icon', card.tone === 'lime' && 'is-lime')}><Icon name={card.icon} size={19} /></span>
-        <div className="k-alert-body">
-          <div className="k-alert-title">{card.title}</div>
-          {card.text && <p className="k-alert-text">{card.text}</p>}
-          <div className="row wrap season-alert-actions">
-            <Button variant="dark" size="sm" loading={busy} onClick={primary}>{card.label}</Button>
-            {card.code && <Button variant="ghost" size="sm" onClick={() => setSheet('code')}>Onko sinulla valmentaja-avain?</Button>}
-          </div>
-        </div>
-      </Card>
-      <Sheet open={sheet === 'choose'} onClose={() => setSheet(null)} title="Ota tilaus" size="sm">
-        <div className="list-group">
-          {choices.map((c) => (
-            <ListRow key={c.interval} icon={c.interval === 'year' ? 'calendar' : 'repeat'} title={c.title} subtitle={c.sub}
-              onClick={busy ? undefined : () => go(c.interval)} />
-          ))}
-        </div>
-      </Sheet>
+      {card && (
+        <>
+          <div className="eyebrow">Tilaus</div>
+          <Card className={cx('k-alert', card.tone === 'warn' && 'k-alert-warn')}>
+            <span className={cx('k-alert-icon', card.tone === 'lime' && 'is-lime')}><Icon name={card.icon} size={19} /></span>
+            <div className="k-alert-body">
+              <div className="k-alert-title">{card.title}</div>
+              {card.text && <p className="k-alert-text">{card.text}</p>}
+              <div className="row wrap season-alert-actions">
+                <Button variant="dark" size="sm" loading={busy} onClick={primary}>{card.label}</Button>
+                {card.code && <Button variant="ghost" size="sm" onClick={() => setSheet('code')}>Onko sinulla valmentaja-avain?</Button>}
+              </div>
+            </div>
+          </Card>
+          <Sheet open={sheet === 'choose'} onClose={() => setSheet(null)} title="Ota tilaus" size="sm">
+            <div className="list-group">
+              {choices.map((c) => (
+                <ListRow key={c.interval} icon={c.interval === 'year' ? 'calendar' : 'repeat'} title={c.title} subtitle={c.sub}
+                  onClick={busy ? undefined : () => go(c.interval)} />
+              ))}
+            </div>
+          </Sheet>
+        </>
+      )}
       <CodeSheet open={sheet === 'code'} onClose={() => setSheet(null)} onUsed={codeUsed} />
     </section>
   );
