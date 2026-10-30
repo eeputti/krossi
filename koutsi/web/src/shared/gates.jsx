@@ -246,9 +246,10 @@ export function AuthScreen({ role }) {
                 <p className="auth-context"><Icon name="users" size={16} /> Sinulla on valmentajan kutsulinkki — luo tili tai kirjaudu, niin liityt heti.</p>
               )}
             </header>
-            {isCoach && mode !== 'reset' && selfServe !== true && (
+            {/* only a new account needs the key: a coach who signs in already has one */}
+            {isCoach && mode === 'register' && selfServe !== true && (
               <div className="k-note k-note-lime">
-                <strong>Onko sinulla valmentaja-avain?</strong> Tarvitset sen kirjautumisen jälkeen.
+                <strong>Onko sinulla valmentaja-avain?</strong> Tarvitset sen, kun olet luonut tilin.
                 {' '}Jos ei ole, <a href={`mailto:${SUPPORT_EMAIL}?subject=Valmentaja-avain%20Koutsiin`}>pyydä se täältä</a>.
               </div>
             )}
