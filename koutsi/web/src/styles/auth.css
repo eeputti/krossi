@@ -160,20 +160,6 @@
 .auth-sent-actions { display: grid; gap: 6px; margin-top: 20px; }
 
 /* ── way-out links ── */
-.auth-links { display: flex; flex-direction: column; gap: 12px; }
-.auth-demo-link {
-  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-lg);
-  background: var(--sand); border: 1px solid transparent;
-  transition: transform var(--dur-1) var(--ease-out), background-color var(--dur-2), box-shadow var(--dur-2);
-}
-.auth-demo-link:hover { background: var(--sand-2); }
-.auth-demo-link:active { transform: scale(0.98); }
-.auth-demo-link-icon { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; background: var(--green-800); color: var(--lime); }
-.auth-demo-link-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.auth-demo-link-title { font-size: 14.5px; font-weight: 750; color: var(--ink); }
-.auth-demo-link-sub { font-size: 12.5px; color: var(--muted); }
-.auth-demo-link-arrow { color: var(--green-700); transition: transform var(--dur-2) var(--ease-out); }
-.auth-demo-link:hover .auth-demo-link-arrow { transform: translateX(3px); }
 .auth-koutsi-link {
   align-self: center; display: inline-block; padding: 6px 10px; border-radius: var(--r-pill);
   font-size: 13px; font-weight: 650; color: var(--muted); transition: color var(--dur-2), background-color var(--dur-2);

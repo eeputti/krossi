@@ -318,16 +318,6 @@ export function AuthScreen({ role }) {
           </div>
         )}
       </div>
-      <nav className="auth-links" aria-label="Muut vaihtoehdot">
-        <a className="auth-demo-link" href={`https://demo.koutsi.krossi.app${isCoach ? '/valmentaja' : '/pelaaja'}?uusi=1`}>
-          <span className="auth-demo-link-icon"><Icon name="play" size={16} /></span>
-          <span className="auth-demo-link-text">
-            <span className="auth-demo-link-title">Kokeile ensin demoa</span>
-            <span className="auth-demo-link-sub">{isCoach ? 'Katso valmentajan viikko ilman tiliä' : 'Katso pelaajan näkymä ilman tiliä'}</span>
-          </span>
-          <Icon name="arrow-right" size={18} className="auth-demo-link-arrow" />
-        </a>
-      </nav>
     </AuthLayout>
   );
 }
