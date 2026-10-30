@@ -1,11 +1,11 @@
--- 20261029210000_no_middle_dots.sql — no middle dot "·" in the texts the database writes for people.
+-- 20261030070237_no_middle_dots.sql — no middle dot "·" in the texts the database writes for people.
 -- "A · B" becomes "A, B" in: the Koutsi notifications (Uusi treeni kalenterissasi, Treeni peruttu,
 -- Treeni siirtyi, <nimi> ei pääse / pääseekin, Treenit ohi! Miten meni?) and Krossi's booking label
 -- (saldo and sarjakortti history), the kausivuoro invoice line and the monthly card charge description.
 -- Nothing else changes.
 --
--- NOT APPLIED — a proposal (29.10.2026). Apply only on the user's go-ahead (apply_migration
--- no_middle_dots), then move the file to supabase/migrations.
+-- APPLIED 30.10.2026 on the user's go-ahead (apply_migration no_middle_dots); every body was checked
+-- against the live one first (same apart from the separator).
 -- Each function is its live definition of 29.10.2026 (pg_get_functiondef) with only that separator
 -- changed; if one has been replaced since, redo the change on the new live version instead. Grants are
 -- restated as they are live (service_role only). The Laskutus functions (koutsi_send_invoice,

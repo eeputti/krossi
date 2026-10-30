@@ -1,9 +1,8 @@
--- 20261110140000_koutsi_billing_mail.sql — Laskutus, vaihe 3: the coach's own message on an invoice,
+-- 20261030070121_koutsi_billing_mail.sql — Laskutus, vaihe 3: the coach's own message on an invoice,
 -- a logo, invoices e-mailed with their PDF, reminders, and "En tarvitse laskutusta vielä".
 --
--- NOT APPLIED — a proposal (29.10.2026). Apply only on the user's go-ahead (apply_migration
--- koutsi_billing_mail), then move the file to supabase/migrations. Tested in PGlite on top of phases 1–2:
--- koutsi/web/sql/20261110140000_koutsi_billing_mail.check.mjs
+-- APPLIED 30.10.2026 on the user's go-ahead (apply_migration koutsi_billing_mail). Tested in PGlite on top
+-- of phases 1–2: koutsi/web/sql/20261030070121_koutsi_billing_mail.check.mjs
 -- Additive: new columns, a small prefs table, a public logo bucket, one new function, and replaced
 -- versions of the invoice guard, koutsi_send_invoice, koutsi_invoice_public, koutsi_invoice_paid_online
 -- and koutsi_my_billing_terms.
