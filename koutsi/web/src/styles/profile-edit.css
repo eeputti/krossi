@@ -33,6 +33,7 @@
   position: absolute; right: 0; bottom: 0; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
   background: var(--green-800); color: #fff; border: 3px solid var(--bg, #fff);
 }
+.profile-edit-photo-actions { justify-content: center; gap: 8px; }
 .profile-edit-photo-sub { max-width: 340px; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .profile-edit-card { padding: 18px 16px; border-radius: var(--r-xl); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); }
 @media (min-width: 900px) { .profile-edit-card { padding: 22px 24px; } }

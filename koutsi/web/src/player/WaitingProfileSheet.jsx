@@ -160,7 +160,8 @@ export function WaitingProfileSheet({ open, onClose, onSaved }) {
             <Avatar person={profile} size={124} />
             <span className="wp-avatar-badge">{photo.busy ? <Spinner size={16} /> : <Icon name="camera" size={20} />}</span>
           </button>
-          <Button variant="soft" icon="camera" onClick={photo.open} disabled={photo.busy}>{profile?.avatarUrl ? 'Vaihda kuva' : 'Lisää kuva'}</Button>
+          <Button variant="soft" icon="camera" onClick={photo.open} disabled={photo.busy}>{photo.hasPhoto ? 'Vaihda kuva' : 'Lisää kuva'}</Button>
+          {photo.hasPhoto && <Button variant="ghost" size="sm" onClick={photo.remove} disabled={photo.busy}>Poista kuva</Button>}
         </div>
       </>
     );

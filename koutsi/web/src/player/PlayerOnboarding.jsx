@@ -55,6 +55,7 @@ export function PlayerOnboarding() {
             <span className="wp-avatar-badge">{picker.busy ? <Spinner size={16} /> : <Icon name={photo ? 'edit' : 'plus'} size={20} />}</span>
           </button>
           <Button variant="soft" icon="image" onClick={picker.open} disabled={picker.busy}>{photo ? 'Vaihda kuva' : 'Valitse kiva profiilikuva'}</Button>
+          {photo && <Button variant="ghost" size="sm" onClick={picker.remove} disabled={picker.busy}>Poista kuva</Button>}
           <span className="po-photo-hint">Vapaaehtoinen — kasvokuva auttaa valmentajaa tunnistamaan sinut.</span>
         </div>
         {error && <p className="field-msg field-msg-error" role="alert">{error}</p>}

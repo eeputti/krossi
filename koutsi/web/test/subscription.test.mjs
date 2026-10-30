@@ -45,14 +45,15 @@ test('nothing shows before the database has it, for a free coach or for someone 
   assert.equal(planCard(null, null, NOW), null);
 });
 
-test('the trial: days left, the end date, the price when known, Ota tilaus', () => {
+test('the trial: days left, the end date, Ota tilaus, no key question (the key is used)', () => {
   const trial = { ...base, plan: 'trial', trialEndsAt: '2027-01-13T12:00:00Z' };
   const card = planCard(trial, null, NOW);
   assert.equal(card.title, 'Kokeilua jäljellä 76 pv');
-  assert.equal(card.text, 'Ilmainen 13.1.2027 asti. Tilauksen veloitus alkaa vasta kokeilun jälkeen.');
+  assert.equal(card.text, 'Kokeilu päättyy 13.1.2027.');
   assert.equal(card.action, 'checkout');
   assert.equal(card.label, 'Ota tilaus');
-  assert.match(planCard(trial, { cents: 2900, offer: null }, NOW).text, /asti, sitten 29 €\/kk\./);
+  assert.equal(card.code, false);
+  assert.equal(planCard(trial, { cents: 2900, offer: null }, NOW).text, 'Kokeilu päättyy 13.1.2027.');
   assert.equal(planCard({ ...trial, trialEndsAt: '2026-10-30T08:00:00Z' }, null, NOW).title, 'Kokeilua jäljellä 1 päivä');
 });
 
@@ -110,9 +111,9 @@ test('month or year: the yearly price, what it saves, only when there is one', (
   for (const c of checkoutChoices({ ...both, vat: 25.5 })) assert.doesNotMatch(c.sub, /·/);
 });
 
-test('a valmentaja-avain: the card offers it on the trial and after it, and the surprise says what it gave', () => {
+test('a valmentaja-avain: the card offers it after the trial (not during it: that key is used), and the surprise says what it gave', () => {
   const trial = { ...base, plan: 'trial', trialEndsAt: '2027-01-13T12:00:00Z' };
-  assert.equal(planCard(trial, null, NOW).code, true);
+  assert.equal(planCard(trial, null, NOW).code, false);
   assert.equal(planCard({ ...base, plan: 'ended', trialEndsAt: '2026-10-20T12:00:00Z' }, null, NOW).code, true);
   assert.equal(planCard({ ...base, plan: 'active', periodEnd: '2026-11-29T12:00:00Z' }, null, NOW).code, undefined);
   // the surprise: a key that gives more months, or free use; an old key just lets the coach in

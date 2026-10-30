@@ -192,7 +192,7 @@ export function BulkSetupSheet({ open, onClose }) {
         <div className="stack-4">
           <p className="field-msg">Vapaaehtoinen: ryhmän ensimmäisen viikon teema näkyy pelaajille heti. Voit asettaa teemat myöhemminkin.</p>
           <div className="bs-same">
-            <Input value={sameTheme} onChange={(e) => setSameTheme(e.target.value)} maxLength={KOUTSI_THEME_TITLE_MAX} placeholder="Sama teema kaikille, esim. Syöttö" aria-label="Sama teema kaikille" />
+            <Input value={sameTheme} onChange={(e) => setSameTheme(e.target.value)} maxLength={KOUTSI_THEME_TITLE_MAX} placeholder="Sama teema kaikille" aria-label="Sama teema kaikille" />
             <Button variant="outline" size="md" disabled={!sameTheme.trim()} onClick={fillSame}>Täytä tyhjät</Button>
           </div>
           {groups.map((g) => (

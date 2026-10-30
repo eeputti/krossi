@@ -109,7 +109,8 @@ export function keyWelcome(result) {
 /**
  * What Profiili → Tilaus shows, or null when nothing (no database yet, not a coach, a free coach).
  * → { tone: 'lime' | 'warn', icon, title, text, action: 'checkout' | 'portal', label, code }
- *   code = "Onko sinulla valmentaja-avain?" belongs on the card (the trial, or an ended one).
+ *   code = "Onko sinulla valmentaja-avain?" belongs on the card (an ended trial or subscription; a running
+ *   trial already has its key).
  */
 export function planCard(status, price = null, now = new Date()) {
   if (!status?.ready) return null;
@@ -120,8 +121,9 @@ export function planCard(status, price = null, now = new Date()) {
     return {
       tone: 'lime', icon: 'clock',
       title: left === 1 ? 'Kokeilua jäljellä 1 päivä' : `Kokeilua jäljellä ${left} pv`,
-      text: `Ilmainen ${fmtDay(status.trialEndsAt)} asti${cost ? `, sitten ${cost}` : ''}. Tilauksen veloitus alkaa vasta kokeilun jälkeen.`,
-      action: 'checkout', label: 'Ota tilaus', code: true,
+      // the key is already used (a trial starts with one): no "Onko sinulla valmentaja-avain?" here
+      text: `Kokeilu päättyy ${fmtDay(status.trialEndsAt)}.`,
+      action: 'checkout', label: 'Ota tilaus', code: false,
     };
   }
   if (plan === 'active') {
