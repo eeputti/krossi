@@ -38,8 +38,8 @@ import { InvoicesScreen } from './InvoicesScreen.jsx';
 import { OpenSlotsRedirect } from './OpenSlots.jsx';
 
 const ActionsContext = createContext(null);
-/** openMerkitse(), openSelfTraining(date?, { time?, editing?, activity?, homeworkId?, locked? }?), openMood(score?),
- *  openCheckIn(training?, { all? }?), openMatch({ editing?, date? }), openAbsence(training), openText(kind), openGoals(),
+/** openMerkitse(), closeMerkitse(), openSelfTraining(date?, { time?, editing?, activity?, homeworkId?, locked? }?), openMood(score?),
+ *  openCheckIn(training?, { all?, mood? }?), openMatch({ editing?, date? }), openAbsence(training), openText(kind), openGoals(),
  *  openEntry(editing?), openVideo(), playVideo(video), openPlan(training), openJoin(code?) */
 export function usePlayerActions() { return useContext(ActionsContext); }
 
@@ -124,15 +124,17 @@ function PlayerShell({ banner, joinCode = null }) {
   ];
   const actions = useMemo(() => ({
     openMerkitse: () => setSheet({ kind: 'merkitse' }),
+    // closes Merkitse only if it is still the open sheet (a feeling closes it a moment after the tap)
+    closeMerkitse: () => setSheet((s) => (s?.kind === 'merkitse' ? null : s)),
     openSelfTraining: (date, opts = {}) => setSheet({
       kind: 'self', date, time: opts.time, editing: opts.editing || null,
       preset: opts.activity ? { activity: opts.activity, homeworkId: opts.homeworkId || null, locked: Boolean(opts.locked) } : null,
     }),
     openMood: (score = null) => setSheet({ kind: 'mood', score }),
     // The words for one session, or one feeling for several (`all`); Merkitse closes under it.
-    openCheckIn: (training = null, { all = null } = {}) => {
+    openCheckIn: (training = null, { all = null, mood = null } = {}) => {
       setSheet((s) => (s?.kind === 'merkitse' ? null : s));
-      setCheckIn({ trainingId: training?.id || null, score: null, all });
+      setCheckIn({ trainingId: training?.id || null, score: null, all, mood });
     },
     openGoals: () => setSheet({ kind: 'goals' }),
     openMatch: ({ editing, date } = {}) => setSheet({ kind: 'match', editing, date }),
@@ -215,7 +217,7 @@ function PlayerShell({ banner, joinCode = null }) {
         onClose={close} onPlayVideo={(v) => setVideo(v)} />
       <VideoPlayerSheet video={video} onClose={() => setVideo(null)} />
       <CheckInSheet open={Boolean(checkIn)} training={checkInTraining} all={checkIn?.all || null} initialScore={checkIn?.score ?? null}
-        onClose={() => setCheckIn(null)} onWish={() => actions.openText('wish')} onSelfTraining={() => actions.openSelfTraining()} />
+        known={checkIn?.mood || null} onClose={() => setCheckIn(null)} onWish={() => actions.openText('wish')} onSelfTraining={() => actions.openSelfTraining()} />
       {!student.welcomeSeenAt && startup?.kind !== 'checkin' && <WelcomeSheet student={student} />}
       <RenewedIntro role="player" eligible={startup?.kind === 'renewed'} />
     </ActionsContext.Provider>

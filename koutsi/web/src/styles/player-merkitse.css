@@ -59,6 +59,10 @@
 .pn-feel-num { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 13.5px; font-weight: 800; transition: transform var(--dur-1) var(--ease-spring), background var(--dur-2); }
 .pn-feel-num:hover { border-color: var(--line-strong); }
 .pn-feel-num:active { transform: scale(0.92); background: var(--lime); border-color: var(--lime); }
+/* the number tapped stays lit, like the big picker's (.mood-btn.is-on) */
+.pn-feel-num.is-on { background: var(--green-800); border-color: var(--green-800); color: #fff; transition: transform var(--dur-1) var(--ease-spring); }
+.pn-feel.is-done .ms-row-icon { background: var(--lime); color: var(--green-800); }
+.pn-feel.is-done .ms-row-sub { color: var(--ink); font-weight: 700; }
 
 /* ── Koti ── */
 .home-hero { margin-bottom: 20px; }
