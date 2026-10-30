@@ -70,9 +70,9 @@ function Promise_() {
 }
 
 const STEPS = [
-  { n: 1, title: 'Kutsu oppilaasi mukaan', body: 'Lähetä kutsulinkki — oppilas liittyy omalle tililleen sinun valmennettavaksesi.' },
+  { n: 1, title: 'Kutsu pelaajasi mukaan', body: 'Jaa ryhmälinkki tai liittymiskoodi. Pelaaja liittyy omalla tunnuksellaan sinun ryhmääsi.' },
   { n: 2, title: 'Kirjaa treenit ja palautteet', body: 'Lisää tulevat treenit, kotiläksyt ja lyhyt palaute jokaisen kerran jälkeen.' },
-  { n: 3, title: 'Oppilas seuraa kehitystään', body: 'Oppilas näkee omat tietonsa, palautteet ja tulevat treenit omasta näkymästään.' },
+  { n: 3, title: 'Pelaaja seuraa kehitystään', body: 'Pelaaja näkee omat treeninsä, palautteet ja kotiläksyt omasta näkymästään.' },
 ];
 
 function HowItWorks() {
@@ -90,6 +90,21 @@ function HowItWorks() {
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+// The coach app on a computer (lib/koutsi-laptop.jsx): planning, the week, attendance, invoicing.
+function Tools() {
+  return (
+    <section className="tools" id="tyokalut">
+      <div className="tools-inner">
+        <span className="eyebrow"><span className="ball-dot" /> Valmentajan työkalut</span>
+        <h2>Treenien suunnittelusta <span className="hl">laskuihin.</span></h2>
+        <p className="tools-sub">Näin Koutsi toimii tietokoneella. Kaikki sama kulkee mukana myös puhelimessa.</p>
+        <LaptopTour />
+        <a href="https://demo.koutsi.krossi.app" className="btn-dark btn-lg tools-cta">Kokeile demoa →</a>
       </div>
     </section>
   );
@@ -129,6 +144,7 @@ function App() {
       <Hero />
       <Promise_ />
       <HowItWorks />
+      <Tools />
       <ClosingCTA />
       <Footer />
     </div>
