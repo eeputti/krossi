@@ -6,6 +6,7 @@ import { koutsiTodayStr, koutsiAddDays, koutsiCurrentIsoWeek, koutsiAddIsoWeeks 
 import {
   sessionStatus, calendarEndings, themeWeekRelative, themeWeekLabel, merkitseContext, attendanceSession, presentPlayerIds,
   todayTimeline, dayTimeline, minutesLabel, groupWeekBoard, weekDates, playerSections, sessionWhen, presentPlayerIdsOf, weekGroups, groupMemberIds,
+  carryAbsences,
 } from '../src/domain/week.js';
 import { upcomingSessions, checkInCandidate } from '../src/domain/player.js';
 import { koutsiBuildTimeline } from '../src/domain/timeline.js';
@@ -366,4 +367,23 @@ test('when a session is, said the way a coach says it', () => {
   assert.equal(sessionWhen(on(1), today), 'huomenna 17:00');
   assert.match(sessionWhen(on(3), today), /^(ma|ti|ke|to|pe|la|su) 17:00$/);
   assert.match(sessionWhen(on(9), today), /^(ma|ti|ke|to|pe|la|su) \d{1,2}\.\d{1,2}\. 17:00$/);
+});
+
+test('carryAbsences: a group\'s new weekly time keeps the "En pääse" reports in the same week, as they were', () => {
+  const old = [
+    session('o1', '2026-11-03', '17:00', { absences: [
+      { studentId: 's1', reportedBy: 's1', reportedAt: '2026-11-01T08:00:00.000Z' },
+      { studentId: 's2', reportedBy: 'coach', reportedAt: '2026-11-02T08:00:00.000Z' },
+    ] }),
+    session('o2', '2026-11-05', '17:00', { absences: [{ studentId: 's1', reportedBy: 's1', reportedAt: '2026-11-04T08:00:00.000Z' }] }),
+    session('o3', '2026-11-10', '17:00', { absences: [{ studentId: 's3', reportedBy: 's3', reportedAt: '2026-11-02T09:00:00.000Z' }] }),
+    session('o4', '2026-11-17', '17:00', { absences: [{ studentId: 's1', reportedBy: 's1', reportedAt: '2026-11-03T09:00:00.000Z' }] }),
+  ];
+  const fresh = [session('n1', '2026-11-06', '18:00'), session('n2', '2026-11-13', '18:00')];
+  const out = carryAbsences(old, fresh);
+  assert.deepEqual(out.map((t) => t.absences.map((a) => [a.studentId, a.reportedBy, a.reportedAt])), [
+    [['s1', 's1', '2026-11-01T08:00:00.000Z'], ['s2', 'coach', '2026-11-02T08:00:00.000Z']],
+    [['s3', 's3', '2026-11-02T09:00:00.000Z']],
+  ], 'the first report per player wins; a week with no new session keeps none');
+  assert.deepEqual(fresh[0].absences, [], 'the input is not changed');
 });

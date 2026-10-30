@@ -484,3 +484,27 @@ export function groupWeekBoard(state, week) {
   days.forEach((d) => d.items.sort((a, b) => (a.time || '').localeCompare(b.time || '') || a.group.name.localeCompare(b.group.name, 'fi')));
   return { days, loose: koutsiSortGroupsBySchedule(loose) };
 }
+
+/**
+ * A group's weekly time moved: its coming sessions are made again (groups.update). Each absence ("En pääse")
+ * of an old session moves to the new session of the same ISO week, the nearest date first, kept as it was
+ * (who reported it and when); the first report per player wins. Returns `fresh` with the absences on.
+ * The same rule as the database's koutsi_reschedule_group.
+ */
+export function carryAbsences(old, fresh) {
+  const weekOf = (date) => {
+    const w = koutsiIsoWeekOfDateStr(date);
+    return `${w.year}-${w.week}`;
+  };
+  const dayNo = (date) => Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10))) / 86400000;
+  const out = (fresh || []).map((t) => ({ ...t, absences: [...(t.absences || [])] }));
+  const reports = (old || []).flatMap((t) => (t.absences || []).map((a) => ({ a, date: t.date })))
+    .sort((x, y) => String(x.a.reportedAt || x.a.updatedAt || '').localeCompare(String(y.a.reportedAt || y.a.updatedAt || '')));
+  for (const { a, date } of reports) {
+    const target = out.filter((t) => weekOf(t.date) === weekOf(date))
+      .sort((x, y) => Math.abs(dayNo(x.date) - dayNo(date)) - Math.abs(dayNo(y.date) - dayNo(date)) || x.date.localeCompare(y.date))[0];
+    if (!target || target.absences.some((b) => b.studentId === a.studentId)) continue;
+    target.absences.push({ ...a });
+  }
+  return out;
+}

@@ -6,6 +6,7 @@
 
 import { seed, refreshThemes, weeklySessions, newId, COACH, PLAYER, STARTER_EXERCISES } from './seed.js';
 import { ApiError } from '../errors.js';
+import { carryAbsences } from '../../domain/week.js';
 import {
   koutsiTodayStr, koutsiWeeklyDates, koutsiFmtShortDate, koutsiInitialOf, koutsiHueFromId,
   koutsiRoundTimeToQuarterHour, koutsiRoundToQuarterHourMinutes, koutsiClampGroupTrainingWeeks,
@@ -468,8 +469,11 @@ export const backend = {
       if (!changed) return;
       const today = koutsiTodayStr();
       const slotSeries = new Set((group.slots || []).map((sl) => sl.seriesId).filter(Boolean));
-      s.trainings = s.trainings.filter((t) => !(t.groupId === groupId && t.date >= today && !slotSeries.has(t.seriesId)));
-      s.trainings.push(...weeklySessions(group, today, koutsiClampGroupTrainingWeeks(weeksAhead ?? KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS)));
+      const goes = (t) => t.groupId === groupId && t.date >= today && !slotSeries.has(t.seriesId);
+      const old = s.trainings.filter(goes);
+      s.trainings = s.trainings.filter((t) => !goes(t));
+      // like koutsi_reschedule_group: the "En pääse" reports move to the new session of the same week
+      s.trainings.push(...carryAbsences(old, weeklySessions(group, today, koutsiClampGroupTrainingWeeks(weeksAhead ?? KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS))));
     },
     async remove(groupId) {
       await wait();
@@ -835,7 +839,7 @@ export const backend = {
     async overview() {
       await wait();
       const b = S().billing;
-      return { ready: true, enabled: Boolean(b.enabled), hidden: Boolean(b.hidden), prefsReady: true, biller: clone(b.biller), invoices: clone(b.invoices), memberships: [] };
+      return { ready: true, enabled: Boolean(b.enabled), hidden: Boolean(b.hidden), prefsReady: true, biller: clone(b.biller), invoices: clone(b.invoices), memberships: [], formerStudents: [] };
     },
     async saveBiller(coachId, fields) {
       await wait();
@@ -856,7 +860,7 @@ export const backend = {
       const billed = billedKeys(b.invoices);
       for (const d of drafts) {
         for (const l of d.lines || []) {
-          if ((l.trainingId && billed.has(`${l.trainingId}:${d.studentId}`)) || (l.kind === 'season' && billed.has(`season:${l.groupId}:${d.studentId}`))) {
+          if ((l.trainingId && billed.has(`${l.trainingId}:${d.studentId}`)) || (l.kind === 'season' && billed.has(`season:${l.groupId}:${d.studentId}:${l.periodKey || ''}`))) {
             throw new ApiError('Osa treeneistä on jo laskulla. Päivitä näkymä ja yritä uudelleen.');
           }
         }
@@ -964,6 +968,7 @@ export const backend = {
       await wait();
       const inv = S().billing.invoices.find((x) => x.id === invoiceId);
       if (!inv || !['sent', 'paid'].includes(inv.status)) throw new ApiError('Vain lähetetyn laskun voi mitätöidä.');
+      if (inv.paidVia === 'stripe') throw new ApiError('Verkossa maksettua laskua ei voi mitätöidä.');
       inv.status = 'void';
       inv.voidedAt = nowIso();
       inv.lines = inv.lines.map((l) => ({ ...l, voided: true }));

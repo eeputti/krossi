@@ -3,7 +3,9 @@
 //   GET  ?pdf=<token>                          -> application/pdf    anyone with the invoice's link (sent, paid, void)
 //   POST { action: 'mail', invoiceIds, to? }   -> { sent: [{ id, to }], skipped: [{ id, reason }] }
 //        coach: each open invoice by e-mail, PDF attached: to the payer's e-mail when the coach wrote one
-//        (a guardian, a company), else to the e-mail the player's Koutsi account was made with
+//        (a guardian, a company), else to the e-mail the player's Koutsi account was made with. At most
+//        MAIL_MAX (60) per call; the app sends a longer list in parts, and any id past it is in skipped
+//        ('too_many'), never dropped silently.
 //   POST { action: 'remind', invoiceId }       -> { notified, mailed, to }
 //        coach: a reminder — in the app for a player with an account (koutsi_remind_invoice, once a day)
 //        and by e-mail to the same address
@@ -26,6 +28,7 @@ import { renderInvoiceEmail } from '../_shared/invoiceMail.ts';
 import { UUID_RE, appBase, isAllowedOrigin, KOUTSI_APP } from '../_shared/koutsiPay.ts';
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
+const MAIL_MAX = 60; // per call: each mail renders a PDF, and the function has a time limit
 const NOT_FOUND = 'Laskua ei löytynyt.';
 const NOT_COACH = 'Vain valmentaja voi tehdä tämän.';
 const NO_MAILER = 'Sähköpostin lähetys ei ole juuri nyt käytössä.';
@@ -211,12 +214,15 @@ Deno.serve(async (req: Request) => {
     };
 
     if (body.action === 'mail') {
-      const ids = (Array.isArray(body.invoiceIds) ? body.invoiceIds : []).filter((x): x is string => typeof x === 'string' && UUID_RE.test(x)).slice(0, 60);
+      const all = [...new Set((Array.isArray(body.invoiceIds) ? body.invoiceIds : []).filter((x): x is string => typeof x === 'string' && UUID_RE.test(x)))];
+      const ids = all.slice(0, MAIL_MAX);
       // another address for one invoice, this time ("Lähetä sähköpostiin" after sending)
       const override = ids.length === 1 && typeof body.to === 'string' && EMAIL_RE.test(body.to.trim()) ? body.to.trim() : null;
       const sent: { id: string; to: string }[] = [];
-      const skipped: { id: string; reason: string }[] = [];
-      for (const row of await rowsOf(ids)) {
+      const skipped: { id: string; reason: string }[] = all.slice(MAIL_MAX).map((id) => ({ id, reason: 'too_many' }));
+      const rows = await rowsOf(ids);
+      for (const id of ids) if (!rows.some((r) => r.id === id)) skipped.push({ id, reason: 'not_found' });
+      for (const row of rows) {
         if (!(await check(row.coach_id))) throw new Reply(403, NOT_COACH);
         if (row.status !== 'sent') { skipped.push({ id: row.id, reason: 'not_open' }); continue; }
         const { to, fromAccount } = await addressOf(row, override);

@@ -14,7 +14,7 @@ import {
 import { koutsiSortGroupsBySchedule, koutsiTodayStr } from '../domain/core.js';
 import { currentSeason } from '../domain/season.js';
 import {
-  EMPTY_BILLER, INVOICE_STATES, PRICE_MODES, VAT_MODES, billablePlayers, billedKeys, centsToInput, countsLine, deliveryOf, draftsFrom,
+  EMPTY_BILLER, INVOICE_STATES, PRICE_MODES, VAT_MODES, billablePlayers, billedKeys, billingStudents, canVoid, centsToInput, countsLine, deliveryOf, draftsFrom,
   euros, fiDate, formatIban, invoiceGroups, invoiceShareText, invoiceState, lineCounts, lineLabel, parseEuros, payCost, payCostRate,
   paymentsLine, periodPresets, termsText, totalOf, validBusinessId, validEmail, validIban,
 } from '../domain/billing.js';
@@ -435,10 +435,12 @@ export function NewBillingSheet({ open, onClose, onPrices }) {
   useOnOpen(open, () => { setPeriod(presets[0].value); setSkipped(new Set()); setOverrides({}); setExpanded(null); });
   const p = presets.find((x) => x.value === period) || presets[0];
   const biller = billing.biller;
+  // players who have left the coach are still billed for the sessions they had
+  const students = useMemo(() => billingStudents(state.students, billing.formerStudents), [state.students, billing.formerStudents]);
   const result = useMemo(() => (biller ? billablePlayers({
-    trainings: state.trainings, groups: state.allGroups || state.groups, students: state.students, memberships: billing.memberships,
-    biller, from: p.from, to: p.to, now: new Date(), billed: billedKeys(billing.invoices),
-  }) : { players: [], missingPrivatePrice: false }), [state, billing.memberships, billing.invoices, biller, p.from, p.to]);
+    trainings: state.trainings, groups: state.allGroups || state.groups, students, memberships: billing.memberships,
+    biller, from: p.from, to: p.to, now: new Date(), billed: billedKeys(billing.invoices), seasons: state.seasons,
+  }) : { players: [], missingPrivatePrice: false }), [state, students, billing.memberships, billing.invoices, biller, p.from, p.to]);
   const players = result.players.map((pl) => {
     const lines = pl.lines.map((l) => (l.key in overrides ? { ...l, charged: overrides[l.key] } : l));
     return { ...pl, lines, counts: lineCounts(lines), totalCents: totalOf(lines) };
@@ -453,7 +455,7 @@ export function NewBillingSheet({ open, onClose, onPrices }) {
     const n = chosen.length;
     if (send && !(await confirm({ title: `Lähetetäänkö ${n} ${n === 1 ? 'lasku' : 'laskua'}?`, message: `Yhteensä ${euros(total)}.`, confirmLabel: 'Lähetä' }))) return;
     setBusy(true);
-    const drafts = draftsFrom(chosen, { biller, students: state.students, from: p.from, to: p.to });
+    const drafts = draftsFrom(chosen, { biller, students, from: p.from, to: p.to });
     const res = await billing.run(async () => {
       const ids = await api.billing.createDrafts(ownerId, drafts);
       if (!send) return null;
@@ -710,7 +712,7 @@ export function InvoiceSheet({ invoiceId, onClose }) {
   const open = Boolean(invoiceId && live);
   if (!inv) return null;
   const mailReady = mailReadyOf(billing);
-  const student = state.students.find((s) => s.id === inv.studentId) || null;
+  const student = billingStudents(state.students, billing.formerStudents).find((s) => s.id === inv.studentId) || null;
   const st = invoiceState(inv, koutsiTodayStr());
   const act = async (key, fn, message) => {
     setBusy(key);
@@ -791,7 +793,7 @@ export function InvoiceSheet({ invoiceId, onClose }) {
               {inv.status === 'sent' && mailReady && (reachesPlayer || inv.payerEmail) && (
                 <Button variant="outline" size="sm" icon="bell" loading={busy === 'remind'} onClick={remind}>Muistuta</Button>
               )}
-              {inv.status !== 'void' && <button type="button" className="k-textlink is-danger" disabled={Boolean(busy)} onClick={voidIt}>Mitätöi</button>}
+              {canVoid(inv) && <button type="button" className="k-textlink is-danger" disabled={Boolean(busy)} onClick={voidIt}>Mitätöi</button>}
             </div>
           </div>
         )}

@@ -3,8 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  absenceKind, billablePlayers, billedKeys, lateCancelNote, billerMissing, canPayKlarna, canPayOnline, centsToInput, countsLine, deliveryOf,
-  draftsFrom, euros, formatIban, formatReference, invoiceDoc, invoiceGroups, invoiceState, lineCounts, membershipWindows, parseEuros,
+  absenceKind, billablePlayers, billedKeys, billingStudents, canVoid, lateCancelNote, billerMissing, canPayKlarna, canPayOnline, centsToInput, countsLine, deliveryOf,
+  draftsFrom, euros, formatIban, formatReference, invoiceDoc, invoiceGroups, invoiceState, lineCounts, membershipPeriods, membershipWindows, parseEuros, seasonKeyFor,
   payCost, payCostRate, periodPresets, referenceCheckDigit, referenceFor, termsText, totalOf, validBusinessId, validIban, validReference,
   vatBreakdown, virtualBarcode, NO_VAT_NOTE,
 } from '../src/domain/billing.js';
@@ -154,11 +154,11 @@ test('billablePlayers: what is already on an invoice is not billed again; the co
   const w = world();
   const invoices = [
     { status: 'sent', studentId: 's1', lines: [{ trainingId: 't1', kind: 'session' }, { trainingId: 't2', kind: 'session' }] },
-    { status: 'draft', studentId: 's3', lines: [{ trainingId: null, groupId: 'g2', kind: 'season' }] },
+    { status: 'draft', studentId: 's3', lines: [{ trainingId: null, groupId: 'g2', kind: 'season', periodKey: '2026-syksy' }] },
     { status: 'void', studentId: 's2', lines: [{ trainingId: 't1', kind: 'late' }] },
   ];
   const billed = billedKeys(invoices);
-  assert.ok(billed.has('t1:s1') && billed.has('season:g2:s1') === false && billed.has('season:g2:s3'));
+  assert.ok(billed.has('t1:s1') && billed.has('season:g2:s1:2026-syksy') === false && billed.has('season:g2:s3:2026-syksy'));
   assert.ok(!billed.has('t1:s2'), 'a void invoice frees its sessions');
   const { players } = billablePlayers({ ...w, billed });
   const by = Object.fromEntries(players.map((p) => [p.studentId, p]));
@@ -183,6 +183,72 @@ test('membershipWindows: the first roster counts from the start, later ones from
   ]);
   assert.deepEqual(w.get('g1'), [{ studentId: 'a', from: null, until: null }, { studentId: 'b', from: '2026-10-01', until: '2026-11-01' }]);
   assert.deepEqual(w.get('g2'), [{ studentId: 's3', from: null, until: null }], 'no rows: the current members');
+});
+
+test('membershipWindows: removed and added back, the weeks between are not billed', () => {
+  const m = {
+    groupId: 'g1', studentId: 's1', joinedAt: at('2026-08-21', '10:00'), endedAt: null,
+    rejoinedAt: at('2026-10-20', '09:00'), pastPeriods: [{ from: at('2026-08-21', '10:00'), until: at('2026-10-01', '09:00') }],
+  };
+  assert.deepEqual(membershipPeriods(m).map((p) => [p.from, p.until]), [
+    [at('2026-08-21', '10:00'), at('2026-10-01', '09:00')], [at('2026-10-20', '09:00'), null],
+  ]);
+  const w = membershipWindows(groups, [m]);
+  assert.deepEqual(w.get('g1'), [{ studentId: 's1', from: null, until: '2026-10-01' }, { studentId: 's1', from: '2026-10-20', until: null }],
+    'the first period keeps the first-roster rule, the later one counts from coming back');
+  const trainings = ['2026-09-29', '2026-10-06', '2026-10-13', '2026-10-20', '2026-10-27'].map((d, i) => session(`w${i}`, 'g1', d));
+  const { players } = billablePlayers({ trainings, groups, students, memberships: [m], biller, from: '2026-09-01', to: '2026-10-31', now });
+  assert.deepEqual(players[0].lines.map((l) => l.date), ['2026-09-29', '2026-10-20', '2026-10-27'], 'not 6.10. and 13.10.');
+  // overlapping periods (a merge of two players) never bill a session twice
+  const twice = { ...m, pastPeriods: [{ from: at('2026-08-21', '10:00'), until: at('2026-10-25', '09:00') }] };
+  const again = billablePlayers({ trainings, groups, students, memberships: [twice], biller, from: '2026-09-01', to: '2026-10-31', now }).players;
+  assert.deepEqual(again[0].lines.map((l) => l.trainingId), ['w0', 'w1', 'w2', 'w3', 'w4']);
+  // a row from before the history columns: one period, as before
+  assert.deepEqual(membershipWindows(groups, [{ groupId: 'g1', studentId: 's2', joinedAt: at('2026-09-15', '10:00'), endedAt: null }]).get('g1'),
+    [{ studentId: 's2', from: '2026-09-15', until: null }]);
+});
+
+test('seasonKeyFor and season fees: once per player, group and season', () => {
+  const seasons = [{ id: 'kausi-syksy', coachId: 'c1', startsOn: '2026-08-17', endsOn: '2026-12-20' }];
+  assert.equal(seasonKeyFor({ id: 'g', seasonId: 'oma' }, '2026-11-03', seasons), 'oma', 'the group\'s own season');
+  assert.equal(seasonKeyFor({ id: 'g', coachId: 'c1' }, '2026-11-03', seasons), 'kausi-syksy');
+  assert.equal(seasonKeyFor({ id: 'g', coachId: 'c2' }, '2026-11-03', seasons), '2026-syksy', 'not another coach\'s season');
+  assert.equal(seasonKeyFor({ id: 'g' }, '2027-02-02'), '2027-kevat');
+  assert.equal(seasonKeyFor({ id: 'g' }, '2026-08-01'), '2026-syksy');
+  assert.equal(seasonKeyFor({ id: 'g' }, '2026-07-31'), '2026-kevat');
+
+  const w = world();
+  const trainings = [session('a1', 'g2', '2026-11-05'), session('a2', 'g2', '2026-11-12'), session('b1', 'g2', '2027-01-14'), session('b2', 'g2', '2027-02-11')];
+  const later = new Date('2027-03-01T12:00:00');
+  const autumn = billablePlayers({ ...w, trainings, from: '2026-11-01', to: '2026-11-30', now: later });
+  const fee = autumn.players.find((p) => p.studentId === 's3').lines;
+  assert.deepEqual(fee.map((l) => [l.kind, l.periodKey, l.date, l.key]), [['season', '2026-syksy', '2026-11-05', 'season:g2:s3:2026-syksy']]);
+  assert.equal(draftsFrom(autumn.players, { biller, students, from: '2026-11-01', to: '2026-11-30' }).find((d) => d.studentId === 's3').lines[0].periodKey, '2026-syksy');
+  const billed = billedKeys([{ status: 'sent', studentId: 's3', lines: [{ kind: 'season', groupId: 'g2', periodKey: '2026-syksy' }] }]);
+  const spring = billablePlayers({ ...w, trainings, from: '2026-11-01', to: '2027-02-28', now: later, billed }).players;
+  assert.deepEqual(spring.find((p) => p.studentId === 's3').lines.map((l) => l.periodKey), ['2027-kevat'], 'the autumn fee is paid, spring is new');
+  const own = billablePlayers({ ...w, trainings, groups: groups.map((g) => (g.id === 'g2' ? { ...g, seasonId: 'juniorit-26' } : g)), from: '2026-11-01', to: '2027-02-28', now: later }).players;
+  assert.deepEqual(own.find((p) => p.studentId === 's3').lines.map((l) => l.periodKey), ['juniorit-26'], 'a group of one season: one fee');
+});
+
+test('billingStudents: a player who has left is billed for the sessions they had', () => {
+  const former = [{ id: 's5', name: 'Eero Lähtenyt', isPlaceholder: false, former: true }, { id: 's1', name: 'dup', former: true }];
+  const everyone = billingStudents(students, former);
+  assert.deepEqual(everyone.map((s) => s.id), ['s1', 's2', 's3', 's4', 's5'], 'the roster first, no duplicates');
+  const w = world();
+  const memberships = [...w.memberships, { groupId: 'g1', studentId: 's5', joinedAt: at('2026-08-21', '10:00'), endedAt: at('2026-11-12', '10:00') }];
+  const { players } = billablePlayers({ ...w, memberships, students: everyone });
+  assert.deepEqual(players.find((p) => p.studentId === 's5').lines.map((l) => l.trainingId), ['t1', 't2'], 'until they left');
+  assert.equal(billablePlayers({ ...w, memberships }).players.find((p) => p.studentId === 's5'), undefined, 'without them: not billed');
+});
+
+test('canVoid: a sent invoice or one marked paid by hand, never one paid online', () => {
+  assert.equal(canVoid({ status: 'sent' }), true);
+  assert.equal(canVoid({ status: 'paid', paidVia: 'manual' }), true);
+  assert.equal(canVoid({ status: 'paid', paidVia: 'stripe' }), false);
+  assert.equal(canVoid({ status: 'void' }), false);
+  assert.equal(canVoid({ status: 'draft' }), false);
+  assert.equal(canVoid(null), false);
 });
 
 test('draftsFrom: one invoice per player with something to charge, paid by whoever the coach wrote down', () => {
