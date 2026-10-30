@@ -23,8 +23,8 @@ import { moodFor } from '../domain/playerNow.js';
  *   open, training (may be null: then it asks about "the last session"), all (sessions answered at once),
  *   initialScore (from the e-mail), onClose(), onWish(), onSelfTraining()
  */
-export function CheckInSheet({ open, training, all = null, initialScore = null, onClose, onWish, onSelfTraining }) {
-  const { state, run } = useData();
+export function CheckInSheet({ open, training, all = null, initialScore = null, known = null, onClose, onWish, onSelfTraining }) {
+  const { state, run, reload } = useData();
   const student = state.students[0];
   const [step, setStep] = useState('rate');
   const [mood, setMood] = useState(null); // { id, score }
@@ -32,15 +32,21 @@ export function CheckInSheet({ open, training, all = null, initialScore = null, 
   const [savedNote, setSavedNote] = useState('');
   const [hidden, setHidden] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState(null); // the number tapped, lit while it saves
   const started = useRef(false);
 
+  // The tapped number lights up at once and the thanks follow as soon as the row is saved; the
+  // rest of the app catches up in the background (it used to wait for that, up to 1.5 s).
   const save = async (score) => {
     if (busy) return;
     setBusy(true);
+    setPending(score);
     const trainingId = state.moodSessionsReady && training && !all ? training.id : null;
-    const res = await run(() => api.player.addMood(student.id, { score, note: '', hiddenFromCoach: false, trainingId }));
+    const res = await run(() => api.player.addMood(student.id, { score, note: '', hiddenFromCoach: false, trainingId }), undefined, { refresh: false });
     setBusy(false);
+    setPending(null);
     if (!res.ok) return;
+    reload().catch(() => {});
     setMood({ id: res.result?.id || null, score });
     setStep('done');
   };
@@ -50,16 +56,17 @@ export function CheckInSheet({ open, training, all = null, initialScore = null, 
     if (!open) { started.current = false; return; }
     if (started.current) return;
     started.current = true;
-    const earlier = training && !all ? moodFor(student, training) : null;
+    // `known`: a number tapped on a slide a moment ago, before the data has it
+    const earlier = training && !all ? moodFor(student, training) || (known?.id ? known : null) : null;
     if (earlier) {
-      setMood({ id: earlier.id, score: earlier.score });
+      setMood({ id: earlier.id, score: earlier.score }); setPending(null);
       setNote(earlier.note || ''); setSavedNote(earlier.note || ''); setHidden(!!earlier.hiddenFromCoach);
       setStep('done');
     } else if (initialScore) {
       setNote(''); setSavedNote(''); setHidden(false);
       save(initialScore);
     } else {
-      setMood(null); setNote(''); setSavedNote(''); setHidden(false);
+      setMood(null); setNote(''); setSavedNote(''); setHidden(false); setPending(null);
       setStep('rate');
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -104,7 +111,7 @@ export function CheckInSheet({ open, training, all = null, initialScore = null, 
       {rating ? (
         <div className="stack-4 k-checkin">
           {theme && <p className="k-faint">Teema: <strong>{theme.title}</strong></p>}
-          <MoodPicker value={null} onChange={save} />
+          <MoodPicker value={pending} onChange={save} />
           <p className="k-faint">Yksi napautus riittää. Valmentajasi näkee vastauksen, ellet piilota sitä.</p>
         </div>
       ) : (
