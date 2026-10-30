@@ -1,7 +1,7 @@
 // koutsi-laptop.jsx — the laptop on koutsi.krossi.app's front page: the coach app on a computer.
 // A browser window with one tab per view; every few seconds the next view fades in and slowly
-// scrolls down, and the card of that view lights up under the laptop. A tab or a card shows that
-// view at once. The screens are real screenshots of the demo, taken with
+// scrolls down, and the card of that view lights up under the laptop. A card shows that view at
+// once; the laptop itself is only a picture (no clicks, drags or selection on it). The screens are real screenshots of the demo, taken with
 // node scripts/koutsi-landing-desktop-shots.mjs (Viestit left out: the real app doesn't have it yet).
 
 const { useEffect, useRef, useState } = React;
@@ -60,13 +60,13 @@ function LaptopTour() {
           <span className="lt-cam" aria-hidden="true" />
           <div className="lt-screen">
             <div className="lt-chrome">
-              <div className="lt-tabs" role="tablist" aria-label="Näkymät">
-                <span className="lt-dots" aria-hidden="true"><i /><i /><i /></span>
+              <div className="lt-tabs" aria-hidden="true">
+                <span className="lt-dots"><i /><i /><i /></span>
                 {LT_SCREENS.map((s, i) => (
-                  <button key={s.id} type="button" role="tab" aria-selected={i === active} className={'lt-tab' + (i === active ? ' is-on' : '')} onClick={() => show(i)}>
-                    <img src="assets/ball-tight.png" alt="" width="14" height="14" />
+                  <span key={s.id} className={'lt-tab' + (i === active ? ' is-on' : '')}>
+                    <img src="assets/ball-tight.png" alt="" width="14" height="14" draggable="false" />
                     <span>{s.tab}</span>
-                  </button>
+                  </span>
                 ))}
               </div>
               <div className="lt-bar">
@@ -79,7 +79,7 @@ function LaptopTour() {
             <div className={'lt-view' + (still ? ' is-still' : '')}>
               {LT_SCREENS.map((s, i) => (
                 <img key={s.id} src={s.src} alt={i === active ? s.alt : ''} aria-hidden={i === active ? undefined : 'true'}
-                  width="1600" height="1400" loading="lazy" decoding="async" className={'lt-shot' + (i === active ? ' is-on' : '')} />
+                  width="1600" height="1400" loading="lazy" decoding="async" draggable="false" className={'lt-shot' + (i === active ? ' is-on' : '')} />
               ))}
             </div>
           </div>

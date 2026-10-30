@@ -167,7 +167,9 @@ window.krossiLoadPixel = function () {
   .tools h2 { margin: 10px 0 12px; font-size: clamp(2rem,5.6vw,3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; }
   .tools-sub { margin: 0 0 clamp(28px,4.5vw,48px); max-width: 560px; font-size: clamp(1rem,2.1vw,1.12rem); line-height: 1.55; color: var(--ink-2); }
   .lt { width: 100%; }
-  .lt-device { width: min(100%, 940px); margin: 0 auto; }
+  .lt-device { width: min(100%, 720px); margin: 0 auto; }
+  /* a picture, not a toy: the mouse can't drag, select or click anything on the laptop (the cards below change the view) */
+  .lt-device, .lt-device * { pointer-events: none; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
   .lt-lid { position: relative; background: #0d0d0d; border-radius: clamp(10px,1.8vw,18px) clamp(10px,1.8vw,18px) 4px 4px; padding: clamp(6px,1.2vw,12px) clamp(6px,1.2vw,12px) clamp(10px,1.8vw,18px); box-shadow: inset 0 0 0 1.5px #2b2b2b; }
   .lt-cam { position: absolute; top: clamp(2px,0.45vw,4px); left: 50%; width: 5px; height: 5px; border-radius: 50%; background: #2a2a2a; transform: translateX(-50%); }
   .lt-screen { aspect-ratio: 16 / 10; display: flex; flex-direction: column; overflow: hidden; border-radius: 4px; background: #fff; }
@@ -178,11 +180,10 @@ window.krossiLoadPixel = function () {
   .lt-tab {
     flex: 0 1 160px; min-width: 0; display: inline-flex; align-items: center; gap: clamp(3px,0.5vw,7px);
     padding: clamp(4px,0.7vw,8px) clamp(5px,1vw,12px); border: 0; border-radius: 8px 8px 0 0; background: transparent;
-    font: inherit; font-size: clamp(8px,1.25vw,12.5px); font-weight: 600; color: #5b5b5b; cursor: pointer; white-space: nowrap;
+    font: inherit; font-size: clamp(8px,1.25vw,12.5px); font-weight: 600; color: #5b5b5b; white-space: nowrap;
   }
   .lt-tab span { overflow: hidden; text-overflow: ellipsis; }
   .lt-tab img { width: clamp(8px,1.3vw,14px); height: auto; flex-shrink: 0; }
-  .lt-tab:hover { color: var(--ink); }
   .lt-tab.is-on { background: #fff; color: var(--ink); font-weight: 750; }
   .lt-bar { background: #fff; padding: clamp(3px,0.6vw,7px) clamp(6px,1vw,12px); border-bottom: 1px solid #e3e3e3; }
   .lt-url {
