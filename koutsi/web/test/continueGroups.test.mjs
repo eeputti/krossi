@@ -92,7 +92,7 @@ test('next term end and the summary day', () => {
 });
 
 // the same texts as koutsi_break_notice_title / _body / koutsi_break_restart_body in
-// koutsi/web/sql/20261030190000_koutsi_break_mails.check.mjs
+// koutsi/web/sql/20261030183203_koutsi_break_mails.check.mjs
 const LETTER_MARIA = 'Treenit ovat tauolla la 19.12.–ke 6.1.\nTreenisi jatkuvat ma 11.1. klo 17:00.\n\n'
   + 'Valmentajan terveiset\nHyvää joulua!\n– Anna\n\n'
   + 'Koutsi on käytössä myös tauon aikana.\nTreenaa omatoimisesti ja merkitse treenit kuten ennenkin. Vain yhteiset treenit ovat tauolla.';

@@ -1,4 +1,4 @@
--- 20261030190000_koutsi_break_mails.sql: a break's mail as a holiday letter, and reminders before the
+-- 20261030183203_koutsi_break_mails.sql (applied 30.10.2026): a break's mail as a holiday letter, and reminders before the
 -- sessions start again (on top of 20261030181313_koutsi_breaks).
 --
 -- The morning before a break (as before, from 07:35) each player in its groups gets their own mail. It is

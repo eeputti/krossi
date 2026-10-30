@@ -1,11 +1,11 @@
-// 20261030190000_koutsi_break_mails.check.mjs — runs the break migrations in PGlite, the applied first one
-// (supabase/migrations/20261030181313_koutsi_breaks.sql) and this one on top (koutsi/web/sql/20261030190000_koutsi_break_mails.sql),
+// 20261030183203_koutsi_break_mails.check.mjs — runs the break migrations in PGlite, the applied first one
+// (supabase/migrations/20261030181313_koutsi_breaks.sql) and this one on top (supabase/migrations/20261030183203_koutsi_break_mails.sql, applied 30.10.2026),
 // on the stub world of 20261030181313_koutsi_breaks.check.mjs (who sees a break is checked there): the holiday
 // letter the morning before a break, the reminders before the sessions start again, and that each goes once.
 // koutsi_notify is a recorder. The Helsinki time is pinned per test (koutsi.test_now, patched in here only).
 // PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261030190000_koutsi_break_mails.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261030183203_koutsi_break_mails.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -16,7 +16,7 @@ const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
 const FIRST = await readFile(join(here, '../../../supabase/migrations/20261030181313_koutsi_breaks.sql'), 'utf8');
-const SQL = await readFile(join(here, '20261030190000_koutsi_break_mails.sql'), 'utf8');
+const SQL = await readFile(join(here, '../../../supabase/migrations/20261030183203_koutsi_break_mails.sql'), 'utf8');
 const NOW = `v_local timestamp := now() at time zone 'Europe/Helsinki';`;
 assert.ok(SQL.includes(NOW), 'the time expression moved: update the check');
 const PINNED = SQL.replace(NOW, `v_local timestamp := coalesce(nullif(current_setting('koutsi.test_now', true), '')::timestamp, now() at time zone 'Europe/Helsinki');`);
