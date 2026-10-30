@@ -22,6 +22,18 @@ window.krossiLoadPixel = function () {
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Krossi Koutsi — Valmennus ja kehitys. Samassa paikassa.</title>
+<script>
+  // the film at the top (lib/koutsi-film.jsx): keep the prerendered last frame out of sight until
+  // the film draws its first frame; if the film never loads, show that frame after all
+  (function () {
+    try {
+      if (navigator.webdriver || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+      var root = document.documentElement;
+      root.classList.add('kf-anim');
+      setTimeout(function () { if (!window.__kfLive) root.classList.remove('kf-anim'); }, 4000);
+    } catch (e) {}
+  })();
+</script>
 <meta name="description" content="Krossi Koutsi yhdistää valmentajan ja pelaajan. Pelaajat, ryhmät, videot, treenit ja tavoitteet — kaikki löytyy täältä." />
 <link rel="canonical" href="https://koutsi.krossi.app/" />
 
@@ -121,30 +133,142 @@ window.krossiLoadPixel = function () {
   .nav-links a:hover { color: var(--ink); }
   @media (max-width: 620px) { .nav-links { display: none; } .nav-logo { margin-right: 0; } .nav-pill { width: auto; } }
 
-  /* ── hero ── */
-  .hero { max-width: 1120px; margin: 0 auto; padding: clamp(26px,5vw,60px) 22px clamp(44px,7vw,96px); display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(40px,5vw,56px); align-items: center; width: 100%; }
-  @media (min-width: 940px) { .hero { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); } }
-  .hero-copy { display: flex; flex-direction: column; gap: 22px; }
-  .hero-title {
-    margin: 6px 0 0; font-weight: 800; letter-spacing: -0.035em; line-height: 1.04;
-    font-size: clamp(2.5rem, 6.4vw, 3.9rem);
-  }
+  /* lime under a word (also in the tools section) */
   .hl { background: var(--lime); padding: 0 0.08em; line-height: 0.72; border-radius: 0; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
-  .hero-sub { margin: 0; font-size: clamp(1.02rem, 2.1vw, 1.2rem); line-height: 1.5; color: var(--muted); max-width: 42ch; }
-  .hero-cta { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-  .hero-visual { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; isolation: isolate; }
-  .hero-stage { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; padding: 0 30px; }
-  /* flat look: no coloured glow behind the phones */
-  .phone-glow { display: none; }
-  .phone-pair { position: relative; z-index: 3; display: flex; align-items: center; }
-  .phone-pair-item { position: relative; }
-  .phone-pair-back { transform: rotate(-6deg) translate(10px, 10px); z-index: 1; }
-  .phone-pair-front { transform: rotate(6deg) translate(-10px, -14px); z-index: 2; margin-left: -66px; }
 
-  @media (max-width: 1080px) { .hero-stage { transform: scale(0.94); } }
-  @media (max-width: 720px) { .hero-stage { transform: scale(0.86); margin-bottom: -10px; } }
-  @media (max-width: 460px) { .hero-stage { transform: scale(0.72); margin-bottom: -80px; } }
-  @media (max-width: 720px) { .hero-cta { align-items: center; } .hero-copy { text-align: center; align-items: center; } }
+  /* ── the film at the top (lib/koutsi-film.jsx) ──
+     Sizes inside .kf-canvas are canvas units: the canvas is 1600 × 900 (900 × 1350 on a phone)
+     and scaled to the stage's width. The script under the title hides the prerendered last frame
+     (data-frozen) until React has drawn the film's first frame, so the end never flashes first. */
+  .kf { padding: 8px 16px 0; }
+  .kf-stage { position: relative; width: 100%; max-width: 1200px; margin: 0 auto; overflow: hidden; border-radius: 28px; background: #fff; }
+  /* never taller than the window leaves room for: the button under it stays in sight */
+  .kf.is-wide .kf-stage { width: min(100%, calc((100vh - 210px) * 16 / 9)); width: min(100%, calc((100svh - 210px) * 16 / 9)); }
+  .kf.is-tall .kf-stage { width: min(100%, calc((100vh - 200px) * 2 / 3)); width: min(100%, calc((100svh - 200px) * 2 / 3)); }
+  .kf-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .kf-anim .kf-stage[data-frozen] .kf-canvas { visibility: hidden; }
+  .kf-film, .kf-end, .kf-layer { position: absolute; inset: 0; }
+  .kf-film > *, .kf-layer > * { position: absolute; left: 0; top: 0; }
+  .kf-line { position: absolute; left: 0; text-align: center; white-space: nowrap; font-weight: 800; letter-spacing: -0.045em; line-height: 1.06; color: var(--ink); }
+  .kf-mask { display: inline-block; overflow: hidden; vertical-align: top; padding: 0 0.06em 0.1em; margin: 0 -0.06em -0.1em; }
+  .kf-word { display: inline-block; position: relative; isolation: isolate; }
+  .kf-word-hl { position: absolute; left: -0.06em; right: -0.06em; top: 0.2em; bottom: 0.06em; background: var(--lime); z-index: -1; transform-origin: 0 50%; transform: scaleX(0); }
+  .kf-hl-word { position: relative; display: inline-block; isolation: isolate; }
+  .kf-hook-hl { position: absolute; left: 0; top: 0; background: var(--lime); }
+  .kf-eyebrow { display: flex; align-items: center; justify-content: center; gap: 0.5em; font-size: 22px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .kf-eyebrow i { width: 0.5em; height: 0.5em; border-radius: 50%; background: var(--lime); }
+  .kf-end-eyebrow { position: absolute; left: 0; }
+  .kf-h1 { margin: 0; font-weight: 800; }
+
+  /* drawn phones */
+  .kf-ph { width: 380px; height: 780px; border-radius: 62px; background: #fff; box-shadow: inset 0 0 0 4px var(--ink); transform-origin: 0 0; overflow: hidden; }
+  .kf-ph-isl { position: absolute; top: 18px; left: 50%; width: 104px; height: 30px; margin-left: -52px; border-radius: 15px; background: var(--ink); }
+  .kf-scr { position: absolute; left: 20px; top: 62px; width: 340px; display: flex; flex-direction: column; gap: 14px; }
+  .kf-bar { position: absolute; left: 4px; right: 4px; bottom: 4px; height: 76px; border-top: 2px solid var(--line); display: flex; align-items: center; justify-content: space-around; background: #fff; border-radius: 0 0 58px 58px; }
+  .kf-bar i { width: 26px; height: 26px; border-radius: 8px; border: 3px solid var(--line-strong); }
+  .kf-bar b { position: relative; width: 62px; height: 62px; border-radius: 50%; background: var(--lime); margin-top: -26px; }
+  .kf-bar b::before, .kf-bar b::after { content: ""; position: absolute; left: 50%; top: 50%; width: 24px; height: 4px; margin: -2px 0 0 -12px; background: var(--ink); border-radius: 2px; }
+  .kf-bar b::after { transform: rotate(90deg); }
+  .kf-hdr { height: 178px; background: var(--ink); border-radius: 28px; padding: 20px 20px 18px; color: #fff; }
+  .kf-hdr-sm { height: 150px; }
+  .kf-wk { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; color: var(--lime); }
+  .kf-hi { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; margin: 8px 0 14px; }
+  .kf-hdr-sub { font-size: 17px; color: #bbb; margin-top: -8px; }
+  .kf-days { display: flex; gap: 6px; }
+  .kf-days span { flex: 1; height: 50px; border-radius: 12px; background: var(--dark-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 12px; font-weight: 800; color: #9a9a9a; }
+  .kf-days span.on { box-shadow: inset 0 0 0 2.5px var(--lime); color: #fff; }
+  .kf-days span i { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); }
+  .kf-days span i.o { background: transparent; box-shadow: inset 0 0 0 1.5px #777; }
+  .kf-sec { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; color: var(--faint); text-transform: uppercase; margin-top: 4px; }
+  .kf-title { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; margin-top: 4px; }
+  .kf-gc { height: 76px; border: 2px solid var(--line); border-radius: 22px; padding: 0 16px; display: flex; align-items: center; gap: 14px; }
+  .kf-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--lime); flex-shrink: 0; }
+  .kf-dot.g { background: var(--line-strong); }
+  .kf-gc-t { flex: 1; min-width: 0; }
+  .kf-gc-t small { display: block; font-size: 14px; font-weight: 700; color: var(--faint); }
+  .kf-gc-t strong { display: block; font-size: 21px; letter-spacing: -0.02em; }
+  .kf-avs { display: flex; }
+  .kf-avs u { width: 28px; height: 28px; border-radius: 50%; background: var(--sand); border: 2.5px solid #fff; margin-left: -8px; }
+  .kf-avs u.l, .kf-arow u.l, .kf-chip u.l { background: var(--lime); }
+  .kf-who { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .kf-who em { font-style: normal; background: var(--lime); color: var(--ink); border-radius: 99px; padding: 3px 9px; letter-spacing: 0.04em; }
+  .kf-theme { height: 150px; background: var(--lime-100); border: 2px solid var(--lime); border-radius: 24px; padding: 16px 18px; }
+  .kf-theme strong { display: block; font-size: 34px; letter-spacing: -0.03em; margin-top: 6px; }
+  .kf-theme p { margin: 6px 0 0; font-size: 17px; font-weight: 600; color: var(--ink-2); line-height: 1.35; }
+  .kf-note { position: relative; height: 150px; border: 2px solid var(--line); border-radius: 24px; padding: 16px 18px; background: #fff; }
+  .kf-note p { margin: 8px 0 0; font-size: 21px; font-weight: 800; line-height: 1.3; letter-spacing: -0.01em; }
+  .kf-note-glow { position: absolute; inset: -4px; border: 4px solid var(--lime); border-radius: 26px; box-shadow: 0 0 0 7px rgba(207, 228, 20, 0.28); }
+  .kf-arow { height: 64px; display: flex; align-items: center; gap: 12px; border: 2px solid var(--line); border-radius: 18px; padding: 0 14px; }
+  .kf-arow u { width: 34px; height: 34px; border-radius: 50%; background: var(--sand); flex-shrink: 0; }
+  .kf-arow strong { flex: 1; font-size: 20px; letter-spacing: -0.01em; line-height: 1.15; }
+  .kf-arow small { display: block; font-size: 14px; color: #B4521C; font-weight: 700; }
+  .kf-mark { position: relative; width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; box-shadow: inset 0 0 0 2px var(--line); }
+  .kf-chk, .kf-x { position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; transform: scale(0); }
+  .kf-chk { background: var(--lime); }
+  .kf-chk::after { content: ""; position: absolute; left: 9px; top: 9px; width: 11px; height: 6px; border-left: 3px solid var(--ink); border-bottom: 3px solid var(--ink); transform: rotate(-45deg); }
+  .kf-x { background: var(--ink); }
+  .kf-x::before, .kf-x::after { content: ""; position: absolute; left: 13.5px; top: 7px; width: 3px; height: 16px; background: #fff; border-radius: 2px; transform: rotate(45deg); }
+  .kf-x::after { transform: rotate(-45deg); }
+  .kf-btns { display: flex; gap: 10px; }
+  .kf-btn2 { position: relative; flex: 1; height: 58px; border-radius: 29px; box-shadow: inset 0 0 0 2.5px var(--ink); display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 800; }
+  .kf-tap { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; border-radius: 50%; background: rgba(18, 18, 18, 1); opacity: 0; pointer-events: none; }
+
+  /* drawn cards */
+  .kf-grid { border-radius: 30px; box-shadow: inset 0 0 0 3px var(--ink); padding: 26px 28px; background: #fff; }
+  .kf-grid table { width: 100%; border-collapse: separate; border-spacing: 8px 12px; }
+  .kf-grid th { font-size: 17px; font-weight: 800; color: var(--faint); text-align: left; letter-spacing: 0.04em; }
+  .kf-grid td { height: 46px; padding: 0; }
+  .kf-grid td.n { font-size: 20px; font-weight: 800; width: 130px; letter-spacing: -0.01em; }
+  .kf-pill { height: 42px; border-radius: 21px; background: var(--sand); display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; }
+  .kf-fly { display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; }
+  .kf-field { border-radius: 30px; box-shadow: inset 0 0 0 3px var(--ink); background: #fff; padding: 44px 48px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; }
+  .kf-caret { display: inline-block; width: 0.09em; height: 1.05em; background: var(--ink); vertical-align: -0.16em; margin-left: 0.06em; }
+  .kf-send { position: absolute; right: 26px; bottom: 26px; width: 96px; height: 96px; border-radius: 50%; background: var(--lime); display: flex; align-items: center; justify-content: center; }
+  .kf-field-eyebrow { justify-content: flex-start; }
+  .kf-court { position: absolute; inset: 0; background: var(--lime-100); }
+  .kf-court-lines { position: absolute; left: 0; top: 0; overflow: visible; }
+  .kf-shadow { position: absolute; left: 0; top: 0; border-radius: 50%; background: rgba(18, 18, 18, 0.9); filter: blur(4px); }
+  .kf-ball { position: absolute; left: 0; top: 0; }
+  .kf-video { border-radius: 30px; background: var(--ink); overflow: hidden; }
+  .kf-video > svg { position: absolute; inset: 0; }
+  .kf-play { position: absolute; left: 50%; top: 46%; width: 110px; height: 110px; border-radius: 50%; background: var(--lime); transform: translate(-50%, -50%); }
+  .kf-play::after { content: ""; position: absolute; left: 43px; top: 32px; border-left: 36px solid var(--ink); border-top: 23px solid transparent; border-bottom: 23px solid transparent; }
+  .kf-scrub { position: absolute; left: 34px; right: 34px; bottom: 30px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.25); }
+  .kf-scrub i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--lime); border-radius: 4px; }
+  .kf-scrub b { position: absolute; left: 0; top: -9px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%; background: #fff; }
+  .kf-vtag { position: absolute; left: 34px; bottom: 62px; background: #fff; color: var(--ink); border-radius: 14px; padding: 10px 16px; font-size: 20px; font-weight: 800; }
+  .kf-chips { display: flex; justify-content: center; gap: 12px; }
+  .kf-chip { display: inline-flex; align-items: center; gap: 10px; box-shadow: inset 0 0 0 2px var(--line); border-radius: 99px; padding: 10px 18px 10px 10px; font-size: 21px; font-weight: 800; }
+  .kf-chip u { width: 30px; height: 30px; border-radius: 50%; background: var(--sand); }
+  /* the court: who is at which end, and the note riding on the ball */
+  .kf-side { position: absolute; left: 0; top: 0; background: #fff; }
+  .kf-msg { background: #fff; box-shadow: inset 0 0 0 2px var(--ink); border-radius: 99px; padding: 0.35em 0.8em; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; color: var(--ink); }
+  .kf-mile { position: absolute; display: flex; align-items: center; gap: 12px; background: #fff; box-shadow: inset 0 0 0 2.5px var(--line); border-radius: 18px; padding: 12px 18px 12px 14px; white-space: nowrap; }
+  .kf-mile i { width: 16px; height: 16px; border-radius: 50%; background: var(--lime); flex-shrink: 0; }
+  .kf-mile i.g { background: var(--ink); }
+  .kf-mile span { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; }
+  .kf-mile small { display: block; font-size: 15px; font-weight: 800; color: var(--faint); letter-spacing: 0.06em; text-transform: uppercase; }
+  .kf-mile.is-goal { background: var(--lime-100); box-shadow: inset 0 0 0 2.5px var(--lime); }
+  .kf-tag { position: absolute; background: var(--ink); color: #fff; border-radius: 99px; padding: 12px 22px; font-size: 24px; font-weight: 800; white-space: nowrap; }
+
+  /* the stack and the wordmark it turns into */
+  .kf-stack-line { transform-origin: 50% 55%; }
+  .kf-logo { display: inline-flex; align-items: flex-end; }
+  .kf-roll { display: inline-block; overflow: hidden; height: 1.06em; padding-bottom: 0.22em; margin-bottom: -0.22em; vertical-align: top; box-sizing: content-box; }
+  .kf-roll-in { display: flex; flex-direction: column; align-items: flex-start; }
+  .kf-roll-in > span { display: block; height: 1.06em; white-space: nowrap; }
+  .kf-logo-ball { display: inline-block; width: 0; height: 0.32em; margin-bottom: 0.17em; overflow: visible; }
+  .kf-logo-ball-in { display: block; width: 0.32em; height: 0.32em; margin-left: 0.07em; }
+  .kf-logo-sub { display: inline-block; width: 0; overflow: hidden; white-space: nowrap; margin-bottom: 0.12em; }
+  .kf-logo-sub > span { display: inline-block; padding-left: 0.28em; font-size: 0.42em; letter-spacing: -0.01em; color: var(--muted); }
+
+  /* under the film: the button that never moves, and "again" once it has ended */
+  .kf-actions { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: clamp(20px, 3vw, 28px) 16px clamp(30px, 5vw, 54px); }
+  /* replay: in the empty space under the film's last words, once it has ended */
+  .kf-replay { position: absolute; left: 50%; top: 81%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; border: 1.5px solid var(--line-strong); background: #fff; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .6s ease, visibility 0s linear .6s, border-color .15s; }
+  .kf.is-tall .kf-replay { top: 85%; }
+  .kf[data-state="end"] .kf-replay { opacity: 1; visibility: visible; transition: opacity .8s ease .3s, visibility 0s, border-color .15s; }
+  .kf-replay:hover { border-color: var(--ink); }
 
   /* ── how it works (dark section) ── */
   .steps { background: var(--dark); color: #fff; padding: clamp(56px,9vw,110px) 22px; }
