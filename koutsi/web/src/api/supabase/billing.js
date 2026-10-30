@@ -9,10 +9,11 @@ import { normalizeIban } from '../../domain/billing.js';
 import { SUPABASE_URL } from '../../lib/constants.js';
 
 const LOGO_BUCKET = 'koutsi-logos';
+const MAIL_CHUNK = 60; // = koutsi-invoice's MAIL_MAX
 
 const from = (table) => db().from(table);
 const missing = (error) => isMissingFunction(error) || isMissingTable(error);
-const OFF = { ready: false, enabled: false, biller: null, invoices: [], memberships: [] };
+const OFF = { ready: false, enabled: false, biller: null, invoices: [], memberships: [], formerStudents: [] };
 const text = (v) => {
   const s = String(v ?? '').trim();
   return s || null;
@@ -39,7 +40,7 @@ export function mapLine(r) {
     id: r.id, invoiceId: r.invoice_id, studentId: r.student_id || null, sortOrder: r.sort_order ?? 0, kind: r.kind,
     trainingId: r.training_id || null, groupId: r.group_id || null, date: r.line_date || null, time: r.line_time || '',
     description: r.description, quantity: Number(r.quantity) || 1, unitCents: r.unit_cents || 0,
-    amountCents: r.amount_cents || 0, charged: r.charged !== false,
+    amountCents: r.amount_cents || 0, charged: r.charged !== false, periodKey: r.period_key || null,
   };
 }
 
@@ -65,6 +66,30 @@ async function withLines(rows) {
     byInvoice.set(l.invoice_id, list);
   }
   return rows.map((r) => mapInvoice(r, byInvoice.get(r.id) || []));
+}
+
+/**
+ * Players who have left the coach, for the sessions they had before leaving (koutsi_billing_students,
+ * migration 20261030130000). Without the function: none, as before.
+ */
+async function formerStudents(coachId) {
+  const res = await db().rpc('koutsi_billing_students', { p_coach: coachId });
+  if (res.error) {
+    if (!missing(res.error)) console.warn('former players unavailable:', res.error.message || res.error);
+    return [];
+  }
+  return (res.data || []).map((r) => ({ id: r.student_id, name: r.name || 'Pelaaja', isPlaceholder: r.is_placeholder === true, former: true }));
+}
+
+/**
+ * Before the coach voids an invoice or marks it paid: its open Stripe Checkout page is closed (koutsi-pay
+ * 'close'), so nobody can pay it there afterwards. true = it was paid there a moment ago.
+ */
+async function closeCheckout(invoiceId) {
+  const row = must(await from('koutsi_invoices').select('status, checkout_session_id').eq('id', invoiceId).maybeSingle());
+  if (!row || row.status !== 'sent' || !row.checkout_session_id) return false;
+  const res = await callFunction('koutsi-pay', { action: 'close', invoiceId });
+  return res?.paid === true;
 }
 
 function billerRow(coachId, f) {
@@ -100,10 +125,11 @@ export const billing = {
       return OFF;
     }
     if (gate.data !== true) return { ...OFF, ready: true };
-    const [billerRow_, invoiceRows, memberRows] = await Promise.all([
+    const [billerRow_, invoiceRows, memberRows, former] = await Promise.all([
       from('koutsi_billers').select('*').eq('coach_id', coachId).maybeSingle(),
       from('koutsi_invoices').select('*').eq('coach_id', coachId).order('created_at', { ascending: false }).limit(1000),
       db().rpc('koutsi_billing_memberships', { p_coach: coachId }),
+      formerStudents(coachId),
     ]);
     const invoices = await withLines(must(invoiceRows) || []);
     // "En tarvitse laskutusta vielä" (vaihe 3); without the table nothing is hidden
@@ -115,9 +141,12 @@ export const billing = {
       prefsReady: !prefs.error,
       biller: mapBiller(must(billerRow_)),
       invoices,
+      // rejoinedAt / pastPeriods: a player removed and added back (migration 20261030130000; absent before it)
       memberships: (must(memberRows) || []).map((m) => ({
         groupId: m.group_id, studentId: m.student_id, joinedAt: m.joined_at, endedAt: m.ended_at || null, groupCreatedAt: m.group_created_at || null,
+        rejoinedAt: m.rejoined_at || null, pastPeriods: Array.isArray(m.past_periods) ? m.past_periods : [],
       })),
+      formerStudents: former,
     };
   },
   async saveBiller(coachId, fields) {
@@ -175,9 +204,12 @@ export const billing = {
     return must(await db().rpc('koutsi_send_invoices', { p_ids: ids })) || [];
   },
   async setPaid(invoiceId, paid) {
+    // paid online a moment ago: nothing left to mark
+    if (paid && await closeCheckout(invoiceId)) return;
     must(await db().rpc('koutsi_set_invoice_paid', { p_invoice: invoiceId, p_paid: Boolean(paid) }));
   },
   async voidInvoice(invoiceId) {
+    if (await closeCheckout(invoiceId)) throw new ApiError('Lasku maksettiin juuri verkossa, joten sitä ei voi mitätöidä.');
     must(await db().rpc('koutsi_void_invoice', { p_invoice: invoiceId }));
   },
   async mine() {
@@ -236,19 +268,16 @@ export const billing = {
   async setHidden(coachId, hidden) {
     must(await from('koutsi_billing_prefs').upsert({ coach_id: coachId, hidden: Boolean(hidden), updated_at: new Date().toISOString() }, { onConflict: 'coach_id' }));
   },
+  // An old logo file is never deleted: invoices already sent keep its path (seller.logoPath) on their page and PDF.
   async uploadLogo(coachId, blob) {
     const type = blob?.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
     const path = `${coachId}/logo-${Date.now()}.${type === 'image/jpeg' ? 'jpg' : 'png'}`;
     must(await db().storage.from(LOGO_BUCKET).upload(path, blob, { contentType: type, upsert: false }));
-    const before = must(await from('koutsi_billers').select('logo_path').eq('coach_id', coachId).maybeSingle())?.logo_path || null;
     must(await from('koutsi_billers').update({ logo_path: path }).eq('coach_id', coachId));
-    if (before && before !== path) await db().storage.from(LOGO_BUCKET).remove([before]).catch(() => {});
     return path;
   },
   async removeLogo(coachId) {
-    const before = must(await from('koutsi_billers').select('logo_path').eq('coach_id', coachId).maybeSingle())?.logo_path || null;
     must(await from('koutsi_billers').update({ logo_path: null }).eq('coach_id', coachId));
-    if (before) await db().storage.from(LOGO_BUCKET).remove([before]).catch(() => {});
   },
   logoUrl(path) {
     return path ? `${SUPABASE_URL}/storage/v1/object/public/${LOGO_BUCKET}/${path}` : null;
@@ -256,9 +285,25 @@ export const billing = {
   pdfUrl(token) {
     return token ? `${SUPABASE_URL}/functions/v1/koutsi-invoice?pdf=${encodeURIComponent(token)}` : null;
   },
+  // koutsi-invoice mails at most MAIL_CHUNK per call ("Lähetä kaikki" can be more): the rest go in the next
+  // calls. A call that fails leaves its invoices in skipped ('failed'); it throws only when nothing went.
   async mailInvoices(ids, { to = null } = {}) {
     if (!ids?.length) return { sent: [], skipped: [] };
-    return callFunction('koutsi-invoice', { action: 'mail', invoiceIds: ids, ...(to ? { to } : {}) });
+    const out = { sent: [], skipped: [] };
+    let firstError = null;
+    for (let i = 0; i < ids.length; i += MAIL_CHUNK) {
+      const chunk = ids.slice(i, i + MAIL_CHUNK);
+      try {
+        const r = await callFunction('koutsi-invoice', { action: 'mail', invoiceIds: chunk, ...(to && ids.length === 1 ? { to } : {}) });
+        out.sent.push(...(r?.sent || []));
+        out.skipped.push(...(r?.skipped || []));
+      } catch (err) {
+        firstError = firstError || err;
+        out.skipped.push(...chunk.map((id) => ({ id, reason: 'failed' })));
+      }
+    }
+    if (firstError && !out.sent.length) throw firstError;
+    return out;
   },
   async remindInvoice(invoiceId) {
     return callFunction('koutsi-invoice', { action: 'remind', invoiceId });

@@ -117,8 +117,10 @@ export const API_CONTRACT = {
 
   // Laskutus (koutsi_billers / koutsi_invoices / koutsi_invoice_lines, domain/billing.js). Kept out of the
   // coach's snapshot like Viestit. overview(coachId) → { ready, enabled, biller, invoices: Invoice[] (newest
-  // first, with lines), memberships: [{ groupId, studentId, joinedAt, endedAt, groupCreatedAt }] } — ready is
+  // first, with lines), memberships: [{ groupId, studentId, joinedAt, endedAt, groupCreatedAt, rejoinedAt, pastPeriods }],
+  // formerStudents: [{ id, name, isPlaceholder, former }] (players who have left, still billed for their sessions) } — ready is
   // false while the tables are missing, enabled is the per-coach gate (admins + koutsi_billing_coaches).
+  // voidInvoice / setPaid(id, true) first close the invoice's open Stripe Checkout page (koutsi-pay 'close').
   // saveBiller(coachId, fields) → biller; createDrafts(coachId, drafts from domain draftsFrom()) → the new ids;
   // updateDraft(id, { payerName, payerEmail }); setLineCharged(lineId, charged); addLine(invoiceId,
   // { description, amountCents, date }); removeLine(lineId); removeDrafts(ids); send(ids) → [{ id, number }];

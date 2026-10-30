@@ -10,10 +10,12 @@
 //       - marked by the coach after the start      → 'no_show' (poissa ilmoittamatta)
 //     The coach's settings say whether late / no-show are charged; every line can still be
 //     toggled in the draft.
-//   * A session or a season fee is billed once: billedKeys() lists what is already on an invoice
-//     (drafts included, void invoices not), and billablePlayers() skips those.
+//   * A session is billed once, a season fee once per season: billedKeys() lists what is already on
+//     an invoice (drafts included, void invoices not), and billablePlayers() skips those. The season of
+//     a fee is seasonKeyFor(): the group's own season, the coach's season on that day, else the half-year.
 //   * Group members count from the day they joined the group (a member added within a week of the
-//     group's creation counts from its first session) until they left it.
+//     group's creation counts from its first session) until they left it; one who left and came back
+//     is not billed for the weeks between (the membership's earlier periods, membershipPeriods()).
 
 const DAY_MS = 86400000;
 
@@ -289,7 +291,26 @@ export function lateCancelNote(terms, training, now = new Date()) {
   return hoursLeft < Number(t.cancelHours) ? `Alle ${t.cancelHours} h ennen peruttu treeni laskutetaan.` : '';
 }
 
-/** Keys of what is already on an invoice (drafts too, void ones not): `${trainingId}:${studentId}`, `season:${groupId}:${studentId}`. */
+/**
+ * Which season a season fee is for, from a session of the group: the group's own season (Uusi kausi), the
+ * coach's season on that day, else the half-year ('2026-kevat' = January–July, '2026-syksy' = August–December).
+ * The database fills the same key for lines that come without one (koutsi_season_key).
+ */
+export function seasonKeyFor(group, date, seasons = []) {
+  if (group?.seasonId) return group.seasonId;
+  const season = [...(seasons || [])]
+    .filter((x) => x?.id && x.startsOn && x.endsOn && (!x.coachId || !group?.coachId || x.coachId === group.coachId))
+    .sort((a, b) => a.startsOn.localeCompare(b.startsOn))
+    .find((x) => x.startsOn <= date && date <= x.endsOn);
+  if (season) return season.id;
+  const [y, m] = String(date || '').split('-').map(Number);
+  return `${y}-${m >= 8 ? 'syksy' : 'kevat'}`;
+}
+
+/**
+ * Keys of what is already on an invoice (drafts too, void ones not): `${trainingId}:${studentId}` and
+ * `season:${groupId}:${studentId}:${periodKey}`.
+ */
 export function billedKeys(invoices) {
   const keys = new Set();
   for (const inv of invoices || []) {
@@ -297,27 +318,42 @@ export function billedKeys(invoices) {
     for (const l of inv.lines || []) {
       const sid = l.studentId || inv.studentId;
       if (l.trainingId) keys.add(`${l.trainingId}:${sid}`);
-      if (l.kind === 'season' && l.groupId) keys.add(`season:${l.groupId}:${sid}`);
+      if (l.kind === 'season' && l.groupId) keys.add(`season:${l.groupId}:${sid}:${l.periodKey || ''}`);
     }
   }
   return keys;
 }
 
 /**
- * Membership windows per group: [{ studentId, from: 'YYYY-MM-DD' | null, until: 'YYYY-MM-DD' | null }].
- * `memberships` are the backend's rows ({ groupId, studentId, joinedAt, endedAt, groupCreatedAt }); a group without
- * any falls back to its current members, counted from the start.
+ * The periods of one membership row, oldest first: [{ from, until }] (timestamps, null = open). A player
+ * removed and added back has the earlier ones in `pastPeriods` and the current one from `rejoinedAt`.
+ */
+export function membershipPeriods(m) {
+  const past = (Array.isArray(m?.pastPeriods) ? m.pastPeriods : [])
+    .filter((p) => p && p.until)
+    .map((p) => ({ from: p.from || null, until: p.until }));
+  const current = { from: m?.rejoinedAt || m?.joinedAt || null, until: m?.endedAt || null };
+  const t = (v) => (v ? Date.parse(v) : -Infinity);
+  return [...past, current].sort((a, b) => t(a.from) - t(b.from));
+}
+
+/**
+ * Membership windows per group: [{ studentId, from: 'YYYY-MM-DD' | null, until: 'YYYY-MM-DD' | null }], one
+ * per period. `memberships` are the backend's rows ({ groupId, studentId, joinedAt, endedAt, groupCreatedAt,
+ * rejoinedAt, pastPeriods }); a group without any falls back to its current members, counted from the start.
  */
 export function membershipWindows(groups, memberships) {
   const byGroup = new Map();
   const groupCreated = new Map((groups || []).map((g) => [g.id, g.createdAt || null]));
   for (const m of memberships || []) {
     const created = m.groupCreatedAt || groupCreated.get(m.groupId);
-    const joined = m.joinedAt ? dateStr(new Date(m.joinedAt)) : null;
-    // the first roster, entered while the group was being set up, counts from the first session
-    const initial = !joined || (created && Date.parse(m.joinedAt) - Date.parse(created) < 7 * DAY_MS);
     const list = byGroup.get(m.groupId) || [];
-    list.push({ studentId: m.studentId, from: initial ? null : joined, until: m.endedAt ? dateStr(new Date(m.endedAt)) : null });
+    membershipPeriods(m).forEach((p, i) => {
+      const joined = p.from ? dateStr(new Date(p.from)) : null;
+      // the first roster, entered while the group was being set up, counts from the first session
+      const initial = i === 0 && (!joined || (created && Date.parse(p.from) - Date.parse(created) < 7 * DAY_MS));
+      list.push({ studentId: m.studentId, from: initial ? null : joined, until: p.until ? dateStr(new Date(p.until)) : null });
+    });
     byGroup.set(m.groupId, list);
   }
   for (const g of groups || []) {
@@ -327,7 +363,7 @@ export function membershipWindows(groups, memberships) {
 }
 
 function membersOn(windows, date) {
-  return (windows || []).filter((w) => (!w.from || w.from <= date) && (!w.until || w.until > date)).map((w) => w.studentId);
+  return [...new Set((windows || []).filter((w) => (!w.from || w.from <= date) && (!w.until || w.until > date)).map((w) => w.studentId))];
 }
 
 function chargedByDefault(kind, biller) {
@@ -340,10 +376,11 @@ function chargedByDefault(kind, biller) {
 /**
  * What each player owes for the period: [{ studentId, name, lines, counts, totalCents }] sorted by
  * name, players with nothing left out. Lines: { key, kind, trainingId, groupId, date, time,
- * description, quantity, unitCents, amountCents, charged }. `missingPrivatePrice` is true when a
+ * description, quantity, unitCents, amountCents, charged } (a season fee also periodKey). `seasons`:
+ * the coach's seasons, for which season a fee is for (seasonKeyFor). `missingPrivatePrice` is true when a
  * private lesson had no hourly price (those lessons are left out until one is set).
  */
-export function billablePlayers({ trainings, groups, students, memberships, biller, from, to, now = new Date(), billed = new Set() }) {
+export function billablePlayers({ trainings, groups, students, memberships, biller, from, to, now = new Date(), billed = new Set(), seasons = [] }) {
   const groupById = new Map((groups || []).map((g) => [g.id, g]));
   const studentById = new Map((students || []).map((s) => [s.id, s]));
   const windows = membershipWindows(groups, memberships);
@@ -387,17 +424,23 @@ export function billablePlayers({ trainings, groups, students, memberships, bill
     }
   }
 
-  // season fees: once per player per group, for groups that had a session in the period
+  // season fees: once per player per group and season, for groups that had a session in the period
   for (const g of groups || []) {
     const price = groupPrice(biller, g.id);
     if (!price || price.mode !== 'kausi' || !(price.cents > 0)) continue;
-    const held = inRange.filter((t) => t.groupId === g.id);
-    if (!held.length) continue;
-    const ids = new Set(held.flatMap((t) => membersOn(windows.get(g.id), t.date)));
-    for (const sid of ids) {
-      if (billed.has(`season:${g.id}:${sid}`)) continue;
+    const firstDay = new Map(); // `${studentId}|${periodKey}` → the first session they were in
+    for (const t of inRange) {
+      if (t.groupId !== g.id) continue;
+      const periodKey = seasonKeyFor(g, t.date, seasons);
+      for (const sid of membersOn(windows.get(g.id), t.date)) {
+        if (!firstDay.has(`${sid}|${periodKey}`)) firstDay.set(`${sid}|${periodKey}`, { sid, periodKey, date: t.date });
+      }
+    }
+    for (const { sid, periodKey, date } of firstDay.values()) {
+      const key = `season:${g.id}:${sid}:${periodKey}`;
+      if (billed.has(key)) continue;
       add(sid, {
-        key: `season:${g.id}:${sid}`, kind: 'season', trainingId: null, groupId: g.id, date: held[0].date, time: '',
+        key, kind: 'season', trainingId: null, groupId: g.id, periodKey, date, time: '',
         description: `Kausimaksu: ${g.name}`, quantity: 1, unitCents: price.cents, amountCents: price.cents, charged: true,
       });
     }
@@ -450,6 +493,20 @@ export function lineLabel(line) {
 
 // ── invoices ────────────────────────────────────────────────────────────────
 
+/** The coach can void a sent invoice or one marked paid by hand; one paid online is refunded instead. */
+export function canVoid(inv) {
+  return Boolean(inv) && (inv.status === 'sent' || (inv.status === 'paid' && inv.paidVia !== 'stripe'));
+}
+
+/**
+ * Everyone Laskutus can bill: the roster, and the players who have left the coach (overview's
+ * formerStudents: { id, name, isPlaceholder, former }) for the sessions they had before leaving.
+ */
+export function billingStudents(students, former) {
+  const ids = new Set((students || []).map((s) => s.id));
+  return [...(students || []), ...(former || []).filter((s) => s?.id && !ids.has(s.id))];
+}
+
 /** luonnos | avoin | myohassa | maksettu | mitatoity */
 export function invoiceState(inv, today) {
   if (!inv) return 'luonnos';
@@ -469,6 +526,7 @@ export function draftsFrom(players, { biller, students, from, to }) {
       lines: p.lines.map((l, i) => ({
         sortOrder: i, kind: l.kind, trainingId: l.trainingId, groupId: l.groupId, date: l.date, time: l.time || '',
         description: l.description, quantity: l.quantity, unitCents: l.unitCents, amountCents: l.amountCents, charged: l.charged,
+        ...(l.periodKey ? { periodKey: l.periodKey } : {}),
       })),
     };
   });

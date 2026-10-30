@@ -33,12 +33,18 @@ function subscribeTables(name, cb) {
   return () => { db().removeChannel(channel); };
 }
 
+// The dates of a weekly slot's sessions, from the first such weekday on.
+function groupTrainingDates(day, fromDate, weeksAhead) {
+  const first = koutsiNextWeekday(fromDate || koutsiTodayStr(), day);
+  if (!first) return [];
+  const span = (koutsiClampGroupTrainingWeeks(weeksAhead ?? KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS) - 1) * 7;
+  return koutsiWeeklyDates(first, koutsiAddDays(first, span));
+}
+
 // Materializes a weekly slot into koutsi_trainings, exactly like the old app.
 async function generateGroupTrainings(groupId, coachId, day, time, durationMinutes, fromDate, weeksAhead) {
-  const first = koutsiNextWeekday(fromDate || koutsiTodayStr(), day);
-  if (!first || !time) return { count: 0, seriesId: null };
-  const span = (koutsiClampGroupTrainingWeeks(weeksAhead ?? KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS) - 1) * 7;
-  const dates = koutsiWeeklyDates(first, koutsiAddDays(first, span));
+  const dates = groupTrainingDates(day, fromDate, weeksAhead);
+  if (!dates.length || !time) return { count: 0, seriesId: null };
   const seriesId = randomUuid();
   const rows = dates.map((d) => ({
     coach_id: coachId, group_id: groupId, date: d, time, type: 'Ryhmätreeni',
@@ -314,6 +320,15 @@ export const groups = {
     const today = koutsiTodayStr();
     const slots = must(await from('koutsi_group_slots').select('series_id').eq('group_id', groupId).not('series_id', 'is', null)) || [];
     const slotSeriesIds = slots.map((s) => s.series_id).filter(Boolean);
+    // One call drops and remakes them, and the players' "En pääse" reports move to the new session of the
+    // same week (migration 20261030130000: koutsi_reschedule_group); without it, the old way below.
+    let old = from('koutsi_trainings').select('id').eq('group_id', groupId).gte('date', today);
+    if (slotSeriesIds.length) old = old.not('series_id', 'in', `(${slotSeriesIds.join(',')})`);
+    const oldIds = (must(await old) || []).map((t) => t.id);
+    const moved = await db().rpc('koutsi_reschedule_group', {
+      p_group: groupId, p_delete: oldIds, p_dates: time ? groupTrainingDates(day, today, weeksAhead) : [], p_time: time || null, p_duration: duration,
+    });
+    if (!moved.error || !isMissingFunction(moved.error)) { must(moved); return; }
     let del = from('koutsi_trainings').delete().eq('group_id', groupId).gte('date', today);
     if (slotSeriesIds.length) del = del.not('series_id', 'in', `(${slotSeriesIds.join(',')})`);
     must(await del);

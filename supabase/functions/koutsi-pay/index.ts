@@ -4,6 +4,9 @@
 //   { action: 'status', coachId? }         -> PayStatus    coach: the account read from Stripe, stored on koutsi_billers
 //   { action: 'dashboard', coachId? }      -> { url }      coach: a one-time login to their Stripe Express payouts page
 //   { action: 'sync', coachId? }           -> { updated }  coach: confirms the payments of the coach's open invoices
+//                                                    (and records one that came through after a void / paid by hand)
+//   { action: 'close', invoiceId }         -> { closed } | { paid: true }   coach, before voiding an invoice or
+//                                                    marking it paid: its open Checkout page is expired
 //   { action: 'checkout', token, method? } -> { url } | { paid: true }   anyone with the invoice's link: Stripe Checkout
 //                                                    (method 'klarna', else MobilePay / Apple Pay / Google Pay / cards)
 //   { action: 'verify', token, session }   -> { paid }     anyone with the link, back from Checkout
@@ -20,6 +23,9 @@
 // destination charges Krossi pays Stripe's fees and Connect's (2 € per active account a month, 0,10 € per
 // payout) and answers disputes. A payment is confirmed when the payer returns to the invoice page (verify)
 // and whenever the coach opens Laskutus (sync); koutsi_invoice_paid_online marks it once and tells the coach.
+// Voiding or marking paid by hand first closes the invoice's open Checkout page ('close'); a payment that
+// still comes through on an invoice that is no longer open is stored on it and the coach is told
+// (koutsi_invoice_late_payment), never dropped.
 //
 // Deploy with verify_jwt off (checkout and verify have no signed-in user); the coach actions check the
 // caller's JWT here. Secrets: STRIPE_SECRET_KEY (the platform's, as the krossi-* functions).
@@ -97,8 +103,10 @@ interface Invoice {
   period_end: string | null;
   public_token: string;
   checkout_session_id: string | null;
+  paid_via: string | null;
+  stripe_payment_intent: string | null;
 }
-const INVOICE_COLUMNS = 'id, biller_id, coach_id, status, number, total_cents, payer_email, period_start, period_end, public_token, checkout_session_id';
+const INVOICE_COLUMNS = 'id, biller_id, coach_id, status, number, total_cents, payer_email, period_start, period_end, public_token, checkout_session_id, paid_via, stripe_payment_intent';
 
 async function billerOfCoach(admin: SupabaseClient, coachId: string): Promise<Biller | null> {
   const { data, error } = await admin.from('koutsi_billers').select(BILLER_COLUMNS).eq('coach_id', coachId).maybeSingle();
@@ -113,11 +121,19 @@ async function billerById(admin: SupabaseClient, id: string): Promise<Biller> {
   return data as Biller;
 }
 
-async function invoiceByToken(admin: SupabaseClient, token: unknown): Promise<Invoice> {
+async function invoiceByToken(admin: SupabaseClient, token: unknown, statuses = ['sent', 'paid']): Promise<Invoice> {
   if (typeof token !== 'string' || !UUID_RE.test(token)) throw new Reply(404, NOT_FOUND);
   const { data, error } = await admin.from('koutsi_invoices').select(INVOICE_COLUMNS).eq('public_token', token).maybeSingle();
   if (error) throw new Error(`invoice lookup failed: ${error.message}`);
-  if (!data || !['sent', 'paid'].includes((data as Invoice).status)) throw new Reply(404, NOT_FOUND);
+  if (!data || !statuses.includes((data as Invoice).status)) throw new Reply(404, NOT_FOUND);
+  return data as Invoice;
+}
+
+async function invoiceById(admin: SupabaseClient, id: unknown): Promise<Invoice> {
+  if (typeof id !== 'string' || !UUID_RE.test(id)) throw new Reply(404, NOT_FOUND);
+  const { data, error } = await admin.from('koutsi_invoices').select(INVOICE_COLUMNS).eq('id', id).maybeSingle();
+  if (error) throw new Error(`invoice lookup failed: ${error.message}`);
+  if (!data) throw new Reply(404, NOT_FOUND);
   return data as Invoice;
 }
 
@@ -130,6 +146,43 @@ async function settle(admin: SupabaseClient, inv: Invoice, session: Stripe.Check
   });
   if (error) throw new Error(`marking paid failed: ${error.message}`);
   return true;
+}
+
+/**
+ * The invoice was voided or marked paid by hand, and this Checkout session paid it after all: the payment
+ * is stored on the invoice (once) and the coach told. paid: the session paid it; recorded: just now.
+ */
+async function settleLate(admin: SupabaseClient, inv: Invoice, session: Stripe.Checkout.Session) {
+  const result = paidFromSession(session as unknown as Parameters<typeof paidFromSession>[0], inv.id, inv.total_cents);
+  if (!result.paid) return { paid: false, recorded: false };
+  const { data, error } = await admin.rpc('koutsi_invoice_late_payment', {
+    p_invoice: inv.id, p_session: session.id, p_payment_intent: result.paymentIntent,
+  });
+  if (error) throw new Error(`recording the late payment failed: ${error.message}`);
+  return { paid: true, recorded: data === true };
+}
+
+/**
+ * Before the coach voids the invoice or marks it paid: its open Checkout page is expired, so nobody pays it
+ * there afterwards, and the stored session is forgotten. { paid: true } when it was paid there already.
+ */
+async function closeCheckout(admin: SupabaseClient, inv: Invoice) {
+  if (inv.status !== 'sent' || !inv.checkout_session_id) return { closed: true };
+  const open = await retrieveSession(inv.checkout_session_id);
+  if (open && await settle(admin, inv, open)) return { paid: true };
+  if (open?.status === 'open') {
+    try {
+      await stripe.checkout.sessions.expire(open.id);
+    } catch {
+      const again = await retrieveSession(open.id);
+      if (again && await settle(admin, inv, again)) return { paid: true };
+      if (again?.status === 'open') throw new Reply(409, PAYING);
+    }
+  }
+  const { error } = await admin.from('koutsi_invoices').update({ checkout_session_id: null })
+    .eq('id', inv.id).eq('status', 'sent').eq('checkout_session_id', inv.checkout_session_id);
+  if (error) throw new Error(`forgetting the session failed: ${error.message}`);
+  return { closed: true };
 }
 
 async function retrieveSession(id: string) {
@@ -205,6 +258,7 @@ async function ensureAccount(admin: SupabaseClient, biller: Biller, email: strin
 interface Body {
   action?: string;
   coachId?: unknown;
+  invoiceId?: unknown;
   token?: unknown;
   session?: unknown;
   method?: unknown;
@@ -256,32 +310,45 @@ Deno.serve(async (req: Request) => {
         period: periodLabel(inv.period_start, inv.period_end), payerEmail: inv.payer_email, token: inv.public_token, base,
         destination: account, method, mobilepay: methods.includes('mobilepay'),
       }) as Stripe.Checkout.SessionCreateParams);
-      const { error } = await admin.from('koutsi_invoices').update({ checkout_session_id: session.id }).eq('id', inv.id).eq('status', 'sent');
+      const { data: stored, error } = await admin.from('koutsi_invoices').update({ checkout_session_id: session.id })
+        .eq('id', inv.id).eq('status', 'sent').select('id');
       if (error) throw new Error(`storing the session failed: ${error.message}`);
+      // voided or marked paid meanwhile: the new page closes at once
+      if (!stored?.length) {
+        await stripe.checkout.sessions.expire(session.id).catch(() => {});
+        throw new Reply(409, NOT_PAYABLE);
+      }
       return json(req, { url: session.url });
     }
 
     if (body.action === 'verify') {
-      const inv = await invoiceByToken(admin, body.token);
-      if (inv.status === 'paid') return json(req, { paid: true });
+      const inv = await invoiceByToken(admin, body.token, ['sent', 'paid', 'void']);
+      if (inv.status === 'paid' && inv.paid_via === 'stripe') return json(req, { paid: true });
       if (typeof body.session !== 'string' || !SESSION_RE.test(body.session)) throw new Reply(400, NOT_FOUND);
       const session = await retrieveSession(body.session);
-      return json(req, { paid: Boolean(session && await settle(admin, inv, session)) });
+      if (inv.status === 'sent') return json(req, { paid: Boolean(session && await settle(admin, inv, session)) });
+      // voided or marked paid by hand before this payment came through: kept and the coach told
+      const late = session ? await settleLate(admin, inv, session) : { paid: false };
+      return json(req, { paid: late.paid || inv.status === 'paid' });
     }
 
     // ── the coach (signed in) ──
-    if (!['connect', 'status', 'dashboard', 'sync'].includes(body.action ?? '')) throw new Reply(400, 'Tuntematon toiminto.');
+    if (!['connect', 'status', 'dashboard', 'sync', 'close'].includes(body.action ?? '')) throw new Reply(400, 'Tuntematon toiminto.');
     const asUser = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
       auth: { persistSession: false },
     });
     const { data: who, error: whoError } = await asUser.auth.getUser();
     if (whoError || !who?.user) return json(req, { error: 'Kirjaudu uudelleen sisään.' }, 401);
-    const coachId = typeof body.coachId === 'string' && UUID_RE.test(body.coachId) ? body.coachId : who.user.id;
+    // 'close' is about one invoice: the caller must act as its coach
+    const closing = body.action === 'close' ? await invoiceById(admin, body.invoiceId) : null;
+    const coachId = closing ? closing.coach_id
+      : typeof body.coachId === 'string' && UUID_RE.test(body.coachId) ? body.coachId : who.user.id;
     const gate = body.action === 'connect' ? 'koutsi_billing_enabled' : 'koutsi_acts_as';
     const { data: allowed, error: gateError } = await asUser.rpc(gate, gate === 'koutsi_acts_as' ? { target: coachId } : { p_coach: coachId });
     if (gateError) throw new Error(`${gate} failed: ${gateError.message}`);
     if (allowed !== true) throw new Reply(403, body.action === 'connect' ? NOT_ON : NOT_COACH);
+    if (closing) return json(req, await closeCheckout(admin, closing));
     const biller = await billerOfCoach(admin, coachId);
     if (!biller) throw new Reply(409, NO_BILLER);
 
@@ -316,6 +383,18 @@ Deno.serve(async (req: Request) => {
     for (const inv of (open ?? []) as Invoice[]) {
       const session = await retrieveSession(inv.checkout_session_id as string);
       if (session && await settle(admin, inv, session)) updated += 1;
+    }
+    // voided or marked paid by hand in the last days with a Checkout page left open (Stripe keeps one
+    // open for a day): a payment there is recorded and the coach told
+    const since = new Date(Date.now() - 3 * 86400000).toISOString();
+    const { data: closed, error: closedError } = await admin.from('koutsi_invoices').select(INVOICE_COLUMNS)
+      .eq('coach_id', coachId).in('status', ['paid', 'void']).or('paid_via.is.null,paid_via.eq.manual')
+      .not('checkout_session_id', 'is', null).is('stripe_payment_intent', null).gte('updated_at', since)
+      .order('updated_at', { ascending: false }).limit(10);
+    if (closedError) throw new Error(`closed invoices failed: ${closedError.message}`);
+    for (const inv of (closed ?? []) as Invoice[]) {
+      const session = await retrieveSession(inv.checkout_session_id as string);
+      if (session && (await settleLate(admin, inv, session)).recorded) updated += 1;
     }
     return json(req, { updated });
   } catch (err) {
