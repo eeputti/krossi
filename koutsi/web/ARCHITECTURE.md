@@ -204,6 +204,23 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   rivin korvaus (`select true`), eikä migraation uudelleenajo sulje sitä. Demo: Anna on kokeilussa; kehityksessä
   `?esikatsele=kokeilu | avain | tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free`.
 
+- Valmentaja-avaimet ja vuosilaskutus (`coach/TrialCodes.jsx`, `coach/KeyWelcome.jsx`, `coach/SubscriptionCard.jsx`,
+  migraatio `supabase/migrations/20261030080055_koutsi_trial_codes.sql`, ajettu 30.10.2026 käyttäjän luvalla,
+  PGlite-testi `koutsi/web/sql/20261030080055_koutsi_trial_codes.check.mjs`):
+  kokeilu ilman avainta pysyy kiinni, ja avain pyydetään aina omistajalta sähköpostilla (käyttäjä 30.10.).
+  Avain kertoo mitä antaa: `Krossikoutsi123+` = 3 kk (korvaa samannimisen vanhan, pysyvästi ilmaisen valmentaja-
+  avaimen, joka poistetaan käytöstä), `Krossikoutsi6kk+`, `Krossikoutsi12kk+`, `Krossikoutsimaksuton+`. Yksi avain
+  per pituus: Ylläpito → Avaimet → Luo avain lisää olemassa olevalle käyttökertoja (ja palauttaa poistetun käyttöön);
+  myös oma avain, viimeinen päivä, muistiinpano ja poisto käytöstä. Kirjainkoolla, välilyönneillä ja plussalla ei ole
+  väliä (`code` = pelkät isot kirjaimet ja numerot, `shown` = lähetetty muoto). Avain antaa N kk ilmaista käyttöä
+  käyttöpäivästä (ei koskaan lyhennä kokeilua) tai maksuttoman käytön, ja hyväksyntä näytetään iloisesti
+  ("Sait 12 kk ilmaisen kokeilun!" + konfetti). Kokeilussa tai päättyneellä kokeilulla oleva saa lisää kuukausia
+  (Profiili → Tilaus → "Onko sinulla valmentaja-avain?"), kerran per avain. `api.subscription.useCode`
+  (`koutsi_use_code`) ottaa samaan kenttään myös muut vanhat valmentaja-avaimet; ilman migraatiota se kutsuu suoraan
+  `redeem_koutsi_coach_key`. Vuosihinta: `--vuosi 290` asennusskriptissä (`KOUTSI_PRICE_YEAR_ID`); "Ota tilaus" kysyy
+  kuukausi vai vuosi vain, kun vuosihinta on olemassa
+  (`checkout(interval)`), aloitustarjous koskee vain kuukausihintaa, ja asiakasportaalissa voi vaihtaa jaksoa.
+
 - Kaudet ja "Uusi kausi" (`domain/season.js`, `coach/SeasonSheet.jsx`, migraatio
   `supabase/migrations/20261025181126_koutsi_seasons.sql`, ajettu 25.10.2026 käyttäjän luvalla; uusien
   SECURITY DEFINER -funktioiden oikeudet `20261025181234_koutsi_seasons_function_grants.sql`):

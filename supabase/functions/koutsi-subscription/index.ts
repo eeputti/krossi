@@ -9,7 +9,8 @@
 //              returns from Checkout or the portal (the webhook does the same later on)
 //
 // Secrets (scripts/koutsi-stripe-setup.mjs sets them; nothing here is Krossi's):
-//   KOUTSI_STRIPE_SECRET_KEY (falls back to STRIPE_SECRET_KEY), KOUTSI_PRICE_ID,
+//   KOUTSI_STRIPE_SECRET_KEY (falls back to STRIPE_SECRET_KEY), KOUTSI_PRICE_ID, KOUTSI_PRICE_YEAR_ID
+//   (optional: the cheaper yearly price, `--vuosi 290`; checkout { interval: 'year' }),
 //   KOUTSI_FOUNDER_COUPON (optional), KOUTSI_PORTAL_CONFIG (optional),
 //   KOUTSI_TAX_RATE (optional: VAT added on top, once Roisku Media is VAT-liable — `--alv 25.5`).
 // Deploy with JWT verification on (the default). Needs the migration 20261029193756_koutsi_coach_plans (applied 29.10.2026).
@@ -56,7 +57,12 @@ async function currentPrice() {
   if (taxRateId) {
     try { taxRate = await stripe.taxRates.retrieve(taxRateId); } catch { taxRate = null; }
   }
-  const value = priceInfo(price, coupon, taxRate);
+  const yearId = Deno.env.get('KOUTSI_PRICE_YEAR_ID');
+  let yearPrice = null;
+  if (yearId) {
+    try { yearPrice = await stripe.prices.retrieve(yearId); } catch { yearPrice = null; }
+  }
+  const value = priceInfo(price, coupon, taxRate, yearPrice);
   priceCache = { at: Date.now(), value };
   return value;
 }
@@ -111,7 +117,12 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
   let action = '';
-  try { action = String((await req.json())?.action || ''); } catch { action = ''; }
+  let interval = 'month';
+  try {
+    const body = await req.json();
+    action = String(body?.action || '');
+    if (body?.interval === 'year') interval = 'year';
+  } catch { action = ''; }
 
   try {
     if (action === 'price') return json(req, { price: await currentPrice() });
@@ -143,7 +154,7 @@ Deno.serve(async (req: Request) => {
     if (action === 'checkout') {
       if (plan === 'free') return fail(req, 'Koutsi on sinulle maksuton — tilausta ei tarvita.');
       if (plan === 'active' || plan === 'past_due') return fail(req, 'Sinulla on jo tilaus. Avaa Hallitse tilausta.');
-      const priceId = Deno.env.get('KOUTSI_PRICE_ID');
+      const priceId = interval === 'year' ? Deno.env.get('KOUTSI_PRICE_YEAR_ID') : Deno.env.get('KOUTSI_PRICE_ID');
       if (!priceId) return fail(req, 'Tilaus otetaan käyttöön pian.', 503);
       const customer = await customerFor(admin, user.id, user.email, row as PlanRow | null);
       // A subscription Stripe already has (a checkout finished, its webhook not here yet): no second one.
@@ -151,7 +162,8 @@ Deno.serve(async (req: Request) => {
       if (synced?.live) return fail(req, 'Sinulla on jo tilaus. Päivitä sivu.', 409);
 
       const base = returnBase(req.headers.get('Origin') || '');
-      const coupon = (await currentPrice() as { offer?: unknown } | null)?.offer ? Deno.env.get('KOUTSI_FOUNDER_COUPON') || null : null;
+      // the founding offer is for the monthly price only
+      const coupon = interval === 'month' && (await currentPrice() as { offer?: unknown } | null)?.offer ? Deno.env.get('KOUTSI_FOUNDER_COUPON') || null : null;
       const taxRate = Deno.env.get('KOUTSI_TAX_RATE') || null;
       const params = checkoutParams({ customer, coachId: user.id, priceId, trialEndsAt: row?.trial_ends_at || null, coupon, taxRate, base });
       let session: Stripe.Checkout.Session;

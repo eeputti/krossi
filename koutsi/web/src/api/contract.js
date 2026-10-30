@@ -145,16 +145,23 @@ export const API_CONTRACT = {
   // null for someone who is not a coach and 'free' for today's coaches (nothing shows). startTrial() →
   // status: makes the signed-in person a coach with a trial and the accepted subscription terms.
   // price() → { cents, interval, offer: { cents, months } | null } | null (never throws).
-  // checkout() / portal() → { url } of Stripe Checkout / the customer portal; sync() → status, read
-  // from Stripe right after the coach comes back.
-  subscription: ['status', 'startTrial', 'price', 'checkout', 'portal', 'sync'],
+  // checkout(interval: 'month' | 'year') / portal() → { url } of Stripe Checkout / the customer portal;
+  // sync() → status, read from Stripe right after the coach comes back. price() also carries
+  // year: { cents } | null (the cheaper yearly price). useCode(key) → status + { kind: 'code' | 'key',
+  // months }: a valmentaja-avain that gives N free months from today (or free use) to a new person or a
+  // coach on the trial, and an old coach key through the same input.
+  subscription: ['status', 'startTrial', 'price', 'checkout', 'portal', 'sync', 'useCode'],
 
   // Ylläpito — every RPC behind these re-checks koutsi_is_admin() server-side.
   // usage(days | null) → [{ event, clicks, users, adminClicks, lastAt }] (admins' own taps apart).
   // usageOverview(days, includeTest) → the anonymous page/tap/error statistics of both Koutsi apps
   // (koutsi_admin_usage, fed by lib/koutsi-usage.js) — see coach/AdminUsage.jsx for the shape.
   admin: ['users', 'feedback', 'deleteFeedback', 'deleteUser', 'actAs', 'groups', 'bulkInviteCodes',
-    'pendingPlans', 'publishPlan', 'handleSubmission', 'uploadPlan', 'usage', 'usageOverview'],
+    'pendingPlans', 'publishPlan', 'handleSubmission', 'uploadPlan', 'usage', 'usageOverview',
+    // Valmentaja-avaimet: trialCodes() → [{ code, months (null = free use), maxUses, useCount, expiresAt, note,
+    // createdAt, revokedAt }]; createTrialCode({ months, maxUses, expiresAt, note, code? }) → code;
+    // revokeTrialCode(code).
+    'trialCodes', 'createTrialCode', 'revokeTrialCode'],
 };
 
 // Functions that return synchronously-usable values (subscriptions) — not wrapped in

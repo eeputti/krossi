@@ -11,6 +11,7 @@ import { koutsiFmtEventDate } from '../domain/timeline.js';
 import { useCoach } from './CoachRoot.jsx';
 import { MerkitseUsage } from './MerkitseUsage.jsx';
 import { AdminUsage } from './AdminUsage.jsx';
+import { TrialCodes } from './TrialCodes.jsx';
 
 const fmtBytes = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} Mt` : b >= 1024 ? `${Math.round(b / 1024)} kt` : `${b} t`);
 const fmtWhen = (iso) => (iso ? koutsiFmtEventDate(iso) : 'ei koskaan');
@@ -217,10 +218,11 @@ export function AdminScreen() {
       <TopBar title="Ylläpito" back="/valmentaja/profiili" />
       <Page width="wide" className="stack-4 k-page-pad">
         <p className="k-faint">Pilotin käyttäjät, palaute, vuosisuunnitelmat ja käyttö</p>
-        <Segmented ariaLabel="Ylläpito" value={tab} onChange={setTab} options={[{ value: 'users', label: 'Käyttäjät' }, { value: 'feedback', label: 'Palaute' }, { value: 'plans', label: 'Suunnitelmat' }, { value: 'usage', label: 'Käyttö' }]} />
+        <Segmented ariaLabel="Ylläpito" value={tab} onChange={setTab} options={[{ value: 'users', label: 'Käyttäjät' }, { value: 'feedback', label: 'Palaute' }, { value: 'plans', label: 'Suunnitelmat' }, { value: 'usage', label: 'Käyttö' }, { value: 'codes', label: 'Avaimet' }]} />
         {tab === 'users' && <Users />}
         {tab === 'feedback' && <Feedback />}
         {tab === 'plans' && <Plans />}
+        {tab === 'codes' && <TrialCodes />}
         {tab === 'usage' && (
           <div className="stack-6">
             <AdminUsage />

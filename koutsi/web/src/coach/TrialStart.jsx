@@ -40,7 +40,7 @@ export function TrialStart({ onStarted, onUseKey }) {
         <Button variant="dark" size="lg" block loading={busy} onClick={start} className="k-gate-cta">Aloita {TRIAL_MONTHS} kk ilmainen kokeilu</Button>
         {/* one child: .k-fine is a flex row (icon + text) */}
         <p className="k-fine"><span>Aloittamalla vahvistat olevasi vähintään 18-vuotias ja hyväksyt <a href="/tilausehdot" target="_blank" rel="noopener">tilausehdot</a> ja <a href="/kasittelysopimus" target="_blank" rel="noopener">käsittelysopimuksen</a>.</span></p>
-        <Button variant="ghost" block onClick={onUseKey} disabled={busy}>Minulla on valmentaja-avain</Button>
+        <Button variant="ghost" block onClick={onUseKey} disabled={busy}>Onko sinulla valmentaja-avain?</Button>
         <Button variant="ghost" block onClick={signOut} disabled={busy}>Kirjaudu ulos</Button>
       </div>
     </div>

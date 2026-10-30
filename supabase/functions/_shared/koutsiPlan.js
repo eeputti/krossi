@@ -94,13 +94,15 @@ export function subscriptionIdOf(event) {
 }
 
 /**
- * The price a coach sees before subscribing: { cents, interval, offer: { cents, months } | null, vat }.
- * vat = the VAT percentage added on top (null while Roisku Media is not VAT-liable).
+ * The price a coach sees before subscribing: { cents, interval, offer: { cents, months } | null, vat, year }.
+ * vat = the VAT percentage added on top (null while Roisku Media is not VAT-liable); year = { cents } of
+ * the yearly price (KOUTSI_PRICE_YEAR_ID) when there is one. The founding offer is for the monthly price.
  * @param {any} price  a Stripe price
  * @param {any} [coupon]  a Stripe coupon (the founding offer), if any
  * @param {any} [taxRate]  a Stripe tax rate (KOUTSI_TAX_RATE), if any
+ * @param {any} [yearPrice]  the yearly Stripe price, if any
  */
-export function priceInfo(price, coupon = null, taxRate = null) {
+export function priceInfo(price, coupon = null, taxRate = null, yearPrice = null) {
   if (!price || !Number.isFinite(price.unit_amount)) return null;
   const cents = price.unit_amount;
   let offer = null;
@@ -114,5 +116,7 @@ export function priceInfo(price, coupon = null, taxRate = null) {
     if (off > 0 && off < cents) offer = { cents: cents - off, months };
   }
   const vat = taxRate?.active && !taxRate.inclusive && Number(taxRate.percentage) > 0 ? Number(taxRate.percentage) : null;
-  return { cents, interval: price.recurring?.interval || 'month', offer, vat };
+  const year = yearPrice?.active !== false && Number.isFinite(yearPrice?.unit_amount) && yearPrice.recurring?.interval === 'year'
+    ? { cents: yearPrice.unit_amount } : null;
+  return { cents, interval: price.recurring?.interval || 'month', offer, vat, year };
 }
