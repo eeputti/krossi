@@ -9,10 +9,10 @@ import { CopyButton, QrCode, ShareTextButton, Quiet } from '../shared/bits.jsx';
 import { DayPicker, DurationStepper, TimeSelect, optionalAge, FilePick } from '../shared/fields.jsx';
 import {
   koutsiTimeRangeLabel, koutsiInviteLink, koutsiInviteMessage, koutsiFmtShortDate, koutsiTodayStr,
-  koutsiAddDays, koutsiIsoWeekOfDateStr, koutsiIsoWeekKey, koutsiDateFromStr,
+  koutsiAddDays, koutsiIsoWeekOfDateStr, koutsiDateFromStr,
 } from '../domain/core.js';
+import { MAX_DAYS_AHEAD, breakDays, breakProblem, fmtDay, nextTermEnd, planContinue } from '../domain/continueGroups.js';
 import { exactNameMatch, matchStudents } from '../domain/roster.js';
-import { weekDates, themeWeekShort } from '../domain/week.js';
 import { useCoach } from './CoachRoot.jsx';
 import { groupPath } from './nav.js';
 import { currentSeason, weeksLeftInSeason } from '../domain/season.js';
@@ -377,89 +377,144 @@ export function calendarGoal(state, group, today = koutsiTodayStr()) {
 export const calendarReaches = (last, until) => Boolean(last && until && last > koutsiAddDays(until, -7));
 
 /**
- * Continue the weekly sessions of the chosen groups up to a date, optionally skipping whole
- * weeks (holidays). One server call per group; the players get one summary notification.
+ * "Jatka kalenteria": the chosen groups go on with the same weekdays and times up to a day, with
+ * breaks (tauko) as day ranges. The summary says what will happen before saving
+ * (domain/continueGroups.js); saving cancels the sessions already inside a break, then continues
+ * each group with one server call. The players get one notification per group.
  */
 export function ExtendCalendarSheet({ open, onClose, groups }) {
   const { state, run } = useData();
   const toast = useToast();
-  const goal = calendarGoal(state, (groups || [])[0]);
-  const [until, setUntil] = useState(goal);
-  const [chosen, setChosen] = useState([]);
-  const [skipWeeks, setSkipWeeks] = useState([]);
-  const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
+  const today = koutsiTodayStr();
+  const list = groups || [];
   const lastOf = (g) => state.trainings.filter((t) => t.groupId === g.id && t.loggedBy !== 'player').map((t) => t.date).sort().pop() || null;
-  useEffect(() => { if (open) { setChosen((groups || []).map((g) => g.id)); setSkipWeeks([]); setUntil(goal); } }, [open, groups]); // eslint-disable-line react-hooks/exhaustive-deps
-  const earliest = useMemo(() => (groups || []).map(lastOf).filter(Boolean).sort()[0] || koutsiTodayStr(), [groups, state]); // eslint-disable-line react-hooks/exhaustive-deps
-  const weeks = useMemo(() => {
-    const out = [];
-    let d = koutsiAddDays(earliest, 1);
-    const seen = new Set();
-    while (d <= until && out.length < 30) {
-      const w = koutsiIsoWeekOfDateStr(d);
-      const key = koutsiIsoWeekKey(w);
-      if (!seen.has(key)) { seen.add(key); out.push({ ...w, key }); }
-      d = koutsiAddDays(d, 7);
-    }
-    return out;
-  }, [earliest, until]);
+  // the season's end, or the next term's end when every group's calendar already reaches it
+  const firstUntil = () => {
+    const goal = calendarGoal(state, list[0]);
+    return list.length && list.every((g) => calendarReaches(lastOf(g), goal)) ? nextTermEnd(goal) : goal;
+  };
+  const [until, setUntil] = useState(firstUntil);
+  const [chosen, setChosen] = useState([]);
+  const [breaks, setBreaks] = useState([]);
+  const [picking, setPicking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const nextKey = useRef(1);
+  useEffect(() => {
+    if (!open) return;
+    setChosen(list.map((g) => g.id)); setBreaks([]); setUntil(firstUntil()); setPicking(list.length <= 4);
+  }, [open, groups]); // eslint-disable-line react-hooks/exhaustive-deps
+  const picked = list.filter((g) => chosen.includes(g.id));
+  const plan = useMemo(() => planContinue({ groups: picked, trainings: state.trainings, until, breaks, today }), [chosen, list, state.trainings, until, breaks, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  const problem = breakProblem(breaks, today);
+  const day = (d) => fmtDay(d, today);
+  const missing = !picked.length ? 'Valitse ainakin yksi ryhmä.'
+    : !(until > today) ? 'Valitse päivä tämän päivän jälkeen.'
+      : until > koutsiAddDays(today, MAX_DAYS_AHEAD) ? 'Kalenteria voi jatkaa enintään vuoden eteenpäin.'
+        : problem || (!plan.added && !plan.cancel.length ? `Treenit ovat jo kalenterissa ${day(until)} asti. Valitse myöhäisempi päivä tai lisää tauko.` : null);
+  const setBreak = (key, patch) => setBreaks((p) => p.map((b) => (b.key === key ? { ...b, ...patch } : b)));
+  const addBreak = () => { const key = nextKey.current; nextKey.current += 1; setBreaks((p) => [...p, { key, from: '', to: '' }]); };
+  const groupsAdded = plan.groups.filter((g) => g.add.length).length;
+
   const submit = async () => {
-    if (!chosen.length || busy) return;
+    if (missing || busy) return;
+    const n = plan.cancel.length;
+    if (n && !(await confirm({
+      title: n === 1 ? 'Perutaanko 1 treeni tauon ajalta?' : `Perutaanko ${n} treeniä tauon ajalta?`,
+      message: `${n === 1 ? 'Se on' : 'Ne ovat'} jo kalenterissa. Pelaajat saavat tiedon perutuista treeneistä.`,
+      confirmLabel: 'Peru treenit', danger: true,
+    }))) return;
     setBusy(true);
-    const skipDates = weeks.filter((w) => skipWeeks.includes(w.key)).flatMap((w) => weekDates(w));
+    const skip = breakDays(breaks, today, until);
     let added = 0;
     const res = await run(async () => {
-      for (const id of chosen) {
-        const r = await api.groups.extendSeries(id, until, skipDates);
+      if (n) await api.trainings.removeMany(plan.cancel.map((t) => t.id));
+      for (const g of plan.groups) {
+        if (!g.add.length) continue;
+        const r = await api.groups.extendSeries(g.group.id, until, skip);
         added += Number(r?.added || 0);
       }
-    });
+    }, undefined, { waitForRefresh: true });
     setBusy(false);
     if (res.ok) {
-      toast(added > 0 ? `Kalenteria jatkettu — ${added} treeniä lisätty ${koutsiFmtShortDate(until)} asti.` : `Treenit olivat jo kalenterissa ${koutsiFmtShortDate(until)} asti — mitään ei lisätty.`, added > 0 ? undefined : { tone: 'info' });
+      const many = (k, word) => `${k} ${k === 1 ? word : `${word}ä`}`;
+      const done = [added ? `${many(added, 'treeni')} lisätty ${day(until)} asti` : '', n ? `${many(n, 'treeni')} peruttu tauon ajalta` : ''].filter(Boolean);
+      toast(done.length ? `Kalenteri tallennettu: ${done.join(', ')}.` : `Treenit olivat jo kalenterissa ${day(until)} asti. Mitään ei muutettu.`, done.length ? undefined : { tone: 'info' });
       onClose();
     }
   };
-  const valid = until > koutsiTodayStr();
-  // every picked group already has its sessions up to the chosen day: say so before the tap
-  const nothingToAdd = chosen.length > 0 && (groups || []).filter((g) => chosen.includes(g.id)).every((g) => calendarReaches(lastOf(g), until));
+
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title="Jatka kalenteria" subtitle="Ryhmien viikoittaiset treenit jatkuvat samaan aikaan." size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!chosen.length ? 'Valitse ainakin yksi ryhmä.' : !valid ? 'Valitse päivä tämän päivän jälkeen.' : nothingToAdd ? `Treenit ovat jo kalenterissa ${koutsiFmtShortDate(until)} asti. Valitse myöhäisempi päivä.` : null} loading={busy} onClick={submit}>{chosen.length > 1 ? `Jatka ${chosen.length} ryhmää` : 'Jatka kalenteria'}</Button></div>}>
+    <Sheet open={open} onClose={() => !busy && onClose()} title="Jatka kalenteria" subtitle="Ryhmät jatkuvat samoina päivinä ja aikoina. Väliin voit lisätä tauon." size="md" dismissible={!busy}
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={missing} loading={busy} onClick={submit}>{!plan.added && plan.cancel.length ? 'Tallenna tauko' : picked.length > 1 ? `Jatka ${picked.length} ryhmää` : 'Jatka kalenteria'}</Button></div>}>
       <div className="stack-4">
-        <Field label="Jatka asti" htmlFor="extend-until" hint="Esim. kauden viimeinen treeniviikko.">
-          <Input id="extend-until" type="date" value={until} min={koutsiAddDays(koutsiTodayStr(), 1)} onChange={(e) => setUntil(e.target.value)} />
+        <Field label="Treenit jatkuvat asti" htmlFor="extend-until" hint="Kauden viimeinen treenipäivä.">
+          <Input id="extend-until" type="date" value={until} min={koutsiAddDays(today, 1)} max={koutsiAddDays(today, MAX_DAYS_AHEAD)} onChange={(e) => setUntil(e.target.value)} />
         </Field>
-        <Field label="Ryhmät">
-          <div className="k-pick-list">
-            {(groups || []).map((g) => {
-              const last = lastOf(g);
-              return (
-                <label key={g.id} className={cx('k-pick', chosen.includes(g.id) && 'is-on')}>
-                  <input type="checkbox" checked={chosen.includes(g.id)} onChange={() => setChosen((p) => (p.includes(g.id) ? p.filter((x) => x !== g.id) : [...p, g.id]))} />
-                  <span className="grow">
-                    <span className="k-pick-title">{g.day} {g.time}, {g.name}</span>
-                    <span className="k-faint">{last ? `Kalenterissa ${koutsiFmtShortDate(last)} asti` : 'Ei treenejä kalenterissa'}</span>
-                  </span>
-                </label>
-              );
-            })}
+        <div className="k-breaks">
+          <div className="k-breaks-head">
+            <span className="field-label">Tauko <span className="k-faint">(valinnainen)</span></span>
+            {!breaks.length && <span className="field-msg">Päivät, joina ei ole treenejä, esim. joululoma.</span>}
           </div>
-        </Field>
-        {nothingToAdd && <p className="field-msg">Treenit ovat jo kalenterissa {koutsiFmtShortDate(until)} asti. Jatka vain, jos haluat treenejä tämän päivän jälkeen.</p>}
-        {weeks.length > 0 && !nothingToAdd && (
-          <Field label="Taukoviikot" optional hint="Näille viikoille ei lisätä treenejä (esim. joulu- tai hiihtoloma).">
-            <div className="k-weeks-row">
-              {weeks.map((w) => (
-                <button key={w.key} type="button" className={cx('planner-chip', skipWeeks.includes(w.key) && 'is-on')}
-                  onClick={() => setSkipWeeks((p) => (p.includes(w.key) ? p.filter((x) => x !== w.key) : [...p, w.key]))}>
-                  {themeWeekShort(w)}<span className="planner-chip-sub">{koutsiFmtShortDate(weekDates(w)[0]).split(' ')[1]}</span>
-                </button>
-              ))}
+          {breaks.map((b, i) => (
+            <div key={b.key} className="k-break">
+              <div className="row-between">
+                <span className="k-break-title">{breaks.length > 1 ? `Tauko ${i + 1}` : 'Tauko'}</span>
+                <button type="button" className="k-break-remove" onClick={() => setBreaks((p) => p.filter((x) => x.key !== b.key))}>Poista</button>
+              </div>
+              <div className="k-two">
+                <Field label="Alkaa" htmlFor={`break-from-${b.key}`}>
+                  <Input id={`break-from-${b.key}`} type="date" value={b.from} min={today} onChange={(e) => setBreak(b.key, { from: e.target.value })} />
+                </Field>
+                <Field label="Päättyy" htmlFor={`break-to-${b.key}`}>
+                  <Input id={`break-to-${b.key}`} type="date" value={b.to} min={b.from || today} onChange={(e) => setBreak(b.key, { to: e.target.value })} />
+                </Field>
+              </div>
             </div>
-          </Field>
+          ))}
+          <Button variant="outline" size="sm" icon="plus" onClick={addBreak}>{breaks.length ? 'Lisää toinen tauko' : 'Lisää tauko'}</Button>
+        </div>
+        <Field label="Ryhmät">
+          {!picking ? (
+            <div className="k-pick-summary">
+              <span className="grow">{picked.length === list.length ? `Kaikki ${list.length} ryhmää` : `${picked.length}/${list.length} ryhmää`}</span>
+              <Button variant="ghost" size="sm" onClick={() => setPicking(true)}>Valitse ryhmät</Button>
+            </div>
+          ) : (
+            <div className="k-pick-list">
+              {list.map((g) => {
+                const last = lastOf(g);
+                return (
+                  <label key={g.id} className={cx('k-pick', chosen.includes(g.id) && 'is-on')}>
+                    <input type="checkbox" checked={chosen.includes(g.id)} onChange={() => setChosen((p) => (p.includes(g.id) ? p.filter((x) => x !== g.id) : [...p, g.id]))} />
+                    <span className="grow">
+                      <span className="k-pick-title">{g.day} {g.time}, {g.name}</span>
+                      <span className="k-faint">{last ? `Kalenterissa ${koutsiFmtShortDate(last)} asti` : 'Ei treenejä kalenterissa'}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </Field>
+        {picked.length > 0 && until > today && !problem && (
+          <div className="k-note k-continue-sum" aria-live="polite">
+            <strong>Näin ryhmät jatkuvat</strong>
+            <ul>
+              {plan.breaks.map((b) => (
+                <li key={`${b.from}-${b.to}`}>
+                  Tauko {day(b.from)}–{day(b.to)}.
+                  {b.cancelled > 0 && ` Tauon ajalta perutaan ${b.cancelled === 1 ? '1 treeni, joka on' : `${b.cancelled} treeniä, jotka ovat`} jo kalenterissa.`}
+                  {b.next && ` Treenit jatkuvat ${day(b.next)}.`}
+                </li>
+              ))}
+              <li>{plan.added
+                ? `${plan.added === 1 ? '1 uusi treeni' : `${plan.added} uutta treeniä`} ${groupsAdded === 1 ? '1 ryhmälle' : `${groupsAdded} ryhmälle`} samoina päivinä ja aikoina ${day(until)} asti.`
+                : `Treenit ovat jo kalenterissa ${day(until)} asti, joten uusia ei lisätä.`}</li>
+              {(plan.added > 0 || plan.cancel.length > 0) && <li>Pelaajat näkevät muutokset kalenterissaan ja saavat niistä ilmoituksen.</li>}
+            </ul>
+          </div>
         )}
-        <p className="field-msg">Treenit tulevat ryhmän pelaajien kalenteriin.</p>
       </div>
     </Sheet>
   );

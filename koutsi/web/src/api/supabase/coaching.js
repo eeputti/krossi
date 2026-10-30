@@ -428,6 +428,10 @@ export const trainings = {
   async remove(trainingId) {
     must(await from('koutsi_trainings').delete().eq('id', trainingId));
   },
+  async removeMany(trainingIds) {
+    const ids = [...new Set(trainingIds || [])];
+    for (let i = 0; i < ids.length; i += 100) must(await from('koutsi_trainings').delete().in('id', ids.slice(i, i + 100)));
+  },
   // "Poista kaikki tulevat" never reaches into the past.
   async removeSeries(seriesId, fromDate) {
     const today = koutsiTodayStr();

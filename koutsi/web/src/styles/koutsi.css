@@ -125,6 +125,15 @@
 .k-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .k-two > .field + .field { margin-top: 0; } /* side by side, so no stacking gap */
 .k-weeks-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Jatka kalenteria: breaks as day ranges, a short group summary and the plan in words */
+.k-breaks { display: grid; gap: 10px; }
+.k-breaks > .btn { justify-self: start; }
+.k-breaks-head { display: grid; gap: 4px; }
+.k-break { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.k-break-title { font-weight: 750; font-size: 14px; }
+.k-break-remove { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.k-pick-summary { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border: 1px solid var(--line); border-radius: var(--r-md); font-weight: 700; font-size: 14px; }
+.k-continue-sum ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; list-style: disc; }
 .k-more { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--green-800); }
 .k-chevron { color: var(--faint); flex-shrink: 0; }
 

@@ -80,7 +80,7 @@ function SeasonPanel() {
             <div className="eyebrow">Kalenterit</div>
             <div className="pl-card-title">Mihin asti treenit ovat kalenterissa</div>
           </div>
-          {ending.length > 0 && <Button variant="dark" size="sm" icon="repeat" onClick={() => setExtendOpen(true)}>Jatka kalenteria</Button>}
+          {lasts.length > 0 && <Button variant={ending.length ? 'dark' : 'outline'} size="sm" icon="repeat" onClick={() => setExtendOpen(true)}>Jatka kalenteria</Button>}
         </div>
         <div className="pl-cal-list">
           {lasts.map((e) => (
@@ -95,7 +95,7 @@ function SeasonPanel() {
       </div>
 
       {season && <SeasonEditSheet open={editOpen} onClose={() => setEditOpen(false)} season={season} />}
-      <ExtendCalendarSheet open={extendOpen} onClose={() => setExtendOpen(false)} groups={ending.map((e) => e.group)} />
+      <ExtendCalendarSheet open={extendOpen} onClose={() => setExtendOpen(false)} groups={lasts.map((e) => e.group)} />
     </div>
   );
 }

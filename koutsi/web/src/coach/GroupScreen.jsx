@@ -153,8 +153,8 @@ export function GroupScreen({ params }) {
           <div className={endsSoon ? 'k-calendar-end is-soon' : 'k-calendar-end'}>
             <Icon name="calendar" size={16} />
             <span className="grow">{last ? `Treenit kalenterissa ${koutsiFmtShortDate(last)} asti` : 'Ei treenejä kalenterissa'}</span>
-            {/* only when there is something to continue: a calendar that already reaches the season's end needs no button */}
-            {!calendarReaches(last, calendarGoal(state, group)) && <Button variant={endsSoon ? 'dark' : 'ghost'} size="sm" icon="repeat" onClick={() => setSheet('extend')}>Jatka</Button>}
+            {/* continue the calendar or add a break (tauko) */}
+            <Button variant={endsSoon && !calendarReaches(last, calendarGoal(state, group)) ? 'dark' : 'ghost'} size="sm" icon="repeat" onClick={() => setSheet('extend')}>Jatka</Button>
           </div>
         </header>
         <GroupTodayCard state={state} group={group} now={new Date(nowMs)} />
