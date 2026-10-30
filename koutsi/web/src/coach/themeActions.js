@@ -16,7 +16,7 @@ export function useSaveThemes() {
     const res = await run(async () => {
       if (fresh.length) written += await api.themes.save(fresh, { onlyNew: true });
       if (replace.length) written += await api.themes.save(replace);
-    });
+    }, undefined, { waitForRefresh: true }); // the Valmis summary reads the saved themes from state
     return res.ok ? written : null;
   }, [run]);
 }

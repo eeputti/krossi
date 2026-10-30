@@ -46,7 +46,7 @@ export function ProfileEditScreen() {
       if ((me.age ?? null) !== age) await api.player.saveAge(ownerId, age);
       const tennis = { playsHand: f.playsHand, favouriteShot: f.favouriteShot, playingSince: since, tennisStory: f.tennisStory.trim() };
       if (tennisReady && tennisOf(tennis) !== tennisOf(me)) await api.player.saveTennis(ownerId, tennis);
-    }, 'Profiili tallennettu.');
+    }, 'Profiili tallennettu.', { waitForRefresh: true }); // reopening the form must start from the saved values
     setBusy(false);
     if (res.ok) refreshProfile?.();
     return res.ok;

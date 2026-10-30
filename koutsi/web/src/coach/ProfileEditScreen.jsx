@@ -64,7 +64,7 @@ export function ProfileEditScreen() {
         tagline: f.tagline.trim(), bio: f.bio.trim(), experience: f.experience.trim(), specialties: f.specialties,
       });
       if (f.area !== (c.area || '')) await api.account.saveAbout(uid, { area: f.area });
-    }, 'Profiili tallennettu.');
+    }, 'Profiili tallennettu.', { waitForRefresh: true }); // reopening the form must start from the saved values
     setBusy(false);
     if (res.ok) refreshProfile?.();
     return res.ok;

@@ -38,10 +38,11 @@ test('waiting draft: keeps only known, non-empty values', () => {
     { tennisStory: 'x'.repeat(TENNIS_STORY_MAX) });
 });
 
-test('waiting draft onto the row: the draft wins, its empty fields keep the row', () => {
+test('waiting draft onto the row: it fills empty fields, the row keeps what it has', () => {
   const row = { playsHand: 'oikea', favouriteShot: 'forehand', playingSince: 2010, tennisStory: 'Vanha' };
-  assert.deepEqual(mergeTennisDraft(row, { favouriteShot: 'rysty' }),
-    { playsHand: 'oikea', favouriteShot: 'rysty', playingSince: 2010, tennisStory: 'Vanha' });
+  assert.deepEqual(mergeTennisDraft(row, { favouriteShot: 'rysty' }), row);
+  assert.deepEqual(mergeTennisDraft({ playsHand: 'oikea', favouriteShot: '', playingSince: null, tennisStory: '' }, { favouriteShot: 'rysty', playingSince: 2015 }),
+    { playsHand: 'oikea', favouriteShot: 'rysty', playingSince: 2015, tennisStory: '' });
   assert.deepEqual(mergeTennisDraft(null, { playsHand: 'vasen', tennisStory: 'Uusi' }),
     { playsHand: 'vasen', favouriteShot: '', playingSince: null, tennisStory: 'Uusi' });
 });

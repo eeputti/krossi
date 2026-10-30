@@ -464,6 +464,20 @@ async function startSend(coachId, kind, text, ids, log) {
 }
 // The copies didn't land: the log line goes too (best effort; the error that matters is thrown).
 const dropSend = (id) => from('koutsi_sends').delete().eq('id', id).then(() => {}, () => {});
+// A request that only lost its answer (timeout, dropped connection) may still have written the rows.
+const LOST_ANSWER = /aborted|aborterror|timed? ?out|timeout|failed to fetch|networkerror|network request failed|load failed/i;
+const lostAnswer = (error) => LOST_ANSWER.test(`${error?.name || ''} ${error?.message || ''} ${error?.details || ''}`);
+// The copies' insert failed: when the rows landed after all, it counts as sent (a retry would give the
+// players a second copy); when they didn't, the log line goes; when we can't tell, the line stays.
+async function settleFailedSend(table, sendId, error) {
+  if (sendId && lostAnswer(error)) {
+    const check = await from(table).select('id').eq('send_id', sendId).limit(1);
+    if (!check.error && check.data?.length) return;
+    if (check.error) must({ data: null, error });
+  }
+  if (sendId) await dropSend(sendId);
+  must({ data: null, error });
+}
 
 export const notes = {
   async add(coachId, studentId, text) {
@@ -476,10 +490,7 @@ export const notes = {
     const { error } = await from('koutsi_diary_entries').insert(ids.map((studentId) => ({
       coach_id: coachId, student_id: studentId, text, ...(sendId ? { send_id: sendId } : {}),
     })));
-    if (error) {
-      if (sendId) await dropSend(sendId);
-      must({ data: null, error });
-    }
+    if (error) await settleFailedSend('koutsi_diary_entries', sendId, error);
     return ids.length;
   },
   async update(entryId, text) {
@@ -524,10 +535,7 @@ export const homework = {
     const { error } = await from('koutsi_homework').insert(ids.map((studentId) => ({
       student_id: studentId, text, ...(sendId ? { send_id: sendId, coach_id: log.coachId } : {}),
     })));
-    if (error) {
-      if (sendId) await dropSend(sendId);
-      must({ data: null, error });
-    }
+    if (error) await settleFailedSend('koutsi_homework', sendId, error);
     return ids.length;
   },
   async update(homeworkId, text) {

@@ -57,13 +57,16 @@ export function tennisDraftOf(x) {
   return Object.keys(d).length ? d : null;
 }
 
-/** The row's card with the draft laid over it: what the player wrote while waiting wins, an empty draft field keeps the row's value. */
+/**
+ * The draft written while waiting fills the row's empty fields; what is already on the row stays
+ * (it is newer: a second device's stale session must not bring an old draft back over later edits).
+ */
 export function mergeTennisDraft(row, draft) {
   const d = tennisDraftOf(draft) || {};
   return {
-    playsHand: d.playsHand || row?.playsHand || '',
-    favouriteShot: d.favouriteShot || row?.favouriteShot || '',
-    playingSince: d.playingSince ?? row?.playingSince ?? null,
-    tennisStory: d.tennisStory || row?.tennisStory || '',
+    playsHand: row?.playsHand || d.playsHand || '',
+    favouriteShot: row?.favouriteShot || d.favouriteShot || '',
+    playingSince: row?.playingSince ?? d.playingSince ?? null,
+    tennisStory: row?.tennisStory || d.tennisStory || '',
   };
 }
