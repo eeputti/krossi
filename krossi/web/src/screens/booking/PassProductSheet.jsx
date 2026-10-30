@@ -135,7 +135,7 @@ export function PassProductSheet({ open, onClose, venue, sports, product, onDone
         </Field>
         <div className="ss-two">
           <Field label="Hinta (€)" htmlFor="hset-pass-price" error={error('priceCents')}
-            hint={unit && hours ? `${durationLabel(hours * 60)} pelaamista · ${unit}` : null}>
+            hint={unit && hours ? `${durationLabel(hours * 60)} pelaamista, ${unit}` : null}>
             <Input id="hset-pass-price" inputMode="decimal" value={form.price} placeholder="esim. 260" onChange={(e) => set({ price: e.target.value })} />
           </Field>
           <Field label="Voimassa ostosta" htmlFor="hset-pass-valid" error={error('validDays')}>

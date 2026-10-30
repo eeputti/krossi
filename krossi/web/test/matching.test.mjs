@@ -156,15 +156,15 @@ describe('reasonLine', () => {
   ];
 
   test('joins the first two, lower-casing the rest', () => {
-    assert.equal(reasonLine(reasons), 'Sama taso · ehditte arki-iltaisin');
+    assert.equal(reasonLine(reasons), 'Sama taso, ehditte arki-iltaisin');
     assert.equal(reasonLine(reasons, { max: 1 }), 'Sama taso');
     assert.equal(reasonLine([]), '');
     assert.equal(reasonLine(undefined), '');
   });
 
   test('skips what the screen already shows, capitalising the new first one', () => {
-    assert.equal(reasonLine(reasons, { skip: ['level'] }), 'Ehditte arki-iltaisin · tykkää myös matseista');
-    assert.equal(reasonLine([{ key: 'partner', text: '3 yhteistä peliä' }, ...reasons.slice(1)], { skip: ['level'] }), '3 yhteistä peliä · ehditte arki-iltaisin');
+    assert.equal(reasonLine(reasons, { skip: ['level'] }), 'Ehditte arki-iltaisin, tykkää myös matseista');
+    assert.equal(reasonLine([{ key: 'partner', text: '3 yhteistä peliä' }, ...reasons.slice(1)], { skip: ['level'] }), '3 yhteistä peliä, ehditte arki-iltaisin');
   });
 
   test('reasonTexts gives the same pieces one by one', () => {

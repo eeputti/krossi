@@ -109,7 +109,7 @@ export function LeagueAdminSheet({ open, onClose, league, meId, onChanged, onDel
 
   const sharePublic = () => shareLink({
     title: `Sarjataulukko: ${league.seasonLabel}`,
-    text: `${league.seasonLabel} · ${league.city} — lohkot ja tulokset`,
+    text: `${league.seasonLabel}, ${league.city} — lohkot ja tulokset`,
     url: appUrl(`/pelaa/liiga/${league.id}`),
   });
 
@@ -166,8 +166,8 @@ export function LeagueAdminSheet({ open, onClose, league, meId, onChanged, onDel
                     <span className="leagues-adm-member-name truncate">{m.name}{m.id === meId ? ' (sinä)' : ''}</span>
                     <span className="leagues-adm-member-sub">
                       {m.skillLevel ? levelLabel(m.skillLevel) : 'Taso ei tiedossa'}
-                      {hall && m.continues === false ? ' · ei jatka' : ''}
-                      {hall && league.status !== 'signup' && m.groupNumber == null ? ' · odottaa lohkoa' : ''}
+                      {hall && m.continues === false ? ', ei jatka' : ''}
+                      {hall && league.status !== 'signup' && m.groupNumber == null ? ', odottaa lohkoa' : ''}
                     </span>
                   </span>
                   {m.id === league.createdBy && <Chip tone="lime" size="sm" icon="crown">Ylläpitäjä</Chip>}

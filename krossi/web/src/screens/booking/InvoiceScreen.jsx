@@ -109,7 +109,7 @@ export function InvoiceScreen({ params }) {
               <b>{s.name}</b>
               {s.address && <span>{s.address}</span>}
               {s.businessId && <span>Y-tunnus {s.businessId}</span>}
-              {(s.email || s.phone) && <span>{[s.email, s.phone].filter(Boolean).join(' · ')}</span>}
+              {(s.email || s.phone) && <span>{[s.email, s.phone].filter(Boolean).join(', ')}</span>}
             </div>
             <div className="inv-meta">
               <h1 className="inv-title">LASKU</h1>

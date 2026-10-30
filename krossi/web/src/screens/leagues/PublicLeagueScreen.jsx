@@ -34,7 +34,7 @@ export function PublicLeagueScreen({ params }) {
     content = (
       <>
         <section className="leagues-hero court-lines on-dark leagues-public-hero rise">
-          <div className="eyebrow">{formatLabel(league)} · {league.city}</div>
+          <div className="eyebrow">{formatLabel(league)}, {league.city}</div>
           <h1 className="leagues-hero-title">{league.seasonLabel}</h1>
           <div className="leagues-hero-facts">
             <span><Icon name="target" size={16} />{levelLabel(league.skillLevel)}</span>
@@ -44,10 +44,10 @@ export function PublicLeagueScreen({ params }) {
             {league.organizer?.name && <span><Icon name="shield" size={16} />Ylläpitäjä: {league.organizer.name}</span>}
           </div>
           {phase === 'round' && current && (
-            <p className="leagues-public-round"><Icon name="calendar" size={15} />Kierros {current.roundNumber} käynnissä · {roundRange(current)}</p>
+            <p className="leagues-public-round"><Icon name="calendar" size={15} />Kierros {current.roundNumber} käynnissä, {roundRange(current)}</p>
           )}
           {phase !== 'round' && phase !== 'finished' && next && (
-            <p className="leagues-public-round"><Icon name="calendar" size={15} />{next.roundNumber === 1 ? '1. kierros' : `Kierros ${next.roundNumber}`} · {roundRange(next)}</p>
+            <p className="leagues-public-round"><Icon name="calendar" size={15} />{next.roundNumber === 1 ? '1. kierros' : `Kierros ${next.roundNumber}`}, {roundRange(next)}</p>
           )}
           {phase === 'finished' && <p className="leagues-public-round"><Icon name="flag" size={15} />Kausi päättynyt</p>}
         </section>
@@ -76,7 +76,7 @@ export function PublicLeagueScreen({ params }) {
         <button type="button" className="leagues-public-toplink" onClick={() => navigate('/pelaa')}>Kirjaudu</button>
       </header>
       <main className="leagues-public-main">{content}</main>
-      <footer className="leagues-public-foot">Krossi · tennispelit ja -sarjat · krossi.app</footer>
+      <footer className="leagues-public-foot">Krossi – tennispelit ja -sarjat<br />krossi.app</footer>
     </div>
   );
 }

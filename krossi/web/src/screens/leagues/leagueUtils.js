@@ -70,7 +70,7 @@ export function seasonSuggestions(now = new Date(), format = 'ladder') {
   if (format === 'hallisarja') {
     const from = m >= 6 ? y : y - 1;
     const season = `${from}–${String(from + 1).slice(2)}`;
-    return [`Hallisarja ${season}`, `Hallisarja ${season} · Yleinen`, `Hallisarja ${season} · Naiset`];
+    return [`Hallisarja ${season}`, `Hallisarja ${season}, yleinen`, `Hallisarja ${season}, naiset`];
   }
   const winter = (from) => `Talviliiga ${from}–${String(from + 1).slice(2)}`;
   if (m <= 3) return [`Kevätkausi ${y}`, `Kesäliiga ${y}`, `Kevät ${y}`];

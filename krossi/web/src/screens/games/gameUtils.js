@@ -28,7 +28,7 @@ export function venueName(game) {
 export function placeLine(game) {
   const venue = venueName(game);
   if (venue && game.city && !venue.includes(game.city)) return `${venue}, ${game.city}`;
-  return venue || (game?.city ? `${game.city} · paikka sovitaan` : 'Paikka sovitaan');
+  return venue || (game?.city ? `${game.city}, paikka sovitaan` : 'Paikka sovitaan');
 }
 
 /** 'Sisällä' | 'Ulkona' | null ('missä vain' says nothing useful on a card). */

@@ -355,7 +355,7 @@ function TourLayer({ tour, step }) {
         >
           <div key={`n${nudge}`} className={cx('tour-card-inner', nudge > 0 && 'is-nudged')}>
             {welcome.art}
-            <div className="tour-welcome-eyebrow">Opastus · {steps.length} askelta</div>
+            <div className="tour-welcome-eyebrow">Opastus, {steps.length} askelta</div>
             <h2 id="tour-title" className="tour-welcome-title">{welcome.title}</h2>
             <p id="tour-text" className="tour-welcome-text">{welcome.text}</p>
             <ul className="tour-topics">

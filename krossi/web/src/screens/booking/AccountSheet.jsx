@@ -199,7 +199,7 @@ export function AccountSheet({
           </button>
           {!register && (
             <>
-              {' · '}
+              <br />
               <button type="button" className="bk-terms-inline" disabled={busy === 'reset'} onClick={resetPassword}>Unohtuiko salasana?</button>
             </>
           )}

@@ -218,7 +218,7 @@ export function SplitPayScreen({ params, query, standalone = false }) {
           {saldo >= s.perCents && (
             <div className="stack-2">
               <Button variant="dark" size="lg" block icon="euro" loading={payingSaldo} onClick={paySaldo}>Maksa saldolla</Button>
-              <p className="bk-fine bk-fine-center">Saldoa {centsLabel(saldo)} · {s.venueName}</p>
+              <p className="bk-fine bk-fine-center">Saldoa {centsLabel(saldo)}, {s.venueName}</p>
             </div>
           )}
           <div className="bk-paybox">
@@ -234,7 +234,7 @@ export function SplitPayScreen({ params, query, standalone = false }) {
           <Avatar person={bookerPerson(s)} size={46} />
           <span className="splitpay-card-text">
             <b>{s.bookerFirstName} varasi kentän</b>
-            <span>{s.courtName} · {s.locationName}</span>
+            <span>{s.courtName}, {s.locationName}</span>
             <span>{whenLabel(s.startsAt, s.endsAt)}</span>
           </span>
         </section>

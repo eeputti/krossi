@@ -29,7 +29,7 @@ export function MatchHistorySheet({ open, onClose, results = [], onEdit, onDelet
       onClose={onClose}
       size="lg"
       title="Pelihistoria"
-      subtitle={results.length ? `${plural(results.length, 'ottelu', 'ottelua')} · ${plural(wins, 'voitto', 'voittoa')}` : null}
+      subtitle={results.length ? `${plural(results.length, 'ottelu', 'ottelua')}, ${plural(wins, 'voitto', 'voittoa')}` : null}
       footer={<Button variant="lime" size="lg" block icon="plus" onClick={onAdd}>Lisää tulos</Button>}
     >
       {results.length > 0 && (

@@ -32,7 +32,9 @@ const norm = (s) => String(s || '').trim().toLocaleLowerCase('fi');
 const ms = (iso) => (iso ? Date.parse(iso) : NaN);
 const titleOf = (game) => game?.title || { kaksinpeli: 'Kaksinpeli', nelinpeli: 'Nelinpeli', pallottelu: 'Pallottelu' }[game?.matchType] || 'Tennis';
 const placeOf = (game) => [game?.locationName && game.locationName !== 'Avoin' ? game.locationName : '', game?.city].filter(Boolean).join(', ');
-const join = (...parts) => parts.filter(Boolean).join(' · ');
+const join = (...parts) => parts.filter(Boolean).join(', ');
+/** formatGameTime after a comma: 'huomenna klo 18.00' (not 'Huomenna klo 18.00'). */
+const timeInSentence = (iso, now) => formatGameTime(iso, new Date(now)).replace(/^\S+/, (w) => w.toLowerCase());
 
 /** 'tänään klo 18' | 'huomenna klo 9.30' (the soon-reminder's title; it is always within 24 h). */
 function startsText(iso, now) {
@@ -94,7 +96,7 @@ export function buildNotifications({
       items.push({
         id: `splitPaid:${l.id}`, kind: 'splitPaid', at: ms(l.paidAt), person: l.person || null, to: '/pelaa/omat-varaukset',
         title: `${who} maksoi osuutensa ${centsLabel(l.cents)}`,
-        body: join('Summa palautetaan sinulle', formatGameTime(b.startsAt, new Date(now)), b.courtName),
+        body: `Summa palautetaan sinulle. ${join(formatGameTime(b.startsAt, new Date(now)), b.courtName)}`,
       });
     }
   }
@@ -105,7 +107,7 @@ export function buildNotifications({
     items.push({
       id: `sold:${b.id}`, kind: 'sold', at: ms(b.soldAt), person: null, to: '/pelaa/varaa',
       title: 'Vuorosi myytiin',
-      body: join(back, formatGameTime(b.startsAt, new Date(now)), b.courtName),
+      body: [back, join(formatGameTime(b.startsAt, new Date(now)), b.courtName)].filter(Boolean).join('. '),
     });
   }
 
@@ -115,7 +117,7 @@ export function buildNotifications({
     items.push({
       id: `invite:${inv.id}`, kind: 'invite', at: ms(g.createdAt) || now, person: g.creator, game: g,
       title: `${firstName(g.creator?.name)} kutsui sinut peliin`,
-      body: join(titleOf(g), formatGameTime(g.scheduledAt, new Date(now))),
+      body: join(titleOf(g), timeInSentence(g.scheduledAt, now)),
     });
   }
 
@@ -177,7 +179,7 @@ export function buildNotifications({
     items.push({
       id: `game:${g.id}`, kind: 'newGame', at: ms(g.createdAt), person: g.creator, game: g,
       title: `${firstName(g.creator?.name)} avasi pelin`,
-      body: join(titleOf(g), g.scheduledAt ? formatGameTime(g.scheduledAt, new Date(now)) : 'aika sovitaan', g.city),
+      body: join(titleOf(g), g.scheduledAt ? timeInSentence(g.scheduledAt, now) : 'aika sovitaan', g.city),
     });
   }
 

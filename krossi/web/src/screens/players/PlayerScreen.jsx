@@ -213,7 +213,7 @@ function PlayerHero({ player, now }) {
         {age && <span className="players-hero-age">{age}</span>}
       </h1>
       {cities.length > 0 && (
-        <p className="players-hero-cities"><Icon name="pin" size={15} />{cities.join(' · ')}</p>
+        <p className="players-hero-cities"><Icon name="pin" size={15} />{cities.join(', ')}</p>
       )}
       <div className="players-hero-tags">
         <LevelTag player={player} short={false} tone="on-dark" />

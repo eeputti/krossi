@@ -66,7 +66,7 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
     const giveBack = paid && refund;
     const ok = await confirm({
       title: 'Perutaanko varaus?',
-      message: `${name} · ${court?.shortName || 'kenttä'} ${whenInSentence}. ${giveBack ? `${giveBackText} pelaajalle.` : paid ? 'Mitään ei palauteta.' : 'Aika vapautuu muille.'}`,
+      message: `${name}, ${court?.shortName || 'kenttä'} ${whenInSentence}. ${giveBack ? `${giveBackText} pelaajalle.` : paid ? 'Mitään ei palauteta.' : 'Aika vapautuu muille.'}`,
       confirmLabel: 'Peru varaus',
       danger: true,
     });
@@ -86,7 +86,7 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
     const where = wholeGroup ? courtsLabel(groupCourts) : court?.shortName || 'kenttä';
     const ok = await confirm({
       title: 'Poistetaanko este?',
-      message: `${item.title} · ${where} ${whenInSentence}. Aika vapautuu pelaajien varattavaksi.`,
+      message: `${item.title}, ${where} ${whenInSentence}. Aika vapautuu pelaajien varattavaksi.`,
       confirmLabel: 'Poista este',
       danger: true,
     });
@@ -105,7 +105,7 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
   const releaseWeek = async () => {
     const ok = await confirm({
       title: 'Vapautetaanko viikko?',
-      message: `Kausivuoro: ${item.title} · ${court?.shortName || 'kenttä'} ${whenInSentence}. Kenttä vapautuu muille tältä kerralta. Kauden laskutus ei muutu.`,
+      message: `Kausivuoro: ${item.title}, ${court?.shortName || 'kenttä'} ${whenInSentence}. Kenttä vapautuu muille tältä kerralta. Kauden laskutus ei muutu.`,
       confirmLabel: 'Vapauta viikko',
       danger: true,
     });
@@ -140,7 +140,7 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
       onClose={busy ? undefined : onClose}
       size="sm"
       title={season ? 'Kausivuoro' : own ? 'Hallin oma käyttö' : variant === 'held' ? 'Varaus pidossa' : 'Varaus'}
-      subtitle={location ? `${location.name} · ${day}` : day}
+      subtitle={location ? `${location.name}, ${day[0].toLowerCase()}${day.slice(1)}` : day}
       footer={footer}
     >
       <div className="bhall-detail">
@@ -151,7 +151,7 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
               : <span className="bhall-kind is-season" aria-hidden="true"><Icon name="users" size={22} /></span>}
             <span className="bhall-who-text">
               <span className="bhall-who-name truncate">{item.title || 'Kausivuoro'}</span>
-              <span className="bhall-who-sub">Kausivuoro · laskutetaan kauden mukana</span>
+              <span className="bhall-who-sub">Kausivuoro, laskutetaan kauden mukana</span>
             </span>
             <Chip tone="neutral" icon="repeat">Joka viikko</Chip>
           </div>
@@ -172,7 +172,7 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
               <span className="bhall-who-name truncate">{name}</span>
               <span className="bhall-who-sub">
                 {variant === 'held' ? 'Maksu kesken' : item.guest ? 'Varaus ilman tiliä' : 'Pelaajan varaus'}
-                {item.guest?.email && <> · <a className="bhall-who-mail" href={`mailto:${item.guest.email}`}>{item.guest.email}</a></>}
+                {item.guest?.email && <>, <a className="bhall-who-mail" href={`mailto:${item.guest.email}`}>{item.guest.email}</a></>}
               </span>
             </span>
             <Chip tone={pay.tone} icon={paid ? 'check' : variant === 'held' ? 'clock' : undefined}>{pay.label}</Chip>
@@ -186,7 +186,7 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
           </div>
           <div className="bhall-fact">
             <dt><Icon name="court" size={16} />{own && groupCourts.length > 1 ? 'Kentät' : 'Kenttä'}</dt>
-            <dd>{own && groupCourts.length > 1 ? courtsLabel(groupCourts) : court?.name || 'Kenttä'}{court?.surface && !(own && groupCourts.length > 1) ? <span className="bhall-fact-sub"> · {court.surface}</span> : null}</dd>
+            <dd>{own && groupCourts.length > 1 ? courtsLabel(groupCourts) : court?.name || 'Kenttä'}{court?.surface && !(own && groupCourts.length > 1) ? <span className="bhall-fact-sub">, {court.surface}</span> : null}</dd>
           </div>
           {!own && (
             <div className="bhall-fact">
@@ -194,7 +194,7 @@ export function HallItemSheet({ open, onClose, item, venue, dayKey, items, onDon
               <dd className="t-num">
                 {item.paymentStatus === 'free' ? 'Maksuton' : price}
                 {season && <span className="bhall-fact-sub"> kausihinnasta</span>}
-                {!season && item.credit && <span className="bhall-fact-sub"> · {pay.label}</span>}
+                {!season && item.credit && <span className="bhall-fact-sub">, {pay.label.toLowerCase()}</span>}
               </dd>
             </div>
           )}

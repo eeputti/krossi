@@ -179,7 +179,7 @@ function HallDay({ venue: allCourts, venueRef, query, back }) {
 
   const onBlocked = ({ title, courts, startMin, endMin }) => {
     setBlockOpen(false);
-    toast(`Estetty: ${title} · ${courtsLabel(courts)} klo ${hhmm(startMin)}–${hhmm(endMin)}`);
+    toast(`Estetty: ${title}, ${courtsLabel(courts)} klo ${hhmm(startMin)}–${hhmm(endMin)}`);
     reloadDay({ silent: true });
   };
   const onItemDone = (message) => {
@@ -323,7 +323,7 @@ function DayNav({ dayKey, today, onChange }) {
   const relative = diff >= -1 && diff <= 2;
   const main = dayLabel(date.toISOString(), todayDate);
   const short = `${WEEKDAYS_SHORT[date.getDay()]} ${date.getDate()}.${date.getMonth() + 1}.`;
-  const sub = relative ? `${short} · vk ${isoWeek(dayKey)}` : `${WEEKDAYS[date.getDay()]} · vk ${isoWeek(dayKey)}`;
+  const sub = relative ? `${short}, vk ${isoWeek(dayKey)}` : `${WEEKDAYS[date.getDay()]}, vk ${isoWeek(dayKey)}`;
   const pick = (e) => {
     const key = parseDayKey(e.target.value);
     if (key) onChange(key);
@@ -366,7 +366,7 @@ function DayStats({ summary: s, failed }) {
         sub={s ? ([
           s.season ? `+ ${s.season} ${s.season === 1 ? 'kausivuoro' : 'kausivuoroa'}` : null,
           s.own ? `+ ${s.own} ${s.own === 1 ? 'hallin oma' : 'hallin omaa'}` : null,
-        ].filter(Boolean).join(' · ') || 'ei kausi- eikä hallin omia vuoroja') : null}
+        ].filter(Boolean).join(' ') || 'ei kausi- eikä hallin omia vuoroja') : null}
       />
       <StatTile
         icon="grid"

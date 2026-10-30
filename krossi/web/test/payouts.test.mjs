@@ -61,10 +61,10 @@ test('hourPrices: the bookable sports\' prices, lowest first, at most three', ()
 test('feeExamples: each price and the dearest split four ways (four payments, four fees)', () => {
   const venue = { prices: [{ sports: ['tennis'], centsPerHour: 1800 }, { sports: ['tennis'], centsPerHour: 3000 }] };
   assert.deepEqual(feeExamples(venue, FEE), [
-    { label: '1 h · 18 €', cents: 1800, feeCents: 68, hallCents: 1732 },
-    { label: '1 h · 30 €', cents: 3000, feeCents: 89, hallCents: 2911 },
+    { label: '1\u00a0h, 18 €', cents: 1800, feeCents: 68, hallCents: 1732 },
+    { label: '1\u00a0h, 30 €', cents: 3000, feeCents: 89, hallCents: 2911 },
     // 89 for the booker's 30 € + 3 × 50 for the friends' 7,50 € shares
-    { label: '1 h · 30 €, jaettu 4 osaan', cents: 3000, feeCents: 239, hallCents: 2761 },
+    { label: '1\u00a0h, 30 €, jaettu 4 osaan', cents: 3000, feeCents: 239, hallCents: 2761 },
   ]);
   assert.equal(feeExamples({}, FEE).length, 3, 'example prices when the hall has none');
 });

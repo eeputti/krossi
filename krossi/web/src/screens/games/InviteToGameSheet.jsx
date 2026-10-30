@@ -128,14 +128,14 @@ export function InviteToGameSheet({ open, onClose, gameId, city, excludeIds = []
         )}
         {lists.others.length > 0 && (
           <div className="games-pick-group">
-            <div className="eyebrow games-pick-eyebrow">Muut pelaajat · {homeCity}</div>
+            <div className="eyebrow games-pick-eyebrow">Muut pelaajat, {homeCity}</div>
             <div className="games-pick-list stagger">
               {lists.others.map((p) => (
                 <PickRow
                   key={p.id}
                   index={i++}
                   person={p}
-                  sub={[labelOf(SKILL_LEVELS, p.skillLevel), p.playingThisWeek ? 'pelaa tällä viikolla' : null].filter(Boolean).join(' · ')}
+                  sub={[labelOf(SKILL_LEVELS, p.skillLevel), p.playingThisWeek ? 'pelaa tällä viikolla' : null].filter(Boolean).join(', ')}
                   checked={picked.has(p.id)}
                   onToggle={() => toggle(p.id)}
                 />

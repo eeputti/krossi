@@ -85,9 +85,9 @@ export function confirmationLine(result) {
   if (!result) return null;
   if (!result.isMine) {
     const by = firstOf(result.loggedBy?.name) || 'Pelikaveri';
-    if (result.confirmation === 'pending') return { tone: 'muted', icon: 'clock', text: `Kirjasi ${by} · odottaa vastaustasi` };
-    if (result.confirmation === 'disputed') return { tone: 'danger', icon: 'alert', text: `Kirjasi ${by} · ei pidä paikkaansa` };
-    return { tone: 'success', icon: 'check', text: `Kirjasi ${by} · vahvistettu` };
+    if (result.confirmation === 'pending') return { tone: 'muted', icon: 'clock', text: `Kirjasi ${by}, odottaa vastaustasi` };
+    if (result.confirmation === 'disputed') return { tone: 'danger', icon: 'alert', text: `Kirjasi ${by}, ei pidä paikkaansa` };
+    return { tone: 'success', icon: 'check', text: `Kirjasi ${by}, vahvistettu` };
   }
   const asked = firstOf(result.answeredBy?.name || result.opponent?.name || result.oppPartner?.name || result.opponentName) || 'Vastustaja';
   if (result.confirmation === 'pending') return { tone: 'muted', icon: 'clock', text: `Odottaa, että ${asked} vahvistaa` };

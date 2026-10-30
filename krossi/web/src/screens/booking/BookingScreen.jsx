@@ -548,7 +548,7 @@ function SiteHero({ venue }) {
   return (
     <div className="site-hero">
       <h1 className="site-title">Varaa kenttä</h1>
-      <p className="site-sub"><Icon name="pin" size={16} />{[venue.name, where].filter(Boolean).join(' · ')}</p>
+      <p className="site-sub"><Icon name="pin" size={16} />{[venue.name, where].filter(Boolean).join(', ')}</p>
       {isDemo && <p className="site-demo"><Icon name="info" size={14} />Esittely — mitään ei veloiteta eikä tallenneta</p>}
     </div>
   );
@@ -562,7 +562,7 @@ function NextCourt({ booking }) {
       <span className="site-next-text">
         <span className="site-next-title">Sinulla on kenttä varattuna</span>
         <span className="site-next-when truncate">
-          {booking.courtName} · {formatGameTime(booking.startsAt).replace(/^\S+/, (w) => w.toLowerCase())}
+          {booking.courtName}, {formatGameTime(booking.startsAt).replace(/^\S+/, (w) => w.toLowerCase())}
         </span>
       </span>
       <Icon name="chevron-right" size={18} />

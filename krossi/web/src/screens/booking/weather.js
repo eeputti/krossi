@@ -66,7 +66,7 @@ export function weatherInfo(weather) {
   const rain = weather.rain ?? 0;
   return {
     symbol,
-    text: `${word ? `${word} ` : ''}${Math.round(weather.temp)}° · sade ${rain} %`,
+    text: `${word ? `${word} ` : ''}${Math.round(weather.temp)}°, sade ${rain}\u00a0%`,
     wet: rain >= 50,
   };
 }

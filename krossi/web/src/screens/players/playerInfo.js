@@ -33,7 +33,7 @@ export function levelText(p, { short = false } = {}) {
   if (!lvl) return '';
   const classes = p?.competitionClasses || [];
   if (lvl.value === 'kilpapelaaja' && classes.length) {
-    return short ? `Kilpa · ${classes.join('/')}` : `${lvl.label} · ${classes.join(', ')}`;
+    return short ? `Kilpa ${classes.join('/')}` : `${lvl.label} (${classes.join(', ')})`;
   }
   return short ? lvl.short : lvl.label;
 }

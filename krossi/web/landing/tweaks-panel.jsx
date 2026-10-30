@@ -509,7 +509,7 @@ function TweakColor({ label, value, options, onChange }) {
           return (
             <button key={i} type="button" className="twk-chip" role="radio"
                     aria-checked={on} data-on={on ? '1' : '0'}
-                    aria-label={colors.join(', ')} title={colors.join(' · ')}
+                    aria-label={colors.join(', ')} title={colors.join(', ')}
                     style={{ background: hero }}
                     onClick={() => onChange(o)}>
               {sup.length > 0 && (

@@ -63,7 +63,7 @@ export function StreakBadge({ streak, size = 'md', tone = 'light', className }) 
       <span className="streak-badge-flame"><Flame size={34} /></span>
       <span className="streak-badge-text">
         <span className="streak-badge-value t-num">{value}</span>
-        <span className="streak-badge-label">viikkoputki{best > 0 ? ` · paras ${best} vk` : ''}</span>
+        <span className="streak-badge-label">viikkoputki{best > 0 ? `, paras ${best}\u00a0vk` : ''}</span>
       </span>
       {hint && (
         <span className="streak-badge-hint">

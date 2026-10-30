@@ -34,7 +34,7 @@ function Summary({ p }) {
             : <Icon name="clock" size={22} />}
         </span>
         <span className="games-public-when-text">
-          <span className="games-public-type">{gameTitle(p)}{p.title ? '' : matchDesc(p.matchType) ? ` · ${matchDesc(p.matchType)}` : ''}</span>
+          <span className="games-public-type">{gameTitle(p)}{p.title ? '' : matchDesc(p.matchType) ? `, ${matchDesc(p.matchType).toLowerCase()}` : ''}</span>
           <span className="games-public-time">{formatGameTime(p.scheduledAt)}</span>
         </span>
       </div>
@@ -114,7 +114,7 @@ export function PublicGameScreen({ params }) {
         <a href="/demo" className="games-public-toplink">Kokeile demoa</a>
       </header>
       <main className="games-public-main">{content}</main>
-      <footer className="games-public-foot">Krossi · tennispelit sovittu hetkessä · krossi.app</footer>
+      <footer className="games-public-foot">Krossi – tennispelit sovittu hetkessä<br />krossi.app</footer>
     </div>
   );
 }

@@ -38,9 +38,9 @@ export function HallCards({ venue }) {
         <Button variant="soft" size="sm" icon="settings" onClick={() => navigate(`/pelaa/halli/${venue.slug}?nakyma=asetukset`)}>Myytävät kortit</Button>
       </div>
       <div className="bhall-stats">
-        <StatTile icon="repeat" label="Sarjakortit" value={all ? activePasses.length : wait} sub={all ? `voimassa · ${hoursLeftLabel(activePasses.reduce((s, p) => s + p.minutesLeft, 0))} pelaamatta` : null} />
+        <StatTile icon="repeat" label="Sarjakortit" value={all ? activePasses.length : wait} sub={all ? `voimassa, ${hoursLeftLabel(activePasses.reduce((s, p) => s + p.minutesLeft, 0))} pelaamatta` : null} />
         <StatTile icon="euro" label="Sarjakorttimyynti" value={all ? centsLabel(all.passes.reduce((s, p) => s + p.priceCents, 0)) : wait} sub={all ? `${all.passes.length} korttia` : null} />
-        <StatTile icon="gift" label="Lahjakortit" value={all ? openGifts.length : wait} sub={all ? `lunastamatta · ${centsLabel(openGifts.reduce((s, g) => s + g.amountCents, 0))}` : null} />
+        <StatTile icon="gift" label="Lahjakortit" value={all ? openGifts.length : wait} sub={all ? `lunastamatta, ${centsLabel(openGifts.reduce((s, g) => s + g.amountCents, 0))}` : null} />
         <StatTile icon="euro" label="Lahjakorttimyynti" value={all ? centsLabel(all.giftCards.reduce((s, g) => s + g.amountCents, 0)) : wait} sub={all ? `${all.giftCards.length} korttia` : null} />
       </div>
       <div className="hc-controls">
@@ -56,8 +56,8 @@ export function HallCards({ venue }) {
             {passes.map((p) => (
               <li key={p.id} className={cx('hc-row', p.status !== 'active' && 'is-quiet')}>
                 <Avatar person={p.owner} name={p.owner?.name} size={34} />
-                <span className="hc-main"><b className="truncate">{p.owner?.name}</b><small>{p.name} · ostettu {p.purchasedAt ? dayMonth(p.purchasedAt.slice(0, 10), true) : '—'}</small></span>
-                <span className="hc-side t-num"><b>{hoursLeftLabel(p.minutesLeft)}</b><small>{PASS_STATES[p.status]}{p.validUntil && p.status === 'active' ? ` · ${dayMonth(p.validUntil, true)} asti` : ''}</small></span>
+                <span className="hc-main"><b className="truncate">{p.owner?.name}</b><small>{p.name}, ostettu {p.purchasedAt ? dayMonth(p.purchasedAt.slice(0, 10), true) : '—'}</small></span>
+                <span className="hc-side t-num"><b>{hoursLeftLabel(p.minutesLeft)}</b><small>{PASS_STATES[p.status]}{p.validUntil && p.status === 'active' ? ` ${dayMonth(p.validUntil, true)} asti` : ''}</small></span>
               </li>
             ))}
           </ul>
@@ -68,8 +68,8 @@ export function HallCards({ venue }) {
             <li key={g.id} className={cx('hc-row', g.status !== 'active' && 'is-quiet')}>
               <code className="hc-code">{g.code}</code>
               <span className="hc-main">
-                <b>{centsLabel(g.amountCents)}{g.recipientName ? ` · ${g.recipientName}` : ''}</b>
-                <small>Ostaja {g.buyer?.name || '—'}{g.redeemedBy ? ` · lunasti ${g.redeemedBy.name}` : ''}</small>
+                <b>{centsLabel(g.amountCents)}{g.recipientName ? `, ${g.recipientName}` : ''}</b>
+                <small>Ostaja {g.buyer?.name || '—'}{g.redeemedBy ? `, lunasti ${g.redeemedBy.name}` : ''}</small>
               </span>
               <span className="hc-side"><b>{GIFT_STATES[g.status]}</b><small>{g.status === 'active' ? `${dayMonth(g.validUntil, true)} asti` : g.redeemedAt ? dayMonth(g.redeemedAt.slice(0, 10), true) : ''}</small></span>
             </li>

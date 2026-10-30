@@ -49,12 +49,12 @@ export function feeExamples(venue, fee) {
   const list = prices.length ? prices : [2000, 3000];
   const rows = list.map((cents) => {
     const feeCents = paymentFee(cents, fee);
-    return { label: `1 h · ${centsLabel(cents)}`, cents, feeCents, hallCents: cents - feeCents };
+    return { label: `1\u00a0h, ${centsLabel(cents)}`, cents, feeCents, hallCents: cents - feeCents };
   });
   const top = list[list.length - 1];
   const share = Math.floor(top / 4);
   const splitFee = paymentFee(top, fee) + 3 * paymentFee(share, fee);
-  rows.push({ label: `1 h · ${centsLabel(top)}, jaettu 4 osaan`, cents: top, feeCents: splitFee, hallCents: top - splitFee });
+  rows.push({ label: `1\u00a0h, ${centsLabel(top)}, jaettu 4 osaan`, cents: top, feeCents: splitFee, hallCents: top - splitFee });
   return rows;
 }
 

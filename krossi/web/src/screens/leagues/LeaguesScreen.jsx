@@ -95,7 +95,7 @@ export function LeaguesScreen() {
         </div>
 
         <div className="leagues-list-head">
-          <h2 className="leagues-list-title">Liigat · {city}</h2>
+          <h2 className="leagues-list-title">Liigat {cityIn(city)}</h2>
           {!loading && !error && leagues.length > 0 && (
             <span className="leagues-list-count t-num">{plural(leagues.length, 'liiga', 'liigaa')}</span>
           )}

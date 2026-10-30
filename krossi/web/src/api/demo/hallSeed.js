@@ -187,7 +187,7 @@ export function createHallSeed({ venue, rows, add, now, today, at, plan }) {
 
   // A club's Monday training: two hours (at Kispi in the halls world), invoiced and paid.
   const club = slot({
-    key: 'seura', holderName: 'Esimerkkiseura ry · kilpaharjoitukset', ...spot('away'), weekday: 1,
+    key: 'seura', holderName: 'Esimerkkiseura ry, kilpaharjoitukset', ...spot('away'), weekday: 1,
     startTime: '17:00', minutes: 120, billingKind: 'invoice', billingEmail: 'rahastonhoitaja@example.fi',
     billingAddress: 'Esimerkkiseura ry, PL 12, 15101 Lahti', decidedDaysAgo: 55,
   });

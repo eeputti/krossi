@@ -18,7 +18,7 @@ function preview(sets, oppName) {
   if (filled.length === 0) return { state: 'idle', icon: 'ball', title: 'Syötä erien pelit', text: 'Näet voittajan tässä heti' };
   const t = tallySets(filled);
   const score = `${t.won}–${t.lost}`;
-  const detail = filled.map((s) => `${s.my}–${s.opp}`).join(' · ');
+  const detail = filled.map((s) => `${s.my}–${s.opp}`).join(', ');
   if (t.won === t.lost) return { state: 'even', icon: 'repeat', title: `Erät tasan ${score}`, text: 'Lisää ratkaiseva erä tai tie-break' };
   return t.won > t.lost
     ? { state: 'win', icon: 'trophy', title: `Voitit ${score} 🎉`, text: detail }

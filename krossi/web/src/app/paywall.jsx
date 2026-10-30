@@ -138,7 +138,7 @@ export function PaywallProvider({ children }) {
         ) : (
           <div className="paywall court-lines">
             <Illustration name="lock" size={96} className="paywall-art" />
-            <div className="eyebrow">Krossi · kertamaksu</div>
+            <div className="eyebrow">Krossin kertamaksu</div>
             <h2 id="paywall-title" className="paywall-title">{reason || 'Avaa koko Krossi'}</h2>
             <p className="paywall-lead">Yksi maksu, ei tilausta eikä toistuvaa laskutusta. Sen jälkeen pelit voi alkaa.</p>
             <ul className="paywall-perks">

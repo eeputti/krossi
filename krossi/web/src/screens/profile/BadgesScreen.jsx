@@ -98,7 +98,7 @@ export function BadgesScreen() {
           <ProgressBar value={total ? earned / total : 0} tone="lime" label="Ansaitut merkit" className="profile-badges-hero-bar" />
           <p className="profile-badges-hero-next">
             {goal
-              ? <>Seuraavaksi <strong>{goal.name}</strong> · {Math.min(goal.current, goal.target)}/{goal.target}</>
+              ? <>Seuraavaksi <strong>{goal.name}</strong>, {Math.min(goal.current, goal.target)}/{goal.target}</>
               : earned === total ? 'Kaikki merkit kerätty — olet legenda!' : 'Pelaa, voita ja kutsu kavereita — merkit kertyvät itsestään.'}
           </p>
         </div>

@@ -46,17 +46,17 @@ export function PartnersScreen() {
             <div className="players-partners-hero-num t-num"><CountUp value={data.length} /></div>
             <AvatarStack people={data.map((p) => p.player)} max={4} size={40} />
           </div>
-          <div className="players-partners-hero-label">{data.length === 1 ? 'pelikaveri' : 'pelikaveria'} · {plural(games, 'yhteinen peli', 'yhteistä peliä')}</div>
+          <div className="players-partners-hero-label">{data.length === 1 ? 'pelikaveri' : 'pelikaveria'}, {plural(games, 'yhteinen peli', 'yhteistä peliä')}</div>
           {top.gamesTogether > 1 && (
             <p className="players-partners-hero-mate">
-              Useimmin kentällä kanssasi: <strong>{firstName(top.player.name)}</strong> · {plural(top.gamesTogether, 'peli', 'peliä')}
+              Useimmin kentällä kanssasi: <strong>{firstName(top.player.name)}</strong>, {plural(top.gamesTogether, 'peli', 'peliä')}
             </p>
           )}
         </section>
 
         <div className="players-list players-partners-list stagger">
           {data.map((p, i) => {
-            const meta = [plural(p.gamesTogether, 'yhteinen peli', 'yhteistä peliä'), p.lastPlayedAt ? `viimeksi ${relativeLong(p.lastPlayedAt, now)}` : null].filter(Boolean).join(' · ');
+            const meta = [plural(p.gamesTogether, 'yhteinen peli', 'yhteistä peliä'), p.lastPlayedAt ? `viimeksi ${relativeLong(p.lastPlayedAt, now)}` : null].filter(Boolean).join(', ');
             return (
               <PlayerCard
                 key={p.player.id}

@@ -148,7 +148,7 @@
 .inv-barcode { margin: -12px 0 0; display: grid; gap: 4px; }
 .inv-barcode code { font: 600 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.02em; word-break: break-all; color: var(--ink); }
 .inv-foot { font-size: 12.5px; color: var(--muted); }
-.inv-paper.is-paid .inv-title::after { content: ' · MAKSETTU'; color: var(--success); font-size: 14px; letter-spacing: 0.06em; }
+.inv-paper.is-paid .inv-title::after { content: 'MAKSETTU'; margin-left: 10px; color: var(--success); font-size: 14px; letter-spacing: 0.06em; }
 .inv-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: var(--s5); }
 
 @media print {

@@ -211,7 +211,7 @@ function LeagueMini() {
       <div className="mini-card mini-league">
         <div className="mini-league-head">
           <div>
-            <span className="mini-league-title">Lahti · Keskitaso</span>
+            <span className="mini-league-title">Lahti, keskitaso</span>
             <span className="mini-league-sub">Syyskausi 2026</span>
           </div>
           <span className="mini-league-group">Lohko A</span>
@@ -373,7 +373,7 @@ function UpcomingMatches() {
                 <DemoAvatar initials={m.initials} hue={m.hue} size={42} />
                 <div className="uc-info">
                   <div className="uc-name">{m.creator}, {m.age}</div>
-                  <div className="uc-loc">{m.loc} · {m.locType}</div>
+                  <div className="uc-loc">{m.loc}, {m.locType.toLowerCase()}</div>
                 </div>
                 <div className="uc-slots" aria-label={`${m.slots} ${m.slots === 1 ? 'paikka' : 'paikkaa'} vapaana`}>
                   {Array.from({ length: m.slots }).map((_, i) => (
@@ -482,12 +482,12 @@ function DemoBand() {
             <span className="dw-play"><LandIcon name="plus" size={16} />Pelataanko?</span>
             <div className="dw-row">
               <MiniAvatar initial="T" hue={8} size={26} />
-              <span className="dw-row-text"><b>Teemu · Kaksinpeli</b><em>Kispi Areena · 1 paikka</em></span>
+              <span className="dw-row-text"><b>Teemu, kaksinpeli</b><em>Kispi Areena, 1 paikka</em></span>
               <span className="dw-join">Liity</span>
             </div>
             <div className="dw-row">
               <MiniAvatar initial="S" hue={44} size={26} />
-              <span className="dw-row-text"><b>Sanna · Nelinpeli</b><em>Janus Areena · 2 paikkaa</em></span>
+              <span className="dw-row-text"><b>Sanna, nelinpeli</b><em>Janus Areena, 2 paikkaa</em></span>
               <span className="dw-join">Liity</span>
             </div>
           </div>
@@ -529,7 +529,7 @@ function Footer() {
           <span>Suomi</span>
           <a href="#" onClick={e => { e.preventDefault(); window.krossiOpenCookieSettings && window.krossiOpenCookieSettings(); }}>Evästeasetukset</a>
         </div>
-        <div className="footer-base">© 2026 Krossi · Tennistä lähellä sinua</div>
+        <div className="footer-base">© 2026 Krossi – Tennistä lähellä sinua</div>
       </div>
     </footer>
   );

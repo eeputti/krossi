@@ -39,8 +39,8 @@ const openPath = (id) => `/pelaa/peli/${id}`;
 function nextLine(next, loading) {
   if (loading) return 'Katsotaan, mitä sinulla on tulossa…';
   if (!next) return 'Ei sovittuja pelejä tällä hetkellä.';
-  if (next.kind === 'court') return `Seuraavaksi ${next.booking.courtName} · ${formatGameTime(next.booking.startsAt)}`;
-  return `Seuraavaksi ${gameTitle(next.game)} · ${formatGameTime(next.game.scheduledAt)}`;
+  if (next.kind === 'court') return `Seuraavaksi ${next.booking.courtName}, ${formatGameTime(next.booking.startsAt).replace(/^\S+/, (w) => w.toLowerCase())}`;
+  return `Seuraavaksi ${gameTitle(next.game)}, ${formatGameTime(next.game.scheduledAt).replace(/^\S+/, (w) => w.toLowerCase())}`;
 }
 
 function HomeHead({ next, loading, feed }) {
@@ -54,7 +54,7 @@ function HomeHead({ next, loading, feed }) {
   return (
     <section className="home-hero on-dark" aria-labelledby="home-hero-title">
       <div className="home-hero-top">
-        <span className="eyebrow">{dateLabel}{city ? ` · ${city}` : ''}</span>
+        <span className="eyebrow">{dateLabel}{city ? `, ${city}` : ''}</span>
         <span className="home-hero-tools">
           <NotificationsButton feed={feed} />
           <Link to="/pelaa/profiili" className="home-hero-me hide-desktop" aria-label="Oma profiili">
@@ -107,7 +107,7 @@ function GameInviteCard({ invite, onDone, style }) {
         </span>
         <span className="home-invite-text">
           <span className="home-invite-title"><strong>{firstName(game.creator?.name)}</strong> kutsui sinut peliin</span>
-          <span className="home-invite-meta truncate">{gameTitle(game)} · {formatGameTime(game.scheduledAt)}</span>
+          <span className="home-invite-meta truncate">{gameTitle(game)}, {formatGameTime(game.scheduledAt).replace(/^\S+/, (w) => w.toLowerCase())}</span>
           <span className="home-invite-place truncate"><Icon name="pin" size={13} />{placeLine(game)}</span>
         </span>
       </button>
@@ -145,12 +145,12 @@ function RequestsCard({ requests, style }) {
 // A past game whose outcome is still open: tapping it asks "Pelasitteko?" (PendingOutcomeCheck).
 function OutcomeCard({ game, uid, style }) {
   const others = [game.creator, ...(game.participants || [])].filter((p) => p && p.id !== uid);
-  const who = others.length ? ` · ${others.map((p) => firstName(p.name)).join(', ')}` : '';
+  const who = others.length ? ` (${others.map((p) => firstName(p.name)).join(', ')})` : '';
   return (
     <RowCard
       people={others}
       title="Pelasitteko?"
-      sub={`${gameTitle(game)}${who} · ${formatGameTime(game.scheduledAt)}`}
+      sub={`${gameTitle(game)}${who}, ${formatGameTime(game.scheduledAt).replace(/^\S+/, (w) => w.toLowerCase())}`}
       onClick={() => askOutcome(game)}
       style={style}
     />
@@ -164,7 +164,7 @@ function ConfirmResultCard({ result, style }) {
     <RowCard
       people={result.loggedBy ? [result.loggedBy] : []}
       title="Vahvistatko tuloksen?"
-      sub={`${firstName(result.loggedBy?.name)} kirjasi · ${score}`}
+      sub={`${firstName(result.loggedBy?.name)} kirjasi ${score}`}
       onClick={() => askResult(result)}
       style={style}
     />
@@ -276,7 +276,7 @@ function PastSection({ past }) {
             <GameDateTile iso={g.scheduledAt} size="sm" />
             <span className="games-past-text">
               <span className="games-past-title truncate">{gameTitle(g)}</span>
-              <span className="games-past-meta truncate">{formatGameTime(g.scheduledAt)} · {placeLine(g)}</span>
+              <span className="games-past-meta truncate">{formatGameTime(g.scheduledAt)}, {placeLine(g)}</span>
             </span>
             {outcomeChip(g)}
           </button>

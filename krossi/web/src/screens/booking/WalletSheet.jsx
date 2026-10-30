@@ -144,7 +144,7 @@ function PassShop({ products, wallet, onBuy }) {
                 <span className="ss-product-price t-num">{centsLabel(p.priceCents)}</span>
               </div>
               <p className="ss-product-meta">
-                {durationLabel(p.uses * p.minutesPerUse)} pelaamista · {centsLabel(Math.round(p.priceCents / ((p.uses * p.minutesPerUse) / 60)))}/h · voimassa {Math.round(p.validDays / 30.4)} kk
+                {durationLabel(p.uses * p.minutesPerUse)} pelaamista, {centsLabel(Math.round(p.priceCents / ((p.uses * p.minutesPerUse) / 60)))}/h, voimassa {Math.round(p.validDays / 30.4)}&nbsp;kk
               </p>
               {p.description && <p className="ss-product-text">{p.description}</p>}
               <Button
@@ -236,7 +236,7 @@ export function GiftCardRow({ card, venue }) {
     <div className={cx('ss-giftcard', card.status !== 'active' && 'is-done')}>
       <div className="ss-giftcard-head">
         <span className="ss-giftcard-amount t-num">{centsLabel(card.amountCents)}</span>
-        <span className="ss-giftcard-state">{GIFT_STATES[card.status]}{card.recipientName ? ` · ${card.recipientName}` : ''}</span>
+        <span className="ss-giftcard-state">{GIFT_STATES[card.status]}{card.recipientName ? `, ${card.recipientName}` : ''}</span>
       </div>
       {card.code && <code className="ss-code">{card.code}</code>}
       {card.status === 'active' && (
@@ -444,7 +444,7 @@ function OrderPay({ order, venue, onPaid }) {
           />
         )}
       </div>
-      <p className="bk-fine bk-fine-center">{venue.name} · kuitti tulee sähköpostiisi.</p>
+      <p className="bk-fine bk-fine-center">{venue.name}<br />Kuitti tulee sähköpostiisi.</p>
     </div>
   );
 }

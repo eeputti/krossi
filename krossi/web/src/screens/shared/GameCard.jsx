@@ -52,7 +52,7 @@ function TagChips({ game, showDistance, tone = 'neutral' }) {
   const price = game.kind === 'event' ? priceLabel(game) : null;
   return (
     <span className="gcard-chips">
-      {game.kind === 'event' && <Chip tone="lime" size="sm" icon="flag">Tapahtuma{price ? ` · ${price}` : ''}</Chip>}
+      {game.kind === 'event' && <Chip tone="lime" size="sm" icon="flag">Tapahtuma{price ? `, ${price.toLowerCase()}` : ''}</Chip>}
       {loc && <Chip tone={tone} size="sm">{loc}</Chip>}
       {surface && <Chip tone={tone} size="sm">{surface}</Chip>}
       {game.minSkillLevel && <Chip tone={tone} size="sm">Taso {levelShort(game.minSkillLevel)}+</Chip>}
@@ -75,7 +75,7 @@ function whenLine(iso, now) {
 
 /** 'Kispi Areena · Sisällä · Kova' — the venue (or city) with indoor/outdoor and surface. */
 function placeDetails(game) {
-  return [venueName(game) || placeLine(game), locationShort(game.locationType), surfaceLabel(game.courtSurface)].filter(Boolean).join(' · ');
+  return [venueName(game) || placeLine(game), locationShort(game.locationType), surfaceLabel(game.courtSurface)].filter(Boolean).map((s, i) => (i ? s.toLowerCase() : s)).join(', ');
 }
 
 /** Who has joined (small avatars) and the free places (dashed circles), at most three in all. */
@@ -137,7 +137,7 @@ function CompactCard({ game, onClick, showDistance, paid }) {
         <span className="gcard-compact-badge"><RoleBadge game={game} paid={paid} /></span>
       </span>
       <span className="gcard-title truncate">{gameTitle(game)}</span>
-      <span className="gcard-meta truncate">{placeLine(game)}{showDistance && game.distanceKm != null ? ` · ${formatDistance(game.distanceKm)}` : ''}</span>
+      <span className="gcard-meta truncate">{placeLine(game)}{showDistance && game.distanceKm != null ? ` (${formatDistance(game.distanceKm)})` : ''}</span>
       <span className="gcard-foot">
         <People game={game} size={24} max={3} />
         <SpotsChip game={game} />
@@ -203,7 +203,7 @@ function OpenCard({ game, onClick, showDistance, paid }) {
       {game.description && <span className="gcard-desc">{game.description}</span>}
       <span className="gcard-open-foot">
         <span className="gcard-tags">
-          {game.kind === 'event' && <Chip tone="lime" size="sm" icon="flag">Tapahtuma{price ? ` · ${price}` : ''}</Chip>}
+          {game.kind === 'event' && <Chip tone="lime" size="sm" icon="flag">Tapahtuma{price ? `, ${price.toLowerCase()}` : ''}</Chip>}
           {level && <Chip tone="neutral" size="sm">{level}</Chip>}
           {game.minSkillLevel && <Chip tone="neutral" size="sm">Taso {levelShort(game.minSkillLevel)}+</Chip>}
           {showDistance && game.distanceKm != null && <Chip tone="outline" size="sm" icon="pin">{formatDistance(game.distanceKm)}</Chip>}

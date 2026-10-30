@@ -185,7 +185,7 @@ export function CreateGameSheet({ query }) {
   ];
 
   const placeText = locationName || (form.locationType === 'missä vain' ? 'paikka sovitaan' : labelOf(PLACE_OPTIONS, form.locationType).toLowerCase());
-  const summary = [eventMode && form.title.trim() ? form.title.trim() : matchLabel(form.matchType), whenText(iso), placeText].join(' · ');
+  const summary = [eventMode && form.title.trim() ? form.title.trim() : matchLabel(form.matchType), whenText(iso), placeText].join(', ');
   const extras = [
     form.courtSurface && labelOf(COURT_SURFACES, form.courtSurface),
     form.minSkillLevel && `${labelOf(SKILL_LEVELS, form.minSkillLevel)}+`,
@@ -330,7 +330,7 @@ export function CreateGameSheet({ query }) {
         )}
       </Question>
 
-      <Disclosure title="Lisätiedot" summary={extras.length ? extras.join(' · ') : 'Pinta, taso, hinta, kuvaus…'} className="games-create-more">
+      <Disclosure title="Lisätiedot" summary={extras.length ? extras.map((x, i) => (i ? x.toLowerCase() : x)).join(', ') : 'Pinta, taso, hinta, kuvaus…'} className="games-create-more">
         <Field label="Kenttäpinta">
           <ChipSelect options={COURT_SURFACES.map((s) => ({ value: s.value, label: s.label }))} value={form.courtSurface} onChange={(v) => set('courtSurface', v)} allowEmpty size="sm" ariaLabel="Kenttäpinta" />
         </Field>

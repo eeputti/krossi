@@ -129,7 +129,7 @@ export function CreateLeagueSheet({ open, onClose, defaultCity, defaultLevel, on
             id="league-season"
             value={season}
             maxLength={60}
-            placeholder={hall ? 'esim. Hallisarja 2026–27 · Yleinen' : 'esim. Syyskausi 2026'}
+            placeholder={hall ? 'esim. Hallisarja 2026–27, yleinen' : 'esim. Syyskausi 2026'}
             onChange={(e) => { setSeason(e.target.value); if (error) setError(''); }}
           />
           <ChipSelect

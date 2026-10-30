@@ -100,14 +100,14 @@ export function HallBlockSheet({ open, onClose, venue, location, dayKey, items, 
       open={open}
       onClose={busy ? undefined : onClose}
       title="Estä aika"
-      subtitle={`${location?.name || ''} · ${dayText(dayKey)}`}
+      subtitle={`${location?.name || ''}, ${dayText(dayKey).replace(/^\S+/, (w) => w.toLowerCase())}`}
       footer={(
         <div className="bhall-sheet-foot">
           <p className="bhall-sheet-summary">
             <span className={cx('bhall-swatch', `is-${kind}`)} aria-hidden="true" />
             <span className="truncate">
               {ready
-                ? `${courtsLabel(selected)} · klo ${hhmm(startMin)}–${hhmm(endMin)} (${durationLabel(length)})`
+                ? `${courtsLabel(selected)} klo ${hhmm(startMin)}–${hhmm(endMin)} (${durationLabel(length)})`
                 : 'Valitse ainakin yksi kenttä.'}
             </span>
           </p>
