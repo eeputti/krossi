@@ -106,8 +106,10 @@ function EventBar({ bar, onOpen, style }) {
   );
 }
 
-// the phone's day in view, kept while the app is open (back from a session lands on the same day)
-const lastBoardDay = { date: null };
+// the phone's day in view, kept while the app is open (back from a session lands on the same day);
+// `on` = the day it was remembered, so an app left open overnight opens on today again
+const lastBoardDay = { date: null, on: null };
+const rememberBoardDay = (date) => { lastBoardDay.date = date; lastBoardDay.on = koutsiTodayStr(); };
 
 export function BoardScreen({ query }) {
   const { state } = useData();
@@ -142,11 +144,11 @@ export function BoardScreen({ query }) {
   // with sessions) and keep the strip above in step with the day in view.
   const daysRef = useRef(null);
   const [active, setActiveState] = useState(0);
-  const setActive = (i) => { setActiveState(i); if (dates[i]) lastBoardDay.date = dates[i]; };
+  const setActive = (i) => { setActiveState(i); if (dates[i]) rememberBoardDay(dates[i]); };
   // Koti's day strip links straight to a day (?pv=): the phone opens on it, a computer marks it.
   // Else the day you were on (back from a session lands there again), else today.
   const focusDate = query.pv && dates.includes(query.pv) ? query.pv : null;
-  const remembered = dates.includes(lastBoardDay.date) ? lastBoardDay.date : null;
+  const remembered = lastBoardDay.on === today && dates.includes(lastBoardDay.date) ? lastBoardDay.date : null;
   const startDay = focusDate ? dates.indexOf(focusDate) : remembered ? dates.indexOf(remembered) : Math.max(0, isCurrent ? dates.indexOf(today) : board.days.findIndex((d) => d.items.length));
   const scrollToDay = (i, smooth) => {
     const el = daysRef.current;
@@ -187,7 +189,7 @@ export function BoardScreen({ query }) {
     <>
       <AddSheet open={sheet?.kind === 'add'} onClose={close} onPick={onAdd} week={week} />
       <BoardItemSheet open={sheet?.kind === 'item'} item={lastItem.current} week={week} onClose={close} />
-      <WeekPickerSheet open={sheet?.kind === 'pick'} week={week} onClose={close} onPick={(date) => { close(); lastBoardDay.date = date; setWeek(koutsiIsoWeekOfDateStr(date)); }} />
+      <WeekPickerSheet open={sheet?.kind === 'pick'} week={week} onClose={close} onPick={(date) => { close(); rememberBoardDay(date); setWeek(koutsiIsoWeekOfDateStr(date)); }} />
       <GroupFormSheet open={sheet?.kind === 'group'} onClose={close} />
       <BulkSetupSheet open={sheet?.kind === 'bulk'} onClose={close} />
       <TrainingSheet open={sheet?.kind === 'training'} defaultDate={sheet?.date} onClose={close} />
