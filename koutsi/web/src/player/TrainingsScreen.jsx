@@ -10,7 +10,7 @@ import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { useIsDesktop, useNow } from '../app/hooks.js';
 import { navigate } from '../app/router.js';
-import { Icon, IconButton, Page, useToast } from '../ui/index.js';
+import { Icon, IconButton, Page, Sheet, useToast } from '../ui/index.js';
 import {
   koutsiAddIsoWeeks, koutsiCompareIsoWeeks, koutsiCurrentIsoWeek, koutsiIsoWeekOfDateStr, koutsiTimeRangeLabel, koutsiTodayStr,
   KOUTSI_EVENT_KINDS,
@@ -27,7 +27,7 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_SHORT = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 const DAY_LONG = ['Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai', 'Lauantai', 'Sunnuntai'];
 const BASE = '/pelaaja/treenit';
-const EVENT_ICON = { kilpailu: 'trophy', leiri: 'compass', seura: 'users', muu: 'flag' };
+const EVENT_ICON = { kilpailu: 'trophy', leiri: 'compass', seura: 'users', muu: 'flag', tauko: 'sun' };
 
 const dayMonth = (date) => `${Number(date.slice(8))}.${Number(date.slice(5, 7))}.`;
 const plural = (n, one, many) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
@@ -134,7 +134,7 @@ function Block({ item, grid, onOpen }) {
   );
 }
 
-/** A tournament, a match or a club event over its days. Club events are only shown. */
+/** A tournament, a match or a club event over its days. A club event opens only when it has a greeting (a break). */
 function Bar({ bar, onOpen, style }) {
   const own = bar.kind !== 'event';
   const sub = own ? (bar.kind === 'tournament' ? `Turnaus, ${eventRangeLabel(bar)}` : bar.sub) : `${kindLabel(bar.event.kind)}, ${eventRangeLabel(bar)}`;
@@ -150,11 +150,24 @@ function Bar({ bar, onOpen, style }) {
     </>
   );
   const cls = cx('wb-event', !own && 'pw-bar-club', bar.before && 'is-before', bar.after && 'is-after');
-  if (!own) return <div className={cls} style={style} title={`${bar.title}, ${sub}`}>{inner}</div>;
+  if (!own && !bar.event.message) return <div className={cls} style={style} title={`${bar.title}, ${sub}`}>{inner}</div>;
   return (
     <button type="button" className={cls} style={style} onClick={() => onOpen(bar)} aria-label={`${bar.title}, ${sub}`} title={`${bar.title}, ${sub}`}>
       {inner}<Icon name="chevron-right" size={16} className="wb-event-go" />
     </button>
+  );
+}
+
+/** A break (or another club event with a greeting): its days and the coach's words. */
+function EventInfoSheet({ open, event, onClose }) {
+  if (!event) return null;
+  return (
+    <Sheet open={open} onClose={onClose} size="sm" title={event.title} subtitle={`${kindLabel(event.kind)}, ${eventRangeLabel(event)}`}>
+      <div className="stack-3">
+        {event.kind === 'tauko' && <p className="field-msg">Ei treenejä näinä päivinä.</p>}
+        {event.message && <p className="pw-event-message">{event.message}</p>}
+      </div>
+    </Sheet>
   );
 }
 
@@ -184,10 +197,12 @@ export function TrainingsScreen({ query }) {
   const last = useRef({});
   if (sheet?.kind === 'coach') last.current.coach = sheet.item;
   if (sheet?.kind === 'own') last.current.own = sheet.training;
+  if (sheet?.kind === 'event') last.current.event = sheet.event;
   const openItem = (item) => setSheet(item.kind === 'own' ? { kind: 'own', training: item.training } : { kind: 'coach', item });
   const openBar = (bar) => {
     if (bar.kind === 'tournament') setSheet({ kind: 'own', training: bar.training });
     else if (bar.kind === 'match') actions.openMatch({ editing: bar.note });
+    else if (bar.kind === 'event') setSheet({ kind: 'event', event: bar.event });
   };
   const logOn = (date, time) => actions.openSelfTraining(date, time ? { time } : undefined);
   const logHomework = (h) => actions.openSelfTraining(today, { activity: 'kotilaksy', homeworkId: h.id });
@@ -370,6 +385,7 @@ export function TrainingsScreen({ query }) {
 
       <CoachSessionSheet open={sheet?.kind === 'coach'} item={last.current.coach} onClose={close} />
       <OwnEntrySheet open={sheet?.kind === 'own'} training={last.current.own} onClose={close} />
+      <EventInfoSheet open={sheet?.kind === 'event'} event={last.current.event} onClose={close} />
       <PlayerWeekPicker open={sheet?.kind === 'pick'} week={week} onClose={close} onPick={(date) => { close(); setWeek(koutsiIsoWeekOfDateStr(date)); }} />
     </Page>
   );

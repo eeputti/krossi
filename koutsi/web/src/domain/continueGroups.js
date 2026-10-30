@@ -8,6 +8,9 @@ import { koutsiAddDays, koutsiDateFromStr, koutsiFmtShortDate, koutsiTodayStr } 
 const JS_DAY = { Su: 0, Ma: 1, Ti: 2, Ke: 3, To: 4, Pe: 5, La: 6 };
 const MAX_WEEKS = 60; // per weekly time, like the server
 export const MAX_DAYS_AHEAD = 400; // the server refuses a later day
+export const BREAK_NAME = 'Treenitauko'; // a break without a name
+export const BREAK_NAME_MAX = 60;
+export const BREAK_MESSAGE_MAX = 300; // koutsi_coach_events_message_length
 
 /** A day for the summary: "to 7.1.", with the year when it isn't this year's ("to 7.1.2027"). */
 export function fmtDay(date, today = koutsiTodayStr()) {
@@ -80,24 +83,53 @@ export function planContinue({ groups, trainings, until, breaks, today = koutsiT
         d = koutsiAddDays(d, (dow - koutsiDateFromStr(d).getDay() + 7) % 7);
         for (let i = 0; d <= until && i < MAX_WEEKS; i += 1, d = koutsiAddDays(d, 7)) {
           if (inBreak(d, ok) || mine.some((t) => t.date === d && t.time === slot.time)) continue;
-          add.push(d);
+          add.push({ date: d, time: slot.time });
         }
       }
     }
-    add.sort();
-    const last = [...mine.map((t) => t.date), ...add].sort().pop() || null;
+    add.sort(bySession);
+    const last = [...mine.map((t) => t.date), ...add.map((a) => a.date)].sort().pop() || null;
     return { group, add, cancel: cancel.filter((t) => t.groupId === group.id), last };
   });
 
-  const days = [...kept.map((t) => t.date), ...perGroup.flatMap((p) => p.add)].sort();
+  // every session of the chosen groups after saving: { date, time, group }
+  const sessions = [
+    ...kept.map((t) => ({ date: t.date, time: t.time, group: perGroup.find((p) => p.group.id === t.groupId).group })),
+    ...perGroup.flatMap((p) => p.add.map((a) => ({ ...a, group: p.group }))),
+  ].sort(bySession);
   return {
     groups: perGroup,
     added: perGroup.reduce((n, p) => n + p.add.length, 0),
     cancel,
-    breaks: ok.map((b) => ({
-      ...b,
-      cancelled: cancel.filter((t) => t.date >= b.from && t.date <= b.to).length,
-      next: days.find((d) => d > b.to) || null,
-    })),
+    breaks: ok.map((b) => {
+      const first = sessions.find((x) => x.date > b.to) || null;
+      return {
+        ...b,
+        cancelled: cancel.filter((t) => t.date >= b.from && t.date <= b.to).length,
+        next: first?.date || null,
+        // the first session after the break: the example in the notice preview
+        example: first,
+      };
+    }),
   };
+}
+
+function bySession(a, b) { return a.date.localeCompare(b.date) || String(a.time).localeCompare(String(b.time)); }
+
+/**
+ * The notification a player gets about a break, word for word as koutsi_break_notice_body
+ * (supabase/migrations …_koutsi_breaks.sql) writes it; `next` is that player's next session after it.
+ */
+export function breakNotice({ name, from, to, next, message }) {
+  const days = to && to > from ? `${koutsiFmtShortDate(from)}–${koutsiFmtShortDate(to)}` : koutsiFmtShortDate(from);
+  const parts = [`Ei treenejä ${days}`];
+  if (next?.date) parts.push(`Seuraava treenisi on ${koutsiFmtShortDate(next.date)} klo ${next.time}.`);
+  if ((message || '').trim()) parts.push(message.trim());
+  return { title: (name || '').trim() || BREAK_NAME, body: parts.join(' ') };
+}
+
+/** The day the players are told: the morning before the break starts, or at once when that has passed. */
+export function noticeDay(from, today = koutsiTodayStr()) {
+  const before = koutsiAddDays(from, -1);
+  return before > today ? before : today;
 }

@@ -521,6 +521,16 @@ export function seed() {
   const mariaNote = byId[PLAYER].diary[0];
   const kisat = koutsiNextWeekday(day(7), 'La');
   const leiri = koutsiNextWeekday(day(33), 'Pe');
+  // the break after the season (as if made in "Jatka kalenteria"), named by the time of year it falls on;
+  // only the player demo shows it, so a coach trying the break in the coach demo does not get two
+  const breakFrom = koutsiAddDays(season.endsOn, 1);
+  const breakMonth = Number(breakFrom.slice(5, 7));
+  const breakName = breakMonth === 12 || breakMonth === 1 ? 'Joululoma' : breakMonth === 2 || breakMonth === 3 ? 'Hiihtoloma' : breakMonth >= 6 && breakMonth <= 8 ? 'Kesätauko' : 'Treenitauko';
+  const breakEvent = {
+    id: 'demo-ce-4', date: breakFrom, endDate: koutsiAddDays(breakFrom, 16), title: breakName, kind: 'tauko',
+    message: breakName === 'Joululoma' ? 'Hyvää joulua ja kiitos syksystä! Nähdään tammikuussa.' : 'Kiitos kaudesta! Nähdään tauon jälkeen.',
+    groupIds: null, notifiedAt: null, playerDemoOnly: true,
+  };
   return {
     coach,
     coaches: [coach, person(COACH2, 'Juho Aalto', { tagline: 'Fysiikkavalmentaja, kilparyhmät', bio: '', experience: '', specialties: [], welcomeSeenAt: null })],
@@ -536,6 +546,7 @@ export function seed() {
       { id: 'demo-ce-1', date: kisat, endDate: koutsiAddDays(kisat, 1), title: 'Seuran syyskisat', kind: 'kilpailu' },
       { id: 'demo-ce-2', date: koutsiNextWeekday(day(14), 'Ke'), endDate: null, title: 'Junioreiden vanhempainilta', kind: 'seura' },
       { id: 'demo-ce-3', date: leiri, endDate: koutsiAddDays(leiri, 2), title: 'Kilparyhmän leiri', kind: 'leiri' },
+      breakEvent,
     ],
     notifications: [
       { id: 'demo-nt-1', kind: 'match_note', title: 'Uusi ottelumuistiinpano', body: 'Leo K. — vastustaja Joel M.', linkPath: '/valmentaja/pelaaja/demo-s-leo', createdAt: leoLoss.at, read: false },

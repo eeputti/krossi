@@ -443,6 +443,8 @@ const KOUTSI_EVENT_KINDS = [
   { value: 'leiri', label: 'Leiri' },
   { value: 'seura', label: 'Seuran tapahtuma' },
   { value: 'muu', label: 'Muu' },
+  // a break made in "Jatka kalenteria" (never offered in the event form)
+  { value: 'tauko', label: 'Tauko' },
 ];
 
 // ── attendance summary ───────────────────────────────────────

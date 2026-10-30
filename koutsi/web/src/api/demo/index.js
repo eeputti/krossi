@@ -77,7 +77,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents, weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true, sends: s.sends || [], videoLibrary: s.videoLibrary || [], sendsReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents.filter((e) => !e.playerDemoOnly), weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true, sends: s.sends || [], videoLibrary: s.videoLibrary || [], sendsReady: true };
 }
 
 /** The notices a player sees: to one of their groups or to them, still in date. */
@@ -98,7 +98,7 @@ function playerState(studentId) {
   const groupIds = new Set(groups.map((g) => g.id));
   // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
   const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
-  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents, announcements: announcementsFor(s, me, groupIds), announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, tennisProfileReady: true };
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents.filter((e) => !e.groupIds || e.groupIds.some((id) => groupIds.has(id))), announcements: announcementsFor(s, me, groupIds), announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, tennisProfileReady: true };
 }
 
 function hideHiddenMoods(snapshot) {
@@ -1074,8 +1074,18 @@ export const backend = {
   },
 
   events: {
-    async add(coachId, { date, endDate, title, kind }) { await wait(); S().clubEvents.push({ id: newId('ce'), date, endDate: endDate || null, title, kind: kind || 'seura' }); },
-    async update(id, { date, endDate, title, kind }) { await wait(); S().clubEvents = S().clubEvents.map((e) => (e.id === id ? { ...e, date, endDate: endDate || null, title, kind } : e)); },
+    async add(coachId, { date, endDate, title, kind, message, groupIds }) {
+      await wait();
+      S().clubEvents.push({ id: newId('ce'), date, endDate: endDate || null, title, kind: kind || 'seura', message: (message || '').trim(), groupIds: groupIds && groupIds.length ? [...groupIds] : null, notifiedAt: null });
+    },
+    async update(id, { date, endDate, title, kind, message, groupIds }) {
+      await wait();
+      S().clubEvents = S().clubEvents.map((e) => (e.id === id ? {
+        ...e, date, endDate: endDate || null, title, kind,
+        ...(message !== undefined ? { message: (message || '').trim() } : {}),
+        ...(groupIds !== undefined ? { groupIds: groupIds && groupIds.length ? [...groupIds] : null } : {}),
+      } : e));
+    },
     async remove(id) { await wait(); S().clubEvents = S().clubEvents.filter((e) => e.id !== id); },
   },
 

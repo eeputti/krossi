@@ -81,7 +81,10 @@ export function mapExercise(e) {
 }
 
 export function mapClubEvent(e) {
-  return { id: e.id, date: e.date, endDate: e.end_date || null, title: e.title, kind: e.kind };
+  return {
+    id: e.id, date: e.date, endDate: e.end_date || null, title: e.title, kind: e.kind,
+    message: e.message || '', groupIds: e.group_ids || null, notifiedAt: e.notified_at || null,
+  };
 }
 
 // One append-only table holds the goal, wish and note histories; the UI wants them apart.

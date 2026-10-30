@@ -599,12 +599,20 @@ export const sends = {
   },
 };
 
+// message (a break's greeting) and groupIds (the groups a break is for) are written only when given, so
+// saving a competition or a camp never touches them.
+const eventRow = ({ date, endDate, title, kind, message, groupIds }) => ({
+  date, end_date: endDate || null, title, kind: kind || 'seura',
+  ...(message !== undefined ? { message: (message || '').trim() || null } : {}),
+  ...(groupIds !== undefined ? { group_ids: groupIds && groupIds.length ? groupIds : null } : {}),
+});
+
 export const events = {
-  async add(coachId, { date, endDate, title, kind }) {
-    must(await from('koutsi_coach_events').insert({ coach_id: coachId, date, end_date: endDate || null, title, kind: kind || 'seura' }));
+  async add(coachId, fields) {
+    must(await from('koutsi_coach_events').insert({ coach_id: coachId, ...eventRow(fields) }));
   },
-  async update(eventId, { date, endDate, title, kind }) {
-    must(await from('koutsi_coach_events').update({ date, end_date: endDate || null, title, kind: kind || 'seura' }).eq('id', eventId));
+  async update(eventId, fields) {
+    must(await from('koutsi_coach_events').update(eventRow(fields)).eq('id', eventId));
   },
   async remove(eventId) {
     must(await from('koutsi_coach_events').delete().eq('id', eventId));
