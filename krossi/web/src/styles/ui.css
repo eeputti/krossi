@@ -272,9 +272,15 @@
 .disclosure-content { padding: 4px 14px 16px; }
 
 /* ── sheet ───────────────────────────────────────────────── */
-body.sheet-open { position: fixed; left: 0; right: 0; overflow: hidden; }
+/* The page under an open sheet stops scrolling and stays put (Sheet.jsx). The position: fixed rule is
+   the old lock, kept only for an older app bundle that may still load this file. */
+body.sheet-open:not(.sheet-lock) { position: fixed; left: 0; right: 0; overflow: hidden; }
+/* only html is clipped; body must not become a scroll container of its own, or the iPhone scrolls it to
+   show a field in the sheet and the page under the sheet is left a few pixels off when it closes */
+html.sheet-lock { overflow: hidden; overscroll-behavior: none; }
+body.sheet-lock { overflow: visible; }
 .sheet-root { position: fixed; inset: 0; z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
-.sheet-backdrop { position: absolute; inset: 0; background: var(--scrim); animation: k-fade-in var(--dur-3) var(--ease-out) both; }
+.sheet-backdrop { position: absolute; inset: 0; background: var(--scrim); animation: k-fade-in var(--dur-3) var(--ease-out) both; touch-action: none; }
 /* The blur is costly on phones while the sheet animates; desktop only. */
 @media (min-width: 900px) { .sheet-backdrop { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); } }
 .sheet {
@@ -290,6 +296,15 @@ body.sheet-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 @keyframes k-sheet-down { to { transform: translateY(100%); } }
 .sheet-root.is-closing .sheet { animation: k-sheet-down 240ms var(--ease-in-out) both; }
 .sheet-root.is-closing .sheet-backdrop { animation: k-fade-in 240ms reverse both; }
+/* a bigger sheet opened on top hides this one once it has slid up; it shows again at once when that closes */
+/* the keyboard is up while typing in the sheet: the root is the visible part of the screen (Sheet.jsx useKeyboardRoom) */
+.sheet-root.has-keyboard .sheet { max-height: calc(100% - 8px); }
+@media (max-width: 899px) { .sheet-root.is-covered { visibility: hidden; transition: visibility 0s linear 0.45s; } }
+@media (max-width: 899px) {
+  /* the sheet's colour goes on below its bottom edge: a moment when the phone's bars and the keyboard
+     change size never shows a strip of the page under the sheet */
+  .sheet::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 50vh; background: inherit; pointer-events: none; }
+}
 .sheet-grab-zone { touch-action: none; flex-shrink: 0; min-height: 24px; }
 .sheet-grabber { display: block; width: 40px; height: 5px; border-radius: 999px; background: var(--line-strong); margin: 9px auto 0; }
 .sheet-tone-dark .sheet-grabber { background: rgba(255, 255, 255, 0.25); }
