@@ -11,7 +11,9 @@ import {
   koutsiTimeRangeLabel, koutsiInviteLink, koutsiInviteMessage, koutsiFmtShortDate, koutsiTodayStr,
   koutsiAddDays, koutsiIsoWeekOfDateStr, koutsiDateFromStr,
 } from '../domain/core.js';
-import { MAX_DAYS_AHEAD, breakDays, breakProblem, fmtDay, nextTermEnd, planContinue } from '../domain/continueGroups.js';
+import {
+  BREAK_MESSAGE_MAX, BREAK_NAME, BREAK_NAME_MAX, MAX_DAYS_AHEAD, breakDays, breakNotice, breakProblem, fmtDay, nextTermEnd, noticeDay, planContinue,
+} from '../domain/continueGroups.js';
 import { exactNameMatch, matchStudents } from '../domain/roster.js';
 import { useCoach } from './CoachRoot.jsx';
 import { groupPath } from './nav.js';
@@ -380,10 +382,13 @@ export const calendarReaches = (last, until) => Boolean(last && until && last > 
  * "Jatka kalenteria": the chosen groups go on with the same weekdays and times up to a day, with
  * breaks (tauko) as day ranges. The summary says what will happen before saving
  * (domain/continueGroups.js); saving cancels the sessions already inside a break, then continues
- * each group with one server call. The players get one notification per group.
+ * each group with one server call (the players get one notification per group). A break is also kept as a
+ * club event (kind 'tauko') with its name and the coach's greeting: the players of those groups see it in
+ * their calendar and get a notice the morning before it starts; the sheet shows that notice first.
  */
 export function ExtendCalendarSheet({ open, onClose, groups }) {
   const { state, run } = useData();
+  const { coachId } = useCoach();
   const toast = useToast();
   const confirm = useConfirm();
   const today = koutsiTodayStr();
@@ -411,9 +416,9 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
   const missing = !picked.length ? 'Valitse ainakin yksi ryhmä.'
     : !(until > today) ? 'Valitse päivä tämän päivän jälkeen.'
       : until > koutsiAddDays(today, MAX_DAYS_AHEAD) ? 'Kalenteria voi jatkaa enintään vuoden eteenpäin.'
-        : problem || (!plan.added && !plan.cancel.length ? `Treenit ovat jo kalenterissa ${day(until)} asti. Valitse myöhäisempi päivä tai lisää tauko.` : null);
+        : problem || (!plan.added && !plan.cancel.length && !plan.breaks.length ? `Treenit ovat jo kalenterissa ${day(until)} asti. Valitse myöhäisempi päivä tai lisää tauko.` : null);
   const setBreak = (key, patch) => setBreaks((p) => p.map((b) => (b.key === key ? { ...b, ...patch } : b)));
-  const addBreak = () => { const key = nextKey.current; nextKey.current += 1; setBreaks((p) => [...p, { key, from: '', to: '' }]); };
+  const addBreak = () => { const key = nextKey.current; nextKey.current += 1; setBreaks((p) => [...p, { key, from: '', to: '', name: '', message: '' }]); };
   const groupsAdded = plan.groups.filter((g) => g.add.length).length;
 
   const submit = async () => {
@@ -434,11 +439,19 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
         const r = await api.groups.extendSeries(g.group.id, until, skip);
         added += Number(r?.added || 0);
       }
+      // the break itself in the players' calendar, with its name and greeting
+      for (const b of plan.breaks) {
+        await api.events.add(coachId, {
+          title: (b.name || '').trim() || BREAK_NAME, date: b.from, endDate: b.to > b.from ? b.to : null, kind: 'tauko',
+          message: b.message || '', groupIds: picked.map((g) => g.id),
+        });
+      }
     }, undefined, { waitForRefresh: true });
     setBusy(false);
     if (res.ok) {
       const many = (k, word) => `${k} ${k === 1 ? word : `${word}ä`}`;
-      const done = [added ? `${many(added, 'treeni')} lisätty ${day(until)} asti` : '', n ? `${many(n, 'treeni')} peruttu tauon ajalta` : ''].filter(Boolean);
+      const done = [added ? `${many(added, 'treeni')} lisätty ${day(until)} asti` : '', n ? `${many(n, 'treeni')} peruttu tauon ajalta` : '',
+        plan.breaks.length ? (plan.breaks.length === 1 ? 'tauko näkyy pelaajien kalenterissa' : 'tauot näkyvät pelaajien kalenterissa') : ''].filter(Boolean);
       toast(done.length ? `Kalenteri tallennettu: ${done.join(', ')}.` : `Treenit olivat jo kalenterissa ${day(until)} asti. Mitään ei muutettu.`, done.length ? undefined : { tone: 'info' });
       onClose();
     }
@@ -446,7 +459,7 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
 
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title="Jatka kalenteria" subtitle="Ryhmät jatkuvat samoina päivinä ja aikoina. Väliin voit lisätä tauon." size="md" dismissible={!busy}
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={missing} loading={busy} onClick={submit}>{!plan.added && plan.cancel.length ? 'Tallenna tauko' : picked.length > 1 ? `Jatka ${picked.length} ryhmää` : 'Jatka kalenteria'}</Button></div>}>
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={missing} loading={busy} onClick={submit}>{!plan.added && (plan.cancel.length || plan.breaks.length) ? (plan.breaks.length > 1 ? 'Tallenna tauot' : 'Tallenna tauko') : picked.length > 1 ? `Jatka ${picked.length} ryhmää` : 'Jatka kalenteria'}</Button></div>}>
       <div className="stack-4">
         <Field label="Treenit jatkuvat asti" htmlFor="extend-until" hint="Kauden viimeinen treenipäivä.">
           <Input id="extend-until" type="date" value={until} min={koutsiAddDays(today, 1)} max={koutsiAddDays(today, MAX_DAYS_AHEAD)} onChange={(e) => setUntil(e.target.value)} />
@@ -462,6 +475,9 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
                 <span className="k-break-title">{breaks.length > 1 ? `Tauko ${i + 1}` : 'Tauko'}</span>
                 <button type="button" className="k-break-remove" onClick={() => setBreaks((p) => p.filter((x) => x.key !== b.key))}>Poista</button>
               </div>
+              <Field label="Nimi" optional htmlFor={`break-name-${b.key}`} hint="Näkyy pelaajien kalenterissa.">
+                <Input id={`break-name-${b.key}`} value={b.name} maxLength={BREAK_NAME_MAX} placeholder="Esim. Joululoma" onChange={(e) => setBreak(b.key, { name: e.target.value })} />
+              </Field>
               <div className="k-two">
                 <Field label="Alkaa" htmlFor={`break-from-${b.key}`}>
                   <Input id={`break-from-${b.key}`} type="date" value={b.from} min={today} onChange={(e) => setBreak(b.key, { from: e.target.value })} />
@@ -470,6 +486,9 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
                   <Input id={`break-to-${b.key}`} type="date" value={b.to} min={b.from || today} onChange={(e) => setBreak(b.key, { to: e.target.value })} />
                 </Field>
               </div>
+              <Field label="Tervehdys pelaajille" optional htmlFor={`break-msg-${b.key}`}>
+                <Input id={`break-msg-${b.key}`} value={b.message} maxLength={BREAK_MESSAGE_MAX} placeholder="Esim. Hyvää joulua!" onChange={(e) => setBreak(b.key, { message: e.target.value })} />
+              </Field>
             </div>
           ))}
           <Button variant="outline" size="sm" icon="plus" onClick={addBreak}>{breaks.length ? 'Lisää toinen tauko' : 'Lisää tauko'}</Button>
@@ -503,7 +522,7 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
             <ul>
               {plan.breaks.map((b) => (
                 <li key={`${b.from}-${b.to}`}>
-                  Tauko {day(b.from)}–{day(b.to)}.
+                  {(b.name || '').trim() || 'Tauko'} {b.to > b.from ? `${day(b.from)}–${day(b.to)}` : day(b.from)}.
                   {b.cancelled > 0 && ` Tauon ajalta perutaan ${b.cancelled === 1 ? '1 treeni, joka on' : `${b.cancelled} treeniä, jotka ovat`} jo kalenterissa.`}
                   {b.next && ` Treenit jatkuvat ${day(b.next)}.`}
                 </li>
@@ -515,6 +534,25 @@ export function ExtendCalendarSheet({ open, onClose, groups }) {
             </ul>
           </div>
         )}
+        {picked.length > 0 && !problem && plan.breaks.map((b) => {
+          const notice = breakNotice({ name: b.name, from: b.from, to: b.to, next: b.example, message: b.message });
+          const when = noticeDay(b.from, today);
+          return (
+            <div key={`n-${b.key}`} className="k-notice-preview">
+              <div className="k-notice-when">
+                {when > today ? `Pelaajat saavat tämän ilmoituksen ${day(when)} aamulla` : 'Pelaajat saavat tämän ilmoituksen pian'}
+                {picked.length > 1 && b.example && <span className="k-faint">{` (esimerkkinä ryhmän ${b.example.group.name} pelaaja)`}</span>}
+              </div>
+              <div className="k-notice-card">
+                <span className="k-notice-icon"><Icon name="bell" size={16} /></span>
+                <div className="grow">
+                  <div className="k-notice-title">{notice.title}</div>
+                  <p className="k-notice-body">{notice.body}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </Sheet>
   );

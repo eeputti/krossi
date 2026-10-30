@@ -12,8 +12,8 @@ import { useCoach } from './CoachRoot.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 /** Each event kind's icon, in the form's chips and on Viikkohallinta's event bars. */
-export const EVENT_ICON = { kilpailu: 'trophy', leiri: 'compass', seura: 'users', muu: 'flag' };
-const EVENT_KIND_OPTIONS = KOUTSI_EVENT_KINDS.map((k) => ({ ...k, icon: EVENT_ICON[k.value] }));
+export const EVENT_ICON = { kilpailu: 'trophy', leiri: 'compass', seura: 'users', muu: 'flag', tauko: 'sun' };
+const EVENT_KIND_OPTIONS = KOUTSI_EVENT_KINDS.filter((k) => k.value !== 'tauko').map((k) => ({ ...k, icon: EVENT_ICON[k.value] }));
 
 /** New session for a player or a group (optionally weekly for a year), or edit one. */
 export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGroupId, defaultTime }) {
@@ -182,36 +182,47 @@ export function EventSheet({ open, onClose, editing, defaultDate }) {
   const [date, setDate] = useState(koutsiTodayStr());
   const [endDate, setEndDate] = useState('');
   const [kind, setKind] = useState('seura');
+  const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  // a break from "Jatka kalenteria": its name, days and greeting can change here; the sessions do not
+  const isBreak = editing?.kind === 'tauko';
   useEffect(() => {
     if (!open) return;
     setTitle(editing?.title || ''); setDate(editing?.date || defaultDate || koutsiTodayStr());
-    setEndDate(editing?.endDate || ''); setKind(editing?.kind || 'seura');
+    setEndDate(editing?.endDate || ''); setKind(editing?.kind || 'seura'); setMessage(editing?.message || '');
   }, [open, editing, defaultDate]);
   const ready = title.trim() && date && (!endDate || endDate >= date) && !busy;
   const save = async () => {
     if (!ready) return;
     setBusy(true);
-    const fields = { title: title.trim(), date, endDate: endDate || null, kind };
+    const fields = { title: title.trim(), date, endDate: endDate || null, kind, ...(isBreak ? { message } : {}) };
     const res = editing ? await run(() => api.events.update(editing.id, fields), 'Tapahtuma päivitetty.') : await run(() => api.events.add(coachId, fields), 'Tapahtuma lisätty.');
     setBusy(false);
     if (res.ok) onClose();
   };
   const remove = async () => {
-    if (!(await confirm({ title: 'Poista tapahtuma?', message: `${editing.title} — ${koutsiFmtShortDate(editing.date)}`, confirmLabel: 'Poista', danger: true }))) return;
-    const res = await run(() => api.events.remove(editing.id), 'Tapahtuma poistettu.');
+    if (!(await confirm(isBreak
+      ? { title: 'Poista tauko kalenterista?', message: `${editing.title}, ${koutsiFmtShortDate(editing.date)}. Pelaajat eivät enää näe taukoa. Tauon ajalta perutut treenit eivät palaa kalenteriin.`, confirmLabel: 'Poista', danger: true }
+      : { title: 'Poista tapahtuma?', message: `${editing.title} — ${koutsiFmtShortDate(editing.date)}`, confirmLabel: 'Poista', danger: true }))) return;
+    const res = await run(() => api.events.remove(editing.id), isBreak ? 'Tauko poistettu kalenterista.' : 'Tapahtuma poistettu.');
     if (res.ok) onClose();
   };
   return (
-    <Sheet open={open} onClose={() => !busy && onClose()} title={editing ? 'Muokkaa tapahtumaa' : 'Uusi tapahtuma'} confirmClose={!editing && Boolean(title.trim())} subtitle="Kilpailut, leirit ja seuran tapahtumat näkyvät pelaajien kalenterissa." size="sm"
+    <Sheet open={open} onClose={() => !busy && onClose()} title={isBreak ? 'Muokkaa taukoa' : editing ? 'Muokkaa tapahtumaa' : 'Uusi tapahtuma'} confirmClose={!editing && Boolean(title.trim())}
+      subtitle={isBreak ? (editing.notifiedAt ? 'Tauko näkyy ryhmän pelaajien kalenterissa. Pelaajat ovat jo saaneet ilmoituksen tauosta.' : 'Tauko näkyy ryhmän pelaajien kalenterissa. Pelaajat saavat ilmoituksen tauon alkua edeltävänä aamuna.') : 'Kilpailut, leirit ja seuran tapahtumat näkyvät pelaajien kalenterissa.'} size="sm"
       footer={<div className="sheet-actions">{editing ? <Button variant="ghost" size="lg" onClick={remove}>Poista</Button> : <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>}<Button variant="dark" size="lg" missing={!title.trim() ? 'Anna tapahtumalle nimi.' : !date ? 'Valitse päivä.' : endDate && endDate < date ? 'Loppupäivä ei voi olla ennen alkua.' : null} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
-        <Field label="Nimi" htmlFor="ev-title"><Input id="ev-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Esim. Seuran syyskisat" maxLength={120} /></Field>
-        <Field label="Laji"><ChipSelect size="sm" options={EVENT_KIND_OPTIONS} value={kind} onChange={(v) => v && setKind(v)} ariaLabel="Laji" /></Field>
+        <Field label="Nimi" htmlFor="ev-title"><Input id="ev-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isBreak ? 'Esim. Joululoma' : 'Esim. Seuran syyskisat'} maxLength={isBreak ? 60 : 120} /></Field>
+        {!isBreak && <Field label="Laji"><ChipSelect size="sm" options={EVENT_KIND_OPTIONS} value={kind} onChange={(v) => v && setKind(v)} ariaLabel="Laji" /></Field>}
         <div className="k-two">
           <Field label="Alkaa" htmlFor="ev-start"><Input id="ev-start" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
           <Field label="Päättyy" optional htmlFor="ev-end" error={endDate && endDate < date ? 'Ennen alkua' : null}><Input id="ev-end" type="date" value={endDate} min={date} onChange={(e) => setEndDate(e.target.value)} /></Field>
         </div>
+        {isBreak && (
+          <Field label="Tervehdys pelaajille" optional htmlFor="ev-msg">
+            <Input id="ev-msg" value={message} maxLength={300} placeholder="Esim. Hyvää joulua!" onChange={(e) => setMessage(e.target.value)} />
+          </Field>
+        )}
       </div>
     </Sheet>
   );

@@ -250,7 +250,7 @@ function useUnread(uid) {
 }
 
 const kindLabel = (kind) => KOUTSI_EVENT_KINDS.find((k) => k.value === kind)?.label || 'Tapahtuma';
-const eventIcon = (kind) => ({ kilpailu: 'trophy', leiri: 'compass', seura: 'users' }[kind] || 'flag');
+const eventIcon = (kind) => ({ kilpailu: 'trophy', leiri: 'compass', seura: 'users', tauko: 'sun' }[kind] || 'flag');
 
 /**
  * One list of what is new or coming, each row once — unread notifications (not a new note, which
@@ -275,7 +275,7 @@ function newsRows(state, student, unread, threads = []) {
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 2)
     .forEach((e) => rows.push({
-      id: `e-${e.id}`, icon: eventIcon(e.kind), title: e.title,
+      id: `e-${e.id}`, icon: eventIcon(e.kind), title: e.title, body: e.message || '',
       meta: `${kindLabel(e.kind)}, ${koutsiFmtShortDate(e.date)}${e.endDate && e.endDate !== e.date ? `–${koutsiFmtShortDate(e.endDate)}` : ''}`,
       to: `/pelaaja/treenit?vko=${weekParam(koutsiIsoWeekOfDateStr(e.date < today ? today : e.date))}&pv=${e.date < today ? today : e.date}`,
     }));

@@ -151,6 +151,10 @@ export const API_CONTRACT = {
   // updateSaved(videoId, { title, tags }), removeSaved(videoId) — from everyone, for good.
   videos: ['share', 'setRecipients', 'url', 'remove', 'save', 'shareSaved', 'updateSaved', 'removeSaved'],
   exercises: ['add', 'update', 'remove', 'setVideo', 'removeVideo', 'seedStarters'],
+  // ClubEvent { id, date, endDate, title, kind, message, groupIds, notifiedAt }. kind 'tauko' = a break from
+  // "Jatka kalenteria": message = the coach's greeting, groupIds = the groups on it (null = all the coach's
+  // players); the players of those groups get a notice the morning before it (koutsi_send_break_notices).
+  // add(coachId, fields) / update(id, fields) write message and groupIds only when they are given.
   events: ['add', 'update', 'remove'],
 
   invites: ['myJoinCode', 'rotateJoinCode', 'create', 'list', 'revoke', 'redeem', 'claim', 'matchUnclaimed',
