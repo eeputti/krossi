@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import { useSession } from '../app/session.jsx';
 import { AREA_OPTIONS, SUPPORT_EMAIL } from '../lib/constants.js';
+import { useProfilePhoto } from './profilePhoto.jsx';
 import {
   AppleMark, Button, ChipSelect, ErrorState, Field, GoogleMark, Icon, Illustration, Input, Segmented, TennisBall,
 } from '../ui/index.js';
@@ -377,18 +378,26 @@ export function OnboardingScreen({ role }) {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
   const [area, setArea] = useState('');
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [preview, setPreview] = useState(null);
+  // the cropped photo ({ blob, url }), uploaded with the profile — the same picker and crop as later
+  // on Profiili, so a tall phone photo never lands uncropped
+  const [photo, setPhoto] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const fileRef = useRef(null);
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  const picker = useProfilePhoto({
+    uid, person: { name, avatarUrl: photo?.url || '' },
+    onCropped: (blob) => setPhoto((old) => {
+      if (old) URL.revokeObjectURL(old.url);
+      return blob ? { blob, url: URL.createObjectURL(blob) } : null;
+    }),
+  });
+  useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
   const ageValid = !age || (/^\d{1,3}$/.test(age) && Number(age) >= 1 && Number(age) < 120);
   const ready = name.trim() && area && ageValid;
   const save = async () => {
     if (!ready || busy) return;
     setError(''); setBusy(true);
     try {
+      const avatarFile = photo ? new File([photo.blob], 'profiilikuva.jpg', { type: 'image/jpeg' }) : null;
       await api.account.createProfile(uid, { name, age: age || null, area, avatarFile, role });
       await refreshProfile();
     } catch (err) { setError(err.userMessage); setBusy(false); }
@@ -403,12 +412,14 @@ export function OnboardingScreen({ role }) {
           : 'Sama profiili näkyy koko Krossissa. Voit täydentää valmentajatietosi myöhemmin.'}</p>
         {error && <Alert tone="error">{error}</Alert>}
         {!isPlayer && (
-          // a label around the input: every phone opens its picker from a tap on it
-          <label className="k-avatar-pick" aria-label="Valitse profiilikuva">
-            {preview ? <img src={preview} alt="" /> : <Icon name="camera" size={26} />}
-            <span className="k-avatar-pick-badge"><Icon name="plus" size={14} /></span>
-            <input ref={fileRef} type="file" accept="image/*" className="sr-only" tabIndex={-1} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { setAvatarFile(f); setPreview(URL.createObjectURL(f)); } }} />
-          </label>
+          <div className="k-avatar-pick-wrap">
+            <button type="button" className="k-avatar-pick" onClick={picker.open} disabled={picker.busy} aria-label={photo ? 'Vaihda profiilikuva' : 'Valitse profiilikuva'}>
+              {photo ? <img src={photo.url} alt="" /> : <Icon name="camera" size={26} />}
+              <span className="k-avatar-pick-badge"><Icon name={photo ? 'edit' : 'plus'} size={14} /></span>
+            </button>
+            {photo && <Button variant="ghost" size="sm" onClick={picker.remove}>Poista kuva</Button>}
+            {picker.sheets}
+          </div>
         )}
         <div className="stack-4">
           <Field label="Nimi" htmlFor="onb-name"><Input id="onb-name" size="lg" value={name} onChange={(e) => setName(e.target.value)} placeholder="Etunimi Sukunimi" autoComplete="name" /></Field>

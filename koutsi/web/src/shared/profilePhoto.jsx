@@ -1,7 +1,8 @@
 // profilePhoto.jsx — changing one's own profile picture, the same for coaches and players.
-// A tap on the photo opens "Valitse kuva" / "Ota uusi kuva" (/ "Poista kuva"). On a phone
-// "Ota uusi kuva" opens the phone's own camera; on a computer the webcam shows in a sheet, which
-// makes the browser ask for the camera first. Every photo then goes through a square crop (drag to
+// On a phone a tap on the photo opens the phone's own picker at once (iPhone: Kuvakirjasto / Ota kuva /
+// Valitse tiedosto) — a menu of our own before it made the phone ask the same thing twice. "Poista kuva"
+// is a link next to the photo (remove). On a computer the tap opens "Valitse kuva" / "Ota uusi kuva"
+// (/ "Poista kuva"); the webcam shows in a sheet, which makes the browser ask for the camera first. Every photo then goes through a square crop (drag to
 // move, pinch / wheel / slider to zoom) and is saved as a 512 px JPEG, so a big phone photo
 // uploads in a moment and always sits nicely in the round avatar.
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -308,8 +309,10 @@ function PhotoMenuSheet({ open, onClose, hasPhoto, onChoose, onTake, onRemove })
 }
 
 /**
- * useProfilePhoto({ uid, person, onCropped? }) → { open, sheets, busy }
- *   open(): shows the menu; render `sheets` once anywhere on the page.
+ * useProfilePhoto({ uid, person, onCropped? }) → { open, remove, hasPhoto, sheets, busy }
+ *   open(): the phone's own picker (phones) or the menu (computers); call it straight from the tap.
+ *   remove(): asks, then removes the photo — show it as "Poista kuva" when hasPhoto.
+ *   Render `sheets` once anywhere on the page.
  *   onCropped(blob | null): instead of uploading, hand the cropped JPEG (or null for "Poista kuva")
  *   back — for a profile that does not exist yet (the player's first "Luo profiilisi").
  */
@@ -398,5 +401,11 @@ export function useProfilePhoto({ uid, person, onCropped = null }) {
         onSave={save} onPickOther={() => pickRef.current?.click()} />
     </>
   );
-  return { open: () => setMenu(true), sheets, busy };
+  // A file input opens only from inside the tap itself, so this must not wait for anything.
+  const open = () => {
+    if (busy) return;
+    if (isPhone()) pickRef.current?.click();
+    else setMenu(true);
+  };
+  return { open, remove, hasPhoto: Boolean(person?.avatarUrl), sheets, busy };
 }

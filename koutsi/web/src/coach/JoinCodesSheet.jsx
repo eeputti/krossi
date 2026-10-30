@@ -74,7 +74,7 @@ export function JoinCodesSheet({ open, onClose }) {
               )}
               {failed && <Button variant="outline" block icon="refresh" onClick={make}>Yritä luoda koodit uudelleen</Button>}
               {groups.length > 1 && codes && (
-                <Button variant="dark" size="lg" block icon="share" onClick={() => setAllOpen(true)}>Jaa kaikki ryhmät yhdellä viestillä</Button>
+                <Button variant="dark" size="lg" block icon="share" onClick={() => setAllOpen(true)}>Jaa ryhmät</Button>
               )}
               <p className="k-fine"><Icon name="info" size={14} /> Alaikäinen liittyy omalla henkilökohtaisella linkillä (Pelaajat → Kutsu pelaajat).</p>
             </div>

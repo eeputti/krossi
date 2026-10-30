@@ -133,9 +133,12 @@ export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave =
             <Avatar person={person} size={112} />
             <span className="profile-edit-avatar-badge">{photo.busy ? <Spinner size={16} /> : <Icon name="camera" size={18} />}</span>
           </button>
-          <Button variant="soft" size="sm" icon="camera" onClick={photo.open} disabled={photo.busy}>
-            {person?.avatarUrl ? 'Vaihda kuva' : 'Lisää kuva'}
-          </Button>
+          <div className="row wrap profile-edit-photo-actions">
+            <Button variant="soft" size="sm" icon="camera" onClick={photo.open} disabled={photo.busy}>
+              {photo.hasPhoto ? 'Vaihda kuva' : 'Lisää kuva'}
+            </Button>
+            {photo.hasPhoto && <Button variant="ghost" size="sm" onClick={photo.remove} disabled={photo.busy}>Poista kuva</Button>}
+          </div>
           {photoText && <p className="profile-edit-photo-sub">{photoText}</p>}
         </div>
         {children}
