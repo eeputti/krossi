@@ -45,7 +45,7 @@ export function useOpenSlotTap() {
   return async (slot) => {
     const remove = await confirm({
       title: 'Vapaa aika',
-      message: `${[slotWhen(slot), slot.place].filter(Boolean).join(' · ')}. ${slot.audience === 'private' ? 'Yksityistuntilaisesi' : 'Pelaajasi'} voivat varata sen.`,
+      message: `${[slotWhen(slot), slot.place].filter(Boolean).join(', ')}. ${slot.audience === 'private' ? 'Yksityistuntilaisesi' : 'Pelaajasi'} voivat varata sen.`,
       confirmLabel: 'Poista vapaa aika', cancelLabel: 'Sulje', danger: true,
     });
     if (remove) await run(() => api.openSlots.remove(slot.id), 'Vapaa aika poistettu.');

@@ -419,7 +419,7 @@ begin
     left join public.profiles p on p.id = v_uid
     left join public.koutsi_students s on s.id = v_uid;
   perform public.koutsi_notify(v_slot.coach_id, v_uid, 'slot_booked', v_who || ' varasi ajan',
-    public.koutsi_session_when(v_slot.date, v_slot.time) || coalesce(' · ' || v_slot.place, ''),
+    public.koutsi_session_when(v_slot.date, v_slot.time) || coalesce(', ' || v_slot.place, ''),
     '/valmentaja/treeni/' || v_training);
   return v_training;
 end;

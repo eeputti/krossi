@@ -281,7 +281,7 @@ export function BoardScreen({ query }) {
         <h2 className="wb-dayline-title">{DAY_LONG[active]} <span className="t-num">{dayMonth(activeDay.date)}</span></h2>
         <span className="wb-dayline-sub">
           {activeDay.date === today && <span className="wb-dayline-today">Tänään</span>}
-          {activeSessions ? plural(activeSessions, 'treeni', 'treeniä') : 'Ei treenejä'}{activeOpen > 0 && ` · ${plural(activeOpen, 'vapaa aika', 'vapaata aikaa')}`}
+          {activeSessions ? plural(activeSessions, 'treeni', 'treeniä') : 'Ei treenejä'}{activeOpen > 0 && `, ${plural(activeOpen, 'vapaa aika', 'vapaata aikaa')}`}
         </span>
       </div>
 

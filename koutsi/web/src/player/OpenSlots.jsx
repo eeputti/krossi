@@ -39,7 +39,7 @@ export function useBookSlot() {
     const coach = koutsiCoachById(state, slot.coachId)?.name;
     const ok = await confirm({
       title: 'Varaa aika?',
-      message: [slotWhen(slot), slot.place, coach].filter(Boolean).join(' · '),
+      message: [slotWhen(slot), slot.place, coach].filter(Boolean).join(', '),
       confirmLabel: 'Varaa',
     });
     if (!ok) return;
@@ -70,7 +70,7 @@ export function ReplacementSlots({ training, absentIds, onDone }) {
     if (!slot || busy) return;
     const ok = await confirm({
       title: 'Varaa korvaava aika?',
-      message: `${[slotWhen(slot), slot.place].filter(Boolean).join(' · ')}. Poissaolo ilmoitetaan samalla valmentajalle.`,
+      message: `${[slotWhen(slot), slot.place].filter(Boolean).join(', ')}. Poissaolo ilmoitetaan samalla valmentajalle.`,
       confirmLabel: 'Varaa',
     });
     if (!ok) return;
@@ -125,7 +125,7 @@ export function OpenSlotsCard() {
     <div className="k-banner-card">
       <div className="grow">
         <div className="k-banner-title">{near.length === 1 ? '1 vapaa aika' : `${near.length} vapaata aikaa`}</div>
-        <div className="k-banner-sub">Lähin {slotStartLabel(first)}{coach ? ` · ${coach}` : ''}</div>
+        <div className="k-banner-sub">Lähin {slotStartLabel(first)}{coach ? `, ${coach}` : ''}</div>
       </div>
       <Button variant="dark" size="sm" onClick={() => { track('vapaat.koti-valitse'); navigate(weekPathOf(first.date)); }}>Valitse aika</Button>
       <IconButton icon="close" size="sm" label="Ei kiitos" onClick={noThanks} />

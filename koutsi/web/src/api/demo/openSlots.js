@@ -76,8 +76,8 @@ function seedSlots(state) {
     leo.absences.push({ studentId: 'demo-s-leo', reason: 'poissa', note: '', reportedBy: 'demo-s-leo', updatedAt: hoursAgo(3) });
   }
   state.notifications = [
-    ...(leo ? [{ id: 'demo-nt-slot-leo', kind: 'player_absence', title: 'Leo K. ei pääse', body: `Yksityistunti · ${slotStartLabel(leo)}`, linkPath: '/valmentaja/treeni/tr-private-leo', createdAt: hoursAgo(3), read: false }] : []),
-    { id: 'demo-nt-slot-jussi', kind: 'slot_booked', title: 'Jussi T. varasi ajan', body: `${slotStartLabel(jussi)} · Kenttä 2`, linkPath: '/valmentaja/treeni/tr-slot-jussi', createdAt: hoursAgo(6), read: true },
+    ...(leo ? [{ id: 'demo-nt-slot-leo', kind: 'player_absence', title: 'Leo K. ei pääse', body: `Yksityistunti, ${slotStartLabel(leo)}`, linkPath: '/valmentaja/treeni/tr-private-leo', createdAt: hoursAgo(3), read: false }] : []),
+    { id: 'demo-nt-slot-jussi', kind: 'slot_booked', title: 'Jussi T. varasi ajan', body: `${slotStartLabel(jussi)}, Kenttä 2`, linkPath: '/valmentaja/treeni/tr-slot-jussi', createdAt: hoursAgo(6), read: true },
     ...(state.notifications || []),
   ].sort(newestFirst);
   state.playerNotifications = [
@@ -106,7 +106,7 @@ function syncShared(state, role) {
     applyBooking(state, s, b);
     if (role === 'coach') {
       state.notifications.unshift({ id: `demo-nt-${b.trainingId}`, kind: 'slot_booked', title: `${nameOf(state, b.studentId)} varasi ajan`,
-        body: `${slotStartLabel(s)}${s.place ? ` · ${s.place}` : ''}`, linkPath: `/valmentaja/treeni/${b.trainingId}`, createdAt: b.at, read: false });
+        body: `${slotStartLabel(s)}${s.place ? `, ${s.place}` : ''}`, linkPath: `/valmentaja/treeni/${b.trainingId}`, createdAt: b.at, read: false });
     }
   });
   const mine = role === 'player' ? fresh.filter((s) => !s.bookedBy && slotFor(state, s, PLAYER)) : [];

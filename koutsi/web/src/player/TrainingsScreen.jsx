@@ -124,7 +124,7 @@ function Block({ item, grid, onOpen }) {
         <span className="wb-b-name">{item.title}</span>
         {open ? (
           // what to do first, so it shows on the shortest block too; the coach goes on the line under it
-          <span className="wb-b-meta"><span className="truncate">{['Varaa', item.slot.place].filter(Boolean).join(' · ')}</span></span>
+          <span className="wb-b-meta"><span className="truncate">{['Varaa', item.slot.place].filter(Boolean).join(', ')}</span></span>
         ) : !own && (
           <span className="wb-b-meta">
             {item.absent ? <span className="pw-b-absent">Poissa</span> : <span className="wb-b-level">{item.coach?.name || item.training?.type}</span>}
