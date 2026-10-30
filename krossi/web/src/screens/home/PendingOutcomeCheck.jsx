@@ -191,7 +191,7 @@ export function PendingOutcomeCheck() {
             <h2 id="home-outcome-title" className="home-outcome-title">Pelasitteko?</h2>
             <p className="home-outcome-game">
               {gameTitle(game)}
-              {others.length > 0 && <> · {others.map((p) => firstName(p.name)).join(', ')}</>}
+              {others.length > 0 && <> ({others.map((p) => firstName(p.name)).join(', ')})</>}
             </p>
             <p className="home-outcome-meta">
               <span><Icon name="clock" size={14} />{formatGameTime(game.scheduledAt)}</span>

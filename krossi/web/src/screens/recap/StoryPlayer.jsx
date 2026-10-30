@@ -148,7 +148,7 @@ export function StoryPlayer({ slides, ctx, label, onClose, blocked = false }) {
             </div>
           )}
           <div className="recap-head">
-            <span className="recap-brand"><TennisBall size={16} className="recap-brand-ball" />Krossi · {label}</span>
+            <span className="recap-brand"><TennisBall size={16} className="recap-brand-ball" />Krossi – {label}</span>
             {paused && !holding && !blocked && (
               <button type="button" className="recap-paused" onClick={() => setManualPause(false)} aria-label="Jatka toistoa">
                 <span className="recap-paused-icon" aria-hidden="true" />Tauko

@@ -40,14 +40,14 @@ function GameCourt({ game, now }) {
         <ListRow
           icon="check-circle"
           title="Kenttä varattu"
-          subtitle={`${booked.courtName} · ${booked.locationName}, klo ${formatTime(booked.startsAt)}–${formatTime(booked.endsAt)}`}
+          subtitle={`${booked.courtName}, ${booked.locationName}, klo ${formatTime(booked.startsAt)}–${formatTime(booked.endsAt)}`}
           onClick={() => navigate(`/pelaa/omat-varaukset?vuoro=${encodeURIComponent(booked.id)}`)}
         />
       ) : (
         <ListRow
           icon="court"
           title="Varaa kenttä tälle pelille"
-          subtitle={game.scheduledAt ? `${hall.name} · klo ${formatTime(game.scheduledAt)}` : hall.name}
+          subtitle={game.scheduledAt ? `${hall.name}, klo ${formatTime(game.scheduledAt)}` : hall.name}
           onClick={() => navigate(`/pelaa/varaa/${encodeURIComponent(hall.slug)}?peli=${encodeURIComponent(game.id)}`)}
         />
       )}
@@ -95,7 +95,7 @@ function Hero({ game, now, popJoined }) {
           {game.iJoined && <Chip tone="lime" size="sm" icon="check" className={cx(popJoined && 'pop')}>Olet mukana</Chip>}
           {game.onWaitlist && <Chip tone="on-dark" size="sm">Olet jonossa</Chip>}
         </div>
-        <div className="eyebrow games-hero-eyebrow">{matchLabel(game.matchType)}{matchDesc(game.matchType) ? ` · ${matchDesc(game.matchType)}` : ''}</div>
+        <div className="eyebrow games-hero-eyebrow">{matchLabel(game.matchType)}{matchDesc(game.matchType) ? `, ${matchDesc(game.matchType)}` : ''}</div>
         <h1 className="games-hero-day">{dayText}</h1>
         {game.scheduledAt
           ? <div className="games-hero-time t-num">klo {formatTime(game.scheduledAt)}</div>
@@ -146,7 +146,7 @@ function PlayerRow({ person, tag, isMe, onOpen, index, fresh }) {
       style={{ '--i': index }}
       leading={<Avatar person={person} size={42} />}
       title={isMe ? `${firstName(person.name)} (sinä)` : person.name}
-      subtitle={[tag, person.skillLevel ? labelOf(SKILL_LEVELS, person.skillLevel) : null].filter(Boolean).join(' · ') || null}
+      subtitle={[tag, person.skillLevel ? labelOf(SKILL_LEVELS, person.skillLevel) : null].filter(Boolean).map((s, i) => (i ? s.toLowerCase() : s)).join(', ') || null}
       onClick={!isMe && onOpen ? onOpen : undefined}
     />
   );
@@ -292,7 +292,7 @@ export function GameScreen({ params }) {
           <span className="games-venue-icon"><Icon name="pin" size={20} /></span>
           <span className="games-venue-text">
             <span className="games-venue-name">{venueName(game) || 'Paikka sovitaan'}</span>
-            <span className="games-venue-sub">{[game.city, labelOf([{ value: 'sisätennis', label: 'Sisäkenttä' }, { value: 'ulkotennis', label: 'Ulkokenttä' }, { value: 'missä vain', label: 'Sisällä tai ulkona' }], game.locationType)].filter(Boolean).join(' · ')}</span>
+            <span className="games-venue-sub">{[game.city, labelOf([{ value: 'sisätennis', label: 'Sisäkenttä' }, { value: 'ulkotennis', label: 'Ulkokenttä' }, { value: 'missä vain', label: 'Sisällä tai ulkona' }], game.locationType)].filter(Boolean).map((s, i) => (i ? s.toLowerCase() : s)).join(', ')}</span>
           </span>
           {(venueName(game) || game.lat != null) && (
             <Button as="a" href={mapsUrl(game)} target="_blank" rel="noopener noreferrer" variant="outline" size="sm" iconRight="arrow-up-right">Avaa kartassa</Button>
@@ -313,7 +313,7 @@ export function GameScreen({ params }) {
         </Section>
       )}
 
-      <Section title={`Pelaajat · ${playersIn(game)}/${totalPlayers(game)}`}>
+      <Section title={`Pelaajat (${playersIn(game)}/${totalPlayers(game)})`}>
         <div className="list-group games-players stagger">
           <PlayerRow index={0} person={game.creator} tag="Järjestäjä" isMe={isMeId(game.creator?.id)} onOpen={() => navigate(`/pelaa/pelaaja/${game.creator.id}`)} />
           {game.participants.map((p, i) => (
@@ -359,7 +359,7 @@ export function GameScreen({ params }) {
             </div>
             <div className="list-group games-players games-locked-players">
               {['Mikko', 'Laura', 'Joonas'].map((n, i) => (
-                <ListRow key={n} leading={<Avatar name={n} color={['blue', 'red', 'yellow'][i]} size={42} />} title={n} subtitle="Keskitaso · Lahti" />
+                <ListRow key={n} leading={<Avatar name={n} color={['blue', 'red', 'yellow'][i]} size={42} />} title={n} subtitle="Keskitaso, Lahti" />
               ))}
             </div>
           </LockedPreview>

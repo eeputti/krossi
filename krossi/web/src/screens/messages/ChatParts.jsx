@@ -121,7 +121,7 @@ export function PinnedGame({ state, onOpen }) {
           <span className="truncate">{formatGameTime(game.scheduledAt)}</span>
           {cancelled && <Chip tone="danger" size="sm">Peruttu</Chip>}
         </span>
-        <span className="chat-game-sub truncate">{matchLabel(game.matchType)} · {placeLine(game)}</span>
+        <span className="chat-game-sub truncate">{matchLabel(game.matchType)}, {placeLine(game)}</span>
       </span>
       <Button variant="dark" size="sm" iconRight="chevron-right" onClick={onOpen} className="chat-game-btn">Avaa peli</Button>
     </div>

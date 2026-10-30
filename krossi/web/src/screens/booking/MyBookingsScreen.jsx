@@ -36,7 +36,7 @@ export function paidWith(b) {
   if (b.forSale) return 'Myynnissä';
   if (b.paymentStatus === 'refunded') return 'Hyvitetty';
   if (b.paymentStatus === 'free') return 'Maksuton';
-  if (b.credit?.kind === 'pass') return `Sarjakortti · ${b.credit.minutes} min`;
+  if (b.credit?.kind === 'pass') return `Sarjakortti ${b.credit.minutes}\u00a0min`;
   if (b.credit?.kind === 'gift') return b.paymentStatus === 'credit' ? 'Saldo' : `Kortti + saldo ${centsLabel(b.credit.cents)}`;
   return 'Maksettu';
 }
@@ -139,7 +139,7 @@ export function MyBookingsScreen({ query }) {
   }
 
   const withdraw = async (slot) => {
-    const ok = await confirm({ title: 'Perutaanko hakemus?', message: `${slotWhen(slot)} · ${slot.seasonName}`, confirmLabel: 'Peru hakemus', danger: true });
+    const ok = await confirm({ title: 'Perutaanko hakemus?', message: `${slotWhen(slot)}, ${slot.seasonName}`, confirmLabel: 'Peru hakemus', danger: true });
     if (!ok) return;
     try {
       await api.seasons.withdraw(slot.id);
@@ -180,7 +180,7 @@ export function MyBookingsScreen({ query }) {
                   <button type="button" className="ss-row" onClick={() => setOpenBooking(b)}>
                     <span className="ss-row-main">
                       <b>{formatGameTime(b.startsAt, new Date(now))}</b>
-                      <small>{b.courtName} · {b.locationName}</small>
+                      <small>{b.courtName}, {b.locationName}</small>
                     </span>
                     <span className={cx('ss-row-side', b.status === 'held' && 'is-warn')}>{paidWith(b)}</span>
                     <Icon name="chevron-right" size={18} />
@@ -287,9 +287,9 @@ export function MyBookingsScreen({ query }) {
                 <li key={b.id} className="ss-row is-static">
                   <span className="ss-row-main">
                     <b>{formatGameTime(b.startsAt, new Date(now))}</b>
-                    <small>{b.courtName} · {b.locationName}</small>
+                    <small>{b.courtName}, {b.locationName}</small>
                   </span>
-                  <span className="ss-row-side">{b.status === 'cancelled' ? (b.paymentStatus === 'refunded' ? 'Peruttu · hyvitetty' : 'Peruttu') : b.status === 'expired' ? 'Vanhentunut' : `${centsLabel(b.priceCents)} · ${paidWith(b)}`}</span>
+                  <span className="ss-row-side">{b.status === 'cancelled' ? (b.paymentStatus === 'refunded' ? 'Peruttu, hyvitetty' : 'Peruttu') : b.status === 'expired' ? 'Vanhentunut' : `${centsLabel(b.priceCents)}, ${paidWith(b).toLowerCase()}`}</span>
                 </li>
               ))}
             </ul>
@@ -301,7 +301,7 @@ export function MyBookingsScreen({ query }) {
       <ChargePaySheet
         open={Boolean(payCharge)}
         charge={payCharge?.charge}
-        slotLabel={payCharge ? `${slotWhen(payCharge.slot)} · ${payCharge.slot.courtName || ''}` : ''}
+        slotLabel={payCharge ? [slotWhen(payCharge.slot), payCharge.slot.courtName].filter(Boolean).join(', ') : ''}
         onClose={() => setPayCharge(null)}
         onPaid={() => { setPayCharge(null); toast('Kuukausi maksettu.', { icon: 'check' }); slots.reload({ silent: true }); }}
       />
@@ -322,7 +322,7 @@ export function MyBookingsScreen({ query }) {
 /** ' · ei 24.12., 31.12.' — the weeks without play (holidays, weeks that were taken). */
 function skippedText(dates) {
   if (!dates.length) return '';
-  return dates.length <= 3 ? ` · ei ${dates.map((d) => dayMonth(d)).join(', ')}` : ` · ${dates.length} viikkoa ohitetaan`;
+  return dates.length <= 3 ? `, ei ${dates.map((d) => dayMonth(d)).join(', ')}` : `, ${dates.length} viikkoa ohitetaan`;
 }
 
 /** One kausivuoro of mine: when and where, status, next week, and how it is paid. */
@@ -335,7 +335,7 @@ function SlotCard({ slot, now, onPay, onWithdraw }) {
         <span className="ss-slot-season">{slot.seasonName}</span>
       </div>
       <h3 className="ss-slot-when">{slotWhen(slot)}</h3>
-      <p className="ss-slot-place">{slot.courtName || 'Vapaa kenttä'}{slot.locationName ? ` · ${slot.locationName}` : ''}</p>
+      <p className="ss-slot-place">{slot.courtName || 'Vapaa kenttä'}{slot.locationName ? `, ${slot.locationName}` : ''}</p>
       <dl className="bk-facts ss-slot-facts">
         {slot.status === 'active' && slot.nextAt && (
           <div><dt>Seuraava</dt><dd>{formatGameTime(slot.nextAt, new Date(now))}</dd></div>
@@ -352,7 +352,7 @@ function SlotCard({ slot, now, onPay, onWithdraw }) {
           <div>
             <dt>Lasku</dt>
             <dd className="ss-invoice-line">
-              <span>Nro {slot.invoice.number} · eräpäivä {dayMonth(slot.invoice.dueOn, true)}</span>
+              <span>Nro {slot.invoice.number}, eräpäivä {dayMonth(slot.invoice.dueOn, true)}</span>
               <InvoiceStateChip invoice={slot.invoice} />
             </dd>
           </div>

@@ -45,7 +45,7 @@ export function ChargeStateChip({ charge, size = 'sm' }) {
 export function cardLabel(card) {
   if (!card) return '';
   const brand = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express' }[card.brand] || 'Kortti';
-  return `${brand} •••• ${card.last4}${card.expMonth ? ` · ${String(card.expMonth).padStart(2, '0')}/${card.expYear}` : ''}`;
+  return `${brand} •••• ${card.last4}${card.expMonth ? `, ${String(card.expMonth).padStart(2, '0')}/${card.expYear}` : ''}`;
 }
 
 /**
@@ -61,7 +61,7 @@ export function ChargeList({ charges, onPay, compact = false }) {
         return (
           <li key={c.id} className={cx('ss-charge', `is-${c.status}`)}>
             <span className="ss-charge-month">{monthLabel(c.month, true)}</span>
-            <span className="ss-charge-meta t-num">{c.weeks} krt · {c.status === 'paid' && c.paidAt ? `veloitettu ${formatDayMonth(c.paidAt)}` : `eräpäivä ${dayMonth(c.dueOn)}`}</span>
+            <span className="ss-charge-meta t-num">{c.weeks}&nbsp;krt, {c.status === 'paid' && c.paidAt ? `veloitettu ${formatDayMonth(c.paidAt)}` : `eräpäivä ${dayMonth(c.dueOn)}`}</span>
             <span className="ss-charge-amount t-num">{centsLabel(c.amountCents)}</span>
             <ChargeStateChip charge={c} />
             {c.status === 'failed' && c.failureMessage && <span className="ss-charge-error">{c.failureMessage}</span>}

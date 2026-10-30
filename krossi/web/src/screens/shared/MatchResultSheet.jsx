@@ -44,7 +44,7 @@ function previewOf(form) {
   }
   const t = tally(sets);
   const score = headlineScore(sets);
-  const detail = sets.length > 1 ? sets.map((s) => `${s.my}–${s.opp}`).join(' · ') : (tiebreak ? 'Tie-break' : '1 erä');
+  const detail = sets.length > 1 ? sets.map((s) => `${s.my}–${s.opp}`).join(', ') : (tiebreak ? 'Tie-break' : '1 erä');
   if (t.won === t.lost) {
     return { state: 'even', icon: 'repeat', title: `Tasan ${score}`, text: t.won > 0 ? 'Lisää ratkaiseva erä, jos sellainen pelattiin' : detail };
   }

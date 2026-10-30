@@ -33,7 +33,7 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 function slotsText(season) {
   const parts = [season.activeSlots ? plural(season.activeSlots, 'kausivuoro', 'kausivuoroa') : 'ei kausivuoroja'];
   if (season.requests) parts.push(plural(season.requests, 'hakemus', 'hakemusta'));
-  return parts.join(' · ');
+  return parts.join(', ');
 }
 
 /** '26 €/h' for a series card. */
@@ -166,7 +166,7 @@ export function HallSettings({ venue, sports, stripeReturn = null }) {
                 <button type="button" className={cx('hset-row', !p.active && 'is-quiet')} onClick={() => edit('product', p)}>
                   <span className="hset-row-main">
                     <b className="truncate">{p.name}</b>
-                    <small className="t-num">{centsLabel(p.priceCents)} · {perHour(p)} · voimassa {validityLabel(p.validDays)}</small>
+                    <small className="t-num">{centsLabel(p.priceCents)}, {perHour(p)}, voimassa {validityLabel(p.validDays)}</small>
                   </span>
                   <span className="hset-row-side">
                     <Chip size="sm" tone={p.active ? 'success' : 'neutral'}>{p.active ? 'Myynnissä' : 'Piilotettu'}</Chip>
@@ -195,8 +195,8 @@ export function HallSettings({ venue, sports, stripeReturn = null }) {
             <li>
               <button type="button" className="hset-row" onClick={() => edit('gift', gift)}>
                 <span className="hset-row-main">
-                  <b className="t-num">{gift.amounts.map(centsLabel).join(' · ')}</b>
-                  <small className="t-num">Oma summa {gift.minCents / 100}–{gift.maxCents / 100} € · voimassa {validityLabel(gift.validDays)}</small>
+                  <b className="t-num">{gift.amounts.map(centsLabel).join(', ')}</b>
+                  <small className="t-num">Oma summa {gift.minCents / 100}–{gift.maxCents / 100}&nbsp;€, voimassa {validityLabel(gift.validDays)}</small>
                 </span>
                 <Icon name="chevron-right" size={18} className="hset-row-chevron" />
               </button>
@@ -220,9 +220,9 @@ export function HallSettings({ venue, sports, stripeReturn = null }) {
               <button type="button" className={cx('hset-row', !settings.ready && 'is-warn')} onClick={() => edit('billing', settings)}>
                 <span className="hset-row-main">
                   <b className="truncate">{settings.sellerName || 'Laskuttajan nimi puuttuu'}</b>
-                  <small>{[settings.businessId && `Y-tunnus ${settings.businessId}`, settings.address].filter(Boolean).join(' · ') || 'Y-tunnus ja osoite puuttuvat'}</small>
-                  <small className="t-num">{settings.iban ? `${formatIban(settings.iban)}${settings.bic ? ` · ${settings.bic}` : ''}` : 'Tilinumero puuttuu'}</small>
-                  <small className="t-num">ALV {numberToInput(settings.vatPercent)} % · maksuaika {settings.paymentTermsDays} pv · seuraava lasku nro {settings.nextInvoiceNumber}</small>
+                  <small>{[settings.businessId && `Y-tunnus ${settings.businessId}`, settings.address].filter(Boolean).join(', ') || 'Y-tunnus ja osoite puuttuvat'}</small>
+                  <small className="t-num">{settings.iban ? `${formatIban(settings.iban)}${settings.bic ? `, ${settings.bic}` : ''}` : 'Tilinumero puuttuu'}</small>
+                  <small className="t-num">ALV {numberToInput(settings.vatPercent)}&nbsp;%, maksuaika {settings.paymentTermsDays}&nbsp;pv, seuraava lasku nro {settings.nextInvoiceNumber}</small>
                 </span>
                 <span className="hset-row-side">
                   {settings.ready ? <Chip size="sm" tone="success">Valmis</Chip> : <Chip size="sm" tone="warn">Kesken</Chip>}
@@ -305,7 +305,7 @@ function SeasonRow({ season: s, today, onOpen }) {
         <span className="hset-row-main">
           <b className="truncate">{s.name}</b>
           <small className="t-num">
-            {dayMonth(s.startsOn, true)}–{dayMonth(s.endsOn, true)} · alennus {s.discountPercent} % · {plural(s.skipDates.length, 'pyhä', 'pyhää')}
+            {dayMonth(s.startsOn, true)}–{dayMonth(s.endsOn, true)}, alennus {s.discountPercent}&nbsp;%, {plural(s.skipDates.length, 'pyhä', 'pyhää')}
           </small>
         </span>
         <span className="hset-row-side">
@@ -326,7 +326,7 @@ function PricesAndRules({ venue }) {
   const deal = venue.lastMinute;
   const rules = [
     ['Aukiolo', `klo ${hoursLabel(venue.openFrom, venue.openUntil)}`],
-    ['Vuoron kesto', venue.durations.map(durationLabel).join(' · ')],
+    ['Vuoron kesto', venue.durations.map(durationLabel).join(', ')],
     ['Varattavissa', `${venue.daysAhead} päivää eteenpäin`],
     ['Peruutus', `${venue.cancelLimitHours} h ennen alkua, peruutuskulu 1 € jää hallille`],
     ['Maksun pitoaika', `${venue.holdMinutes} min`],
@@ -346,7 +346,7 @@ function PricesAndRules({ venue }) {
             <li key={g.label} className="hset-price-group">
               <div className="hset-price-head">
                 <b>{g.label}</b>
-                {g.places.length > 1 && <small>{g.places.join(' · ')}</small>}
+                {g.places.length > 1 && <small>{g.places.join(', ')}</small>}
               </div>
               {g.rows.map((r) => (
                 <div key={r.days} className="hset-price-row">

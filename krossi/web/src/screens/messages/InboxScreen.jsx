@@ -97,7 +97,7 @@ function RequestCard({ request, now, busy, leaving, onAccept, onIgnore, onProfil
               <Avatar person={request.from} size={46} />
               <span className="msg-req-whotext">
                 <span className="msg-req-name truncate">{request.from.name}</span>
-                <span className="msg-req-sub truncate">{[level, relativeShort(request.createdAt, now)].filter(Boolean).join(' · ')}</span>
+                <span className="msg-req-sub truncate">{[level, relativeShort(request.createdAt, now)].filter(Boolean).join(', ')}</span>
               </span>
             </button>
             <span className="msg-req-tag"><Icon name="racket" size={14} />Pelipyyntö</span>

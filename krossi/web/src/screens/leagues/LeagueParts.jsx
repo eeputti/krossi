@@ -148,7 +148,7 @@ export function FixtureCard({ fixture, meId, state, active, compact, busy, onRep
 function AdminFoot({ fixture, state, active, onAdmin }) {
   const label = state === 'done' ? 'Korjaa' : state === 'pending' ? 'Tarkista' : 'Kirjaa tulos';
   const text = state === 'done'
-    ? `Vahvistettu${fixture.result.confirmedAt ? ` ${formatDayMonth(fixture.result.confirmedAt)}` : ''}${fixture.result.setByAdmin ? ' · ylläpito' : ''}`
+    ? `Vahvistettu${fixture.result.confirmedAt ? ` ${formatDayMonth(fixture.result.confirmedAt)}` : ''}${fixture.result.setByAdmin ? ', ylläpito' : ''}`
     : state === 'pending' ? 'Odottaa vahvistusta' : active ? 'Ei vielä pelattu' : 'Jäi pelaamatta';
   return (
     <div className="leagues-fx-foot is-admin">
@@ -168,7 +168,7 @@ function FixtureFoot({ state, active, fixture, opp, busy, onReport, onConfirm, o
         <Icon name="check-circle" size={15} />
         <span>
           Vahvistettu{fixture.result.confirmedAt ? ` ${formatDayMonth(fixture.result.confirmedAt)}` : ''}
-          {fixture.result.setByAdmin ? ' · ylläpitäjä kirjasi' : ''}
+          {fixture.result.setByAdmin ? ', ylläpitäjä kirjasi' : ''}
         </span>
       </div>
     );

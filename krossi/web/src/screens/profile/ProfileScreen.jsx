@@ -33,7 +33,7 @@ function ageText(ageRange) {
 
 function ProfileHero({ profile }) {
   const level = labelOf(SKILL_LEVELS, profile.skillLevel) || 'Keskitaso';
-  const classes = profile.skillLevel === 'kilpapelaaja' && profile.competitionClasses?.length ? ` · ${profile.competitionClasses.join(', ')}` : '';
+  const classes = profile.skillLevel === 'kilpapelaaja' && profile.competitionClasses?.length ? ` (${profile.competitionClasses.join(', ')})` : '';
   const playingNow = profile.playingNowUntil && new Date(profile.playingNowUntil) > new Date();
   const age = ageText(profile.ageRange);
   const areas = profile.areas?.length ? profile.areas : (profile.city ? [profile.city] : []);
@@ -250,7 +250,7 @@ function Partners() {
         <span className="profile-partners-text">
           <span className="profile-partners-title">{partners?.length ? plural(partners.length, 'pelikaveri', 'pelikaveria') : 'Ei vielä pelikavereita'}</span>
           <span className="profile-partners-sub">
-            {top ? `Useimmin: ${firstName(top.player.name)} · ${plural(top.gamesTogether, 'peli', 'peliä')} yhdessä` : 'Pelaa peli, niin pelikaverit kertyvät tänne.'}
+            {top ? `Useimmin: ${firstName(top.player.name)}, ${plural(top.gamesTogether, 'peli', 'peliä')} yhdessä` : 'Pelaa peli, niin pelikaverit kertyvät tänne.'}
           </span>
         </span>
         <Icon name="chevron-right" size={20} className="profile-partners-chevron" />

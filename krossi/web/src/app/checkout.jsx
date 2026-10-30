@@ -217,7 +217,7 @@ export function Checkout({
   }
 
   const label = processing ? 'Vahvistetaan maksua…'
-    : method === 'mobilepay' ? `Jatka MobilePayhin · ${price}`
+    : method === 'mobilepay' ? `Maksa ${price} MobilePaylla`
     : `Maksa ${price}`;
 
   return (

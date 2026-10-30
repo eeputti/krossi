@@ -214,7 +214,7 @@ function Overview({ stats, users, active30d }) {
         <div className="admin-hero-paid">
           <div className="admin-hero-paid-row">
             <span>Maksaneita</span>
-            <strong className="t-num">{fmtNum(paid)} · {Math.round(share * 100)} %</strong>
+            <strong className="t-num">{fmtNum(paid)} ({Math.round(share * 100)}&nbsp;%)</strong>
           </div>
           <ProgressBar value={share} tone="lime" label="Maksaneiden osuus" />
         </div>

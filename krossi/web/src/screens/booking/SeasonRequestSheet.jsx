@@ -101,7 +101,7 @@ export function SeasonRequestSheet({ open, onClose, venue, seasons, card, onCard
         <h2 className="ss-done-title">Hakemus lähetetty</h2>
         <p className="ss-done-text">
           {WEEKDAY_NAMES[sent.weekday - 1]} klo {clockLabel(sent.startTime)}–{clockLabel(addClock(sent.startTime, sent.minutes))}
-          {sent.courtName ? `, ${sent.courtName}` : ''}{sent.locationName ? ` · ${sent.locationName}` : ''}.
+          {sent.courtName ? `, ${sent.courtName}` : ''}{sent.locationName ? `, ${sent.locationName}` : ''}.
           Halli vahvistaa vuoron ja kentän. Näet tilanteen Omissa varauksissa.
         </p>
       </div>
@@ -123,7 +123,7 @@ export function SeasonRequestSheet({ open, onClose, venue, seasons, card, onCard
             onChange={setSeasonId}
           />
         )}
-        <p className="ss-season-dates">{season.name}: {dayMonth(season.startsOn, true)}–{dayMonth(season.endsOn, true)} · kausihinta −{season.discountPercent} %</p>
+        <p className="ss-season-dates">{season.name}: {dayMonth(season.startsOn, true)}–{dayMonth(season.endsOn, true)}, kausihinta −{season.discountPercent}&nbsp;%</p>
 
         <div className="bk-field">
           <span className="eyebrow">Viikonpäivä</span>
@@ -223,7 +223,7 @@ export function SeasonRequestSheet({ open, onClose, venue, seasons, card, onCard
     footer = (
       <div className="stack-2">
         <Button variant="lime" size="lg" block loading={sending} disabled={!ready} onClick={send}>
-          {q && q.count > 0 ? `Lähetä hakemus · ${centsLabel(q.cents)}` : 'Lähetä hakemus'}
+          Lähetä hakemus
         </Button>
         <p className="bk-fine bk-fine-center">Hakemus ei sido sinua ennen kuin halli vahvistaa sen.</p>
       </div>

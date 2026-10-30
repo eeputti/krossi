@@ -36,7 +36,7 @@ export function ResultCard({ result, onClick, actions, hideStatus = false, class
       <Tag type={onClick ? 'button' : undefined} onClick={onClick} className={cx('profile-result-main', onClick && 'is-interactive')} aria-label={onClick ? `${OUTCOME_LABEL[outcome]}: ${names.mine} vastaan ${names.theirs}, muokkaa` : undefined}>
         <div className="profile-result-meta">
           <Chip tone={OUTCOME_TONE[outcome]} size="sm" icon={outcome === 'win' ? 'trophy' : undefined}>{OUTCOME_LABEL[outcome]}</Chip>
-          <span className="profile-result-kind truncate">{labelOfFormat(result.format)} · {labelOfGameType(result.gameType)}</span>
+          <span className="profile-result-kind truncate">{labelOfFormat(result.format)}, {labelOfGameType(result.gameType).toLowerCase()}</span>
           <span className="profile-result-date">{result.createdAt ? formatDate(result.createdAt) : ''}</span>
           {onClick && <Icon name="edit" size={15} className="profile-result-edit" />}
         </div>

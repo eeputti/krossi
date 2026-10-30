@@ -254,7 +254,7 @@ export function SettingsScreen() {
           </div>
         </div>
 
-        <p className="profile-settings-footer">Krossi · selainversio</p>
+        <p className="profile-settings-footer">Krossin selainversio</p>
       </Page>
 
       <LegalSheet open={legal.open} doc={legal.doc} onClose={() => setLegal((l) => ({ ...l, open: false }))} />

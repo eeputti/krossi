@@ -367,7 +367,7 @@ export function BookSheet({
           <span className="bk-done-check" aria-hidden="true"><Icon name="check" size={34} strokeWidth={3} /></span>
           <h2 className="bk-done-title">Kenttä varattu!</h2>
           <p className="bk-done-text">
-            <b>{booking.courtName}</b> · {booking.locationName}<br />
+            <b>{booking.courtName}</b>, {booking.locationName}<br />
             {whenLabel(booking.startsAt, booking.endsAt)}
           </p>
           {!guest && !site && <SplitShare venue={venue} booking={booking} onChanged={(next) => { setBooking(next); onChanged?.(); }} />}
@@ -398,7 +398,7 @@ export function BookSheet({
         open={open}
         onClose={requestClose}
         title={`Maksa ${centsLabel(due)}`}
-        subtitle={`${chosen.court.name} · ${whenLabel(startsAt, endsAt)}`}
+        subtitle={`${chosen.court.name}, ${whenLabel(startsAt, endsAt).replace(/^\S+/, (w) => w.toLowerCase())}`}
         footer={<Button variant="lime" size="lg" block loading={working} onClick={payHere}>OK</Button>}
         size="md"
         className="bk-sheet"
@@ -406,7 +406,7 @@ export function BookSheet({
         <div className="bk-demo-pay">
           <span className="bk-demo-pay-icon" aria-hidden="true"><Icon name="lock" size={22} /></span>
           <p className="bk-demo-pay-title">Tähän tulevat maksutiedot</p>
-          <p className="bk-demo-pay-methods">MobilePay · Apple Pay · Google Pay · kortti</p>
+          <p className="bk-demo-pay-methods">MobilePay, Apple Pay, Google Pay tai kortti</p>
         </div>
       </Sheet>
     );
@@ -487,7 +487,7 @@ export function BookSheet({
       open={open}
       onClose={requestClose}
       title={whenLabel(startsAt, endsAt)}
-      subtitle={`${sportLabel(sport)} · ${place?.name || venue.name}`}
+      subtitle={`${sportLabel(sport)}, ${place?.name || venue.name}`}
       size="md"
       className="bk-sheet"
     >
@@ -537,8 +537,8 @@ export function BookSheet({
 
         {chosen && (
           <p className="bk-court-line">
-            <b>{chosen.court.name}</b>{chosen.court.surface ? ` · ${surfaceLabel(chosen.court.surface).toLowerCase()}` : ''}
-            {weather ? <span className={cx('bk-weather', weather.wet && 'is-wet')}> · {weather.symbol} {weather.text}</span> : null}
+            <b>{chosen.court.name}</b>{chosen.court.surface ? `, ${surfaceLabel(chosen.court.surface).toLowerCase()}` : ''}
+            {weather ? <><br /><span className={cx('bk-weather', weather.wet && 'is-wet')}>{weather.symbol} {weather.text}</span></> : null}
             {chosen.resale && (
               <>
                 <br />
@@ -552,7 +552,7 @@ export function BookSheet({
           <Toggle
             icon="repeat"
             label="Käytä sarjakorttia"
-            hint={`${pass.name} · ${hoursLeftLabel(pass.minutesLeft)} jäljellä`}
+            hint={`${pass.name}, ${hoursLeftLabel(pass.minutesLeft)} jäljellä`}
             checked={credit === pass.id}
             disabled={working}
             onChange={(on) => setCredit(on ? pass.id : null)}
@@ -562,7 +562,7 @@ export function BookSheet({
           <Toggle
             icon="euro"
             label="Käytä saldoa"
-            hint={credit === 'gift' ? `${centsLabel(giftCover)} saldosta${due > 0 ? ` · loput ${centsLabel(due)}` : ''}` : `Saldoa ${centsLabel(gift)}`}
+            hint={credit === 'gift' ? `${centsLabel(giftCover)} saldosta${due > 0 ? `, loput ${centsLabel(due)}` : ''}` : `Saldoa ${centsLabel(gift)}`}
             checked={credit === 'gift'}
             disabled={working}
             onChange={(on) => setCredit(on ? 'gift' : null)}

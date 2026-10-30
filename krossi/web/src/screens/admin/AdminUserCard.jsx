@@ -65,7 +65,7 @@ export function AdminUserCard({ user, sort, isSelf, open, onToggle, onSaveCities
           <span className="admin-user-name truncate">{name}</span>
           <span className="admin-user-email truncate">
             {user.email || 'ei sähköpostia'}
-            {user.area ? ` · ${user.area}` : ''}
+            {user.area ? `, ${user.area}` : ''}
           </span>
         </span>
         <span className="admin-user-side">
@@ -95,7 +95,7 @@ export function AdminUserCard({ user, sort, isSelf, open, onToggle, onSaveCities
             <div><dt>Kirjautunut</dt><dd>{ago(user.lastSignInAt)}</dd></div>
             <div>
               <dt>Avannut</dt>
-              <dd>{user.appOpenCount}×{user.appOpenCount > 0 ? <span className="admin-user-fact-sub"> · {ago(user.lastAppOpenAt)}</span> : null}</dd>
+              <dd>{user.appOpenCount}×{user.appOpenCount > 0 ? <span className="admin-user-fact-sub">, {ago(user.lastAppOpenAt)}</span> : null}</dd>
             </div>
             <div><dt>Luonut</dt><dd>{plural(user.challengesCreated, 'peli', 'peliä')}</dd></div>
             <div><dt>Tuloksia</dt><dd className="t-num">{user.matchesRecorded}</dd></div>

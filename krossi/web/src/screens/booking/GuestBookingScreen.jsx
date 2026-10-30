@@ -201,7 +201,7 @@ export function GuestBookingScreen({ params, query }) {
             </div>
             <div className="gb-fact">
               <dt><Icon name="court" size={16} />Kenttä</dt>
-              <dd>{b.courtName} · {b.locationName}<span className="gb-fact-sub">{venue.name} · {sportLabel(b.sport)}</span></dd>
+              <dd>{b.courtName}, {b.locationName}<span className="gb-fact-sub">{venue.name}, {sportLabel(b.sport).toLowerCase()}</span></dd>
             </div>
             <div className="gb-fact">
               <dt><Icon name="euro" size={16} />{confirmed ? 'Maksettu' : 'Hinta'}</dt>

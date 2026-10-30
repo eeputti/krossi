@@ -159,7 +159,7 @@ test('confirmationLine: what the card says under the score', () => {
   assert.equal(disputed.tone, 'danger');
   assert.match(disputed.text, /^Bea: ei pidä paikkaansa/);
   const theirs = viewResult(stored({ confirmation: 'confirmed', confirmedBy: 'b', confirmedAt: 'x' }), 'b', PEOPLE);
-  assert.equal(confirmationLine(theirs).text, 'Kirjasi Aapo · vahvistettu');
+  assert.equal(confirmationLine(theirs).text, 'Kirjasi Aapo, vahvistettu');
 });
 
 test('bell: results waiting for my answer, and answers to mine from the last week', () => {

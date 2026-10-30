@@ -85,7 +85,7 @@ function WinsSlide({ recap }) {
       </In>
       <In d={2} as="h2" className="recap-title">
         <span className="recap-accent">{recap.wins} {unit.wins(recap.wins)}</span>
-        <span className="recap-sep"> · </span>
+        <span className="recap-sep">, </span>
         {recap.losses} {unit.losses(recap.losses)}
       </In>
       {recap.setsWon + recap.setsLost > 0 && (

@@ -163,7 +163,7 @@ export function quoteSeason(venue, season, rows, {
 /** 'Kausivuoro ke 19.00–20.00 · Tennis 1, Janus-Areena · 21.10.2026–28.4.2027' */
 export function seasonLineText(slot, { courtName, locationName, firstDate, lastDate }) {
   const place = [courtName, locationName].filter(Boolean).join(', ');
-  return `Kausivuoro ${slotWhen(slot)} · ${place} · ${dayMonth(firstDate, true)}–${dayMonth(lastDate, true)}`;
+  return `Kausivuoro ${slotWhen(slot)}, ${place}, ${dayMonth(firstDate, true)}–${dayMonth(lastDate, true)}`;
 }
 
 /**
@@ -314,7 +314,7 @@ export function passProductName({ sport, uses, minutesPerUse }) {
 export function creditEventLabel({ courtName, locationName, startsAt }) {
   const d = new Date(startsAt);
   const day = `${WEEKDAY_SHORT[isoWeekday(d) - 1]} ${d.getDate()}.${d.getMonth() + 1}.`;
-  return `${[courtName, locationName].filter(Boolean).join(' · ')} · ${day} klo ${d.getHours()}.${pad(d.getMinutes())}`;
+  return `${[courtName, locationName].filter(Boolean).join(', ')}, ${day} klo ${d.getHours()}.${pad(d.getMinutes())}`;
 }
 
 // ── Gift card codes ──────────────────────────────────────────────────────────

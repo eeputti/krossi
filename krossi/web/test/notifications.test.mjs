@@ -156,7 +156,7 @@ describe('court booking in the bell', () => {
     assert.ok(!items.some((i) => i.kind === 'message'), 'the link is not said twice');
     const paid = items.filter((i) => i.kind === 'splitPaid');
     assert.deepEqual(paid.map((i) => i.title), ['Laura maksoi osuutensa 15 €', 'Sanna maksoi osuutensa 15 €'], 'the last week only, newest first');
-    assert.equal(paid[0].body, 'Summa palautetaan sinulle · Huomenna klo 18.00 · Tennis 2');
+    assert.equal(paid[0].body, 'Summa palautetaan sinulle. Huomenna klo 18.00, Tennis 2');
     assert.equal(paid[0].to, '/pelaa/omat-varaukset');
   });
 
@@ -171,7 +171,7 @@ describe('court booking in the bell', () => {
     });
     assert.deepEqual(items.map((i) => [i.kind, i.id]), [['sold', 'sold:bk1']]);
     assert.equal(items[0].title, 'Vuorosi myytiin');
-    assert.equal(items[0].body, '29 € palautetaan · Huomenna klo 18.00 · Tennis 2', 'the 1 € peruutuskulu stays');
+    assert.equal(items[0].body, '29 € palautetaan. Huomenna klo 18.00, Tennis 2', 'the 1 € peruutuskulu stays');
     assert.equal(items[0].to, '/pelaa/varaa');
   });
 });

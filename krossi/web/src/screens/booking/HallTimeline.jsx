@@ -113,7 +113,7 @@ const CourtRow = memo(function CourtRow({ row, index, dayKey, win, mixed, loadin
   const { court, states, items, groupStart } = row;
   return (
     <div className={cx('bhall-row', groupStart && 'is-group-start')} role="group" aria-label={court.name}>
-      <div className="bhall-court" title={court.surface ? `${court.name} · ${court.surface}` : court.name}>
+      <div className="bhall-court" title={court.surface ? `${court.name}, ${court.surface}` : court.name}>
         {mixed && <span className={cx('bhall-dot', `bhall-dot-${court.sport}`)} aria-hidden="true" />}
         <span className="bhall-court-name">{court.shortName}</span>
       </div>
@@ -178,7 +178,7 @@ function TimelineItem({ item, court, dayKey, win, nowSlot, onItem }) {
     >
       <span className="bhall-item-title"><span className="truncate">{title}</span></span>
       <span className="bhall-item-meta t-num">
-        {season ? `Kausi · ${range}` : own ? range : variant === 'held' ? 'Pidossa' : <ItemPrice item={item} variant={variant} />}
+        {season ? `Kausi, ${range}` : own ? range : variant === 'held' ? 'Pidossa' : <ItemPrice item={item} variant={variant} />}
       </span>
     </button>
   );

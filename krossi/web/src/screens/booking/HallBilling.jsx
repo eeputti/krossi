@@ -43,7 +43,7 @@ export function HallBilling({ venue }) {
   });
 
   const markPaid = async (invoice) => {
-    const ok = await confirm({ title: 'Merkitäänkö maksetuksi?', message: `Lasku ${invoice.number} · ${invoice.recipient.name} · ${centsLabel(invoice.amountCents)}. Maksupäivä tänään.`, confirmLabel: 'Merkitse maksetuksi' });
+    const ok = await confirm({ title: 'Merkitäänkö maksetuksi?', message: `Lasku ${invoice.number}, ${invoice.recipient.name}, ${centsLabel(invoice.amountCents)}. Maksupäivä tänään.`, confirmLabel: 'Merkitse maksetuksi' });
     if (!ok) return;
     await run(async () => {
       try {
@@ -115,7 +115,7 @@ export function HallBilling({ venue }) {
               return (
                 <div key={i.id} className={cx('hb-tr', `is-${state}`)} role="row">
                   <span role="cell" className="t-num hb-strong">{i.number}</span>
-                  <span role="cell" className="hb-who"><b className="truncate">{i.recipient.name}</b><small className="truncate">{i.recipient.email || 'ei sähköpostia'}{i.sentAt ? ' · lähetetty' : ''}</small></span>
+                  <span role="cell" className="hb-who"><b className="truncate">{i.recipient.name}</b><small className="truncate">{i.recipient.email || 'ei sähköpostia'}{i.sentAt ? ', lähetetty' : ''}</small></span>
                   <span role="cell" className="is-num t-num hb-strong">{centsLabel(i.amountCents)}</span>
                   <span role="cell" className="t-num">{dayMonth(i.dueOn, true)}</span>
                   <span role="cell"><InvoiceStateChip invoice={i} /></span>

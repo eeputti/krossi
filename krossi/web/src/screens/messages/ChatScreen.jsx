@@ -291,8 +291,8 @@ export function ChatScreen({ params }) {
   // ── render ────────────────────────────────────────────────────────────────
   const peopleCount = (conversation?.participants.length || 0) + 1;
   const subtitle = !conversation ? '' : conversation.isGroup
-    ? `${gameId ? 'Pelichat' : 'Ryhmä'} · ${peopleCount} pelaajaa`
-    : [levelText(otherProfile.data || other), otherProfile.data?.city].filter(Boolean).join(' · ') || 'Näytä profiili';
+    ? `${gameId ? 'Pelichat' : 'Ryhmä'}, ${peopleCount} pelaajaa`
+    : [levelText(otherProfile.data || other), otherProfile.data?.city].filter(Boolean).join(', ') || 'Näytä profiili';
 
   let thread;
   if (conv.error) thread = <ErrorState error={conv.error} onRetry={() => { conv.reload(); load(); }} />;
@@ -419,7 +419,7 @@ export function ChatScreen({ params }) {
               <ListRow
                 icon="court"
                 title={gameId ? 'Varaa kenttä tälle pelille' : 'Varaa kenttä'}
-                subtitle={`${hall.name} · aika tulee tähän keskusteluun`}
+                subtitle={`${hall.name}, aika tulee tähän keskusteluun`}
                 onClick={() => { setMenuOpen(false); navigate(courtPath); }}
               />
             )}
@@ -434,7 +434,7 @@ export function ChatScreen({ params }) {
           <figure className="chat-lightbox-figure">
             <img src={lightbox.imageUrl} alt="Kuva keskustelusta" className="chat-lightbox-img" />
             <figcaption className="chat-lightbox-cap">
-              {lightbox.senderId === meId ? 'Sinä' : lightbox.sender?.name} · {chatDayLabel(lightbox.createdAt)} klo {formatTime(lightbox.createdAt)}
+              {lightbox.senderId === meId ? 'Sinä' : lightbox.sender?.name}, {chatDayLabel(lightbox.createdAt).toLowerCase()} klo {formatTime(lightbox.createdAt)}
             </figcaption>
           </figure>
         )}

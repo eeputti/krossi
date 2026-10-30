@@ -155,7 +155,7 @@ export async function renderRecapCard(recap, { name } = {}) {
   // stat tiles
   const tiles = [
     { value: recap.gamesPlayed, label: unit.games(recap.gamesPlayed) },
-    { value: recap.wins, label: recap.wins + recap.losses > 0 ? `${unit.wins(recap.wins)} · ${percent(recap.winRate)}` : unit.wins(recap.wins) },
+    { value: recap.wins, label: recap.wins + recap.losses > 0 ? `${unit.wins(recap.wins)}, ${percent(recap.winRate)}` : unit.wins(recap.wins) },
     { value: recap.longestWeekStreakInPeriod, label: `${unit.weeks(recap.longestWeekStreakInPeriod)} putkeen` },
     { value: recap.newBadges.length, label: unit.badges(recap.newBadges.length) },
   ];
@@ -179,7 +179,7 @@ export async function renderRecapCard(recap, { name } = {}) {
 
   // highlights
   const rows = [];
-  if (recap.topPartner) rows.push({ label: 'Eniten pelattu kaveri', value: `${recap.topPartner.person.name} · ${recap.topPartner.count} ${unit.games(recap.topPartner.count)}` });
+  if (recap.topPartner) rows.push({ label: 'Eniten pelattu kaveri', value: `${recap.topPartner.person.name}, ${recap.topPartner.count} ${unit.games(recap.topPartner.count)}` });
   if (recap.topVenue) rows.push({ label: 'Suosikkikenttä', value: recap.topVenue.name });
   else if (recap.busiestWeekday) rows.push({ label: 'Vilkkain päivä', value: recap.busiestWeekday });
   let y = top + 2 * th + gap + 110;

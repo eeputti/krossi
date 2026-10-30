@@ -56,7 +56,7 @@ test('every tab has a root route and route names are unique', () => {
   for (const tab of TABS) assert.equal(matchRoute(tab.path)?.route.type, 'tab', tab.path);
 });
 
-test('phones get Koti · Peliseura · Viestit · Profiili; the desktop side nav adds Varaa', () => {
+test('phones get Koti, Peliseura, Viestit, Profiili; the desktop side nav adds Varaa', () => {
   assert.deepEqual(PHONE_TABS.map((t) => t.label), ['Koti', 'Peliseura', 'Viestit', 'Profiili']);
   assert.deepEqual(TABS.map((t) => t.label), ['Koti', 'Peliseura', 'Varaa', 'Viestit', 'Profiili']);
 });

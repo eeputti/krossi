@@ -94,7 +94,7 @@ export function SplitShare({ venue, booking, onChanged }) {
   return (
     <section className="bk-splitcard" aria-label="Jaettu maksu">
       <div className="bk-splitcard-head">
-        <h3 className="bk-splitcard-title">{split.parts === 4 ? 'Nelinpeli' : 'Kaksinpeli'} · {centsLabel(split.perCents)} / pelaaja</h3>
+        <h3 className="bk-splitcard-title">{split.parts === 4 ? 'Nelinpeli' : 'Kaksinpeli'}, {centsLabel(split.perCents)} / pelaaja</h3>
         <span className="bk-splitcard-count t-num">{counts.paid}/{counts.total} maksanut</span>
       </div>
       <ul className="bk-splitlist">

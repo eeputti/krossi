@@ -69,7 +69,7 @@ test('invoice lines: weeks at the normal price and the season discount as a minu
   const slot = { weekday: 3, startTime: '19:00', minutes: 60 };
   const weeks = [{ date: '2026-11-04' }, { date: '2026-11-11' }];
   const lines = invoiceLines(slot, { weeks, fullCents: 6000, priceCents: 5100, discountPercent: 15, courtName: 'Tennis 1', locationName: 'Janus-Areena' });
-  assert.equal(lines[0].text, 'Kausivuoro ke 19.00–20.00 · Tennis 1, Janus-Areena · 4.11.2026–11.11.2026');
+  assert.equal(lines[0].text, 'Kausivuoro ke 19.00–20.00, Tennis 1, Janus-Areena, 4.11.2026–11.11.2026');
   assert.deepEqual(lines.map((l) => [l.quantity, l.unit, l.unitCents, l.totalCents]), [[2, 'krt', 3000, 6000], [1, '', null, -900]]);
   assert.equal(lines[1].text, 'Kausialennus 15 %');
   assert.equal(lines.reduce((s, l) => s + l.totalCents, 0), 5100);

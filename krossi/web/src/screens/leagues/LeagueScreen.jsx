@@ -62,8 +62,8 @@ export function LeagueScreen({ params }) {
     shareLink({
       title: `${formatLabel(league)}: ${league.seasonLabel}`,
       text: hall
-        ? `Lähde mukaan hallisarjaan! ${league.seasonLabel} · ${league.city}`
-        : `Lähde mukaan Krossi-liigaan! ${league.seasonLabel} · ${league.city} · ${levelLabel(league.skillLevel)}`,
+        ? `Lähde mukaan hallisarjaan! ${league.seasonLabel}, ${league.city}`
+        : `Lähde mukaan Krossi-liigaan! ${league.seasonLabel}, ${league.city}, ${levelLabel(league.skillLevel).toLowerCase()}`,
       url: appUrl(`/pelaa/liiga/${league.id}`),
     });
   };
@@ -304,7 +304,7 @@ function AdminPhaseActions({ league, phase, busy, onPlan, onClose }) {
   const enough = league.members.length >= MIN_ROUND_PLAYERS;
   return (
     <Button variant="lime" icon="grid" disabled={!enough} onClick={onPlan}>
-      {next === 1 ? 'Jaa lohkot ja aloita' : `Jaa lohkot · kierros ${next}`}
+      {next === 1 ? 'Jaa lohkot ja aloita' : `Jaa lohkot kierrokselle ${next}`}
     </Button>
   );
 }
@@ -366,7 +366,7 @@ function RoundStrip({ league }) {
     return (
       <div className="leagues-hero-round">
         <div className="leagues-hero-round-top">
-          <span className="leagues-hero-round-label"><Icon name="calendar" size={15} />Kierros {current.roundNumber} · {roundRange(current)}</span>
+          <span className="leagues-hero-round-label"><Icon name="calendar" size={15} />Kierros {current.roundNumber}, {roundRange(current)}</span>
           <span className="leagues-hero-round-left t-num">
             {left > 1 ? `${left} päivää jäljellä` : left === 1 ? 'Huomenna viimeinen päivä' : left === 0 ? 'Tänään viimeinen päivä' : 'Aika päättyi'}
           </span>
@@ -378,7 +378,7 @@ function RoundStrip({ league }) {
   if (next) {
     return (
       <div className="leagues-hero-round is-next">
-        <span className="leagues-hero-round-label"><Icon name="calendar" size={15} />{next.roundNumber === 1 ? '1. kierros' : `Kierros ${next.roundNumber}`} · {roundRange(next)}</span>
+        <span className="leagues-hero-round-label"><Icon name="calendar" size={15} />{next.roundNumber === 1 ? '1. kierros' : `Kierros ${next.roundNumber}`}, {roundRange(next)}</span>
       </div>
     );
   }
@@ -408,7 +408,7 @@ function LeagueHero({ league, meId, paid }) {
         {iAmIn && <Chip tone="lime" size="sm" icon="check" className="pop">Olet mukana</Chip>}
         {hall && league.isPublic && <Chip tone="on-dark" size="sm" icon="eye">Julkinen</Chip>}
       </div>
-      <div className="eyebrow">{formatLabel(league)} · {league.city}</div>
+      <div className="eyebrow">{formatLabel(league)}, {league.city}</div>
       <h1 id="league-title" className="leagues-hero-title">{league.seasonLabel}</h1>
       <div className="leagues-hero-facts">
         <span><Icon name="target" size={16} />{levelLabel(league.skillLevel)}</span>
@@ -426,7 +426,7 @@ function LeagueHero({ league, meId, paid }) {
         <div className="leagues-hero-me rise">
           <div className="leagues-hero-rank">
             <span className="leagues-hero-rank-num t-num">{mine.rank}.</span>
-            <span className="leagues-hero-rank-sub">{hall ? `${groupName(league, myGroup)} · ${mine.size} pelaajaa` : `sijasi · ${mine.size} pelaajaa`}</span>
+            <span className="leagues-hero-rank-sub">{hall ? `${groupName(league, myGroup)}, ${mine.size} pelaajaa` : `sijasi, ${mine.size} pelaajaa`}</span>
           </div>
           <div className="leagues-hero-me-stats">
             <div className="leagues-hero-me-line">
@@ -687,7 +687,7 @@ export function SeasonView({ league, meId, busy, onPlayer, onReport, onConfirm, 
     return <EmptyState art="league" title="Lohkoja ei vielä ole" text="Lohkot näkyvät täällä heti, kun kierros alkaa." />;
   }
 
-  const options = groups.map((g) => ({ value: String(g), label: g === myGroup ? `${groupName(league, g)} · oma` : groupName(league, g) }));
+  const options = groups.map((g) => ({ value: String(g), label: g === myGroup ? `${groupName(league, g)} (oma)` : groupName(league, g) }));
   const fixtureCard = (f, i, compact) => (
     <FixtureCard
       key={f.id}
@@ -734,7 +734,7 @@ export function SeasonView({ league, meId, busy, onPlayer, onReport, onConfirm, 
         <section className="leagues-section leagues-season-table">
           <div className="leagues-section-head">
             <h2 className="leagues-section-title">Sarjataulukko</h2>
-            <span className="leagues-section-meta">{groupName(league, group)}{hall && rounds.length > 1 ? ` · kierros ${round}` : ''}</span>
+            <span className="leagues-section-meta">{groupName(league, group)}{hall && rounds.length > 1 ? `, kierros ${round}` : ''}</span>
           </div>
           <StandingsTable rows={rows} meId={meId} onPlayer={readOnly ? null : onPlayer} league={league} zones={zones} />
         </section>

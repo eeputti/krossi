@@ -136,7 +136,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
       open={open}
       onClose={onClose}
       title={booking.courtName}
-      subtitle={`${sportLabel(booking.sport)} · ${booking.locationName}`}
+      subtitle={`${sportLabel(booking.sport)}, ${booking.locationName}`}
       size="md"
       className="bk-sheet"
       footer={live && !ended ? (
@@ -183,7 +183,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
 
         <dl className="bk-facts">
           <div><dt>Paikka</dt><dd>{booking.locationName}{location?.address ? <small>{location.address}</small> : null}</dd></div>
-          <div><dt>Hinta</dt><dd>{centsLabel(booking.priceCents)}<small>{split ? `Jaettu ${split.parts} pelaajalle · osuutesi ${centsLabel(split.ownCents)}` : bookingStateText(booking)}</small></dd></div>
+          <div><dt>Hinta</dt><dd>{centsLabel(booking.priceCents)}<small>{split ? `Jaettu ${split.parts} pelaajalle, osuutesi ${centsLabel(split.ownCents)}` : bookingStateText(booking)}</small></dd></div>
           {weather && !ended && <div><dt>Sää</dt><dd className={weather.wet ? 'bk-weather is-wet' : 'bk-weather'}>{weather.symbol} {weather.text}</dd></div>}
           {booking.status === 'confirmed' && !ended && !booking.forSale && (
             <div>
@@ -248,7 +248,7 @@ export function MyBookingSheet({ open, booking, venue, onClose, onChanged, onReb
               <span className="bk-rebook-text">
                 <span className="bk-rebook-title">Kortille {centsLabel(choices.cardCents)}</span>
                 <span className="bk-rebook-sub">
-                  Peruutuskulu {centsLabel(choices.feeCents)}{choices.giftCents ? ` · ${centsLabel(choices.giftCents)} saldoon` : ''}
+                  Peruutuskulu {centsLabel(choices.feeCents)}{choices.giftCents ? `, ${centsLabel(choices.giftCents)} saldoon` : ''}
                 </span>
               </span>
               <Icon name="chevron-right" size={18} />

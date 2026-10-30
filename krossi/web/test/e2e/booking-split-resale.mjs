@@ -56,7 +56,7 @@ h.check('a part is a quarter of the price', /\d+(,\d+)? € \/ pelaaja/.test(awa
 await h.tapText(page, 'Lähetä maksulinkki', { selector: '.bk-splitcard button' });
 await h.wait(1500);
 const card = (await text('.bk-splitcard'))[0] || '';
-h.check('the card shows the parts and how many have paid', /Nelinpeli · .* \/ pelaaja/.test(card) && /\d\/3 maksanut/.test(card), card);
+h.check('the card shows the parts and how many have paid', /Nelinpeli, .* \/ pelaaja/.test(card) && /\d\/3 maksanut/.test(card), card);
 await shot('4-split');
 await h.tapText(page, 'Katso maksusivu', { selector: '.bk-splitcard button' });
 await h.wait(1500);

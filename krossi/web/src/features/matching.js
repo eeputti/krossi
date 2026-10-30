@@ -185,5 +185,5 @@ export function reasonTexts(reasons, { max = 2, skip = [] } = {}) {
 
 /** 'Sama taso · ehditte arki-iltaisin' */
 export function reasonLine(reasons, options) {
-  return reasonTexts(reasons, options).join(' · ');
+  return reasonTexts(reasons, options).join(', ');
 }

@@ -208,7 +208,7 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, bi
   const end = async () => {
     const ok = await confirm({
       title: 'Päätetäänkö kausivuoro?',
-      message: `${slot.holderName} · ${slotWhen(slot)}. Tulevat viikot vapautuvat muille.${slot.billing === 'card' ? ' Tulevia kuukausia ei veloiteta.' : ' Lasku jää ennalleen — tee mahdollinen hyvitys erikseen.'}`,
+      message: `${slot.holderName}, ${slotWhen(slot)}. Tulevat viikot vapautuvat muille.${slot.billing === 'card' ? ' Tulevia kuukausia ei veloiteta.' : ' Lasku jää ennalleen — tee mahdollinen hyvitys erikseen.'}`,
       confirmLabel: 'Päätä kausivuoro',
       danger: true,
     });
@@ -237,24 +237,24 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, bi
 
   if (mode === 'view') {
     title = slot.holderName;
-    subtitle = `${slotWhen(slot)} · ${slot.courtName || ''}`;
+    subtitle = [slotWhen(slot), slot.courtName].filter(Boolean).join(', ');
     body = (
       <div className="stack-4">
         <div className="bhall-who">
           {slot.holder ? <Avatar person={slot.holder} name={slot.holderName} size={44} /> : <span className="bhall-kind is-season" aria-hidden="true"><Icon name="users" size={20} /></span>}
           <span className="bhall-who-text">
             <span className="bhall-who-name truncate">{slot.holderName}</span>
-            <span className="bhall-who-sub">{slot.holder ? 'Krossin pelaaja' : 'Hallin lisäämä'} · {slot.seasonName}</span>
+            <span className="bhall-who-sub">{slot.holder ? 'Krossin pelaaja' : 'Hallin lisäämä'}, {slot.seasonName}</span>
           </span>
           <SlotStatusChip status={slot.status} size="md" />
         </div>
         <dl className="bk-facts">
-          <div><dt>Aika</dt><dd>{slotWhen(slot)}<small>{slot.courtName} · {slot.locationName}</small></dd></div>
-          <div><dt>Kerrat</dt><dd>{slot.weeks} krt<small>{dayMonth(slot.startsOn, true)}–{dayMonth(slot.endsOn, true)}{slot.skipDates.length ? ` · ohitetaan ${slot.skipDates.length} pv` : ''}</small></dd></div>
+          <div><dt>Aika</dt><dd>{slotWhen(slot)}<small>{slot.courtName}, {slot.locationName}</small></dd></div>
+          <div><dt>Kerrat</dt><dd>{slot.weeks} krt<small>{dayMonth(slot.startsOn, true)}–{dayMonth(slot.endsOn, true)}{slot.skipDates.length ? `, ohitetaan ${slot.skipDates.length}\u00a0pv` : ''}</small></dd></div>
           <div><dt>Hinta</dt><dd>{centsLabel(slot.priceCents)}<small>{slot.billing === 'card' ? 'Kortilta kuukausittain' : 'Lasku'}</small></dd></div>
           {slot.billingEmail && <div><dt>Laskutus</dt><dd>{slot.billingEmail}{slot.billingAddress ? <small>{slot.billingAddress}</small> : null}</dd></div>}
           {slot.invoice && (
-            <div><dt>Lasku</dt><dd className="ss-invoice-line"><span>Nro {slot.invoice.number} · {centsLabel(slot.invoice.amountCents)}</span><InvoiceStateChip invoice={slot.invoice} /></dd></div>
+            <div><dt>Lasku</dt><dd className="ss-invoice-line"><span>Nro {slot.invoice.number}, {centsLabel(slot.invoice.amountCents)}</span><InvoiceStateChip invoice={slot.invoice} /></dd></div>
           )}
           {slot.declineReason && <div><dt>Syy</dt><dd>{slot.declineReason}</dd></div>}
           {slot.holder && ['active', 'declined'].includes(slot.status) && (
@@ -275,18 +275,18 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, bi
     );
   } else if (mode === 'approve') {
     title = 'Kausivuorohakemus';
-    subtitle = `${slot.holderName} · ${slot.seasonName}`;
+    subtitle = `${slot.holderName}, ${slot.seasonName}`;
     body = (
       <div className="stack-4">
         <div className="bhall-who">
           {slot.holder ? <Avatar person={slot.holder} name={slot.holderName} size={44} /> : null}
           <span className="bhall-who-text">
             <span className="bhall-who-name truncate">{slot.holderName}</span>
-            <span className="bhall-who-sub">Haki {dayMonth(slot.createdAt.slice(0, 10))} · {slot.billing === 'card' ? 'kortilta kuukausittain' : 'laskulla'}</span>
+            <span className="bhall-who-sub">Haki {dayMonth(slot.createdAt.slice(0, 10))}, {slot.billing === 'card' ? 'kortilta kuukausittain' : 'laskulla'}</span>
           </span>
         </div>
         <dl className="bk-facts">
-          <div><dt>Aika</dt><dd>{slotWhen(slot)}<small>{slot.courtName ? `Toive: ${slot.courtName}` : 'Mikä tahansa kenttä'}{slot.locationName ? ` · ${slot.locationName}` : ''}</small></dd></div>
+          <div><dt>Aika</dt><dd>{slotWhen(slot)}<small>{slot.courtName ? `Toive: ${slot.courtName}` : 'Mikä tahansa kenttä'}{slot.locationName ? `, ${slot.locationName}` : ''}</small></dd></div>
           {slot.note && <div><dt>Viesti</dt><dd>{slot.note}</dd></div>}
         </dl>
         <div className="bk-field">
@@ -319,19 +319,19 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, bi
       <div className="stack-2">
         <Button variant="lime" size="lg" block icon="check" loading={busy}
           disabled={!q || q.count === 0 || (conflicts > 0 && !skip) || Number.isNaN(agreed) || (slot.billing === 'invoice' && !billingReady)} onClick={approve}>
-          {q ? `Hyväksy · ${q.count} krt` : 'Hyväksy'}
+          Hyväksy
         </Button>
         <Button variant="ghost" block onClick={() => setDeclining(true)}>Hylkää</Button>
       </div>
     );
   } else {
     title = 'Uusi kausivuoro';
-    subtitle = `${venue.name} · lasku`;
+    subtitle = `${venue.name}, lasku`;
     const times = startOptions(venue, minutes);
     body = (
       <div className="stack-4">
         <Field label="Haltija" htmlFor="ss-holder" hint="Seura, yritys tai pelaaja. Näkyy hallin näkymässä ja laskulla.">
-          <Input id="ss-holder" value={holder} maxLength={80} placeholder="esim. Seuran juniorit · keskiviikot" onChange={(e) => setHolder(e.target.value)} />
+          <Input id="ss-holder" value={holder} maxLength={80} placeholder="esim. Seuran juniorit, keskiviikot" onChange={(e) => setHolder(e.target.value)} />
         </Field>
         <div className="ss-two">
           <Field label="Laskun sähköposti" optional htmlFor="ss-email">
@@ -387,7 +387,7 @@ export function SeasonStaffSheet({ open, onClose, mode, slot, venue, seasons, bi
     footer = (
       <Button variant="lime" size="lg" block icon="plus" loading={busy}
         disabled={!holder.trim() || !q || q.count === 0 || (conflicts > 0 && !skip) || Number.isNaN(agreed) || !billingReady} onClick={create}>
-        {q ? `Lisää kausivuoro · ${q.count} krt` : 'Lisää kausivuoro'}
+        Lisää kausivuoro
       </Button>
     );
   }

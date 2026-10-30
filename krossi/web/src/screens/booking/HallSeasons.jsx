@@ -18,9 +18,9 @@ const cx = (...c) => c.filter(Boolean).join(' ');
 function billingText(slot) {
   if (slot.billing === 'invoice') return slot.invoice ? null : 'Lasku';
   const failed = slot.charges.filter((c) => c.status === 'failed').length;
-  if (failed) return `Kortti · ${failed} epäonnistui`;
+  if (failed) return `Kortti, ${failed} epäonnistui`;
   const paid = slot.charges.filter((c) => c.status === 'paid').length;
-  return slot.charges.length ? `Kortti · ${paid}/${slot.charges.filter((c) => c.status !== 'void').length} kk` : 'Kortti';
+  return slot.charges.length ? `Kortti, ${paid}/${slot.charges.filter((c) => c.status !== 'void').length}\u00a0kk` : 'Kortti';
 }
 
 export function HallSeasons({ venue, onChanged }) {
@@ -52,7 +52,7 @@ export function HallSeasons({ venue, onChanged }) {
       <div className="bhall-view-head">
         <div>
           <h2 className="bhall-view-title">Kausivuorot</h2>
-          <p className="bhall-view-sub">{(seasons.data || []).map((s) => `${s.name} ${dayMonth(s.startsOn)}–${dayMonth(s.endsOn, true)}`).join(' · ') || 'Ei kausia'}</p>
+          <p className="bhall-view-sub">{(seasons.data || []).map((s) => `${s.name} ${dayMonth(s.startsOn)}–${dayMonth(s.endsOn, true)}`).join(', ') || 'Ei kausia'}</p>
         </div>
         {canCreate ? <Button variant="dark" size="sm" icon="plus" onClick={() => open('create')}>Uusi kausivuoro</Button> : seasons.data && (
           <Button variant="dark" size="sm" icon="settings" onClick={() => navigate(`/pelaa/halli/${venue.slug}?nakyma=asetukset`)}>Lisää kausi</Button>
@@ -77,12 +77,12 @@ export function HallSeasons({ venue, onChanged }) {
                       {s.holder && <Avatar person={s.holder} name={s.holderName} size={36} />}
                       <span>
                         <b>{s.holderName}</b>
-                        <small>Haki {dayMonth(s.createdAt.slice(0, 10))} · {s.billing === 'card' ? 'kortilta kuukausittain' : 'lasku'}</small>
+                        <small>Haki {dayMonth(s.createdAt.slice(0, 10))}, {s.billing === 'card' ? 'kortilta kuukausittain' : 'lasku'}</small>
                       </span>
                     </div>
                     <p className="hs-request-when">{WEEKDAY_NAMES[s.weekday - 1]} {slotWhen(s).split(' ')[1]}</p>
                     <p className="hs-request-meta">
-                      {s.courtName ? s.courtName : 'Mikä tahansa kenttä'}{s.locationName ? ` · ${s.locationName}` : ''} · {s.weeks} krt · arvio {centsLabel(s.priceCents)}
+                      {s.courtName ? s.courtName : 'Mikä tahansa kenttä'}{s.locationName ? `, ${s.locationName}` : ''}, {s.weeks}&nbsp;krt, arvio {centsLabel(s.priceCents)}
                     </p>
                     {s.note && <p className="hs-request-note">“{s.note}”</p>}
                     <Button variant="lime" size="sm" icon="check" onClick={() => open('approve', s)}>Käsittele</Button>

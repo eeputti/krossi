@@ -146,7 +146,7 @@ export function UnpaidPayments({ months = [], onOpenMonth }) {
             <span className="bk-owe-icon" aria-hidden="true"><Icon name="repeat" size={16} strokeWidth={2.4} /></span>
             <span className="bk-owe-text">
               <b>Kausivuoron kuukausimaksu</b>
-              <span className="truncate">{MONTHS[month - 1]} {year} · {c.slot.courtName || 'Kausivuoro'}</span>
+              <span className="truncate">{MONTHS[month - 1]} {year}, {c.slot.courtName || 'Kausivuoro'}</span>
             </span>
             <span className="bk-owe-cta">Maksa <span className="t-num bk-nowrap">{centsLabel(c.amountCents)}</span></span>
           </button>
@@ -186,7 +186,7 @@ export function TimeRows({ slots, sales = [], onPick, onPickSale, onWatch, watch
                 aria-label={`klo ${formatTime(sale.startsAt)}–${formatTime(sale.endsAt)}, myynnissä: ${sale.court.name}, ${sale.location.name}, ${centsLabel(sale.cents)}`}
               >
                 <span className="bk-time-clock t-num">{formatTime(sale.startsAt)}</span>
-                <span className="bk-time-free truncate">{sale.court.name} · {length}</span>
+                <span className="bk-time-free truncate">{sale.court.name} ({length})</span>
                 <span className="bk-time-tag is-sale">Myynnissä</span>
                 <span className="bk-time-price">{centsLabel(sale.cents)}</span>
                 <Icon name="chevron-right" size={18} className="bk-time-go" />
@@ -246,8 +246,8 @@ export function TimeRows({ slots, sales = [], onPick, onPickSale, onWatch, watch
 
 /** 'Maksettu' | 'Maksamatta' | 'Myynnissä' | … for a Booking. */
 export function bookingStateText(booking) {
-  if (booking.soldAt) return booking.paymentStatus === 'refunded' ? 'Myyty · hyvitetty' : 'Myyty';
-  if (booking.status === 'cancelled') return booking.paymentStatus === 'refunded' ? 'Peruttu · hyvitetty' : 'Peruttu';
+  if (booking.soldAt) return booking.paymentStatus === 'refunded' ? 'Myyty, hyvitetty' : 'Myyty';
+  if (booking.status === 'cancelled') return booking.paymentStatus === 'refunded' ? 'Peruttu, hyvitetty' : 'Peruttu';
   if (booking.status === 'expired') return 'Vanhentunut';
   if (booking.status === 'held') return 'Maksamatta';
   if (booking.forSale) return 'Myynnissä';

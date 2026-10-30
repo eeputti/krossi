@@ -41,7 +41,7 @@ export function CourtCard({ booking, empty, className, style }) {
             <Button variant="dark" size="sm" onClick={openToOthers}>Avaa vuoro muille</Button>
           </>
         ) : (
-          <span className="ccard-state"><Icon name="check" size={15} />Jaettu maksu · {booking.split.parts} pelaajaa</span>
+          <span className="ccard-state"><Icon name="check" size={15} />Jaettu maksu, {booking.split.parts} pelaajaa</span>
         )}
       </div>
     </Card>

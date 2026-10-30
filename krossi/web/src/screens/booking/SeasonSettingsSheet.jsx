@@ -152,7 +152,7 @@ export function SeasonSettingsSheet({ open, onClose, venue, season, onDone }) {
           </div>
           {error('dates')
             ? <div className="field-msg field-msg-error" role="alert">{error('dates')}</div>
-            : weeks > 0 ? <div className="field-msg">{plural(weeks, 'viikko', 'viikkoa')} · viimeinen pelipäivä {dayMonth(form.endsOn, true)}</div> : null}
+            : weeks > 0 ? <div className="field-msg">{plural(weeks, 'viikko', 'viikkoa')}, viimeinen pelipäivä {dayMonth(form.endsOn, true)}</div> : null}
         </div>
 
         <Field label="Kausialennus (%)" htmlFor="hset-season-discount" error={error('discountPercent')}

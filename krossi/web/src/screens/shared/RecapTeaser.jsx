@@ -36,7 +36,7 @@ export function RecapTeaser({ recaps, activity, className }) {
           <span className="recap-teaser-num t-num">{games}</span> {unit.games(games)}
           {wins != null && (
             <>
-              <span className="recap-teaser-dot" aria-hidden="true">·</span>
+              {', '}
               <span className="recap-teaser-num t-num">{wins}</span> {unit.wins(wins)}
             </>
           )}

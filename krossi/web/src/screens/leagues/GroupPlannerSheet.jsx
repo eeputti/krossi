@@ -98,7 +98,7 @@ export function GroupPlannerSheet({ open, onClose, league, onStarted }) {
           <span className="leagues-plan-player-name truncate">{shortName(m.name)}</span>
           <span className="leagues-plan-player-sub">
             {m.skillLevel ? levelLabel(m.skillLevel) : 'Taso ei tiedossa'}
-            {m.continues === false ? ' · ei jatka' : ''}
+            {m.continues === false ? ', ei jatka' : ''}
           </span>
         </span>
         {mv && <Chip tone={mv.tone} size="sm" icon={mv.icon}>{mv.label}</Chip>}
@@ -131,7 +131,7 @@ export function GroupPlannerSheet({ open, onClose, league, onStarted }) {
           <p className={cx('leagues-plan-summary', tooSmall && 'is-error')} aria-live="polite">
             {tooSmall
               ? `Jokaisessa lohkossa pitää olla vähintään ${MIN_ROUND_PLAYERS} pelaajaa.`
-              : `${plural(groups.length, 'lohko', 'lohkoa')} · ${plural(groups.flat().length, 'pelaaja', 'pelaajaa')} · ${plural(matches, 'ottelu', 'ottelua')}`}
+              : `${plural(groups.length, 'lohko', 'lohkoa')}, ${plural(groups.flat().length, 'pelaaja', 'pelaajaa')}, ${plural(matches, 'ottelu', 'ottelua')}`}
           </p>
           <Button variant="lime" size="lg" block icon="play" loading={busy} disabled={!canStart} onClick={start}>Aloita kierros {n}</Button>
         </div>
@@ -162,7 +162,7 @@ export function GroupPlannerSheet({ open, onClose, league, onStarted }) {
             <div className="leagues-plan-group-head">
               <span className="leagues-plan-letter" aria-hidden="true">{groupLetter(i + 1)}</span>
               <h3 className="leagues-plan-group-title">Lohko {groupLetter(i + 1)}</h3>
-              <span className="leagues-plan-group-meta t-num">{plural(ids.length, 'pelaaja', 'pelaajaa')} · {plural((ids.length * (ids.length - 1)) / 2, 'ottelu', 'ottelua')}</span>
+              <span className="leagues-plan-group-meta t-num">{plural(ids.length, 'pelaaja', 'pelaajaa')}, {plural((ids.length * (ids.length - 1)) / 2, 'ottelu', 'ottelua')}</span>
             </div>
             <ul className="leagues-plan-list">{ids.map((id) => row(id, i))}</ul>
           </section>

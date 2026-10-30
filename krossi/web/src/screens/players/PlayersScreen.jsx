@@ -76,7 +76,7 @@ export function PlayersScreen() {
         <button type="button" className="players-city" onClick={() => setSheetOpen(true)} aria-label={`Kaupunki: ${city}. Vaihda`}>
           <Icon name="pin" size={15} />
           <span>{city}</span>
-          {paid && !list.loading && !list.error && all.length > 0 && <span className="players-city-count">· {plural(all.length, 'pelaaja', 'pelaajaa')}</span>}
+          {paid && !list.loading && !list.error && all.length > 0 && <span className="players-city-count">({plural(all.length, 'pelaaja', 'pelaajaa')})</span>}
           <Icon name="chevron-down" size={15} />
         </button>
       )}
@@ -227,7 +227,7 @@ function PartnersEntry({ state }) {
   const games = partners.reduce((sum, p) => sum + (p.gamesTogether || 0), 0);
   let sub;
   if (state.loading) sub = <Skeleton w={150} h={12} />;
-  else if (n) sub = `${plural(n, 'pelikaveri', 'pelikaveria')} · ${plural(games, 'yhteinen peli', 'yhteistä peliä')}`;
+  else if (n) sub = `${plural(n, 'pelikaveri', 'pelikaveria')}, ${plural(games, 'yhteinen peli', 'yhteistä peliä')}`;
   else sub = 'Kenen kanssa olet pelannut — pelaa uudestaan';
   return (
     <Card interactive padding="none" className="players-entry" onClick={() => navigate('/pelaa/pelikaverit')}>
