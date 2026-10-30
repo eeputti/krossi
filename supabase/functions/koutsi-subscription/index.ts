@@ -3,7 +3,8 @@
 //   price    → { cents, interval, offer } | null — what "Ota tilaus" costs (Stripe price + optional
 //              founding-customer coupon)
 //   checkout → { url } — Stripe Checkout for the monthly subscription (inside the free trial the first
-//              charge comes when the trial ends)
+//              charge comes when the trial ends; an earlier Checkout still open is expired first, and
+//              the founding coupon is fitted to the trial left: koutsiPlan.js foundingCouponFor)
 //   portal   → { url } — Stripe's customer portal: card, receipts, cancelling
 //   sync     → { plan } — reads the subscription from Stripe and writes it, right after the coach
 //              returns from Checkout or the portal (the webhook does the same later on)
@@ -16,7 +17,10 @@
 // Deploy with JWT verification on (the default). Needs the migration 20261029193756_koutsi_coach_plans (applied 29.10.2026).
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@17.7.0';
-import { applyArgs, checkoutParams, koutsiCoachOf, pickSubscription, priceInfo, returnBase, KOUTSI_ORIGINS } from '../_shared/koutsiPlan.js';
+import {
+  applyArgs, checkoutParams, expireOpenCheckouts, foundingCoupon, foundingCouponFor, foundingMonths, koutsiCoachOf, offerMonths,
+  pickSubscription, priceInfo, returnBase, stripeTrial, KOUTSI_ORIGINS,
+} from '../_shared/koutsiPlan.js';
 
 const stripe = new Stripe(Deno.env.get('KOUTSI_STRIPE_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-06-20',
@@ -47,11 +51,9 @@ async function currentPrice() {
   const priceId = Deno.env.get('KOUTSI_PRICE_ID');
   if (!priceId) return null;
   const price = await stripe.prices.retrieve(priceId);
-  const couponId = Deno.env.get('KOUTSI_FOUNDER_COUPON');
+  // the founding coupon with its uses counted over the coupons made from it (the "first N coaches")
   let coupon = null;
-  if (couponId) {
-    try { coupon = await stripe.coupons.retrieve(couponId); } catch { coupon = null; }
-  }
+  try { coupon = await foundingCoupon(stripe, Deno.env.get('KOUTSI_FOUNDER_COUPON')); } catch { coupon = null; }
   const taxRateId = Deno.env.get('KOUTSI_TAX_RATE');
   let taxRate = null;
   if (taxRateId) {
@@ -154,26 +156,38 @@ Deno.serve(async (req: Request) => {
     if (action === 'checkout') {
       if (plan === 'free') return fail(req, 'Koutsi on sinulle maksuton — tilausta ei tarvita.');
       if (plan === 'active' || plan === 'past_due') return fail(req, 'Sinulla on jo tilaus. Avaa Hallitse tilausta.');
+      const now = Date.now();
+      const trialEndsAt = row?.trial_ends_at || null;
+      const trial = stripeTrial(trialEndsAt, now);
+      // Stripe takes a trial of at most 730 days; charging before the trial ends is not allowed (tilausehdot)
+      if (trial.tooFar) return fail(req, 'Kokeilusi kestää vielä yli kaksi vuotta. Ota tilaus myöhemmin.');
       const priceId = interval === 'year' ? Deno.env.get('KOUTSI_PRICE_YEAR_ID') : Deno.env.get('KOUTSI_PRICE_ID');
       if (!priceId) return fail(req, 'Tilaus otetaan käyttöön pian.', 503);
       const customer = await customerFor(admin, user.id, user.email, row as PlanRow | null);
+      // An earlier Checkout still open (another tab, a second tap) can't become a second subscription.
+      try { await expireOpenCheckouts(stripe, customer); } catch (err) { console.error('koutsi-subscription: expiring open checkouts', (err as Error).message); }
       // A subscription Stripe already has (a checkout finished, its webhook not here yet): no second one.
       const synced = await syncFromStripe(admin, customer);
       if (synced?.live) return fail(req, 'Sinulla on jo tilaus. Päivitä sivu.', 409);
 
       const base = returnBase(req.headers.get('Origin') || '');
-      // the founding offer is for the monthly price only
-      const coupon = interval === 'month' && (await currentPrice() as { offer?: unknown } | null)?.offer ? Deno.env.get('KOUTSI_FOUNDER_COUPON') || null : null;
+      // The founding offer is for the monthly price only, read fresh (the places left), and lasts the
+      // offer's paid months + the whole months left in the trial (Stripe counts from today).
+      let coupon: string | null = null;
+      if (interval === 'month') {
+        const founding = await foundingCoupon(stripe, Deno.env.get('KOUTSI_FOUNDER_COUPON')).catch(() => null);
+        if (founding) coupon = await foundingCouponFor(stripe, founding, foundingMonths(offerMonths(founding), trial, now));
+      }
       const taxRate = Deno.env.get('KOUTSI_TAX_RATE') || null;
-      const params = checkoutParams({ customer, coachId: user.id, priceId, trialEndsAt: row?.trial_ends_at || null, coupon, taxRate, base });
+      const params = checkoutParams({ customer, coachId: user.id, priceId, trialEndsAt, coupon, taxRate, base, now });
       let session: Stripe.Checkout.Session;
       try {
         session = await stripe.checkout.sessions.create(params as Stripe.Checkout.SessionCreateParams);
       } catch (err) {
-        // The founding offer ran out between the price read and now: the normal price.
+        // The founding offer ran out between the read and now: the normal price.
         if (!coupon) throw err;
         priceCache = null;
-        session = await stripe.checkout.sessions.create(checkoutParams({ customer, coachId: user.id, priceId, trialEndsAt: row?.trial_ends_at || null, taxRate, base }) as Stripe.Checkout.SessionCreateParams);
+        session = await stripe.checkout.sessions.create(checkoutParams({ customer, coachId: user.id, priceId, trialEndsAt, taxRate, base, now }) as Stripe.Checkout.SessionCreateParams);
       }
       if (!koutsiCoachOf(session)) console.error('checkout session without the coach', session.id);
       return json(req, { url: session.url });
