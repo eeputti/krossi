@@ -2,7 +2,9 @@
 // The default trial is 3 months; a key gives N free months from the day it is used (6 or 12, or any
 // length) or free use, a surprise for the coach; it has a number of uses, an optional last day and
 // can be revoked. The owner writes the key (or gets a random one); making an existing key again adds uses.
-// Case, spaces and "+" never matter. Key names are never written into the code: this repo is public. The coach types it on the sign-up page or in Profiili → Tilaus
+// Case and spaces never matter; a "+" is part of the key (the same name can give free use without it and a
+// trial with it), but a forgotten "+" still finds the key. Key names are never written into the code: this
+// repo is public. The coach types it on the sign-up page or in Profiili → Tilaus
 // (supabase/migrations/20261030080055_koutsi_trial_codes.sql).
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/index.js';
@@ -63,7 +65,7 @@ function NewCode({ onMade }) {
       <Field label="Muistiinpano" optional htmlFor="code-note" hint="Esimerkiksi kenelle annoit avaimen. Näkyy vain sinulle.">
         <Input id="code-note" value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
       </Field>
-      <Field label="Avain" optional htmlFor="code-own" hint="Kirjoita avain itse tai jätä tyhjäksi, niin Koutsi arpoo sen. Kirjainkoolla ja plussalla ei ole väliä.">
+      <Field label="Avain" optional htmlFor="code-own" hint="Kirjoita avain itse tai jätä tyhjäksi, niin Koutsi arpoo sen. Kirjainkoolla ei ole väliä, mutta plussa kuuluu avaimeen.">
         <Input id="code-own" value={own} maxLength={40} autoCapitalize="off" onChange={(e) => setOwn(e.target.value)} />
       </Field>
       <Button variant="dark" loading={busy} missing={!monthsOk ? 'Tarkista kuukaudet.' : !usesOk ? 'Tarkista käyttökerrat.' : null} onClick={make}>Luo avain</Button>

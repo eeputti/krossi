@@ -25,7 +25,8 @@
 --   * The same input also takes an old coach key: anything that is not a trial code goes to
 --     redeem_koutsi_coach_key unchanged.
 --   * The owner names a key as they like (or gets a random one); `code` is the key in capitals without
---     anything but letters and digits, so case, spaces, hyphens and a "+" never matter when a coach types it;
+--     anything but letters and digits, so case, spaces, hyphens and a "+" never matter when a coach types it
+--     (since 20261030082914_koutsi_trial_codes_plus a "+" is part of the key);
 --     `shown` is the key as it is e-mailed. "Luo avain" with a name that exists adds uses to it (and puts it
 --     back in use if it was revoked). Key names never go into this public repo.
 
