@@ -1,7 +1,7 @@
--- 20261030130000_koutsi_billing_fixes.sql — Laskutus fixes after the review of 30.10.2026.
+-- 20261030123905_koutsi_billing_fixes.sql — Laskutus fixes after the review of 30.10.2026.
 --
--- NOT APPLIED. Runs on top of every migration in supabase/migrations (Laskutus phases 1–3 included).
--- Tested in PGlite: koutsi/web/sql/20261030130000_koutsi_billing_fixes.check.mjs. Re-runnable.
+-- APPLIED 30.10.2026 as 20261030123905_koutsi_billing_fixes. Runs on top of every earlier migration (Laskutus phases 1–3 included).
+-- Tested in PGlite: koutsi/web/sql/20261030123905_koutsi_billing_fixes.check.mjs. Re-runnable.
 -- Each replaced function starts from its latest definition in supabase/migrations; grants are restated.
 --
 --   1. Group membership history. A player removed from a group and added back used to be billed for

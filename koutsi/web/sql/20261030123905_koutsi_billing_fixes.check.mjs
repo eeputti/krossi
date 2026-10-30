@@ -1,5 +1,5 @@
-// 20261030130000_koutsi_billing_fixes.check.mjs — runs Laskutus phases 1–3 (supabase/migrations) and the
-// fixes of 30.10.2026 (koutsi/web/sql/20261030130000_koutsi_billing_fixes.sql) in PGlite against a small stub
+// 20261030123905_koutsi_billing_fixes.check.mjs — runs Laskutus phases 1–3 (supabase/migrations) and the
+// fixes of 30.10.2026 (supabase/migrations/20261030123905_koutsi_billing_fixes.sql) in PGlite against a small stub
 // of production's schema, and checks: group membership history (removed and added back, claims and merges
 // that keep left groups left), invoices and payers following a merged or claimed placeholder, the players
 // who have left, a season fee once per season (and the old season lines getting their season), no voiding
@@ -7,7 +7,7 @@
 // carrying the "En pääse" reports over.
 // PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261030130000_koutsi_billing_fixes.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261030123905_koutsi_billing_fixes.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -20,7 +20,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const PHASE1 = await readFile(join(here, '../../../supabase/migrations/20261029162350_koutsi_billing.sql'), 'utf8');
 const PHASE2 = await readFile(join(here, '../../../supabase/migrations/20261029185432_koutsi_billing_pay.sql'), 'utf8');
 const PHASE3 = await readFile(join(here, '../../../supabase/migrations/20261030070121_koutsi_billing_mail.sql'), 'utf8');
-const FIXES = await readFile(join(here, '20261030130000_koutsi_billing_fixes.sql'), 'utf8');
+const FIXES = await readFile(join(here, '../../../supabase/migrations/20261030123905_koutsi_billing_fixes.sql'), 'utf8');
 
 const ANNA = '00000000-0000-4000-8000-0000000000a1'; // coach, Laskutus on
 const JUHO = '00000000-0000-4000-8000-0000000000b1'; // coach, Laskutus off
