@@ -26,34 +26,6 @@ function Nav() {
   );
 }
 
-function Hero() {
-  return (
-    <section className="hero" id="lataa">
-      <div className="hero-copy">
-        <span className="eyebrow"><span className="ball-dot" /> Tenniksen valmentajille ja pelaajille</span>
-        <h1 className="hero-title">Valmennus ja<br /><span className="hl">kehitys.</span> Samassa paikassa.</h1>
-        <p className="hero-sub">
-          Krossi Koutsi yhdistää valmentajan ja pelaajan.<br />
-          Pelaajat, ryhmät, videot, treenit ja tavoitteet.<br />
-          Kaikki löytyy täältä.
-        </p>
-        <div className="hero-cta">
-          <a href="https://koutsi.krossi.app/valmentaja" className="btn-lime btn-lg">Aloita treenaaminen →</a>
-        </div>
-      </div>
-      <div className="hero-visual">
-        <div className="hero-stage">
-          <div className="phone-glow" />
-          <div className="phone-pair">
-            <div className="phone-pair-item phone-pair-back"><PlayerPhone width={210} /></div>
-            <div className="phone-pair-item phone-pair-front"><CoachPhone width={210} /></div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function Promise_() {
   const lines = ['Muista jokainen pelaaja.', 'Suunnittele paremmat treenit.', 'Tee kehitys näkyväksi.'];
   return (
@@ -138,7 +110,7 @@ function App() {
   return (
     <div className="krossi-root" id="top">
       <Nav />
-      <Hero />
+      <KoutsiFilm />
       <Promise_ />
       <HowItWorks />
       <Tools />

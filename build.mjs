@@ -72,7 +72,7 @@ const PAGES = {
     'lib/koutsi-pelaaja-app.jsx',
   ],
   'koutsi-landing': [
-    'lib/koutsi-phone.jsx',
+    'lib/koutsi-film.jsx',
     'lib/koutsi-laptop.jsx',
     'lib/koutsi-landing.jsx',
   ],
