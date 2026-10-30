@@ -6,10 +6,14 @@
 //   node scripts/koutsi-stripe-setup.mjs --hinta 29 --alku 19 --alku-kpl 10 --alku-kk 12
 //   node scripts/koutsi-stripe-setup.mjs --hinta 29 --file .env.stripe-test     (Stripe's test mode first)
 //   node scripts/koutsi-stripe-setup.mjs --alv 25.5     (only VAT, once Roisku Media is VAT-liable; --alv 0 = off)
+//   node scripts/koutsi-stripe-setup.mjs --vuosi 290    (only the yearly price, on top of an earlier setup)
 //
 //   --hinta     monthly price in euros, what the coach pays (e.g. 29 or 29,90)
 //   --alku …    optional founding offer: price during the first --alku-kk months for the first
-//               --alku-kpl coaches (a Stripe coupon; Stripe counts the uses)
+//               --alku-kpl coaches (a Stripe coupon; Stripe counts the uses; monthly price only)
+//   --vuosi     optional yearly price in euros (cheaper than 12 months, e.g. 290): KOUTSI_PRICE_YEAR_ID,
+//               and the customer portal lets a coach switch between month and year. Without --hinta it
+//               touches nothing else (the monthly price and portal come from the env file).
 //   --file      env file with the secret key (default .env.stripe, gitignored): KOUTSI_STRIPE_SECRET_KEY,
 //               else STRIPE_SECRET_KEY (Krossi's — same Stripe account, Roisku Media)
 //   --alv       VAT in percent added on top of the price (tilausehdot §3): a Stripe tax rate for new
@@ -64,6 +68,13 @@ const PRICE_CENTS = euros(arg('hinta'), 'hinta');
 const OFFER_CENTS = euros(arg('alku'), 'alku');
 const OFFER_COUNT = arg('alku-kpl') === undefined ? null : Number(arg('alku-kpl'));
 const OFFER_MONTHS = arg('alku-kk') === undefined ? null : Number(arg('alku-kk'));
+const YEAR_CENTS = (() => {
+  const v = arg('vuosi');
+  if (v === undefined) return null;
+  const n = Number(String(v).replace(',', '.'));
+  if (!Number.isFinite(n) || n <= 0 || n > 10000) { console.log('\n  ❌ --vuosi pitää olla euromäärä, esim. 290.\n'); process.exit(1); }
+  return Math.round(n * 100);
+})();
 const VAT = arg('alv') === undefined ? undefined : Number(String(arg('alv')).replace(',', '.'));
 if (VAT !== undefined && !(VAT >= 0 && VAT < 50)) {
   console.log('\n  ❌ --alv pitää olla prosentti, esim. 25.5 (tai 0 = pois).\n');
@@ -154,6 +165,31 @@ async function vatStep(key) {
   return '';
 }
 
+// The yearly price (found by its lookup key, else made).
+async function yearPrice(key) {
+  const lookup = `koutsi_v_${YEAR_CENTS}`;
+  let price = (await stripe(key, 'GET', 'prices', [['lookup_keys[]', lookup], ['active', 'true'], ['limit', '1']])).data[0];
+  if (price) ok(`Vuosihinta löytyi (${price.id})`);
+  else {
+    price = await stripe(key, 'POST', 'prices', [
+      ['product', PRODUCT_ID], ['currency', 'eur'], ['unit_amount', String(YEAR_CENTS)], ['recurring[interval]', 'year'],
+      ['lookup_key', lookup], ['nickname', 'Koutsi / vuosi'],
+    ]);
+    ok(`Luotiin vuosihinta ${(YEAR_CENTS / 100).toFixed(2).replace('.', ',')} € (${price.id})`);
+  }
+  return price;
+}
+
+// The portal lets a coach switch between month and year (prorated) once both prices exist.
+const switchParams = (monthId, yearId) => [
+  ['features[subscription_update][enabled]', 'true'],
+  ['features[subscription_update][default_allowed_updates][]', 'price'],
+  ['features[subscription_update][proration_behavior]', 'create_prorations'],
+  ['features[subscription_update][products][0][product]', PRODUCT_ID],
+  ['features[subscription_update][products][0][prices][]', monthId],
+  ['features[subscription_update][products][0][prices][]', yearId],
+];
+
 function supabaseSecrets(args) {
   const res = spawnSync('supabase', [...args, '--project-ref', PROJECT_REF], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
   if (res.status !== 0) fail(`Supabase-tallennus epäonnistui:\n${res.stderr || res.stdout}`);
@@ -161,8 +197,8 @@ function supabaseSecrets(args) {
 
 async function main() {
   console.log('\nKrossi Koutsi × Stripe — valmentajan tilaus\n');
-  const vatOnly = !PRICE_CENTS && VAT !== undefined;
-  if (!PRICE_CENTS && !vatOnly) fail('Anna kuukausihinta: --hinta 29 (tai pelkkä alv: --alv 25.5)');
+  const vatOnly = !PRICE_CENTS && (VAT !== undefined || YEAR_CENTS !== null);
+  if (!PRICE_CENTS && !vatOnly) fail('Anna kuukausihinta: --hinta 29 (tai pelkkä alv: --alv 25.5, pelkkä vuosihinta: --vuosi 290)');
   const offer = OFFER_CENTS !== null;
   if (offer && (OFFER_CENTS >= PRICE_CENTS || !(OFFER_COUNT > 0) || !(OFFER_MONTHS > 0))) {
     fail('Aloitustarjous tarvitsee --alku (pienempi kuin --hinta), --alku-kpl ja --alku-kk, esim. --alku 19 --alku-kpl 10 --alku-kk 12.');
@@ -174,8 +210,19 @@ async function main() {
   if (!modeOf(secret)) fail(`Tiedostosta ${ENV_FILE} ei löytynyt Stripen secret keytä (KOUTSI_STRIPE_SECRET_KEY tai STRIPE_SECRET_KEY, sk_live_… / sk_test_…).`);
   const mode = modeOf(secret);
   const account = await stripe(secret, 'GET', 'account').catch((err) => fail(`Stripe ei hyväksynyt avainta: ${err.message}`));
-  ok(`Avain toimii (${mask(secret)}, ${mode === 'live' ? 'LIVE — oikeat maksut' : 'testitila'}) · ${account.settings?.dashboard?.display_name || account.business_profile?.name || account.id}`);
+  ok(`Avain toimii (${mask(secret)}, ${mode === 'live' ? 'LIVE — oikeat maksut' : 'testitila'}), ${account.settings?.dashboard?.display_name || account.business_profile?.name || account.id}`);
 
+  if (vatOnly && YEAR_CENTS !== null) {
+    step('Vuosihinta');
+    if (!env.KOUTSI_PRICE_ID || !env.KOUTSI_PORTAL_CONFIG) fail(`Tiedostosta ${ENV_FILE} puuttuu KOUTSI_PRICE_ID tai KOUTSI_PORTAL_CONFIG: aja ensin koko asennus (--hinta …).`);
+    const year = await yearPrice(secret);
+    await stripe(secret, 'POST', `billing_portal/configurations/${env.KOUTSI_PORTAL_CONFIG}`, switchParams(env.KOUTSI_PRICE_ID, year.id));
+    ok('Asiakasportaalissa voi vaihtaa kuukauden ja vuoden välillä');
+    supabaseSecrets(['secrets', 'set', `KOUTSI_PRICE_YEAR_ID=${year.id}`]);
+    writeEnv(ENV_FILE, { KOUTSI_PRICE_YEAR_ID: year.id });
+    ok('KOUTSI_PRICE_YEAR_ID tallennettu Supabaseen: Ota tilaus kysyy kuukausi vai vuosi');
+    if (VAT === undefined) { console.log('\n🎾 Valmis.\n'); return; }
+  }
   if (vatOnly) {
     step('Arvonlisävero');
     const rateId = await vatStep(secret);
@@ -244,6 +291,12 @@ async function main() {
     ok(hooks.length ? 'Webhook luotiin uudelleen (vanhan salaisuus ei ollut tiedossa)' : 'Webhook luotiin');
   }
 
+  let year = null;
+  if (YEAR_CENTS !== null) {
+    step('Vuosihinta');
+    year = await yearPrice(secret);
+  }
+
   step('5/6  Asiakasportaali (kortti, kuitit, peruminen)');
   let portal = env.KOUTSI_PORTAL_CONFIG && modeOf(env.KOUTSI_STRIPE_SECRET_KEY) === mode
     ? await stripe(secret, 'GET', `billing_portal/configurations/${env.KOUTSI_PORTAL_CONFIG}`).catch(() => null) : null;
@@ -260,6 +313,7 @@ async function main() {
     ['features[payment_method_update][enabled]', 'true'],
     ['features[subscription_cancel][enabled]', 'true'],
     ['features[subscription_cancel][mode]', 'at_period_end'],
+    ...(year ? switchParams(price.id, year.id) : []),
   ];
   if (portal?.active) {
     await stripe(secret, 'POST', `billing_portal/configurations/${portal.id}`, portalParams);
@@ -284,6 +338,7 @@ async function main() {
     KOUTSI_PORTAL_CONFIG: portal.id,
     ...(coupon ? { KOUTSI_FOUNDER_COUPON: coupon } : {}),
     ...(taxRate ? { KOUTSI_TAX_RATE: taxRate } : {}),
+    ...(year ? { KOUTSI_PRICE_YEAR_ID: year.id } : {}),
   };
   const dir = mkdtempSync(join(tmpdir(), 'koutsi-stripe-'));
   const tmp = join(dir, 'secrets.env');

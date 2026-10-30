@@ -162,6 +162,33 @@ export const admin = {
     if (error) throw error;
     return data;
   },
+  // Valmentaja-avaimet (supabase/migrations/20261030080055_koutsi_trial_codes.sql).
+  async trialCodes() {
+    const { data, error } = await db().rpc('koutsi_admin_trial_codes');
+    if (error && isMissingFunction(error)) throw codesNotYet();
+    if (error) throw error;
+    return (data || []).map((r) => ({
+      code: r.code, shown: r.shown || r.code, months: r.months ?? null, maxUses: r.max_uses, useCount: r.use_count, expiresAt: r.expires_at,
+      note: r.note || '', createdAt: r.created_at, revokedAt: r.revoked_at,
+    }));
+  },
+  async createTrialCode({ months = null, maxUses = 1, expiresAt = null, note = '', code = null }) {
+    const { data, error } = await db().rpc('koutsi_admin_create_trial_code', {
+      p_months: months, p_max_uses: maxUses, p_expires_at: expiresAt, p_note: note || null, p_code: code || null,
+    });
+    if (error && isMissingFunction(error)) throw codesNotYet();
+    if (error) throw error;
+    return data;
+  },
+  async revokeTrialCode(code) {
+    const { error } = await db().rpc('koutsi_admin_revoke_trial_code', { p_code: code });
+    if (error && isMissingFunction(error)) throw codesNotYet();
+    if (error) throw error;
+  },
 };
+
+function codesNotYet() {
+  return new ApiError('Valmentaja-avaimet otetaan käyttöön, kun tietokantamuutos on ajettu.', { code: 'not_deployed' });
+}
 
 export { avatarUrl, SUPABASE_URL };

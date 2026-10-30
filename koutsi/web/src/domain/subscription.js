@@ -7,12 +7,16 @@
 //   ready = the database has it; selfServe = a new coach may start without a key; plan null = not a coach.
 //   'free' (today's coaches, coach keys) never shows anything.
 // Price (api.subscription.price()), from Stripe; null while it is not set up:
-//   { cents, interval: 'month', offer: { cents, months } | null, vat: number | null }
+//   { cents, interval: 'month', offer: { cents, months } | null, vat: number | null, year: { cents } | null }
 //   vat = VAT added on top (once Roisku Media is VAT-liable); null = the price is the whole sum.
+//   year = the yearly price (cheaper than 12 months), when one is set up; the founding offer is monthly only.
+// Valmentaja-avaimet (api.subscription.useCode, supabase/migrations/20261030080055_koutsi_trial_codes.sql): the
+// default trial is 3 months; a key from the owner gives N free months from the day of use (a surprise,
+// keyWelcome), or free use. The same input takes an old coach key.
 
 // The subscription terms a new coach accepts (koutsi-tilausehdot.html): change together with the
 // terms' "Voimassa" date. Not the pilot acknowledgement (PILOT_TERMS_VERSION stays as it is).
-export const SUBSCRIPTION_TERMS_VERSION = '2026-10-29';
+export const SUBSCRIPTION_TERMS_VERSION = '2026-10-30';
 export const TRIAL_MONTHS = 3;
 
 export const NO_SUBSCRIPTION = Object.freeze({
@@ -70,9 +74,42 @@ export function priceLine(price) {
   return `${base}${vat}`;
 }
 
+/** "290 €/v" (with VAT "290 €/v + alv"); '' without a yearly price. */
+export function yearLine(price) {
+  if (!price?.year || !Number.isFinite(price.year.cents)) return '';
+  return `${fmtEuros(price.year.cents)}/v${price.vat ? ' + alv' : ''}`;
+}
+
+/** What a year costs less than twelve months, in cents (0 when it doesn't). */
+export function yearSaving(price) {
+  if (!price?.year || !Number.isFinite(price.cents) || !Number.isFinite(price.year.cents)) return 0;
+  return Math.max(0, price.cents * 12 - price.year.cents);
+}
+
+/** "Ota tilaus": monthly, and yearly when there is a yearly price. → [{ interval, title, sub }] */
+export function checkoutChoices(price) {
+  const month = { interval: 'month', title: 'Kuukausi', sub: priceLine(price) || 'Kuukausittain' };
+  if (!yearLine(price)) return [month];
+  const save = yearSaving(price);
+  return [month, { interval: 'year', title: 'Vuosi', sub: `${yearLine(price)}${save ? `, säästät ${fmtEuros(save)}` : ''}` }];
+}
+
+/**
+ * The surprise after a valmentaja-avain (useCode → { kind, months, plan, trialEndsAt }): null for an
+ * old key that just makes a free coach, else { title, text }.
+ */
+export function keyWelcome(result) {
+  if (!result || result.kind === 'key') return null;
+  if (result.plan === 'free') return { title: 'Koutsi on sinulle maksuton!', text: '' };
+  const until = result.trialEndsAt ? `Kokeilu jatkuu ${fmtDay(result.trialEndsAt)} asti.` : '';
+  if (result.months) return { title: `Sait ${result.months} kk ilmaisen kokeilun!`, text: until };
+  return { title: 'Kokeilu jatkuu!', text: until };
+}
+
 /**
  * What Profiili → Tilaus shows, or null when nothing (no database yet, not a coach, a free coach).
- * → { tone: 'lime' | 'warn', icon, title, text, action: 'checkout' | 'portal', label }
+ * → { tone: 'lime' | 'warn', icon, title, text, action: 'checkout' | 'portal', label, code }
+ *   code = "Onko sinulla valmentaja-avain?" belongs on the card (the trial, or an ended one).
  */
 export function planCard(status, price = null, now = new Date()) {
   if (!status?.ready) return null;
@@ -84,7 +121,7 @@ export function planCard(status, price = null, now = new Date()) {
       tone: 'lime', icon: 'clock',
       title: left === 1 ? 'Kokeilua jäljellä 1 päivä' : `Kokeilua jäljellä ${left} pv`,
       text: `Ilmainen ${fmtDay(status.trialEndsAt)} asti${cost ? `, sitten ${cost}` : ''}. Tilauksen veloitus alkaa vasta kokeilun jälkeen.`,
-      action: 'checkout', label: 'Ota tilaus',
+      action: 'checkout', label: 'Ota tilaus', code: true,
     };
   }
   if (plan === 'active') {
@@ -106,7 +143,7 @@ export function planCard(status, price = null, now = new Date()) {
     return {
       tone: 'warn', icon: 'clock', title: subscribed ? 'Tilaus päättyi' : 'Kokeilu päättyi',
       text: [day ? `Päättyi ${day}.` : '', `Pelaajille lähettäminen vaatii tilauksen${cost ? ` (${cost})` : ''}.`].filter(Boolean).join(' '),
-      action: 'checkout', label: 'Ota tilaus',
+      action: 'checkout', label: 'Ota tilaus', code: true,
     };
   }
   return null;

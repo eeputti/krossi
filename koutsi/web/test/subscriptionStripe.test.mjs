@@ -119,9 +119,14 @@ test("the customer's subscription that counts: the newest live one, else the new
 
 test('the price a coach sees, with a founding-customer offer while it lasts', () => {
   const price = { unit_amount: 2900, recurring: { interval: 'month' } };
-  assert.deepEqual(priceInfo(price), { cents: 2900, interval: 'month', offer: null, vat: null });
+  assert.deepEqual(priceInfo(price), { cents: 2900, interval: 'month', offer: null, vat: null, year: null });
   const coupon = { valid: true, duration: 'repeating', duration_in_months: 12, amount_off: 1000, max_redemptions: 10, times_redeemed: 3 };
-  assert.deepEqual(priceInfo(price, coupon), { cents: 2900, interval: 'month', offer: { cents: 1900, months: 12 }, vat: null });
+  assert.deepEqual(priceInfo(price, coupon), { cents: 2900, interval: 'month', offer: { cents: 1900, months: 12 }, vat: null, year: null });
+  // the yearly price, when one is set up (KOUTSI_PRICE_YEAR_ID)
+  const year = { unit_amount: 29000, recurring: { interval: 'year' }, active: true };
+  assert.deepEqual(priceInfo(price, null, null, year).year, { cents: 29000 });
+  assert.equal(priceInfo(price, null, null, { ...year, active: false }).year, null);
+  assert.equal(priceInfo(price, null, null, { ...year, recurring: { interval: 'month' } }).year, null);
   // VAT: only an active rate added on top
   const rate = { active: true, inclusive: false, percentage: 25.5 };
   assert.equal(priceInfo(price, null, rate).vat, 25.5);

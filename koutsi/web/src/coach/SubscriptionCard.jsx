@@ -7,8 +7,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/index.js';
 import { dropQueryParam, navigate, useRoute } from '../app/router.js';
-import { Button, Card, Icon, useToast } from '../ui/index.js';
-import { NO_SUBSCRIPTION, planCard } from '../domain/subscription.js';
+import { Button, Card, Field, Icon, Input, ListRow, Sheet, useToast } from '../ui/index.js';
+import { checkoutChoices, keyWelcome, NO_SUBSCRIPTION, planCard } from '../domain/subscription.js';
+import { KeyWelcome } from './KeyWelcome.jsx';
+import { SUPPORT_EMAIL } from '../lib/constants.js';
 import { useCoach } from './CoachRoot.jsx';
 import { loadPlanStatus, setPlanStatus, usePlanStatus } from './subscriptionStore.js';
 
@@ -37,6 +39,7 @@ export function SubscriptionCard() {
   const [status, setStatus] = useState(NO_SUBSCRIPTION);
   const [price, setPrice] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [sheet, setSheet] = useState(null); // 'choose' | 'code'
 
   useEffect(() => {
     let alive = true;
@@ -69,14 +72,18 @@ export function SubscriptionCard() {
 
   const card = planCard(status, price);
   if (!card) return null;
-  const go = async () => {
+  const choices = checkoutChoices(price);
+  const go = async (interval = 'month') => {
     if (busy) return;
     setBusy(true);
     try {
-      const { url } = card.action === 'portal' ? await api.subscription.portal() : await api.subscription.checkout();
+      const { url } = card.action === 'portal' ? await api.subscription.portal() : await api.subscription.checkout(interval);
       window.location.assign(url);
     } catch (err) { toast(err); setBusy(false); }
   };
+  // "Ota tilaus" asks month or year only when there is a yearly price
+  const primary = card.action === 'checkout' && choices.length > 1 ? () => setSheet('choose') : () => go('month');
+  const codeUsed = (s) => { setStatus(s); setPlanStatus(uid, s); };
   return (
     <section className="stack-2">
       <div className="eyebrow">Tilaus</div>
@@ -85,9 +92,53 @@ export function SubscriptionCard() {
         <div className="k-alert-body">
           <div className="k-alert-title">{card.title}</div>
           {card.text && <p className="k-alert-text">{card.text}</p>}
-          <Button variant="dark" size="sm" loading={busy} onClick={go}>{card.label}</Button>
+          <div className="row wrap season-alert-actions">
+            <Button variant="dark" size="sm" loading={busy} onClick={primary}>{card.label}</Button>
+            {card.code && <Button variant="ghost" size="sm" onClick={() => setSheet('code')}>Onko sinulla valmentaja-avain?</Button>}
+          </div>
         </div>
       </Card>
+      <Sheet open={sheet === 'choose'} onClose={() => setSheet(null)} title="Ota tilaus" size="sm">
+        <div className="list-group">
+          {choices.map((c) => (
+            <ListRow key={c.interval} icon={c.interval === 'year' ? 'calendar' : 'repeat'} title={c.title} subtitle={c.sub}
+              onClick={busy ? undefined : () => go(c.interval)} />
+          ))}
+        </div>
+      </Sheet>
+      <CodeSheet open={sheet === 'code'} onClose={() => setSheet(null)} onUsed={codeUsed} />
     </section>
+  );
+}
+
+/** "Onko sinulla valmentaja-avain?": a key from Krossi gives more free months (or free use), a surprise. */
+function CodeSheet({ open, onClose, onUsed }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [welcome, setWelcome] = useState(null);
+  useEffect(() => { if (open) { setCode(''); setError(''); setWelcome(null); } }, [open]);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!code.trim() || busy) return;
+    setError(''); setBusy(true);
+    try {
+      const s = await api.subscription.useCode(code.trim());
+      onUsed(s);
+      setWelcome(keyWelcome(s) || { title: 'Valmis!', text: '' });
+    } catch (err) { setError(err.userMessage); } finally { setBusy(false); }
+  };
+  return (
+    <Sheet open={open} onClose={() => !busy && onClose()} title={welcome ? null : 'Valmentaja-avain'} size="sm">
+      {welcome ? <KeyWelcome welcome={welcome} onDone={onClose} doneLabel="Selvä" /> : (
+        <form className="stack-4" onSubmit={submit}>
+          <Field label="Krossilta saamasi valmentaja-avain" htmlFor="plan-code" error={error || null}>
+            <Input id="plan-code" size="lg" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" autoCapitalize="characters" />
+          </Field>
+          <Button type="submit" variant="dark" size="lg" block loading={busy} missing={!code.trim() ? 'Kirjoita valmentaja-avain.' : null}>Käytä avainta</Button>
+          <p className="k-fine"><span>Ei avainta? Saat oman tarjouksen, kun <a href={`mailto:${SUPPORT_EMAIL}?subject=Koutsi%20tarjous`}>otat yhteyttä</a>.</span></p>
+        </form>
+      )}
+    </Sheet>
   );
 }

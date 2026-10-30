@@ -11,6 +11,8 @@ import { Button, Field, Input } from '../ui/index.js';
 import { SUPPORT_EMAIL } from '../lib/constants.js';
 import { CoachApp } from './CoachApp.jsx';
 import { TrialStart } from './TrialStart.jsx';
+import { keyWelcome } from '../domain/subscription.js';
+import { KeyWelcome } from './KeyWelcome.jsx';
 
 const ACTING_KEY = 'koutsiActingCoach'; // same key as the old app: a hint only, re-checked server-side
 
@@ -31,6 +33,7 @@ function CoachKeyGate({ onRedeemed }) {
   // trial first, the key one tap away. Until then this page is exactly the key page.
   const [selfServe, setSelfServe] = useState(undefined);
   const [withKey, setWithKey] = useState(false);
+  const [welcome, setWelcome] = useState(null);
   useEffect(() => {
     let alive = true;
     api.subscription.status()
@@ -42,9 +45,22 @@ function CoachKeyGate({ onRedeemed }) {
     e.preventDefault();
     if (!key.trim() || busy) return;
     setError(''); setBusy(true);
-    try { await api.coach.redeemKey(key.trim()); await onRedeemed(); } catch (err) { setError(err.userMessage); } finally { setBusy(false); }
+    // a valmentaja-avain that gives more months (a surprise) or an old coach key (api.subscription.useCode)
+    try {
+      const done = await api.subscription.useCode(key.trim());
+      const surprise = keyWelcome(done);
+      if (surprise) { setWelcome(surprise); setBusy(false); return; }
+      await onRedeemed();
+    } catch (err) { setError(err.userMessage); } finally { setBusy(false); }
   };
   if (selfServe === undefined) return <Splash />;
+  if (welcome) {
+    return (
+      <div className="k-center-page">
+        <div className="k-gate-card"><KeyWelcome welcome={welcome} onDone={onRedeemed} /></div>
+      </div>
+    );
+  }
   if (selfServe && !withKey) return <TrialStart onStarted={onRedeemed} onUseKey={() => setWithKey(true)} />;
   return (
     <div className="k-center-page">
@@ -59,6 +75,8 @@ function CoachKeyGate({ onRedeemed }) {
             <Input id="coach-key" size="lg" type="password" value={key} onChange={(e) => setKey(e.target.value)} autoFocus autoComplete="off" />
           </Field>
           <Button type="submit" variant="dark" size="lg" block missing={!key.trim() ? 'Kirjoita valmentaja-avain.' : null} loading={busy}>Vahvista</Button>
+          {/* a key starts the trial on the subscription terms (koutsi_use_code records the acceptance) */}
+          <p className="k-fine"><span>Jatkamalla vahvistat olevasi vähintään 18-vuotias ja hyväksyt <a href="/tilausehdot" target="_blank" rel="noopener">tilausehdot</a> ja <a href="/kasittelysopimus" target="_blank" rel="noopener">käsittelysopimuksen</a>.</span></p>
         </form>
         {selfServe
           ? <Button variant="ghost" block onClick={() => { setWithKey(false); setError(''); }}>Takaisin</Button>

@@ -1213,6 +1213,7 @@ export const backend = {
     users: notAllowed, feedback: notAllowed, deleteFeedback: notAllowed, deleteUser: notAllowed, actAs: notAllowed,
     groups: notAllowed, bulkInviteCodes: notAllowed, pendingPlans: notAllowed, publishPlan: notAllowed,
     handleSubmission: notAllowed, uploadPlan: notAllowed, usage: notAllowed, usageOverview: notAllowed,
+    trialCodes: notAllowed, createTrialCode: notAllowed, revokeTrialCode: notAllowed,
   },
 
   // Tilaus: the trial and the card show; paying happens only in the real app.
@@ -1220,10 +1221,17 @@ export const backend = {
     async status() { return demoSubscription(); },
     async startTrial() { await wait(); trialGate = false; return demoSubscription(); },
     // the list price (the founding offer lives in Stripe only)
-    async price() { return { cents: 2900, interval: 'month', offer: null, vat: null }; },
+    async price() { return { cents: 2900, interval: 'month', offer: null, vat: null, year: { cents: 29000 } }; },
     checkout: notAllowed,
     portal: notAllowed,
     async sync() { return demoSubscription(); },
+    // any valmentaja-avain works in the demo: a 12-month trial (the surprise)
+    async useCode(code) {
+      await wait();
+      if (!String(code || '').trim()) throw new ApiError('Kirjoita valmentaja-avain.');
+      trialGate = false;
+      return { ...demoSubscription(), trialEndsAt: new Date(Date.now() + 365 * 86400000).toISOString(), plan: 'trial', kind: 'code', months: 12 };
+    },
   },
 };
 
