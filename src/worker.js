@@ -83,6 +83,9 @@ function resolveKoutsiAssetPath(hostname, pathname) {
     if (matchesPath(pathname, '/pelaaja', 1)) return '/koutsi-pelaaja.html';
     if (pathname === '/tietosuoja' || pathname === '/tietosuoja/') return '/koutsi-tietosuoja.html';
     if (pathname === '/kayttoehdot' || pathname === '/kayttoehdot/') return '/koutsi-kayttoehdot.html';
+    // the coach subscription's terms and data processing agreement (koutsi/web domain/subscription.js)
+    if (pathname === '/tilausehdot' || pathname === '/tilausehdot/') return '/koutsi-tilausehdot.html';
+    if (pathname === '/kasittelysopimus' || pathname === '/kasittelysopimus/') return '/koutsi-kasittelysopimus.html';
   }
   if (matchesPath(pathname, '/pelaa', 1)) return '/app.html';
   return null;

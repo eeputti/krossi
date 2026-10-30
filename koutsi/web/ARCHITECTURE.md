@@ -164,6 +164,47 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   Migraatio `supabase/migrations/20261021085606_koutsi_timeline_archive.sql` (ajettu 21.10.2026 käyttäjän
   luvalla); tietokannassa ilman taulua `archiveReady: false` ja Muokkaa/Arkisto pysyvät piilossa.
 
+- Tilaus (`domain/subscription.js`, `coach/TrialStart.jsx`, `coach/SubscriptionCard.jsx`, `api/supabase/subscription.js`):
+  uusi yksityisvalmentaja aloittaa ilman valmentaja-avainta 3 kk ilmaisella kokeilulla (ei korttia, ei muutu
+  maksulliseksi itsestään) ja voi sen jälkeen ottaa kuukausitilauksen Stripen kautta (maksu Roisku Medialle).
+  Tila: taulu `koutsi_coach_plans` (`free | trial | active | past_due | ended`) ja `koutsi_coach_plan(uuid)`
+  (myös Laskutuksen porttia varten); kokeilu päättyy itsestään (`trial_ends_at`, ei cronia). Kaikki nykyiset
+  valmentajat ja avaimella tulleet ovat `free`: ei kokeilulaskuria, ei maksupyyntöä, ei mitään uutta. Avainsivu →
+  "Aloita 3 kk ilmainen kokeilu" (`koutsi_start_trial`: valmentajarivi, kokeilu ja tilausehtojen hyväksyntä
+  samalla, versio `SUBSCRIPTION_TERMS_VERSION`; pilotin `PILOT_*_VERSION` ennallaan), avain yhden napautuksen
+  päässä; kirjautumissivun valmentajahuomautus kertoo kokeilusta. Profiili → Tilaus (olemassa oleva `k-alert`-kortti):
+  kokeilua jäljellä / tilaus voimassa / maksu ei mennyt läpi / päättyi + yksi nappi (Stripe Checkout tai asiakasportaali).
+  Kokeilun aikana otettu tilaus veloitetaan vasta kokeilun lopussa (`subscription_data.trial_end`). Stripe on omissa
+  funktioissaan: `supabase/functions/koutsi-subscription` (price / checkout / portal / sync) ja `koutsi-stripe-webhook`
+  (oma endpoint ja salaisuus, vain `metadata.product = 'koutsi_subscription'`); yhteinen logiikka
+  `_shared/koutsiPlan.js` (testit `test/subscriptionStripe.test.mjs`). Krossin `stripe-webhook` ei muutu, eikä Koutsin
+  kassa kanna kenttiä (`client_reference_id`, `metadata.supabase_user_id`), joista se avaisi Krossin maksumuurin.
+  Tilin poisto (oma ja ylläpitäjän) päättää valmentajan Stripe-tilauksen ensin (`_shared/koutsiCancel.ts`). Hinta on
+  Stripessä, ei koodissa: `node scripts/koutsi-stripe-setup.mjs --hinta X [--alku Y --alku-kpl N --alku-kk M]`
+  (omistaja ajaa). Hinta on arvonlisäveroton (Roisku Media ei ole alv-velvollinen); kun on, `--alv 25.5` lisää alv:n
+  hinnan päälle: Stripen alv-kanta uusiin tilauksiin (`KOUTSI_TAX_RATE`, Checkoutin `default_tax_rates`) ja
+  vahvistuksen jälkeen nykyisiin seuraavasta veloituksesta, ja sovellus näyttää "29 €/kk + alv" (tilausehdot §3). Ehdot: `koutsi-tilausehdot.html` (`/tilausehdot`) ja `koutsi-kasittelysopimus.html`
+  (`/kasittelysopimus`, valmentaja = rekisterinpitäjä, Roisku Media = käsittelijä), voimassa 29.10.2026 (versio
+  `SUBSCRIPTION_TERMS_VERSION`; tietosuojaseloste päivitetty samalla: Stripe, rooli). Kokeilun jälkeen
+  ilman tilausta (`ended`, käyttäjän päätös 29.10.2026): valmentaja näkee kaiken ja suunnittelee kuten ennen (kalenteri,
+  teemat, läsnäolot, pelaajat), mutta uuden lähettäminen pelaajille vaatii tilauksen — huomio, kotiläksy, video,
+  tiedote, viesti ja lasku. Lukko on tietokannassa (`koutsi_plan_send_guard` ennen inserttiä kuuteen tauluun,
+  `koutsi_invoice_plan_guard` luonnos → lähetetty), joten vanha Koutsi ei ohita sitä; pelaajan omat rivit menevät aina
+  läpi. Sovelluksessa Merkitse näyttää yhden rivin "Kokeilu päättyi · … Ota tilaus" (`PlanNotice`, tila
+  `coach/subscriptionStore.js`), ja estetty lähetys kertoo syyn. Laskutus (`koutsi_billing_coach_enabled`) aukeaa
+  kokeilussa ja tilauksella oleville; kokeilun jälkeen vain jo laskuttaneelle (vanhat laskut, maksetuksi merkintä).
+  Muistutus 7 pv ennen kokeilun loppua (`koutsi_trial_reminders`, cron `koutsi-trial-reminders`, ilmoituslaji
+  `trial_ending`). Tietokanta: `supabase/migrations/20261029193756_koutsi_coach_plans.sql` (ajettu 29.10.2026 käyttäjän
+  luvalla; PGlite-testi `koutsi/web/sql/20261029193756_…check.mjs`) ja kokeilu ilman avainta avattiin samana iltana
+  (`20261029195741_koutsi_open_self_serve.sql`) ja SULJETTIIN taas käyttäjän pyynnöstä
+  (`20261029200422_koutsi_close_self_serve.sql`: uusi valmentaja tarvitsee valmentaja-avaimen; jo alkanut kokeilu
+  jatkuu). Kirjautumissivun avainhuomautus näkyy heti eikä vaihdu latautuessa; Tilaus-kortti ja kokeilusivu odottavat
+  Stripen hinnan (luetaan kerran sivun latauksessa), jotta lause ei pitene silmien edessä. Ilman migraatioita
+  `ready: false` ja kaikki on piilossa (avainsivu täsmälleen ennallaan). Uudet valmentajat ilman avainta: migraatio
+  luo `koutsi_self_serve_open()`:n kiinni (`select false`, sovellus näyttää avainsivun kuten ennen); avaaminen on yhden
+  rivin korvaus (`select true`), eikä migraation uudelleenajo sulje sitä. Demo: Anna on kokeilussa; kehityksessä
+  `?esikatsele=kokeilu | avain | tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free`.
+
 - Kaudet ja "Uusi kausi" (`domain/season.js`, `coach/SeasonSheet.jsx`, migraatio
   `supabase/migrations/20261025181126_koutsi_seasons.sql`, ajettu 25.10.2026 käyttäjän luvalla; uusien
   SECURITY DEFINER -funktioiden oikeudet `20261025181234_koutsi_seasons_function_grants.sql`):
@@ -260,6 +301,42 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   testi vertaa). Käyttöönotto: aja migraatio, julkaise `koutsi-invoice` ja `koutsi-pay` (`--no-verify-jwt`).
   Sähköpostit tarvitsevat salaisuudet RESEND_API_KEY ja KOUTSI_MAIL_FROM (samat kuin koutsi-notifylla).
 
+- **Vapaat ajat odottaa julkaisua (omistaja 29.10.2026: "julkaistaan vasta myöhemmin"): pääkytkin `OPEN_SLOTS_ON = false`
+  (`domain/openSlots.js`) — kumpikaan sovellus ei kysy aikoja eikä näytä niistä mitään, eikä demokaan (sen maailma pysyy
+  ennallaan). Julkaisu = migraatio alla + kytkin päälle.**
+- Vapaat ajat (Calendlyn tilalle; `domain/openSlots.js`, `coach/openSlots.jsx`, `player/OpenSlots.jsx`,
+  `api/supabase/openSlots.js`, `api/demo/openSlots.js`, tyylit `styles/open-slots.css`): valmentaja julkaisee yksittäisiä
+  vapaita aikoja (päivä, alkaa, kesto, paikka; monta kerralla, ei toistuvia sääntöjä), ja omat pelaajat varaavat ne.
+  Ajat elävät viikkonäkymissä, eivät listoina: valmentajan Viikkohallinnassa (`weekBoard(…, { openSlots })`) ja pelaajan
+  Viikossa (`playerWeek(…, { openSlots })`) vapaa aika on oma palikkansa (valkoinen, katkoviivainen lime-reuna,
+  "Vapaa aika"), ja varattu aika on tavallinen yksityistunti (täytetty lime). Valmentaja lisää ajat Viikkohallinnan
+  plus-napista (Vapaat ajat) ja poistaa napauttamalla; pelaaja varaa napauttamalla ("Varaa aika?" kerran). Pelaajan
+  Kodissa on yksi rivi, kun aikoja on (montako, lähin → Valitse aika avaa sen päivän Viikossa); ilmoituksen linkki
+  `/pelaaja/vapaat` vie samaan. Varaus on yksi RPC (`koutsi_book_open_slot`, ensimmäinen voittaa) ja synnyttää tavallisen
+  yksityistunnin (`koutsi_trainings`: `logged_by 'coach'`, `student_id` = pelaaja, Yksityistunti, ajan kesto), joten
+  viikkonäkymät, läsnäolo, "En pääse" ja laskutus näkevät sen kuten muutkin. Pelaaja ei saa "Uusi treeni" -ilmoitusta
+  omasta varauksestaan; valmentaja saa "<nimi> varasi ajan". Julkaisu = yksi ilmoitus pelaajaa kohden (uusi julkaisu
+  10 min sisällä päivittää saman lukemattoman). Vapautunut aika: kun pelaaja ei pääse yksityistunnille, tunnin palikan
+  ikkunassa ja tunnin sivulla on "Tarjoa muille" (uusi vapaa aika samaan aikaan, `source_training_id`); peruttu tunti jää
+  kalenteriin (myöhäiset peruutukset), ja "Pääsen sittenkin" poistaa vielä varaamattoman tarjouksen. Paikka on ajan
+  rivillä ja näkyy molempien tunnin tiedoissa. Molemmat tilannekuvat kantavat `openSlots` ja `openSlotsReady`.
+  Tietokanta: ehdotettu migraatio `koutsi/web/sql/20261029180000_koutsi_open_slots.sql` — **EI AJETTU** (PGlite-testi
+  `…_koutsi_open_slots.check.mjs`); ilman sitä `openSlotsReady: false` ja kaikki pysyy piilossa. Ominaisuus on pois
+  päältä: valmentaja näkee sen, kun hänen sähköpostinsa on taulussa `koutsi_open_slot_coaches`, ja ylläpitäjät (ei
+  koskaan "toimi valmentajana" -tilassa); muiden pelaajat eivät saa aikoja eivätkä ilmoituksia. Demo: Annalla päällä
+  (avoimia aikoja, Jussin varaus, Leon vapautunut tunti); valmentajan ja pelaajan demo jakavat ajat selaimen
+  localStoragessa (`koutsi-demo-vapaat-v1`, 6 h), joten valmentajan lisäämän ajan voi varata pelaajan demossa.
+  Hillitty lisämyynti (omistajan toive: ei tyrkyttämistä): valmentaja valitsee julkaisuun "Kenelle" — kaikille pelaajille
+  tai yksityistuntilaisille (`audience 'private'`: ollut yksityistunti valmentajan kanssa); tarjottu peruttu tunti perii
+  alkuperäisen ajan valinnan. Pelaaja, jonka ikä on tiedossa ja alle 18, ei näe aikoja eikä saa ilmoituksia ennen
+  huoltajavirtaa (`koutsi_open_slot_minor`). "En pääse" näyttää "Korvaava aika?" — 1–3 saman valmentajan aikaa kahden
+  viikon sisältä; valinta varaa ajan ja ilmoittaa poissaolon kerralla (`player/OpenSlots.jsx` ReplacementSlots, Laskutuksen
+  myöhäisen peruutuksen rivin alla). Kodin rivi näkyy vain, kun aika on kahden viikon sisällä eikä pelaajalla ole jo
+  varattua tulossa; × (Ei kiitos) lepuuttaa sitä 14 päivää (localStorage). Ilmoitus menee vain niille, joille aika näkyy,
+  ja luettelee vain heidän aikansa; sähköpostin voi kytkeä pois (Profiili → Sähköpostit → Vapaat ajat, luokka `vapaat`,
+  näkyy vain pelaajalle, jolla on vapaita aikoja). Ei ponnahdusikkunoita eikä merkkejä; varatessa ei makseta (tunti
+  laskutetaan seuraavalla laskulla). Mittaus: `vapaat.*`-tapahtumat (Ylläpito → Käyttö → Vapaat ajat (pelaaja)).
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)
@@ -294,6 +371,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 | `/pelaaja/viestit`, `/pelaaja/viestit/:valmentajaId` | messages, thread — Viestit (Kodin kuvake kellon vieressä; yhden valmentajan pelaaja menee suoraan keskusteluun) |
 | `/pelaaja/laskut`, `/pelaaja/laskut/:id` | invoices, invoice — Laskut (Lisää; kun valmentaja on lähettänyt laskun) |
 | `/lasku/<token>` | laskun oma sivu linkillä, ilman kirjautumista (pelaajan kuori, `shared/billing/PublicInvoice.jsx`) |
+| `/pelaaja/vapaat` | openSlots — ilmoituksen linkki: Viikko lähimmän vapaan ajan päivänä (vapaat ajat ovat Viikon palikoita) |
 
 Vanhat osoitteet (`/pelaaja/koti` jne.) ovat samat; `link_path` `/pelaaja` → koti.
 
@@ -301,6 +379,8 @@ Vanhat osoitteet (`/pelaaja/koti` jne.) ovat samat; `link_path` `/pelaaja` → k
 
 - **Valmentaja:** auth → salasanan palautus → pilottivahvistus → profiilivirhe → profiilin luonti
   → valmentajarivi → valmentaja-avain → ylläpitäjän "toimi valmentajana" -tarkistus palvelimella → sovellus.
+- **Valmentaja-avaimen vaihe**, kun `koutsi_coach_plans` on tietokannassa ja uudet valmentajat on avattu: ensin
+  "Aloita 3 kk ilmainen kokeilu" (`coach/TrialStart.jsx`), avain sen takana ("Minulla on valmentaja-avain").
 - **Pelaaja:** auth → salasanan palautus → profiilivirhe → profiilin luonti → oppilasrivi →
   liittymiskoodi (kutsulinkin `?koodi`/`?oppilas` esitäytettynä, "oletko sinä?") → pilottivahvistus → sovellus.
 - Kutsulinkki toisen käyttäjän laitteella → varoitusbanneri (InviteMismatch).

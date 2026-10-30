@@ -29,6 +29,7 @@ import { useCoach } from './CoachRoot.jsx';
 import { AttendanceChips } from './attendance.jsx';
 import { openPlanner } from './nav.js';
 import { ChoiceGrid, ChoiceRows, RECORD_LOOK } from './tiles.jsx';
+import { PlanNotice } from './SubscriptionCard.jsx';
 import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -356,6 +357,7 @@ export function MerkintaSheet({ open, onClose, trainingId = null, initialIds = [
     <Sheet open={open} onClose={() => !busy && onClose()} title="Merkitse" size="md" dismissible={!busy} confirmClose={dirty} className="vs-sheet" footer={choosing ? null : footer}>
       {choosing ? (
         <div className="vs-choose stack-4">
+          <PlanNotice onGo={onClose} />
           {situation && (
             <p className="vs-situation">{situation.live && <span className="k-ctx-live" aria-hidden="true" />}<strong>{situation.label}</strong> {situation.text}</p>
           )}

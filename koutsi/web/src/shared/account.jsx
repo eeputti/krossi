@@ -8,7 +8,7 @@ import { FEEDBACK_CATEGORIES, SUPPORT_EMAIL } from '../lib/constants.js';
 import { EMAIL_CHOICES, withChoice } from '../domain/emailPrefs.js';
 
 /** Profiili → Sähköpostit: all e-mails on or off, and each kind on its own. Saves at once. */
-export function EmailPrefs({ uid, role = 'player' }) {
+export function EmailPrefs({ uid, role = 'player', has = [] }) {
   const toast = useToast();
   const [prefs, setPrefs] = useState(null);
   useEffect(() => {
@@ -22,7 +22,8 @@ export function EmailPrefs({ uid, role = 'player' }) {
     setPrefs(next);
     try { await api.notifications.setEmailPrefs(uid, next); toast('Sähköpostiasetukset tallennettu.'); } catch (err) { setPrefs(before); toast(err); }
   };
-  const choices = EMAIL_CHOICES[role] || EMAIL_CHOICES.player;
+  // a choice with `only` shows when the person has that thing (`has`, e.g. 'openSlots')
+  const choices = (EMAIL_CHOICES[role] || EMAIL_CHOICES.player).filter((c) => !c.only || has.includes(c.only));
   return (
     <div className="email-prefs">
       <Toggle icon="mail" checked={prefs.enabled} onChange={(on) => save({ ...prefs, enabled: on })} label="Sähköpostit"

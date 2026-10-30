@@ -6,6 +6,7 @@
 
 import { db, must, randomUuid, isMissingFunction, isMissingTable } from './client.js';
 import { loadCoachState, loadPlayerState } from './load.js';
+import { TENNIS_DRAFT_KEY, mergeTennisDraft, tennisDraftOf } from '../../domain/tennisProfile.js';
 import { ApiError } from '../errors.js';
 import {
   koutsiTodayStr, koutsiNextWeekday, koutsiAddDays, koutsiWeeklyDates, koutsiClampGroupTrainingWeeks,
@@ -13,6 +14,7 @@ import {
   KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX,
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
+import { withOpenSlots } from './openSlots.js';
 
 const from = (table) => db().from(table);
 
@@ -50,7 +52,7 @@ export const coach = {
   async fetchRow(uid) {
     return must(await from('koutsi_coaches').select('id').eq('id', uid).maybeSingle());
   },
-  load: loadCoachState,
+  load: (coachId) => withOpenSlots('coach', coachId, loadCoachState(coachId)),
   async redeemKey(key) {
     return must(await db().rpc('redeem_koutsi_coach_key', { key_input: key }));
   },
@@ -100,7 +102,7 @@ export const player = {
   async fetchRow(uid) {
     return must(await from('koutsi_students').select('id').eq('id', uid).maybeSingle());
   },
-  load: loadPlayerState,
+  load: (studentId) => withOpenSlots('player', studentId, loadPlayerState(studentId)),
   subscribe(studentId, cb) { return subscribeTables(`koutsi-player-${studentId}`, cb); },
   async markWelcomeSeen(studentId) {
     must(await from('koutsi_students').update({ welcome_seen_at: new Date().toISOString() }).eq('id', studentId));
@@ -119,6 +121,26 @@ export const player = {
       plays_hand: playsHand || null, favourite_shot: favouriteShot || null,
       playing_since: playingSince ?? null, tennis_story: tennisStory || null,
     }).eq('id', studentId));
+  },
+  /**
+   * After joining: the tennis card filled in while waiting (account metadata) goes onto the
+   * player's row, then off the account. Reads the signed-in session locally, so a player with no
+   * draft costs nothing. Returns true when something was moved.
+   */
+  async applyTennisDraft(studentId) {
+    const { data } = await db().auth.getSession();
+    const user = data?.session?.user;
+    const draft = user?.id === studentId ? tennisDraftOf(user.user_metadata?.[TENNIS_DRAFT_KEY]) : null;
+    if (!draft) return false;
+    const row = must(await from('koutsi_students').select('plays_hand, favourite_shot, playing_since, tennis_story').eq('id', studentId).maybeSingle());
+    if (!row) return false;
+    const card = mergeTennisDraft({ playsHand: row.plays_hand, favouriteShot: row.favourite_shot, playingSince: row.playing_since, tennisStory: row.tennis_story }, draft);
+    must(await from('koutsi_students').update({
+      plays_hand: card.playsHand || null, favourite_shot: card.favouriteShot || null,
+      playing_since: card.playingSince ?? null, tennis_story: card.tennisStory || null,
+    }).eq('id', studentId));
+    must(await db().auth.updateUser({ data: { [TENNIS_DRAFT_KEY]: null } }));
+    return true;
   },
   /** The player's optional exact age: the shared profile and the student row, as before. */
   async saveAge(studentId, age) {

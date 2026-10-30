@@ -6,7 +6,7 @@
 // uploads in a moment and always sits nicely in the round avatar.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
-import { useData } from '../app/data.jsx';
+import { useOptionalData } from '../app/data.jsx';
 import { useSession } from '../app/session.jsx';
 import { Button, Icon, ListRow, Sheet, Spinner, useConfirm, useToast } from '../ui/index.js';
 
@@ -308,11 +308,13 @@ function PhotoMenuSheet({ open, onClose, hasPhoto, onChoose, onTake, onRemove })
 }
 
 /**
- * useProfilePhoto({ uid, person }) → { open, sheets, busy }
+ * useProfilePhoto({ uid, person, onCropped? }) → { open, sheets, busy }
  *   open(): shows the menu; render `sheets` once anywhere on the page.
+ *   onCropped(blob | null): instead of uploading, hand the cropped JPEG (or null for "Poista kuva")
+ *   back — for a profile that does not exist yet (the player's first "Luo profiilisi").
  */
-export function useProfilePhoto({ uid, person }) {
-  const { reload } = useData();
+export function useProfilePhoto({ uid, person, onCropped = null }) {
+  const data = useOptionalData(); // null on a gate screen: the session's profile is all there is to refresh
   const { refreshProfile } = useSession();
   const toast = useToast();
   const confirm = useConfirm();
@@ -356,18 +358,20 @@ export function useProfilePhoto({ uid, person }) {
     setMenu(false);
     const ok = await confirm({ title: 'Poistetaanko profiilikuva?', message: 'Kuvan tilalla näkyvät nimikirjaimesi.', confirmLabel: 'Poista kuva', danger: true });
     if (!ok) return;
+    if (onCropped) { onCropped(null); return; }
     try {
       await api.account.removeAvatar(uid);
-      await reload();
+      await data?.reload();
       refreshProfile?.();
       toast('Profiilikuva poistettu.');
     } catch (err) { toast(err); }
   };
   const save = async (blob) => {
+    if (onCropped) { onCropped(blob); setCrop((c) => ({ ...c, open: false })); return; }
     setBusy(true);
     try {
       await api.account.uploadAvatar(uid, new File([blob], 'profiilikuva.jpg', { type: 'image/jpeg' }));
-      await reload();
+      await data?.reload();
       refreshProfile?.();
       setCrop((c) => ({ ...c, open: false }));
       toast('Profiilikuva vaihdettu.');

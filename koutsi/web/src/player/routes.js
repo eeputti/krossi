@@ -31,4 +31,6 @@ export const ROUTES = [
   // Laskut: the player's invoices (only when a coach has sent one); the notification opens one
   { name: 'invoices', pattern: '/pelaaja/laskut', tab: 'laskut', type: 'page' },
   { name: 'invoice', pattern: '/pelaaja/laskut/:id', tab: 'laskut', type: 'page' },
+  // Vapaat ajat (the notice's link): straight to Viikko on the day of the soonest free time
+  { name: 'openSlots', pattern: '/pelaaja/vapaat', tab: 'treenit', type: 'tab' },
 ];

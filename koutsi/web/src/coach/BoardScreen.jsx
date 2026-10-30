@@ -28,6 +28,7 @@ import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { EVENT_ICON, EventSheet, TrainingSheet } from './trainingForms.jsx';
 import { openPlanner, openSeason } from './nav.js';
 import { track } from './usage.js';
+import { AddOpenSlotsSheet, useOpenSlotTap, useOpenSlotsOn } from './openSlots.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_SHORT = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
@@ -43,7 +44,7 @@ const plural = (n, one, many) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 const y = ({ h, g }) => `calc(${h.toFixed(4)} * var(--wb-hour) + ${g} * var(--wb-fold))`;
 const span = (a, b) => `calc(${(b.h - a.h).toFixed(4)} * var(--wb-hour) + ${b.g - a.g} * var(--wb-fold) - 3px)`;
 
-export const itemName = (item) => item.group?.name || item.student?.name || item.training?.type || 'Treeni';
+export const itemName = (item) => (item.kind === 'open' ? 'Vapaa aika' : item.group?.name || item.student?.name || item.training?.type || 'Treeni');
 
 /** One session on the grid. Its height is its length, so what shows inside adapts to it. */
 function BoardBlock({ item, grid, onOpen }) {
@@ -69,7 +70,9 @@ function BoardBlock({ item, grid, onOpen }) {
           {status === 'now' && <span className="k-ctx-live wb-b-live" aria-hidden="true" />}
         </span>
         <span className="wb-b-name">{name}</span>
-        {!missing && (
+        {item.kind === 'open' ? (
+          item.slot.place ? <span className="wb-b-meta"><span className="truncate">{item.slot.place}</span></span> : null
+        ) : !missing && (
           <span className="wb-b-meta">
             {group ? (
               <><Icon name="users" size={12} /><span className="t-num">{item.members}</span>{group.level && <span className="wb-b-level">{group.level}</span>}</>
@@ -120,7 +123,11 @@ export function BoardScreen({ query }) {
   const setWeek = (w) => navigate(koutsiCompareIsoWeeks(w, current) === 0 ? BASE : `${BASE}?vko=${weekParam(w)}`, { replace: true });
   const today = koutsiTodayStr();
   const dates = weekDates(week);
-  const board = useMemo(() => weekBoard(state, week, now), [state, week.year, week.week, Math.floor(nowMs / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Vapaat ajat: the coach's free times are blocks of their own (when the feature is on)
+  const slotsOn = useOpenSlotsOn();
+  const tapSlot = useOpenSlotTap();
+  const board = useMemo(() => weekBoard(state, week, now, { openSlots: slotsOn ? state.openSlots || [] : [] }), [state, week.year, week.week, Math.floor(nowMs / 60_000), slotsOn]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openCount = board.days.reduce((n, d) => n + d.items.filter((it) => it.kind === 'open').length, 0);
   const relative = themeWeekRelative(week);
   const { grid } = board;
 
@@ -129,12 +136,16 @@ export function BoardScreen({ query }) {
   const close = () => setSheet(null);
   const lastItem = useRef(null);
   if (sheet?.kind === 'item') lastItem.current = sheet.item;
-  const openItem = (item) => { track('viikko.treeni'); setSheet({ kind: 'item', item }); };
+  const openItem = (item) => {
+    if (item.kind === 'open') { track('viikko.vapaa'); tapSlot(item.slot); return; }
+    track('viikko.treeni'); setSheet({ kind: 'item', item });
+  };
   const onAdd = (what) => {
     track(`viikko.lisaa-${what}`);
     if (what === 'teema') { close(); openPlanner({ week }); return; }
     if (what === 'kausi') { close(); openSeason(); return; }
     const defaultDate = isCurrent ? today : dates[0];
+    if (what === 'vapaat') { setSheet({ kind: 'slots', date: defaultDate }); return; }
     setSheet(what === 'ryhma' ? { kind: 'group' } : what === 'monta' ? { kind: 'bulk' } : what === 'tapahtuma' ? { kind: 'event', date: defaultDate } : { kind: 'training', date: defaultDate });
   };
 
@@ -185,7 +196,8 @@ export function BoardScreen({ query }) {
 
   const sheets = (
     <>
-      <AddSheet open={sheet?.kind === 'add'} onClose={close} onPick={onAdd} week={week} />
+      <AddSheet open={sheet?.kind === 'add'} onClose={close} onPick={onAdd} week={week} slots={slotsOn} />
+      <AddOpenSlotsSheet open={sheet?.kind === 'slots'} defaultDate={sheet?.date} onClose={close} />
       <BoardItemSheet open={sheet?.kind === 'item'} item={lastItem.current} week={week} onClose={close} />
       <WeekPickerSheet open={sheet?.kind === 'pick'} week={week} onClose={close} onPick={(date) => { close(); lastBoardDay.date = date; setWeek(koutsiIsoWeekOfDateStr(date)); }} />
       <GroupFormSheet open={sheet?.kind === 'group'} onClose={close} />
@@ -203,7 +215,7 @@ export function BoardScreen({ query }) {
   // Only a coach with nothing at all gets the "first group" page: a coach with private lessons
   // but no groups must still be able to step to the weeks that have sessions.
   const hasOwnSessions = (state.trainings || []).some((t) => t.loggedBy !== 'player');
-  if (state.groups.length === 0 && !hasOwnSessions && board.sessions === 0 && board.events.bars.length === 0) {
+  if (state.groups.length === 0 && !hasOwnSessions && board.sessions === 0 && board.events.bars.length === 0 && openCount === 0) {
     return (
       <Page>
         <header className="wb-head">
@@ -226,6 +238,7 @@ export function BoardScreen({ query }) {
   const phoneEvents = board.events.bars.filter((b) => b.from <= active && b.to >= active);
   const activeDay = board.days[active];
   const activeSessions = activeDay.items.filter((it) => it.training).length;
+  const activeOpen = activeDay.items.filter((it) => it.kind === 'open').length;
   const openEvent = (event) => setSheet({ kind: 'event', editing: event });
   const addOn = (date) => { track('viikko.lisaa-treeni'); setSheet({ kind: 'training', date }); };
   return (
@@ -242,7 +255,7 @@ export function BoardScreen({ query }) {
             <button type="button" className="wb-range" onClick={() => setSheet({ kind: 'pick' })} aria-label={`${weekRangeLabel(week)} — valitse viikko`}>
               <span className="t-num">{weekRangeLabel(week)}</span><Icon name="chevron-down" size={14} />
             </button>
-            <span className="wb-counts">{plural(state.groups.length, 'ryhmä', 'ryhmää')}, {plural(board.sessions, 'treeni', 'treeniä')}</span>
+            <span className="wb-counts">{plural(state.groups.length, 'ryhmä', 'ryhmää')}, {plural(board.sessions, 'treeni', 'treeniä')}{openCount > 0 && `, ${plural(openCount, 'vapaa aika', 'vapaata aikaa')}`}</span>
           </div>
           {!isCurrent && <button type="button" className="wb-today-btn" onClick={() => setWeek(current)}>Tämä viikko</button>}
           <span className="wb-add-slot">{addButton}</span>
@@ -255,7 +268,7 @@ export function BoardScreen({ query }) {
             className={cx('wb-strip-day', i === active && 'is-active', d.date === today && 'is-today')} onClick={() => scrollToDay(i, true)}>
             <span className="wb-strip-dow">{DAY_SHORT[i]}</span>
             <span className="wb-strip-num t-num">{Number(d.date.slice(8))}</span>
-            <span className={cx('wb-strip-dot', d.items.some((it) => it.tone === 'issue') ? 'has-issue' : d.items.some((it) => it.training) && 'has-sessions')} aria-hidden="true" />
+            <span className={cx('wb-strip-dot', d.items.some((it) => it.tone === 'issue') ? 'has-issue' : d.items.some((it) => it.training) ? 'has-sessions' : d.items.some((it) => it.kind === 'open') && 'has-open')} aria-hidden="true" />
           </button>
         ))}
         {board.events.bars.map((b) => (
@@ -268,7 +281,7 @@ export function BoardScreen({ query }) {
         <h2 className="wb-dayline-title">{DAY_LONG[active]} <span className="t-num">{dayMonth(activeDay.date)}</span></h2>
         <span className="wb-dayline-sub">
           {activeDay.date === today && <span className="wb-dayline-today">Tänään</span>}
-          {activeSessions ? plural(activeSessions, 'treeni', 'treeniä') : 'Ei treenejä'}
+          {activeSessions ? plural(activeSessions, 'treeni', 'treeniä') : 'Ei treenejä'}{activeOpen > 0 && ` · ${plural(activeOpen, 'vapaa aika', 'vapaata aikaa')}`}
         </span>
       </div>
 

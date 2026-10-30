@@ -46,6 +46,8 @@ const routes = [
   ['https://koutsi.krossi.app/pelaaja/treenit/', '/koutsi-pelaaja.html'],
   ['https://koutsi.krossi.app/tietosuoja', '/koutsi-tietosuoja.html'],
   ['https://koutsi.krossi.app/kayttoehdot', '/koutsi-kayttoehdot.html'],
+  ['https://koutsi.krossi.app/tilausehdot', '/koutsi-tilausehdot.html'],
+  ['https://koutsi.krossi.app/kasittelysopimus/', '/koutsi-kasittelysopimus.html'],
   ['https://demo.koutsi.krossi.app/', '/koutsi-demo.html'],
   ['https://demo.koutsi.krossi.app/valmentaja', '/koutsi-valmentaja-demo.html'],
   ['https://demo.koutsi.krossi.app/pelaaja/treenit', '/koutsi-pelaaja-demo.html'],

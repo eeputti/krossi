@@ -27,8 +27,11 @@ export const API_CONTRACT = {
   // The shared Krossi profile row and account-level actions. saveAbout(uid, { bio, area }) writes the
   // profile's own words and home town (profiles.bio / area, shared with Krossi); removeAvatar(uid) clears the photo. trackEvent(name) counts one tap
   // (an event name, no content) for Ylläpito → Käyttö; it never throws.
+  // getWaitingProfile(uid) → { bio, tennis } and saveWaitingProfile(uid, { bio, tennis }): a player with no
+  // group yet fills in the profile while waiting for a code; the tennis card waits on the account
+  // (domain/tennisProfile.js TENNIS_DRAFT_KEY) until player.applyTennisDraft(uid) moves it onto the row.
   account: ['getProfile', 'getPilotAcknowledgement', 'acceptPilot', 'createProfile', 'saveDisplayName',
-    'uploadAvatar', 'removeAvatar', 'saveAbout', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
+    'uploadAvatar', 'removeAvatar', 'saveAbout', 'getWaitingProfile', 'saveWaitingProfile', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
 
   // Coach role: fetchRow(uid) → { id } | null; load(coachId) → CoachState; subscribe(coachId, cb) → unsubscribe.
   // saveWeekNote(coachId, { year, week, score, note }) — the coach's private weekly diary.
@@ -43,7 +46,7 @@ export const API_CONTRACT = {
   player: ['fetchRow', 'load', 'subscribe', 'markWelcomeSeen', 'saveGoal', 'saveNote', 'saveWish', 'saveAge', 'saveTennis',
     'addMood', 'updateMood', 'setMoodHidden', 'deleteMood', 'addMatchNote', 'updateMatchNote', 'deleteMatchNote',
     'addSelfTraining', 'updateSelfTraining', 'deleteSelfTraining', 'saveAim', 'addEntry', 'updateEntry', 'deleteEntry',
-    'archiveItem', 'unarchiveItem', 'forgetArchived', 'deleteHistory'],
+    'archiveItem', 'unarchiveItem', 'forgetArchived', 'deleteHistory', 'applyTennisDraft'],
 
   // A coach's roster.
   students: ['create', 'bulkSetup', 'setLevel', 'updatePlaceholder', 'endCoaching', 'merge', 'deletePlaceholder',
@@ -68,6 +71,16 @@ export const API_CONTRACT = {
 
   // set(trainingIds, studentId, 'paikalla' | 'poissa')
   attendance: ['set'],
+
+  // Vapaat ajat (koutsi_open_slots, domain/openSlots.js): a coach publishes single free times, their own
+  // players book them, and a booking is an ordinary private lesson (koutsi_trainings, Yksityistunti) for
+  // both. CoachState / PlayerState carry `openSlots: Slot[]` (the coach: theirs from today on; a player:
+  // the open ones of their coaches and their own bookings) and `openSlotsReady` (coach: the table is there
+  // and the feature is on for them — off by default; player: the table is there).
+  // add(coachId, [{ date, time, durationMinutes, place, audience: 'all' | 'private', sourceTrainingId? }]) → how
+  // many were added (each player it is for gets one notice per publish; known minors none); remove(slotId) — an
+  // open one; book(slotId) → { trainingId }.
+  openSlots: ['add', 'remove', 'book'],
 
   // Coach's notes to a player (koutsi_diary_entries) and homework. addMany writes one row per
   // player in one insert: each player gets their own copy (and their own notification).
@@ -144,6 +157,17 @@ export const API_CONTRACT = {
   // list(uid), markRead(uid), getEmailPrefs(uid) → { enabled, off: [category] }, setEmailPrefs(uid, { enabled, off }),
   // subscribe(uid, cb) → unsubscribe
   notifications: ['list', 'markRead', 'getEmailPrefs', 'setEmailPrefs', 'subscribe'],
+
+  // Tilaus (koutsi_coach_plans, domain/subscription.js): a new coach's 3-month free trial without a
+  // card, then a monthly subscription through Stripe. status() → { ready, selfServe, plan, trialEndsAt,
+  // stripeStatus, periodEnd, cancelAtPeriodEnd, hasCustomer } — also before signing in; ready is false
+  // while the database doesn't have it (all of it stays hidden, the coach key works as before), plan is
+  // null for someone who is not a coach and 'free' for today's coaches (nothing shows). startTrial() →
+  // status: makes the signed-in person a coach with a trial and the accepted subscription terms.
+  // price() → { cents, interval, offer: { cents, months } | null } | null (never throws).
+  // checkout() / portal() → { url } of Stripe Checkout / the customer portal; sync() → status, read
+  // from Stripe right after the coach comes back.
+  subscription: ['status', 'startTrial', 'price', 'checkout', 'portal', 'sync'],
 
   // Ylläpito — every RPC behind these re-checks koutsi_is_admin() server-side.
   // usage(days | null) → [{ event, clicks, users, adminClicks, lastAt }] (admins' own taps apart).

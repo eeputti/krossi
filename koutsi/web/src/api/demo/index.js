@@ -13,11 +13,14 @@ import {
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
+import { NO_SUBSCRIPTION } from '../../domain/subscription.js';
 import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/season.js';
 import { seedMessages } from './messagesSeed.js';
 import { seedBilling } from './billingSeed.js';
 import { addDaysStr, billedKeys, normalizeIban, referenceFor, totalOf } from '../../domain/billing.js';
 import { MESSAGE_MAX } from '../../domain/messages.js';
+import { mergeTennisDraft, tennisDraftOf } from '../../domain/tennisProfile.js';
+import { addOpenSlots, bookOpenSlot, openSlotsView, removeOpenSlot } from './openSlots.js';
 
 let role = 'coach';
 let state = null;
@@ -148,6 +151,31 @@ function logSend(kind, text, ids, log, at) {
 
 const SIGNUP = () => (role === 'player' ? 'https://koutsi.krossi.app/pelaaja' : 'https://koutsi.krossi.app/valmentaja');
 
+// Tilaus: Anna is on the free trial, 76 days left (Profiili → Tilaus). `npm run dev:koutsi` →
+// /demo/valmentaja?esikatsele=kokeilu opens the "Aloita 3 kk ilmainen kokeilu" gate first;
+// ?esikatsele=tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free show the card's other
+// states (free = today's coaches: no card); ?esikatsele=avain = the database before the
+// migration: the coach-key page exactly as it was.
+const previewPlan = process.env.NODE_ENV !== 'production' && typeof window !== 'undefined'
+  ? new URLSearchParams(window.location.search).get('esikatsele') || '' : '';
+let trialGate = previewPlan === 'kokeilu' || previewPlan === 'avain';
+function demoSubscription() {
+  if (previewPlan === 'avain') return { ...NO_SUBSCRIPTION };
+  const day = 86400000;
+  const now = Date.now();
+  const iso = (ms) => new Date(ms).toISOString();
+  const plan = /^tilaus-(active|past_due|ended|free)$/.exec(previewPlan)?.[1] || 'trial';
+  const paying = plan === 'active' || plan === 'past_due';
+  return {
+    ready: true, selfServe: true, plan,
+    trialEndsAt: plan === 'free' ? null : iso(plan === 'ended' ? now - 3 * day : now + 76 * day),
+    stripeStatus: paying ? plan : null,
+    periodEnd: paying ? iso(now + 21 * day) : null,
+    cancelAtPeriodEnd: false,
+    hasCustomer: paying,
+  };
+}
+
 export const backend = {
   auth: {
     async getSession() { return { user: { id: uid(), email: 'demo@krossi.app' } }; },
@@ -197,6 +225,13 @@ export const backend = {
       const st = findStudent(id);
       if (st) Object.assign(st, patch);
     },
+    // a player before the first group: the bio and the tennis card waiting for the row
+    async getWaitingProfile(id) { return { bio: S().waitingBio?.[id] || '', tennis: tennisDraftOf(S().tennisDraft?.[id]) }; },
+    async saveWaitingProfile(id, { bio, tennis }) {
+      await wait();
+      S().waitingBio = { ...(S().waitingBio || {}), [id]: (bio || '').trim() };
+      S().tennisDraft = { ...(S().tennisDraft || {}), [id]: tennisDraftOf(tennis) };
+    },
     async recordAppOpen() {},
     async trackEvent() {},
     async isAdmin() { return false; },
@@ -207,7 +242,8 @@ export const backend = {
 
   coach: {
     async fetchRow(id) { return id === COACH ? { id } : null; },
-    async load() { await wait(); return coachViewOfArchives(hideHiddenMoods(coachState())); },
+    // Vapaat ajat first: what the player demo booked becomes a lesson before the snapshot is taken
+    async load() { await wait(); const slots = openSlotsView(S(), 'coach'); return { ...coachViewOfArchives(hideHiddenMoods(coachState())), ...slots }; },
     async redeemKey() { return { ok: true }; },
     async markWelcomeSeen() { S().coach.welcomeSeenAt = nowIso(); },
     async saveProfile(coachId, patch) { await wait(); Object.assign(S().coach, patch); },
@@ -223,7 +259,7 @@ export const backend = {
 
   player: {
     async fetchRow(id) { return findStudent(id) ? { id } : null; },
-    async load(studentId) { await wait(); return playerState(studentId); },
+    async load(studentId) { await wait(); const slots = openSlotsView(S(), 'player', studentId); return { ...playerState(studentId), ...slots }; },
     subscribe() { return () => {}; },
     async markWelcomeSeen(id) { const st = findStudent(id); if (st) st.welcomeSeenAt = nowIso(); },
     async saveGoal(id, v) { await wait(); addHistory(findStudent(id), 'goal', v); },
@@ -238,6 +274,14 @@ export const backend = {
     async saveTennis(id, { playsHand, favouriteShot, playingSince, tennisStory }) {
       await wait();
       Object.assign(findStudent(id), { playsHand: playsHand || '', favouriteShot: favouriteShot || '', playingSince: playingSince ?? null, tennisStory: tennisStory || '' });
+    },
+    async applyTennisDraft(id) {
+      const draft = tennisDraftOf(S().tennisDraft?.[id]);
+      const st = findStudent(id);
+      if (!draft || !st) return false;
+      Object.assign(st, mergeTennisDraft(st, draft));
+      S().tennisDraft[id] = null;
+      return true;
     },
     async saveAge(id, age) {
       await wait();
@@ -622,6 +666,13 @@ export const backend = {
         t.absences = rest;
       });
     },
+  },
+
+  // Vapaat ajat (./openSlots.js): Anna has it on; the two demo pages share the slots in the browser.
+  openSlots: {
+    async add(coachId, slots) { await wait(); if (role === 'player') notAllowed(); return addOpenSlots(S(), slots); },
+    async remove(slotId) { await wait(); if (role === 'player') notAllowed(); removeOpenSlot(S(), slotId); },
+    async book(slotId) { await wait(); if (role !== 'player') notAllowed(); return bookOpenSlot(S(), slotId, PLAYER); },
   },
 
   notes: {
@@ -1163,4 +1214,23 @@ export const backend = {
     groups: notAllowed, bulkInviteCodes: notAllowed, pendingPlans: notAllowed, publishPlan: notAllowed,
     handleSubmission: notAllowed, uploadPlan: notAllowed, usage: notAllowed, usageOverview: notAllowed,
   },
+
+  // Tilaus: the trial and the card show; paying happens only in the real app.
+  subscription: {
+    async status() { return demoSubscription(); },
+    async startTrial() { await wait(); trialGate = false; return demoSubscription(); },
+    // the list price (the founding offer lives in Stripe only)
+    async price() { return { cents: 2900, interval: 'month', offer: null, vat: null }; },
+    checkout: notAllowed,
+    portal: notAllowed,
+    async sync() { return demoSubscription(); },
+  },
 };
+
+// Dev-only previews of the coach-key step (?esikatsele=kokeilu | avain): the coach row appears only
+// after the trial is started or a key is used.
+if (trialGate) {
+  const { fetchRow, redeemKey } = backend.coach;
+  backend.coach.fetchRow = async (id) => (trialGate ? null : fetchRow(id));
+  backend.coach.redeemKey = async (key) => { trialGate = false; return redeemKey(key); };
+}

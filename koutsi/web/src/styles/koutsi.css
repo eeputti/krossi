@@ -89,6 +89,10 @@
 .k-gate-busy { text-align: center; color: var(--muted); font-size: 13px; }
 .k-gate-note { padding: 14px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line); font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
 .k-gate-note p { margin-top: 4px; color: var(--muted); }
+.k-gate-note-actions { display: grid; gap: 8px; margin-top: 12px; }
+.k-gate-note .k-gate-saved { display: flex; gap: 6px; align-items: flex-start; margin-top: 10px; color: var(--green-800); font-weight: 700; }
+.k-gate-note .k-gate-saved svg { flex-shrink: 0; margin-top: 2px; }
+.k-waiting-loading { display: grid; place-items: center; min-height: 160px; }
 .k-wordmark { gap: 0; }
 .k-wordmark-sub { margin-left: 0.28em; font-size: 0.42em; letter-spacing: -0.01em; color: var(--on-dark-muted); align-self: flex-end; margin-bottom: 0.18em; }
 .k-gate-card .k-wordmark-sub { color: var(--muted); }

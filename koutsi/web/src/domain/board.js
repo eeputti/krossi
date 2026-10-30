@@ -153,7 +153,7 @@ export function weekEvents(state, dates) {
  *   events: weekEvents(), grid: gridHours(), sessions: how many real sessions, issues: how many
  *   items need something
  */
-export function weekBoard(state, week, now = new Date()) {
+export function weekBoard(state, week, now = new Date(), { openSlots = [] } = {}) {
   const dates = weekDates(week);
   const today = koutsiTodayStr();
   const base = groupWeekBoard(state, week);
@@ -205,6 +205,23 @@ export function weekBoard(state, week, now = new Date()) {
       key: `p-${t.id}`, kind: 'private', group: null, student: koutsiStudentById(state, t.studentId), training: t, date: t.date, time: t.time,
       durationMinutes, start, end: Math.min(24 * 60, start + durationMinutes), theme: null, members: 1, absent: (t.absences || []).length,
       status, tone: status === 'past' ? 'past' : 'ok', issues: [], why: null,
+    });
+  }
+
+  // Vapaat ajat (only when the caller passes them): the coach's free times nobody has booked yet,
+  // still to come — a booked one is a private lesson above, and a time that began unbooked is no news
+  for (const s of openSlots) {
+    if (s.bookedBy) continue;
+    const i = dates.indexOf(s.date);
+    if (i < 0) continue;
+    const durationMinutes = s.durationMinutes || 60;
+    const start = toMin(s.time);
+    const status = sessionStatus({ date: s.date, time: s.time, durationMinutes }, null, now);
+    if (status !== 'upcoming') continue;
+    days[i].items.push({
+      key: `v-${s.id}`, kind: 'open', slot: s, group: null, student: null, training: null, date: s.date, time: s.time,
+      durationMinutes, start, end: Math.min(24 * 60, start + durationMinutes), theme: null, members: 0, absent: 0,
+      status, tone: 'open', issues: [], why: null,
     });
   }
 

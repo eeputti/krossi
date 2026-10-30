@@ -76,6 +76,8 @@ export const USAGE_SECTIONS = [
       ['viikko.lisaa-tapahtuma', 'Lisää tapahtuma'],
       ['viikko.lisaa-teema', 'Lisää teema'],
       ['viikko.lisaa-monta', 'Monta ryhmää ja pelaajaa kerralla'],
+      ['viikko.lisaa-vapaat', 'Plus-nappi → Vapaat ajat'],
+      ['viikko.vapaa', 'Vapaa aika avattu viikkonäkymästä'],
     ],
   },
   {
@@ -114,6 +116,18 @@ export const USAGE_SECTIONS = [
       ['lisaa.palaute', 'Anna palautetta'],
       ['lisaa.yllapito', 'Ylläpito'],
       ['palaute.avaa', 'Sivupalkki → Anna palautetta (tietokone)'],
+    ],
+  },
+  {
+    // the player's side of Vapaat ajat (player/OpenSlots.jsx): do the quiet suggestions help?
+    title: 'Vapaat ajat (pelaaja)',
+    events: [
+      ['vapaat.koti-nakyi', 'Koti: vapaat ajat -rivi näkyi'],
+      ['vapaat.koti-valitse', 'Koti → Valitse aika'],
+      ['vapaat.koti-ei-kiitos', 'Koti → Ei kiitos (14 pv)'],
+      ['vapaat.korvaava-nakyi', 'En pääse: Korvaava aika? näkyi'],
+      ['vapaat.korvaava-varattu', 'En pääse → korvaava aika varattu'],
+      ['vapaat.varattu', 'Viikko → vapaa aika varattu'],
     ],
   },
   {

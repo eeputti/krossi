@@ -17,6 +17,8 @@ import { ScopeLine } from '../shared/scope.jsx';
 import { useRecord } from './merkitse.jsx';
 import { ChoiceGrid, ChoiceRows, ChoiceTile } from './tiles.jsx';
 import { track } from './usage.js';
+import { FreedLessonCard } from './openSlots.jsx';
+import { bookedSlotOf } from '../domain/openSlots.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_LONG = ['Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai', 'Lauantai', 'Sunnuntai'];
@@ -30,7 +32,7 @@ const whoCount = (status, n) => (status === 'upcoming' ? (n === 1 ? '1 pelaaja' 
   : status === 'now' ? (n === 1 ? '1 paikalla' : `${n} paikalla`) : (n === 1 ? '1 paikalla ollut' : `${n} paikalla ollutta`));
 
 /** The plus button's menu: the same tiles-and-rows shape as Merkitse. */
-export function AddSheet({ open, onClose, onPick, week }) {
+export function AddSheet({ open, onClose, onPick, week, slots = false }) {
   const { state } = useData();
   const seasonsOn = Boolean(state.seasonsReady && (state.seasons || []).length);
   return (
@@ -43,6 +45,8 @@ export function AddSheet({ open, onClose, onPick, week }) {
           <ChoiceTile icon="flag" tone="clay" title="Tapahtuma" sub="Kilpailu, leiri tai seuran tapahtuma" onClick={() => onPick('tapahtuma')} />
         </div>
         <ChoiceRows rows={[
+          // Vapaat ajat (when the feature is on): free times the coach's players book themselves
+          ...(slots ? [{ id: 'vapaat', icon: 'clock', title: 'Vapaat ajat', sub: 'Ajat, jotka pelaajasi voivat varata', run: () => onPick('vapaat') }] : []),
           { id: 'monta', icon: 'list', title: 'Monta ryhmää ja pelaajaa kerralla', sub: 'Koko kauden ryhmät ja pelaajat yhdellä kertaa', run: () => onPick('monta') },
           ...(seasonsOn ? [{ id: 'kausi', icon: 'calendar-plus', title: 'Uusi kausi', sub: 'Seuraavan kauden ryhmät valmiiksi nykyisten pohjalta', run: () => onPick('kausi') }] : []),
         ]} />
@@ -141,6 +145,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
     group?.level || null,
     live && live.type !== 'Ryhmätreeni' ? live.type : null,
     absent ? `${absent} poissa` : null,
+    live ? bookedSlotOf(state.openSlots, live.id)?.place || null : null, // a booked free time's place
   ].filter(Boolean);
 
   const rows = item.kind === 'missing' ? [
@@ -179,6 +184,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
       <Sheet open={open} onClose={onClose} title={name} subtitle={`${weekdayOf(item.date)} ${dayMonth(item.date)} klo ${time}`} size="md">
         <div className="stack-4">
           {status}
+          {live && <FreedLessonCard training={live} />}
           {facts.length > 0 && <div className="wb-facts">{facts.map((f) => <span key={f} className="wb-fact">{f}</span>)}</div>}
           {live && roster.length > 0 && (
             <section className="wb-for stack-3" aria-label={group ? `Vain ryhmälle ${name}` : `Vain pelaajalle ${name}`}>

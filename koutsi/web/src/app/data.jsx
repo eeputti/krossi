@@ -102,3 +102,8 @@ export function useData() {
   if (!ctx) throw new Error('useData must be used inside <DataProvider>');
   return ctx;
 }
+
+/** The app's data, or null outside it (a gate screen before the app, e.g. the player's profile while waiting for a code). */
+export function useOptionalData() {
+  return useContext(DataContext);
+}
