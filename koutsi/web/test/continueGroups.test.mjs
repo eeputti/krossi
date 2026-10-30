@@ -1,7 +1,7 @@
 // "Jatka kalenteria": groups go on with the same times, with breaks (tauko) as day ranges.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { breakDays, breakNotice, breakProblem, fmtDay, nextTermEnd, noticeDay, planContinue, validBreaks } from '../src/domain/continueGroups.js';
+import { breakDays, breakNotice, breakProblem, fmtDay, nextTermEnd, noticeDay, noticeWhen, planContinue, restartNotices, validBreaks } from '../src/domain/continueGroups.js';
 
 const TODAY = '2026-10-30'; // Friday
 const tr = (id, groupId, date, time = '17:00', extra = {}) => ({ id, groupId, date, time, type: 'Ryhmätreeni', loggedBy: 'coach', ...extra });
@@ -91,18 +91,36 @@ test('next term end and the summary day', () => {
   assert.equal(fmtDay('2027-01-07', TODAY), 'to 7.1.2027');
 });
 
-// the same three texts as koutsi_break_notice_body in koutsi/web/sql/20261030181313_koutsi_breaks.check.mjs
-test('the notice a player gets reads exactly like the server writes it', () => {
-  assert.deepEqual(breakNotice({ name: 'Joululoma', from: '2026-12-19', to: '2027-01-06', next: { date: '2027-01-07', time: '17:00' }, message: 'Hyvää joulua!' }),
-    { title: 'Joululoma', body: 'Ei treenejä la 19.12.–ke 6.1. Seuraava treenisi on to 7.1. klo 17:00. Hyvää joulua!' });
-  assert.deepEqual(breakNotice({ name: '  ', from: '2027-05-13', to: '2027-05-13', next: null, message: '  ' }),
-    { title: 'Treenitauko', body: 'Ei treenejä to 13.5.' });
-  assert.equal(breakNotice({ name: 'Hiihtoloma', from: '2027-02-22', to: '2027-02-28', next: { date: '2027-03-01', time: '09:15' } }).body,
-    'Ei treenejä ma 22.2.–su 28.2. Seuraava treenisi on ma 1.3. klo 09:15.');
+// the same texts as koutsi_break_notice_title / _body / koutsi_break_restart_body in
+// koutsi/web/sql/20261030190000_koutsi_break_mails.check.mjs
+const LETTER_MARIA = 'Treenit ovat tauolla la 19.12.–ke 6.1.\nTreenisi jatkuvat ma 11.1. klo 17:00.\n\n'
+  + 'Valmentajan terveiset\nHyvää joulua!\n– Anna\n\n'
+  + 'Koutsi on käytössä myös tauon aikana.\nTreenaa omatoimisesti ja merkitse treenit kuten ennenkin. Vain yhteiset treenit ovat tauolla.';
+
+test('the holiday letter reads exactly like the server writes it', () => {
+  assert.deepEqual(breakNotice({ name: 'Joululoma', from: '2026-12-19', to: '2027-01-06', next: { date: '2027-01-11', time: '17:00' }, message: 'Hyvää joulua!', coach: 'Anna', sendDay: '2026-12-18' }),
+    { title: 'Joululoma alkaa huomenna', body: LETTER_MARIA });
+  assert.deepEqual(breakNotice({ name: '  ', from: '2027-05-13', to: '2027-05-13', next: null, message: '  ', coach: 'Anna', sendDay: '2027-05-13' }),
+    { title: 'Treenitauko', body: 'Treenit ovat tauolla to 13.5.\n\nKoutsi on käytössä myös tauon aikana.\nTreenaa omatoimisesti ja merkitse treenit kuten ennenkin. Vain yhteiset treenit ovat tauolla.' });
 });
 
-test('the players are told the morning before the break, or at once when it is already that late', () => {
+test('reminders before the sessions start again: 3 days and 1 day before, only after a break of a week or more', () => {
+  const next = { date: '2027-01-07', time: '18:30' };
+  assert.deepEqual(restartNotices({ from: '2026-12-19', to: '2027-01-06', next, theme: 'Syöttö.' }), [
+    { day: '2027-01-04', title: 'Treenit alkavat taas to 7.1.', body: 'Ensimmäinen treenisi tauon jälkeen on to 7.1. klo 18:30.\nViikon teema: Syöttö.\n\nAvaa Koutsi ja katso, miten treenit alkavat.' },
+    { day: '2027-01-06', title: 'Treenit alkavat taas huomenna', body: 'Ensimmäinen treenisi tauon jälkeen on huomenna to 7.1. klo 18:30.\nViikon teema: Syöttö.\n\nAvaa Koutsi ja katso, miten treenit alkavat.' },
+  ]);
+  assert.equal(restartNotices({ from: '2027-01-11', to: '2027-01-11', next: { date: '2027-01-12', time: '17:00' } }).length, 0, 'one day off');
+  assert.equal(restartNotices({ from: '2026-12-19', to: '2027-01-06', next: null }).length, 0);
+});
+
+test('when the letter goes: the morning before, or within the hour when that has passed', () => {
   assert.equal(noticeDay('2026-12-19', TODAY), '2026-12-18');
-  assert.equal(noticeDay('2026-10-31', TODAY), TODAY);
   assert.equal(noticeDay('2026-10-20', TODAY), TODAY);
+  const at = (h, m) => new Date(2026, 9, 30, h, m);
+  assert.deepEqual(noticeWhen('2026-12-19', at(12, 0)), { day: '2026-12-18', label: 'pe 18.12. aamulla klo 8 mennessä' });
+  assert.deepEqual(noticeWhen('2026-10-31', at(6, 50)), { day: TODAY, label: 'tänään aamulla klo 8 mennessä' });
+  assert.deepEqual(noticeWhen('2026-10-31', at(12, 0)), { day: TODAY, label: 'tunnin sisällä tallennuksesta' });
+  assert.deepEqual(noticeWhen('2026-10-31', at(22, 0)), { day: '2026-10-31', label: 'huomenna aamulla klo 8 mennessä' });
+  assert.equal(noticeWhen('2027-01-08', at(12, 0)).label, 'to 7.1.2027 aamulla klo 8 mennessä');
 });

@@ -209,7 +209,7 @@ export function EventSheet({ open, onClose, editing, defaultDate }) {
   };
   return (
     <Sheet open={open} onClose={() => !busy && onClose()} title={isBreak ? 'Muokkaa taukoa' : editing ? 'Muokkaa tapahtumaa' : 'Uusi tapahtuma'} confirmClose={!editing && Boolean(title.trim())}
-      subtitle={isBreak ? (editing.notifiedAt ? 'Tauko näkyy ryhmän pelaajien kalenterissa. Pelaajat ovat jo saaneet ilmoituksen tauosta.' : 'Tauko näkyy ryhmän pelaajien kalenterissa. Pelaajat saavat ilmoituksen tauon alkua edeltävänä aamuna.') : 'Kilpailut, leirit ja seuran tapahtumat näkyvät pelaajien kalenterissa.'} size="sm"
+      subtitle={isBreak ? (editing.notifiedAt ? 'Tauko näkyy ryhmän pelaajien kalenterissa. Pelaajat ovat jo saaneet tauosta sähköpostin.' : 'Tauko näkyy ryhmän pelaajien kalenterissa. Pelaajat saavat tauosta sähköpostin tauon alkua edeltävänä aamuna ja muistutukset ennen kuin treenit alkavat taas.') : 'Kilpailut, leirit ja seuran tapahtumat näkyvät pelaajien kalenterissa.'} size="sm"
       footer={<div className="sheet-actions">{editing ? <Button variant="ghost" size="lg" onClick={remove}>Poista</Button> : <Button variant="soft" size="lg" onClick={onClose}>Peruuta</Button>}<Button variant="dark" size="lg" missing={!title.trim() ? 'Anna tapahtumalle nimi.' : !date ? 'Valitse päivä.' : endDate && endDate < date ? 'Loppupäivä ei voi olla ennen alkua.' : null} loading={busy} onClick={save}>Tallenna</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="ev-title"><Input id="ev-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isBreak ? 'Esim. Joululoma' : 'Esim. Seuran syyskisat'} maxLength={isBreak ? 60 : 120} /></Field>
@@ -220,7 +220,7 @@ export function EventSheet({ open, onClose, editing, defaultDate }) {
         </div>
         {isBreak && (
           <Field label="Tervehdys pelaajille" optional htmlFor="ev-msg">
-            <Input id="ev-msg" value={message} maxLength={300} placeholder="Esim. Hyvää joulua!" onChange={(e) => setMessage(e.target.value)} />
+            <Input id="ev-msg" value={message} maxLength={200} placeholder="Esim. Hyvää joulua!" onChange={(e) => setMessage(e.target.value)} />
           </Field>
         )}
       </div>
