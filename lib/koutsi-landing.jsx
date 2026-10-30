@@ -18,7 +18,6 @@ function Nav() {
         <a href="#top" className="nav-logo"><Wordmark size={21} /></a>
         <nav className="nav-links">
           <a href="#miten-toimii">Miten toimii</a>
-          <a href="https://demo.koutsi.krossi.app">Kokeile demoa</a>
           <a href="https://koutsi.krossi.app/valmentaja?auth=login">Kirjaudu sisään</a>
         </nav>
         <a href="https://koutsi.krossi.app/valmentaja" className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Luo tili</a>
@@ -50,7 +49,6 @@ function Hero() {
             <div className="phone-pair-item phone-pair-front"><CoachPhone width={210} /></div>
           </div>
         </div>
-        <a href="https://demo.koutsi.krossi.app" className="btn-lime btn-sm hero-demo-btn">Kokeile demoa →</a>
       </div>
     </section>
   );
@@ -102,9 +100,8 @@ function Tools() {
       <div className="tools-inner">
         <span className="eyebrow"><span className="ball-dot" /> Valmentajan työkalut</span>
         <h2>Treenien suunnittelusta <span className="hl">laskuihin.</span></h2>
-        <p className="tools-sub">Näin Koutsi toimii tietokoneella. Kaikki sama kulkee mukana myös puhelimessa.</p>
+        <p className="tools-sub">Sama Koutsi toimii tietokoneella ja puhelimessa.</p>
         <LaptopTour />
-        <a href="https://demo.koutsi.krossi.app" className="btn-dark btn-lg tools-cta">Kokeile demoa →</a>
       </div>
     </section>
   );
