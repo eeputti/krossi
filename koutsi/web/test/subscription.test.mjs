@@ -85,7 +85,7 @@ test('demo: Anna is on the free trial; paying is for the real app', async () => 
   assert.equal(s.plan, 'trial');
   assert.equal(daysLeft(s.trialEndsAt), 76);
   assert.deepEqual(await demo.subscription.price(), { cents: 2900, interval: 'month', offer: null, vat: null, year: { cents: 29000 } });
-  const used = await demo.subscription.useCode('Krossikoutsi12');
+  const used = await demo.subscription.useCode('Avain12');
   assert.equal(used.kind, 'code');
   assert.equal(used.months, 12);
   assert.ok(daysLeft(used.trialEndsAt) >= 364);

@@ -104,7 +104,7 @@ insert into profiles (id, name) values ${people.map((u) => `('${u}', 'Henkilö $
 insert into koutsi_admins (user_id) values ('${ADMIN}');
 insert into koutsi_coaches (id) values ('${ADMIN}'), ('${ALPO}');
 insert into koutsi_coach_invite_codes (code) values ('AVAIN1');
-insert into koutsi_coach_invite_codes (code, max_uses, use_count) values ('KROSSIKOUTSI123', 25, 3);
+insert into koutsi_coach_invite_codes (code, max_uses, use_count) values ('VANHA3', 25, 3);
 `;
 
 const db = new PGlite();
@@ -138,9 +138,7 @@ const norm = (shown) => shown.toUpperCase().replace(/[^A-Z0-9]/g, ''); // the st
 
 test('only admins make, list and revoke codes; nobody reads the tables directly', async () => {
   const code = await make(12, 1, { note: 'Mikkelin valmentaja' });
-  assert.equal(code, 'Krossikoutsi12kk+');
-  assert.equal(await make(6), 'Krossikoutsi6kk+');
-  assert.equal(await make(null), 'Krossikoutsimaksuton+');
+  assert.match(code, /^[A-HJ-NP-Z2-9]{8}$/, 'no name: random');
   assert.equal(await make(6, 3, { code: 'Kesa-26' }), 'Kesa-26', 'an own key is kept as written');
   for (const sql of [`select public.koutsi_admin_create_trial_code(12, 1, null, null)`, 'select * from public.koutsi_admin_trial_codes()',
     `select public.koutsi_admin_revoke_trial_code('KESA26')`]) {
@@ -153,16 +151,13 @@ test('only admins make, list and revoke codes; nobody reads the tables directly'
   assert.match(String((await as(null, `select public.koutsi_use_code('KESA26', 'x')`)).error?.message), /permission denied/);
   const dup = await as(ADMIN, `select public.koutsi_admin_create_trial_code(12, 1, null, null, 'KESA26')`);
   assert.match(String(dup.error?.message), /on jo olemassa ja antaa eri ajan/);
-  // one key per length: making it again adds uses (never lowers them) and keeps the note
-  const uses = async () => (await one(`select max_uses from koutsi_trial_codes where code = 'KROSSIKOUTSI12KK'`)).max_uses;
+  // the same key again (any spelling) adds uses, never lowers them, and keeps how it was written
+  const uses = async () => (await one(`select max_uses from koutsi_trial_codes where code = 'KESA26'`)).max_uses;
   const before = await uses();
-  assert.equal(await make(12, 2), 'Krossikoutsi12kk+');
+  assert.equal(await make(6, 2, { code: 'kesa 26' }), 'Kesa-26');
   assert.equal(await uses(), before + 2);
   const list = (await as(ADMIN, 'select * from public.koutsi_admin_trial_codes()')).rows;
-  // the three keys come with the migration; 123+ gives three months
-  assert.deepEqual(list.map((r) => r.shown).sort(),
-    ['Kesa-26', 'Krossikoutsi123+', 'Krossikoutsi12kk+', 'Krossikoutsi6kk+', 'Krossikoutsimaksuton+']);
-  assert.equal(list.find((r) => r.shown === 'Krossikoutsi123+').months, 3);
+  assert.deepEqual(list.map((r) => r.shown).sort(), [code, 'Kesa-26'].sort());
   assert.equal(list.find((r) => r.code === 'KESA26').shown, 'Kesa-26');
   const mine = list.find((r) => r.shown === code);
   assert.equal(mine.code, norm(code));
@@ -171,9 +166,9 @@ test('only admins make, list and revoke codes; nobody reads the tables directly'
 
 test('a new person becomes a coach with 12 free months, even while the default trial is closed', async () => {
   assert.equal((await one('select public.koutsi_self_serve_open() as o')).o, false);
-  const code = await make(12, 1);
+  const code = await make(12, 1, { code: 'Syksy12+' });
   // case, spaces and the "+" never matter
-  const r = await use(NEW1, ' krossikoutsi 12KK ');
+  const r = await use(NEW1, ' syksy 12 ');
   assert.equal(r.error, null);
   assert.equal(r.rows[0].s.plan, 'trial');
   assert.equal(r.rows[0].s.months, 12);
@@ -182,7 +177,7 @@ test('a new person becomes a coach with 12 free months, even while the default t
   assert.deepEqual({ ...row }, { terms_version: '2026-10-29', accepted: true, trial_code: norm(code) });
   assert.equal(Number((await one(`select count(*) as n from koutsi_exercises where coach_id = '${NEW1}'`)).n), 1, 'starter drills');
   // its uses are gone: the next person is told so, and stays no coach
-  await db.exec(`update koutsi_trial_codes set max_uses = use_count where code = 'KROSSIKOUTSI12KK'`);
+  await db.exec(`update koutsi_trial_codes set max_uses = use_count where code = 'SYKSY12'`);
   assert.match(String((await use(NEW2, code)).error?.message), /jo käytetty/);
   assert.equal(await plan(NEW2), null);
   // a new coach needs a confirmed e-mail like the default trial
@@ -237,19 +232,19 @@ test('a free-use code makes a contract customer: no trial, no payment', async ()
   assert.equal((await one(`select trial_ends_at from koutsi_coach_plans where coach_id = '${TRIAL}'`)).trial_ends_at, null);
 });
 
-test('Krossikoutsi123+ gives the 3-month trial; the old free-use key of that name is revoked', async () => {
+test('a trial key named like an old free-use coach key wins: it gives the trial', async () => {
   const KEY123 = '00000000-0000-4000-8000-0000000000c9';
   await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${KEY123}', 'c9@example.test', now());
     insert into profiles (id, name) values ('${KEY123}', 'Henkilö 0c9');`);
-  const r = await use(KEY123, 'Krossikoutsi123+');
+  assert.equal(await make(3, 25, { code: 'Vanha3+' }), 'Vanha3+');
+  const r = await use(KEY123, 'vanha3');
   assert.equal(r.error, null);
   assert.equal(r.rows[0].s.kind, 'code');
   assert.equal(r.rows[0].s.months, 3);
   assert.equal(await plan(KEY123), 'trial');
   const left = await daysLeft(KEY123);
   assert.ok(left >= 89 && left <= 93, `3 months: ${left}`);
-  assert.notEqual((await one(`select revoked_at from koutsi_coach_invite_codes where code = 'KROSSIKOUTSI123'`)).revoked_at, null);
-  assert.equal((await one(`select revoked_at from koutsi_coach_invite_codes where code = 'AVAIN1'`)).revoked_at, null, 'other keys untouched');
+  assert.equal((await one(`select use_count from koutsi_coach_invite_codes where code = 'VANHA3'`)).use_count, 3, 'the old key was not used');
 });
 
 test('limits: last day, revoked, unknown; an old coach key still works through the same input', async () => {
@@ -259,8 +254,8 @@ test('limits: last day, revoked, unknown; an old coach key still works through t
   assert.equal((await as(ADMIN, `select public.koutsi_admin_revoke_trial_code('${gone}')`)).error, null);
   assert.match(String((await use(NEW2, gone)).error?.message), /poistettu käytöstä/);
   // making it again puts it back in use
-  assert.equal(await make(6, 1), gone);
-  assert.equal((await one(`select revoked_at from koutsi_trial_codes where code = 'KROSSIKOUTSI6KK'`)).revoked_at, null);
+  assert.equal(await make(6, 1, { code: gone }), gone);
+  assert.equal((await one(`select revoked_at from koutsi_trial_codes where code = '${gone}'`)).revoked_at, null);
   assert.equal((await as(ADMIN, `select public.koutsi_admin_revoke_trial_code('${gone}')`)).error, null);
   assert.match(String((await use(NEW2, 'EIOLE123')).error?.message), /invalid coach key/);
   assert.equal(await plan(NEW2), null);

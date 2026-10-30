@@ -205,18 +205,18 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   `?esikatsele=kokeilu | avain | tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free`.
 
 - Valmentaja-avaimet ja vuosilaskutus (`coach/TrialCodes.jsx`, `coach/KeyWelcome.jsx`, `coach/SubscriptionCard.jsx`,
-  migraatio `supabase/migrations/20261030080055_koutsi_trial_codes.sql`, ajettu 30.10.2026 käyttäjän luvalla,
-  PGlite-testi `koutsi/web/sql/20261030080055_koutsi_trial_codes.check.mjs`):
-  kokeilu ilman avainta pysyy kiinni, ja avain pyydetään aina omistajalta sähköpostilla (käyttäjä 30.10.).
-  Avain kertoo mitä antaa: `Krossikoutsi123+` = 3 kk (korvaa samannimisen vanhan, pysyvästi ilmaisen valmentaja-
-  avaimen, joka poistetaan käytöstä), `Krossikoutsi6kk+`, `Krossikoutsi12kk+`, `Krossikoutsimaksuton+`. Yksi avain
-  per pituus: Ylläpito → Avaimet → Luo avain lisää olemassa olevalle käyttökertoja (ja palauttaa poistetun käyttöön);
-  myös oma avain, viimeinen päivä, muistiinpano ja poisto käytöstä. Kirjainkoolla, välilyönneillä ja plussalla ei ole
-  väliä (`code` = pelkät isot kirjaimet ja numerot, `shown` = lähetetty muoto). Avain antaa N kk ilmaista käyttöä
+  migraatiot `supabase/migrations/20261030080055_koutsi_trial_codes.sql` + `20261030081942_koutsi_trial_codes_private_names.sql`,
+  ajettu 30.10.2026 käyttäjän luvalla, PGlite-testi `koutsi/web/sql/20261030080055_koutsi_trial_codes.check.mjs`):
+  kokeilu ilman avainta pysyy kiinni, ja avain pyydetään aina omistajalta sähköpostilla. Omistaja tekee avaimet
+  (Ylläpito → Avaimet: nimi itse tai satunnainen, kuukaudet tai maksuton, käyttökerrat, viimeinen päivä, muistiinpano,
+  poisto käytöstä); saman avaimen luominen uudelleen lisää käyttökertoja. **Avainten nimiä ei kirjoiteta koodiin,
+  testeihin, dokumentteihin eikä commit-viesteihin: repo on julkinen.** Kirjainkoolla, välilyönneillä ja plussalla ei
+  ole väliä (`code` = pelkät isot kirjaimet ja numerot, `shown` = lähetetty muoto). Avain antaa N kk ilmaista käyttöä
   käyttöpäivästä (ei koskaan lyhennä kokeilua) tai maksuttoman käytön, ja hyväksyntä näytetään iloisesti
   ("Sait 12 kk ilmaisen kokeilun!" + konfetti). Kokeilussa tai päättyneellä kokeilulla oleva saa lisää kuukausia
-  (Profiili → Tilaus → "Onko sinulla valmentaja-avain?"), kerran per avain. `api.subscription.useCode`
-  (`koutsi_use_code`) ottaa samaan kenttään myös muut vanhat valmentaja-avaimet; ilman migraatiota se kutsuu suoraan
+  (Profiili → Tilaus → "Onko sinulla valmentaja-avain?"), kerran per avain. Avain, jolla on sama nimi kuin vanhalla
+  valmentaja-avaimella, voittaa sen. `api.subscription.useCode` (`koutsi_use_code`) ottaa samaan kenttään myös vanhat
+  valmentaja-avaimet; ilman migraatiota se kutsuu suoraan
   `redeem_koutsi_coach_key`. Vuosihinta: `--vuosi 290` asennusskriptissä (`KOUTSI_PRICE_YEAR_ID`); "Ota tilaus" kysyy
   kuukausi vai vuosi vain, kun vuosihinta on olemassa
   (`checkout(interval)`), aloitustarjous koskee vain kuukausihintaa, ja asiakasportaalissa voi vaihtaa jaksoa.

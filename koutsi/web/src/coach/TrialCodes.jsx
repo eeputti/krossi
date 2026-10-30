@@ -1,8 +1,8 @@
 // TrialCodes — Ylläpito → Avaimet: the owner makes valmentaja-avaimet and e-mails them as they like.
 // The default trial is 3 months; a key gives N free months from the day it is used (6 or 12, or any
 // length) or free use, a surprise for the coach; it has a number of uses, an optional last day and
-// can be revoked. A key says what it gives (Krossikoutsi6kk+, Krossikoutsi12kk+; Krossikoutsi123+ = the
-// 3-month key), one per length: making it again adds uses. Case, spaces and "+" never matter. The coach types it on the sign-up page or in Profiili → Tilaus
+// can be revoked. The owner writes the key (or gets a random one); making an existing key again adds uses.
+// Case, spaces and "+" never matter. Key names are never written into the code: this repo is public. The coach types it on the sign-up page or in Profiili → Tilaus
 // (supabase/migrations/20261030080055_koutsi_trial_codes.sql).
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/index.js';
@@ -11,11 +11,6 @@ import { CopyButton } from '../shared/bits.jsx';
 import { fmtDay } from '../domain/subscription.js';
 
 const LENGTHS = [{ value: '6', label: '6 kk' }, { value: '12', label: '12 kk' }, { value: 'muu', label: 'Muu' }, { value: 'free', label: 'Maksuton' }];
-
-/** The key "Luo avain" makes: Krossikoutsi12kk+ / Krossikoutsimaksuton+. */
-function example(months) {
-  return `Krossikoutsi${months == null ? 'maksuton' : `${months > 0 ? months : 'N'}kk`}+`;
-}
 
 /** "12 kk ilmaiseksi" / "Maksuton" */
 function whatItGives(months) {
@@ -68,7 +63,7 @@ function NewCode({ onMade }) {
       <Field label="Muistiinpano" optional htmlFor="code-note" hint="Esimerkiksi kenelle annoit avaimen. Näkyy vain sinulle.">
         <Input id="code-note" value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
       </Field>
-      <Field label="Oma avain" optional htmlFor="code-own" hint={`Jätä tyhjäksi, niin avain on ${example(chosenMonths)}. Kirjainkoolla ja plussalla ei ole väliä.`}>
+      <Field label="Avain" optional htmlFor="code-own" hint="Kirjoita avain itse tai jätä tyhjäksi, niin Koutsi arpoo sen. Kirjainkoolla ja plussalla ei ole väliä.">
         <Input id="code-own" value={own} maxLength={40} autoCapitalize="off" onChange={(e) => setOwn(e.target.value)} />
       </Field>
       <Button variant="dark" loading={busy} missing={!monthsOk ? 'Tarkista kuukaudet.' : !usesOk ? 'Tarkista käyttökerrat.' : null} onClick={make}>Luo avain</Button>

@@ -1,20 +1,16 @@
--- 20261030080055_koutsi_trial_codes.sql — valmentaja-avaimet that give more: the owner gives a coach a
--- longer free trial (6 or 12 months, any length) or free use (a contract customer like the Mikkeli club)
--- with a key only the owner makes and e-mails (Ylläpito → Avaimet). A new coach always asks the owner
--- for a key by e-mail; Krossikoutsi123+ gives the 3-month trial.
+-- 20261030080055_koutsi_trial_codes.sql — valmentaja-avaimet: the owner gives a coach a free trial
+-- (3, 6 or 12 months, any length) or free use (a contract customer like the Mikkeli club) with a key only
+-- the owner makes and e-mails (Ylläpito → Avaimet). A new coach always asks the owner for a key by e-mail;
+-- there is no trial without one (koutsi_self_serve_open() stays false).
 --
 -- Applied to production 2026-10-30 08:00 UTC (apply_migration koutsi_trial_codes) on the user's "Kyllä, julkaise".
--- Verified after: Krossikoutsi123+ (3 kk, 25), Krossikoutsi6kk+ (10), Krossikoutsi12kk+ (10); old coach key
--- KROSSIKOUTSI123 revoked; koutsi_self_serve_open() still false; anon cannot run koutsi_use_code, nobody reads the
--- tables directly. Tested in PGlite on top of 20261029193756_koutsi_coach_plans:
--- koutsi/web/sql/20261030080055_koutsi_trial_codes.check.mjs
--- Two tables, one column, four functions, three keys (Krossikoutsi123+, 6kk+, 12kk+). One existing row
--- changes: the old coach key KROSSIKOUTSI123 (free use forever, 3/25 used, last used 6.9.2026) is revoked,
--- because Krossikoutsi123+ now gives the 3-month trial instead (the owner, 30.10.: "se toimiva avain,
--- jolla saa sen 3kk auki"). The coach key function (redeem_koutsi_coach_key) itself is untouched.
--- The trial without a key stays closed: a key is always asked from the owner by e-mail.
--- Rollback: drop the two tables and the four functions, drop column koutsi_coach_plans.trial_code,
--- and `update koutsi_coach_invite_codes set revoked_at = null where code = 'KROSSIKOUTSI123'`.
+-- This public file was edited after applying (the user, 30.10.: key names are not to be in the code): the run
+-- also added the owner's keys and revoked the old coach key they replaced, as data, and named new keys after
+-- their length. Those rows and the naming are left out here; 20261030081942_koutsi_trial_codes_private_names
+-- makes a key without a name random, as this file shows. Tested in PGlite on top of
+-- 20261029193756_koutsi_coach_plans: koutsi/web/sql/20261030080055_koutsi_trial_codes.check.mjs
+-- Two tables, one column, four functions. The coach key function (redeem_koutsi_coach_key) is untouched.
+-- Rollback: drop the two tables and the four functions, drop column koutsi_coach_plans.trial_code.
 --
 -- Rules the app relies on:
 --   * A code gives N months free FROM THE DAY IT IS USED (never shortens a trial: the later end wins),
@@ -28,17 +24,16 @@
 --     revoked. Only admins see, make and revoke codes (koutsi_is_admin, checked in every function).
 --   * The same input also takes an old coach key: anything that is not a trial code goes to
 --     redeem_koutsi_coach_key unchanged.
---   * Keys say what they give, exactly as the owner wants them (30.10.): Krossikoutsi6kk+, Krossikoutsi12kk+,
---     Krossikoutsimaksuton+. There is one key per length; "Luo avain" for a length that already has one adds
---     uses to it (and puts it back in use if it was revoked). `code` is the key in capitals without anything
---     but letters and digits, so case, spaces, hyphens and the "+" never matter when a coach types it;
---     `shown` is the key as it is e-mailed.
+--   * The owner names a key as they like (or gets a random one); `code` is the key in capitals without
+--     anything but letters and digits, so case, spaces, hyphens and a "+" never matter when a coach types it;
+--     `shown` is the key as it is e-mailed. "Luo avain" with a name that exists adds uses to it (and puts it
+--     back in use if it was revoked). Key names never go into this public repo.
 
 -- ── tables ──────────────────────────────────────────────────────────────────
 
 create table if not exists public.koutsi_trial_codes (
   code text primary key check (code ~ '^[A-Z0-9]{4,30}$'),
-  -- the key as the owner e-mails it, e.g. Krossikoutsi12kk+ (null = same as code)
+  -- the key as the owner wrote and e-mails it (null = same as code)
   shown text check (shown is null or char_length(shown) <= 40),
   -- null = free use (a contract customer), else months of free trial from the day of use
   months integer check (months is null or months between 1 and 36),
@@ -180,9 +175,10 @@ begin
 end;
 $function$;
 
--- A key, returned as it is e-mailed. p_code null = Krossikoutsi12kk+ (Krossikoutsimaksuton+ for free use);
--- an own key is kept as the owner wrote it. A key that already exists with the same length gets p_max_uses
--- more uses, the new last day and is back in use; with another length it is refused.
+-- A key, returned as it is e-mailed. The owner writes the key (kept as written); without one it is eight
+-- random letters/digits (no I, O, 0, 1: easy to read aloud). Key names never go into this public repo.
+-- A key that already exists with the same length gets p_max_uses more uses, the new last day and is back
+-- in use; with another length it is refused.
 create or replace function public.koutsi_admin_create_trial_code(p_months integer, p_max_uses integer,
   p_expires_at timestamptz, p_note text, p_code text default null)
 returns text
@@ -195,14 +191,21 @@ declare
   v_code text := regexp_replace(upper(coalesce(p_code, '')), '[^A-Z0-9]', '', 'g');
   v_uses integer := greatest(1, coalesce(p_max_uses, 1));
   v_note text := nullif(btrim(coalesce(p_note, '')), '');
+  v_alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   v_old public.koutsi_trial_codes%rowtype;
 begin
   if not public.koutsi_is_admin() then
     raise exception 'not allowed';
   end if;
   if v_code = '' then
-    v_shown := 'Krossikoutsi' || case when p_months is null then 'maksuton' else p_months::text || 'kk' end || '+';
-    v_code := regexp_replace(upper(v_shown), '[^A-Z0-9]', '', 'g');
+    loop
+      v_code := '';
+      for i in 1..8 loop
+        v_code := v_code || substr(v_alphabet, 1 + floor(random() * length(v_alphabet))::integer, 1);
+      end loop;
+      exit when not exists (select 1 from public.koutsi_trial_codes c where c.code = v_code);
+    end loop;
+    v_shown := v_code;
   elsif v_code !~ '^[A-Z0-9]{4,30}$' then
     raise exception 'Avaimessa saa olla 4–30 kirjainta tai numeroa.';
   end if;
@@ -240,18 +243,8 @@ begin
 end;
 $function$;
 
--- ── the keys the owner e-mails ──────────────────────────────────────────────
--- Krossikoutsi123+ replaces the old coach key of the same name: 3 months instead of free use for good.
-
-insert into public.koutsi_trial_codes (code, shown, months, max_uses, note) values
-  ('KROSSIKOUTSI123', 'Krossikoutsi123+', 3, 25, '3 kk kokeilu. Korvasi vanhan valmentaja-avaimen 30.10.2026.'),
-  ('KROSSIKOUTSI6KK', 'Krossikoutsi6kk+', 6, 10, null),
-  ('KROSSIKOUTSI12KK', 'Krossikoutsi12kk+', 12, 10, null)
-on conflict (code) do nothing;
-
-update public.koutsi_coach_invite_codes
-   set revoked_at = coalesce(revoked_at, now())
- where code = 'KROSSIKOUTSI123';
+-- ── the owner's keys ────────────────────────────────────────────────────────
+-- Added as data in the same run, with the old coach key they replaced revoked. Not in this public file.
 
 -- ── function rights ─────────────────────────────────────────────────────────
 
