@@ -3,11 +3,12 @@
 // as a calendar; this is the place to find one group by name and open its page.
 import { useMemo, useState } from 'react';
 import { useData } from '../app/data.jsx';
-import { Button, EmptyState, Input, Page, PageHeader } from '../ui/index.js';
+import { Button, EmptyState, Icon, Input, Page, PageHeader } from '../ui/index.js';
 import { koutsiSortGroupsBySchedule, koutsiWeekThemeStatus } from '../domain/core.js';
+import { fmtDay } from '../domain/continueGroups.js';
 import { DAY_NAMES, plannerDefaultWeek } from '../domain/week.js';
 import { GroupRow } from './parts.jsx';
-import { GroupFormSheet } from './groupForms.jsx';
+import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 
 const remembered = { query: '' }; // back from a group finds the search as it was left
@@ -16,6 +17,7 @@ export function GroupListScreen() {
   const { state } = useData();
   const [formOpen, setFormOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [extendOpen, setExtendOpen] = useState(false);
   const [query, setQueryState] = useState(remembered.query);
   const setQuery = (v) => { remembered.query = v; setQueryState(v); };
   const week = plannerDefaultWeek();
@@ -34,6 +36,18 @@ export function GroupListScreen() {
     return out;
   }, [state.groups, q]);
   const players = new Set(state.groups.flatMap((g) => g.memberIds)).size;
+  // how far the groups' calendars reach: "Jatka kalenteria" continues them or adds a break
+  const reach = useMemo(() => {
+    const lastByGroup = new Map();
+    state.trainings.forEach((t) => {
+      if (!t.groupId || t.loggedBy === 'player') return;
+      if (!lastByGroup.has(t.groupId) || t.date > lastByGroup.get(t.groupId)) lastByGroup.set(t.groupId, t.date);
+    });
+    const lasts = state.groups.map((g) => lastByGroup.get(g.id)).filter(Boolean).sort();
+    if (!lasts.length) return 'Ei treenejä kalenterissa';
+    const [a, b] = [lasts[0], lasts[lasts.length - 1]];
+    return a === b ? `Treenit kalenterissa ${fmtDay(a)} asti` : `Treenit kalenterissa ${fmtDay(a)}–${fmtDay(b)} asti`;
+  }, [state.groups, state.trainings]);
   return (
     <Page width="wide">
       <PageHeader
@@ -52,6 +66,11 @@ export function GroupListScreen() {
       ) : (
         <div className="stack-5">
           <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae ryhmää" aria-label="Hae ryhmää" className="gl-search" />
+          <div className="k-calendar-end gl-calendar">
+            <Icon name="calendar" size={16} />
+            <span className="grow">{reach}</span>
+            <Button variant="ghost" size="sm" icon="repeat" onClick={() => setExtendOpen(true)}>Jatka kalenteria</Button>
+          </div>
           {byDay.length === 0 && <p className="k-quiet">Ei ryhmää haulla ”{query}”.</p>}
           <div className="gl-days">
             {byDay.map((bucket) => (
@@ -67,6 +86,7 @@ export function GroupListScreen() {
       )}
       <GroupFormSheet open={formOpen} onClose={() => setFormOpen(false)} />
       <BulkSetupSheet open={bulkOpen} onClose={() => setBulkOpen(false)} />
+      <ExtendCalendarSheet open={extendOpen} onClose={() => setExtendOpen(false)} groups={state.groups} />
     </Page>
   );
 }

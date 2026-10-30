@@ -67,7 +67,9 @@ export const API_CONTRACT = {
   themes: ['save', 'remove'],
 
   // setPlan(trainingId, plan) — "treenin runko" (domain/plan.js), kept in the session row's notes.
-  trainings: ['add', 'update', 'updateSeries', 'remove', 'removeSeries', 'countSeriesRemaining', 'setPlan'],
+  // removeMany(trainingIds): cancels many sessions at once (a break in "Jatka kalenteria"); each player
+  // gets the usual "Treeni peruttu", merged into one message by the notification bursts.
+  trainings: ['add', 'update', 'updateSeries', 'remove', 'removeMany', 'removeSeries', 'countSeriesRemaining', 'setPlan'],
 
   // set(trainingIds, studentId, 'paikalla' | 'poissa')
   attendance: ['set'],

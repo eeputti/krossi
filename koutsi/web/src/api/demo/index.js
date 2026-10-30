@@ -10,7 +10,7 @@ import { carryAbsences } from '../../domain/week.js';
 import {
   koutsiTodayStr, koutsiWeeklyDates, koutsiFmtShortDate, koutsiInitialOf, koutsiHueFromId,
   koutsiRoundTimeToQuarterHour, koutsiRoundToQuarterHourMinutes, koutsiClampGroupTrainingWeeks,
-  KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX, koutsiAddDays,
+  KOUTSI_DEFAULT_GROUP_TRAINING_WEEKS, KOUTSI_THEME_TITLE_MAX, KOUTSI_THEME_LEAD_MAX, koutsiAddDays, koutsiDateFromStr,
 } from '../../domain/core.js';
 import { writePlan } from '../../domain/plan.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
@@ -519,19 +519,30 @@ export const backend = {
       const today = koutsiTodayStr();
       if (seriesId) s.trainings = s.trainings.filter((t) => !(t.seriesId === seriesId && t.date >= today));
     },
+    // like koutsi_extend_group_series: each weekly time goes on from its last session (or today) on
+    // its own weekday, skipping the given days and days already in the calendar
     async extendSeries(groupId, untilDate, skipDates = []) {
       await wait();
       const s = S();
       const g = findGroup(groupId);
       const skip = new Set(skipDates);
+      const today = koutsiTodayStr();
+      const jsDay = { Su: 0, Ma: 1, Ti: 2, Ke: 3, To: 4, Pe: 5, La: 6 };
+      const own = (t) => t.groupId === groupId && t.loggedBy !== 'player';
       let added = 0;
       for (const slot of [{ day: g.day, time: g.time, durationMinutes: g.durationMinutes }, ...(g.slots || [])]) {
-        const existing = s.trainings.filter((t) => t.groupId === groupId && t.time === slot.time && t.loggedBy !== 'player');
-        const last = existing.map((t) => t.date).sort().pop() || koutsiTodayStr();
+        const dow = jsDay[slot.day];
+        if (dow === undefined || !slot.time) continue;
+        const existing = s.trainings.filter((t) => own(t) && t.time === slot.time && koutsiDateFromStr(t.date).getDay() === dow);
+        const last = existing.map((t) => t.date).sort().pop() || null;
         const seriesId = existing.find((t) => t.date === last)?.seriesId || newId('ser');
-        const dates = koutsiWeeklyDates(koutsiAddDays(last, 7), untilDate, 60).filter((d) => !skip.has(d));
-        dates.forEach((date) => s.trainings.push({ id: newId('tr'), date, time: slot.time, type: 'Ryhmätreeni', durationMinutes: slot.durationMinutes, loggedBy: 'coach', notes: '', endDate: null, studentId: null, groupId, coachId: COACH, seriesId, absences: [] }));
-        added += dates.length;
+        let d = last && last >= today ? koutsiAddDays(last, 1) : today;
+        d = koutsiAddDays(d, (dow - koutsiDateFromStr(d).getDay() + 7) % 7);
+        for (let i = 0; d <= untilDate && i < 60; i += 1, d = koutsiAddDays(d, 7)) {
+          if (skip.has(d) || s.trainings.some((t) => own(t) && t.date === d && t.time === slot.time)) continue;
+          s.trainings.push({ id: newId('tr'), date: d, time: slot.time, type: 'Ryhmätreeni', durationMinutes: slot.durationMinutes, loggedBy: 'coach', notes: '', endDate: null, studentId: null, groupId, coachId: COACH, seriesId, absences: [] });
+          added += 1;
+        }
       }
       return { added };
     },
@@ -638,6 +649,7 @@ export const backend = {
       S().trainings = S().trainings.map((t) => (t.seriesId === seriesId && t.date >= floor ? { ...t, time, type, ...(durationMinutes !== undefined ? { durationMinutes: durationMinutes || null } : {}) } : t));
     },
     async remove(id) { await wait(); S().trainings = S().trainings.filter((t) => t.id !== id); },
+    async removeMany(ids) { await wait(); const drop = new Set(ids || []); S().trainings = S().trainings.filter((t) => !drop.has(t.id)); },
     async removeSeries(seriesId, fromDate) {
       await wait();
       const today = koutsiTodayStr();
