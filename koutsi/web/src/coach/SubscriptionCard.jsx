@@ -22,7 +22,7 @@ export function PlanNotice({ onGo }) {
     // one child: .vs-situation is a wrapping flex row, the sentence should flow as text
     <p className="vs-situation">
       <span>
-        <strong>Kokeilu päättyi</strong> · Pelaajille lähettäminen vaatii tilauksen.{' '}
+        <strong>Kokeilu päättyi.</strong> Pelaajille lähettäminen vaatii tilauksen.{' '}
         <button type="button" className="k-textlink" onClick={() => { onGo?.(); navigate('/valmentaja/profiili'); }}>Ota tilaus</button>
       </span>
     </p>
