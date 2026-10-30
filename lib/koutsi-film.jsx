@@ -440,7 +440,7 @@ function KoutsiFilm() {
         background: kfMix(KF_LIME, KF_WHITE, kfP(t, 2.2, 2.5)),
         boxShadow: `inset 0 0 0 ${(4 * k * kfP(t, 2.2, 2.45)).toFixed(2)}px #121212`,
         transform: `translate(${kfLerp(from.x, ph2.x, mk).toFixed(1)}px, ${kfLerp(from.y, ph2.y, mk).toFixed(1)}px)`,
-        zIndex: t < 2.0 ? '1' : '6',
+        zIndex: t < 2.4 ? '1' : '6', // under the words until they are gone, so it never cuts a letter
       });
       kfShow(e.hookHl, t < 0.72 ? 0 : 1 - kfP(t, 2.5, 2.56));
     }
