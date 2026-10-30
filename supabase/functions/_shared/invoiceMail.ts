@@ -23,8 +23,16 @@ export interface MailInvoice {
   seller: { name?: string; iban?: string; email?: string } | null;
 }
 
-/** subject, html and text of the invoice mail (or its reminder). `link` = the invoice's own page. */
-export function renderInvoiceEmail(inv: MailInvoice, link: string, { reminder = false }: { reminder?: boolean } = {}) {
+/** Today in Finland, 'YYYY-MM-DD'. */
+export function helsinkiToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Helsinki', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+}
+
+/**
+ * subject, html and text of the invoice mail (or its reminder). `link` = the invoice's own page. A reminder
+ * says "eräpäivä on" until the due date (`today`, Finnish time) and "eräpäivä oli" after it.
+ */
+export function renderInvoiceEmail(inv: MailInvoice, link: string, { reminder = false, today = helsinkiToday() }: { reminder?: boolean; today?: string } = {}) {
   const seller = inv.seller?.name || 'Valmentajasi';
   const sum = euros(inv.totalCents);
   const due = fiDate(inv.dueDate);
@@ -33,7 +41,7 @@ export function renderInvoiceEmail(inv: MailInvoice, link: string, { reminder = 
   const subject = `${reminder ? 'Muistutus: lasku' : 'Lasku'} ${inv.number} – ${seller}`;
   const headline = reminder ? `Muistutus: lasku ${inv.number} on maksamatta` : `Lasku ${inv.number}: ${sum}`;
   const lead = reminder
-    ? `Laskun ${inv.number} (${sum}) eräpäivä oli ${due}. Jos olet jo maksanut, tämän voi ohittaa.`
+    ? `Laskun ${inv.number} (${sum}) eräpäivä ${inv.dueDate && String(inv.dueDate).slice(0, 10) >= today ? 'on' : 'oli'} ${due}. Jos olet jo maksanut, tämän voi ohittaa.`
     : `${seller} lähetti sinulle laskun. Eräpäivä on ${due}.`;
   const label = inv.payable ? 'Maksa lasku' : 'Avaa lasku';
   const note = String(inv.note || '').trim();

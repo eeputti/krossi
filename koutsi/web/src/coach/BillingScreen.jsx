@@ -9,7 +9,7 @@ import { useData } from '../app/data.jsx';
 import { dropQueryParam, navigate, useRoute } from '../app/router.js';
 import { Avatar, Button, Chip, EmptyState, IconButton, Page, PageHeader, Section, SkeletonList, useConfirm, useToast } from '../ui/index.js';
 import { koutsiTodayStr } from '../domain/core.js';
-import { INVOICE_STATES, countsLine, euros, fiDate, invoiceGroups, invoiceState, lineCounts, totalOf } from '../domain/billing.js';
+import { INVOICE_STATES, billingStudents, countsLine, euros, fiDate, invoiceGroups, invoiceState, lineCounts, totalOf } from '../domain/billing.js';
 import { useBilling } from '../shared/billing/BillingProvider.jsx';
 import {
   BillerSheet, DeliveryLine, InvoiceSheet, NewBillingSheet, PaymentsSheet, PricesSheet, SettingsSheet, TermsSheet, deliverySummary,
@@ -99,7 +99,10 @@ export function BillingScreen() {
   const synced = useRef(false);
   useEffect(() => {
     if (synced.current || !billing.ready || !billing.biller?.stripeAccountId) return;
-    if (!(billing.invoices || []).some((x) => x.status === 'sent' && x.checkoutSessionId)) return;
+    // also a payment that came through after the coach voided the invoice or marked it paid (the coach is told)
+    const recent = (x) => Date.now() - Date.parse(x.voidedAt || x.paidAt || 0) < 3 * 86400000;
+    const closedOpen = (x) => (x.status === 'void' || (x.status === 'paid' && x.paidVia !== 'stripe')) && recent(x);
+    if (!(billing.invoices || []).some((x) => x.checkoutSessionId && (x.status === 'sent' || closedOpen(x)))) return;
     synced.current = true;
     api.billing.syncPayments(ownerId).then((r) => {
       if (r?.updated) {
@@ -109,7 +112,8 @@ export function BillingScreen() {
     }).catch(() => {});
   }, [billing.ready, billing.invoices, billing.biller]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const studentOf = (inv) => state.students.find((s) => s.id === inv.studentId) || null;
+  const everyone = billingStudents(state.students, billing.formerStudents);
+  const studentOf = (inv) => everyone.find((s) => s.id === inv.studentId) || null;
   const card = (x) => (
     <InvoiceCard key={x.id} inv={x} student={studentOf(x)} groups={invoiceGroups(x, state.groups)} today={today} onOpen={openInvoice} />
   );
