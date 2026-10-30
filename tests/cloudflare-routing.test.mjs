@@ -263,6 +263,15 @@ test('an invoice link opens the new player shell for everyone, never the old app
   assert.equal(app.headers.get('x-robots-tag'), null);
 });
 
+test('the demo host is never indexed: every answer has noindex; the real Koutsi pages do not', async () => {
+  for (const url of ['https://demo.koutsi.krossi.app/', 'https://demo.koutsi.krossi.app/valmentaja', 'https://demo.koutsi.krossi.app/pelaaja/koti']) {
+    const response = await worker.fetch(koutsiRequest(url), echoAsset);
+    assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow', url);
+  }
+  const landing = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/'), echoAsset);
+  assert.equal(landing.headers.get('x-robots-tag'), null);
+});
+
 test('?uusi=0 returns to the old Koutsi and remembers it was left (the old app then offers the way back)', async () => {
   const response = await worker.fetch(koutsiRequest('https://koutsi.krossi.app/valmentaja?uusi=0', 'koutsi_uusi=1'), echoAsset);
   assert.equal(await response.text(), '/koutsi-valmentaja.html');

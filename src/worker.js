@@ -320,33 +320,43 @@ function isHtml(response) {
   return (response.headers.get('content-type') || '').startsWith('text/html');
 }
 
+async function handle(request, env) {
+  const { hostname, pathname } = new URL(request.url);
+
+  if (pathname === '/robots.txt') {
+    return new Response(buildRobots(hostname), { headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  }
+  if (pathname === '/sitemap.xml') {
+    return new Response(buildSitemap(hostname), { headers: { 'content-type': 'application/xml; charset=utf-8' } });
+  }
+
+  if (isKoutsiHost(hostname)) {
+    const switched = await serveNewKoutsiSwitch(request, env);
+    if (switched) return switched;
+  }
+
+  const assetPath = resolveAssetPath(request);
+  const shareTarget = assetPath === '/app.html' && request.method === 'GET' && !isKoutsiHost(hostname)
+    ? shareTargetFor(pathname)
+    : null;
+  // Started before the asset fetch so the two run in parallel.
+  const shareMeta = shareTarget ? loadShareMeta(shareTarget) : null;
+
+  const response = await env.ASSETS.fetch(assetPath ? rewriteRequest(request, assetPath) : request);
+  if (!shareMeta || response.status !== 200 || !isHtml(response)) return response;
+
+  const meta = await shareMeta;
+  return meta ? injectShareMeta(response, meta) : response;
+}
+
 export default {
   async fetch(request, env) {
-    const { hostname, pathname } = new URL(request.url);
-
-    if (pathname === '/robots.txt') {
-      return new Response(buildRobots(hostname), { headers: { 'content-type': 'text/plain; charset=utf-8' } });
-    }
-    if (pathname === '/sitemap.xml') {
-      return new Response(buildSitemap(hostname), { headers: { 'content-type': 'application/xml; charset=utf-8' } });
-    }
-
-    if (isKoutsiHost(hostname)) {
-      const switched = await serveNewKoutsiSwitch(request, env);
-      if (switched) return switched;
-    }
-
-    const assetPath = resolveAssetPath(request);
-    const shareTarget = assetPath === '/app.html' && request.method === 'GET' && !isKoutsiHost(hostname)
-      ? shareTargetFor(pathname)
-      : null;
-    // Started before the asset fetch so the two run in parallel.
-    const shareMeta = shareTarget ? loadShareMeta(shareTarget) : null;
-
-    const response = await env.ASSETS.fetch(assetPath ? rewriteRequest(request, assetPath) : request);
-    if (!shareMeta || response.status !== 200 || !isHtml(response)) return response;
-
-    const meta = await shareMeta;
-    return meta ? injectShareMeta(response, meta) : response;
+    const response = await handle(request, env);
+    if (new URL(request.url).hostname !== DEMO_HOST) return response;
+    // The demo is opened by its address only, never found by search: noindex on everything it
+    // serves (Cloudflare's managed robots.txt puts an "Allow: /" before ours, which would win).
+    const headers = new Headers(response.headers);
+    headers.set('x-robots-tag', 'noindex, nofollow');
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 };
