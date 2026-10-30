@@ -165,7 +165,7 @@ test('daytime, a mail an hour ago: a cancellation goes on its own, the huomio ke
   await at(db, 14);
   await mailedAgo(db, MARIA, 1);
   const huomio = await notice(db, MARIA, 'diary', 'Uusi huomio valmentajaltasi', 30);
-  await notice(db, MARIA, 'training_cancelled', 'Treeni peruttu', 3);
+  await notice(db, MARIA, 'training_cancelled', 'Treeni peruttu', 4); // a minute apart: the digest lists them in order
   await notice(db, MARIA, 'training_moved', 'Treeni siirtyi', 3);
   const out = await claim(db);
   assert.equal(out.length, 1);
