@@ -1,4 +1,5 @@
--- 20261030132000_krossi_chat_cleanup_pg_net.sql — Krossi's nightly chat-image cleanup has failed every
+-- 20261030132000_krossi_chat_cleanup_pg_net.sql — NOT APPLIED (needs the user's OK: it turns the deleting of
+-- chat images older than 14 days on). Krossi's nightly chat-image cleanup has failed every
 -- night since 2026-05-25: its cron job calls extensions.http_post (the `http` extension), which is not
 -- installed. pg_net is, so the job now calls the same edge function (cleanup-chat-images, no JWT) with
 -- net.http_post. Behaviour is as designed: images on chat messages older than 14 days are removed.

@@ -320,7 +320,7 @@ export const groups = {
     const slots = must(await from('koutsi_group_slots').select('series_id').eq('group_id', groupId).not('series_id', 'is', null)) || [];
     const slotSeriesIds = slots.map((s) => s.series_id).filter(Boolean);
     // One call drops and remakes them, and the players' "En pääse" reports move to the new session of the
-    // same week (migration 20261030130000: koutsi_reschedule_group); without it, the old way below.
+    // same week (migration 20261030123905: koutsi_reschedule_group); without it, the old way below.
     let old = from('koutsi_trainings').select('id').eq('group_id', groupId).gte('date', today);
     if (slotSeriesIds.length) old = old.not('series_id', 'in', `(${slotSeriesIds.join(',')})`);
     const oldIds = (must(await old) || []).map((t) => t.id);

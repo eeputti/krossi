@@ -1,8 +1,7 @@
--- 20261030131000_koutsi_mail_and_key_fixes.sql — three fixes found in the review of 30.10.2026.
+-- 20261030124009_koutsi_mail_and_key_fixes.sql — three fixes found in the review of 30.10.2026.
 --
--- NOT APPLIED — a proposal (30.10.2026). Apply only on the user's go-ahead (apply_migration with this name),
--- then move the file to supabase/migrations. Tested in PGlite on top of the live definitions, read from the
--- migration files: koutsi/web/sql/20261030131000_koutsi_mail_and_key_fixes.check.mjs
+-- APPLIED 30.10.2026 as 20261030124009_koutsi_mail_and_key_fixes (the user's "Korjaa kaikki"). Tested in PGlite
+-- on top of the live definitions, read from the migration files: koutsi/web/sql/20261030124009_koutsi_mail_and_key_fixes.check.mjs
 -- Function bodies only (create or replace): no table, policy, trigger or data changes.
 -- Rollback: run the four functions again from where they come from (named at each one below).
 --

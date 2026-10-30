@@ -70,7 +70,7 @@ async function withLines(rows) {
 
 /**
  * Players who have left the coach, for the sessions they had before leaving (koutsi_billing_students,
- * migration 20261030130000). Without the function: none, as before.
+ * migration 20261030123905). Without the function: none, as before.
  */
 async function formerStudents(coachId) {
   const res = await db().rpc('koutsi_billing_students', { p_coach: coachId });
@@ -141,7 +141,7 @@ export const billing = {
       prefsReady: !prefs.error,
       biller: mapBiller(must(billerRow_)),
       invoices,
-      // rejoinedAt / pastPeriods: a player removed and added back (migration 20261030130000; absent before it)
+      // rejoinedAt / pastPeriods: a player removed and added back (migration 20261030123905; absent before it)
       memberships: (must(memberRows) || []).map((m) => ({
         groupId: m.group_id, studentId: m.student_id, joinedAt: m.joined_at, endedAt: m.ended_at || null, groupCreatedAt: m.group_created_at || null,
         rejoinedAt: m.rejoined_at || null, pastPeriods: Array.isArray(m.past_periods) ? m.past_periods : [],

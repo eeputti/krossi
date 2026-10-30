@@ -1,5 +1,5 @@
-// 20261030131000_koutsi_mail_and_key_fixes.check.mjs — runs the proposed mail + key fixes
-// (koutsi/web/sql/20261030131000_koutsi_mail_and_key_fixes.sql, NOT applied) in PGlite on top of the live
+// 20261030124009_koutsi_mail_and_key_fixes.check.mjs — runs the proposed mail + key fixes
+// (supabase/migrations/20261030124009_koutsi_mail_and_key_fixes.sql, NOT applied) in PGlite on top of the live
 // definitions read from supabase/migrations, in two small worlds:
 //   * e-mail: production's notification pipeline (koutsi_email_round, koutsi_move_and_absence_notices, the
 //     training triggers of no_middle_dots, koutsi_mark_notifications_sent / koutsi_requeue_stuck_notifications
@@ -11,7 +11,7 @@
 //     20261030082914). Checks that a free-use key works for a new account only. Key names here are made up.
 // PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261030131000_koutsi_mail_and_key_fixes.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261030124009_koutsi_mail_and_key_fixes.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -22,7 +22,7 @@ const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
 const mig = (name) => readFile(join(here, '../../../supabase/migrations', name), 'utf8');
-const FIXES = await readFile(join(here, '20261030131000_koutsi_mail_and_key_fixes.sql'), 'utf8');
+const FIXES = await readFile(join(here, '../../../supabase/migrations/20261030124009_koutsi_mail_and_key_fixes.sql'), 'utf8');
 const EMAIL_ROUND = await mig('20261026110257_koutsi_email_round.sql');
 const MOVES = await mig('20261026183340_koutsi_move_and_absence_notices.sql');
 const NO_DOTS = await mig('20261030070237_no_middle_dots.sql');
