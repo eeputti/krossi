@@ -162,6 +162,63 @@ window.krossiLoadPixel = function () {
   .step-card h3 { margin: 0 0 8px; font-size: 1.1rem; font-weight: 800; letter-spacing: -0.01em; }
   .step-card p { margin: 0; font-size: 14px; line-height: 1.55; color: rgba(255,255,255,0.7); }
 
+  /* ── the coach's tools: the app on a laptop (lib/koutsi-laptop.jsx) ── */
+  .tools { background: var(--paper); padding: clamp(56px,9vw,110px) 16px; }
+  .tools-inner { max-width: 1120px; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .tools h2 { margin: 10px 0 12px; font-size: clamp(2rem,5.6vw,3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; }
+  .tools-sub { margin: 0 0 clamp(28px,4.5vw,48px); max-width: 560px; font-size: clamp(1rem,2.1vw,1.12rem); line-height: 1.55; color: var(--ink-2); }
+  .tools-cta { margin-top: clamp(26px,4vw,40px); }
+  .lt { width: 100%; }
+  .lt-device { width: min(100%, 940px); margin: 0 auto; }
+  .lt-lid { position: relative; background: #0d0d0d; border-radius: clamp(10px,1.8vw,18px) clamp(10px,1.8vw,18px) 4px 4px; padding: clamp(6px,1.2vw,12px) clamp(6px,1.2vw,12px) clamp(10px,1.8vw,18px); box-shadow: inset 0 0 0 1.5px #2b2b2b; }
+  .lt-cam { position: absolute; top: clamp(2px,0.45vw,4px); left: 50%; width: 5px; height: 5px; border-radius: 50%; background: #2a2a2a; transform: translateX(-50%); }
+  .lt-screen { aspect-ratio: 16 / 10; display: flex; flex-direction: column; overflow: hidden; border-radius: 4px; background: #fff; }
+  .lt-chrome { flex-shrink: 0; background: #e9e9e9; }
+  .lt-tabs { display: flex; align-items: flex-end; gap: 2px; padding: clamp(4px,0.8vw,8px) clamp(6px,1vw,10px) 0; min-width: 0; }
+  .lt-dots { display: inline-flex; gap: clamp(3px,0.5vw,6px); margin: 0 clamp(6px,1.2vw,14px) clamp(6px,1vw,10px) 2px; flex-shrink: 0; }
+  .lt-dots i { width: clamp(5px,0.9vw,10px); height: clamp(5px,0.9vw,10px); border-radius: 50%; background: #c9c9c9; }
+  .lt-tab {
+    flex: 0 1 160px; min-width: 0; display: inline-flex; align-items: center; gap: clamp(3px,0.5vw,7px);
+    padding: clamp(4px,0.7vw,8px) clamp(5px,1vw,12px); border: 0; border-radius: 8px 8px 0 0; background: transparent;
+    font: inherit; font-size: clamp(8px,1.25vw,12.5px); font-weight: 600; color: #5b5b5b; cursor: pointer; white-space: nowrap;
+  }
+  .lt-tab span { overflow: hidden; text-overflow: ellipsis; }
+  .lt-tab img { width: clamp(8px,1.3vw,14px); height: auto; flex-shrink: 0; }
+  .lt-tab:hover { color: var(--ink); }
+  .lt-tab.is-on { background: #fff; color: var(--ink); font-weight: 750; }
+  .lt-bar { background: #fff; padding: clamp(3px,0.6vw,7px) clamp(6px,1vw,12px); border-bottom: 1px solid #e3e3e3; }
+  .lt-url {
+    display: flex; align-items: center; gap: 6px; padding: clamp(2px,0.45vw,5px) clamp(8px,1.2vw,14px); border-radius: 999px;
+    background: #f0f0f0; font-size: clamp(8px,1.2vw,12.5px); color: #4a4a4a; white-space: nowrap; overflow: hidden; text-align: left;
+  }
+  .lt-url svg { flex-shrink: 0; color: #8a8a8a; width: clamp(7px,0.9vw,10px); height: auto; }
+  .lt-view { position: relative; flex: 1; min-height: 0; background: #fff; }
+  .lt-shot {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 100%;
+    opacity: 0; transition: opacity .6s ease;
+  }
+  .lt-shot.is-on { opacity: 1; animation: lt-pan 4.2s ease-in-out both; }
+  .lt-view.is-still .lt-shot { object-position: 50% 0%; animation: none; }
+  @keyframes lt-pan { 0%, 20% { object-position: 50% 0%; } 100% { object-position: 50% 100%; } }
+  @media (prefers-reduced-motion: reduce) { .lt-shot { transition: none; } .lt-shot.is-on { animation: none; object-position: 50% 0%; } }
+  .lt-base { position: relative; height: clamp(8px,1.4vw,14px); margin: 0 -5%; border-radius: 0 0 clamp(8px,1.4vw,14px) clamp(8px,1.4vw,14px); background: linear-gradient(#dcdcdc, #b8b8b8); }
+  .lt-base::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 15%; height: 40%; border-radius: 0 0 8px 8px; background: #a8a8a8; }
+  .lt-cards { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: clamp(30px,4.5vw,48px); text-align: left; }
+  @media (min-width: 620px) { .lt-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1000px) { .lt-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; } }
+  .lt-card {
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column; gap: 6px; padding: 18px 18px 20px; border-radius: 14px; text-align: left;
+    background: #fff; border: 1.5px solid var(--line); font: inherit; color: var(--ink); cursor: pointer;
+    transition: border-color .25s, background-color .25s;
+  }
+  .lt-card:hover { border-color: var(--line-strong); }
+  .lt-card.is-on { border-color: var(--ink); background: var(--lime-100); }
+  .lt-card-title { font-size: 1.02rem; font-weight: 800; letter-spacing: -0.01em; }
+  .lt-card-text { font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+  .lt-card-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--ink); transform-origin: left; animation: lt-fill 4.2s linear both; }
+  @keyframes lt-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
   /* ── closing ── */
   .closing {
     position: relative; overflow: hidden; text-align: center; color: #fff;
