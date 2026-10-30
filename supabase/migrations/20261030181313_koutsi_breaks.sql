@@ -1,4 +1,4 @@
--- 20261030170000_koutsi_breaks.sql: a break (tauko) in the players' calendar.
+-- 20261030181313_koutsi_breaks.sql: a break (tauko) in the players' calendar. Applied 30.10.2026.
 --
 -- "Jatka kalenteria" can put groups on a break (Joululoma, Hiihtoloma …). The break is a club event
 -- (koutsi_coach_events, kind 'tauko'), so the players' calendar draws it as one bar over the days like the

@@ -91,7 +91,7 @@ test('next term end and the summary day', () => {
   assert.equal(fmtDay('2027-01-07', TODAY), 'to 7.1.2027');
 });
 
-// the same three texts as koutsi_break_notice_body in koutsi/web/sql/20261030170000_koutsi_breaks.check.mjs
+// the same three texts as koutsi_break_notice_body in koutsi/web/sql/20261030181313_koutsi_breaks.check.mjs
 test('the notice a player gets reads exactly like the server writes it', () => {
   assert.deepEqual(breakNotice({ name: 'Joululoma', from: '2026-12-19', to: '2027-01-06', next: { date: '2027-01-07', time: '17:00' }, message: 'Hyvää joulua!' }),
     { title: 'Joululoma', body: 'Ei treenejä la 19.12.–ke 6.1. Seuraava treenisi on to 7.1. klo 17:00. Hyvää joulua!' });

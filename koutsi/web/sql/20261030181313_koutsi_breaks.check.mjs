@@ -1,11 +1,11 @@
-// 20261030170000_koutsi_breaks.check.mjs — runs the break migration (koutsi/web/sql/20261030170000_koutsi_breaks.sql)
+// 20261030181313_koutsi_breaks.check.mjs — runs the break migration (supabase/migrations/20261030181313_koutsi_breaks.sql, applied 30.10.2026)
 // in PGlite on a small stub of the Koutsi tables: who sees a break, that the groups must be the coach's own,
 // that notified_at belongs to the job, the notification text, and when the players are told. koutsi_notify is
 // a recorder here (its merging is checked in 20261030124009_koutsi_mail_and_key_fixes.check.mjs). The
 // Helsinki time is pinned per test (koutsi.test_now, patched in here only).
 // PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261030170000_koutsi_breaks.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261030181313_koutsi_breaks.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
-const SQL = await readFile(join(here, '20261030170000_koutsi_breaks.sql'), 'utf8');
+const SQL = await readFile(join(here, '../../../supabase/migrations/20261030181313_koutsi_breaks.sql'), 'utf8');
 const NOW = `v_local timestamp := now() at time zone 'Europe/Helsinki';`;
 assert.ok(SQL.includes(NOW), 'the time expression moved: update the check');
 const PINNED = SQL.replace(NOW, `v_local timestamp := coalesce(nullif(current_setting('koutsi.test_now', true), '')::timestamp, now() at time zone 'Europe/Helsinki');`);
