@@ -281,8 +281,8 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   verkkomaksu pysyy piilossa. Funktio julkaistaan verify_jwt pois
   (`supabase functions deploy koutsi-pay --no-verify-jwt`); salaisuutena sama STRIPE_SECRET_KEY kuin krossi-funktioilla.
   Demo: verkkomaksu päällä, "Maksa" merkitsee laskun maksetuksi heti ilman Stripeä.
-  **Vaihe 3** (ehdotus `koutsi/web/sql/20261110140000_koutsi_billing_mail.sql`, EI ajettu; PGlite-testi samassa
-  kansiossa). Laskulista on kortteja: pelaajan kuva ja nimi, ryhmä, summa ja **minne lasku menee** (`deliveryOf`:
+  **Vaihe 3** (migraatio `supabase/migrations/20261030070121_koutsi_billing_mail.sql`, ajettu 30.10.2026 käyttäjän
+  luvalla; PGlite-testi `koutsi/web/sql/20261030070121_koutsi_billing_mail.check.mjs`). Laskulista on kortteja: pelaajan kuva ja nimi, ryhmä, summa ja **minne lasku menee** (`deliveryOf`:
   maksajan sähköposti / pelaajan Koutsi / varoitus "Ei sähköpostia"); Lähetä kaikki kertoo saman yhteenvetona.
   Luonnosta muokataan itse laskuna (maksaja, viesti `note`, rivit, Lisää rivi), napissa "Lähetä lasku". Laskuttajalla
   voi olla logo (julkinen bucket `koutsi-logos`, `<valmentajan id>/…`, PNG/JPEG ≤ 1 Mt, `logo_path`), joka kopioituu
@@ -298,7 +298,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   MobilePay 1,75 % + 0,36 €; Klarna 3,24 % + 0,40 €; ei katetta). Klarnalla on oma nappi ja oma Checkout-sivu, jotta
   valmentaja maksaa vain pelaajan valitseman tavan kulun; `koutsi_billers.stripe_methods` (funktio kirjoittaa) kertoo,
   ottaako tili MobilePayn ja Klarnan. Verkkomaksut-ikkuna näyttää kulun 100 €:n esimerkkinä (`PAY_COSTS` = koutsiPay.ts,
-  testi vertaa). Käyttöönotto: aja migraatio, julkaise `koutsi-invoice` ja `koutsi-pay` (`--no-verify-jwt`).
+  testi vertaa). Funktiot `koutsi-invoice` ja `koutsi-pay` julkaistaan `--no-verify-jwt`.
   Sähköpostit tarvitsevat salaisuudet RESEND_API_KEY ja KOUTSI_MAIL_FROM (samat kuin koutsi-notifylla).
 
 - **Vapaat ajat odottaa julkaisua (omistaja 29.10.2026: "julkaistaan vasta myöhemmin"): pääkytkin `OPEN_SLOTS_ON = false`
