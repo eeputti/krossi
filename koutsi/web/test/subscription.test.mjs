@@ -106,9 +106,24 @@ test('month or year: the yearly price, what it saves, only when there is one', (
     { interval: 'year', title: 'Vuosi', sub: '290 €/v, säästät 58 €' },
   ]);
   assert.equal(yearLine({ ...both, vat: 25.5 }), '290 €/v + alv');
-  assert.deepEqual(checkoutChoices({ ...both, offer: { cents: 1900, months: 12 } })[0].sub, '19 €/kk 12 kk, sitten 29 €/kk');
   assert.deepEqual(checkoutChoices(null), [{ interval: 'month', title: 'Kuukausi', sub: 'Kuukausittain' }]);
-  for (const c of checkoutChoices({ ...both, vat: 25.5 })) assert.doesNotMatch(c.sub, /·/);
+});
+
+test('founding offer on: a year is not "säästät" when 12 × 19 € is less than 290 €', () => {
+  const price = { cents: 2900, interval: 'month', offer: { cents: 1900, months: 12 }, vat: null, year: { cents: 29000 } };
+  assert.equal(yearSaving(price), 0, '228 € a year on the offer, the year costs 290 €');
+  assert.deepEqual(checkoutChoices(price), [
+    { interval: 'month', title: 'Kuukausi', sub: '19 €/kk 12 kk, sitten 29 €/kk' },
+    { interval: 'year', title: 'Vuosi', sub: '290 €/v, ilman aloitustarjousta' },
+  ]);
+  // a short offer: the year can still be the cheaper first year (3 × 19 + 9 × 29 = 318 €)
+  const short = { ...price, offer: { cents: 1900, months: 3 } };
+  assert.equal(yearSaving(short), 2800);
+  assert.equal(checkoutChoices(short)[1].sub, '290 €/v, säästät 28 €');
+  // the offer gone (places taken): the plain comparison again
+  assert.equal(checkoutChoices({ ...price, offer: null })[1].sub, '290 €/v, säästät 58 €');
+  for (const c of checkoutChoices({ ...price, vat: 25.5 })) assert.doesNotMatch(c.sub, /·/);
+  for (const c of checkoutChoices({ ...price, offer: null, vat: 25.5 })) assert.doesNotMatch(c.sub, /·/);
 });
 
 test('a valmentaja-avain: the card offers it after the trial (not during it: that key is used), and the surprise says what it gave', () => {

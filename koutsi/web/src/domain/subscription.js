@@ -62,15 +62,19 @@ export function fmtEuros(cents) {
   return rest ? `${whole},${String(rest).padStart(2, '0')} €` : `${whole} €`;
 }
 
+/** The founding offer, when the price has one that is cheaper than the price itself. */
+const offerOf = (price) => {
+  const offer = price?.offer;
+  return offer && Number.isFinite(offer.cents) && offer.cents < price.cents && offer.months > 0 ? offer : null;
+};
+
 /** "29 €/kk", "19 €/kk 12 kk, sitten 29 €/kk", with VAT "… + alv"; '' without a price. */
 export function priceLine(price) {
   if (!price || !Number.isFinite(price.cents)) return '';
   const base = `${fmtEuros(price.cents)}/kk`;
   const vat = price.vat ? ' + alv' : '';
-  const offer = price.offer;
-  if (offer && Number.isFinite(offer.cents) && offer.cents < price.cents && offer.months > 0) {
-    return `${fmtEuros(offer.cents)}/kk ${offer.months} kk, sitten ${base}${vat}`;
-  }
+  const offer = offerOf(price);
+  if (offer) return `${fmtEuros(offer.cents)}/kk ${offer.months} kk, sitten ${base}${vat}`;
   return `${base}${vat}`;
 }
 
@@ -80,18 +84,29 @@ export function yearLine(price) {
   return `${fmtEuros(price.year.cents)}/v${price.vat ? ' + alv' : ''}`;
 }
 
-/** What a year costs less than twelve months, in cents (0 when it doesn't). */
-export function yearSaving(price) {
-  if (!price?.year || !Number.isFinite(price.cents) || !Number.isFinite(price.year.cents)) return 0;
-  return Math.max(0, price.cents * 12 - price.year.cents);
+/** The first year on the monthly price, in cents: the founding offer's months at the offer price. */
+function firstYearMonthly(price) {
+  const offer = offerOf(price);
+  const m = offer ? Math.min(12, offer.months) : 0;
+  return (offer ? offer.cents * m : 0) + price.cents * (12 - m);
 }
 
-/** "Ota tilaus": monthly, and yearly when there is a yearly price. → [{ interval, title, sub }] */
+/** What a year costs less than the first twelve months monthly (the founding offer counted), in cents. */
+export function yearSaving(price) {
+  if (!price?.year || !Number.isFinite(price.cents) || !Number.isFinite(price.year.cents)) return 0;
+  return Math.max(0, firstYearMonthly(price) - price.year.cents);
+}
+
+/**
+ * "Ota tilaus": monthly, and yearly when there is a yearly price. → [{ interval, title, sub }]
+ * The founding offer is monthly only: while it is on, a year is not "säästät" but "ilman aloitustarjousta".
+ */
 export function checkoutChoices(price) {
   const month = { interval: 'month', title: 'Kuukausi', sub: priceLine(price) || 'Kuukausittain' };
   if (!yearLine(price)) return [month];
   const save = yearSaving(price);
-  return [month, { interval: 'year', title: 'Vuosi', sub: `${yearLine(price)}${save ? `, säästät ${fmtEuros(save)}` : ''}` }];
+  const note = save ? `, säästät ${fmtEuros(save)}` : offerOf(price) ? ', ilman aloitustarjousta' : '';
+  return [month, { interval: 'year', title: 'Vuosi', sub: `${yearLine(price)}${note}` }];
 }
 
 /**
