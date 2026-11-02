@@ -86,6 +86,8 @@ function resolveKoutsiAssetPath(hostname, pathname) {
     // the coach subscription's terms and data processing agreement (koutsi/web domain/subscription.js)
     if (pathname === '/tilausehdot' || pathname === '/tilausehdot/') return '/koutsi-tilausehdot.html';
     if (pathname === '/kasittelysopimus' || pathname === '/kasittelysopimus/') return '/koutsi-kasittelysopimus.html';
+    // contact page with the Cal.com booking calendar (the link sent to coaches by e-mail)
+    if (pathname === '/yhteys' || pathname === '/yhteys/') return '/koutsi-yhteys.html';
   }
   if (matchesPath(pathname, '/pelaa', 1)) return '/app.html';
   return null;

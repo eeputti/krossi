@@ -48,6 +48,8 @@ const routes = [
   ['https://koutsi.krossi.app/kayttoehdot', '/koutsi-kayttoehdot.html'],
   ['https://koutsi.krossi.app/tilausehdot', '/koutsi-tilausehdot.html'],
   ['https://koutsi.krossi.app/kasittelysopimus/', '/koutsi-kasittelysopimus.html'],
+  ['https://koutsi.krossi.app/yhteys', '/koutsi-yhteys.html'],
+  ['https://koutsi.krossi.app/yhteys/?utm_source=email', '/koutsi-yhteys.html'],
   ['https://demo.koutsi.krossi.app/', '/koutsi-demo.html'],
   ['https://demo.koutsi.krossi.app/valmentaja', '/koutsi-valmentaja-demo.html'],
   ['https://demo.koutsi.krossi.app/pelaaja/treenit', '/koutsi-pelaaja-demo.html'],
@@ -86,6 +88,9 @@ test('does not turn unknown or overly deep paths into app pages', () => {
   assert.equal(resolveAssetPath('https://krossi.app/varaa/a/b'), null);
   assert.equal(resolveAssetPath('https://krossi.app/varaat'), null);
   assert.equal(resolveAssetPath('https://koutsi.krossi.app/varaa'), null);
+  assert.equal(resolveAssetPath('https://koutsi.krossi.app/yhteys/x'), null);
+  assert.equal(resolveAssetPath('https://demo.koutsi.krossi.app/yhteys'), null);
+  assert.equal(resolveAssetPath('https://krossi.app/yhteys'), null);
   // The new Krossi routes don't leak onto the Koutsi hosts.
   assert.equal(resolveAssetPath('https://koutsi.krossi.app/demo'), null);
   assert.equal(resolveAssetPath(`https://koutsi.krossi.app/pelaa/peli/${GAME_ID}`), null);
