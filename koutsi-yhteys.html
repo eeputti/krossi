@@ -127,10 +127,10 @@
       <div class="cal-wait">
         <span class="spinner" aria-hidden="true"></span>
         <span>Ladataan kalenteria…</span>
-        <span class="cal-fallback">Eikö kalenteri aukea? <a href="https://cal.com/eelis-puro/30min">Avaa se tästä</a></span>
+        <span class="cal-fallback">Eikö kalenteri aukea? <a href="https://cal.com/eelis-puro/krossi-koutsi-30min">Avaa se tästä</a></span>
       </div>
       <noscript>
-        <div class="cal-wait"><span>Avaa kalenteri: <a href="https://cal.com/eelis-puro/30min">cal.com/eelis-puro/30min</a></span></div>
+        <div class="cal-wait"><span>Avaa kalenteri: <a href="https://cal.com/eelis-puro/krossi-koutsi-30min">cal.com/eelis-puro/krossi-koutsi-30min</a></span></div>
       </noscript>
     </div>
 
@@ -148,7 +148,7 @@
     </div>
   </footer>
 
-  <!-- Cal.com inline embed (https://cal.com/eelis-puro/30min). Only this page loads it. -->
+  <!-- Cal.com inline embed (https://cal.com/eelis-puro/krossi-koutsi-30min). Only this page loads it. -->
   <script>
     (function (C, A, L) { var p = function (a, ar) { a.q.push(ar); }; var d = C.document; C.Cal = C.Cal || function () { var cal = C.Cal; var ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { var api = function () { p(api, arguments); }; var namespace = ar[1]; api.q = api.q || []; if (typeof namespace === "string") { cal.ns[namespace] = cal.ns[namespace] || api; p(cal.ns[namespace], ar); p(cal, ["initNamespace", namespace]); } else p(cal, ar); return; } p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
 
@@ -159,7 +159,7 @@
     Cal.ns.koutsi("inline", {
       elementOrSelector: "#koutsi-cal",
       config: { layout: "month_view", useSlotsViewOnSmallScreen: "true", theme: "light" },
-      calLink: "eelis-puro/30min",
+      calLink: "eelis-puro/krossi-koutsi-30min",
     });
     // Koutsi's lime with dark text instead of Cal.com's green.
     Cal.ns.koutsi("ui", {
