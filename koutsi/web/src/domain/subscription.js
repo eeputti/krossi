@@ -99,13 +99,15 @@ export function yearSaving(price) {
 
 /**
  * "Ota tilaus": monthly, and yearly when there is a yearly price. → [{ interval, title, sub }]
- * The founding offer is monthly only: while it is on, a year is not "säästät" but "ilman aloitustarjousta".
+ * The founding offer is monthly only: while it is on, the year shows only if it still saves money
+ * (a 12 kk offer at 19 € = 228 € beats 290 €/v, so then there is just the month and no choice to make).
  */
 export function checkoutChoices(price) {
   const month = { interval: 'month', title: 'Kuukausi', sub: priceLine(price) || 'Kuukausittain' };
   if (!yearLine(price)) return [month];
   const save = yearSaving(price);
-  const note = save ? `, säästät ${fmtEuros(save)}` : offerOf(price) ? ', ilman aloitustarjousta' : '';
+  if (!save && offerOf(price)) return [month];
+  const note = save ? `, säästät ${fmtEuros(save)}` : '';
   return [month, { interval: 'year', title: 'Vuosi', sub: `${yearLine(price)}${note}` }];
 }
 
