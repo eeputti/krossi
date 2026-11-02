@@ -4,11 +4,26 @@ const CONTACT_MAILTO = 'mailto:eelispuro@gmail.com?subject=' + encodeURIComponen
 // contact page with the booking calendar (koutsi-yhteys.html)
 const CONTACT_PAGE = 'https://koutsi.krossi.app/yhteys';
 
-function Wordmark({ size = 23 }) {
+// The Krossi Koutsi wordmark, the same as in the app (koutsi/web shared/gates.jsx KoutsiWordmark):
+// lime "Krossi", a tennis ball for a full stop, then "Koutsi". `id` keeps the ball's gradient ids
+// unique when the page shows it twice. koutsi-yhteys.html has the same markup by hand.
+function Wordmark({ size = 26, id }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 8 }}>
-      <span style={{ fontWeight: 800, fontSize: size, letterSpacing: -0.6, color: 'var(--lime)' }}>Krossi</span>
-      <span className="koutsi-badge">Koutsi</span>
+    <span className="wordmark" style={{ fontSize: size }} role="img" aria-label="Krossi Koutsi">
+      <span aria-hidden="true">Krossi</span>
+      <span className="wordmark-ball" aria-hidden="true">
+        <svg viewBox="0 0 100 100" width="100%" height="100%">
+          <defs>
+            <radialGradient id={`kw-g-${id}`} cx="35%" cy="30%" r="75%"><stop offset="0" stopColor="#E4F25A" /><stop offset=".7" stopColor="#CFE414" /><stop offset="1" stopColor="#B9CC0E" /></radialGradient>
+            <clipPath id={`kw-c-${id}`}><circle cx="50" cy="50" r="46" /></clipPath>
+          </defs>
+          <circle cx="50" cy="50" r="46" fill={`url(#kw-g-${id})`} />
+          <g clipPath={`url(#kw-c-${id})`} fill="none" stroke="#fff" strokeWidth="6.5" strokeLinecap="round">
+            <path d="M10 30c18-6 40-4 56 8s22 22 28 32" /><path d="M30 80c14 7 34 6 50-6" />
+          </g>
+        </svg>
+      </span>
+      <span className="wordmark-sub" aria-hidden="true">Koutsi</span>
     </span>
   );
 }
@@ -17,7 +32,7 @@ function Nav() {
   return (
     <div className="nav-wrap">
       <header className="nav-pill">
-        <a href="#top" className="nav-logo"><Wordmark size={21} /></a>
+        <a href="#top" className="nav-logo"><Wordmark size={27} id="nav" /></a>
         <nav className="nav-links">
           <a href="#miten-toimii">Miten toimii</a>
           <a href={CONTACT_PAGE}>Ota yhteyttä</a>
@@ -100,11 +115,12 @@ function Footer() {
   return (
     <footer className="footer">
       <div className="footer-inner">
-        <Wordmark size={26} />
+        <Wordmark size={40} id="footer" />
         <p className="footer-tag">Valmennus ja kehitys, samassa paikassa.</p>
         <div className="footer-links">
           <a href={CONTACT_PAGE}>Ota yhteyttä</a>
           <a href={CONTACT_MAILTO}>eelispuro@gmail.com</a>
+          <a href="https://koutsi.krossi.app/tietosuoja">Tietosuojaseloste</a>
           <a href="#" onClick={e => { e.preventDefault(); window.krossiOpenCookieSettings && window.krossiOpenCookieSettings(); }}>Evästeasetukset</a>
         </div>
         <div className="footer-base">© 2026 Krossi Koutsi</div>

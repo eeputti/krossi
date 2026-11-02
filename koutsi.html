@@ -86,12 +86,16 @@ window.krossiLoadPixel = function () {
   p { text-wrap: pretty; }
   a { color: inherit; }
 
-  .koutsi-badge {
-    display: inline-flex; align-items: center;
-    font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
-    background: var(--sand); color: var(--ink-2);
-    padding: 3px 10px; border-radius: 999px;
-  }
+  /* the wordmark (lib/koutsi-landing.jsx Wordmark, the same as the app's): lime "Krossi", a tennis
+     ball for a full stop, then "Koutsi". The ball bounces once when the page opens, again under the mouse. */
+  .wordmark { display: inline-flex; align-items: flex-end; color: var(--lime); font-weight: 800; letter-spacing: -0.045em; line-height: 0.92; white-space: nowrap; }
+  .wordmark-ball { display: inline-block; flex-shrink: 0; width: 0.38em; height: 0.38em; margin: 0 0 0.1em 0.07em; animation: wm-ball 2.8s cubic-bezier(.65,0,.35,1) 700ms 1 both; }
+  .wordmark-ball svg { display: block; }
+  a:hover .wordmark-ball { animation: wm-ball-again 2s cubic-bezier(.65,0,.35,1) 1; }
+  .wordmark-sub { margin: 0 0 0.2em 0.28em; font-size: 0.42em; letter-spacing: -0.01em; color: var(--muted); }
+  @keyframes wm-ball { 0%, 62%, 100% { transform: translateY(0) rotate(0); } 20% { transform: translateY(-0.42em) rotate(160deg); } 40% { transform: translateY(0) rotate(240deg); } 50% { transform: translateY(-0.12em) rotate(290deg); } }
+  @keyframes wm-ball-again { 0%, 62%, 100% { transform: translateY(0) rotate(0); } 20% { transform: translateY(-0.42em) rotate(160deg); } 40% { transform: translateY(0) rotate(240deg); } 50% { transform: translateY(-0.12em) rotate(290deg); } }
+  @media (prefers-reduced-motion: reduce) { .wordmark-ball, a:hover .wordmark-ball { animation: none; } }
 
   /* ── buttons ── */
   .btn-lime, .btn-outline {
