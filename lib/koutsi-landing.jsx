@@ -20,6 +20,7 @@ function Nav() {
         <a href="#top" className="nav-logo"><Wordmark size={21} /></a>
         <nav className="nav-links">
           <a href="#miten-toimii">Miten toimii</a>
+          <a href={CONTACT_PAGE}>Ota yhteyttä</a>
           <a href="https://koutsi.krossi.app/valmentaja?auth=login">Kirjaudu sisään</a>
         </nav>
         <a href="https://koutsi.krossi.app/valmentaja" className="btn-dark btn-sm" style={{ padding: '10px 18px', fontSize: 14 }}>Luo tili</a>
