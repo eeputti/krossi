@@ -1,6 +1,8 @@
 // koutsi-landing.jsx — landing page for koutsi.krossi.app (coach/student platform pitch)
 
 const CONTACT_MAILTO = 'mailto:eelispuro@gmail.com?subject=' + encodeURIComponent('Kiinnostunut Krossi Koutsista');
+// contact page with the booking calendar (koutsi-yhteys.html)
+const CONTACT_PAGE = 'https://koutsi.krossi.app/yhteys';
 
 function Wordmark({ size = 23 }) {
   return (
@@ -84,7 +86,10 @@ function ClosingCTA() {
     <section className="closing" id="liity">
       <div className="closing-inner">
         <h2>Rakennetaan tätä yhdessä.</h2>
-        <a href="https://koutsi.krossi.app/valmentaja" className="btn-lime btn-lg">Aloita treenaaminen →</a>
+        <div className="closing-actions">
+          <a href="https://koutsi.krossi.app/valmentaja" className="btn-lime btn-lg">Aloita treenaaminen →</a>
+          <a href={CONTACT_PAGE} className="btn-glass btn-lg">Ota yhteyttä</a>
+        </div>
       </div>
     </section>
   );
@@ -97,6 +102,7 @@ function Footer() {
         <Wordmark size={26} />
         <p className="footer-tag">Valmennus ja kehitys, samassa paikassa.</p>
         <div className="footer-links">
+          <a href={CONTACT_PAGE}>Ota yhteyttä</a>
           <a href={CONTACT_MAILTO}>eelispuro@gmail.com</a>
           <a href="#" onClick={e => { e.preventDefault(); window.krossiOpenCookieSettings && window.krossiOpenCookieSettings(); }}>Evästeasetukset</a>
         </div>

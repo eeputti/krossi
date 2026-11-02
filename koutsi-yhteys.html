@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ota yhteyttä — Krossi Koutsi</title>
+<meta name="description" content="Varaa 30 minuutin aika, niin käydään Krossi Koutsi läpi tai jutellaan mistä vain." />
+<link rel="canonical" href="https://koutsi.krossi.app/yhteys" />
+
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://koutsi.krossi.app/yhteys" />
+<meta property="og:title" content="Ota yhteyttä — Krossi Koutsi" />
+<meta property="og:description" content="Varaa 30 minuutin aika, niin käydään Krossi Koutsi läpi tai jutellaan mistä vain." />
+<meta property="og:image" content="https://koutsi.krossi.app/assets/krossi-icon.png" />
+<meta property="og:locale" content="fi_FI" />
+<meta property="og:site_name" content="Krossi Koutsi" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Ota yhteyttä — Krossi Koutsi" />
+<meta name="twitter:description" content="Varaa 30 minuutin aika, niin käydään Krossi Koutsi läpi tai jutellaan mistä vain." />
+<meta name="twitter:image" content="https://koutsi.krossi.app/assets/krossi-icon.png" />
+
+<link rel="icon" type="image/png" href="assets/ball-tight.png" />
+<style>
+  /* Same tokens and buttons as the landing page (koutsi.html). */
+  :root {
+    --lime: #CFE414;
+    --lime-300: #DBEE45;
+    --paper: #FFFFFF;
+    --sand: #F1F1F1;
+    --line: #E8E8E8;
+    --line-strong: #D4D4D4;
+    --ink: #121212;
+    --ink-2: #333333;
+    --muted: #6A6A6A;
+    --faint: #969696;
+    --dark: #121212;
+    --dark-2: #2A2A2A;
+  }
+  * { box-sizing: border-box; }
+  html { overflow-x: hidden; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  h1 { text-wrap: balance; }
+  p { text-wrap: pretty; }
+  a { color: inherit; }
+
+  .wordmark { display: inline-flex; align-items: baseline; gap: 8px; text-decoration: none; }
+  .wordmark-name { font-weight: 800; font-size: 21px; letter-spacing: -0.6px; color: var(--lime); }
+  .koutsi-badge {
+    display: inline-flex; align-items: center;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+    background: var(--sand); color: var(--ink-2);
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .btn-dark {
+    display: inline-flex; align-items: center; justify-content: center; border-radius: 999px;
+    font-weight: 700; text-decoration: none; background: var(--dark); color: #fff;
+    padding: 10px 18px; font-size: 14px; line-height: 1; transition: background .2s;
+  }
+  .btn-dark:hover { background: var(--dark-2); }
+
+  .nav-wrap { display: flex; justify-content: center; padding: 14px 16px 0; }
+  .nav-pill {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--line); border-radius: 999px; padding: 8px 8px 8px 22px;
+    max-width: 760px; width: 100%;
+  }
+  .nav-pill .wordmark { margin-right: auto; }
+
+  .contact { max-width: 1000px; margin: 0 auto; padding: clamp(34px, 6vw, 64px) 16px clamp(40px, 7vw, 80px); }
+  .contact-head { text-align: center; max-width: 620px; margin: 0 auto clamp(24px, 4vw, 40px); }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+  }
+  .ball-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); }
+  .contact h1 { margin: 12px 0 14px; font-size: clamp(2.3rem, 7vw, 3.6rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.04; }
+  .hl { background: var(--lime); padding: 0 0.08em; line-height: 0.72; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .contact-sub { margin: 0; font-size: clamp(1rem, 2.3vw, 1.15rem); line-height: 1.55; color: var(--ink-2); }
+
+  /* Cal.com draws the calendar into this box (an iframe that sets its own height). */
+  .cal-box { position: relative; min-height: 560px; border: 1.5px solid var(--line); border-radius: 22px; overflow: hidden; background: #fff; }
+  #koutsi-cal { width: 100%; }
+  .cal-wait {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; padding: 24px; text-align: center; font-size: 15px; color: var(--muted);
+  }
+  .cal-wait a { color: var(--ink); font-weight: 700; }
+  .cal-box.is-ready .cal-wait { display: none; }
+  .spinner { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--ink); animation: spin .8s linear infinite; }
+  .cal-box.is-slow .spinner { display: none; }
+  .cal-fallback { display: none; }
+  .cal-box.is-slow .cal-fallback { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+
+  .contact-mail { margin: clamp(22px, 4vw, 32px) 0 0; text-align: center; font-size: 15.5px; color: var(--ink-2); line-height: 1.6; }
+  .contact-mail a { font-weight: 700; color: var(--ink); text-underline-offset: 2px; }
+
+  .footer { border-top: 1px solid var(--line); }
+  .footer-inner { max-width: 1000px; margin: 0 auto; padding: 22px 16px 30px; display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13.5px; color: var(--faint); }
+  .footer-inner a { color: var(--muted); text-decoration: none; font-weight: 600; }
+  .footer-inner a:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+  <div class="nav-wrap">
+    <header class="nav-pill">
+      <a href="https://koutsi.krossi.app/" class="wordmark"><span class="wordmark-name">Krossi</span><span class="koutsi-badge">Koutsi</span></a>
+      <a href="https://koutsi.krossi.app/valmentaja" class="btn-dark">Luo tili</a>
+    </header>
+  </div>
+
+  <main class="contact">
+    <div class="contact-head">
+      <span class="eyebrow"><span class="ball-dot"></span> Krossi Koutsi</span>
+      <h1>Ota <span class="hl">yhteyttä.</span></h1>
+      <p class="contact-sub">Varaa 30 minuuttia, niin käydään Koutsi läpi tai jutellaan mistä vain.</p>
+    </div>
+
+    <div class="cal-box" id="koutsi-cal-box">
+      <div id="koutsi-cal"></div>
+      <div class="cal-wait">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Ladataan kalenteria…</span>
+        <span class="cal-fallback">Eikö kalenteri aukea? <a href="https://cal.com/eelis-puro/30min">Avaa se tästä</a></span>
+      </div>
+      <noscript>
+        <div class="cal-wait"><span>Avaa kalenteri: <a href="https://cal.com/eelis-puro/30min">cal.com/eelis-puro/30min</a></span></div>
+      </noscript>
+    </div>
+
+    <p class="contact-mail">
+      Haluatko mieluummin kirjoittaa?<br />
+      <a href="mailto:eelispuro@gmail.com?subject=Kiinnostunut%20Krossi%20Koutsista">eelispuro@gmail.com</a>
+    </p>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>© 2026 Krossi Koutsi</span>
+      <a href="https://koutsi.krossi.app/">Etusivu</a>
+      <a href="https://koutsi.krossi.app/tietosuoja">Tietosuoja</a>
+    </div>
+  </footer>
+
+  <!-- Cal.com inline embed (https://cal.com/eelis-puro/30min). Only this page loads it. -->
+  <script>
+    (function (C, A, L) { var p = function (a, ar) { a.q.push(ar); }; var d = C.document; C.Cal = C.Cal || function () { var cal = C.Cal; var ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { var api = function () { p(api, arguments); }; var namespace = ar[1]; api.q = api.q || []; if (typeof namespace === "string") { cal.ns[namespace] = cal.ns[namespace] || api; p(cal.ns[namespace], ar); p(cal, ["initNamespace", namespace]); } else p(cal, ar); return; } p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
+
+    Cal("init", "koutsi", { origin: "https://app.cal.com" });
+    Cal.config = Cal.config || {};
+    Cal.config.forwardQueryParams = true;
+
+    Cal.ns.koutsi("inline", {
+      elementOrSelector: "#koutsi-cal",
+      config: { layout: "month_view", useSlotsViewOnSmallScreen: "true", theme: "light" },
+      calLink: "eelis-puro/30min",
+    });
+    // Koutsi's lime with dark text instead of Cal.com's green.
+    Cal.ns.koutsi("ui", {
+      theme: "light",
+      cssVarsPerTheme: {
+        light: { "cal-brand": "#CFE414", "cal-brand-emphasis": "#DBEE45", "cal-brand-text": "#121212" },
+        dark: { "cal-brand": "#CFE414", "cal-brand-emphasis": "#DBEE45", "cal-brand-text": "#121212" },
+      },
+      hideEventTypeDetails: false,
+      layout: "month_view",
+    });
+
+    (function () {
+      var box = document.getElementById("koutsi-cal-box");
+      var ready = function () { box.classList.add("is-ready"); };
+      Cal.ns.koutsi("on", { action: "linkReady", callback: ready });
+      Cal.ns.koutsi("on", { action: "linkFailed", callback: function () { box.classList.add("is-slow"); } });
+      // A blocked or slow cal.com: offer the direct link after a while.
+      setTimeout(function () { if (!box.classList.contains("is-ready")) box.classList.add("is-slow"); }, 8000);
+    })();
+  </script>
+</body>
+</html>
