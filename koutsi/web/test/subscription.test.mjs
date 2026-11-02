@@ -109,12 +109,11 @@ test('month or year: the yearly price, what it saves, only when there is one', (
   assert.deepEqual(checkoutChoices(null), [{ interval: 'month', title: 'Kuukausi', sub: 'Kuukausittain' }]);
 });
 
-test('founding offer on: a year is not "säästät" when 12 × 19 € is less than 290 €', () => {
+test('founding offer on: no yearly choice when 12 × 19 € is less than 290 €', () => {
   const price = { cents: 2900, interval: 'month', offer: { cents: 1900, months: 12 }, vat: null, year: { cents: 29000 } };
   assert.equal(yearSaving(price), 0, '228 € a year on the offer, the year costs 290 €');
   assert.deepEqual(checkoutChoices(price), [
     { interval: 'month', title: 'Kuukausi', sub: '19 €/kk 12 kk, sitten 29 €/kk' },
-    { interval: 'year', title: 'Vuosi', sub: '290 €/v, ilman aloitustarjousta' },
   ]);
   // a short offer: the year can still be the cheaper first year (3 × 19 + 9 × 29 = 318 €)
   const short = { ...price, offer: { cents: 1900, months: 3 } };
