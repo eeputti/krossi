@@ -74,6 +74,7 @@ const PAGES = {
   'koutsi-landing': [
     'lib/koutsi-film.jsx',
     'lib/koutsi-laptop.jsx',
+    'lib/koutsi-player-phone.jsx',
     'lib/koutsi-landing.jsx',
   ],
 };
