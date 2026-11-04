@@ -346,6 +346,57 @@ window.krossiLoadPixel = function () {
   .lt-card-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--ink); transform-origin: left; animation: lt-fill 4.2s linear both; }
   @keyframes lt-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
+  /* ── for the player: the player app on a phone (lib/koutsi-player-phone.jsx) ──
+     Inside the screen, sizes are iPhone points: --u is one point of a 390-point-wide screen. */
+  .player { background: var(--paper); padding: clamp(56px,9vw,110px) 16px 0; }
+  .player-inner { max-width: 1120px; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .player h2 { margin: 10px 0 12px; font-size: clamp(2rem,5.6vw,3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.08; }
+  .player-sub { margin: 0 0 clamp(28px,4.5vw,48px); max-width: 560px; font-size: clamp(1rem,2.1vw,1.12rem); line-height: 1.55; color: var(--ink-2); }
+  .pp { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(30px,4.5vw,48px); justify-items: center; }
+  @media (min-width: 900px) { .pp { grid-template-columns: auto minmax(0, 460px); justify-content: center; align-items: center; column-gap: clamp(48px,6vw,88px); } }
+  .pp-device { width: min(76vw, 310px); container-type: inline-size; }
+  /* a picture, not a toy, like the laptop: the cards beside it change the view */
+  .pp-device, .pp-device * { pointer-events: none; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
+  .pp-screen {
+    --u: calc(100cqw / 390);
+    position: relative; isolation: isolate; overflow: hidden; container-type: inline-size;
+    aspect-ratio: 390 / 844; background: #fff; border-radius: 13cqw;
+    /* the phone's black edge */
+    box-shadow: 0 0 0 3.4cqw #0d0d0d, 0 0 0 calc(3.4cqw + 1.5px) #2b2b2b;
+    margin: 3.6cqw;
+  }
+  .pp-view { position: absolute; left: 0; right: 0; top: calc(47 * var(--u)); bottom: 0; overflow: hidden; }
+  .pp-shot {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0%;
+    opacity: 0; transition: opacity .6s ease;
+  }
+  .pp-shot.is-on { opacity: 1; }
+  .pp-screen.is-playing .pp-shot.is-on { animation: pp-pan 5s ease-in-out both; }
+  .pp-screen .pp-shot.is-sheet.is-on { animation: none; }
+  @keyframes pp-pan { 0%, 18% { object-position: 50% 0%; } 88%, 100% { object-position: 50% 100%; } }
+  .pp-tabs { position: absolute; left: 0; right: 0; bottom: calc(20 * var(--u)); height: calc(85 * var(--u)); }
+  .pp-tabs img { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .6s ease; }
+  .pp-tabs img.is-on { opacity: 1; }
+  .pp-home { position: absolute; left: 0; right: 0; bottom: 0; height: calc(20 * var(--u)); background: #fff; transition: background-color .6s ease; }
+  .pp-home i { position: absolute; left: 50%; bottom: calc(7 * var(--u)); width: calc(134 * var(--u)); height: calc(5 * var(--u)); margin-left: calc(-67 * var(--u)); border-radius: 99px; background: var(--ink); }
+  .pp-status {
+    position: absolute; left: 0; right: 0; top: 0; height: calc(47 * var(--u)); background: #fff; color: var(--ink);
+    display: flex; align-items: center; justify-content: space-between; padding: calc(4 * var(--u)) calc(26 * var(--u)) 0 calc(44 * var(--u));
+    transition: background-color .6s ease;
+  }
+  /* Merkitse is a sheet: the page behind it, status bar too, is under the app's scrim */
+  .pp-screen.is-sheet .pp-status { background: #808080; }
+  .pp-screen.is-sheet .pp-home { background: transparent; }
+  .pp-time { font-size: calc(16 * var(--u)); font-weight: 650; letter-spacing: -0.01em; }
+  .pp-island { position: absolute; left: 50%; top: calc(11 * var(--u)); width: calc(122 * var(--u)); height: calc(35 * var(--u)); margin-left: calc(-61 * var(--u)); border-radius: 99px; background: #000; }
+  .pp-icons { display: inline-flex; align-items: center; gap: calc(5 * var(--u)); }
+  .pp-icons svg { width: auto; height: calc(11.5 * var(--u)); fill: currentColor; }
+  @media (prefers-reduced-motion: reduce) { .pp-shot, .pp-tabs img, .pp-status, .pp-home { transition: none; } .pp-shot.is-on { animation: none; } }
+  .pp-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; width: 100%; max-width: 560px; text-align: left; }
+  .pp-card-bar { animation-duration: 5s; }
+  .player-cta { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: clamp(34px,5vw,56px); }
+  .player-cta p { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+
   /* ── closing ── */
   .closing {
     position: relative; overflow: hidden; text-align: center; color: #fff;

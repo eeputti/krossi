@@ -136,6 +136,7 @@ function App() {
       <KoutsiFilm />
       <Promise_ />
       <HowItWorks />
+      <PlayerSection />
       <Tools />
       <ClosingCTA />
       <Footer />
