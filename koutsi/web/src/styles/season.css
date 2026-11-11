@@ -99,3 +99,33 @@
 .jc-row-code { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .jc-code { font-family: var(--font-num); font-weight: 800; font-size: 20px; letter-spacing: 0.1em; user-select: all; -webkit-user-select: all; }
 .jc-row-actions { display: flex; gap: 6px; }
+/* Choosing the kind of code first: two cards, each says in one line what it does */
+.jc-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.jc-pick-card { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 14px; border-radius: var(--r-lg); border: 1.5px solid var(--line); background: var(--surface-2); color: var(--muted); min-width: 0; cursor: pointer; transition: border-color var(--dur-2), background var(--dur-2), color var(--dur-2); }
+.jc-pick-card:hover { border-color: #cfcfcf; }
+.jc-pick-card.is-on { border: 2px solid var(--ink); padding: 11.5px 13.5px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-2); }
+.jc-pick-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.jc-pick-title { font-weight: 800; font-size: 15.5px; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere; }
+.jc-pick-card:not(.is-on) .jc-pick-title { color: var(--ink-2); }
+.jc-pick-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #cfcfcf; flex-shrink: 0; background: var(--surface); }
+.jc-pick-card.is-on .jc-pick-dot { border-color: var(--ink); background: var(--lime); box-shadow: inset 0 0 0 3px var(--surface); }
+.jc-pick-text { font-size: 13px; line-height: 1.4; color: var(--muted); }
+.jc-pick-card.is-on .jc-pick-text { color: var(--ink-2); }
+/* "Näin se toimii": three numbered steps */
+.jc-how { display: grid; gap: 8px; }
+.jc-how-title { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.jc-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: jc-step; }
+.jc-steps li { counter-increment: jc-step; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.jc-steps li::before { content: counter(jc-step); width: 24px; height: 24px; border-radius: 50%; background: var(--lime); color: var(--ink); font-weight: 800; font-size: 13px; display: grid; place-items: center; margin-top: -1px; }
+.jc-tip { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
+.jc-tip svg { margin-top: 2px; flex-shrink: 0; color: var(--muted); }
+.jc-link { font: inherit; font-weight: 750; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; padding: 0; background: none; border: 0; cursor: pointer; }
+/* Minors: added by the coach on Pelaajat, each gets a personal link */
+.jc-minor { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--line); }
+.jc-minor-text { display: grid; gap: 2px; flex: 1 1 240px; min-width: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
+.jc-minor-text strong { color: var(--ink); font-size: 14px; }
+@media (max-width: 380px) {
+  .jc-pick-card { padding: 10px 11px; }
+  .jc-pick-card.is-on { padding: 9.5px 10.5px; }
+  .jc-pick-title { font-size: 14.5px; }
+}
