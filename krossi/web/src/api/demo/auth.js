@@ -48,6 +48,11 @@ export async function getIdentities() {
   return run(() => ['email']);
 }
 
+/** (email) -> { email, pending } — the demo account keeps the new address until a reload. */
+export async function updateEmail(email) {
+  return run(() => ({ email: String(email || '').trim().toLowerCase(), pending: null }));
+}
+
 export async function updatePassword() {
   return run(() => undefined);
 }

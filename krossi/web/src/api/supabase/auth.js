@@ -79,6 +79,26 @@ export async function getIdentities() {
   return [...new Set((data.user?.identities || []).map((i) => i.provider))];
 }
 
+/**
+ * Asetukset → Sähköposti. Sign-ups confirm themselves (no confirmation mail), and the same
+ * setting makes this change take effect at once. → { email, pending }: `pending` only if Supabase
+ * ever asks for a confirmation link again (the old address stays until the link is opened).
+ */
+export async function updateEmail(email) {
+  const { data, error } = await db().auth.updateUser({ email: String(email || '').trim() });
+  if (error) {
+    const raw = `${error.code || ''} ${error.message || ''}`;
+    if (/email_exists|already been registered|already registered/i.test(raw)) {
+      throw new ApiError('Tällä sähköpostilla on jo toinen tili. Valitse toinen osoite.', { code: 'email_taken' });
+    }
+    if (/email_address_invalid|invalid format|validate email/i.test(raw)) {
+      throw new ApiError('Tarkista sähköpostiosoite.', { code: 'invalid' });
+    }
+    throw toApiError(error, 'Sähköpostia ei voitu vaihtaa. Yritä hetken päästä uudelleen.');
+  }
+  return { email: data.user?.email || '', pending: data.user?.new_email || null };
+}
+
 export async function updatePassword(newPassword) {
   if (!newPassword || newPassword.length < 8) throw new ApiError('Salasanan pitää olla vähintään 8 merkkiä.', { code: 'invalid' });
   const { error } = await db().auth.updateUser({ password: newPassword });

@@ -22,7 +22,8 @@
 export const API_CONTRACT = {
   // Session and sign-in. onChange(cb) → unsubscribe; cb(event, session).
   auth: ['getSession', 'onChange', 'signInWithPassword', 'signUp', 'signInWithOAuth', 'resetPassword',
-    'resendConfirmation', 'updatePassword', 'signOut'],
+    'resendConfirmation', 'updatePassword', 'updateEmail', 'signOut'],
+  // updateEmail(email) → { email, pending }: Profiili → Sähköposti, takes effect at once (pending stays null).
 
   // The shared Krossi profile row and account-level actions. saveAbout(uid, { bio, area }) writes the
   // profile's own words and home town (profiles.bio / area, shared with Krossi); removeAvatar(uid) clears the photo. trackEvent(name) counts one tap

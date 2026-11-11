@@ -760,6 +760,7 @@ export const API_CONTRACT = {
     'signOut',             // () -> void
     'getIdentities',       // () -> string[]   e.g. ['email','google']
     'updatePassword',      // (newPassword) -> void   used after a password-reset link (auth event 'PASSWORD_RECOVERY')
+    'updateEmail',         // (email) -> { email, pending }   Asetukset → Sähköposti, takes effect at once (pending stays null)
   ],
   profile: [
     'getMine',             // (uid) -> Profile|null
