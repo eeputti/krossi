@@ -1,6 +1,7 @@
-// GroupScreen — one group: schedule, today's session (attendance and Merkitse one tap away),
-// a note / homework / video for the whole group, this week's theme (and the next and earlier
-// ones), upcoming sessions, members, inviting, and the rarely used things behind "Lisää".
+// GroupScreen — one group: schedule, what is missing (players, this week's theme, the calendar —
+// each with its fix), today's session (attendance and Merkitse one tap away), the players with a
+// note / homework / video for the whole group, this week's theme (and the next and earlier ones),
+// upcoming sessions, inviting, and the rarely used things behind "Lisää".
 import { useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
@@ -9,9 +10,10 @@ import { Avatar, Button, Card, Chip, Disclosure, EmptyState, Icon, IconButton, P
 import { Block, CopyButton, Quiet, ThemeCard, useShowMore } from '../shared/bits.jsx';
 import {
   koutsiCurrentIsoWeek, koutsiAddIsoWeeks, koutsiGroupThemeForWeek, koutsiThemeShareMessage, koutsiTodayStr,
-  koutsiTimeRangeLabel, koutsiFmtShortDate, koutsiTrainingsForGroup, koutsiAddDays,
+  koutsiTimeRangeLabel, koutsiFmtShortDate, koutsiTrainingsForGroup, koutsiAddDays, koutsiIsoWeekOfDateStr,
 } from '../domain/core.js';
-import { plannerDefaultWeek, themeWeekShort } from '../domain/week.js';
+import { plannerDefaultWeek, sameWeek, themeWeekShort } from '../domain/week.js';
+import { ISSUE_LABELS } from '../domain/board.js';
 import { playerPath } from './nav.js';
 import { groupWhen, SessionRow } from './parts.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
@@ -22,6 +24,46 @@ import { Link } from '../app/router.js';
 import {
   AddMembersSheet, AnnualPlanBlock, ExtendCalendarSheet, GroupFormSheet, GroupInviteSheet, SlotFormSheet, calendarGoal, calendarReaches, lastSessionDate, useGroupDelete,
 } from './groupForms.jsx';
+
+/**
+ * What the group is missing, each with its fix: no players, no theme for the week the coach is
+ * planning (only when the group trains that week) and a calendar that has run out or soon will.
+ */
+function groupIssues(state, group, today = koutsiTodayStr()) {
+  const issues = [];
+  if (!group.memberIds.some((id) => state.students.some((s) => s.id === id))) {
+    issues.push({ id: 'players', text: 'Lisää pelaajat, niin he näkevät treenit ja teemat.', fix: 'Lisää pelaajia', sheet: 'members' });
+  }
+  const week = plannerDefaultWeek();
+  const trainsThatWeek = koutsiTrainingsForGroup(state, group.id).some((t) => t.date >= today && sameWeek(koutsiIsoWeekOfDateStr(t.date), week));
+  if (trainsThatWeek && !koutsiGroupThemeForWeek(group, week)) {
+    const which = sameWeek(week, koutsiCurrentIsoWeek()) ? 'tämän' : 'ensi';
+    issues.push({ id: 'theme', text: `Pelaajat eivät näe ${which} viikon teemaa (vko ${week.week}).`, fix: 'Aseta teema', sheet: 'theme' });
+  }
+  const last = lastSessionDate(state, group.id);
+  const endsSoon = !last || last <= koutsiAddDays(today, 42);
+  if (endsSoon && !calendarReaches(last, calendarGoal(state, group))) {
+    if (!last) issues.push({ id: 'none', text: 'Lisää treenit kalenteriin, niin pelaajat näkevät ne.', fix: 'Jatka kalenteria', sheet: 'extend' });
+    else if (last < today) issues.push({ id: 'ended', text: `Viimeinen treeni oli ${koutsiFmtShortDate(last)}.`, fix: 'Jatka kalenteria', sheet: 'extend' });
+    else issues.push({ id: 'last', text: `Treenit kalenterissa ${koutsiFmtShortDate(last)} asti.`, fix: 'Jatka kalenteria', sheet: 'extend' });
+  }
+  return issues;
+}
+
+function GroupIssues({ issues, onFix }) {
+  if (!issues.length) return null;
+  return (
+    <div className="wb-status is-issue" role="status" aria-label="Ryhmältä puuttuu">
+      {issues.map((i) => (
+        <div key={i.id} className="wb-status-row">
+          <Icon name="alert" size={18} className="wb-status-icon" />
+          <span className="grow"><strong>{ISSUE_LABELS[i.id]}</strong><span className="wb-status-text">{i.text}</span></span>
+          <button type="button" className="wb-status-fix" onClick={() => onFix(i.sheet)}>{i.fix}</button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function ThemeSection({ group }) {
   const [themeWeek, setThemeWeek] = useState(null); // the week whose theme is being set or changed
@@ -123,7 +165,7 @@ export function GroupScreen({ params }) {
   const deleteGroup = useGroupDelete();
   const record = useRecord();
   const nowMs = useNow(60_000);
-  const [sheet, setSheet] = useState(null); // 'edit' | 'slot' | 'members' | 'invite' | 'extend'
+  const [sheet, setSheet] = useState(null); // 'edit' | 'slot' | 'members' | 'invite' | 'extend' | 'theme'
   const group = (state.allGroups || state.groups).find((g) => g.id === params.id);
   if (!group) {
     return (
@@ -137,6 +179,7 @@ export function GroupScreen({ params }) {
   const scope = { name: group.name, text: memberIds.length === 1 ? 'Koko ryhmä, 1 pelaaja' : `Koko ryhmä, ${memberIds.length} pelaajaa` };
   const last = lastSessionDate(state, group.id);
   const endsSoon = !last || last <= koutsiAddDays(koutsiTodayStr(), 42);
+  const issues = groupIssues(state, group);
   const removeSlot = async (slot) => {
     if (!(await confirm({ title: 'Poista harjoitusaika?', message: `${slot.day} klo ${koutsiTimeRangeLabel(slot.time, slot.durationMinutes)} ja sen tulevat treenit poistetaan. Menneet treenit säilyvät.`, confirmLabel: 'Poista', danger: true }))) return;
     await run(() => api.groups.deleteSlot(slot.id), 'Harjoitusaika poistettu.');
@@ -153,11 +196,14 @@ export function GroupScreen({ params }) {
           <div className={endsSoon ? 'k-calendar-end is-soon' : 'k-calendar-end'}>
             <Icon name="calendar" size={16} />
             <span className="grow">{last ? `Treenit kalenterissa ${koutsiFmtShortDate(last)} asti` : 'Ei treenejä kalenterissa'}</span>
-            {/* continue the calendar or add a break (tauko) */}
-            <Button variant={endsSoon && !calendarReaches(last, calendarGoal(state, group)) ? 'dark' : 'ghost'} size="sm" icon="repeat" onClick={() => setSheet('extend')}>Jatka</Button>
+            {/* continue the calendar or add a break (tauko); when it runs out, the box below carries the dark button */}
+            <Button variant="ghost" size="sm" icon="repeat" onClick={() => setSheet('extend')}>Jatka</Button>
           </div>
         </header>
+        <GroupIssues issues={issues} onFix={setSheet} />
         <GroupTodayCard state={state} group={group} now={new Date(nowMs)} />
+        {/* players first, then the theme, then the sessions */}
+        <Members state={state} group={group} onAdd={() => setSheet('members')} onInvite={() => setSheet('invite')} />
         {memberIds.length > 0 && (
           <div className="k-quick">
             <Button variant="lime" icon="chat" onClick={() => record.open('note', { ids: memberIds, source: 'ryhma', scope })}>Huomio</Button>
@@ -168,7 +214,6 @@ export function GroupScreen({ params }) {
         <GroupSent groupId={group.id} />
         <ThemeSection group={group} />
         <Sessions state={state} group={group} />
-        <Members state={state} group={group} onAdd={() => setSheet('members')} onInvite={() => setSheet('invite')} />
         <Disclosure title="Lisää" summary="Lisäajat, vuosisuunnitelma, poisto" icon="more">
           <div className="stack-5">
             <div className="stack-2">
@@ -199,6 +244,7 @@ export function GroupScreen({ params }) {
       <AddMembersSheet open={sheet === 'members'} group={group} onClose={() => setSheet(null)} />
       <GroupInviteSheet open={sheet === 'invite'} group={group} onClose={() => setSheet(null)} />
       <ExtendCalendarSheet open={sheet === 'extend'} groups={[group]} onClose={() => setSheet(null)} />
+      <GroupThemeSheet open={sheet === 'theme'} group={group} week={plannerDefaultWeek()} onClose={() => setSheet(null)} />
     </>
   );
 }

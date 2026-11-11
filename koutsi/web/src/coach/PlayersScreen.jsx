@@ -182,7 +182,7 @@ export function PlayersScreen() {
           {unjoined > 0 && filter === 'unjoined' && <Button variant="lime" icon="send" block onClick={openInvites}>Lähetä kutsut ({unjoined})</Button>}
         </div>
       )}
-      <AddPlayerSheet open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddPlayerSheet open={addOpen} onClose={() => setAddOpen(false)} onBulk={() => { setAddOpen(false); setBulkOpen(true); }} />
       <BulkSetupSheet open={bulkOpen} onClose={() => setBulkOpen(false)} />
       <MergeSheet open={Boolean(mergeFor)} student={mergeFor} onClose={() => setMergeFor(null)} />
     </Page>

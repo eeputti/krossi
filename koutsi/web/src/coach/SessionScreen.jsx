@@ -1,6 +1,6 @@
 // SessionScreen — one session: when, attendance, a note / homework / video for the players who
-// came (or, before it, for everyone expected), the training plan (SessionPlan) and the week's
-// theme. Attendance is a tap per player (on the name, or Paikalla ↔ Poissa); presence is
+// came (or, before it, for everyone expected), the week's theme and the training plan (SessionPlan).
+// An empty group gets Lisää pelaajia right in the attendance block. Attendance is a tap per player (on the name, or Paikalla ↔ Poissa); presence is
 // "no row", so nothing needs saving for the players who came. A tap shows immediately and is saved in the background.
 import { useEffect, useState } from 'react';
 import { api } from '../api/index.js';
@@ -15,6 +15,7 @@ import { presentPlayerIds, sessionRoster, sessionStatus } from '../domain/week.j
 import { groupPath } from './nav.js';
 import { TrainingSheet, useTrainingDelete } from './trainingForms.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
+import { AddMembersSheet } from './groupForms.jsx';
 import { useRecord } from './merkitse.jsx';
 import { SessionPlan } from './SessionPlan.jsx';
 import { saveAttendance } from './attendance.jsx';
@@ -29,6 +30,7 @@ export function SessionScreen({ params }) {
   const record = useRecord();
   const [editOpen, setEditOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   // ?runko=1 (Viikkohallinta → Treenin runko): scroll to the plan once the sheet has closed.
   const route = useRoute();
   useEffect(() => {
@@ -92,7 +94,12 @@ export function SessionScreen({ params }) {
 
         {/* Every "Läsnäolo" button lands here, so the list comes first: nothing to scroll past. */}
         <Block eyebrow="Läsnäolo" title={roster.length ? `${present}/${roster.length} paikalla` : 'Ei pelaajia'}>
-          {roster.length === 0 ? <p className="k-quiet">Ryhmässä ei ole pelaajia.</p> : (
+          {roster.length === 0 ? (
+            <>
+              <p className="k-quiet">Ryhmässä ei ole pelaajia.</p>
+              {group && <div><Button variant="dark" icon="plus" onClick={() => setMembersOpen(true)}>Lisää pelaajia</Button></div>}
+            </>
+          ) : (
             <>
               <p className="field-msg">{status === 'upcoming' ? 'Pelaajat voivat ilmoittaa poissaolon etukäteen omassa sovelluksessaan.' : 'Napauta poissaolleet. Kaikki muut merkitään paikalla olleiksi.'} Poissaolon syytä ei tallenneta.</p>
               <ul className="k-attend">
@@ -133,8 +140,7 @@ export function SessionScreen({ params }) {
           </div>
         )}
 
-        {training.loggedBy !== 'player' && <SessionPlan training={training} group={group} />}
-
+        {/* the week's theme matters more than the plan, so it comes first */}
         {group && (theme ? (
           <ThemeCard theme={theme} week={week} eyebrow={`Teema, vko ${week.week}`}>
             <Button variant="outline" size="sm" icon="edit" className="k-theme-edit" onClick={() => setThemeOpen(true)}>Vaihda teema</Button>
@@ -145,9 +151,12 @@ export function SessionScreen({ params }) {
             <Button variant="dark" size="sm" icon="sparkles" onClick={() => setThemeOpen(true)}>Aseta teema</Button>
           </Card>
         ))}
+
+        {training.loggedBy !== 'player' && <SessionPlan training={training} group={group} />}
       </Page>
       <TrainingSheet open={editOpen} editing={training} onClose={() => setEditOpen(false)} />
       <GroupThemeSheet open={themeOpen} group={group} week={week} onClose={() => setThemeOpen(false)} />
+      <AddMembersSheet open={membersOpen} group={group} onClose={() => setMembersOpen(false)} />
     </>
   );
 }
