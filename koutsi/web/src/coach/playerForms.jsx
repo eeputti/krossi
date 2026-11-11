@@ -22,9 +22,11 @@ function LevelPicker({ value, onChange }) {
 
 /**
  * Add a player by name — the coach can start right away; the player claims the profile later.
- * `onBulk` (Pelaajat) adds a link to Lisää monta pelaajaa.
+ * `onBulk` (Pelaajat) adds a link to Lisää monta pelaajaa. `initialName` fills the name (a search
+ * that found no one); `onDone(id)` replaces opening the player's page, for the new player and for
+ * an existing one picked from the suggestions (Poissaolo picks them right there).
  */
-export function AddPlayerSheet({ open, onClose, onBulk }) {
+export function AddPlayerSheet({ open, onClose, onBulk, initialName = '', onDone }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const [name, setName] = useState('');
@@ -32,7 +34,8 @@ export function AddPlayerSheet({ open, onClose, onBulk }) {
   const [level, setLevel] = useState('');
   const [groupId, setGroupId] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) { setName(''); setAge(''); setLevel(''); setGroupId(''); } }, [open]);
+  useEffect(() => { if (open) { setName(initialName); setAge(''); setLevel(''); setGroupId(''); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const done = onDone || ((id) => navigate(playerPath(id)));
   const exact = exactNameMatch(state.students, name);
   const suggestions = matchStudents(state.students, name);
   const { age: parsedAge, valid } = optionalAge(age);
@@ -54,7 +57,7 @@ export function AddPlayerSheet({ open, onClose, onBulk }) {
     if (res.ok) {
       onClose();
       const id = groupId ? res.result?.players?.[0]?.id : res.result;
-      if (id) navigate(playerPath(id));
+      if (id) done(id);
     }
   };
   const groupOptions = state.groups.map((g) => ({ value: g.id, label: `${g.day} ${g.time}, ${g.name}` }));
@@ -69,7 +72,7 @@ export function AddPlayerSheet({ open, onClose, onBulk }) {
           <div className="k-suggest">
             <div className="field-msg">{exact ? 'Tämä on jo listallasi:' : 'Löytyykö hän jo listaltasi?'}</div>
             {suggestions.map((s) => (
-              <button key={s.id} type="button" className="k-suggest-row" onClick={() => { onClose(); navigate(playerPath(s.id)); }}>
+              <button key={s.id} type="button" className="k-suggest-row" onClick={() => { onClose(); done(s.id); }}>
                 <Avatar person={s} size={26} /><span className="grow truncate">{s.name}</span><Icon name="chevron-right" size={16} />
               </button>
             ))}
