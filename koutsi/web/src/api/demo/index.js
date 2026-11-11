@@ -97,7 +97,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents.filter((e) => !e.playerDemoOnly), weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true, sends: s.sends || [], videoLibrary: s.videoLibrary || [], sendsReady: true, levelScale: normalizeScale(s.levelScale), levelScaleReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents.filter((e) => !e.playerDemoOnly), weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true, sends: s.sends || [], videoLibrary: s.videoLibrary || [], sendsReady: true, levelScale: normalizeScale(s.levelScale), levelScaleReady: true, levelScaleChosen: s.levelScale != null };
 }
 
 /** The notices a player sees: to one of their groups or to them, still in date. */

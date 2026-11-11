@@ -157,28 +157,47 @@ export function scaleFormMissing(value) {
 }
 
 /**
- * A new coach's "Miten merkitset pelaajien tasot?" — right after the first-visit film, before the first group.
- * "Päätän myöhemmin" (or closing) keeps the words; either way onDone() runs, so what the film's last card chose
- * (Luo ensimmäinen ryhmä…) opens next.
+ * A new coach's "Miten merkitset pelaajien tasot?" — after the first-visit film and, at the latest, before their first
+ * group or player (LevelGate). "Päätän myöhemmin" is an answer too: it keeps the words and saves them, so the question
+ * never comes back (Profiili → Pelaajien tasot changes it). Closing (×) answers nothing: onCancel.
  */
-export function ScaleQuestionSheet({ open, onDone }) {
+export function ScaleQuestionSheet({ open, onDone, onCancel }) {
   const { run, ownerId } = useData();
   const [scale, setScale] = useState({ kind: '', size: null, notes: [] });
   const [busy, setBusy] = useState(false);
   const missing = scaleFormMissing(scale);
-  const later = () => { track('tasot.tervetuloa-myohemmin'); onDone(); };
-  const save = async () => {
-    if (missing || busy) return;
+  const answer = async (chosen, event) => {
+    if (busy) return;
     setBusy(true);
-    const res = await run(() => api.levels.saveScale(ownerId, scaleForSave(scale)), 'Tasot tallennettu.');
+    const res = await run(() => api.levels.saveScale(ownerId, scaleForSave(chosen)), chosen.kind === 'sanat' && event === 'myohemmin' ? null : 'Tasot tallennettu.', { waitForRefresh: true });
     setBusy(false);
-    if (res.ok) { track(`tasot.tervetuloa-${scale.kind}`); onDone(); }
+    if (res.ok) { track(`tasot.tervetuloa-${event}`); onDone(); }
   };
   return (
-    <Sheet open={open} onClose={() => !busy && later()} size="md" dismissible={!busy}
-      title="Miten merkitset pelaajien tasot?" subtitle="Voit muokata tasoja myöhemmin Profiilissa."
-      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={later} disabled={busy}>Päätän myöhemmin</Button><Button variant="lime" size="lg" missing={missing} loading={busy} onClick={save}>Valmis</Button></div>}>
+    <Sheet open={open} onClose={() => !busy && (onCancel || onDone)()} size="md" dismissible={!busy}
+      title="Miten merkitset pelaajien tasot?" subtitle="Voit muuttaa tätä myöhemmin Profiilissa."
+      footer={<div className="sheet-actions">
+        <Button variant="soft" size="lg" onClick={() => answer({ kind: 'sanat', size: null, notes: [] }, 'myohemmin')} disabled={busy}>Päätän myöhemmin</Button>
+        <Button variant="lime" size="lg" missing={missing} loading={busy} onClick={() => !missing && answer(scale, scale.kind)}>Valmis</Button>
+      </div>}>
       <ScaleForm value={scale} onChange={setScale} idPrefix="wl" />
     </Sheet>
   );
+}
+
+/** True for a new coach who hasn't answered the level question yet (no scale saved, no groups, no players). */
+export function useNeedsLevelAnswer() {
+  const { state } = useData();
+  return Boolean(state.levelScaleReady && !state.levelScaleChosen && state.groups.length === 0 && state.students.length === 0);
+}
+
+/**
+ * Wraps a sheet that creates a group or a player: a new coach answers the level question first, then the sheet
+ * opens. Coaches who already have groups or players (Alpo…) never see it. Closing the question closes both.
+ */
+export function LevelGate({ open, onCancel, children }) {
+  const needs = useNeedsLevelAnswer();
+  const [answered, setAnswered] = useState(false);
+  if (open && needs && !answered) return <ScaleQuestionSheet open onDone={() => setAnswered(true)} onCancel={onCancel} />;
+  return children;
 }

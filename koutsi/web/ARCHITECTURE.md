@@ -330,7 +330,9 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
 - Pelaajien tasot (`domain/levels.js`, `coach/levels.jsx`, `coach/LevelsScreen.jsx`, taulu `koutsi_level_scales`,
   migraatio `supabase/migrations/20261111135135_koutsi_level_scales.sql`, ajettu 11.11.2026 käyttäjän luvalla): jokainen valmentaja valitsee oman asteikkonsa:
   sanat (Aloittelija–Kilpapelaaja, oletus), numerot 1–N (3–10, isompi = parempi, jokaiselle valinnainen selitys) tai
-  "En käytä tasoja" (kentät piiloon). Uusi valmentaja valitsee sen heti esittelyn jälkeen (ennen ensimmäistä ryhmää, `ScaleQuestionSheet`), muut Profiili →
+  "En käytä tasoja" (kentät piiloon). Uusi valmentaja (ei ryhmiä, ei pelaajia, ei tallennettua asteikkoa) vastaa siihen esittelyn jälkeen ja viimeistään ennen
+  ensimmäistä ryhmää tai pelaajaa (`LevelGate` Uusi ryhmä-, Lisää monta kerralla- ja Lisää pelaaja -ikkunoiden edessä); "Päätän
+  myöhemmin" on vastaus (tallentaa sanat, `levelScaleChosen`), joten kysymys ei palaa. Muut Profiili →
   Pelaajien tasot (/valmentaja/profiili/tasot), jossa on myös vanhojen tasojen lista: samankaltaiset tekstit samalla rivillä
   ("kilpa" = Kilpapelaaja, "amatööri" = harrastaja, kirjoitusasut), valmentaja valitsee riville uuden tason, Erota, Poista
   taso, Kumoa; rivin pelaajat voi myös valita itse. Asteikon tasoa (tai "Ei tasoa") napauttamalla valitut pelaajat siirtyvät

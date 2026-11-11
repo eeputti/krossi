@@ -21,7 +21,7 @@ import { exactNameMatch } from '../domain/roster.js';
 import { useCoach } from './CoachRoot.jsx';
 import { WeeksChips, useDefaultWeeks } from './groupForms.jsx';
 import { openInvites } from './nav.js';
-import { GroupLevelPicker, useLevelScale } from './levels.jsx';
+import { GroupLevelPicker, LevelGate, useLevelScale } from './levels.jsx';
 import { ALL_LEVELS } from '../domain/levels.js';
 
 let rowSeq = 0;
@@ -38,7 +38,11 @@ function firstWeek(day) {
   return koutsiIsoWeekOfDateStr(koutsiAddDays(today, delta));
 }
 
-export function BulkSetupSheet({ open, onClose }) {
+export function BulkSetupSheet(props) {
+  return <LevelGate open={props.open} onCancel={props.onClose}><BulkSetupSheetBody {...props} /></LevelGate>;
+}
+
+function BulkSetupSheetBody({ open, onClose }) {
   const { state, reload } = useData();
   const levels = useLevelScale();
   const { coachId } = useCoach();

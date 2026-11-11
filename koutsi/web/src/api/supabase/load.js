@@ -50,9 +50,9 @@ async function loadLevelScale(coachId) {
   const { data, error } = await fromTable('koutsi_level_scales').select('kind, size, notes').eq('coach_id', coachId).maybeSingle();
   if (error) {
     if (!isMissingTable(error)) console.warn('level scale unavailable:', error.message || error);
-    return { scale: DEFAULT_SCALE, ready: false };
+    return { scale: DEFAULT_SCALE, ready: false, chosen: false };
   }
-  return { scale: normalizeScale(data), ready: true };
+  return { scale: normalizeScale(data), ready: true, chosen: Boolean(data) };
 }
 
 /** The scales of a player's coaches (RLS: a current player reads them) → { [coachId]: scale }. */
@@ -205,6 +205,7 @@ export async function loadCoachState(coachId) {
     sendsReady: sent.ready,
     levelScale: levelScale.scale,
     levelScaleReady: levelScale.ready,
+    levelScaleChosen: levelScale.chosen,
   });
 }
 
