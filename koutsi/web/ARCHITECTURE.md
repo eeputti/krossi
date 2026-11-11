@@ -204,6 +204,9 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   luo `koutsi_self_serve_open()`:n kiinni (`select false`, sovellus näyttää avainsivun kuten ennen); avaaminen on yhden
   rivin korvaus (`select true`), eikä migraation uudelleenajo sulje sitä. Demo: Anna on kokeilussa; kehityksessä
   `?esikatsele=kokeilu | avain | tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free`.
+  Kun avain tai kokeilu on hyväksytty (Aloitetaan), sovellus avaa aina Kodin (`CoachRoot`, `startAsCoach`), missä
+  osoite sitten olikin. Kirjaudu ulos (`app/session.jsx`) vie osoitteen sovelluksen alkuun mutta pitää ?-osan
+  (kutsulinkin `?koodi=…&oppilas=…`), joten seuraava tili samalla puhelimella ei aukea edellisen Profiiliin.
 
 - Esittely ensimmäisellä käynnillä (`shared/intro/IntroFilm.jsx`, `shared/intro/scenes.jsx`, `styles/intro.css`,
   `coach/CoachIntro.jsx`, `player/PlayerIntro.jsx`): noin puolen minuutin piirretty filmi, joka korvasi tervetuloikkunan.
