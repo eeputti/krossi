@@ -57,6 +57,13 @@ function koutsiAuthAvatarUrl(path) {
 // Koutsi coach/student row, which each app's own root component queries separately
 // once this gate is past (see koutsi-valmentaja-app.jsx / koutsi-pelaaja-app.jsx).
 const KoutsiAuthContext = React.createContext(null);
+// Same moment as NEW_ONLY_SINCE in koutsi/web/src/shared/renewed.jsx: keep the two equal.
+const KOUTSI_NEW_ONLY_SINCE = '2026-11-11T00:00:00+02:00';
+function koutsiNewOnlyAccount(user) {
+  const made = Date.parse((user && user.created_at) || '');
+  return Number.isFinite(made) && made >= Date.parse(KOUTSI_NEW_ONLY_SINCE);
+}
+
 function KoutsiAuthProvider({ children }) {
   const [session, setSession] = React.useState(null);
   const [profile, setProfile] = React.useState(null);
@@ -111,6 +118,15 @@ function KoutsiAuthProvider({ children }) {
   // no session has been applied yet, which is distinct from a signed-out `null`.
   const appliedUid = React.useRef(undefined);
   const applySession = React.useCallback((s) => {
+    // An account made from 11.11.2026 on never had the old Koutsi (the user's call that day): it
+    // goes to the renewed one. ?uusi=1 makes the worker set koutsi_uusi=1 and serve the new app at
+    // the same address (an invite's ?koodi= stays). Never in the demos.
+    if (s?.user && !window.KOUTSI_DEMO_ROLE && koutsiNewOnlyAccount(s.user)) {
+      const to = new URL(window.location.href);
+      to.searchParams.set('uusi', '1');
+      window.location.replace(to.toString());
+      return;
+    }
     setSession(s);
     const uid = s?.user?.id || null;
     if (uid === appliedUid.current) return; // same person returning — keep the app mounted

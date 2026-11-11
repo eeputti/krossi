@@ -17,6 +17,10 @@ export const PILOT_PRIVACY_VERSION = '2026-08-24-optional-age';
 // koutsi_record_app_open app names — Ylläpito filters on these exact strings.
 export const APP_NAME = { coach: 'koutsi_valmentaja', player: 'koutsi_pelaaja' };
 
+// "Krossi Koutsin ilme on uudistunut" closed once: kept on the account (auth user metadata) and on
+// the device (localStorage), under the same name, so it never comes back on another phone.
+export const RENEWED_SEEN_KEY = 'koutsi_uusi_ilme_nahty';
+
 export const LEVELS = ['Aloittelija', 'Keskitaso', 'Edistynyt', 'Kilpapelaaja'];
 export const GROUP_LEVELS = ['Aloittelija', 'Keskitaso', 'Edistynyt', 'Kilpapelaaja', 'Kaikki tasot'];
 export const WEEKDAY_CODES = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];

@@ -35,8 +35,10 @@ export const API_CONTRACT = {
   // (domain/tennisProfile.js TENNIS_DRAFT_KEY) until player.applyTennisDraft(uid) moves it onto the row.
   // markProfileDone() → iso: the profile reached 100 % once (domain/profileCompleteness.js PROFILE_DONE_KEY
   // on the signed-in account), so the "Profiili N % valmis" strip never shows again.
+  // markRenewedSeen(): "Krossi Koutsin ilme on uudistunut" was closed (lib/constants.js RENEWED_SEEN_KEY on
+  // the signed-in account), so it never opens again on any device.
   account: ['getProfile', 'getPilotAcknowledgement', 'acceptPilot', 'createProfile', 'saveDisplayName',
-    'uploadAvatar', 'removeAvatar', 'saveAbout', 'getWaitingProfile', 'saveWaitingProfile', 'markProfileDone', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
+    'uploadAvatar', 'removeAvatar', 'saveAbout', 'getWaitingProfile', 'saveWaitingProfile', 'markProfileDone', 'markRenewedSeen', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
 
   // Coach role: fetchRow(uid) → { id } | null; load(coachId) → CoachState; subscribe(coachId, cb) → unsubscribe.
   // saveWeekNote(coachId, { year, week, score, note }) — the coach's private weekly diary.

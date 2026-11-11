@@ -274,6 +274,7 @@ export const backend = {
       S().tennisDraft = { ...(S().tennisDraft || {}), [id]: tennisDraftOf(tennis) };
     },
     async markProfileDone() { const at = nowIso(); S().profileDoneAt = at; return at; },
+    async markRenewedSeen() {},
     async recordAppOpen() {},
     async trackEvent() {},
     async isAdmin() { return false; },
