@@ -14,6 +14,8 @@ import { PlayerRow } from './parts.jsx';
 import { AddPlayerSheet, MergeSheet } from './playerForms.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { openInvites, sessionPath } from './nav.js';
+import { useLevelScale } from './levels.jsx';
+import { levelLabel, onScale, rangeValue, scaleSteps, stepIndex } from '../domain/levels.js';
 
 function activityLabel(days) {
   if (days == null) return null;
@@ -59,10 +61,51 @@ function rowChip(student, days, absent) {
 }
 
 // kept while the app is open: back from a player's page finds the list as it was left
-const remembered = { filter: 'all', query: '' };
+const remembered = { filter: 'all', query: '', level: null };
+
+/** Does a player's level pass the Taso filter: null = any, { from, to } = steps, 'none' = no level, 'old' = not on the scale. */
+function levelPasses(scale, level, f) {
+  if (!f) return true;
+  const text = String(level ?? '').trim();
+  if (f === 'none') return !text;
+  if (f === 'old') return Boolean(text) && !onScale(scale, text);
+  const i = stepIndex(scale, text);
+  return i >= f.from && i <= f.to;
+}
+
+/** Taso: the coach's steps (tap one, or two for a range), Ei tasoa and, while there are any, Vanha taso. */
+function LevelFilter({ scale, value, onChange, hasOld, count }) {
+  const steps = scaleSteps(scale);
+  const sel = value && typeof value === 'object' ? value : null;
+  const tap = (i) => {
+    if (sel && sel.from === sel.to) { onChange(sel.from === i ? null : { from: Math.min(sel.from, i), to: Math.max(sel.from, i) }); return; }
+    onChange({ from: i, to: i });
+  };
+  const chip = (key, label, on, onClick) => (
+    <button key={key} type="button" aria-pressed={on} className={cx('select-chip select-chip-sm', on && 'is-on')} onClick={onClick}>
+      <span className="select-chip-text"><span className="select-chip-label">{label}</span></span>
+    </button>
+  );
+  return (
+    <div className="lv-filter">
+      <div className="chip-select chip-select-scroll" role="group" aria-label="Suodata tason mukaan">
+        <span className="lv-filter-label">Taso</span>
+        {steps.map((s, i) => chip(s.value, s.label, Boolean(sel && i >= sel.from && i <= sel.to), () => tap(i)))}
+        {chip('none', 'Ei tasoa', value === 'none', () => onChange(value === 'none' ? null : 'none'))}
+        {hasOld && chip('old', 'Vanha taso', value === 'old', () => onChange(value === 'old' ? null : 'old'))}
+      </div>
+      {value && <p className="field-msg">{sel ? levelLabel(scale, rangeValue(scale, sel.from, sel.to)) : value === 'none' ? 'Ei tasoa' : 'Vanha taso'}: {count} {count === 1 ? 'pelaaja' : 'pelaajaa'}. <button type="button" className="k-textlink" onClick={() => onChange(null)}>Näytä kaikki</button></p>}
+    </div>
+  );
+}
 
 export function PlayersScreen() {
   const { state } = useData();
+  const levels = useLevelScale();
+  const [levelFilter, setLevelFilterState] = useState(remembered.level);
+  const setLevelFilter = (v) => { remembered.level = v; setLevelFilterState(v); };
+  const lf = levels.uses ? levelFilter : null;
+  const levelOf = (s) => (levels.uses ? levelLabel(levels.scale, s.level) : '');
   const [filter, setFilterState] = useState(remembered.filter);
   const [query, setQueryState] = useState(remembered.query);
   const setFilter = (v) => { remembered.filter = v; setFilterState(v); };
@@ -76,9 +119,12 @@ export function PlayersScreen() {
   const dupes = useMemo(() => duplicateNames(state.students), [state.students]);
   const visible = useMemo(() => {
     const base = query.trim() ? matchStudents(state.students, query, { limit: 500 }).map((s) => rows.find((r) => r.s.id === s.id)) : rows;
-    const list = base.filter((r) => filter === 'all' || (filter === 'unjoined' ? r.s.isPlaceholder : r.days != null && r.days <= 14));
+    const list = base.filter((r) => (filter === 'all' || (filter === 'unjoined' ? r.s.isPlaceholder : r.days != null && r.days <= 14))
+      && levelPasses(levels.scale, r.s.level, lf));
     return list.sort((a, b) => a.s.name.localeCompare(b.s.name, 'fi'));
-  }, [rows, filter, query, state.students]);
+  }, [rows, filter, query, state.students, lf, levels.scale]);
+  const showLevelFilter = levels.uses && state.students.some((s) => String(s.level ?? '').trim());
+  const hasOld = levels.uses && state.students.some((s) => String(s.level ?? '').trim() && !onScale(levels.scale, s.level));
   // Without a search: the players under the session nearest to now, the filter applied within.
   const today = koutsiTodayStr();
   const nearest = useMemo(() => playerSections(state), [state]);
@@ -125,6 +171,7 @@ export function PlayersScreen() {
             { value: 'unjoined', label: 'Ei liittynyt', badge: unjoined || undefined },
             { value: 'active', label: 'Aktiiviset', badge: active || undefined },
           ]} />
+          {showLevelFilter && <LevelFilter scale={levels.scale} value={lf} onChange={setLevelFilter} hasOld={hasOld} count={visible.length} />}
           {query.trim() ? (
             visible.length === 0 ? <p className="k-quiet">Ei osumia.</p> : (
               <div className="k-list stagger">
@@ -132,7 +179,7 @@ export function PlayersScreen() {
                   <div key={r.s.id} style={{ '--i': i }}>
                     <PlayerRow
                       student={r.s}
-                      sub={r.groups.length ? r.groups.map((g) => `${g.day} ${g.time}`).join(', ') + (r.s.level ? `, ${r.s.level}` : '') : (r.s.level || 'Ei ryhmää')}
+                      sub={r.groups.length ? r.groups.map((g) => `${g.day} ${g.time}`).join(', ') + (levelOf(r.s) ? `, ${levelOf(r.s)}` : '') : (levelOf(r.s) || 'Ei ryhmää')}
                       right={rowChip(r.s, r.days, false)}
                     />
                   </div>
@@ -151,7 +198,7 @@ export function PlayersScreen() {
                       <PlayerRow
                         key={student.id}
                         student={student}
-                        sub={next ? `${sec.status === 'upcoming' ? 'Sitten' : 'Seuraava'} ${sessionWhen(next, today)}` : sec.status === 'upcoming' ? (student.level || '') : 'Ei tulevia treenejä'}
+                        sub={next ? `${sec.status === 'upcoming' ? 'Sitten' : 'Seuraava'} ${sessionWhen(next, today)}` : sec.status === 'upcoming' ? levelOf(student) : 'Ei tulevia treenejä'}
                         right={rowChip(student, daysOf(student.id), absent)}
                       />
                     ))}
@@ -170,7 +217,7 @@ export function PlayersScreen() {
                       <PlayerRow
                         key={student.id}
                         student={student}
-                        sub={next ? `Seuraava ${sessionWhen(next, today)}` : groupTimes(student.id) + (student.level ? `, ${student.level}` : '')}
+                        sub={next ? `Seuraava ${sessionWhen(next, today)}` : groupTimes(student.id) + (levelOf(student) ? `, ${levelOf(student)}` : '')}
                         right={rowChip(student, daysOf(student.id), false)}
                       />
                     ))}

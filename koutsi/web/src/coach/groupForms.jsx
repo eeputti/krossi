@@ -18,6 +18,8 @@ import { exactNameMatch, matchStudents } from '../domain/roster.js';
 import { useCoach } from './CoachRoot.jsx';
 import { groupPath } from './nav.js';
 import { currentSeason, weeksLeftInSeason } from '../domain/season.js';
+import { ALL_LEVELS } from '../domain/levels.js';
+import { GroupLevelPicker, PlayerLevelPicker, useLevelScale, useLevelText } from './levels.jsx';
 import { SEASON_LINK_USES, joinedCount, seasonLinkDays, seasonLinkFor } from '../domain/groupLinks.js';
 import { GroupQrSheet } from './GroupLinks.jsx';
 import { HowSteps, MinorsNote } from './joinHelp.jsx';
@@ -53,6 +55,7 @@ export function WeeksChips({ value, onChange, left }) {
 export function GroupFormSheet({ open, onClose, editing }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
+  const levels = useLevelScale();
   const seasonWeeks = useDefaultWeeks();
   const isEdit = Boolean(editing);
   const [name, setName] = useState('');
@@ -75,7 +78,9 @@ export function GroupFormSheet({ open, onClose, editing }) {
   const submit = async () => {
     if (!ready || busyRef.current) return;
     busyRef.current = true; setBusy(true);
-    const fields = { name: name.trim(), level: level.trim() || 'Kaikki tasot', place: place.trim(), day, time, durationMinutes: duration, weeksAhead: weeks };
+    // without levels in use, an edit keeps the group's level as it was (it comes back if levels are turned on again)
+    const groupLevel = levels.uses ? level.trim() || ALL_LEVELS : (isEdit ? editing.level ?? null : null);
+    const fields = { name: name.trim(), level: groupLevel, place: place.trim(), day, time, durationMinutes: duration, weeksAhead: weeks };
     const res = isEdit
       ? await run(() => api.groups.update(editing.id, fields), 'Ryhmä päivitetty.')
       : await run(() => api.groups.create(coachId, { ...fields, memberIds }), 'Ryhmä luotu — treenit ovat kalenterissa.', { waitForRefresh: true });
@@ -91,7 +96,7 @@ export function GroupFormSheet({ open, onClose, editing }) {
       footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={!name.trim() ? 'Anna ryhmälle nimi.' : !time ? 'Valitse kellonaika.' : null} loading={busy} onClick={submit}>{isEdit ? 'Tallenna' : 'Luo ryhmä'}</Button></div>}>
       <div className="stack-4">
         <Field label="Nimi" htmlFor="g-name"><Input id="g-name" size="lg" value={name} onChange={(e) => setName(e.target.value)} placeholder="Esim. tiistai aikuiset" maxLength={120} /></Field>
-        <Field label="Taso" optional htmlFor="g-level"><Input id="g-level" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Esim. Keskitaso" maxLength={80} /></Field>
+        {levels.uses && <Field label="Taso" optional><GroupLevelPicker value={level} onChange={setLevel} /></Field>}
         <Field label="Paikka" optional htmlFor="g-place" hint="Näkyy pelaajille ryhmän sivulla ja treenipäivän muistutuksessa.">
           <Input id="g-place" value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Esim. Lahden tennishalli, kenttä 3" maxLength={120} />
         </Field>
@@ -177,6 +182,7 @@ export function AddMembersSheet({ open, onClose, group }) {
   const [saving, setSaving] = useState(false);
   const nameRef = useRef(null);
   const confirmLeave = useConfirm();
+  const levels = useLevelScale();
   useEffect(() => { if (open) { setSelected([]); setQuery(''); setName(''); setAge(''); setLevel(''); } }, [open]);
   if (!group) return null;
   const available = state.students.filter((s) => !group.memberIds.includes(s.id)).sort((a, b) => a.name.localeCompare(b.name, 'fi'));
@@ -229,7 +235,7 @@ export function AddMembersSheet({ open, onClose, group }) {
       <div className="stack-5">
         <form className="k-subcard stack-3" onSubmit={create}>
           <div className="k-subcard-title">Uusi pelaaja tähän ryhmään</div>
-          <p className="field-msg">Nimi riittää. Ikä ja taso ovat valinnaisia. Älä kirjoita terveystietoja.</p>
+          <p className="field-msg">{levels.uses ? 'Nimi riittää. Ikä ja taso ovat valinnaisia.' : 'Nimi riittää. Ikä on valinnainen.'} Älä kirjoita terveystietoja.</p>
           <Input ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} placeholder="Pelaajan nimi" maxLength={120} aria-label="Uuden pelaajan nimi" />
           {suggestions.length > 0 && (
             <div className="k-suggest">
@@ -243,10 +249,8 @@ export function AddMembersSheet({ open, onClose, group }) {
           )}
           {existing && group.memberIds.includes(existing.id) && <p className="k-warn-text">{existing.name} on jo tässä ryhmässä.</p>}
           {existing && !group.memberIds.includes(existing.id) && <p className="k-warn-text">Sinulla on jo pelaaja nimeltä {existing.name.replace(/\.+$/, '')}. Valitse hänet yltä — luominen on estetty, ettei hänelle synny toista profiilia.</p>}
-          <div className="k-two">
-            <Input value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} inputMode="numeric" placeholder="Ikä (valinn.)" aria-label="Ikä" />
-            <Input value={level} onChange={(e) => setLevel(e.target.value)} placeholder="Taso (valinn.)" maxLength={80} aria-label="Taso" />
-          </div>
+          <Input value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} inputMode="numeric" placeholder="Ikä (valinn.)" aria-label="Ikä" />
+          {levels.uses && <PlayerLevelPicker value={level} onChange={setLevel} />}
           {!ageValid && <p className="field-msg field-msg-error">Iän pitää olla 1–119 vuotta.</p>}
           <Button type="submit" variant="dark" size="md" block missing={!name.trim() ? 'Kirjoita pelaajan nimi.' : !ageValid ? 'Iän pitää olla 1–119 vuotta.' : existing ? `${existing.name} on jo listallasi — valitse hänet yltä.` : null} loading={creating} icon="plus">Luo ja lisää ryhmään</Button>
         </form>
@@ -275,6 +279,7 @@ export function AddMembersSheet({ open, onClose, group }) {
  *  group) with the group's name, time and place on it, plus one-off links for a single player. */
 export function GroupInviteSheet({ open, onClose, group }) {
   const { state } = useData();
+  const levelText = useLevelText();
   const { coachId, acting } = useCoach();
   const toast = useToast();
   const confirm = useConfirm();
@@ -326,7 +331,7 @@ export function GroupInviteSheet({ open, onClose, group }) {
             <div className="gi-group">
               <div className="field-label">{current.season ? 'Ryhmän linkki' : 'Kertakäyttöinen linkki'}</div>
               <span className="gi-group-name">{group.name}</span>
-              <span className="gi-group-when">{[groupWhen(group), group.place].filter(Boolean).join(', ')}</span>
+              <span className="gi-group-when">{[groupWhen(group, levelText), group.place].filter(Boolean).join(', ')}</span>
               <span className="gi-group-when">{count.joined}/{count.total} liittynyt</span>
             </div>
             <div className="k-invite-head">

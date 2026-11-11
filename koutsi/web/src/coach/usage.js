@@ -149,6 +149,20 @@ export const USAGE_SECTIONS = [
     ],
   },
   {
+    title: 'Pelaajien tasot',
+    events: [
+      ['tasot.tervetuloa-sanat', 'Tervetuloa: sanat valittu'],
+      ['tasot.tervetuloa-numerot', 'Tervetuloa: numerot valittu'],
+      ['tasot.tervetuloa-ei', 'Tervetuloa: en käytä tasoja'],
+      ['tasot.tervetuloa-myohemmin', 'Tervetuloa: päätän myöhemmin'],
+      ['tasot.sanat', 'Profiili: asteikoksi sanat'],
+      ['tasot.numerot', 'Profiili: asteikoksi numerot'],
+      ['tasot.ei', 'Profiili: tasot pois käytöstä'],
+      ['tasot.vaihda', 'Vanhat tasot vaihdettu kerralla'],
+      ['tasot.siirra', 'Valitut pelaajat siirretty toiselle tasolle'],
+    ],
+  },
+  {
     title: 'Treenin runko',
     events: [
       ['runko.avaa', 'Harjoitepankki avattu runkoon'],

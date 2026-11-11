@@ -10,6 +10,7 @@ import { matchStudents } from '../domain/roster.js';
 import { TRAINING_TYPES } from '../lib/constants.js';
 import { useCoach } from './CoachRoot.jsx';
 import { useGroupDelete } from './groupForms.jsx';
+import { useLevelText } from './levels.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 /** Each event kind's icon, in the form's chips and on Viikkohallinta's event bars. */
@@ -19,6 +20,7 @@ const EVENT_KIND_OPTIONS = KOUTSI_EVENT_KINDS.filter((k) => k.value !== 'tauko')
 /** New session for a player or a group (optionally weekly for a year), or edit one. */
 export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGroupId, defaultTime }) {
   const { state, run } = useData();
+  const levelText = useLevelText();
   const { coachId } = useCoach();
   const isEdit = Boolean(editing);
   const [target, setTarget] = useState('group');
@@ -109,7 +111,7 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
                 {(allGroups ? groups : groups.filter((g) => g.id === groupId)).map((g) => (
                   <label key={g.id} className={cx('k-pick', groupId === g.id && 'is-on')}>
                     <input type="radio" name="tr-group" checked={groupId === g.id} onChange={() => setGroupId(g.id)} />
-                    <span className="grow"><span className="k-pick-title">{g.day} {g.time}, {g.name}</span><span className="k-faint">{[g.level, `${g.memberIds.length}\u00a0pel.`].filter(Boolean).join(', ')}</span></span>
+                    <span className="grow"><span className="k-pick-title">{g.day} {g.time}, {g.name}</span><span className="k-faint">{[levelText(g.level), `${g.memberIds.length}\u00a0pel.`].filter(Boolean).join(', ')}</span></span>
                   </label>
                 ))}
                 {!allGroups && <button type="button" className="k-textlink" onClick={() => setAllGroups(true)}>Valitse toinen ryhmä</button>}

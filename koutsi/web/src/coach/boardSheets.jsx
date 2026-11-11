@@ -19,6 +19,7 @@ import { ChoiceGrid, ChoiceRows, ChoiceTile } from './tiles.jsx';
 import { track } from './usage.js';
 import { FreedLessonCard } from './openSlots.jsx';
 import { bookedSlotOf } from '../domain/openSlots.js';
+import { useLevelText } from './levels.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_LONG = ['Maanantai', 'Tiistai', 'Keskiviikko', 'Torstai', 'Perjantai', 'Lauantai', 'Sunnuntai'];
@@ -66,6 +67,7 @@ const ISSUE_TEXT = {
 /** A tap on a block: where the session stands and everything that can be done for it. */
 export function BoardItemSheet({ open, item, week, onClose }) {
   const { state } = useData();
+  const levelText = useLevelText();
   const record = useRecord();
   const removeTraining = useTrainingDelete();
   const [sub, setSub] = useState(null); // { kind: 'theme' | 'members' | 'extend' | 'edit' | 'add', group?, training?, date?, time? }
@@ -142,7 +144,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
 
   const facts = [
     group ? `${group.memberIds.length} pelaajaa` : null,
-    group?.level || null,
+    levelText(group?.level) || null,
     live && live.type !== 'Ryhmätreeni' ? live.type : null,
     absent ? `${absent} poissa` : null,
     live ? bookedSlotOf(state.openSlots, live.id)?.place || null : null, // a booked free time's place

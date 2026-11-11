@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Link, navigate } from '../app/router.js';
-import { Avatar, Button, Card, ChipSelect, Disclosure, EmptyState, Icon, IconButton, Page, Segmented, Sheet, StatTile, TopBar, useConfirm } from '../ui/index.js';
+import { Avatar, Button, Card, Disclosure, EmptyState, Icon, IconButton, Page, Segmented, Sheet, StatTile, TopBar, useConfirm } from '../ui/index.js';
 import { Block, Quiet } from '../shared/bits.jsx';
 import { Timeline } from '../shared/Timeline.jsx';
 import { VideoPlayerSheet } from '../shared/videos.jsx';
@@ -13,7 +13,9 @@ import {
 } from '../domain/core.js';
 import { koutsiFmtEventDate } from '../domain/timeline.js';
 import { groupsOf } from '../domain/week.js';
-import { LEVELS, MOOD_LABELS } from '../lib/constants.js';
+import { MOOD_LABELS } from '../lib/constants.js';
+import { levelNote, levelVisibilityText } from '../domain/levels.js';
+import { PlayerLevelPicker, useLevelScale } from './levels.jsx';
 import { useCoach } from './CoachRoot.jsx';
 import { groupPath, sessionPath } from './nav.js';
 import { AudienceSheet, EditPlaceholderSheet, MergeSheet, PlaceholderInvite, TextEntrySheet } from './playerForms.jsx';
@@ -30,15 +32,22 @@ import { useMessages } from '../shared/messages/MessagesProvider.jsx';
 import { TurnOnSheet } from './MessagesScreen.jsx';
 import { threadPath } from './nav.js';
 
+/** The player's level on the coach's own scale, and whether the player sees it (18 or more). */
 function LevelSheet({ open, onClose, student }) {
   const { run } = useData();
+  const { scale } = useLevelScale();
   const set = async (level) => {
-    const res = await run(() => api.students.setLevel(student.id, level || null), 'Taso päivitetty.');
+    const res = await run(() => api.students.setLevel(student.id, level || null), level ? 'Taso päivitetty.' : 'Taso poistettu.');
     if (res.ok) onClose();
   };
+  const note = student ? levelNote(scale, student.level) : '';
   return (
-    <Sheet open={open} onClose={onClose} title="Pelaajan taso" size="sm">
-      <ChipSelect options={LEVELS.map((l) => ({ value: l, label: l }))} value={student?.level || ''} onChange={set} layout="grid" columns={2} ariaLabel="Taso" />
+    <Sheet open={open} onClose={onClose} title="Pelaajan taso" subtitle={student?.name} size="sm">
+      <div className="stack-3">
+        <PlayerLevelPicker size="md" value={student?.level || ''} onChange={set} />
+        {note && <p className="field-msg">{note}</p>}
+        {student && <p className="field-msg lv-visibility"><Icon name={levelVisibilityText(student).startsWith('Pelaaja näkee') ? 'eye' : 'lock'} size={14} />{levelVisibilityText(student)}</p>}
+      </div>
     </Sheet>
   );
 }
@@ -300,6 +309,7 @@ const tabByPlayer = new Map(); // back from a linked page comes back to the same
 
 export function PlayerScreen({ params }) {
   const { state, run } = useData();
+  const levels = useLevelScale();
   const { coachId, acting } = useCoach();
   const record = useRecord();
   const msgs = useMessages();
@@ -371,7 +381,7 @@ export function PlayerScreen({ params }) {
             <h1 className="t-title">{student.name}</h1>
             <div className="row wrap k-player-meta">
               {student.ageLabel && <span>{student.ageLabel}</span>}
-              <button type="button" className="chip chip-md chip-lime k-level-btn" onClick={() => setSheet({ kind: 'level' })}>{student.level || 'Aseta taso'}<Icon name="chevron-down" size={13} /></button>
+              {levels.uses && <button type="button" className="chip chip-md chip-lime k-level-btn" onClick={() => setSheet({ kind: 'level' })}>{levels.label(student.level) || 'Aseta taso'}<Icon name="chevron-down" size={13} /></button>}
               {ambitionById(student.ambition) && <span className="chip chip-md pc-aim"><Icon name="target" size={13} />{ambitionById(student.ambition).label}</span>}
             </div>
             {groups.length > 0 && (

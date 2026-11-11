@@ -9,15 +9,18 @@ import { CopyButton, QrCode, ShareTextButton } from '../shared/bits.jsx';
 import { optionalAge } from '../shared/fields.jsx';
 import { koutsiInviteLink, koutsiInviteMessage } from '../domain/core.js';
 import { exactNameMatch, firstName, matchStudents, mergeSides } from '../domain/roster.js';
-import { LEVELS } from '../lib/constants.js';
+import { PlayerLevelPicker, useLevelScale } from './levels.jsx';
 import { useCoach } from './CoachRoot.jsx';
 import { playerPath } from './nav.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const HEALTH_NOTE = 'Älä kirjoita vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.';
 
-function LevelPicker({ value, onChange }) {
-  return <ChipSelect size="sm" allowEmpty options={LEVELS.map((l) => ({ value: l, label: l }))} value={value} onChange={onChange} ariaLabel="Taso" />;
+/** The level field on the coach's own scale; nothing at all when the coach doesn't use levels. */
+function LevelField({ value, onChange }) {
+  const { uses } = useLevelScale();
+  if (!uses) return null;
+  return <Field label="Taso" optional><PlayerLevelPicker value={value} onChange={onChange} /></Field>;
 }
 
 /**
@@ -82,7 +85,7 @@ export function AddPlayerSheet({ open, onClose, onBulk, initialName = '', onDone
         <Field label="Ikä" optional htmlFor="p-age" error={!valid ? 'Iän pitää olla 1–119 vuotta.' : null}>
           <Input id="p-age" value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} inputMode="numeric" placeholder="Esim. 14" />
         </Field>
-        <Field label="Taso" optional><LevelPicker value={level} onChange={setLevel} /></Field>
+        <LevelField value={level} onChange={setLevel} />
         {groupOptions.length > 0 && (
           <Field label="Ryhmä" optional>
             <ChipSelect size="sm" allowEmpty options={groupOptions} value={groupId} onChange={setGroupId} ariaLabel="Ryhmä" />
@@ -125,7 +128,7 @@ export function EditPlaceholderSheet({ open, onClose, student }) {
         <Field label="Ikä" optional htmlFor="e-age" error={!valid ? 'Iän pitää olla 1–119 vuotta.' : null}>
           <Input id="e-age" value={age} onChange={(e) => setAge(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))} inputMode="numeric" />
         </Field>
-        <Field label="Taso" optional><LevelPicker value={level} onChange={setLevel} /></Field>
+        <LevelField value={level} onChange={setLevel} />
       </div>
     </Sheet>
   );

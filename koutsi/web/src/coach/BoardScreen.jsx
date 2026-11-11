@@ -29,6 +29,7 @@ import { EVENT_ICON, EventSheet, TrainingSheet } from './trainingForms.jsx';
 import { openPlanner, openSeason } from './nav.js';
 import { track } from './usage.js';
 import { AddOpenSlotsSheet, useOpenSlotTap, useOpenSlotsOn } from './openSlots.jsx';
+import { useLevelText } from './levels.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const DAY_SHORT = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
@@ -48,6 +49,7 @@ export const itemName = (item) => (item.kind === 'open' ? 'Vapaa aika' : item.gr
 
 /** One session on the grid. Its height is its length, so what shows inside adapts to it. */
 function BoardBlock({ item, grid, onOpen }) {
+  const levelText = useLevelText();
   const { group, training, tone, issues, status, theme } = item;
   const top = grid.at(item.start);
   const bottom = grid.at(item.end);
@@ -75,7 +77,7 @@ function BoardBlock({ item, grid, onOpen }) {
         ) : !missing && (
           <span className="wb-b-meta">
             {group ? (
-              <><Icon name="users" size={12} /><span className="t-num">{item.members}</span>{group.level && <span className="wb-b-level">{group.level}</span>}</>
+              <><Icon name="users" size={12} /><span className="t-num">{item.members}</span>{levelText(group.level) && <span className="wb-b-level">{levelText(group.level)}</span>}</>
             ) : <span className="wb-b-level">{training?.type || 'Yksityistunti'}</span>}
             {item.absent > 0 && <span className="wb-b-absent">{item.absent} poissa</span>}
           </span>

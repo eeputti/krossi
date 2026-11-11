@@ -10,6 +10,7 @@
 
 import { db, isMissingFunction, isMissingTable, must, selectAll, selectIn } from './client.js';
 import { coachViewOfArchives } from '../../domain/archive.js';
+import { DEFAULT_SCALE, normalizeScale } from '../../domain/levels.js';
 import { koutsiAddDays, koutsiTodayStr } from '../../domain/core.js';
 import { mapClubEvent, mapCoach, mapCoachVideo, mapExercise, mapGroup, mapRosterStub, mapSeason, mapSend, mapStudent, mapTraining, mapWeekNote, groupBy } from './map.js';
 
@@ -41,6 +42,30 @@ async function loadPlayerLogs(studentIds, coachId) {
   const pages = await Promise.all(chunks.map((chunk) => selectAll(() => fromTable('koutsi_trainings').select('*')
     .in('student_id', chunk).eq('logged_by', 'player').neq('coach_id', coachId).order('date').order('id'))));
   return pages.flat();
+}
+
+// "Pelaajien tasot" (koutsi/web/sql/20261111131940_koutsi_level_scales.sql). Before the table exists the
+// coach keeps the words and the setting stays hidden; a coach without a row has the words.
+async function loadLevelScale(coachId) {
+  const { data, error } = await fromTable('koutsi_level_scales').select('kind, size, notes').eq('coach_id', coachId).maybeSingle();
+  if (error) {
+    if (!isMissingTable(error)) console.warn('level scale unavailable:', error.message || error);
+    return { scale: DEFAULT_SCALE, ready: false };
+  }
+  return { scale: normalizeScale(data), ready: true };
+}
+
+/** The scales of a player's coaches (RLS: a current player reads them) → { [coachId]: scale }. */
+async function loadLevelScales(coachIds) {
+  const out = Object.fromEntries((coachIds || []).map((id) => [id, DEFAULT_SCALE]));
+  if (!coachIds?.length) return out;
+  const { data, error } = await fromTable('koutsi_level_scales').select('coach_id, kind, size, notes').in('coach_id', coachIds);
+  if (error) {
+    if (!isMissingTable(error)) console.warn('level scales unavailable:', error.message || error);
+    return out;
+  }
+  for (const row of data || []) out[row.coach_id] = normalizeScale(row);
+  return out;
 }
 
 // The player's own Kehitys entries, an addition like the week diary: without the table (migration not run)
@@ -120,7 +145,7 @@ export async function loadCoachState(coachId) {
 
   const [
     studentRows, studentProfiles, groupRows, exerciseRows, eventRows, ownTrainingRows, playerLogRows,
-    diary, homework, videos, moods, matchNotes, history, weekNotes, entries, archive, seasons, notices, sent,
+    diary, homework, videos, moods, matchNotes, history, weekNotes, entries, archive, seasons, notices, sent, levelScale,
   ] = await Promise.all([
     selectIn(studentIds, (ids) => fromTable('koutsi_students').select('*').in('id', ids)),
     selectIn(studentIds, (ids) => fromTable('profiles').select('id, name, avatar_url, age, bio').in('id', ids)),
@@ -143,6 +168,7 @@ export async function loadCoachState(coachId) {
     // a month back is enough for Merkitse's list; Lähetetyt shows the ones the nightly prune keeps (60 pv)
     loadAnnouncements((q) => q.eq('coach_id', coachId).gte('until', koutsiAddDays(koutsiTodayStr(), -60)).order('created_at', { ascending: false })),
     loadSends(coachId),
+    loadLevelScale(coachId),
   ]);
 
   const trainingRows = [...ownTrainingRows, ...playerLogRows];
@@ -177,6 +203,8 @@ export async function loadCoachState(coachId) {
     sends: sent.sends,
     videoLibrary: sent.videoLibrary,
     sendsReady: sent.ready,
+    levelScale: levelScale.scale,
+    levelScaleReady: levelScale.ready,
   });
 }
 
@@ -235,7 +263,7 @@ export async function loadPlayerState(studentId) {
 
   const [
     coachRows, coachProfiles, groupRows, rosterRows, themeRows, slotRows, exerciseRows, eventRows,
-    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history, entries, moodSessions, archive, notices,
+    ownTrainings, groupTrainings, diary, homework, videos, moods, matchNotes, history, entries, moodSessions, archive, notices, levelScales,
   ] = await Promise.all([
     selectIn(coachIds, (ids) => fromTable('koutsi_coaches').select('*').in('id', ids)),
     selectIn(coachIds, (ids) => fromTable('profiles').select('id, name, avatar_url').in('id', ids)),
@@ -257,6 +285,7 @@ export async function loadPlayerState(studentId) {
     moodSessionsReady(),
     loadArchive([studentId]),
     loadAnnouncements((q) => q.gte('until', koutsiTodayStr()).order('created_at', { ascending: false })),
+    loadLevelScales(coachIds),
   ]);
 
   const trainingRows = [...ownTrainings, ...groupTrainings.filter((t) => !ownTrainings.some((o) => o.id === t.id))];
@@ -290,5 +319,6 @@ export async function loadPlayerState(studentId) {
     seasons,
     announcements: notices.rows,
     announcementsReady: notices.ready,
+    levelScales,
   };
 }

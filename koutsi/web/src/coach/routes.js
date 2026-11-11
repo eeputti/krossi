@@ -58,6 +58,8 @@ export const ROUTES = [
   { name: 'billing', pattern: '/valmentaja/laskutus', tab: 'laskutus', type: 'tab' },
   { name: 'profile', pattern: '/valmentaja/profiili', tab: 'profiili', type: 'tab' },
   { name: 'profileEdit', pattern: '/valmentaja/profiili/muokkaa', tab: 'profiili', type: 'page' },
+  // Pelaajien tasot: the coach's own level scale and the list of old levels (LevelsScreen)
+  { name: 'levels', pattern: '/valmentaja/profiili/tasot', tab: 'profiili', type: 'page' },
   { name: 'admin', pattern: '/valmentaja/yllapito', tab: 'profiili', type: 'page' },
   // earlier addresses: the old app's tabs, the home page's first name and the Kalenteri tab
   // (now part of Viikkohallinta; its ?vko= week is kept)

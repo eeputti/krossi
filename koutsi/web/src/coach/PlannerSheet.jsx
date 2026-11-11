@@ -22,6 +22,7 @@ import { useSaveThemes } from './themeActions.js';
 import { useRecord } from './merkitse.jsx';
 import { ThemeSaved } from './ThemeSaved.jsx';
 import { track } from './usage.js';
+import { useLevelText } from './levels.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -48,6 +49,7 @@ function Chip({ active, onClick, children }) {
 
 export function PlannerSheet({ query }) {
   const { state, run } = useData();
+  const levelText = useLevelText();
   const confirm = useConfirm();
   const toast = useToast();
   const saveThemes = useSaveThemes();
@@ -364,7 +366,7 @@ export function PlannerSheet({ query }) {
                     <label key={r.group.id} className={cx('planner-group', r.skips && 'is-off', selected.has(r.group.id) && 'is-on')}>
                       <input type="checkbox" checked={selected.has(r.group.id)} onChange={() => toggle(r.group.id)} />
                       <span className="grow">
-                        <span className="planner-group-name">{r.group.time}, {r.group.name}{r.group.level ? <span className="k-faint">, {r.group.level}</span> : null}<span className="k-faint">, {r.group.memberIds.length}&nbsp;pel.</span></span>
+                        <span className="planner-group-name">{r.group.time}, {r.group.name}{levelText(r.group.level) ? <span className="k-faint">, {levelText(r.group.level)}</span> : null}<span className="k-faint">, {r.group.memberIds.length}&nbsp;pel.</span></span>
                         <span className={cx('planner-group-theme', r.theme && (same ? 'is-same' : 'is-other'))}>
                           {r.theme ? `${same ? '✓ ' : 'Nyt: '}${r.theme.title}` : r.skips ? `Ei treeniä viikolla ${week.week}` : 'Ei teemaa'}
                         </span>

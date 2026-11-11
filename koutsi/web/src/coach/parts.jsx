@@ -8,13 +8,14 @@ import { relativeDay, sessionStatus } from '../domain/week.js';
 import { ownEntry } from '../domain/ownWeek.js';
 import { MOOD_LABELS } from '../lib/constants.js';
 import { groupPath, playerPath, sessionPath } from './nav.js';
+import { useLevelText } from './levels.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
-/** "Ti 17:00–18:30 · Keskitaso" — enough to tell four "tiistai aikuiset" apart. */
-export function groupWhen(group) {
+/** "Ti 17:00–18:30, Taso 3–4" — enough to tell four "tiistai aikuiset" apart. levelText from useLevelText(). */
+export function groupWhen(group, levelText = (t) => t || '') {
   if (!group) return '';
-  return [group.day ? `${group.day} ${koutsiTimeRangeLabel(group.time, group.durationMinutes)}` : '', group.level].filter(Boolean).join(', ');
+  return [group.day ? `${group.day} ${koutsiTimeRangeLabel(group.time, group.durationMinutes)}` : '', levelText(group.level)].filter(Boolean).join(', ');
 }
 
 /** A session in a list: time, who, the week's theme, and how attendance stands. */
@@ -51,6 +52,7 @@ export function SessionRow({ item, showDate, now }) {
 
 /** A group in a list: schedule, name, members, this week's theme status. */
 export function GroupRow({ group, week, linkState }) {
+  const levelText = useLevelText();
   const theme = week ? koutsiGroupThemeForWeek(group, week) : group.theme;
   return (
     <Link to={groupPath(group.id)} state={linkState} className="k-row k-group-row">
@@ -58,7 +60,7 @@ export function GroupRow({ group, week, linkState }) {
       <span className="k-row-main">
         <span className="k-row-title truncate">{group.name}</span>
         <span className="k-row-sub truncate">
-          {[koutsiTimeRangeLabel(group.time, group.durationMinutes), group.level, `${group.memberIds.length}\u00a0pel.`].filter(Boolean).join(', ')}
+          {[koutsiTimeRangeLabel(group.time, group.durationMinutes), levelText(group.level), `${group.memberIds.length}\u00a0pel.`].filter(Boolean).join(', ')}
         </span>
         <span className={cx('k-theme-line', theme ? 'has-theme' : 'no-theme')}>
           {theme ? <><Icon name="sparkles" size={13} />{theme.title}</> : 'Ei teemaa tällä viikolla'}
