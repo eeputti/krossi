@@ -8,7 +8,7 @@ import { Button, Chip, EmptyState, Icon, Input, Page, PageHeader, Segmented } fr
 import { koutsiTodayStr } from '../domain/core.js';
 import { duplicateNames, matchStudents } from '../domain/roster.js';
 import {
-  JUST_ENDED_MINUTES, groupsOf, lastActivityDays, minutesLabel, playerSections, relativeDay, sessionRoster, sessionWhen,
+  JUST_ENDED_MINUTES, groupsOf, lastActivityDays, playerSections, sectionWhen, sessionRoster, sessionWhen,
 } from '../domain/week.js';
 import { PlayerRow } from './parts.jsx';
 import { AddPlayerSheet, MergeSheet } from './playerForms.jsx';
@@ -25,15 +25,6 @@ function activityLabel(days) {
 }
 
 const cx = (...c) => c.filter(Boolean).join(' ');
-
-/** "Nyt käynnissä", "Juuri päättynyt", "Aiemmin tänään", "Eilen", "Tänään · alkaa 45 min päästä", "Huomenna", "To 22.10." */
-function sectionWhen(sec, today) {
-  if (sec.status === 'now') return 'Nyt käynnissä';
-  if (sec.status === 'past') return sec.minutesAgo <= JUST_ENDED_MINUTES ? 'Juuri päättynyt' : sec.training.date === today ? 'Aiemmin tänään' : 'Eilen';
-  const day = relativeDay(sec.training.date, today);
-  const soon = sec.minutesUntil <= 180 ? `, alkaa ${minutesLabel(sec.minutesUntil)} päästä` : '';
-  return day.charAt(0).toUpperCase() + day.slice(1) + soon;
-}
 
 /** One session's heading on Pelaajat: when, what, and who was there or is away. A tap opens the session. */
 function SessionHead({ sec, state, when }) {

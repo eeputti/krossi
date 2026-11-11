@@ -381,7 +381,7 @@ export function GroupInviteSheet({ open, onClose, group }) {
           {seasonLink && !shown && <Button variant="ghost" size="sm" onClick={() => revoke(seasonLink.code)}>Poista ryhmän linkki käytöstä</Button>}
         </section>
       </div>
-      <GroupQrSheet open={big} onClose={() => setBig(false)} group={group} code={current?.code} expiresAt={current?.expiresAt} />
+      <GroupQrSheet open={big} onClose={() => setBig(false)} group={group} code={current?.code} expiresAt={current?.expiresAt} single={Boolean(current && !current.season)} />
     </Sheet>
   );
 }

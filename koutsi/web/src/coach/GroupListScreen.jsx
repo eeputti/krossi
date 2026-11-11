@@ -2,6 +2,7 @@
 // season as a list by weekday, each with this week's theme. Viikkohallinta shows the same groups
 // as a calendar; this is the place to find one group by name and open its page.
 import { useMemo, useState } from 'react';
+import { useRoute } from '../app/router.js';
 import { useData } from '../app/data.jsx';
 import { Button, EmptyState, Icon, Input, Page, PageHeader } from '../ui/index.js';
 import { koutsiSortGroupsBySchedule, koutsiWeekThemeStatus } from '../domain/core.js';
@@ -17,7 +18,17 @@ const remembered = { query: '' }; // back from a group finds the search as it wa
 export function GroupListScreen() {
   const { state } = useData();
   const scale = normalizeScale(state.levelScale);
-  const [formOpen, setFormOpen] = useState(false);
+  const route = useRoute();
+  // ?uusi=1 (Liittymiskoodini → Ryhmille → Lisää ryhmä) opens Uusi ryhmä right away. It leaves the
+  // address at once (before the sheet adds its own history entry), so Back to this page later
+  // doesn't open the form again.
+  const [formOpen, setFormOpen] = useState(() => {
+    if (route.query.uusi !== '1') return false;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('uusi');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    return true;
+  });
   const [bulkOpen, setBulkOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
   const [query, setQueryState] = useState(remembered.query);
