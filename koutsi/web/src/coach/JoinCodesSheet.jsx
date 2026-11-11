@@ -18,22 +18,13 @@ import { joinedCount } from '../domain/groupLinks.js';
 import { currentSeason, groupsOfSeason } from '../domain/season.js';
 import { GroupLinksSheet, GroupQrSheet, useSeasonLinks } from './GroupLinks.jsx';
 import { CoachCode } from './InvitesSheet.jsx';
-import { openInvites } from './nav.js';
+import { HowSteps, MinorsNote } from './joinHelp.jsx';
 import { track } from './usage.js';
 
 const KINDS = [
   { value: 'ryhmat', icon: 'users', title: 'Ryhmäkohtaiset', text: 'Pelaaja liittyy suoraan tiettyyn ryhmään.' },
   { value: 'oma', icon: 'user', title: 'Oma koodi', text: 'Pelaaja tulee Pelaajat-listallesi, ja sinä siirrät hänet ryhmään.' },
 ];
-
-function Steps({ items }) {
-  return (
-    <div className="jc-how">
-      <div className="jc-how-title">Näin se toimii</div>
-      <ol className="jc-steps">{items.map((s, i) => <li key={i}><span>{s}</span></li>)}</ol>
-    </div>
-  );
-}
 
 export function JoinCodesSheet({ open, onClose }) {
   const { state } = useData();
@@ -57,7 +48,6 @@ export function JoinCodesSheet({ open, onClose }) {
     setTab(groups.length ? 'ryhmat' : 'oma');
     make();
   }, [open, season?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const toInvites = () => { onClose(); openInvites(); };
   return (
     <>
       <Sheet open={open} onClose={onClose} size="md" title="Liittymiskoodini" subtitle="Valitse ensin, kumman koodin annat pelaajalle.">
@@ -78,7 +68,7 @@ export function JoinCodesSheet({ open, onClose }) {
 
           {tab === 'ryhmat' ? (
             <div className="stack-4">
-              <Steps items={[
+              <HowSteps items={[
                 <>Lähetä pelaajalle <strong>hänen ryhmänsä</strong> koodi tai linkki. Kentällä voit näyttää QR-koodin.</>,
                 <>Pelaaja syöttää koodin Koutsissa tai avaa linkin.</>,
                 <>Hän on heti ryhmässä. Koodi toimii koko kauden{season ? ` (${season.name})` : ''}.</>,
@@ -119,7 +109,7 @@ export function JoinCodesSheet({ open, onClose }) {
             </div>
           ) : (
             <div className="stack-4">
-              <Steps items={[
+              <HowSteps items={[
                 <>Lähetä pelaajalle <strong>alla oleva koodi</strong> tai linkki.</>,
                 <>Pelaaja syöttää koodin Koutsissa tai avaa linkin.</>,
                 <>Hän ilmestyy <strong>Pelaajat-välilehdelle</strong>. Siirrä hänet sieltä oikeaan ryhmään tai ryhmiin.</>,
@@ -132,13 +122,7 @@ export function JoinCodesSheet({ open, onClose }) {
             </div>
           )}
 
-          <div className="jc-minor">
-            <div className="jc-minor-text">
-              <strong>Alaikäiset</strong>
-              <span>Suosittelemme, että lisäät heidät itse Pelaajat-välilehdellä. Sieltä lähetät jokaiselle oman henkilökohtaisen linkin.</span>
-            </div>
-            <Button variant="outline" size="sm" icon="send" onClick={toInvites}>Kutsu pelaajat</Button>
-          </div>
+          <MinorsNote onClose={onClose} />
         </div>
       </Sheet>
       <GroupQrSheet open={Boolean(qr)} onClose={() => setQr(null)} group={qr?.group} code={qr?.code} expiresAt={qr ? linkFor(qr.group.id)?.expiresAt : null} />

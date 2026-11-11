@@ -20,6 +20,8 @@ import { groupPath } from './nav.js';
 import { currentSeason, weeksLeftInSeason } from '../domain/season.js';
 import { SEASON_LINK_USES, joinedCount, seasonLinkDays, seasonLinkFor } from '../domain/groupLinks.js';
 import { GroupQrSheet } from './GroupLinks.jsx';
+import { HowSteps, MinorsNote } from './joinHelp.jsx';
+import { groupWhen } from './parts.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -269,7 +271,8 @@ export function AddMembersSheet({ open, onClose, group }) {
   );
 }
 
-/** A link that joins straight into this group (expires in 14 days, limited uses). */
+/** Kutsu ryhmään: the group's season link ('Ryhmän linkki': the whole season, every player in the
+ *  group) with the group's name, time and place on it, plus one-off links for a single player. */
 export function GroupInviteSheet({ open, onClose, group }) {
   const { state } = useData();
   const { coachId, acting } = useCoach();
@@ -307,15 +310,28 @@ export function GroupInviteSheet({ open, onClose, group }) {
   const link = current ? koutsiInviteLink(current.code) : '';
   const message = current ? koutsiInviteMessage(current.code, state.coach.name, group.name) : '';
   const count = joinedCount(state, group);
+  const until = current?.expiresAt ? ` Voimassa ${koutsiFmtShortDate(String(current.expiresAt).slice(0, 10))} asti.` : '';
   return (
-    <Sheet open={open} onClose={onClose} title="Kutsu ryhmään" subtitle={`${group.name}, ${count.joined}/${count.total} liittynyt`} size="md">
+    <Sheet open={open} onClose={onClose} title="Kutsu ryhmään" subtitle="Pelaaja liittyy ryhmän linkillä suoraan tähän ryhmään." size="md">
       <div className="stack-5">
+        {current && !shown && (
+          <HowSteps items={[
+            <>Lähetä koodi tai linkki ryhmän pelaajille, esimerkiksi ryhmän WhatsAppiin. Treeneissä voit näyttää QR-koodin.</>,
+            <>Pelaaja syöttää koodin Koutsissa tai avaa linkin.</>,
+            <>Hän on heti ryhmässä <strong>{group.name}</strong>.</>,
+          ]} />
+        )}
         {current ? (
           <div className="k-invite stack-4">
+            <div className="gi-group">
+              <div className="field-label">{current.season ? 'Ryhmän linkki' : 'Kertakäyttöinen linkki'}</div>
+              <span className="gi-group-name">{group.name}</span>
+              <span className="gi-group-when">{[groupWhen(group), group.place].filter(Boolean).join(', ')}</span>
+              <span className="gi-group-when">{count.joined}/{count.total} liittynyt</span>
+            </div>
             <div className="k-invite-head">
               <QrCode text={link} size={156} />
-              <div className="stack-2">
-                <div className="field-label">{current.season ? 'Kauden linkki' : 'Kertakäyttöinen linkki'}</div>
+              <div className="stack-2 gi-head-text">
                 <div className="k-code">{current.code}</div>
                 <div className="k-link-text">{link}</div>
               </div>
@@ -326,25 +342,25 @@ export function GroupInviteSheet({ open, onClose, group }) {
               <Button variant="ghost" size="sm" icon="grid" onClick={() => setBig(true)}>Näytä isona</Button>
             </div>
             <p className="field-msg">
-              {current.season ? 'Toimii koko kauden koko ryhmälle — jaa kerran myClubin tiedotteessa tai ryhmän WhatsAppissa, tai näytä QR-koodi treeneissä.' : 'Yhdelle pelaajalle.'}
-              {current.expiresAt ? ` Voimassa ${koutsiFmtShortDate(String(current.expiresAt).slice(0, 10))} asti.` : ''}
+              {current.season ? 'Toimii koko kauden kaikille ryhmän pelaajille.' : 'Yhdelle pelaajalle.'}{until}
             </p>
-            <p className="k-warn-text"><strong>Alaikäiselle</strong> lähetetään aina oma henkilökohtainen linkki pelaajan sivulta.</p>
-            {shown && <Button variant="soft" onClick={() => setShown(null)}>Takaisin kauden linkkiin</Button>}
+            {shown && <Button variant="soft" onClick={() => setShown(null)}>Takaisin ryhmän linkkiin</Button>}
           </div>
         ) : (
           <div className="stack-3">
             {/* the same date the link will show once made: a week past the season's end (seasonLinkDays) */}
-            <p className="k-quiet-text">Yksi linkki koko kaudeksi: aikuiset pelaajat liittyvät sillä suoraan tähän ryhmään{season ? ` (${season.name}; linkki toimii ${koutsiFmtShortDate(koutsiAddDays(koutsiTodayStr(), seasonLinkDays(season)))} asti)` : ''}.</p>
-            <Button variant="dark" icon="link" loading={busy === 'season'} onClick={() => create('season')}>Luo kauden linkki</Button>
+            <p className="k-quiet-text">Yksi linkki koko kaudeksi: pelaajat liittyvät sillä suoraan ryhmään <strong>{group.name}</strong>{season ? ` (${season.name}, linkki toimii ${koutsiFmtShortDate(koutsiAddDays(koutsiTodayStr(), seasonLinkDays(season)))} asti)` : ''}.</p>
+            <Button variant="dark" icon="link" loading={busy === 'season'} onClick={() => create('season')}>Luo ryhmän linkki</Button>
           </div>
         )}
+        <MinorsNote onClose={onClose} />
         <section className="stack-2">
           <div className="row-between">
-            <div className="field-label">Muut linkit</div>
-            <Button variant="ghost" size="sm" icon="plus" loading={busy === 'one'} onClick={() => create('one')}>Kertakäyttöinen</Button>
+            <div className="field-label">Kertakäyttöiset linkit</div>
+            <Button variant="ghost" size="sm" icon="plus" loading={busy === 'one'} onClick={() => create('one')}>Uusi</Button>
           </div>
-          {others.length === 0 ? <p className="k-faint">Ei muita voimassa olevia linkkejä.</p> : others.map((c) => (
+          <p className="k-faint">Yhdelle pelaajalle, toimii 14 päivää.</p>
+          {others.length === 0 ? <p className="k-faint">Ei voimassa olevia kertakäyttöisiä linkkejä.</p> : others.map((c) => (
             <div key={c.code} className="k-code-row">
               <span className="k-code-small">{c.code}</span>
               <span className="k-faint grow">{c.useCount}/{c.maxUses ?? '∞'} käytetty{c.expiresAt ? `, ${koutsiFmtShortDate(c.expiresAt.slice(0, 10))} asti` : ''}</span>
@@ -352,7 +368,7 @@ export function GroupInviteSheet({ open, onClose, group }) {
               <Button variant="ghost" size="sm" onClick={() => revoke(c.code)}>Poista</Button>
             </div>
           ))}
-          {seasonLink && !shown && <Button variant="ghost" size="sm" onClick={() => revoke(seasonLink.code)}>Poista kauden linkki käytöstä</Button>}
+          {seasonLink && !shown && <Button variant="ghost" size="sm" onClick={() => revoke(seasonLink.code)}>Poista ryhmän linkki käytöstä</Button>}
         </section>
       </div>
       <GroupQrSheet open={big} onClose={() => setBig(false)} group={group} code={current?.code} expiresAt={current?.expiresAt} />
