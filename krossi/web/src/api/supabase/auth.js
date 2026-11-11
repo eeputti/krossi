@@ -128,6 +128,46 @@ export async function unlinkLogin(provider) {
   if (res.error) throw loginError(res.error, provider, { unlink: true });
 }
 
+/**
+ * Asetukset → Salasana: { hasPassword, email }. An e-mail sign-up has a password; a Google / Apple
+ * account has one once it was set here (user_metadata.password_set — a hint for the screen only).
+ */
+export async function getPasswordState() {
+  const { data, error } = await db().auth.getUser();
+  if (error) throw toApiError(error, 'Tilin tietoja ei voitu ladata.');
+  const u = data.user;
+  const hasPassword = Boolean(u?.user_metadata?.password_set) || (u?.identities || []).some((i) => i.provider === 'email');
+  return { hasPassword, email: u?.email || '' };
+}
+
+/**
+ * Vaihda salasana: the current one is checked first by signing in with it (same account, the app
+ * stays as it is), then the new one is saved. `current` is null when setting a first password.
+ */
+export async function changePassword({ current, next }) {
+  if (String(next || '').length < 8) throw new ApiError('Salasanan pitää olla vähintään 8 merkkiä.', { code: 'weak_password' });
+  if (current != null) {
+    const { data } = await db().auth.getUser();
+    const email = data?.user?.email;
+    if (!email) throw new ApiError('Tililläsi ei ole sähköpostia. Lisää se ensin.', { code: 'no_email' });
+    const { error } = await db().auth.signInWithPassword({ email, password: current });
+    if (error) {
+      if (/invalid login credentials|invalid_credentials/i.test(`${error.code || ''} ${error.message || ''}`)) {
+        throw new ApiError('Nykyinen salasana ei täsmää. Tarkista se tai käytä Unohditko salasanan -linkkiä.', { code: 'wrong_password' });
+      }
+      throw toApiError(error, 'Salasanan vaihto epäonnistui. Yritä hetken päästä uudelleen.');
+    }
+  }
+  const { error } = await db().auth.updateUser({ password: next, data: { password_set: true } });
+  if (error) {
+    const raw = `${error.code || ''} ${error.message || ''}`;
+    if (/same_password|should be different/i.test(raw)) throw new ApiError('Uusi salasana ei voi olla sama kuin nykyinen.', { code: 'same_password' });
+    if (/reauthentication/i.test(raw)) throw new ApiError('Kirjaudu ulos ja takaisin sisään, ja aseta salasana heti sen jälkeen.', { code: 'reauth_needed' });
+    if (/weak_password|password should/i.test(raw)) throw new ApiError('Salasana on liian heikko. Käytä pidempää salasanaa.', { code: 'weak_password' });
+    throw toApiError(error, 'Salasanan vaihto epäonnistui. Yritä hetken päästä uudelleen.');
+  }
+}
+
 export async function updatePassword(newPassword) {
   if (!newPassword || newPassword.length < 8) throw new ApiError('Salasanan pitää olla vähintään 8 merkkiä.', { code: 'invalid' });
   const { error } = await db().auth.updateUser({ password: newPassword });

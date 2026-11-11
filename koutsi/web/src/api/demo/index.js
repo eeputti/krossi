@@ -222,6 +222,12 @@ export const backend = {
       await wait();
       demoLinked = demoLinked.filter((p) => p !== provider);
     },
+    // Salasana: the demo account has a password and takes any change.
+    async getPasswordState() { return { hasPassword: true, email: demoEmail }; },
+    async changePassword({ next }) {
+      await wait();
+      if (String(next || '').length < 8) throw new ApiError('Salasanan pitää olla vähintään 8 merkkiä.', { code: 'weak_password' });
+    },
     // "Kirjaudu ulos" in the demo ends the tour and opens the real service.
     async signOut() { window.location.href = SIGNUP(); },
   },

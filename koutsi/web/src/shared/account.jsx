@@ -7,6 +7,7 @@ import { Button, ChipSelect, Field, Icon, Input, ListRow, Sheet, Textarea, Toggl
 import { FEEDBACK_CATEGORIES, SUPPORT_EMAIL } from '../lib/constants.js';
 import { EMAIL_CHOICES, withChoice } from '../domain/emailPrefs.js';
 import { LoginRows } from './logins.jsx';
+import { PasswordRow } from './password.jsx';
 import { knewOldKoutsi } from './renewed.jsx';
 
 /** Profiili → Sähköpostit: all e-mails on or off, and each kind on its own. Saves at once. */
@@ -188,6 +189,7 @@ export function AccountSection({ role, uid, profileName }) {
         <div className="list-group">
           <ListRow icon="mail" title="Sähköposti" subtitle={email || 'Lisää sähköpostiosoite'} onClick={() => setEmailOpen(true)}
             right={<span className="k-textlink">Vaihda</span>} />
+          <PasswordRow home={base} />
           <LoginRows home={base} back={`${base}/profiili`} />
         </div>
         <p className="k-faint k-login-note">Liitä Google tai Apple, niin pääset samalle tilille myös niillä.</p>

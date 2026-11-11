@@ -11,6 +11,7 @@ import { LegalSheet } from '../shared/LegalSheet.jsx';
 import { profileToInput } from './profileForm.js';
 import { EmailSheet } from './EmailSheet.jsx';
 import { LoginRows } from './LoginRows.jsx';
+import { PasswordRow } from './PasswordSheet.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -194,6 +195,7 @@ export function SettingsScreen() {
         <Group title="Tili" note="Liitä Google tai Apple, niin pääset samalle tilille myös niillä.">
           <div className="list-group">
             <ListRow icon="mail" title="Sähköposti" subtitle={email || 'Lisää sähköpostiosoite'} onClick={() => setEmailOpen(true)} />
+            <PasswordRow />
             <LoginRows />
             <ListRow icon="edit" title="Muokkaa profiilia" subtitle="Kuva, taso, ajat ja esittely" onClick={() => navigate('/pelaa/profiili/muokkaa')} />
           </div>

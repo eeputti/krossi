@@ -3,6 +3,7 @@
 
 import { ME, ME_EMAIL } from './rows.js';
 import { run, leaveDemo } from './runtime.js';
+import { ApiError } from '../errors.js';
 import { startAmbientActivity } from './actions.js';
 
 const session = () => ({ user: { id: ME, email: ME_EMAIL } });
@@ -63,6 +64,15 @@ export async function linkLogin(provider) {
 }
 export async function unlinkLogin(provider) {
   return run(() => { demoLinked = demoLinked.filter((p) => p !== provider); });
+}
+
+/** Salasana: the demo account has a password and takes any change. */
+export async function getPasswordState() {
+  return run(() => ({ hasPassword: true, email: ME_EMAIL }));
+}
+export async function changePassword({ next } = {}) {
+  if (String(next || '').length < 8) throw new ApiError('Salasanan pitää olla vähintään 8 merkkiä.', { code: 'weak_password' });
+  return run(() => undefined);
 }
 
 export async function updatePassword() {
