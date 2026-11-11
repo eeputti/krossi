@@ -54,6 +54,51 @@ export function fmtDay(iso) {
   return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}`;
 }
 
+/** What a valmentaja-avain gives: "12 kk ilmaiseksi" / "Maksuton käyttö". */
+export function keyGives(months) {
+  return months == null ? 'Maksuton käyttö' : `${months} kk ilmaiseksi`;
+}
+
+/**
+ * Ylläpito → Avaimet: does a key still work? Checked in the same order as the database
+ * (koutsi_use_code): removed, then past its last day, then out of uses.
+ */
+export function keyStatus(key, now = new Date()) {
+  if (key.revokedAt) return { id: 'revoked', label: 'Poistettu käytöstä', works: false };
+  if (key.expiresAt && new Date(key.expiresAt) < now) return { id: 'expired', label: 'Vanhentunut', works: false };
+  if (key.useCount >= key.maxUses) return { id: 'used', label: 'Käytetty loppuun', works: false };
+  return { id: 'works', label: 'Toimii', works: true };
+}
+
+/** Working keys first, then the others, each in the order they came. */
+export function sortKeys(keys, now = new Date()) {
+  return keys
+    .map((key, i) => ({ key, i, off: keyStatus(key, now).works ? 0 : 1 }))
+    .sort((a, b) => a.off - b.off || a.i - b.i)
+    .map((x) => x.key);
+}
+
+const keyInput = (text) => String(text || '').toUpperCase().replace(/[^A-Z0-9+]/g, '');
+
+/**
+ * The key a coach really gets when they type this key's name, if it is another one. Same rule as the
+ * database: the key exactly as typed; without a "+" typed, also the oldest key that only differs by a "+".
+ * A removed key keeps its name on screen while its code changed, so typing that name can land on a key
+ * that works. Returns null when the name leads to this key itself or to nothing that works.
+ */
+export function keyTypedGoesTo(key, keys, now = new Date()) {
+  const input = keyInput(key.shown);
+  if (!input) return null;
+  let hit = keys.find((k) => k.code === input);
+  if (!hit && !input.includes('+')) {
+    hit = [...keys]
+      .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))
+      .find((k) => k.code !== input && k.code.replaceAll('+', '') === input);
+  }
+  if (!hit || hit.code === key.code || !keyStatus(hit, now).works) return null;
+  return hit;
+}
+
 /** 2900 → "29 €", 1990 → "19,90 €" */
 export function fmtEuros(cents) {
   const n = Math.round(Number(cents) || 0);
