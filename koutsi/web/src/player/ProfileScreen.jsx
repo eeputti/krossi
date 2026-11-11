@@ -8,6 +8,7 @@ import { AccountSection, EmailPrefs } from '../shared/account.jsx';
 import { ProfileCard } from '../shared/profileCard.jsx';
 import { koutsiGroupsForStudent } from '../domain/core.js';
 import { tennisFacts } from '../domain/tennisProfile.js';
+import { profileProgress } from '../domain/profileCompleteness.js';
 import { usePlayerActions } from './PlayerApp.jsx';
 import { playerLevelView } from '../domain/levels.js';
 
@@ -27,7 +28,8 @@ export function ProfileScreen() {
             groups.length > 0 ? groups.map((g) => `${g.day} ${g.time} ${g.name}`).join(', ') : null,
             tennisFacts(me).join(', ') || null,
           ]}
-          bio={me.bio} addBio="Lisää esittely itsestäsi" />
+          bio={me.bio} addBio="Lisää esittely itsestäsi"
+          progress={profileProgress('player', me, { tennis: state.tennisProfileReady !== false })} />
         <Card interactive onClick={() => actions.openText('note')} className="goal-card">
           <div className="eyebrow"><Icon name="edit" size={13} /> Kommentti valmentajalle</div>
           {me.playerNote ? <p className="goal-text">{me.playerNote}</p> : <p className="k-faint">Kerro valmentajallesi, mitä haluat hänen tietävän — esim. mitä haluat muistaa seuraavasta treenistä.</p>}

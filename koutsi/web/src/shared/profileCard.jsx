@@ -3,14 +3,18 @@
 import { navigate } from '../app/router.js';
 import { Avatar, Icon } from '../ui/index.js';
 import { useProfilePhoto } from './profilePhoto.jsx';
+import { ProfileProgress } from './profileProgress.jsx';
 
 /**
  *   person, uid, editPath   lines: faint lines under the name (falsy ones are skipped)
  *   bio: the person's own words   addBio: the prompt shown instead when there are none
  *   extra: more under the bio (the coach's experience and specialties)
+ *   progress: domain/profileCompleteness.js profileProgress() — the "N % valmis" strip at the bottom
  */
-export function ProfileCard({ person, uid, editPath, lines = [], bio, addBio, extra }) {
+export function ProfileCard({ person, uid, editPath, lines = [], bio, addBio, extra, progress }) {
   const photo = useProfilePhoto({ uid, person });
+  // the strip opens Muokkaa profiilia at the first missing part (the photo is on top anyway)
+  const openAt = (kohta) => navigate(editPath, { state: kohta && kohta !== 'kuva' ? { kohta } : {} });
   return (
     <div className="card card-default card-pad-md k-profile-card">
       <button type="button" className="k-avatar-edit" onClick={photo.open} disabled={photo.busy} aria-label="Vaihda profiilikuva">
@@ -27,6 +31,7 @@ export function ProfileCard({ person, uid, editPath, lines = [], bio, addBio, ex
         <span className="k-profile-edit" aria-hidden="true"><Icon name="edit" size={18} /></span>
         <span className="sr-only">Muokkaa profiilia</span>
       </button>
+      {progress && <ProfileProgress uid={uid} progress={progress} onOpen={openAt} />}
       {photo.sheets}
     </div>
   );

@@ -94,3 +94,34 @@
   .k-player-actions:not(.is-tiles) .btn { padding-left: 16px; padding-right: 16px; }
   .k-player-actions:not(.is-tiles) > :not(:first-child) svg { display: none; }
 }
+
+/* ── "Profiili 50 % valmis" (shared/profileProgress.jsx) ─────────────────── */
+.k-profile-card { flex-wrap: wrap; }
+.k-profile-progress { flex-basis: 100%; padding-top: 12px; border-top: 1px solid var(--line); }
+.k-pstrip { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; font-size: 13.5px; line-height: 1.4; color: var(--muted); }
+.k-pstrip.is-button { border-radius: var(--r-md); transition: color var(--dur-1); }
+.k-pstrip.is-button:hover, .k-pstrip.is-button:hover b { color: var(--ink); }
+.k-pstrip.is-button:active { opacity: 0.7; }
+.k-pstrip-bar.progress { flex-shrink: 0; width: 120px; height: 6px; }
+.k-pstrip-text { flex: 1; min-width: 0; }
+.k-pstrip-text b { font-weight: 750; color: var(--ink); }
+.k-pstrip-short { display: none; }
+.k-pstrip-go { flex-shrink: 0; color: var(--muted); }
+.k-pstrip-check { margin-left: 6px; vertical-align: -2px; color: var(--ink); }
+.k-pstrip.is-complete .k-pstrip-bar .progress-fill { background: var(--lime); }
+@media (max-width: 560px) {
+  .k-profile-progress { padding-top: 10px; }
+  .k-pstrip { gap: 10px; font-size: 12.5px; }
+  .k-pstrip-bar.progress { width: 56px; }
+  .k-pstrip-long { display: none; }
+  .k-pstrip-short { display: inline; }
+}
+/* the same on top of Muokkaa profiilia, counting the form while it is filled in */
+.profile-edit-progress { padding: 12px 16px; border-radius: var(--r-xl); background: var(--surface); border: 1px solid var(--line); }
+/* opened from the strip: the missing field lights up for a moment */
+.field.is-kohta { animation: k-kohta 2.2s var(--ease-out); border-radius: var(--r-md); }
+@keyframes k-kohta {
+  0%, 35% { box-shadow: 0 0 0 6px var(--lime-200); background: var(--lime-200); }
+  100% { box-shadow: 0 0 0 6px transparent; background: transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .field.is-kohta { animation: none; box-shadow: 0 0 0 6px var(--lime-200); background: var(--lime-200); } }

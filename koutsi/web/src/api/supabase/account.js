@@ -6,6 +6,7 @@ import { ApiError, loginError } from '../errors.js';
 import { avatarUrl } from './map.js';
 import { PILOT_TERMS_VERSION, PILOT_PRIVACY_VERSION } from '../../lib/constants.js';
 import { TENNIS_DRAFT_KEY, tennisDraftOf } from '../../domain/tennisProfile.js';
+import { PROFILE_DONE_KEY } from '../../domain/profileCompleteness.js';
 
 export const auth = {
   async getSession() {
@@ -173,6 +174,12 @@ export const account = {
   async saveWaitingProfile(uid, { bio, tennis }) {
     must(await db().from('profiles').update({ bio: (bio || '').trim() || null }).eq('id', uid));
     must(await db().auth.updateUser({ data: { [TENNIS_DRAFT_KEY]: tennisDraftOf(tennis) } }));
+  },
+  /** The profile reached 100 % once: remembered on the account, so the strip stays away. */
+  async markProfileDone() {
+    const at = new Date().toISOString();
+    must(await db().auth.updateUser({ data: { [PROFILE_DONE_KEY]: at } }));
+    return at;
   },
   /** Counts one real app open; never allowed to fail anything. */
   async recordAppOpen(appName) {
