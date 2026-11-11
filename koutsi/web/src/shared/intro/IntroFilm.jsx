@@ -18,23 +18,30 @@ import { Device } from './scenes.jsx';
 const cx = (...c) => c.filter(Boolean).join(' ');
 const HOLD_MS = 220;
 
-/** Scale a drawing of base size w×h to fit its box (a little over 1 at most). */
-function useFit(ref, w, h) {
+/** Scale a drawing of base size w×h to fit its box (a little over 1 at most). A callback ref, so
+ *  it measures every time the box appears: the film is mounted closed and opened later
+ *  (Profiili → Katso esittely), and the box comes back after the last card. Layout sizes, not
+ *  getBoundingClientRect: the dialog is still scaling in when the box first appears. */
+function useFit(w, h) {
   const [k, setK] = useState(0);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return undefined;
+  const observer = useRef(null);
+  const ref = useCallback((el) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!el) return;
     const measure = () => {
-      const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) setK(Math.min(r.width / w, r.height / h, 1.12));
+      const bw = el.clientWidth;
+      const bh = el.clientHeight;
+      if (bw > 0 && bh > 0) setK(Math.min(bw / w, bh / h, 1.12));
     };
     measure();
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref, w, h]);
-  return k;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer.current = new ResizeObserver(measure);
+      observer.current.observe(el);
+    }
+  }, [w, h]);
+  useEffect(() => () => observer.current?.disconnect(), []);
+  return [ref, k];
 }
 
 /** Whether the page is visible (a hidden tab pauses the film). */
@@ -136,9 +143,8 @@ export function IntroFilm({ open, onClose, scenes, role, desktop, me, finale, on
   };
   useEffect(() => () => clearTimeout(holdTimer.current), []);
 
-  const artBox = useRef(null);
   const base = desktop ? { w: 660, h: 420 } : { w: 330, h: 500 };
-  const k = useFit(artBox, base.w, base.h);
+  const [artBox, k] = useFit(base.w, base.h);
   const stopped = paused || held || !visible;
 
   return (
