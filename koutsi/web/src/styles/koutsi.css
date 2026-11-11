@@ -568,6 +568,18 @@
 .k-welcome-item { display: flex; gap: 12px; align-items: flex-start; font-size: 14.5px; }
 .k-welcome-icon { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; background: var(--lime-100); color: var(--green-800); flex-shrink: 0; }
 .k-welcome-text { display: block; margin-top: 2px; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+/* Coach welcome: four flat tiles, two per row; a phone gets one row each, icon on the left */
+.k-welcome-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.k-welcome-tile { display: grid; gap: 12px; align-content: start; padding: 16px; border-radius: var(--r-xl); background: var(--surface-2); font-size: 14.5px; }
+.k-welcome-tile .k-welcome-icon { width: 36px; height: 36px; border-radius: var(--r-md); background: var(--lime-300); color: var(--ink); }
+.k-welcome-tile .k-welcome-text { margin-top: 4px; font-size: 13px; line-height: 1.45; }
+@media (max-width: 559px) {
+  .k-welcome-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .k-welcome-tile { grid-template-columns: 36px minmax(0, 1fr); gap: 12px; padding: 14px; }
+}
+.k-welcome-help { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-lg); color: var(--muted); font-size: 13px; line-height: 1.45; }
+.k-welcome-help svg { flex-shrink: 0; margin-top: 1px; color: var(--ink-2); }
+.k-welcome-help strong { color: var(--ink); }
 
 /* ── video ───────────────────────────────────────────────── */
 .k-video { width: 100%; max-height: 70vh; border-radius: var(--r-md); background: #000; }

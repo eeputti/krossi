@@ -9,6 +9,7 @@ import { GateError, Splash } from '../shared/gates.jsx';
 import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
 import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
+import { WelcomeHelp } from '../shared/welcome.jsx';
 import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
 import { FeedbackSheet } from '../shared/account.jsx';
 import { useIsDesktop } from '../app/hooks.js';
@@ -53,6 +54,7 @@ const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: Trainin
 /** First visit: what Koutsi is for (players took the old app for a video box). */
 function WelcomeSheet({ student }) {
   const { run, ownerId } = useData();
+  const isDesktop = useIsDesktop();
   const [open, setOpen] = useState(true);
   const close = () => {
     setOpen(false);
@@ -72,7 +74,7 @@ function WelcomeSheet({ student }) {
           <li key={title} className="k-welcome-item"><span className="k-welcome-icon"><Icon name={icon} size={20} /></span><span><strong>{title}</strong><span className="k-welcome-text">{text}</span></span></li>
         ))}
       </ul>
-      <p className="k-fine">Jos jokin ei toimi tai tuntuu epäselvältä, kerro siitä <strong>Anna palautetta</strong> -kohdassa (puhelimella Lisää-valikossa, tietokoneella sivupalkissa).</p>
+      <WelcomeHelp place={isDesktop ? 'sivupalkin alaosassa' : 'Lisää-valikossa'} />
     </Sheet>
   );
 }
