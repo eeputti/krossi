@@ -67,7 +67,7 @@ function PersonalInviteRow({ student, coachName, groups }) {
   );
 }
 
-export function CoachCode() {
+export function CoachCode({ label = 'Oma liittymiskoodisi', note = true }) {
   const { state } = useData();
   const { coachId } = useCoach();
   const toast = useToast();
@@ -91,7 +91,7 @@ export function CoachCode() {
       <div className="k-invite-head">
         <QrCode text={link} size={132} />
         <div className="stack-2">
-          <div className="field-label">Oma liittymiskoodisi</div>
+          <div className="field-label">{label}</div>
           <div className="k-code">{code}</div>
           <div className="k-link-text">{link}</div>
         </div>
@@ -100,7 +100,7 @@ export function CoachCode() {
         <ShareTextButton text={koutsiInviteMessage(code, state.coach.name, null)} title="Liity Koutsiin" label="Jaa viesti" />
         <CopyButton text={link} label="Kopioi linkki" />
       </div>
-      <p className="field-msg">Pysyvä koodi aikuiselle, joka liittyy uutena. Jos olet jo lisännyt hänet nimellä, sovellus tunnistaa hänet ja kysyy varmistuksen. <strong>Alaikäiselle lähetetään aina oma henkilökohtainen linkki.</strong></p>
+      {note && <p className="field-msg">Pysyvä koodi aikuiselle, joka liittyy uutena. Jos olet jo lisännyt hänet nimellä, sovellus tunnistaa hänet ja kysyy varmistuksen. <strong>Alaikäiselle lähetetään aina oma henkilökohtainen linkki.</strong></p>}
       <Button variant="ghost" size="sm" icon="refresh" onClick={rotate}>Vaihda koodi</Button>
     </div>
   );
