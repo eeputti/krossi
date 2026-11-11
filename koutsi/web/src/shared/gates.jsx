@@ -451,7 +451,7 @@ export function PilotGate({ role }) {
   return (
     <div className="k-center-page">
       <div className="k-gate-card k-gate-card-wide">
-        <span className="chip chip-lime chip-sm">Suljettu beta</span>
+        <KoutsiWordmark size="sm" />
         <h1 className="k-gate-title">Ennen kuin jatkat</h1>
         <p className="k-gate-lead">{role === 'coach'
           ? 'Voit lisätä pelaajan pelkällä nimellä. Ikä on vapaaehtoinen, eikä terveystietoja tallenneta Koutsiin.'
@@ -461,7 +461,8 @@ export function PilotGate({ role }) {
           <input type="checkbox" checked={rules} onChange={(e) => setRules(e.target.checked)} />
           <span>Ymmärrän, ettei Koutsiin saa kirjata vammoja, sairauksia, diagnooseja, lääkityksiä tai muita terveystietoja.</span>
         </label>
-        <p className="k-fine">Vahvistus tallennetaan käyttäjätilillesi. Lue myös <a href="/kayttoehdot" target="_blank" rel="noopener">käyttöehdot</a> ja <a href="/tietosuoja" target="_blank" rel="noopener">tietosuojaseloste</a>.</p>
+        {/* one span: .k-fine is a flex row, loose links would wrap as separate pieces */}
+        <p className="k-fine"><span>Vahvistus tallennetaan käyttäjätilillesi. Voit lukea lisää täältä: <a href="/kayttoehdot" target="_blank" rel="noopener">käyttöehdot</a> ja <a href="/tietosuoja" target="_blank" rel="noopener">tietosuojaseloste</a>.</span></p>
         <Button variant="dark" size="lg" block missing={!rules ? 'Rastita ensin yllä oleva kohta.' : null} loading={busy} onClick={submit}>Vahvista ja jatka</Button>
         <Button variant="ghost" block onClick={signOut} disabled={busy}>Kirjaudu ulos</Button>
       </div>
