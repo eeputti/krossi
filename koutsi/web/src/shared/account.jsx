@@ -1,9 +1,9 @@
-// account.jsx — settings both roles share: email notifications, feedback, data export, account
-// deletion, legal links, going back to the old Koutsi, signing out.
+// account.jsx — settings both roles share: email notifications, the account's own e-mail address,
+// feedback, data export, account deletion, legal links, going back to the old Koutsi, signing out.
 import { useEffect, useState } from 'react';
 import { api, isDemo } from '../api/index.js';
 import { useSession } from '../app/session.jsx';
-import { Button, ChipSelect, Field, Icon, ListRow, Sheet, Textarea, Toggle, useConfirm, useToast } from '../ui/index.js';
+import { Button, ChipSelect, Field, Icon, Input, ListRow, Sheet, Textarea, Toggle, useConfirm, useToast } from '../ui/index.js';
 import { FEEDBACK_CATEGORIES, SUPPORT_EMAIL } from '../lib/constants.js';
 import { EMAIL_CHOICES, withChoice } from '../domain/emailPrefs.js';
 
@@ -37,6 +37,60 @@ export function EmailPrefs({ uid, role = 'player' }) {
         </div>
       )}
     </div>
+  );
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PROVIDER_NAMES = { google: 'Google', apple: 'Apple' };
+
+/**
+ * Vaihda sähköposti: the address the person signs in with and gets Koutsi's e-mails at. The change
+ * takes effect at once (sign-ups confirm themselves, and so does this). `onChanged(email)`.
+ */
+export function EmailSheet({ open, onClose, current, providers, onChanged }) {
+  const toast = useToast();
+  const [value, setValue] = useState(current || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  useEffect(() => { if (open) { setValue(current || ''); setError(null); } }, [open, current]);
+  const next = value.trim().toLowerCase();
+  const same = next === String(current || '').trim().toLowerCase();
+  const missing = !next ? 'Kirjoita sähköpostiosoite.'
+    : !EMAIL_RE.test(next) ? 'Tarkista sähköpostiosoite.'
+      : same ? 'Tämä on jo tilisi osoite. Kirjoita uusi osoite.' : null;
+  // signed up with Google / Apple only: say that it keeps working
+  const oauth = (providers || []).filter((p) => PROVIDER_NAMES[p]);
+  const hint = providers && !providers.includes('email') && oauth.length
+    ? `Uusi osoite on käytössä heti. ${oauth.map((p) => PROVIDER_NAMES[p]).join(' ja ')}-kirjautuminen toimii kuten ennenkin.`
+    : 'Uusi osoite on käytössä heti. Salasanasi pysyy samana.';
+  const save = async () => {
+    if (missing || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.auth.updateEmail(next);
+      if (res.pending) toast(`Avaa linkki, jonka lähetimme osoitteeseen ${res.pending}. Siihen asti kirjaudut vanhalla osoitteella.`);
+      else {
+        onChanged?.(res.email || next);
+        toast(`Sähköposti vaihdettu. Kirjaudu jatkossa osoitteella ${res.email || next}.`);
+      }
+      onClose();
+    } catch (err) {
+      setError(err?.userMessage || 'Sähköpostia ei voitu vaihtaa. Yritä hetken päästä uudelleen.');
+    } finally { setBusy(false); }
+  };
+  return (
+    <Sheet open={open} onClose={() => !busy && onClose()} size="sm" title="Vaihda sähköposti"
+      subtitle="Kirjaudut tällä osoitteella, ja Koutsin sähköpostit tulevat tänne."
+      dismissible={!busy} confirmClose={Boolean(next) && !same}
+      footer={<div className="sheet-actions"><Button variant="soft" size="lg" onClick={onClose} disabled={busy}>Peruuta</Button><Button variant="dark" size="lg" missing={missing} loading={busy} onClick={save}>Tallenna</Button></div>}>
+      <form onSubmit={(e) => { e.preventDefault(); save(); }} noValidate>
+        <Field label="Sähköposti" htmlFor="account-email" hint={error ? null : hint} error={error}>
+          <Input id="account-email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            value={value} onChange={(e) => { setValue(e.target.value); if (error) setError(null); }} maxLength={254} />
+        </Field>
+      </form>
+    </Sheet>
   );
 }
 
@@ -93,10 +147,13 @@ function downloadJson(payload, filename) {
  * `role` is 'coach' | 'player'.
  */
 export function AccountSection({ role, uid, profileName }) {
-  const { signOut } = useSession();
+  const { signOut, user } = useSession();
   const toast = useToast();
   const confirm = useConfirm();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [changedEmail, setChangedEmail] = useState(null); // the demo has no auth events to tell us
+  const email = changedEmail || user?.email || '';
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const base = role === 'coach' ? '/valmentaja' : '/pelaaja';
@@ -124,6 +181,13 @@ export function AccountSection({ role, uid, profileName }) {
   };
   return (
     <div className="stack-5">
+      <section className="stack-2">
+        <div className="eyebrow">Tili</div>
+        <div className="list-group">
+          <ListRow icon="mail" title="Sähköposti" subtitle={email || 'Lisää sähköpostiosoite'} onClick={() => setEmailOpen(true)}
+            right={<span className="k-textlink">Vaihda</span>} />
+        </div>
+      </section>
       <button type="button" className="k-feedback-cta" onClick={() => setFeedbackOpen(true)}>
         <span className="k-feedback-cta-icon"><Icon name="chat" size={20} /></span>
         <span className="k-feedback-cta-text">
@@ -144,6 +208,8 @@ export function AccountSection({ role, uid, profileName }) {
         <ListRow icon="trash" tone="danger" title={deleting ? 'Poistetaan…' : 'Poista tili ja tiedot'} onClick={deleting ? undefined : deleteAccount} />
       </div>
       <FeedbackSheet open={feedbackOpen} onClose={() => setFeedbackOpen(false)} uid={uid} />
+      <EmailSheet open={emailOpen} onClose={() => setEmailOpen(false)} current={email}
+        providers={user?.app_metadata?.providers} onChanged={setChangedEmail} />
     </div>
   );
 }

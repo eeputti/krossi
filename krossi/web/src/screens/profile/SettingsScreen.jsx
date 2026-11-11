@@ -9,6 +9,7 @@ import { Button, Chip, ErrorState, ListRow, Page, Skeleton, Toggle, TopBar, useC
 import { InviteSheet } from '../shared/InviteSheet.jsx';
 import { LegalSheet } from '../shared/LegalSheet.jsx';
 import { profileToInput } from './profileForm.js';
+import { EmailSheet } from './EmailSheet.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -102,6 +103,9 @@ export function SettingsScreen() {
   const [paidBusy, setPaidBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [visBusy, setVisBusy] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [changedEmail, setChangedEmail] = useState(null); // the demo has no auth events to tell us
+  const email = changedEmail || user?.email || '';
 
   const setVisible = async (visible) => {
     if (!profile) return;
@@ -208,7 +212,7 @@ export function SettingsScreen() {
 
         <Group title="Tili">
           <div className="list-group">
-            <ListRow icon="mail" title="Sähköposti" subtitle={user?.email || 'Ei sähköpostiosoitetta'} />
+            <ListRow icon="mail" title="Sähköposti" subtitle={email || 'Lisää sähköpostiosoite'} onClick={() => setEmailOpen(true)} />
             <Identities />
             <ListRow icon="edit" title="Muokkaa profiilia" subtitle="Kuva, taso, ajat ja esittely" onClick={() => navigate('/pelaa/profiili/muokkaa')} />
           </div>
@@ -259,6 +263,7 @@ export function SettingsScreen() {
 
       <LegalSheet open={legal.open} doc={legal.doc} onClose={() => setLegal((l) => ({ ...l, open: false }))} />
       <InviteSheet open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <EmailSheet open={emailOpen} onClose={() => setEmailOpen(false)} current={email} onChanged={setChangedEmail} />
     </>
   );
 }

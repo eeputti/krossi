@@ -2,6 +2,7 @@
 // actions. Mirrors lib/koutsi-auth.jsx and the account parts of lib/koutsi-data.js.
 
 import { db, must, requireSession, callFunction } from './client.js';
+import { ApiError } from '../errors.js';
 import { avatarUrl } from './map.js';
 import { PILOT_TERMS_VERSION, PILOT_PRIVACY_VERSION } from '../../lib/constants.js';
 import { TENNIS_DRAFT_KEY, tennisDraftOf } from '../../domain/tennisProfile.js';
@@ -35,6 +36,26 @@ export const auth = {
   },
   async updatePassword(password) {
     must(await db().auth.updateUser({ password }));
+  },
+  /**
+   * Profiili → Sähköposti. Sign-ups confirm themselves (no confirmation mail), and the same
+   * setting makes this change take effect at once: the new address signs in from now on.
+   * → { email, pending }: the address now on the account, and `pending` only if Supabase ever
+   * asks for a confirmation link again (then the old address stays until the link is opened).
+   */
+  async updateEmail(email) {
+    const { data, error } = await db().auth.updateUser({ email: String(email || '').trim() });
+    if (error) {
+      const raw = `${error.code || ''} ${error.message || ''}`;
+      if (/email_exists|already been registered|already registered/i.test(raw)) {
+        throw new ApiError('Tällä sähköpostilla on jo toinen tili. Valitse toinen osoite.', { code: 'email_taken', cause: error });
+      }
+      if (/email_address_invalid|invalid format|validate email/i.test(raw)) {
+        throw new ApiError('Tarkista sähköpostiosoite.', { code: 'email_invalid', cause: error });
+      }
+      throw error;
+    }
+    return { email: data.user?.email || '', pending: data.user?.new_email || null };
   },
   async signOut() {
     const { error } = await db().auth.signOut();

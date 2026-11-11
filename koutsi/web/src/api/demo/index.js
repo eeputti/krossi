@@ -65,6 +65,7 @@ const findGroup = (id) => S().groups.find((g) => g.id === id);
 // Six letters/digits like the real codes (no I/O/0/1, read aloud over the phone).
 const demoCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 const notAllowed = () => { throw new ApiError('Tätä ei voi tehdä demossa.', { code: 'demo' }); };
+let demoEmail = 'demo@krossi.app';
 
 const demoPayable = (b0) => Boolean(b0 && b0.payOnline !== false && b0.stripeChargesEnabled && b0.stripeAccountId);
 const demoLogos = new Map();
@@ -174,7 +175,7 @@ function demoSubscription() {
 
 export const backend = {
   auth: {
-    async getSession() { return { user: { id: uid(), email: 'demo@krossi.app' } }; },
+    async getSession() { return { user: { id: uid(), email: demoEmail } }; },
     onChange() { return () => {}; },
     signInWithPassword: notAllowed,
     signUp: notAllowed,
@@ -182,6 +183,12 @@ export const backend = {
     resetPassword: notAllowed,
     resendConfirmation: notAllowed,
     updatePassword: notAllowed,
+    // Profiili → Sähköposti: the demo account keeps the new address until the page is reloaded.
+    async updateEmail(email) {
+      await wait();
+      demoEmail = String(email || '').trim().toLowerCase();
+      return { email: demoEmail, pending: null };
+    },
     // "Kirjaudu ulos" in the demo ends the tour and opens the real service.
     async signOut() { window.location.href = SIGNUP(); },
   },
