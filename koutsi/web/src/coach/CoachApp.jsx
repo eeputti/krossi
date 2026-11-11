@@ -6,7 +6,7 @@ import { DataProvider, useData } from '../app/data.jsx';
 import { navigate, useRoute } from '../app/router.js';
 import { useIsDesktop } from '../app/hooks.js';
 import { GateError, Splash } from '../shared/gates.jsx';
-import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
+import { showBetaBar } from '../shared/renewed.jsx';
 import { koutsiCurrentIsoWeek, koutsiTodayStr } from '../domain/core.js';
 import { recapWeekDue } from '../domain/week.js';
 import { markRecapSeen, previewRecap, recapSeen, WeekRecapSheet } from './WeekRecapSheet.jsx';
@@ -97,13 +97,12 @@ function CoachShell() {
     open: (billing.invoices || []).filter((x) => x.status === 'sent').length,
     overdue: (billing.invoices || []).filter((x) => invoiceState(x, koutsiTodayStr()) === 'myohassa').length,
   } : null;
-  // What opens by itself, at most one thing, decided once: the intro film for a new account > the
-  // renewed-look note > "Viikko paketissa" after the week's last session (never while acting).
+  // What opens by itself, at most one thing, decided once: the intro film for a new account >
+  // "Viikko paketissa" after the week's last session (never while acting).
   const [startup] = useState(() => {
     if (acting) return null;
     if (!state.coach.welcomeSeenAt) return { kind: 'welcome' };
     if (previewRecap) return { kind: 'recap', week: koutsiCurrentIsoWeek() };
-    if (renewedNoteDue()) return { kind: 'renewed' };
     const week = isDemo ? null : recapWeekDue(state, (w) => recapSeen(coachId, w));
     return week ? { kind: 'recap', week } : null;
   });
@@ -142,7 +141,6 @@ function CoachShell() {
         beta={showBetaBar() && !acting}
       />
       {!acting && <CoachIntro firstVisit={startup?.kind === 'welcome'} />}
-      <RenewedIntro role="coach" eligible={startup?.kind === 'renewed'} />
       <WeekRecapSheet open={Boolean(recapWeek)} week={recapWeek} onClose={closeRecap} />
       {!isDesktop && (
         <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread} isAdmin={isAdmin} acting={acting} billing={billingInfo}
