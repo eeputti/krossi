@@ -1,4 +1,5 @@
--- 20261111131940_koutsi_level_scales.sql — "Pelaajien tasot": each coach's own level scale.
+-- 20261111135135_koutsi_level_scales.sql — "Pelaajien tasot": each coach's own level scale.
+-- Applied to production 11.11.2026 with the user's OK (check: koutsi/web/sql/20261111135135_koutsi_level_scales.check.mjs).
 --
 -- kind 'sanat'   = Aloittelija, Keskitaso, Edistynyt, Kilpapelaaja (the old fixed list; also what a coach
 --                  without a row has, so nothing changes for anyone who never opens the setting)

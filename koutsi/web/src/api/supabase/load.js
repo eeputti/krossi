@@ -44,7 +44,7 @@ async function loadPlayerLogs(studentIds, coachId) {
   return pages.flat();
 }
 
-// "Pelaajien tasot" (koutsi/web/sql/20261111131940_koutsi_level_scales.sql). Before the table exists the
+// "Pelaajien tasot" (supabase/migrations/20261111135135_koutsi_level_scales.sql, applied 11.11.2026). Before the table exists the
 // coach keeps the words and the setting stays hidden; a coach without a row has the words.
 async function loadLevelScale(coachId) {
   const { data, error } = await fromTable('koutsi_level_scales').select('kind, size, notes').eq('coach_id', coachId).maybeSingle();

@@ -1,9 +1,10 @@
-// 20261111131940_koutsi_level_scales.check.mjs — runs koutsi/web/sql/20261111131940_koutsi_level_scales.sql in PGlite
+// 20261111135135_koutsi_level_scales.check.mjs — runs supabase/migrations/20261111135135_koutsi_level_scales.sql (applied
+// 11.11.2026 with the user's OK) in PGlite
 // against a small stub of production's schema and checks who reads and writes a coach's level scale and what the
 // table accepts.
 // PGlite is not a dependency of the repo, so this is not part of `npm run test:koutsi`. To run it:
 //   (in an empty temp folder) npm i @electric-sql/pglite@0.3
-//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261111131940_koutsi_level_scales.check.mjs
+//   PGLITE=<that folder>/node_modules/@electric-sql/pglite/dist/index.js node --test koutsi/web/sql/20261111135135_koutsi_level_scales.check.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -13,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 const { PGlite } = await import(process.env.PGLITE || '@electric-sql/pglite');
 
 const here = dirname(fileURLToPath(import.meta.url));
-const MIGRATION = await readFile(join(here, '20261111131940_koutsi_level_scales.sql'), 'utf8');
+const MIGRATION = await readFile(join(here, '../../../supabase/migrations/20261111135135_koutsi_level_scales.sql'), 'utf8');
 
 const JUKKA = '00000000-0000-4000-8000-0000000000a1'; // coach
 const ALPO = '00000000-0000-4000-8000-0000000000b1'; // another coach

@@ -372,7 +372,7 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   laskutetaan seuraavalla laskulla). Mittaus: `vapaat.*`-tapahtumat (Ylläpito → Käyttö → Vapaat ajat (pelaaja)).
 
 - Pelaajien tasot (`domain/levels.js`, `coach/levels.jsx`, `coach/LevelsScreen.jsx`, taulu `koutsi_level_scales`,
-  migraatio `koutsi/web/sql/20261111131940_koutsi_level_scales.sql`): jokainen valmentaja valitsee oman asteikkonsa:
+  migraatio `supabase/migrations/20261111135135_koutsi_level_scales.sql`, ajettu 11.11.2026 käyttäjän luvalla): jokainen valmentaja valitsee oman asteikkonsa:
   sanat (Aloittelija–Kilpapelaaja, oletus), numerot 1–N (3–10, isompi = parempi, jokaiselle valinnainen selitys) tai
   "En käytä tasoja" (kentät piiloon). Uusi valmentaja valitsee sen heti esittelyn jälkeen (ennen ensimmäistä ryhmää, `ScaleQuestionSheet`), muut Profiili →
   Pelaajien tasot (/valmentaja/profiili/tasot), jossa on myös vanhojen tasojen lista: samankaltaiset tekstit samalla rivillä
