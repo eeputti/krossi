@@ -18,7 +18,7 @@ import { GroupFormSheet } from './groupForms.jsx';
 import { openInvites, openPlanner } from './nav.js';
 import { plannerDefaultWeek } from '../domain/week.js';
 import { track } from './usage.js';
-import { ScaleQuestionSheet } from './levels.jsx';
+import { ScaleQuestionSheet, useNeedsLevelAnswer } from './levels.jsx';
 
 
 /** The three first steps and which are done: a group, players, a theme. */
@@ -40,13 +40,14 @@ export function CoachIntro({ firstVisit }) {
   const [then, setThen] = useState(null); // 'group' | 'bulk': opens when the film has closed
   // a new coach's first close asks how they mark levels, then opens what the film's last card chose
   const [levelsThen, setLevelsThen] = useState(undefined); // undefined = not asking; null | 'group' | 'bulk' after it
+  const needsLevels = useNeedsLevelAnswer();
   useIntroReplay(() => { track('esittely.uudelleen'); setOpen(true); });
   const close = (next = null) => {
     setOpen(false);
     if (asked) { dropQueryParam('esittely'); setAsked([false, 0]); }
     const first = !state.coach.welcomeSeenAt;
     if (first) run(() => api.coach.markWelcomeSeen(ownerId), null);
-    if (first && state.levelScaleReady) { setLevelsThen(next); return; }
+    if (needsLevels) { setLevelsThen(next); return; }
     if (next) setThen(next);
   };
   const levelsDone = () => { const next = levelsThen; setLevelsThen(undefined); if (next) setThen(next); };
@@ -78,7 +79,7 @@ export function CoachIntro({ firstVisit }) {
     <>
       <IntroFilm open={open} onClose={() => close()} scenes={scenes} role="coach" desktop={isDesktop} me={state.coach}
         start={start} finale={finale} onEvent={(e) => track(`esittely.${e}`)} />
-      <ScaleQuestionSheet open={levelsThen !== undefined} onDone={levelsDone} />
+      <ScaleQuestionSheet open={levelsThen !== undefined} onDone={levelsDone} onCancel={() => setLevelsThen(undefined)} />
       <GroupFormSheet open={then === 'group'} onClose={() => setThen(null)} />
       <BulkSetupSheet open={then === 'bulk'} onClose={() => setThen(null)} />
     </>

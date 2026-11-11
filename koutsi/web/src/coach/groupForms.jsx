@@ -19,7 +19,7 @@ import { useCoach } from './CoachRoot.jsx';
 import { groupPath } from './nav.js';
 import { currentSeason, weeksLeftInSeason } from '../domain/season.js';
 import { ALL_LEVELS } from '../domain/levels.js';
-import { GroupLevelPicker, PlayerLevelPicker, useLevelScale, useLevelText } from './levels.jsx';
+import { GroupLevelPicker, LevelGate, PlayerLevelPicker, useLevelScale, useLevelText } from './levels.jsx';
 import { SEASON_LINK_USES, joinedCount, seasonLinkDays, seasonLinkFor } from '../domain/groupLinks.js';
 import { GroupQrSheet } from './GroupLinks.jsx';
 import { HowSteps, MinorsNote } from './joinHelp.jsx';
@@ -51,8 +51,13 @@ export function WeeksChips({ value, onChange, left }) {
   );
 }
 
+/** Create or edit a group. A new coach answers the level question before the first group (LevelGate). */
+export function GroupFormSheet(props) {
+  return <LevelGate open={props.open && !props.editing} onCancel={props.onClose}><GroupFormSheetBody {...props} /></LevelGate>;
+}
+
 /** Create or edit a group. Creating generates its weekly sessions for `weeks` weeks. */
-export function GroupFormSheet({ open, onClose, editing }) {
+function GroupFormSheetBody({ open, onClose, editing }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const levels = useLevelScale();

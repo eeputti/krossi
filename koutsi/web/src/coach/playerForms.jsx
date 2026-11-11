@@ -9,7 +9,7 @@ import { CopyButton, QrCode, ShareTextButton } from '../shared/bits.jsx';
 import { optionalAge } from '../shared/fields.jsx';
 import { koutsiInviteLink, koutsiInviteMessage } from '../domain/core.js';
 import { exactNameMatch, firstName, matchStudents, mergeSides } from '../domain/roster.js';
-import { PlayerLevelPicker, useLevelScale } from './levels.jsx';
+import { LevelGate, PlayerLevelPicker, useLevelScale } from './levels.jsx';
 import { useCoach } from './CoachRoot.jsx';
 import { playerPath } from './nav.js';
 
@@ -29,7 +29,11 @@ function LevelField({ value, onChange }) {
  * that found no one); `onDone(id)` replaces opening the player's page, for the new player and for
  * an existing one picked from the suggestions (Poissaolo picks them right there).
  */
-export function AddPlayerSheet({ open, onClose, onBulk, initialName = '', onDone }) {
+export function AddPlayerSheet(props) {
+  return <LevelGate open={props.open} onCancel={props.onClose}><AddPlayerSheetBody {...props} /></LevelGate>;
+}
+
+function AddPlayerSheetBody({ open, onClose, onBulk, initialName = '', onDone }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const [name, setName] = useState('');
