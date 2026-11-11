@@ -59,7 +59,17 @@ function withoutBiller(s) {
   if (previewBillingStart) Object.assign(s.billing, { biller: null, invoices: [] });
   return s;
 }
-const S = () => { if (!state) state = withoutBiller(seedBilling(seedMessages(previewPutki ? addPutki(seed()) : seed(), role))); return state; };
+// `npm run dev:koutsi` → /demo/valmentaja?esikatsele=uusi: a brand-new coach (no groups, players or
+// sessions, the intro film not seen yet), as a new account first sees Koutsi.
+const previewNewCoach = process.env.NODE_ENV !== 'production'
+  && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('esikatsele') === 'uusi';
+function asNewCoach(s) {
+  if (!previewNewCoach || role !== 'coach') return s;
+  Object.assign(s, { students: [], groups: [], trainings: [], sends: [], notifications: [] });
+  s.coach.welcomeSeenAt = null;
+  return s;
+}
+const S = () => { if (!state) state = asNewCoach(withoutBiller(seedBilling(seedMessages(previewPutki ? addPutki(seed()) : seed(), role)))); return state; };
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const wait = () => new Promise((r) => setTimeout(r, latencyMs));
 const nowIso = () => new Date().toISOString();

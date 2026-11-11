@@ -2,7 +2,8 @@
 // A tap on the name opens Muokkaa profiilia (/pelaaja/profiili/muokkaa); a tap on the photo
 // opens Valitse kuva / Ota uusi kuva.
 import { useData } from '../app/data.jsx';
-import { Card, Icon, Page, PageHeader } from '../ui/index.js';
+import { Card, Icon, ListRow, Page, PageHeader } from '../ui/index.js';
+import { replayIntro } from '../shared/intro/IntroFilm.jsx';
 import { AccountSection, EmailPrefs } from '../shared/account.jsx';
 import { ProfileCard } from '../shared/profileCard.jsx';
 import { koutsiGroupsForStudent } from '../domain/core.js';
@@ -34,6 +35,9 @@ export function ProfileScreen() {
           <div className="eyebrow">Ilmoitukset</div>
           <Card><EmailPrefs uid={ownerId} role="player" has={state.openSlotsReady && (state.openSlots || []).length ? ['openSlots'] : []} /></Card>
         </section>
+        <div className="list-group">
+          <ListRow icon="play" title="Katso esittely" subtitle="Mitä on missäkin, puolessa minuutissa" onClick={() => replayIntro()} />
+        </div>
         <AccountSection role="player" uid={ownerId} profileName={me.name} />
       </div>
     </Page>

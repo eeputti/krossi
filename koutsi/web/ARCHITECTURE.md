@@ -205,6 +205,17 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   rivin korvaus (`select true`), eikä migraation uudelleenajo sulje sitä. Demo: Anna on kokeilussa; kehityksessä
   `?esikatsele=kokeilu | avain | tilaus-active | tilaus-past_due | tilaus-ended | tilaus-free`.
 
+- Esittely ensimmäisellä käynnillä (`shared/intro/IntroFilm.jsx`, `shared/intro/scenes.jsx`, `styles/intro.css`,
+  `coach/CoachIntro.jsx`, `player/PlayerIntro.jsx`): noin puolen minuutin piirretty filmi, joka korvasi tervetuloikkunan.
+  Yksi kohtaus jokaisesta paikasta (valmentaja: Koti, Viikkohallinta, Merkitse, Pelaajat, Lisää/sivupalkki; pelaaja:
+  Koti, Viikko, Merkitse, Kehitys, Lisää/sivupalkki), piirroksessa palaa se nappi, josta asia löytyy (puhelimessa
+  alapalkki, tietokoneella sivupalkki). Etenee itsestään kuin tarina: palkit ylhäällä, napautus eteenpäin, painallus
+  pysäyttää, ← →, Ohita vie suoraan Aloitetaan-korttiin (valmentaja: Luo ensimmäinen ryhmä / Lisää monta kerralla,
+  pelaaja: Aseta tavoite). Aukeaa itsestään kerran (`welcome_seen_at` tyhjä, sama ehto kuin vanhalla ikkunalla),
+  uudelleen Profiili → Katso esittely, tai `?esittely` (`?esittely=3` kolmannesta kohtauksesta). Valmentajan Kotiin
+  tulee Aloitetaan-kortti (ryhmä, pelaajat, teema), kunnes ensimmäinen pelaaja on lisätty. Kehityksessä
+  `/demo/valmentaja?esikatsele=uusi` = upouusi valmentaja ilman ryhmiä ja pelaajia.
+
 - Valmentaja-avaimet ja vuosilaskutus (`coach/TrialCodes.jsx`, `coach/KeyWelcome.jsx`, `coach/SubscriptionCard.jsx`,
   migraatiot `supabase/migrations/20261030080055_koutsi_trial_codes.sql` + `20261030081942_koutsi_trial_codes_private_names.sql`
   + `20261030082914_koutsi_trial_codes_plus.sql`,
