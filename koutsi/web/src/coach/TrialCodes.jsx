@@ -10,13 +10,35 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/index.js';
 import { Button, Card, EmptyState, ErrorState, Field, Input, Segmented, SkeletonList, useConfirm, useToast } from '../ui/index.js';
 import { CopyButton } from '../shared/bits.jsx';
-import { fmtDay } from '../domain/subscription.js';
+import { fmtDay, keyGives, keyStatus, keyTypedGoesTo, sortKeys } from '../domain/subscription.js';
 
 const LENGTHS = [{ value: '6', label: '6 kk' }, { value: '12', label: '12 kk' }, { value: 'muu', label: 'Muu' }, { value: 'free', label: 'Maksuton' }];
 
-/** "12 kk ilmaiseksi" / "Maksuton" */
-function whatItGives(months) {
-  return months == null ? 'Maksuton käyttö' : `${months} kk ilmaiseksi`;
+/** One key: its state in one word, what it gives and, for a key that no longer works, where its name leads now. */
+function KeyCard({ k, all, onRevoke }) {
+  const status = keyStatus(k);
+  const goesTo = status.works ? null : keyTypedGoesTo(k, all);
+  const day = status.works && k.expiresAt ? `, voimassa ${fmtDay(k.expiresAt)} asti`
+    : status.id === 'expired' ? `, vanheni ${fmtDay(k.expiresAt)}` : '';
+  return (
+    <Card className="stack-2">
+      <div className="row-between">
+        <span className="k-row-title">{k.shown}</span>
+        <span className={`chip chip-sm ${status.works ? 'chip-success' : 'chip-neutral'}`}>{status.label}</span>
+      </div>
+      <div className="k-faint">{keyGives(k.months)}, käytetty {k.useCount}/{k.maxUses}{day}</div>
+      {goesTo && (
+        <p className="k-body-text">Jos valmentaja kirjoittaa tämän, hän saa avaimen {goesTo.shown}: {keyGives(goesTo.months).toLowerCase()}.</p>
+      )}
+      {k.note && <p className="k-body-text">{k.note}</p>}
+      {status.works && (
+        <div className="row wrap">
+          <CopyButton text={k.shown} />
+          <Button variant="ghost" size="sm" onClick={() => onRevoke(k)}>Poista käytöstä</Button>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function NewCode({ onMade }) {
@@ -93,21 +115,7 @@ export function TrialCodes() {
       {s.loading && !s.data && <SkeletonList count={2} />}
       {s.error && <ErrorState error={s.error} onRetry={load} />}
       {s.data && !s.data.length && <EmptyState compact art="calendar" title="Ei vielä avaimia" />}
-      {(s.data || []).map((c) => (
-        <Card key={c.code} className="stack-2">
-          <div className="row-between">
-            <span className="k-row-title">{c.shown}</span>
-            {c.revokedAt
-              ? <span className="chip chip-sm chip-neutral">Poistettu käytöstä</span>
-              : <CopyButton text={c.shown} />}
-          </div>
-          <div className="k-faint">
-            {whatItGives(c.months)}, käytetty {c.useCount}/{c.maxUses}{c.expiresAt ? `, voimassa ${fmtDay(c.expiresAt)} asti` : ''}
-          </div>
-          {c.note && <p className="k-body-text">{c.note}</p>}
-          {!c.revokedAt && <div><Button variant="ghost" size="sm" onClick={() => revoke(c)}>Poista käytöstä</Button></div>}
-        </Card>
-      ))}
+      {sortKeys(s.data || []).map((c) => <KeyCard key={c.code} k={c} all={s.data} onRevoke={revoke} />)}
     </div>
   );
 }
