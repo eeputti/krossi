@@ -33,4 +33,4 @@ export function installBackend(impl, { demo = false } = {}) {
   isDemo = demo;
 }
 
-export { ApiError, toApiError } from './errors.js';
+export { ApiError, toApiError, loginError } from './errors.js';

@@ -76,6 +76,7 @@ const findGroup = (id) => S().groups.find((g) => g.id === id);
 const demoCode = () => Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 const notAllowed = () => { throw new ApiError('Tätä ei voi tehdä demossa.', { code: 'demo' }); };
 let demoEmail = 'demo@krossi.app';
+let demoLinked = []; // 'google' | 'apple' linked in this visit
 
 const demoPayable = (b0) => Boolean(b0 && b0.payOnline !== false && b0.stripeChargesEnabled && b0.stripeAccountId);
 const demoLogos = new Map();
@@ -198,6 +199,19 @@ export const backend = {
       await wait();
       demoEmail = String(email || '').trim().toLowerCase();
       return { email: demoEmail, pending: null };
+    },
+    // Kirjautumistavat: the demo links without leaving the page (no Google / Apple visit).
+    async getLogins() {
+      return [{ provider: 'email', email: demoEmail }, ...demoLinked.map((p) => ({ provider: p, email: p === 'apple' ? 'demo@privaterelay.appleid.com' : 'demo.koutsi@gmail.com' }))];
+    },
+    async linkLogin(provider) {
+      await wait();
+      if (!demoLinked.includes(provider)) demoLinked.push(provider);
+      return { redirecting: false };
+    },
+    async unlinkLogin(provider) {
+      await wait();
+      demoLinked = demoLinked.filter((p) => p !== provider);
     },
     // "Kirjaudu ulos" in the demo ends the tour and opens the real service.
     async signOut() { window.location.href = SIGNUP(); },

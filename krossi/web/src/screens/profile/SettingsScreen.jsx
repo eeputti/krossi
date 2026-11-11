@@ -5,11 +5,12 @@ import { useAsync } from '../../app/hooks.js';
 import { navigate } from '../../app/router.js';
 import { useSession } from '../../app/session.jsx';
 import { SUPPORT_EMAIL } from '../../lib/constants.js';
-import { Button, Chip, ErrorState, ListRow, Page, Skeleton, Toggle, TopBar, useConfirm, useToast } from '../../ui/index.js';
+import { Button, ErrorState, ListRow, Page, Skeleton, Toggle, TopBar, useConfirm, useToast } from '../../ui/index.js';
 import { InviteSheet } from '../shared/InviteSheet.jsx';
 import { LegalSheet } from '../shared/LegalSheet.jsx';
 import { profileToInput } from './profileForm.js';
 import { EmailSheet } from './EmailSheet.jsx';
+import { LoginRows } from './LoginRows.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -21,8 +22,6 @@ const EMAIL_TYPES = [
   { key: 'gameInvites', icon: 'mail', label: 'Kutsut', hint: 'Kun sinut kutsutaan peliin' },
   { key: 'playingNow', icon: 'bolt', label: '"Pelaan nyt" -viestit', hint: 'Kun joku lähistöllä haluaa pelata heti' },
 ];
-
-const IDENTITY_LABELS = { email: 'Sähköposti', google: 'Google', apple: 'Apple' };
 
 function Group({ title, note, children }) {
   return (
@@ -73,24 +72,6 @@ function EmailPrefs() {
         ))}
       </div>
     </div>
-  );
-}
-
-function Identities() {
-  const { data, loading, error, reload } = useAsync(() => api.auth.getIdentities(), []);
-  if (loading) return <ListRow icon="log-in" title="Kirjautumistavat" subtitle={<Skeleton w={120} h={12} />} />;
-  if (error) return <ListRow icon="log-in" title="Kirjautumistavat" subtitle="Ei saatu haettua — napauta yrittääksesi uudelleen" onClick={() => reload()} right={null} />;
-  const list = (data?.length ? data : ['email']).filter((id) => IDENTITY_LABELS[id]);
-  return (
-    <ListRow
-      icon="log-in"
-      title="Kirjautumistavat"
-      subtitle={(
-        <span className="profile-identities">
-          {list.map((id) => <Chip key={id} size="sm" tone="success" icon="check">{IDENTITY_LABELS[id]}</Chip>)}
-        </span>
-      )}
-    />
   );
 }
 
@@ -210,10 +191,10 @@ export function SettingsScreen() {
           </div>
         </Group>
 
-        <Group title="Tili">
+        <Group title="Tili" note="Liitä Google tai Apple, niin pääset samalle tilille myös niillä.">
           <div className="list-group">
             <ListRow icon="mail" title="Sähköposti" subtitle={email || 'Lisää sähköpostiosoite'} onClick={() => setEmailOpen(true)} />
-            <Identities />
+            <LoginRows />
             <ListRow icon="edit" title="Muokkaa profiilia" subtitle="Kuva, taso, ajat ja esittely" onClick={() => navigate('/pelaa/profiili/muokkaa')} />
           </div>
         </Group>

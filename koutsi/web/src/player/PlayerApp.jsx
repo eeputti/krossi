@@ -11,6 +11,7 @@ import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
 import { showBetaBar } from '../shared/renewed.jsx';
 import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
 import { FeedbackSheet } from '../shared/account.jsx';
+import { useLoginLinkReturn } from '../shared/logins.jsx';
 import { useIsDesktop } from '../app/hooks.js';
 import { checkInCandidate } from '../domain/player.js';
 import { useToast } from '../ui/index.js';
@@ -68,6 +69,7 @@ function pickStartup(state, student) {
 function PlayerShell({ banner, joinCode = null }) {
   const { state, ownerId, reload } = useData();
   const toast = useToast();
+  useLoginLinkReturn(); // back from Google / Apple after Profiili → Liitä
   const student = state.students[0];
   const [sheet, setSheet] = useState(null);
   const [video, setVideo] = useState(null);

@@ -87,3 +87,27 @@ export function unwrap({ data, error }, fallback) {
   if (error) throw toApiError(error, fallback);
   return data;
 }
+
+const PROVIDER_NAME = { google: 'Google', apple: 'Apple', email: 'Sähköposti' };
+
+/**
+ * Kirjautumistavat: Supabase's linking errors in Finnish, also for the ?error= a provider sends
+ * back after Liitä. `unlink` = the error came from Irrota.
+ */
+export function loginError(error, provider, { unlink = false } = {}) {
+  const name = PROVIDER_NAME[provider] || 'Tämä';
+  const raw = `${error?.code || ''} ${error?.error_code || ''} ${error?.message || ''} ${error?.error_description || ''}`;
+  if (/manual_linking_disabled|manual linking is disabled/i.test(raw)) {
+    return new ApiError('Kirjautumistapojen liittäminen ei ole vielä käytössä. Kirjaudu toistaiseksi nykyisellä tavalla.', { code: 'linking_disabled', cause: error });
+  }
+  if (/identity_already_exists|already linked|already been linked/i.test(raw)) {
+    return new ApiError(`Tämä ${name}-tili on jo käytössä toisella tilillä. Valitse liittäessä toinen ${name}-tili.`, { code: 'identity_taken', cause: error });
+  }
+  if (/single_identity_not_deletable|only one identity|last identity/i.test(raw)) {
+    return new ApiError('Tämä on ainoa tapasi kirjautua, joten sitä ei voi irrottaa.', { code: 'last_identity', cause: error });
+  }
+  if (/access_denied|cancel/i.test(raw)) {
+    return new ApiError(`${name}-tilin liittäminen keskeytyi. Mitään ei muutettu.`, { code: 'link_cancelled', cause: error });
+  }
+  return new ApiError(unlink ? `${name}-kirjautumista ei voitu irrottaa. Yritä hetken päästä uudelleen.` : `${name}-tilin liittäminen ei onnistunut. Yritä hetken päästä uudelleen.`, { code: 'link_failed', cause: error });
+}

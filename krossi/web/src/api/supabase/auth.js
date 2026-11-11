@@ -1,7 +1,7 @@
 // auth.js — sign-in, sign-up and session for krossi.app/pelaa.
 
 import { db, rememberUid, trackPixel } from './client.js';
-import { ApiError, toApiError } from '../errors.js';
+import { ApiError, loginError, toApiError } from '../errors.js';
 
 // Every auth email and OAuth flow returns the user to the app, not the landing page.
 const redirectTo = () => `${window.location.origin}/pelaa`;
@@ -97,6 +97,35 @@ export async function updateEmail(email) {
     throw toApiError(error, 'Sähköpostia ei voitu vaihtaa. Yritä hetken päästä uudelleen.');
   }
   return { email: data.user?.email || '', pending: data.user?.new_email || null };
+}
+
+/** Asetukset → Tili: → [{ provider: 'email'|'google'|'apple', email }] on this account. */
+export async function getLogins() {
+  const { data, error } = await db().auth.getUser();
+  if (error) throw toApiError(error, 'Kirjautumistapoja ei voitu ladata.');
+  return (data.user?.identities || []).map((i) => ({ provider: i.provider, email: i.identity_data?.email || i.email || '' }));
+}
+
+/**
+ * Liitä Google / Apple: the browser goes to the provider and back to /pelaa, where Supabase has
+ * added the login to the signed-in account. Needs "Allow manual linking" on in Supabase Auth.
+ */
+export async function linkLogin(provider) {
+  const { error } = await db().auth.linkIdentity({ provider, options: { redirectTo: redirectTo() } });
+  if (error) throw loginError(error, provider);
+  return { redirecting: true };
+}
+
+/** Irrota: only while another way to sign in stays on the account. */
+export async function unlinkLogin(provider) {
+  const { data, error } = await db().auth.getUserIdentities();
+  if (error) throw toApiError(error, 'Kirjautumistapoja ei voitu ladata.');
+  const identities = data?.identities || [];
+  const identity = identities.find((i) => i.provider === provider);
+  if (!identity) return;
+  if (identities.length < 2) throw loginError({ code: 'single_identity_not_deletable' }, provider, { unlink: true });
+  const res = await db().auth.unlinkIdentity(identity);
+  if (res.error) throw loginError(res.error, provider, { unlink: true });
 }
 
 export async function updatePassword(newPassword) {
