@@ -152,36 +152,43 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
 // Resolves true when sessions were removed, 'group' when the coach chose to remove the whole group
 // instead (useGroupDelete has then moved on to Ryhmät unless stay), false when nothing happened.
 // A session's page carries the group's name on top, so its trash can looks like "delete the group":
-// the dialog says the group stays and offers the whole group as a quieter way out.
+// a group's session asks "Mitä poistetaan?" with the sessions and the whole group as equal buttons.
 export function useTrainingDelete() {
   const { state, run } = useData();
   const confirm = useConfirm();
   const deleteGroup = useGroupDelete();
   return async (t, label, { stay = false } = {}) => {
     const group = t.groupId ? (state.allGroups || state.groups).find((g) => g.id === t.groupId) : null;
-    const extra = group ? { extraText: 'Ryhmä säilyy.', extraLabel: `Poista koko ryhmä ${group.name}`, extraIcon: 'trash', extraValue: 'group' } : {};
     const wholeGroup = async () => ((await deleteGroup(group, { stay })) ? 'group' : false);
+    const removeOne = async () => (await run(() => api.trainings.remove(t.id), 'Treeni poistettu.')).ok;
     if (!t.seriesId) {
-      const choice = await confirm({ title: 'Poista treeni?', message: `${label}. Treeni poistuu pelaajien kalenterista.`, confirmLabel: 'Poista', danger: true, ...extra });
+      const choice = await confirm(group ? {
+        title: 'Mitä poistetaan?', message: `${label}. Jos poistat vain treenin, ryhmä säilyy.`,
+        confirmLabel: 'Poista vain tämä treeni', secondaryLabel: 'Poista koko ryhmä ja treenit', secondaryValue: 'group', danger: true,
+      } : { title: 'Poista treeni?', message: `${label}. Treeni poistuu pelaajien kalenterista.`, confirmLabel: 'Poista', danger: true });
       if (choice === 'group') return wholeGroup();
-      if (choice !== true) return false;
-      return (await run(() => api.trainings.remove(t.id), 'Treeni poistettu.')).ok;
+      return choice === true ? removeOne() : false;
     }
     // "Kaikki tulevat" never reaches into the past, even from an already-held session.
     const from = t.date < koutsiTodayStr() ? koutsiTodayStr() : t.date;
     let remaining = 0;
     try { remaining = await api.trainings.countSeriesRemaining(t.seriesId, from); } catch { /* single-session wording */ }
-    const choice = await confirm({
+    // the common case (one session off) is the main button; the whole series is the second choice
+    const choice = await confirm(group ? {
+      title: 'Mitä poistetaan?',
+      message: `${label}. Jos poistat vain treenejä, ryhmä ja menneet treenit säilyvät.`,
+      confirmLabel: 'Poista vain tämä treeni',
+      secondaryLabel: remaining > 1 ? `Poista kaikki ${remaining} tulevaa treeniä` : 'Poista kaikki tulevat treenit', secondaryValue: 'all',
+      thirdLabel: 'Poista koko ryhmä ja treenit', thirdValue: 'group', cancelLabel: 'Peruuta', danger: true,
+    } : {
       title: 'Poista sarjan treenejä?',
       message: `${label} kuuluu viikoittaiseen sarjaan${remaining ? ` (${remaining} tulevaa kertaa)` : ''}. Poistetaanko vain tämä vai kaikki tulevat? Menneet treenit säilyvät.`,
-      // the common case (one session off) is the main button; the whole series is the second choice
       confirmLabel: 'Poista vain tämä kerta',
       secondaryLabel: remaining ? `Poista kaikki ${remaining} tulevaa` : 'Poista kaikki tulevat', secondaryValue: 'all', cancelLabel: 'Peruuta', danger: true,
-      ...extra,
     });
     if (choice === 'group') return wholeGroup();
     if (choice === 'all') return (await run(() => api.trainings.removeSeries(t.seriesId, from), 'Sarjan tulevat treenit poistettu.')).ok;
-    if (choice === true) return (await run(() => api.trainings.remove(t.id), 'Treeni poistettu.')).ok;
+    if (choice === true) return removeOne();
     return false;
   };
 }
