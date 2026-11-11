@@ -68,8 +68,10 @@ export function SessionScreen({ params }) {
   // optimistic: the tap shows at once; saved in order, one reload after the last (attendance.jsx)
   const setStatus = (student, next) => saveAttendance({ trainingId: training.id, studentId: student.id, next, mutate, reload, toast });
 
+  // 'group': the whole group went, and useGroupDelete has already opened Ryhmät
   const remove = async () => {
-    if (await removeTraining(training, label)) goBack('/valmentaja/ryhmat');
+    const done = await removeTraining(training, label);
+    if (done === true) goBack('/valmentaja/ryhmat');
   };
 
   return (

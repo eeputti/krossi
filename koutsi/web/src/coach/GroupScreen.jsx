@@ -186,7 +186,13 @@ export function GroupScreen({ params }) {
   };
   return (
     <>
-      <TopBar title={group.name} back="/valmentaja/ryhmat" actions={<IconButton icon="edit" label="Muokkaa ryhmää" onClick={() => setSheet('edit')} />} />
+      {/* top right, like a session: edit, and delete for the whole group */}
+      <TopBar title={group.name} back="/valmentaja/ryhmat" actions={(
+        <>
+          <IconButton icon="edit" label="Muokkaa ryhmää" onClick={() => setSheet('edit')} />
+          <IconButton icon="trash" label="Poista ryhmä" onClick={() => deleteGroup(group)} />
+        </>
+      )} />
       <Page className="stack-6 k-page-pad">
         <header className="k-group-head">
           <h1 className="t-title">{group.name}</h1>
@@ -214,7 +220,7 @@ export function GroupScreen({ params }) {
         <GroupSent groupId={group.id} />
         <ThemeSection group={group} />
         <Sessions state={state} group={group} />
-        <Disclosure title="Lisää" summary="Lisäajat, vuosisuunnitelma, poisto" icon="more">
+        <Disclosure title="Lisää" summary="Lisäajat, vuosisuunnitelma" icon="more">
           <div className="stack-5">
             <div className="stack-2">
               <div className="field-label">Lisäajat</div>
@@ -230,11 +236,6 @@ export function GroupScreen({ params }) {
             <div className="stack-2">
               <div className="field-label">Vuosisuunnitelma</div>
               <AnnualPlanBlock group={group} />
-            </div>
-            <div className="stack-2">
-              <div className="field-label">Ryhmän poisto</div>
-              <p className="field-msg">Poistaa ryhmän ja kaikki sen treenit läsnäoloineen. Pelaajat säilyvät Pelaajat-listallasi.</p>
-              <Button variant="danger" size="sm" icon="trash" onClick={() => deleteGroup(group)}>Poista ryhmä</Button>
             </div>
           </div>
         </Disclosure>
