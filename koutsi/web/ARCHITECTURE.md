@@ -206,6 +206,10 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   Kun avain tai kokeilu on hyväksytty (Aloitetaan), sovellus avaa aina Kodin (`CoachRoot`, `startAsCoach`), missä
   osoite sitten olikin. Kirjaudu ulos (`app/session.jsx`) vie osoitteen sovelluksen alkuun mutta pitää ?-osan
   (kutsulinkin `?koodi=…&oppilas=…`), joten seuraava tili samalla puhelimella ei aukea edellisen Profiiliin.
+  "Krossi Koutsin ilme on uudistunut" -ikkuna ja "Palaa vanhaan" (palkki ja Profiilin rivi) vain ennen 11.11.2026
+  luoduille tileille (`shared/renewed.jsx` `NEW_ONLY_SINCE` = `lib/koutsi-auth.jsx` `KOUTSI_NEW_ONLY_SINCE`, testi
+  `renewedCutoff.test.mjs`); sitä uudemmat ohjataan vanhasta Koutsista uuteen (`?uusi=1`). Ikkunan sulkeminen
+  muistetaan tilillä (auth-metatieto `koutsi_uusi_ilme_nahty`, `account.markRenewedSeen`) ja laitteella.
 
 - Esittely ensimmäisellä käynnillä (`shared/intro/IntroFilm.jsx`, `shared/intro/scenes.jsx`, `styles/intro.css`,
   `coach/CoachIntro.jsx`, `player/PlayerIntro.jsx`): noin puolen minuutin piirretty filmi, joka korvasi tervetuloikkunan.

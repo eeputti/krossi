@@ -8,7 +8,8 @@ import { dropQueryParam, navigate, useRoute } from '../app/router.js';
 import { GateError, Splash } from '../shared/gates.jsx';
 import { Button, EmptyState, Page } from '../ui/index.js';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
-import { showBetaBar } from '../shared/renewed.jsx';
+import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
+import { useSession } from '../app/session.jsx';
 import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
 import { FeedbackSheet } from '../shared/account.jsx';
 import { useLoginLinkReturn } from '../shared/logins.jsx';
@@ -55,8 +56,8 @@ const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: Trainin
 
 // What opens by itself when the app starts, at most one thing, decided once:
 // the e-mail's link (a wish, or "Treenit ohi! Miten meni?") > the intro film for a new account >
-// "Miten meni?" for a session that just ended (once per session).
-function pickStartup(state, student) {
+// the renewed-look note (accounts from before 11.11.2026) > "Miten meni?" for a session that just ended (once per session).
+function pickStartup(state, student, user) {
   const pending = takePendingCheckIn();
   if (pending?.wish) return { kind: 'wish' };
   if (pending) return { kind: 'checkin', trainingId: pending.training, score: pending.score };
@@ -64,17 +65,19 @@ function pickStartup(state, student) {
   const candidate = (!isDemo || previewCheckIn) ? checkInCandidate(state, student, readSkipped(student.id)) : null;
   const ask = candidate && (previewCheckIn || !wasAsked(student.id, candidate.id)) ? { kind: 'checkin', trainingId: candidate.id } : null;
   if (previewCheckIn && ask) return ask;
+  if (renewedNoteDue(user)) return { kind: 'renewed' };
   return ask;
 }
 
 function PlayerShell({ banner, joinCode = null }) {
+  const { user } = useSession();
   const { state, ownerId, reload } = useData();
   const toast = useToast();
   useLoginLinkReturn(); // back from Google / Apple after Profiili → Liitä
   const student = state.students[0];
   const [sheet, setSheet] = useState(null);
   const [video, setVideo] = useState(null);
-  const [startup] = useState(() => pickStartup(state, student));
+  const [startup] = useState(() => pickStartup(state, student, user));
   const [checkIn, setCheckIn] = useState(() => (startup?.kind === 'checkin' ? startup : null));
   // "Liity ryhmään": a group link opened while signed in brings its code (PlayerRoot)
   const [join, setJoin] = useState(() => (joinCode ? { code: joinCode } : null));
@@ -160,7 +163,7 @@ function PlayerShell({ banner, joinCode = null }) {
         feedback={{ label: 'Anna palautetta', icon: 'mail', onClick: () => setFeedbackOpen(true) }}
         banner={banner}
         signupUrl="https://koutsi.krossi.app/pelaaja?uusi=1"
-        beta={showBetaBar()}
+        beta={showBetaBar(user)}
       />
       {!isDesktop && (
         <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} unread={notes.unread}
@@ -186,6 +189,7 @@ function PlayerShell({ banner, joinCode = null }) {
       <CheckInSheet open={Boolean(checkIn)} training={checkInTraining} all={checkIn?.all || null} initialScore={checkIn?.score ?? null}
         known={checkIn?.mood || null} onClose={() => setCheckIn(null)} onWish={() => actions.openText('wish')} onSelfTraining={() => actions.openSelfTraining()} />
       <PlayerIntro firstVisit={!student.welcomeSeenAt && startup?.kind !== 'checkin'} />
+      <RenewedIntro role="player" eligible={startup?.kind === 'renewed'} />
     </ActionsContext.Provider>
   );
 }

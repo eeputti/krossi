@@ -7,6 +7,7 @@ import { Button, ChipSelect, Field, Icon, Input, ListRow, Sheet, Textarea, Toggl
 import { FEEDBACK_CATEGORIES, SUPPORT_EMAIL } from '../lib/constants.js';
 import { EMAIL_CHOICES, withChoice } from '../domain/emailPrefs.js';
 import { LoginRows } from './logins.jsx';
+import { knewOldKoutsi } from './renewed.jsx';
 
 /** Profiili → Sähköpostit: all e-mails on or off, and each kind on its own. Saves at once. */
 export function EmailPrefs({ uid, role = 'player' }) {
@@ -206,7 +207,7 @@ export function AccountSection({ role, uid, profileName }) {
         <ListRow icon="mail" title="Ota yhteyttä" subtitle={SUPPORT_EMAIL} href={`mailto:${SUPPORT_EMAIL}?subject=Krossi%20Koutsi`} />
       </div>
       <div className="list-group">
-        {!isDemo && <ListRow icon="undo" title="Palaa vanhaan Koutsiin" subtitle="Pääset takaisin vanhan Koutsin Siirry uuteen -napista" href={`${base}?uusi=0`} />}
+        {!isDemo && knewOldKoutsi(user) && <ListRow icon="undo" title="Palaa vanhaan Koutsiin" subtitle="Pääset takaisin vanhan Koutsin Siirry uuteen -napista" href={`${base}?uusi=0`} />}
         <ListRow icon="logout" title="Kirjaudu ulos" onClick={signOut} />
         <ListRow icon="trash" tone="danger" title={deleting ? 'Poistetaan…' : 'Poista tili ja tiedot'} onClick={deleting ? undefined : deleteAccount} />
       </div>

@@ -4,7 +4,7 @@
 import { db, must, requireSession, callFunction } from './client.js';
 import { ApiError, loginError } from '../errors.js';
 import { avatarUrl } from './map.js';
-import { PILOT_TERMS_VERSION, PILOT_PRIVACY_VERSION } from '../../lib/constants.js';
+import { PILOT_TERMS_VERSION, PILOT_PRIVACY_VERSION, RENEWED_SEEN_KEY } from '../../lib/constants.js';
 import { TENNIS_DRAFT_KEY, tennisDraftOf } from '../../domain/tennisProfile.js';
 import { PROFILE_DONE_KEY } from '../../domain/profileCompleteness.js';
 
@@ -180,6 +180,10 @@ export const account = {
     const at = new Date().toISOString();
     must(await db().auth.updateUser({ data: { [PROFILE_DONE_KEY]: at } }));
     return at;
+  },
+  /** "Krossi Koutsin ilme on uudistunut" was closed: remembered on the account (shared/renewed.jsx). */
+  async markRenewedSeen() {
+    must(await db().auth.updateUser({ data: { [RENEWED_SEEN_KEY]: new Date().toISOString() } }));
   },
   /** Counts one real app open; never allowed to fail anything. */
   async recordAppOpen(appName) {
