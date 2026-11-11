@@ -5,11 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
 import { Button, Icon, Sheet, Spinner, useToast } from '../ui/index.js';
-import { CopyButton, QrCode, ShareTextButton } from '../shared/bits.jsx';
+import { CopyButton, ShareTextButton } from '../shared/bits.jsx';
 import { koutsiFmtShortDate, koutsiInviteLink, koutsiSortGroupsBySchedule } from '../domain/core.js';
 import { SEASON_LINK_USES, groupLinksMessage, joinedCount, joinedTotals, seasonLinkDays, seasonLinkFor } from '../domain/groupLinks.js';
 import { groupsOfSeason } from '../domain/season.js';
 import { useCoach } from './CoachRoot.jsx';
+import { ShowQrSheet } from './joinHelp.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 
@@ -117,19 +118,18 @@ export function GroupLinksSheet({ open, onClose, season }) {
   );
 }
 
-/** A group's link as a big QR code, to show from the phone at the first session of the season. */
-export function GroupQrSheet({ open, onClose, group, code, expiresAt }) {
+/** A group's link as a big QR code, to show from the phone at the first session of the season.
+ *  single: a one-off link (Kutsu ryhmään), meant for one player of the group, not all of them. */
+export function GroupQrSheet({ open, onClose, group, code, expiresAt, single = false }) {
   if (!group || !code) return null;
-  const link = koutsiInviteLink(code);
+  const until = expiresAt ? `, voimassa ${koutsiFmtShortDate(String(expiresAt).slice(0, 10))} asti` : '';
   return (
-    <Sheet open={open} onClose={onClose} size="md" title={group.name} subtitle={`${group.day} ${group.time}, liity ryhmään`}>
-      <div className="gl-qr">
-        <QrCode text={link} size={260} />
-        <p className="gl-qr-help">Skannaa puhelimen kameralla, luo tunnus ja olet ryhmässä.</p>
-        <div className="k-code">{code}</div>
-        <p className="k-faint">koutsi.krossi.app/pelaaja, syötä koodi{expiresAt ? `, voimassa ${koutsiFmtShortDate(String(expiresAt).slice(0, 10))} asti` : ''}</p>
-        <CopyButton text={link} label="Kopioi linkki" />
-      </div>
-    </Sheet>
+    <ShowQrSheet open={open} onClose={onClose} title={group.name}
+      subtitle={single ? 'Kertakäyttöinen linkki ryhmään' : `Ryhmän koodi, ${group.day} ${group.time}`}
+      lead={single
+        ? <>Näytä tämä yhdelle pelaajalle, niin hän pääsee ryhmään <strong>{group.name}</strong>.</>
+        : <>Näytä tämä ryhmälle <strong>{group.name}</strong>, niin kaikki ryhmäläiset pääsevät oikeaan ryhmään.</>}
+      help={single ? 'Hän skannaa koodin puhelimen kameralla ja luo tunnuksen.' : 'Jokainen skannaa koodin puhelimen kameralla ja luo tunnuksen.'}
+      link={koutsiInviteLink(code)} code={code} foot={`Tai koutsi.krossi.app/pelaaja ja syötä koodi${until}`} />
   );
 }

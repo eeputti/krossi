@@ -29,7 +29,7 @@ export function MoreSheet({ open, onClose, unread, onNotifications, onNotice, on
             onClick={() => go('/valmentaja/laskutus', 'laskutus')} />
         )}
         {!acting && (
-          <ListRow icon="link" title="Liittymiskoodini" subtitle="Ryhmäkohtaiset koodit ja oma koodisi pelaajille"
+          <ListRow icon="link" title="Liittymiskoodini" subtitle="Koodit pelaajille, ryhmille ja kaikille"
             onClick={() => { track('lisaa.liittymiskoodit'); onClose(); onCodes(); }} />
         )}
         {state.sendsReady ? (

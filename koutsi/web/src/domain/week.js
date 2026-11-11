@@ -191,6 +191,16 @@ const HOUR_MS = 3600000;
 export const PLAYER_SECTIONS_PAST_HOURS = 24;
 export const PLAYER_SECTIONS_AHEAD_DAYS = 7;
 
+/** A playerSections section's heading: "Nyt käynnissä", "Juuri päättynyt", "Aiemmin tänään", "Eilen",
+ *  "Tänään, alkaa 45 min päästä", "Huomenna", "To 22.10." (Pelaajat, Liittymiskoodini → Pelaajille). */
+export function sectionWhen(sec, today = koutsiTodayStr()) {
+  if (sec.status === 'now') return 'Nyt käynnissä';
+  if (sec.status === 'past') return sec.minutesAgo <= JUST_ENDED_MINUTES ? 'Juuri päättynyt' : sec.training.date === today ? 'Aiemmin tänään' : 'Eilen';
+  const day = relativeDay(sec.training.date, today);
+  const soon = sec.minutesUntil <= 180 ? `, alkaa ${minutesLabel(sec.minutesUntil)} päästä` : '';
+  return day.charAt(0).toUpperCase() + day.slice(1) + soon;
+}
+
 /**
  * Pelaajat, the most current players first. The coach-run sessions from the last 24 hours
  * (counted from their end) to a week ahead, nearest to now first: the one going on, then by
