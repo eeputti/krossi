@@ -7,6 +7,7 @@ import { navigate, useRoute } from '../app/router.js';
 import { useIsDesktop } from '../app/hooks.js';
 import { GateError, Splash } from '../shared/gates.jsx';
 import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
+import { WelcomeHelp } from '../shared/welcome.jsx';
 import { koutsiCurrentIsoWeek, koutsiTodayStr } from '../domain/core.js';
 import { recapWeekDue } from '../domain/week.js';
 import { markRecapSeen, previewRecap, recapSeen, WeekRecapSheet } from './WeekRecapSheet.jsx';
@@ -79,26 +80,27 @@ function ActingBanner({ name, onExit }) {
 /** First visit: what Koutsi is for, in the order a coach's week runs. */
 function WelcomeSheet() {
   const { state, run, ownerId } = useData();
+  const isDesktop = useIsDesktop();
   const [open, setOpen] = useState(true);
   const close = () => { setOpen(false); run(() => api.coach.markWelcomeSeen(ownerId), null); };
   const steps = [
-    ['sparkles', 'Viikon teemat', 'Kirjoita teema kerran ja valitse ryhmät — tai jatka viime viikon teemoilla yhdellä napautuksella.'],
-    ['calendar', 'Viikkohallinta', 'Koko viikko kalenterina: ryhmät, treenit ja tapahtumat. Punertava kortti kertoo, että jotain puuttuu.'],
-    ['plus', 'Merkitse', 'Iso Merkitse-nappi: huomio, kotiläksy tai video yhdelle pelaajalle tai koko ryhmälle — treenin jälkeen ryhmä on valmiina.'],
-    ['users', 'Pelaajat mukaan', 'Lähetä jokaiselle oma liittymislinkki WhatsAppiin. Pelaaja näkee teeman ja oman kehityksensä.'],
+    ['sparkles', 'Viikon teemat', 'Kirjoita teema kerran ja valitse ryhmät, joille se kuuluu.'],
+    ['calendar', 'Viikkohallinta', 'Koko viikko kalenterina. Punertava kortti kertoo, että jotain puuttuu.'],
+    ['plus', 'Merkitse', 'Huomio, kotiläksy tai video yhdelle pelaajalle tai koko ryhmälle.'],
+    ['users', 'Pelaajat mukaan', 'Lähetä liittymislinkki WhatsAppiin. Pelaaja näkee teeman ja kehityksensä.'],
   ];
   return (
     <Sheet open={open} onClose={close} size="md" title={`Tervetuloa, ${(state.coach.name || '').split(' ')[0] || 'valmentaja'}!`} subtitle="Koutsi on valmentajan viikko yhdessä paikassa."
       footer={<Button variant="lime" size="lg" block onClick={close}>Aloitetaan</Button>}>
-      <ul className="k-welcome-list">
+      <ul className="k-welcome-grid">
         {steps.map(([icon, title, text]) => (
-          <li key={title} className="k-welcome-item">
-            <span className="k-welcome-icon"><Icon name={icon} size={20} /></span>
+          <li key={title} className="k-welcome-tile">
+            <span className="k-welcome-icon"><Icon name={icon} size={18} /></span>
             <span><strong>{title}</strong><span className="k-welcome-text">{text}</span></span>
           </li>
         ))}
       </ul>
-      <p className="k-fine">Jos jokin ei toimi tai tuntuu epäselvältä, kerro siitä <strong>Anna palautetta</strong> -kohdassa (tietokoneella sivupalkissa, puhelimella Lisää-valikossa).</p>
+      <WelcomeHelp place={isDesktop ? 'sivupalkin alaosassa' : 'Lisää-valikossa'} />
     </Sheet>
   );
 }
