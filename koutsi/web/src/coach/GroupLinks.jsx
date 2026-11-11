@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/index.js';
 import { useData } from '../app/data.jsx';
-import { Button, Icon, Sheet, useToast } from '../ui/index.js';
+import { Button, Icon, Sheet, Spinner, useToast } from '../ui/index.js';
 import { CopyButton, QrCode, ShareTextButton } from '../shared/bits.jsx';
 import { koutsiFmtShortDate, koutsiInviteLink, koutsiSortGroupsBySchedule } from '../domain/core.js';
 import { SEASON_LINK_USES, groupLinksMessage, joinedCount, joinedTotals, seasonLinkDays, seasonLinkFor } from '../domain/groupLinks.js';
@@ -97,7 +97,10 @@ export function GroupLinksSheet({ open, onClose, season }) {
                       </span>
                     </span>
                   </label>
-                  <Button variant="ghost" size="sm" icon="grid" disabled={!r.code} onClick={() => setQr(r)}>QR</Button>
+                  <span className="gl-row-code">
+                    {r.code ? <span className="jc-code">{r.code}</span> : busy ? <Spinner size={18} /> : <span className="k-faint">—</span>}
+                    <Button variant="soft" size="sm" icon="grid" disabled={!r.code} onClick={() => setQr(r)}>QR</Button>
+                  </span>
                 </div>
               );
             })}

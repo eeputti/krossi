@@ -76,10 +76,12 @@
 .season-alert-actions { gap: 6px; }
 
 /* Jaa ryhmälinkit (coach/GroupLinks.jsx) */
-.gl-row { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 10px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); }
+.gl-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 8px 8px 8px 10px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); }
 .gl-row.is-off { background: var(--surface-2); }
-.gl-row.is-off .k-row-title, .gl-row.is-off .season-when { color: var(--faint); }
-.gl-pick { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+.gl-row.is-off .k-row-title, .gl-row.is-off .season-when, .gl-row.is-off .jc-code { color: var(--faint); }
+.gl-pick { display: flex; align-items: center; gap: 10px; flex: 1 1 240px; min-width: 0; cursor: pointer; }
+/* the group's code big next to its QR button; on a phone it drops under the group's name */
+.gl-row-code { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .gl-pick input { width: 18px; height: 18px; accent-color: var(--green-800); flex-shrink: 0; }
 .gl-joined { display: flex; align-items: center; gap: 8px; }
 .gl-bar { width: 64px; height: 6px; border-radius: 99px; background: var(--sand-2); overflow: hidden; flex-shrink: 0; }
@@ -99,8 +101,10 @@
 .jc-row-code { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .jc-code { font-family: var(--font-num); font-weight: 800; font-size: 20px; letter-spacing: 0.1em; user-select: all; -webkit-user-select: all; }
 .jc-row-actions { display: flex; gap: 6px; }
-/* Choosing the kind of code first: two cards, each says in one line what it does */
+/* Choosing the kind of code first: two cards (three in Kutsu pelaajat), each says in one line what it does */
 .jc-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.jc-pick.is-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.jc-pick-count { margin-left: auto; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 99px; background: var(--lime); color: var(--ink); font-size: 12.5px; font-weight: 800; display: grid; place-items: center; font-family: var(--font-num); }
 .jc-pick-card { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 14px; border-radius: var(--r-lg); border: 1.5px solid var(--line); background: var(--surface-2); color: var(--muted); min-width: 0; cursor: pointer; transition: border-color var(--dur-2), background var(--dur-2), color var(--dur-2); }
 .jc-pick-card:hover { border-color: #cfcfcf; }
 .jc-pick-card.is-on { border: 2px solid var(--ink); padding: 11.5px 13.5px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-2); }
@@ -131,6 +135,12 @@
 .jc-minor { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--line); }
 .jc-minor-text { display: grid; gap: 2px; flex: 1 1 240px; min-width: 0; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
 .jc-minor-text strong { color: var(--ink); font-size: 14px; }
+@media (max-width: 600px) {
+  /* a phone: Ryhmäkohtaiset + Oma koodi side by side, Henkilökohtaiset as a wide card under them */
+  .jc-pick.is-three { grid-template-columns: 1fr 1fr; }
+  .jc-pick.is-three .jc-pick-card:nth-child(3) { grid-column: 1 / -1; }
+  .gl-row-code { flex: 1 1 100%; justify-content: space-between; padding-left: 28px; }
+}
 @media (max-width: 380px) {
   .jc-pick-card { padding: 10px 11px; }
   .jc-pick-card.is-on { padding: 9.5px 10.5px; }

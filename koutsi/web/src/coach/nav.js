@@ -25,6 +25,7 @@ export function openSeason() {
   navigate('/valmentaja/kausi', { overlay: true });
 }
 
-export function openInvites() {
-  navigate('/valmentaja/kutsut', { overlay: true });
+/** Kutsu pelaajat; openInvites('henk') opens on the not-yet-joined players' own links. */
+export function openInvites(kind) {
+  navigate(`/valmentaja/kutsut${kind === 'henk' ? '?tapa=henk' : ''}`, { overlay: true });
 }
