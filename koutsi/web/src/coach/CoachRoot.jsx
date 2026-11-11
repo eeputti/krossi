@@ -13,6 +13,7 @@ import { CoachApp } from './CoachApp.jsx';
 import { TrialStart } from './TrialStart.jsx';
 import { keyWelcome } from '../domain/subscription.js';
 import { KeyWelcome } from './KeyWelcome.jsx';
+import { HOME } from './routes.js';
 
 const ACTING_KEY = 'koutsiActingCoach'; // same key as the old app: a hint only, re-checked server-side
 
@@ -100,6 +101,12 @@ export function CoachRoot() {
     setRowError(null);
     try { setCoachRow(await api.coach.fetchRow(uid)); } catch (err) { setRowError(err); }
   }, [uid]);
+  // A new coach (key or trial just accepted, "Aloitetaan") starts on Koti, whatever the address
+  // was: signing out of Profiili leaves /valmentaja/profiili in the bar for the next account.
+  const startAsCoach = useCallback(async () => {
+    navigate(HOME, { replace: true });
+    await checkRow();
+  }, [checkRow]);
 
   useEffect(() => {
     if (!uid || !session.pilotAccepted || session.needsOnboarding) { setCoachRow(undefined); return; }
@@ -157,7 +164,7 @@ export function CoachRoot() {
   if (session.needsOnboarding) return <OnboardingScreen role="coach" />;
   if (rowError) return <GateError error={rowError} onRetry={checkRow} onSignOut={session.signOut} />;
   if (coachRow === undefined) return <Splash />;
-  if (!coachRow) return <CoachKeyGate onRedeemed={checkRow} />;
+  if (!coachRow) return <CoachKeyGate onRedeemed={startAsCoach} />;
   if (actingFor !== uid || acting === undefined) return <Splash />;
 
   const coachId = acting ? acting.id : uid;

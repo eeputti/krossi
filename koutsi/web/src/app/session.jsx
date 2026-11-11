@@ -8,7 +8,8 @@
 // fetch is an error, not "new user"; a recovery link leads to a new password, not the app.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../api/index.js';
+import { api, isDemo } from '../api/index.js';
+import { homePath, navigate } from './router.js';
 
 const SessionContext = createContext(null);
 
@@ -92,7 +93,13 @@ export function SessionProvider({ appName, children }) {
     setPilotError(null);
   }, [uid]);
   const refreshProfile = useCallback(() => (uid ? loadProfile(uid) : Promise.resolve()), [uid, loadProfile]);
-  const signOut = useCallback(() => api.auth.signOut().catch(() => {}), []);
+  // Back to the start of the app (Koti after the next sign-in): Kirjaudu ulos sits on Profiili, and the
+  // next account on the same phone should not open there. Only the page changes: the query stays, so
+  // an invite (?koodi=…&oppilas=…) still reaches the player who signs in next ("Avasit kutsulinkin,
+  // mutta olet jo kirjautuneena toisena käyttäjänä"). The demo's signOut leaves the page itself.
+  const signOut = useCallback(() => api.auth.signOut().catch(() => {}).then(() => {
+    if (!isDemo) navigate(homePath() + window.location.search, { replace: true });
+  }), []);
 
   const value = useMemo(() => ({
     session, user: session?.user || null, uid, profile, loading,
