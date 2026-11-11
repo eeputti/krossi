@@ -8,7 +8,7 @@ import { dropQueryParam, navigate, useRoute } from '../app/router.js';
 import { GateError, Splash } from '../shared/gates.jsx';
 import { Button, EmptyState, Page } from '../ui/index.js';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
-import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
+import { showBetaBar } from '../shared/renewed.jsx';
 import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
 import { FeedbackSheet } from '../shared/account.jsx';
 import { useIsDesktop } from '../app/hooks.js';
@@ -57,7 +57,7 @@ SCREENS.openSlots = OpenSlotsRedirect; // Vapaat ajat: the notice's link opens t
 
 // What opens by itself when the app starts, at most one thing, decided once:
 // the e-mail's link (a wish, or "Treenit ohi! Miten meni?") > the intro film for a new account >
-// the renewed-look note > "Miten meni?" for a session that just ended (once per session).
+// "Miten meni?" for a session that just ended (once per session).
 function pickStartup(state, student) {
   const pending = takePendingCheckIn();
   if (pending?.wish) return { kind: 'wish' };
@@ -66,7 +66,6 @@ function pickStartup(state, student) {
   const candidate = (!isDemo || previewCheckIn) ? checkInCandidate(state, student, readSkipped(student.id)) : null;
   const ask = candidate && (previewCheckIn || !wasAsked(student.id, candidate.id)) ? { kind: 'checkin', trainingId: candidate.id } : null;
   if (previewCheckIn && ask) return ask;
-  if (renewedNoteDue()) return { kind: 'renewed' };
   return ask;
 }
 
@@ -193,7 +192,6 @@ function PlayerShell({ banner, joinCode = null }) {
       <CheckInSheet open={Boolean(checkIn)} training={checkInTraining} all={checkIn?.all || null} initialScore={checkIn?.score ?? null}
         known={checkIn?.mood || null} onClose={() => setCheckIn(null)} onWish={() => actions.openText('wish')} onSelfTraining={() => actions.openSelfTraining()} />
       <PlayerIntro firstVisit={!student.welcomeSeenAt && startup?.kind !== 'checkin'} />
-      <RenewedIntro role="player" eligible={startup?.kind === 'renewed'} />
     </ActionsContext.Provider>
   );
 }
