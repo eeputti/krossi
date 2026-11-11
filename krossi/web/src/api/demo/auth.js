@@ -53,6 +53,18 @@ export async function updateEmail(email) {
   return run(() => ({ email: String(email || '').trim().toLowerCase(), pending: null }));
 }
 
+// Kirjautumistavat: the demo links without leaving the page (no Google / Apple visit).
+let demoLinked = [];
+export async function getLogins() {
+  return run(() => [{ provider: 'email', email: ME_EMAIL }, ...demoLinked.map((p) => ({ provider: p, email: p === 'apple' ? 'alex@privaterelay.appleid.com' : 'alex.krossi@gmail.com' }))]);
+}
+export async function linkLogin(provider) {
+  return run(() => { if (!demoLinked.includes(provider)) demoLinked.push(provider); return { redirecting: false }; });
+}
+export async function unlinkLogin(provider) {
+  return run(() => { demoLinked = demoLinked.filter((p) => p !== provider); });
+}
+
 export async function updatePassword() {
   return run(() => undefined);
 }

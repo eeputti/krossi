@@ -2,7 +2,7 @@
 // actions. Mirrors lib/koutsi-auth.jsx and the account parts of lib/koutsi-data.js.
 
 import { db, must, requireSession, callFunction } from './client.js';
-import { ApiError } from '../errors.js';
+import { ApiError, loginError } from '../errors.js';
 import { avatarUrl } from './map.js';
 import { PILOT_TERMS_VERSION, PILOT_PRIVACY_VERSION } from '../../lib/constants.js';
 import { TENNIS_DRAFT_KEY, tennisDraftOf } from '../../domain/tennisProfile.js';
@@ -56,6 +56,33 @@ export const auth = {
       throw error;
     }
     return { email: data.user?.email || '', pending: data.user?.new_email || null };
+  },
+  /** Profiili → Kirjautumistavat: → [{ provider: 'email'|'google'|'apple', email }] on this account. */
+  async getLogins() {
+    const { data, error } = await db().auth.getUser();
+    if (error) throw error;
+    return (data.user?.identities || []).map((i) => ({ provider: i.provider, email: i.identity_data?.email || i.email || '' }));
+  },
+  /**
+   * Liitä Google / Apple: the browser goes to the provider and comes back to `redirectTo`, where
+   * Supabase has added the login to the signed-in account. → { redirecting: true }.
+   * Needs "Allow manual linking" on in Supabase Auth.
+   */
+  async linkLogin(provider, redirectTo) {
+    const { error } = await db().auth.linkIdentity({ provider, options: { redirectTo } });
+    if (error) throw loginError(error, provider);
+    return { redirecting: true };
+  },
+  /** Irrota: only when another way to sign in stays on the account (Supabase refuses the last one). */
+  async unlinkLogin(provider) {
+    const { data, error } = await db().auth.getUserIdentities();
+    if (error) throw error;
+    const identities = data?.identities || [];
+    const identity = identities.find((i) => i.provider === provider);
+    if (!identity) return;
+    if (identities.length < 2) throw loginError({ code: 'single_identity_not_deletable' }, provider, { unlink: true });
+    const res = await db().auth.unlinkIdentity(identity);
+    if (res.error) throw loginError(res.error, provider, { unlink: true });
   },
   async signOut() {
     const { error } = await db().auth.signOut();

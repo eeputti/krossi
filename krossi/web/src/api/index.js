@@ -14,4 +14,4 @@ export function installBackend(impl, { demo = false } = {}) {
   isDemo = demo;
 }
 
-export { ApiError } from './errors.js';
+export { ApiError, loginError } from './errors.js';

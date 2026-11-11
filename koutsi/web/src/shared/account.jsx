@@ -6,6 +6,7 @@ import { useSession } from '../app/session.jsx';
 import { Button, ChipSelect, Field, Icon, Input, ListRow, Sheet, Textarea, Toggle, useConfirm, useToast } from '../ui/index.js';
 import { FEEDBACK_CATEGORIES, SUPPORT_EMAIL } from '../lib/constants.js';
 import { EMAIL_CHOICES, withChoice } from '../domain/emailPrefs.js';
+import { LoginRows } from './logins.jsx';
 
 /** Profiili → Sähköpostit: all e-mails on or off, and each kind on its own. Saves at once. */
 export function EmailPrefs({ uid, role = 'player', has = [] }) {
@@ -187,7 +188,9 @@ export function AccountSection({ role, uid, profileName }) {
         <div className="list-group">
           <ListRow icon="mail" title="Sähköposti" subtitle={email || 'Lisää sähköpostiosoite'} onClick={() => setEmailOpen(true)}
             right={<span className="k-textlink">Vaihda</span>} />
+          <LoginRows home={base} back={`${base}/profiili`} />
         </div>
+        <p className="k-faint k-login-note">Liitä Google tai Apple, niin pääset samalle tilille myös niillä.</p>
       </section>
       <button type="button" className="k-feedback-cta" onClick={() => setFeedbackOpen(true)}>
         <span className="k-feedback-cta-icon"><Icon name="chat" size={20} /></span>

@@ -761,6 +761,9 @@ export const API_CONTRACT = {
     'getIdentities',       // () -> string[]   e.g. ['email','google']
     'updatePassword',      // (newPassword) -> void   used after a password-reset link (auth event 'PASSWORD_RECOVERY')
     'updateEmail',         // (email) -> { email, pending }   Asetukset → Sähköposti, takes effect at once (pending stays null)
+    'getLogins',           // () -> [{ provider: 'email'|'google'|'apple', email }]   Asetukset → Tili
+    'linkLogin',           // ('google'|'apple') -> { redirecting }   true: the browser leaves for the provider and returns to /pelaa
+    'unlinkLogin',         // ('google'|'apple') -> void   refused while it is the only way to sign in
   ],
   profile: [
     'getMine',             // (uid) -> Profile|null

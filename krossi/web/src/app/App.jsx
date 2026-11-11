@@ -18,6 +18,7 @@ import { peekBookingReturn, takeBookingReturn, useClaimVisitBookings } from './b
 import { PaywallProvider, usePaywall } from './paywall.jsx';
 import { configureRouter, navigate, useRoute } from './router.js';
 import { SessionProvider, useSession } from './session.jsx';
+import { hasLoginLinkMark, useLoginLinkReturn } from '../screens/profile/LoginRows.jsx';
 
 // Where a logged-out visitor was heading (shared game link, invite) — reopened after sign-in.
 export const AFTER_AUTH_KEY = 'krossi_after_auth';
@@ -55,6 +56,7 @@ const AUTH_LINK_ERRORS = {
 function useAuthLinkError() {
   const toast = useToast();
   useEffect(() => {
+    if (hasLoginLinkMark()) return; // back from Asetukset → Liitä: useLoginLinkReturn says how it went
     const hash = window.location.hash.replace(/^#/, '');
     if (!/(^|&)error(_code|_description)?=/.test(hash)) return;
     const params = new URLSearchParams(hash);
@@ -164,6 +166,7 @@ function Gate() {
   const route = useRoute();
   useStripeReturn();
   useAuthLinkError();
+  useLoginLinkReturn(session.loading ? null : session.user?.id);
   useClaimVisitBookings();
 
   // Back from Google / Apple to the booking page the sign-in started from (bookingAccount.js).

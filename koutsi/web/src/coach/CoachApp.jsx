@@ -36,6 +36,7 @@ import { JoinCodesSheet } from './JoinCodesSheet.jsx';
 import { track } from './usage.js';
 import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
 import { FeedbackSheet } from '../shared/account.jsx';
+import { useLoginLinkReturn } from '../shared/logins.jsx';
 import { MessagesProvider, useMessages } from '../shared/messages/MessagesProvider.jsx';
 import { MessagesScreen } from './MessagesScreen.jsx';
 import { ThreadScreen } from './ThreadScreen.jsx';
@@ -83,6 +84,7 @@ function CoachShell() {
   const { acting, exitActing, isAdmin, adminChecked, coachId, uid } = useCoach();
   const { openMerkinta } = useRecord();
   const route = useRoute();
+  useLoginLinkReturn(); // back from Google / Apple after Profiili → Liitä
   const isDesktop = useIsDesktop();
   // Phone: the tab bar's "Lisää" drawer, with the notifications in it; a computer has the bell on
   // the profile card at the foot of the side nav
