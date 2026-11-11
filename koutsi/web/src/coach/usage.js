@@ -154,4 +154,22 @@ export const USAGE_SECTIONS = [
       ['tallennettu.video-monelle', '…joista usealle pelaajalle'],
     ],
   },
+  {
+    title: 'Esittely ja aloitus',
+    events: [
+      ['esittely.loppuun', 'Valmentaja katsoi esittelyn loppuun'],
+      ['esittely.ohita', 'Valmentaja ohitti esittelyn'],
+      ['esittely.luo-ryhma', 'Esittely → Luo ensimmäinen ryhmä'],
+      ['esittely.monta', 'Esittely → Lisää monta ryhmää kerralla'],
+      ['esittely.koti', 'Esittely → Siirry Kotiin'],
+      ['esittely.uudelleen', 'Valmentaja avasi esittelyn uudelleen'],
+      ['aloitus.kutsu', 'Koti, Aloitetaan → Kutsu pelaajat'],
+      ['aloitus.teema', 'Koti, Aloitetaan → Aseta teema'],
+      ['pelaaja.esittely.loppuun', 'Pelaaja katsoi esittelyn loppuun'],
+      ['pelaaja.esittely.ohita', 'Pelaaja ohitti esittelyn'],
+      ['pelaaja.esittely.tavoite', 'Esittely → Aseta tavoite (pelaaja)'],
+      ['pelaaja.esittely.koti', 'Esittely → Siirry Kotiin (pelaaja)'],
+      ['pelaaja.esittely.uudelleen', 'Pelaaja avasi esittelyn uudelleen'],
+    ],
+  },
 ];

@@ -22,15 +22,15 @@ import { useCoach } from './CoachRoot.jsx';
 import { openInvites, openPlanner, openSeason, playerPath } from './nav.js';
 import { currentSeason, draftSummary, groupsOfSeason, nextSeasonPreset, seasonNudge, seasonWord } from '../domain/season.js';
 import { ActivityRow, SessionRow } from './parts.jsx';
-import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
+import { ExtendCalendarSheet } from './groupForms.jsx';
 import { SeasonEditSheet } from './SeasonSheet.jsx';
 import { GroupLinksSheet } from './GroupLinks.jsx';
 import { WeekRecapSheet } from './WeekRecapSheet.jsx';
 import { MOOD_LABELS } from '../lib/constants.js';
-import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { TodayTimeline } from './today.jsx';
 import { useRecord } from './merkitse.jsx';
 import { track } from './usage.js';
+import { FirstSteps } from './CoachIntro.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const pct = (x) => (x == null ? '–' : `${Math.round(x * 100)}\u00a0%`);
@@ -316,23 +316,6 @@ function WeekDiary({ state }) {
   );
 }
 
-function FirstSteps() {
-  const [groupOpen, setGroupOpen] = useState(false);
-  const [bulkOpen, setBulkOpen] = useState(false);
-  return (
-    <Card className="k-first-steps">
-      <h2 className="k-block-title">Aloitetaan</h2>
-      <p className="k-quiet-text">Luo ryhmät ja lisää pelaajat — yksitellen tai kaikki kerralla listasta.</p>
-      <div className="row wrap">
-        <Button variant="dark" icon="plus" onClick={() => setGroupOpen(true)}>Luo ryhmä</Button>
-        <Button variant="outline" icon="list" onClick={() => setBulkOpen(true)}>Lisää monta kerralla</Button>
-      </div>
-      <GroupFormSheet open={groupOpen} onClose={() => setGroupOpen(false)} />
-      <BulkSetupSheet open={bulkOpen} onClose={() => setBulkOpen(false)} />
-    </Card>
-  );
-}
-
 export function WeekScreen() {
   const { state } = useData();
   const isDesktop = useIsDesktop();
@@ -364,7 +347,8 @@ export function WeekScreen() {
       <div className={isDesktop ? 'week-grid' : 'stack-5'}>
         <div className="stack-5">
           <WeekHero state={state} glance={glance} week={week} />
-          {state.groups.length === 0 && state.students.length === 0 ? <FirstSteps /> : sessions}
+          {state.students.length === 0 && <FirstSteps />}
+          {(state.groups.length > 0 || state.students.length > 0) && sessions}
         </div>
         {side}
       </div>

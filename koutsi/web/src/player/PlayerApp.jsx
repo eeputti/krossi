@@ -6,10 +6,9 @@ import { AppShell } from '../app/AppShell.jsx';
 import { DataProvider, useData } from '../app/data.jsx';
 import { dropQueryParam, navigate, useRoute } from '../app/router.js';
 import { GateError, Splash } from '../shared/gates.jsx';
-import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
+import { Button, EmptyState, Page } from '../ui/index.js';
 import { VideoPlayerSheet, VideoShareSheet } from '../shared/videos.jsx';
 import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
-import { WelcomeHelp } from '../shared/welcome.jsx';
 import { NotificationsSheet, useNotifications } from '../shared/Notifications.jsx';
 import { FeedbackSheet } from '../shared/account.jsx';
 import { useIsDesktop } from '../app/hooks.js';
@@ -34,6 +33,7 @@ import { PlanSheet } from '../shared/drills/plan.jsx';
 import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } from './checkin.js';
 import { BillingProvider, useBilling } from '../shared/billing/BillingProvider.jsx';
 import { InvoicesScreen } from './InvoicesScreen.jsx';
+import { PlayerIntro } from './PlayerIntro.jsx';
 
 const ActionsContext = createContext(null);
 /** openMerkitse(), closeMerkitse(), openSelfTraining(date?, { time?, editing?, activity?, homeworkId?, locked? }?), openMood(score?),
@@ -51,36 +51,8 @@ function NotFound() {
 
 const SCREENS = { home: HomeScreen, progress: ProgressScreen, trainings: TrainingsScreen, group: GroupScreen, exercises: ExercisesScreen, profile: ProfileScreen, profileEdit: ProfileEditScreen, invoices: InvoicesScreen, invoice: InvoicesScreen };
 
-/** First visit: what Koutsi is for (players took the old app for a video box). */
-function WelcomeSheet({ student }) {
-  const { run, ownerId } = useData();
-  const isDesktop = useIsDesktop();
-  const [open, setOpen] = useState(true);
-  const close = () => {
-    setOpen(false);
-    try { localStorage.setItem(`koutsi_purpose_seen_${ownerId}`, '1'); } catch { /* private mode */ }
-    run(() => api.player.markWelcomeSeen(ownerId), null);
-  };
-  const items = [
-    ['home', 'Koti', 'Seuraava treeni teemoineen, juuri päättynyt treeni ja mitä valmentaja on kertonut.'],
-    ['flame', 'Kehitys', 'Tavoitteesi ja kaikki treenisi teemoineen yhdellä aikajanalla.'],
-    ['plus', 'Merkitse', 'Iso nappi keskellä: treeni, ottelu, fiilis tai tavoite yhdellä napautuksella. Treenin jälkeen se kysyy, miten meni.'],
-  ];
-  return (
-    <Sheet open={open} onClose={close} size="md" title={`Moi ${(student.name || '').split(' ')[0]}!`} subtitle="Koutsi on sinun tenniskehityksesi seuranta."
-      footer={<Button variant="lime" size="lg" block onClick={close}>Aloitetaan</Button>}>
-      <ul className="k-welcome-list">
-        {items.map(([icon, title, text]) => (
-          <li key={title} className="k-welcome-item"><span className="k-welcome-icon"><Icon name={icon} size={20} /></span><span><strong>{title}</strong><span className="k-welcome-text">{text}</span></span></li>
-        ))}
-      </ul>
-      <WelcomeHelp place={isDesktop ? 'sivupalkin alaosassa' : 'Lisää-valikossa'} />
-    </Sheet>
-  );
-}
-
 // What opens by itself when the app starts, at most one thing, decided once:
-// the e-mail's link (a wish, or "Treenit ohi! Miten meni?") > the welcome for a new account >
+// the e-mail's link (a wish, or "Treenit ohi! Miten meni?") > the intro film for a new account >
 // the renewed-look note > "Miten meni?" for a session that just ended (once per session).
 function pickStartup(state, student) {
   const pending = takePendingCheckIn();
@@ -211,7 +183,7 @@ function PlayerShell({ banner, joinCode = null }) {
       <VideoPlayerSheet video={video} onClose={() => setVideo(null)} />
       <CheckInSheet open={Boolean(checkIn)} training={checkInTraining} all={checkIn?.all || null} initialScore={checkIn?.score ?? null}
         known={checkIn?.mood || null} onClose={() => setCheckIn(null)} onWish={() => actions.openText('wish')} onSelfTraining={() => actions.openSelfTraining()} />
-      {!student.welcomeSeenAt && startup?.kind !== 'checkin' && <WelcomeSheet student={student} />}
+      <PlayerIntro firstVisit={!student.welcomeSeenAt && startup?.kind !== 'checkin'} />
       <RenewedIntro role="player" eligible={startup?.kind === 'renewed'} />
     </ActionsContext.Provider>
   );

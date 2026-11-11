@@ -20,6 +20,7 @@ import { joinedTotals } from '../domain/groupLinks.js';
 import { currentSeason, followingSeason, seasonWord } from '../domain/season.js';
 import { koutsiFmtShortDate, koutsiIsoWeekOfDateStr } from '../domain/core.js';
 import { weekParam } from '../domain/week.js';
+import { replayIntro } from '../shared/intro/IntroFilm.jsx';
 
 function SharedPlanSheet({ open, onClose }) {
   const { coachId } = useCoach();
@@ -120,6 +121,7 @@ export function ProfileScreen() {
             <ListRow icon="book" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => navigate('/valmentaja/harjoitteet')} />
             <ListRow icon="list" title="Lisää monta kerralla" subtitle="Ryhmät ja pelaajat listasta" onClick={() => setSheet('bulk')} />
             <ListRow icon="calendar" title="Lähetä vuosisuunnitelma" subtitle="Usean ryhmän teemat Excelistä" onClick={() => setSheet('plan')} />
+            <ListRow icon="play" title="Katso esittely" subtitle="Mitä on missäkin, puolessa minuutissa" onClick={() => replayIntro()} />
             {isAdmin && <ListRow icon="shield" title="Ylläpito" subtitle="Käyttäjät, palaute, vuosisuunnitelmat" onClick={() => navigate('/valmentaja/yllapito')} />}
           </div>
         </section>

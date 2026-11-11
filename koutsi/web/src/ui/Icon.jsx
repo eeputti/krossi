@@ -80,6 +80,7 @@ const P = {
   mail: <><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m3.5 7 8.5 6 8.5-6" /></>,
   euro: <path d="M18 7a6.5 6.5 0 1 0 0 10M4 10h10M4 14h10" />,
   play: <path d="M7 4v16l13-8z" />,
+  pause: <path d="M9 5v14M15 5v14" />,
   grid: <><rect x="3" y="3" width="7.5" height="7.5" rx="1.5" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" /></>,
   'log-in': <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />,
   google: null,

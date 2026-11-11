@@ -1,4 +1,4 @@
-// welcome.jsx — the "where to send feedback" row at the foot of both apps' first-visit WelcomeSheet.
+// welcome.jsx — the "where to send feedback" row on the last card of both apps' first-visit film (shared/intro).
 import { Icon } from '../ui/index.js';
 
 /** `place` names where Anna palautetta sits on this device, e.g. "sivupalkin alaosassa". */

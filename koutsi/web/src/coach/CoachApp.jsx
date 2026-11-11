@@ -7,11 +7,10 @@ import { navigate, useRoute } from '../app/router.js';
 import { useIsDesktop } from '../app/hooks.js';
 import { GateError, Splash } from '../shared/gates.jsx';
 import { RenewedIntro, renewedNoteDue, showBetaBar } from '../shared/renewed.jsx';
-import { WelcomeHelp } from '../shared/welcome.jsx';
 import { koutsiCurrentIsoWeek, koutsiTodayStr } from '../domain/core.js';
 import { recapWeekDue } from '../domain/week.js';
 import { markRecapSeen, previewRecap, recapSeen, WeekRecapSheet } from './WeekRecapSheet.jsx';
-import { Button, EmptyState, Icon, Page, Sheet } from '../ui/index.js';
+import { Button, EmptyState, Page } from '../ui/index.js';
 import { useCoach } from './CoachRoot.jsx';
 import { DESKTOP_TABS, PHONE_TABS } from './routes.js';
 import { WeekScreen } from './WeekScreen.jsx';
@@ -39,6 +38,7 @@ import { FeedbackSheet } from '../shared/account.jsx';
 import { BillingProvider, useBilling } from '../shared/billing/BillingProvider.jsx';
 import { BillingScreen } from './BillingScreen.jsx';
 import { invoiceState } from '../domain/billing.js';
+import { CoachIntro } from './CoachIntro.jsx';
 
 function LegacyRedirect({ route, query }) {
   const to = route.keepWeek && query.vko ? `${route.redirect}?vko=${encodeURIComponent(query.vko)}` : route.redirect;
@@ -73,34 +73,6 @@ function ActingBanner({ name, onExit }) {
   );
 }
 
-/** First visit: what Koutsi is for, in the order a coach's week runs. */
-function WelcomeSheet() {
-  const { state, run, ownerId } = useData();
-  const isDesktop = useIsDesktop();
-  const [open, setOpen] = useState(true);
-  const close = () => { setOpen(false); run(() => api.coach.markWelcomeSeen(ownerId), null); };
-  const steps = [
-    ['sparkles', 'Viikon teemat', 'Kirjoita teema kerran ja valitse ryhmät, joille se kuuluu.'],
-    ['calendar', 'Viikkohallinta', 'Koko viikko kalenterina. Punertava kortti kertoo, että jotain puuttuu.'],
-    ['plus', 'Merkitse', 'Huomio, kotiläksy tai video yhdelle pelaajalle tai koko ryhmälle.'],
-    ['users', 'Pelaajat mukaan', 'Lähetä liittymislinkki WhatsAppiin. Pelaaja näkee teeman ja kehityksensä.'],
-  ];
-  return (
-    <Sheet open={open} onClose={close} size="md" title={`Tervetuloa, ${(state.coach.name || '').split(' ')[0] || 'valmentaja'}!`} subtitle="Koutsi on valmentajan viikko yhdessä paikassa."
-      footer={<Button variant="lime" size="lg" block onClick={close}>Aloitetaan</Button>}>
-      <ul className="k-welcome-grid">
-        {steps.map(([icon, title, text]) => (
-          <li key={title} className="k-welcome-tile">
-            <span className="k-welcome-icon"><Icon name={icon} size={18} /></span>
-            <span><strong>{title}</strong><span className="k-welcome-text">{text}</span></span>
-          </li>
-        ))}
-      </ul>
-      <WelcomeHelp place={isDesktop ? 'sivupalkin alaosassa' : 'Lisää-valikossa'} />
-    </Sheet>
-  );
-}
-
 function CoachShell() {
   const { state } = useData();
   const { acting, exitActing, isAdmin, adminChecked, coachId, uid } = useCoach();
@@ -125,7 +97,7 @@ function CoachShell() {
     open: (billing.invoices || []).filter((x) => x.status === 'sent').length,
     overdue: (billing.invoices || []).filter((x) => invoiceState(x, koutsiTodayStr()) === 'myohassa').length,
   } : null;
-  // What opens by itself, at most one thing, decided once: the welcome for a new account > the
+  // What opens by itself, at most one thing, decided once: the intro film for a new account > the
   // renewed-look note > "Viikko paketissa" after the week's last session (never while acting).
   const [startup] = useState(() => {
     if (acting) return null;
@@ -169,7 +141,7 @@ function CoachShell() {
         signupUrl="https://koutsi.krossi.app/valmentaja?uusi=1"
         beta={showBetaBar() && !acting}
       />
-      {!acting && !state.coach.welcomeSeenAt && <WelcomeSheet />}
+      {!acting && <CoachIntro firstVisit={startup?.kind === 'welcome'} />}
       <RenewedIntro role="coach" eligible={startup?.kind === 'renewed'} />
       <WeekRecapSheet open={Boolean(recapWeek)} week={recapWeek} onClose={closeRecap} />
       {!isDesktop && (
