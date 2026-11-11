@@ -12,6 +12,7 @@ import { groupsOf } from '../domain/week.js';
 import { ABSENCE_RANGES, absenceCandidates, absenceChanges, absenceRangeIds, byWeek, knownAbsences } from '../domain/planning.js';
 import { Link } from '../app/router.js';
 import { playerPath } from './nav.js';
+import { AddPlayerSheet } from './playerForms.jsx';
 import { track } from './usage.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
@@ -167,6 +168,7 @@ export function AbsencePlannerPanel({ compact = false }) {
   const isDesktop = useIsDesktop() && !compact;
   const [query, setQuery] = useState('');
   const [chosen, setChosen] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
   const players = useMemo(() => [...state.students].sort((a, b) => a.name.localeCompare(b.name, 'fi')), [state.students]);
   const q = query.trim().toLocaleLowerCase('fi');
   const shown = q ? players.filter((s) => s.name.toLocaleLowerCase('fi').includes(q)) : players;
@@ -181,28 +183,48 @@ export function AbsencePlannerPanel({ compact = false }) {
       requestAnimationFrame(() => document.querySelectorAll('.sheet-body').forEach((el) => { el.scrollTop = 0; }));
     }
   };
+  const openAdd = () => { setAddOpen(true); track('suunnittele.poissaolo-lisaa-pelaaja'); };
+  // the new player (or one found in the sheet's suggestions) is picked right here
+  const addSheet = (
+    <AddPlayerSheet open={addOpen} onClose={() => setAddOpen(false)} initialName={shown.length === 0 ? query.trim() : ''}
+      onDone={(id) => { setQuery(''); pick(id); }} />
+  );
   // a phone shows one thing at a time: the list, or the chosen player's sessions
   if (!isDesktop && student) {
-    return <div className={compact ? 'ap-panel ap-in-sheet' : 'ap-panel'}><PlayerPlanner key={student.id} student={student} compact onBack={() => setChosen(null)} /></div>;
+    return <div className={compact ? 'ap-panel ap-in-sheet' : 'ap-panel'}><PlayerPlanner key={student.id} student={student} compact onBack={() => setChosen(null)} />{addSheet}</div>;
   }
   return (
     <div className={compact ? 'ap-panel ap-in-sheet' : 'ap-panel'}>
       <aside className="ap-players">
-        <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae pelaajaa" aria-label="Hae pelaajaa" />
-        <div className="ap-player-list">
-          {shown.map((s) => {
-            const away = awayCount.get(s.id) || 0;
-            return (
-              <button key={s.id} type="button" className={cx('ap-player', chosen === s.id && 'is-on')} onClick={() => pick(s.id)}>
-                <Avatar person={s} size={30} />
-                <span className="grow truncate">{s.name}</span>
-                {away > 0 && <span className="ap-player-away">{away} poissa</span>}
-              </button>
-            );
-          })}
-          {shown.length === 0 && <p className="k-quiet">Ei pelaajaa nimellä ”{query}”.</p>}
-        </div>
+        {players.length === 0 ? (
+          <div className="ap-empty">
+            <p className="k-quiet">Sinulla ei ole vielä pelaajia. Lisää pelaaja, niin voit merkitä hänet poissa treeneistä.</p>
+            <Button variant="dark" size="md" icon="plus" onClick={openAdd}>Lisää pelaaja</Button>
+          </div>
+        ) : (
+          <>
+            <Input icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Hae pelaajaa" aria-label="Hae pelaajaa" />
+            <div className="ap-player-list">
+              {shown.map((s) => {
+                const away = awayCount.get(s.id) || 0;
+                return (
+                  <button key={s.id} type="button" className={cx('ap-player', chosen === s.id && 'is-on')} onClick={() => pick(s.id)}>
+                    <Avatar person={s} size={30} />
+                    <span className="grow truncate">{s.name}</span>
+                    {away > 0 && <span className="ap-player-away">{away} poissa</span>}
+                  </button>
+                );
+              })}
+              {shown.length === 0 && <p className="k-quiet">Ei pelaajaa nimellä ”{query.trim()}”.</p>}
+            </div>
+            <button type="button" className="ap-player ap-player-add" onClick={openAdd}>
+              <span className="ap-player-add-icon" aria-hidden="true"><Icon name="plus" size={16} strokeWidth={2.5} /></span>
+              <span className="grow truncate">{shown.length === 0 && query.trim() ? `Lisää ”${query.trim()}” pelaajaksi` : 'Lisää pelaaja'}</span>
+            </button>
+          </>
+        )}
       </aside>
+      {addSheet}
       {!compact && (
         <div className="ap-main">
           {student ? <PlayerPlanner key={student.id} student={student} onBack={() => setChosen(null)} /> : <KnownAbsences onPick={pick} />}

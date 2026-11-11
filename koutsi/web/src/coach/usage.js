@@ -94,6 +94,7 @@ export const USAGE_SECTIONS = [
       ['suunnittele.kumoa', 'Muutos kumottu'],
       ['suunnittele.poissaolot', 'Poissaolot-osio avattu'],
       ['suunnittele.poissaolo-pelaaja', 'Pelaaja valittu poissaoloihin'],
+      ['suunnittele.poissaolo-lisaa-pelaaja', 'Poissaolo → Lisää pelaaja'],
       ['suunnittele.poissaolo-tallennettu', 'Poissaolot tallennettu (Suunnittele)'],
       ['pelaaja.poissaolot', 'Pelaaja → Poissaolot'],
       ['pelaaja.poissaolo-tallennettu', 'Poissaolot tallennettu (pelaajan sivu)'],
