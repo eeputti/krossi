@@ -39,6 +39,43 @@ export const auth = {
     must(await db().auth.updateUser({ password }));
   },
   /**
+   * Profiili → Salasana: { hasPassword, email }. An e-mail sign-up has a password; a Google / Apple
+   * account has one once it was set here (user_metadata.password_set — a hint for the screen only).
+   */
+  async getPasswordState() {
+    const { data, error } = await db().auth.getUser();
+    if (error) throw error;
+    const u = data.user;
+    const hasPassword = Boolean(u?.user_metadata?.password_set) || (u?.identities || []).some((i) => i.provider === 'email');
+    return { hasPassword, email: u?.email || '' };
+  },
+  /**
+   * Vaihda salasana: the current one is checked first by signing in with it (same account, the
+   * app stays as it is), then the new one is saved. `current` is null when setting a first password.
+   */
+  async changePassword({ current, next }) {
+    if (String(next || '').length < 8) throw new ApiError('Salasanan pitää olla vähintään 8 merkkiä.', { code: 'weak_password' });
+    if (current != null) {
+      const { data } = await db().auth.getUser();
+      const email = data?.user?.email;
+      if (!email) throw new ApiError('Tililläsi ei ole sähköpostia. Lisää se ensin.', { code: 'no_email' });
+      const { error } = await db().auth.signInWithPassword({ email, password: current });
+      if (error) {
+        if (/invalid login credentials|invalid_credentials/i.test(`${error.code || ''} ${error.message || ''}`)) {
+          throw new ApiError('Nykyinen salasana ei täsmää. Tarkista se tai käytä Unohditko salasanan -linkkiä.', { code: 'wrong_password', cause: error });
+        }
+        throw error;
+      }
+    }
+    const { error } = await db().auth.updateUser({ password: next, data: { password_set: true } });
+    if (error) {
+      const raw = `${error.code || ''} ${error.message || ''}`;
+      if (/same_password|should be different/i.test(raw)) throw new ApiError('Uusi salasana ei voi olla sama kuin nykyinen.', { code: 'same_password', cause: error });
+      if (/reauthentication/i.test(raw)) throw new ApiError('Kirjaudu ulos ja takaisin sisään, ja aseta salasana heti sen jälkeen.', { code: 'reauth_needed', cause: error });
+      throw error;
+    }
+  },
+  /**
    * Profiili → Sähköposti. Sign-ups confirm themselves (no confirmation mail), and the same
    * setting makes this change take effect at once: the new address signs in from now on.
    * → { email, pending }: the address now on the account, and `pending` only if Supabase ever

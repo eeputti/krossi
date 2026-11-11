@@ -764,6 +764,8 @@ export const API_CONTRACT = {
     'getLogins',           // () -> [{ provider: 'email'|'google'|'apple', email }]   Asetukset → Tili
     'linkLogin',           // ('google'|'apple') -> { redirecting }   true: the browser leaves for the provider and returns to /pelaa
     'unlinkLogin',         // ('google'|'apple') -> void   refused while it is the only way to sign in
+    'getPasswordState',    // () -> { hasPassword, email }   Asetukset → Salasana
+    'changePassword',      // ({ current, next }) -> void   current is checked first; null = set a first password (Google / Apple account)
   ],
   profile: [
     'getMine',             // (uid) -> Profile|null
