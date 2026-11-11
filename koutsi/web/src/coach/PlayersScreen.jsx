@@ -226,7 +226,7 @@ export function PlayersScreen() {
               )}
             </div>
           )}
-          {unjoined > 0 && filter === 'unjoined' && <Button variant="lime" icon="send" block onClick={openInvites}>Lähetä kutsut ({unjoined})</Button>}
+          {unjoined > 0 && filter === 'unjoined' && <Button variant="lime" icon="send" block onClick={() => openInvites('henk')}>Lähetä kutsut ({unjoined})</Button>}
         </div>
       )}
       <AddPlayerSheet open={addOpen} onClose={() => setAddOpen(false)} onBulk={() => { setAddOpen(false); setBulkOpen(true); }} />

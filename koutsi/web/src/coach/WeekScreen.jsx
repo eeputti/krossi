@@ -252,7 +252,7 @@ function Alerts({ state }) {
           <div className="k-alert-body">
             <div className="k-alert-title">{unjoined.length === 1 ? '1 pelaaja ei ole vielä liittynyt' : `${unjoined.length} pelaajaa ei ole vielä liittynyt`}</div>
             <p className="k-alert-text">Lähetä jokaiselle oma linkki WhatsAppiin. Liittynyt pelaaja näkee viikon teeman, treenit ja oman kehityksensä.</p>
-            <Button variant="dark" size="sm" icon="share" onClick={openInvites}>Lähetä kutsut</Button>
+            <Button variant="dark" size="sm" icon="share" onClick={() => openInvites('henk')}>Lähetä kutsut</Button>
           </div>
         </Card>
       )}

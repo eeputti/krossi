@@ -142,7 +142,7 @@ function BulkSetupSheetBody({ open, onClose }) {
     footer = (
       <div className="sheet-actions">
         <Button variant="soft" size="lg" onClick={onClose}>Sulje</Button>
-        <Button variant="lime" size="lg" icon="send" onClick={() => { onClose(); openInvites(); }}>Lähetä kutsut</Button>
+        <Button variant="lime" size="lg" icon="send" onClick={() => { onClose(); openInvites('henk'); }}>Lähetä kutsut</Button>
       </div>
     );
   } else if (step === 1) {
