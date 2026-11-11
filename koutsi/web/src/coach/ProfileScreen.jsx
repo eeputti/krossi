@@ -9,6 +9,7 @@ import { Button, Card, Icon, ListRow, Page, PageHeader, Sheet, Toggle, useToast 
 import { useBilling } from '../shared/billing/BillingProvider.jsx';
 import { AccountSection, EmailPrefs } from '../shared/account.jsx';
 import { ProfileCard } from '../shared/profileCard.jsx';
+import { profileProgress } from '../domain/profileCompleteness.js';
 import { useCoach } from './CoachRoot.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
 import { bankSummary } from './ExercisesScreen.jsx';
@@ -90,7 +91,7 @@ export function ProfileScreen() {
       <div className="stack-6">
         <ProfileCard person={c} uid={uid} editPath="/valmentaja/profiili/muokkaa"
           lines={[[c.tagline || 'Valmentaja', (c.tagline || '').includes(c.area) ? null : c.area].filter(Boolean).join(', '), `${state.students.length} pelaajaa, ${state.groups.length} ryhmää`]}
-          bio={c.bio} addBio="Lisää esittely pelaajillesi"
+          bio={c.bio} addBio="Lisää esittely pelaajillesi" progress={profileProgress('coach', c)}
           extra={(c.experience || (c.specialties || []).length > 0) ? (
             <>
               {c.experience && <span className="k-faint">{c.experience}</span>}

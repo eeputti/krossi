@@ -245,6 +245,7 @@ export const backend = {
       S().waitingBio = { ...(S().waitingBio || {}), [id]: (bio || '').trim() };
       S().tennisDraft = { ...(S().tennisDraft || {}), [id]: tennisDraftOf(tennis) };
     },
+    async markProfileDone() { const at = nowIso(); S().profileDoneAt = at; return at; },
     async recordAppOpen() {},
     async trackEvent() {},
     async isAdmin() { return false; },

@@ -9,6 +9,7 @@ import { useSession } from '../app/session.jsx';
 import { ChipSelect, Field, Input, Textarea } from '../ui/index.js';
 import { AreaField, Counter, EditCard, ProfileEditPage } from '../shared/profileEdit.jsx';
 import { FAVOURITE_SHOTS, PLAYS_HAND, TENNIS_STORY_MAX, parseStartYear } from '../domain/tennisProfile.js';
+import { profileProgress } from '../domain/profileCompleteness.js';
 import { HEALTH_NOTE } from './sheets.jsx';
 
 const BIO_MAX = 300;
@@ -54,6 +55,7 @@ export function ProfileEditScreen() {
 
   return (
     <ProfileEditPage person={me} uid={ownerId} back="/pelaaja/profiili" dirty={dirty} canSave={canSave} missing={!f.name.trim() ? 'Kirjoita nimesi.' : !ageValid ? 'Tarkista ikä (1–119).' : !sinceValid ? 'Tarkista vuosi, jolloin aloitit tenniksen.' : null} busy={busy} onSave={save}
+      progress={profileProgress('player', { ...f, playingSince: sinceValid ? since : null, avatarUrl: me.avatarUrl }, { tennis: tennisReady })}
       photoText="Kasvokuva auttaa valmentajaa ja ryhmäkavereita tunnistamaan sinut.">
       <EditCard title="Perustiedot" icon="user">
         <Field label="Nimi" htmlFor="pe-name" error={!f.name.trim() ? 'Kirjoita nimesi.' : null}>
@@ -65,13 +67,13 @@ export function ProfileEditScreen() {
       </EditCard>
       {tennisReady && (
         <EditCard title="Tennis" icon="racket">
-          <Field label="Pelikäsi" optional>
+          <Field label="Pelikäsi" optional data-kohta="pelikasi">
             <ChipSelect ariaLabel="Pelikäsi" options={PLAYS_HAND} value={f.playsHand} onChange={set('playsHand')} allowEmpty size="sm" />
           </Field>
-          <Field label="Lempilyönti" optional>
+          <Field label="Lempilyönti" optional data-kohta="lempilyonti">
             <ChipSelect ariaLabel="Lempilyönti" options={FAVOURITE_SHOTS} value={f.favouriteShot} onChange={set('favouriteShot')} allowEmpty size="sm" />
           </Field>
-          <Field label="Pelannut vuodesta" optional htmlFor="pe-since" error={!sinceValid && f.playingSince.length === 4 ? `Kirjoita vuosi ${1930}–${new Date().getFullYear()}.` : null}>
+          <Field label="Pelannut vuodesta" optional htmlFor="pe-since" data-kohta="aloitusvuosi" error={!sinceValid && f.playingSince.length === 4 ? `Kirjoita vuosi ${1930}–${new Date().getFullYear()}.` : null}>
             <Input id="pe-since" inputMode="numeric" value={f.playingSince} placeholder="esim. 2015" className="profile-edit-year"
               onChange={(e) => set('playingSince')(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} />
           </Field>
@@ -83,7 +85,7 @@ export function ProfileEditScreen() {
         </EditCard>
       )}
       <EditCard title="Kerro itsestäsi" icon="chat">
-        <Field label="Esittely" optional htmlFor="pe-bio" hint="Näkyy valmentajallesi. Esim. kauanko olet pelannut, lempilyöntisi tai mikä tenniksessä innostaa.">
+        <Field label="Esittely" optional htmlFor="pe-bio" data-kohta="esittely" hint="Näkyy valmentajallesi. Esim. kauanko olet pelannut, lempilyöntisi tai mikä tenniksessä innostaa.">
           <Textarea id="pe-bio" rows={4} value={f.bio} onChange={set('bio')} maxLength={BIO_MAX} placeholder="Pelannut tennistä viisi vuotta, lempilyönti on…" />
           <Counter value={f.bio} max={BIO_MAX} />
         </Field>

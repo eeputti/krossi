@@ -6,6 +6,7 @@ import { goBack } from '../app/router.js';
 import { Avatar, Button, ChipSelect, Field, Icon, Page, Spinner, TopBar, useConfirm } from '../ui/index.js';
 import { AREA_OPTIONS } from '../lib/constants.js';
 import { useProfilePhoto } from './profilePhoto.jsx';
+import { ProgressStrip, noteBelow, useProfileDone } from './profileProgress.jsx';
 
 export function EditCard({ title, icon, children }) {
   return (
@@ -32,21 +33,47 @@ export function Counter({ value, max }) {
 export function AreaField({ value, onChange }) {
   const options = [...AREA_OPTIONS, ...(value && !AREA_OPTIONS.includes(value) ? [value] : [])].map((a) => ({ value: a, label: a }));
   return (
-    <Field label="Kotikaupunki">
+    <Field label="Kotikaupunki" data-kohta="kaupunki">
       <ChipSelect ariaLabel="Kotikaupunki" options={options} value={value} onChange={(v) => v && onChange(v)} size="sm" />
     </Field>
   );
 }
 
 /**
+ * Opened from the Profiili strip (history state `kohta`): scroll to that field (data-kohta) and
+ * light it up briefly. No focus: on a phone that would throw the keyboard up at once.
+ */
+function useScrollToKohta() {
+  useEffect(() => {
+    const kohta = window.history.state?.kohta;
+    if (!kohta) return undefined;
+    const t = setTimeout(() => {
+      const el = document.querySelector(`[data-kohta="${kohta}"]`);
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      el.classList.add('is-kohta');
+      setTimeout(() => el.classList.remove('is-kohta'), 2200);
+    }, 380); // after the page has slid in
+    return () => clearTimeout(t);
+  }, []);
+}
+
+/**
  *   person, uid: whose photo   back: the profile page   photoText: a line under the photo
  *   dirty, canSave, busy, onSave   children: the EditCards
+ *   progress: profileProgress() of the form as it is now — the "N % valmis" strip on top, until
+ *             the account has once reached 100 %
  */
-export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave = true, missing = null, busy, onSave, children }) {
+export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave = true, missing = null, busy, onSave, progress, children }) {
   // nothing changed: nothing to save (grey); changed but not valid: the button says what to fix
   const why = dirty && !canSave ? missing || 'Tarkista punaisella merkityt kentät.' : null;
   const confirm = useConfirm();
   const photo = useProfilePhoto({ uid, person });
+  const profileDone = useProfileDone(uid);
+  useScrollToKohta();
+  const showProgress = Boolean(progress) && profileDone.show;
+  const startedBelow = useRef(progress ? progress.pct < 100 : false);
+  useEffect(() => { if (showProgress && startedBelow.current) noteBelow(uid); }, [showProgress, uid]);
   const saved = useRef(false);
   const leavingTo = useRef(null); // set while we take that entry back on the way out
   const asking = useRef(false);   // a "Hylätäänkö?" is open: its own Back entry comes and goes
@@ -128,6 +155,7 @@ export function ProfileEditPage({ person, uid, back, photoText, dirty, canSave =
       <TopBar title="Muokkaa profiilia" onBack={leave}
         actions={<Button variant="dark" size="sm" loading={busy} disabled={!dirty} missing={why} onClick={save}>Tallenna</Button>} />
       <Page className="k-page-pad profile-edit">
+        {showProgress && startedBelow.current && <ProgressStrip progress={progress} className="profile-edit-progress" />}
         <div className="profile-edit-photo">
           <button type="button" className="profile-edit-avatar" onClick={photo.open} disabled={photo.busy} aria-label="Vaihda profiilikuva">
             <Avatar person={person} size={112} />

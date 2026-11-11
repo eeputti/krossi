@@ -31,8 +31,10 @@ export const API_CONTRACT = {
   // getWaitingProfile(uid) → { bio, tennis } and saveWaitingProfile(uid, { bio, tennis }): a player with no
   // group yet fills in the profile while waiting for a code; the tennis card waits on the account
   // (domain/tennisProfile.js TENNIS_DRAFT_KEY) until player.applyTennisDraft(uid) moves it onto the row.
+  // markProfileDone() → iso: the profile reached 100 % once (domain/profileCompleteness.js PROFILE_DONE_KEY
+  // on the signed-in account), so the "Profiili N % valmis" strip never shows again.
   account: ['getProfile', 'getPilotAcknowledgement', 'acceptPilot', 'createProfile', 'saveDisplayName',
-    'uploadAvatar', 'removeAvatar', 'saveAbout', 'getWaitingProfile', 'saveWaitingProfile', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
+    'uploadAvatar', 'removeAvatar', 'saveAbout', 'getWaitingProfile', 'saveWaitingProfile', 'markProfileDone', 'recordAppOpen', 'trackEvent', 'isAdmin', 'submitFeedback', 'exportMyData', 'deleteAccount'],
 
   // Coach role: fetchRow(uid) → { id } | null; load(coachId) → CoachState; subscribe(coachId, cb) → unsubscribe.
   // saveWeekNote(coachId, { year, week, score, note }) — the coach's private weekly diary.

@@ -5,9 +5,9 @@ import { Icon } from './Icon.jsx';
 const cx = (...c) => c.filter(Boolean).join(' ');
 
 /** Field — label + control + hint/error. Pass the control as children. `optional` adds "(valinnainen)". */
-export function Field({ label, hint, error, optional, htmlFor, className, children }) {
+export function Field({ label, hint, error, optional, htmlFor, className, children, ...rest }) {
   return (
-    <div className={cx('field', error && 'field-error', className)}>
+    <div className={cx('field', error && 'field-error', className)} {...rest}>
       {label && (
         <label className="field-label" htmlFor={htmlFor}>
           {label}{optional && <span className="field-optional"> (valinnainen)</span>}
