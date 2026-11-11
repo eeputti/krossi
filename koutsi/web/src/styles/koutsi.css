@@ -21,7 +21,6 @@
 .btn-square.btn-lg { width: 54px; min-width: 54px !important; padding: 0; }
 .btn-square.btn-md { width: 44px; min-width: 44px !important; padding: 0; }
 .confirm-type { margin-top: 4px; display: grid; gap: 8px; }
-.confirm-extra { margin-top: 4px; display: grid; justify-items: start; gap: 4px; }
 /* Single-column grids: an auto track grows to the widest nowrap line (a truncated name, a
    chip row) and pushes the page wider than a phone. A 0-min track keeps them in the page. */
 .k-block, .k-alerts, .k-history, .k-pick-list, .k-suggest, .k-attend, .k-first-steps, .k-notifs,

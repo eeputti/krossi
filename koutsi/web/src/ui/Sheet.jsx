@@ -461,6 +461,7 @@ export function ConfirmProvider({ children }) {
             <div className="sheet-actions sheet-actions-stack">
               <Button variant={current.danger ? 'danger' : 'dark'} size="lg" block disabled={!canConfirm} onClick={() => canConfirm && finish(true)}>{current.confirmLabel || 'Vahvista'}</Button>
               <Button variant="outline" size="lg" block onClick={() => finish(current.secondaryValue ?? 'secondary')}>{current.secondaryLabel}</Button>
+              {current.thirdLabel && <Button variant="outline" size="lg" block onClick={() => finish(current.thirdValue ?? 'third')}>{current.thirdLabel}</Button>}
               <Button variant="ghost" size="md" block onClick={() => finish(false)}>{current.cancelLabel || 'Peruuta'}</Button>
             </div>
           ) : (
@@ -476,12 +477,6 @@ export function ConfirmProvider({ children }) {
               <input id="confirm-type-input" className="input input-md" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
             </div>
           )}
-          {current.extraLabel && (
-            <div className="confirm-extra">
-              {current.extraText && <p className="field-msg">{current.extraText}</p>}
-              <Button variant="ghost" size="sm" icon={current.extraIcon} onClick={() => finish(current.extraValue ?? 'extra')}>{current.extraLabel}</Button>
-            </div>
-          )}
         </Sheet>
       )}
     </ConfirmContext.Provider>
@@ -492,7 +487,7 @@ export function ConfirmProvider({ children }) {
  * const confirm = useConfirm();
  * if (await confirm({ title, message, confirmLabel, cancelLabel, danger, typeToConfirm })) …
  * Three-way choice: pass secondaryLabel (+ secondaryValue); resolves true | secondaryValue | false.
- * A quieter way out in the body: extraLabel (+ extraText, extraIcon, extraValue); resolves extraValue.
+ * A fourth way: thirdLabel (+ thirdValue) under the secondary; resolves thirdValue.
  */
 export function useConfirm() {
   const ctx = useContext(ConfirmContext);
