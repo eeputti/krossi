@@ -6,9 +6,11 @@ import { invites, notifications, admin } from './people.js';
 import { subscription } from './subscription.js';
 import { seasons } from './seasons.js';
 import { billing } from './billing.js';
+import { levels } from './levels.js';
 
 export const backend = {
   subscription,
   auth, account, coach, player, students, groups, seasons, themes, trainings, attendance, notes, homework, sends, announcements,
   billing, videos, exercises, events, invites, plans, notifications, admin,
+  levels,
 };

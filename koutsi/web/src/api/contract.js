@@ -59,6 +59,12 @@ export const API_CONTRACT = {
 
   groups: ['create', 'update', 'remove', 'addMembers', 'removeMember', 'addSlot', 'deleteSlot', 'extendSeries'],
 
+  // Pelaajien tasot (koutsi_level_scales, domain/levels.js). CoachState carries `levelScale` ({ kind, size, notes })
+  // and `levelScaleReady` (false while the table is missing: the words as before, the setting hidden); PlayerState
+  // carries `levelScales: { [coachId]: scale }`. saveScale(coachId, scale); relabel(coachId, { students: [{ id, level }],
+  // groups: [{ id, level }] }) writes many levels at once (the old-level list in Profiili and its Kumoa).
+  levels: ['saveScale', 'relabel'],
+
   // Seasons — "Uusi kausi" (domain/season.js). CoachState carries `seasons` ([{ id, name, startsOn,
   // endsOn, breaks }]), groups a `seasonId`, the unpublished `seasonDraft` and `seasonsReady`
   // (false until the backend has seasons; the feature stays hidden). saveDraft(coachId, draft) keeps

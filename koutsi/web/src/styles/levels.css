@@ -1,0 +1,70 @@
+/* levels.css — "Pelaajien tasot": the level pickers, the scale form, Profiili → Pelaajien tasot and the Taso filter. */
+
+/* numbers sit as even squares: 1 2 3 4 5 6 */
+.lv-numbers .select-chip { min-width: 44px; }
+.lv-numbers.chip-select-grid .select-chip { min-width: 0; }
+/* the chips and their notes share one width, so "6 = Kilpa" ends right under the 6 */
+.lv-scale { display: inline-grid; grid-template-columns: minmax(0, max-content); gap: 6px; max-width: 100%; align-self: flex-start; justify-self: start; }
+/* width 0 + min-width 100%: the notes never widen the scale, they wrap inside the chips' width */
+.lv-key { margin: 0; width: 0; min-width: 100%; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; line-height: 1.35; }
+.lv-key .is-end { margin-left: auto; text-align: right; }
+.lv-old-now { margin: 0; }
+.lv-old-now strong { font-weight: 650; color: var(--ink); }
+.lv-visibility { display: flex; align-items: flex-start; gap: 6px; margin: 0; }
+.lv-visibility .icon, .lv-visibility svg { flex-shrink: 0; margin-top: 2px; }
+
+/* the scale form */
+.lv-notes { display: grid; gap: 8px; }
+.lv-note-row { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 10px; }
+.lv-note-num {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--r-pill);
+  background: var(--sand); font-weight: 750; font-size: 15px; color: var(--ink);
+}
+
+/* Profiili → Pelaajien tasot */
+.lv-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.lv-steps li { min-width: 0; }
+.lv-step-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 6px 4px; margin: 0 -4px;
+  border-radius: var(--r-md); text-align: left; color: inherit; background: none;
+}
+.lv-step-row:not(:disabled):hover { background: var(--surface-2); }
+.lv-step-row:disabled { cursor: default; }
+.lv-step-count { font-size: 13px; font-weight: 650; color: var(--muted); flex-shrink: 0; }
+.lv-step-none { font-weight: 650; }
+.lv-open { justify-self: start; font-size: 13px; }
+.lv-pick-all { justify-self: start; font-size: 13px; }
+.lv-pick-list { max-height: 260px; }
+.lv-step {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 26px; padding: 0 9px;
+  border-radius: var(--r-pill); background: var(--sand); font-size: 13px; font-weight: 700; color: var(--ink); flex-shrink: 0;
+}
+.lv-all-good { display: flex; align-items: center; gap: 6px; }
+
+.lv-row { padding: 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); display: grid; gap: 8px; }
+.lv-row.is-chosen { border-color: var(--green-800); box-shadow: 0 0 0 1px var(--green-800) inset; }
+.lv-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.lv-row-title { font-weight: 750; font-size: 16px; color: var(--ink); }
+.lv-variants { display: flex; flex-wrap: wrap; gap: 6px; }
+.lv-variant {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--r-pill);
+  background: var(--surface-2); border: 1px solid var(--line); font-size: 13px;
+}
+.lv-variant-text { font-weight: 600; }
+.lv-split { font-size: 12.5px; }
+.lv-names { margin: 0; font-size: 12.5px; line-height: 1.45; }
+.lv-row-pick { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.lv-row-pick .field-label { margin: 0; }
+.lv-remove { justify-self: start; font-size: 13px; }
+
+/* clears the phone's tab bar and its raised Merkitse button; a computer has neither */
+.lv-savebar {
+  position: sticky; bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 34px); z-index: 2;
+  padding: 10px 0 0; background: linear-gradient(to bottom, transparent, var(--bg) 30%);
+}
+@media (min-width: 900px) { .lv-savebar { bottom: 16px; } }
+
+/* Pelaajat: Taso filter */
+.lv-filter { display: grid; gap: 4px; }
+.lv-filter .field-msg { margin: 0; }
+.lv-filter-label { align-self: center; font-size: 13px; font-weight: 650; color: var(--muted); padding-right: 2px; flex-shrink: 0; }

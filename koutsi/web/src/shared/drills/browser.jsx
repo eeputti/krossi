@@ -8,6 +8,7 @@ import {
   playersLabel, levelLabel,
 } from '../../domain/drills/index.js';
 import { DrillIcon } from './art.jsx';
+import { DEFAULT_SCALE, levelLabel as scaleLevelLabel } from '../../domain/levels.js';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const EMPTY = { query: '', cat: '', players: '', group: '', level: '', duration: '', source: 'all', solo: false, video: false };
@@ -236,7 +237,7 @@ function PlayersSheet({ open, onClose, f, set, groups, count }) {
                     <span className="dl-group-size t-num">{size}</span>
                     <span className="dl-group-main">
                       <span className="dl-group-name">{g.name}</span>
-                      <span className="dl-group-sub">{plural(size, 'pelaaja', 'pelaajaa')}{g.level ? `, ${g.level}` : ''}</span>
+                      <span className="dl-group-sub">{plural(size, 'pelaaja', 'pelaajaa')}{scaleLevelLabel(DEFAULT_SCALE, g.level) ? `, ${scaleLevelLabel(DEFAULT_SCALE, g.level)}` : ''}</span>
                     </span>
                     {on ? <Icon name="check" size={18} strokeWidth={2.6} /> : <span className="dl-group-hits">{count({ players: [size, size], group: '', level: LEVELS.includes(g.level) ? g.level : f.level })}</span>}
                   </button>

@@ -35,6 +35,7 @@ import { markAsked, previewCheckIn, readSkipped, takePendingCheckIn, wasAsked } 
 import { BillingProvider, useBilling } from '../shared/billing/BillingProvider.jsx';
 import { InvoicesScreen } from './InvoicesScreen.jsx';
 import { PlayerIntro } from './PlayerIntro.jsx';
+import { playerLevelView } from '../domain/levels.js';
 
 const ActionsContext = createContext(null);
 /** openMerkitse(), closeMerkitse(), openSelfTraining(date?, { time?, editing?, activity?, homeworkId?, locked? }?), openMood(score?),
@@ -155,7 +156,7 @@ function PlayerShell({ banner, joinCode = null }) {
         cta={<Button variant="lime" size="lg" block icon="plus" className="sidenav-cta" onClick={() => actions.openMerkitse()}>Merkitse</Button>}
         center={{ label: 'Merkitse', icon: 'plus', onClick: () => actions.openMerkitse() }}
         extraLinks={[...invoiceLinks, ...extraLinks]}
-        me={{ person: student, sub: student.level || 'Pelaaja', to: '/pelaaja/profiili', notifications: { unread: notes.unread, onOpen: openNotifs } }}
+        me={{ person: student, sub: playerLevelView(state, student)?.label || 'Pelaaja', to: '/pelaaja/profiili', notifications: { unread: notes.unread, onOpen: openNotifs } }}
         feedback={{ label: 'Anna palautetta', icon: 'mail', onClick: () => setFeedbackOpen(true) }}
         banner={banner}
         signupUrl="https://koutsi.krossi.app/pelaaja?uusi=1"

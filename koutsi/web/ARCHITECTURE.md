@@ -323,6 +323,19 @@ muuttaa Koutsia huomaamatta (ja päinvastoin).
   testi vertaa). Funktiot `koutsi-invoice` ja `koutsi-pay` julkaistaan `--no-verify-jwt`.
   Sähköpostit tarvitsevat salaisuudet RESEND_API_KEY ja KOUTSI_MAIL_FROM (samat kuin koutsi-notifylla).
 
+- Pelaajien tasot (`domain/levels.js`, `coach/levels.jsx`, `coach/LevelsScreen.jsx`, taulu `koutsi_level_scales`,
+  migraatio `koutsi/web/sql/20261111131940_koutsi_level_scales.sql`): jokainen valmentaja valitsee oman asteikkonsa:
+  sanat (Aloittelija–Kilpapelaaja, oletus), numerot 1–N (3–10, isompi = parempi, jokaiselle valinnainen selitys) tai
+  "En käytä tasoja" (kentät piiloon). Uusi valmentaja valitsee sen heti esittelyn jälkeen (ennen ensimmäistä ryhmää, `ScaleQuestionSheet`), muut Profiili →
+  Pelaajien tasot (/valmentaja/profiili/tasot), jossa on myös vanhojen tasojen lista: samankaltaiset tekstit samalla rivillä
+  ("kilpa" = Kilpapelaaja, "amatööri" = harrastaja, kirjoitusasut), valmentaja valitsee riville uuden tason, Erota, Poista
+  taso, Kumoa; rivin pelaajat voi myös valita itse. Asteikon tasoa (tai "Ei tasoa") napauttamalla valitut pelaajat siirtyvät
+  kerralla toiselle tasolle (`MoveSheet`). Valitsimissa tasot ovat rivissä ja selitykset pienellä alla janan päissä
+  ("1 = Harrastaja" vasemmalla, "6 = Kilpa" oikealla). Mitään ei muunneta itsestään. Tasot pysyvät tekstinä vanhoissa sarakkeissa (`'4'`, ryhmällä `'3–4'`), joten
+  vanha sovellus toimii. Pelaaja näkee oman tasonsa (ja ryhmänsä tason) vain, jos ikä on tiedossa ja vähintään 18
+  (päätös 11.11.2026); ryhmäkavereiden tasoja ei lähetetä pelaajille lainkaan (`koutsi_player_group_roster` palauttaa
+  level = null). Ilman taulua `levelScaleReady` on false: sanat kuten ennen, asetus ja tervetuloikkunan kysymys piilossa.
+
 ## 5. Reitit
 
 **Valmentaja** (`/valmentaja`, välilehdet: Koti · Viikkohallinta · Pelaajat; puhelimessa lisäksi Harjoitteet ja keskellä Merkitse)

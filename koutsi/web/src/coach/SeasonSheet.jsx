@@ -21,6 +21,7 @@ import {
   suggestedBreaks, updateDraftGroup,
 } from '../domain/season.js';
 import { useCoach } from './CoachRoot.jsx';
+import { GroupLevelPicker, useLevelScale } from './levels.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 const STEPS = ['Kausi', 'Ryhmät', 'Pelaajat', 'Tarkista'];
@@ -214,6 +215,7 @@ function StepGroups({ draft, setDraft, summary }) {
 
 function DraftGroupSheet({ draft, groupKey, onClose, onSave }) {
   const { state } = useData();
+  const levels = useLevelScale();
   const isNew = groupKey === 'new';
   const dg = !isNew && groupKey ? draft.groups.find((x) => x.key === groupKey) : null;
   const from = dg?.fromId ? allGroupsOf(state).find((x) => x.id === dg.fromId) : null;
@@ -267,10 +269,8 @@ function DraftGroupSheet({ draft, groupKey, onClose, onSave }) {
         )}
         {editable && (
           <div className="stack-3 season-fields">
-            <div className="k-two">
-              <Input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="Nimi, esim. Juniorit keltainen" maxLength={120} aria-label="Ryhmän nimi" />
-              <Input value={form.level} onChange={(e) => set({ level: e.target.value })} placeholder="Taso (valinn.)" maxLength={80} aria-label="Taso" />
-            </div>
+            <Input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="Nimi, esim. Juniorit keltainen" maxLength={120} aria-label="Ryhmän nimi" />
+            {levels.uses && <GroupLevelPicker value={form.level || ''} onChange={(level) => set({ level })} />}
             <DayPicker value={form.day} onChange={(day) => set({ day })} />
             <div className="k-two">
               <TimeSelect value={form.time} onChange={(time) => set({ time })} />

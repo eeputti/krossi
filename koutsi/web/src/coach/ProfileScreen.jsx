@@ -22,6 +22,16 @@ import { currentSeason, followingSeason, seasonWord } from '../domain/season.js'
 import { koutsiFmtShortDate, koutsiIsoWeekOfDateStr } from '../domain/core.js';
 import { weekParam } from '../domain/week.js';
 import { replayIntro } from '../shared/intro/IntroFilm.jsx';
+import { normalizeScale, oldLevelCounts, scaleSummary, usesLevels } from '../domain/levels.js';
+
+/** "Numerot 1–6, vanhoja tasoja 9 pelaajalla ja 3 ryhmällä" — the Pelaajien tasot row. */
+function levelsSubtitle(state) {
+  const scale = normalizeScale(state.levelScale);
+  if (!usesLevels(scale)) return scaleSummary(scale);
+  const old = oldLevelCounts(scale, state.students, state.groups);
+  const parts = [old.players && `${old.players} pelaajalla`, old.groups && `${old.groups} ryhmällä`].filter(Boolean);
+  return parts.length ? `${scaleSummary(scale)}, vanha taso ${parts.join(' ja ')}` : scaleSummary(scale);
+}
 
 function SharedPlanSheet({ open, onClose }) {
   const { coachId } = useCoach();
@@ -119,6 +129,7 @@ export function ProfileScreen() {
               const t = joinedTotals(state, state.groups);
               return `${t.joined}/${t.total} pelaajaa liittynyt, ryhmien koodit ja oma koodi`;
             })() : 'Oma koodisi pelaajille'} onClick={() => setSheet('codes')} />
+            {state.levelScaleReady && <ListRow icon="sliders" title="Pelaajien tasot" subtitle={levelsSubtitle(state)} onClick={() => navigate('/valmentaja/profiili/tasot')} />}
             <ListRow icon="book" title="Harjoitepankki" subtitle={bankSummary(state.exercises.length)} onClick={() => navigate('/valmentaja/harjoitteet')} />
             <ListRow icon="list" title="Lisää monta kerralla" subtitle="Ryhmät ja pelaajat listasta" onClick={() => setSheet('bulk')} />
             <ListRow icon="calendar" title="Lähetä vuosisuunnitelma" subtitle="Usean ryhmän teemat Excelistä" onClick={() => setSheet('plan')} />

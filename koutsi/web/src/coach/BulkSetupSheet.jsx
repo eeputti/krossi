@@ -21,6 +21,8 @@ import { exactNameMatch } from '../domain/roster.js';
 import { useCoach } from './CoachRoot.jsx';
 import { WeeksChips, useDefaultWeeks } from './groupForms.jsx';
 import { openInvites } from './nav.js';
+import { GroupLevelPicker, useLevelScale } from './levels.jsx';
+import { ALL_LEVELS } from '../domain/levels.js';
 
 let rowSeq = 0;
 const newGroupRow = () => ({ key: `ng${rowSeq++}`, name: '', day: 'Ma', time: '', duration: 60, level: '', names: '', theme: '' });
@@ -38,6 +40,7 @@ function firstWeek(day) {
 
 export function BulkSetupSheet({ open, onClose }) {
   const { state, reload } = useData();
+  const levels = useLevelScale();
   const { coachId } = useCoach();
   const toast = useToast();
   const seasonWeeks = useDefaultWeeks();
@@ -95,7 +98,7 @@ export function BulkSetupSheet({ open, onClose }) {
     try {
       const groupsPayload = [
         ...pickedRows.map((p) => ({ client_id: p.key, existing_id: p.id })),
-        ...groups.map((g) => ({ client_id: g.key, name: g.name.trim(), level: g.level.trim() || 'Kaikki tasot', day: g.day, time: g.time, duration_minutes: g.duration })),
+        ...groups.map((g) => ({ client_id: g.key, name: g.name.trim(), level: levels.uses ? g.level.trim() || ALL_LEVELS : null, day: g.day, time: g.time, duration_minutes: g.duration })),
       ];
       const playersPayload = fresh.map((p) => ({ name: p.name, age: null, level: null, group_refs: p.refs }));
       const themesPayload = themed.map((g) => {
@@ -195,10 +198,8 @@ export function BulkSetupSheet({ open, onClose }) {
                   <span className="k-subcard-title">{existing.length ? 'Uusi ryhmä' : 'Ryhmä'} {i + 1}</span>
                   {(rows.length > 1 || existing.length > 0) && <IconButton icon="close" label="Poista ryhmä" size="sm" onClick={() => setRows((list) => list.filter((r) => r.key !== g.key))} />}
                 </div>
-                <div className="k-two">
-                  <Input value={g.name} onChange={(e) => setRow(g.key, { name: e.target.value })} placeholder="Nimi, esim. tiistai aikuiset" maxLength={120} aria-label="Ryhmän nimi" />
-                  <Input value={g.level} onChange={(e) => setRow(g.key, { level: e.target.value })} placeholder="Taso (valinn.)" maxLength={80} aria-label="Taso" />
-                </div>
+                <Input value={g.name} onChange={(e) => setRow(g.key, { name: e.target.value })} placeholder="Nimi, esim. tiistai aikuiset" maxLength={120} aria-label="Ryhmän nimi" />
+                {levels.uses && <GroupLevelPicker value={g.level} onChange={(level) => setRow(g.key, { level })} />}
                 <DayPicker value={g.day} onChange={(day) => setRow(g.key, { day })} />
                 <div className="k-two">
                   <TimeSelect value={g.time} onChange={(time) => setRow(g.key, { time })} />

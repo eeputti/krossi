@@ -10,11 +10,13 @@ import { DAY_NAMES, plannerDefaultWeek } from '../domain/week.js';
 import { GroupRow } from './parts.jsx';
 import { ExtendCalendarSheet, GroupFormSheet } from './groupForms.jsx';
 import { BulkSetupSheet } from './BulkSetupSheet.jsx';
+import { levelLabel, normalizeScale } from '../domain/levels.js';
 
 const remembered = { query: '' }; // back from a group finds the search as it was left
 
 export function GroupListScreen() {
   const { state } = useData();
+  const scale = normalizeScale(state.levelScale);
   const [formOpen, setFormOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
@@ -26,7 +28,7 @@ export function GroupListScreen() {
   const byDay = useMemo(() => {
     const out = [];
     koutsiSortGroupsBySchedule(state.groups)
-      .filter((g) => !q || `${g.name} ${g.level || ''} ${g.day} ${g.time}`.toLocaleLowerCase('fi').includes(q))
+      .filter((g) => !q || `${g.name} ${g.level || ''} ${levelLabel(scale, g.level)} ${g.day} ${g.time}`.toLocaleLowerCase('fi').includes(q))
       .forEach((g) => {
         const day = DAY_NAMES[g.day] ? g.day : '';
         let bucket = out.find((b) => b.day === day);
@@ -34,7 +36,7 @@ export function GroupListScreen() {
         bucket.groups.push(g);
       });
     return out;
-  }, [state.groups, q]);
+  }, [state.groups, q, state.levelScale]); // eslint-disable-line react-hooks/exhaustive-deps
   const players = new Set(state.groups.flatMap((g) => g.memberIds)).size;
   // how far the groups' calendars reach: "Jatka kalenteria" continues them or adds a break
   const reach = useMemo(() => {

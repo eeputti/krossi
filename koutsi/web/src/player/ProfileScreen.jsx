@@ -10,19 +10,21 @@ import { koutsiGroupsForStudent } from '../domain/core.js';
 import { tennisFacts } from '../domain/tennisProfile.js';
 import { profileProgress } from '../domain/profileCompleteness.js';
 import { usePlayerActions } from './PlayerApp.jsx';
+import { playerLevelView } from '../domain/levels.js';
 
 export function ProfileScreen() {
   const { state, ownerId } = useData();
   const actions = usePlayerActions();
   const me = state.students[0];
   const groups = koutsiGroupsForStudent(state, me.id);
+  const level = playerLevelView(state, me); // only 18 or more (domain/levels.js)
   return (
     <Page>
       <PageHeader title="Profiili" />
       <div className="stack-6">
         <ProfileCard person={me} uid={ownerId} editPath="/pelaaja/profiili/muokkaa"
           lines={[
-            [me.ageLabel, me.level, me.area].filter(Boolean).join(', ') || 'Pelaaja',
+            [me.ageLabel, level && (level.note ? `${level.label} (${level.note})` : level.label), me.area].filter(Boolean).join(', ') || 'Pelaaja',
             groups.length > 0 ? groups.map((g) => `${g.day} ${g.time} ${g.name}`).join(', ') : null,
             tennisFacts(me).join(', ') || null,
           ]}

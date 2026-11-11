@@ -16,6 +16,7 @@ import { plannerDefaultWeek, sameWeek, themeWeekShort } from '../domain/week.js'
 import { ISSUE_LABELS } from '../domain/board.js';
 import { playerPath } from './nav.js';
 import { groupWhen, SessionRow } from './parts.jsx';
+import { useLevelText } from './levels.jsx';
 import { GroupThemeSheet } from './GroupThemeSheet.jsx';
 import { useRecord } from './merkitse.jsx';
 import { GroupSent } from './sent.jsx';
@@ -161,6 +162,7 @@ function Members({ state, group, onAdd, onInvite }) {
 
 export function GroupScreen({ params }) {
   const { state, run } = useData();
+  const levelText = useLevelText();
   const confirm = useConfirm();
   const deleteGroup = useGroupDelete();
   const record = useRecord();
@@ -196,7 +198,7 @@ export function GroupScreen({ params }) {
       <Page className="stack-6 k-page-pad">
         <header className="k-group-head">
           <h1 className="t-title">{group.name}</h1>
-          <p className="k-group-when">{groupWhen(group)}</p>
+          <p className="k-group-when">{groupWhen(group, levelText)}</p>
           {group.place && <p className="k-group-place"><Icon name="pin" size={14} />{group.place}</p>}
           {(group.slots || []).length > 0 && <p className="k-faint">+ {group.slots.map((s) => `${s.day} ${koutsiTimeRangeLabel(s.time, s.durationMinutes)}`).join(', ')}</p>}
           <div className={endsSoon ? 'k-calendar-end is-soon' : 'k-calendar-end'}>

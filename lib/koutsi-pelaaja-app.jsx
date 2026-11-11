@@ -90,8 +90,18 @@ function PageHeader({ title, sub, action }) {
     </div>
   );
 }
-function LevelChip({ level }) {
-  const c = window.koutsiLevelColor(level);
+// A level is shown only to the player themself, and only when their age is known and 18 or more (11.11.2026);
+// group mates' levels never (the roster RPC no longer sends them). A number reads as "Taso 4".
+function playerSeesLevel(student) {
+  return typeof student?.age === 'number' && student.age >= 18;
+}
+function levelText(level) {
+  const t = String(level || '').trim();
+  return /^\d{1,2}(\s*[–-]\s*\d{1,2})?$/.test(t) ? `Taso ${t.replace(/\s*[–-]\s*/, '–')}` : t;
+}
+function LevelChip({ level: raw }) {
+  const level = levelText(raw);
+  const c = window.koutsiLevelColor(raw);
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, lineHeight: 1, background: c.bg, color: c.fg, border: `1px solid ${c.border}` }}>{level}</span>;
 }
 function IdentityBlock({ student, groups }) {
@@ -100,7 +110,7 @@ function IdentityBlock({ student, groups }) {
       <Avatar src={student.avatarUrl} initial={student.initial} hue={student.hue} size={76} ring />
       <div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>{student.name}</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <LevelChip level={student.level || 'Ei asetettu'} />
+        {playerSeesLevel(student) && <LevelChip level={student.level || 'Ei asetettu'} />}
         {(groups || []).map((g) => <span key={g.id} className="k-chip">Ryhmä: {g.name}, {g.day} {g.time}</span>)}
       </div>
     </div>
@@ -529,7 +539,7 @@ function GroupCard({ group, state, student, onEditAttendance }) {
       <div style={{ padding: '18px 20px 15px', background: 'linear-gradient(135deg, rgba(14,59,44,0.06), rgba(207,228,20,0.10))', borderBottom: '1px solid var(--line)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 9 }}>
           <div style={{ fontSize: 19, fontWeight: 800, color: '#111', letterSpacing: -0.2 }}>{group.name}</div>
-          <LevelChip level={group.level} />
+          {playerSeesLevel(student) && group.level && <LevelChip level={group.level} />}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
           <GroupMetaItem icon={<GroupMetaIcon kind="clock" />}>{group.day} klo {group.time} viikoittain</GroupMetaItem>
@@ -611,7 +621,6 @@ function GroupCard({ group, state, student, onEditAttendance }) {
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 700, fontSize: 14.5, color: '#111' }}>{m.name}{isMe ? ' (sinä)' : ''}</span>
-                    <LevelChip level={m.level} />
                   </div>
                 </div>
               </div>
@@ -1468,7 +1477,7 @@ function ProfileView({ student, groups, state, onSignOut, onReload }) {
       <div className="k-card" style={{ padding: '4px 18px 14px', marginBottom: 26 }}>
         <ProfileRow label="Nimi" value={student.name} />
         <ProfileRow label="Ikä" value={playerAgeLabel(student)} hint="Ei asetettu" />
-        <ProfileRow label="Taso" value={student.level} hint="Valmentaja asettaa" />
+        {playerSeesLevel(student) && <ProfileRow label="Taso" value={levelText(student.level)} hint="Valmentaja asettaa" />}
         <ProfileRow label="Ryhmä" value={(groups && groups.length) ? groups.map((g) => `${g.name} (${g.day} klo ${g.time})`).join(', ') : ''} hint="Ei ryhmää" />
         <ProfileRow label="Valmentaja" value={coaches.map((c) => c.name).join(', ')} hint="Ei valmentajaa" />
         <div style={{ paddingTop: 12, color: '#8a857a', fontSize: 12.5, lineHeight: 1.5 }}>

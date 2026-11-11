@@ -19,6 +19,7 @@ import { activeGroups, playerSeasonMessage, seasonDates } from '../../domain/sea
 import { seedBilling } from './billingSeed.js';
 import { addDaysStr, billedKeys, normalizeIban, referenceFor, totalOf } from '../../domain/billing.js';
 import { mergeTennisDraft, tennisDraftOf } from '../../domain/tennisProfile.js';
+import { DEFAULT_SCALE, normalizeScale, scaleForSave } from '../../domain/levels.js';
 
 let role = 'coach';
 let state = null;
@@ -66,7 +67,14 @@ function asNewCoach(s) {
   s.coach.welcomeSeenAt = null;
   return s;
 }
-const S = () => { if (!state) state = asNewCoach(withoutBiller(seedBilling(previewPutki ? addPutki(seed()) : seed()))); return state; };
+// ?esikatsele=numerot: a coach on numbers 1–6 with notes (Pelaajien tasot)
+const previewNumbers = process.env.NODE_ENV !== 'production'
+  && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('esikatsele') === 'numerot';
+function withNumbers(s) {
+  if (previewNumbers) s.levelScale = normalizeScale({ kind: 'numerot', size: 6, notes: ['Harrastaja', '', '', '', '', 'Kilpa'] });
+  return s;
+}
+const S = () => { if (!state) state = withNumbers(asNewCoach(withoutBiller(seedBilling(previewPutki ? addPutki(seed()) : seed())))); return state; };
 const clone = (v) => JSON.parse(JSON.stringify(v));
 const wait = () => new Promise((r) => setTimeout(r, latencyMs));
 const nowIso = () => new Date().toISOString();
@@ -89,7 +97,7 @@ const patchById = (key, id, patch) => eachList(key, (list) => list.map((x) => (x
 function coachState() {
   const s = clone(S());
   s.groups.forEach(refreshThemes);
-  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents.filter((e) => !e.playerDemoOnly), weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true, sends: s.sends || [], videoLibrary: s.videoLibrary || [], sendsReady: true };
+  return { coach: s.coach, coaches: [s.coach], students: s.students, groups: s.groups, trainings: s.trainings, exercises: s.exercises, clubEvents: s.clubEvents.filter((e) => !e.playerDemoOnly), weekNotes: s.weekNotes || [], announcements: s.announcements || [], announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, seasons: s.seasons || [], seasonDraft: s.seasonDraft || null, seasonsReady: true, sends: s.sends || [], videoLibrary: s.videoLibrary || [], sendsReady: true, levelScale: normalizeScale(s.levelScale), levelScaleReady: true };
 }
 
 /** The notices a player sees: to one of their groups or to them, still in date. */
@@ -106,11 +114,12 @@ function playerState(studentId) {
   const groups = s.groups.filter((g) => g.memberIds.includes(me.id));
   const rosterIds = new Set(groups.flatMap((g) => g.memberIds));
   const roster = s.students.filter((x) => x.id !== me.id && rosterIds.has(x.id))
-    .map((x) => ({ id: x.id, initial: x.initial, hue: x.hue, avatarUrl: x.avatarUrl || '', name: x.name, level: x.level || null, rosterOnly: true }));
+    .map((x) => ({ id: x.id, initial: x.initial, hue: x.hue, avatarUrl: x.avatarUrl || '', name: x.name, level: null, rosterOnly: true }));
   const groupIds = new Set(groups.map((g) => g.id));
   // RLS: a player sees their own and their groups' sessions; hidden moods are theirs to see.
   const trainings = s.trainings.filter((t) => t.studentId === me.id || (t.groupId && groupIds.has(t.groupId)));
-  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents.filter((e) => !e.groupIds || e.groupIds.some((id) => groupIds.has(id))), announcements: announcementsFor(s, me, groupIds), announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, tennisProfileReady: true };
+  return { coach: s.coach, coaches: s.coaches, students: [me, ...roster], groups, trainings, exercises: s.exercises, clubEvents: s.clubEvents.filter((e) => !e.groupIds || e.groupIds.some((id) => groupIds.has(id))), announcements: announcementsFor(s, me, groupIds), announcementsReady: true, entriesReady: true, moodSessionsReady: true, longGoalReady: true, archiveReady: true, tennisProfileReady: true,
+    levelScales: Object.fromEntries((s.coaches || [s.coach]).map((c) => [c.id, c.id === COACH ? normalizeScale(s.levelScale) : DEFAULT_SCALE])) };
 }
 
 function hideHiddenMoods(snapshot) {
@@ -479,6 +488,15 @@ export const backend = {
     },
     async placeholderJoinCode(studentId) {
       return `DEMO${String(studentId).replace(/[^A-Z0-9]/gi, '').slice(-2).toUpperCase().padStart(2, '0')}`;
+    },
+  },
+
+  levels: {
+    async saveScale(coachId, scale) { await wait(); S().levelScale = scaleForSave(scale); },
+    async relabel(coachId, { students = [], groups = [] } = {}) {
+      await wait();
+      for (const r of students) { const st = findStudent(r.id); if (st) st.level = r.level ?? null; }
+      for (const r of groups) { const g = findGroup(r.id); if (g) g.level = r.level ?? null; }
     },
   },
 
