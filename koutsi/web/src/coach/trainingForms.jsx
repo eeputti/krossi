@@ -9,6 +9,7 @@ import { koutsiAddDays, koutsiTodayStr, koutsiWeeklyDates, koutsiFmtShortDate, K
 import { matchStudents } from '../domain/roster.js';
 import { TRAINING_TYPES } from '../lib/constants.js';
 import { useCoach } from './CoachRoot.jsx';
+import { useGroupDelete } from './groupForms.jsx';
 
 const cx = (...c) => c.filter(Boolean).join(' ');
 /** Each event kind's icon, in the form's chips and on Viikkohallinta's event bars. */
@@ -148,12 +149,22 @@ export function TrainingSheet({ open, onClose, editing, defaultDate, defaultGrou
 }
 
 /** "Poista" for a session: a series asks whether to remove all upcoming or just this one. */
+// Resolves true when sessions were removed, 'group' when the coach chose to remove the whole group
+// instead (useGroupDelete has then moved on to Ryhmät unless stay), false when nothing happened.
+// A session's page carries the group's name on top, so its trash can looks like "delete the group":
+// the dialog says the group stays and offers the whole group as a quieter way out.
 export function useTrainingDelete() {
-  const { run } = useData();
+  const { state, run } = useData();
   const confirm = useConfirm();
-  return async (t, label) => {
+  const deleteGroup = useGroupDelete();
+  return async (t, label, { stay = false } = {}) => {
+    const group = t.groupId ? (state.allGroups || state.groups).find((g) => g.id === t.groupId) : null;
+    const extra = group ? { extraText: 'Ryhmä säilyy.', extraLabel: `Poista koko ryhmä ${group.name}`, extraIcon: 'trash', extraValue: 'group' } : {};
+    const wholeGroup = async () => ((await deleteGroup(group, { stay })) ? 'group' : false);
     if (!t.seriesId) {
-      if (!(await confirm({ title: 'Poista treeni?', message: `${label}. Treeni poistuu pelaajien kalenterista.`, confirmLabel: 'Poista', danger: true }))) return false;
+      const choice = await confirm({ title: 'Poista treeni?', message: `${label}. Treeni poistuu pelaajien kalenterista.`, confirmLabel: 'Poista', danger: true, ...extra });
+      if (choice === 'group') return wholeGroup();
+      if (choice !== true) return false;
       return (await run(() => api.trainings.remove(t.id), 'Treeni poistettu.')).ok;
     }
     // "Kaikki tulevat" never reaches into the past, even from an already-held session.
@@ -166,7 +177,9 @@ export function useTrainingDelete() {
       // the common case (one session off) is the main button; the whole series is the second choice
       confirmLabel: 'Poista vain tämä kerta',
       secondaryLabel: remaining ? `Poista kaikki ${remaining} tulevaa` : 'Poista kaikki tulevat', secondaryValue: 'all', cancelLabel: 'Peruuta', danger: true,
+      ...extra,
     });
+    if (choice === 'group') return wholeGroup();
     if (choice === 'all') return (await run(() => api.trainings.removeSeries(t.seriesId, from), 'Sarjan tulevat treenit poistettu.')).ok;
     if (choice === true) return (await run(() => api.trainings.remove(t.id), 'Treeni poistettu.')).ok;
     return false;

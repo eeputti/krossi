@@ -476,6 +476,12 @@ export function ConfirmProvider({ children }) {
               <input id="confirm-type-input" className="input input-md" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
             </div>
           )}
+          {current.extraLabel && (
+            <div className="confirm-extra">
+              {current.extraText && <p className="field-msg">{current.extraText}</p>}
+              <Button variant="ghost" size="sm" icon={current.extraIcon} onClick={() => finish(current.extraValue ?? 'extra')}>{current.extraLabel}</Button>
+            </div>
+          )}
         </Sheet>
       )}
     </ConfirmContext.Provider>
@@ -486,6 +492,7 @@ export function ConfirmProvider({ children }) {
  * const confirm = useConfirm();
  * if (await confirm({ title, message, confirmLabel, cancelLabel, danger, typeToConfirm })) …
  * Three-way choice: pass secondaryLabel (+ secondaryValue); resolves true | secondaryValue | false.
+ * A quieter way out in the body: extraLabel (+ extraText, extraIcon, extraValue); resolves extraValue.
  */
 export function useConfirm() {
   const ctx = useContext(ConfirmContext);

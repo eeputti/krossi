@@ -641,10 +641,11 @@ export function AnnualPlanBlock({ group }) {
   );
 }
 
+// Removes the group and all its sessions, then opens Ryhmät (stay: true keeps the current page).
 export function useGroupDelete() {
   const { state, run } = useData();
   const confirm = useConfirm();
-  return async (group) => {
+  return async (group, { stay = false } = {}) => {
     const all = state.trainings.filter((t) => t.groupId === group.id);
     const past = all.filter((t) => t.date < koutsiTodayStr()).length;
     const ok = await confirm({
@@ -654,7 +655,7 @@ export function useGroupDelete() {
     });
     if (!ok) return false;
     const res = await run(() => api.groups.remove(group.id), 'Ryhmä poistettu.');
-    if (res.ok) navigate('/valmentaja/ryhmat', { replace: true });
+    if (res.ok && !stay) navigate('/valmentaja/ryhmat', { replace: true });
     return res.ok;
   };
 }

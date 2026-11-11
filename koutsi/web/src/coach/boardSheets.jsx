@@ -160,7 +160,7 @@ export function BoardItemSheet({ open, item, week, onClose }) {
     group && { id: 'ryhma', icon: 'users', title: 'Avaa ryhmä', sub: name, run: then(() => navigate(groupPath(group.id))) },
     student && { id: 'pelaaja', icon: 'user', title: 'Avaa pelaaja', sub: student.name, run: then(() => navigate(playerPath(student.id))) },
     { id: 'poista', icon: 'trash', title: 'Poista treeni', sub: 'Treeni poistuu pelaajien kalenterista', danger: true,
-      run: then(() => removeTraining(live, `${dayMonth(item.date)} klo ${item.time} — ${name}`)) },
+      run: then(() => removeTraining(live, `${dayMonth(item.date)} klo ${item.time} — ${name}`, { stay: true })) },
   ].filter(Boolean);
 
   // The same tiles as Merkitse, only for this session: a coming one also takes a Tiedote and
