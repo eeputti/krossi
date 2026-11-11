@@ -20,8 +20,11 @@ function LevelPicker({ value, onChange }) {
   return <ChipSelect size="sm" allowEmpty options={LEVELS.map((l) => ({ value: l, label: l }))} value={value} onChange={onChange} ariaLabel="Taso" />;
 }
 
-/** Add a player by name — the coach can start right away; the player claims the profile later. */
-export function AddPlayerSheet({ open, onClose }) {
+/**
+ * Add a player by name — the coach can start right away; the player claims the profile later.
+ * `onBulk` (Pelaajat) adds a link to Lisää monta pelaajaa.
+ */
+export function AddPlayerSheet({ open, onClose, onBulk }) {
   const { state, run } = useData();
   const { coachId } = useCoach();
   const [name, setName] = useState('');
@@ -83,6 +86,7 @@ export function AddPlayerSheet({ open, onClose }) {
           </Field>
         )}
         <p className="field-msg">{HEALTH_NOTE}</p>
+        {onBulk && <p className="field-msg">Monta pelaajaa? <button type="button" className="k-textlink" onClick={onBulk} disabled={busy}>Lisää monta kerralla</button></p>}
       </div>
     </Sheet>
   );
