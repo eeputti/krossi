@@ -2,7 +2,7 @@
 // (to one or many players) and by the player (to their own bank).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/index.js';
-import { Button, ChipSelect, Disclosure, Field, Icon, IconButton, Input, ProgressBar, Sheet, Spinner } from '../ui/index.js';
+import { Button, ChipSelect, Disclosure, Field, Icon, IconButton, Input, ProgressBar, Segmented, Sheet, Spinner } from '../ui/index.js';
 import { koutsiTodayStr, koutsiRandomUuid, koutsiFmtShortDate, KOUTSI_TAGS, KOUTSI_TAG_LABELS } from '../domain/core.js';
 import { VIDEO_MAX_BYTES } from '../lib/constants.js';
 import { RecipientPicker } from './recipients.jsx';
@@ -191,17 +191,44 @@ export function VideoShareSheet({ open, onClose, recipients, initialIds = [], gr
   );
 }
 
-/** Plays a stored video through a signed URL, or opens an external link. */
+/** Slow motion for looking at a stroke: the speeds under the video. */
+const VIDEO_SPEEDS = Object.freeze([{ value: 1, label: '1×' }, { value: 0.5, label: '0,5×' }, { value: 0.25, label: '0,25×' }]);
+/** One step of "Ruutu": a frame of a 30 fps phone video (two frames of a 60 fps one). */
+const VIDEO_FRAME_SECONDS = 1 / 30;
+/** Where a frame step lands: never before the start or past the end (a recorded clip may not know its end yet). */
+function videoStepTime(current, duration, direction) {
+  const end = Number.isFinite(duration) && duration > 0 ? duration : Infinity;
+  return Math.min(end, Math.max(0, (Number(current) || 0) + direction * VIDEO_FRAME_SECONDS));
+}
+
+/** Plays a stored video through a signed URL, or opens an external link. A stored video gets
+ *  slow motion (1× / 0,5× / 0,25×) and "Ruutu" steps under it, so a coach and a player can
+ *  look at a stroke frame by frame. Every new video starts at 1×. */
 export function VideoPlayerSheet({ video, onClose }) {
   const [src, setSrc] = useState(null);
   const [error, setError] = useState('');
+  const [rate, setRate] = useState(1);
+  const videoRef = useRef(null);
   useEffect(() => {
-    setSrc(null); setError('');
+    setSrc(null); setError(''); setRate(1);
     if (!video?.storagePath) return undefined;
     let alive = true;
     api.videos.url(video.storagePath).then((u) => { if (alive) setSrc(u); }).catch((err) => { if (alive) setError(err.userMessage); });
     return () => { alive = false; };
   }, [video?.storagePath]);
+  // defaultPlaybackRate too: a browser puts the speed back to it when the video (re)loads
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.defaultPlaybackRate = rate;
+    el.playbackRate = rate;
+  }, [rate, src]);
+  const step = (direction) => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.pause();
+    el.currentTime = videoStepTime(el.currentTime, el.duration, direction);
+  };
   return (
     <Sheet open={Boolean(video)} onClose={onClose} title={video?.title || 'Video'} size="lg">
       {video?.externalUrl && !video.storagePath ? (
@@ -210,9 +237,21 @@ export function VideoPlayerSheet({ video, onClose }) {
           <Button as="a" href={video.externalUrl} target="_blank" rel="noopener noreferrer" variant="dark" icon="external">Avaa video</Button>
         </div>
       ) : error ? <p className="field-msg field-msg-error">{error}</p> : src ? (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video className="k-video" src={src} controls playsInline preload="metadata"
-          onError={() => setError('Video ei toistu tällä laitteella (esim. iPhonen HEVC-video Androidilla). Avaa se toisella laitteella tai jaa video linkkinä.')} />
+        <div className="stack-3">
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video ref={videoRef} className="k-video" src={src} controls playsInline preload="metadata"
+            onLoadedMetadata={(e) => { e.currentTarget.playbackRate = rate; }}
+            onRateChange={(e) => { const r = e.currentTarget.playbackRate; if (r !== rate) setRate(r); /* the browser's own speed menu */ }}
+            onError={() => setError('Video ei toistu tällä laitteella (esim. iPhonen HEVC-video Androidilla). Avaa se toisella laitteella tai jaa video linkkinä.')} />
+          <div className="k-video-tools">
+            <Segmented options={VIDEO_SPEEDS} value={rate} onChange={setRate} ariaLabel="Toistonopeus" className="k-video-speed" />
+            <div className="k-video-steps" role="group" aria-label="Ruutu kerrallaan">
+              <button type="button" className="k-video-step" onClick={() => step(-1)} aria-label="Edellinen ruutu" title="Edellinen ruutu"><Icon name="chevron-left" size={18} /></button>
+              <span className="k-video-steps-label" aria-hidden="true">Ruutu</span>
+              <button type="button" className="k-video-step" onClick={() => step(1)} aria-label="Seuraava ruutu" title="Seuraava ruutu"><Icon name="chevron-right" size={18} /></button>
+            </div>
+          </div>
+        </div>
       ) : <div className="center k-video-loading"><Spinner /></div>}
     </Sheet>
   );
